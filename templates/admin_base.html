@@ -1,0 +1,38 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Admin Portal{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+
+    <!-- Navigation Bar -->
+    <nav class="bg-gray-900 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-6">
+                <h1 class="text-2xl font-semibold">Admin Portal</h1>
+                <a href="{% url 'attendance' %}" class="hover:text-blue-400 transition">Attendance</a>
+                <a href="{% url 'officer_home' %}" class="hover:text-blue-400 transition">Officer Home</a>
+            </div>
+            <div class="flex items-center space-x-4">
+                <a href="{% url 'logout' %}" class="bg-red-600 px-4 py-2 rounded hover:bg-red-500 transition">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-7xl mx-auto w-full p-8">
+        {% block content %}
+        <!-- Page-specific content goes here -->
+        {% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-gray-400 text-center py-4">
+        <p class="text-sm">© {{ year|default:2025 }} Parliament — Admin Portal</p>
+    </footer>
+
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Parliament</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-900">
+
+    <!-- Navigation Bar -->
+    <nav class="bg-blue-600 text-white p-4 flex justify-between">
+        <div>
+            <a href="{% url 'home' %}" class="px-4 py-2 hover:bg-blue-700">Home</a> |
+            <a href="{% url 'profile' %}" class="px-4 py-2 hover:bg-blue-700">Profile</a> |
+            <a href="{% url 'vote' %}" class="px-4 py-2 hover:bg-blue-700">Vote</a> |
+            <a href="{% url 'passed_legislation' %}" class="px-4 py-2 hover:bg-blue-700">Passed Legislation</a> |
+            <a href="{% url 'view_legislation_history' %}" class="px-4 py-2 hover:bg-blue-700">My Legislation History</a> |
+            <a href="{% url 'logout' %}" class="px-4 py-2 hover:bg-blue-700">Logout</a>
+        </div>
+        <div>
+            {% if user.member_type == "Officer" %}
+                <a href="{% url 'officer_home' %}" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition">Officer Page</a>
+            {% endif %}
+            {% if user.is_admin %}
+                <!-- Admin button only visible to admins -->
+                <a href="{% url 'admin:index' %}" class="bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700 transition ml-4">
+                    Go to Admin Portal
+                </a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="container mx-auto mt-8 p-4 text-center">
+        <h1 class="text-4xl font-bold mb-6">Welcome to the Parliament</h1>
+        <p class="text-lg mb-4">You are logged in as: <strong>{{ request.user.name }}</strong> ({{ request.user.member_type }})</p>
+
+        <!-- Quick Overview -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-bold mb-4">Quick Overview</h2>
+            <p class="text-md text-gray-800 mb-4">This platform allows you to engage with legislative processes, vote on important issues, and track attendance effectively.</p>
+            <div class="grid grid-cols-3 gap-4">
+                <!-- Latest News -->
+                <div class="bg-white shadow-lg rounded-lg p-4">
+                    <h3 class="text-xl font-semibold mb-2">Latest News</h3>
+                    <p class="text-sm">Check out the latest happenings and updates within our parliament.</p>
+                </div>
+
+                <!-- Section for recent votes -->
+                <div class="bg-white shadow-lg rounded-lg p-4">
+                    <h2 class="text-xl font-semibold mb-2">Recently Passed Legislation</h2>
+                    {% if legislation_previews %}
+                        <ul>
+                            {% for item in legislation_previews %}
+                                <li>
+                                    <a href="{{ item.detail_url }}">{{ item.title }}</a> - Passed with {{ item.yes_percentage }} approval
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>No recent votes available.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Upcoming Events -->
+            <div class="bg-white shadow-lg rounded-lg p-4">
+                <h3 class="text-xl font-semibold mb-2">Upcoming Events</h3>
+                <p class="text-sm">Stay informed about upcoming meetings and legislative sessions.</p>
+            </div>
+        </div>
+    </section>
+
+    </div>
+</body>
+</html>

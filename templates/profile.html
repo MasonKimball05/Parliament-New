@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+    <div class="container mx-auto p-6 mt-6 bg-white shadow-lg rounded-lg">
+        <h1 class="text-3xl font-bold text-center mb-4">Welcome, {{ user.name }}</h1>
+
+    <!-- Username Form -->
+    <h3 class="text-xl font-semibold mb-2">Change Username</h3>
+    <form method="POST" class="mb-6">
+        {% csrf_token %}
+        <input type="hidden" name="username_submit" value="1">
+        <label class="block mb-1 font-medium">New Username:</label>
+        <input type="text" name="username" value="{{ user.username }}"
+               class="w-full border border-gray-300 rounded px-3 py-2 mb-3">
+        <button type="submit"
+                class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Save Username</button>
+    </form>
+
+    <hr class="my-6">
+
+    <!-- Password Form -->
+    <h3 class="text-xl font-semibold mb-2">Change Password</h3>
+    <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="password_submit" value="1">
+        <div class="space-y-4">
+            {% for field in password_form %}
+                <div>
+                    {{ field.label_tag }}
+                </div>
+                <div class="px-4 py-2 border w-half mb-4 mx-auto shadow-lg rounded-md hover:gb-blue-600">
+                    {{ field }}
+                    {% if field.errors %}
+                        <p class="text-red-500 text-sm">{{ field.errors|join:", " }} </p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+        <button type="submit"
+                class="mt-4 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Change Password</button>
+    </form>
+</div>
+{% endblock %}

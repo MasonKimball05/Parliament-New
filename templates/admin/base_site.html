@@ -1,0 +1,43 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Parliament Admin{% endblock %}
+
+{% block branding %}
+<h1 id="site-name">
+    <a href="{% url 'admin:index' %}">Parliament Admin</a>
+</h1>
+{% endblock %}
+
+{% block nav-global %}
+<!-- You can add global nav items here if needed -->
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    body {
+        background-color: #1f2937; /* Darker background */
+        color: #f1f5f9;
+    }
+
+    #site-name a {
+        color: #60a5fa; /* Blue */
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 1.5rem;
+    }
+
+    .module h2, .dashboard h1 {
+        color: #f1f5f9;
+    }
+
+    .breadcrumbs {
+        background-color: #111827;
+        color: #9ca3af;
+    }
+
+    .breadcrumbs a {
+        color: #93c5fd;
+    }
+</style>
+{% endblock %}

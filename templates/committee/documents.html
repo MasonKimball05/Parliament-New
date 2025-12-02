@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ committee.name }} Documents</h2>
+
+{% if perm.can_upload_docs %}
+<a href="{% url 'committee_upload_document' committee.id %}">Upload Document</a>
+{% endif %}
+
+<ul>
+    {% for doc in documents %}
+        <li>{{ doc.name }}</li>
+    {% empty %}
+        <li>No documents yet.</li>
+    {% endfor %}
+</ul>
+{% endblock %}

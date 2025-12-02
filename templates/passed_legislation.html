@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Passed Legislation{% endblock %}
+
+{% block content %}
+    <!-- Main Content -->
+    <div class="container mx-auto p-6 mt-6 bg-white shadow-lg rounded-lg">
+        <h1 class="text-3xl font-bold text-center mb-4">Passed Legislation</h1>
+
+        <!-- Table -->
+        {% if passed_legislation %}
+        <div class="overflow-x-auto shadow-lg rounded-lg border-t border-b border-gray-200">
+            <table class="min-w-full bg-white table-auto">
+                <thead class="bg-blue-600 text-white">
+                    <tr>
+                        <th class="px-6 py-4 text-left">Title</th>
+                        <th class="px-6 py-4 text-left">Yes Votes</th>
+                        <th class="px-6 py-4 text-left">No Votes</th>
+                        <th class="px-6 py-4 text-left">Abstain Votes</th>
+                        <th class="px-6 py-4 text-left">Yes %</th>
+                        <th class="px-6 py-4 text-left">No %</th>
+                        <th class="px-6 py-4 text-left">Required %</th>
+                        <th class="px-6 py-4 text-left">Passed Status</th>
+                        {% if user.member_type == 'Officer' %}
+                        <th class="px-6 py-4 text-left">Present Members</th> <!-- Show this column only for officers -->
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody class="text-sm text-gray-700">
+                    {% for legislation in passed_legislation %}
+                    <tr class="border-t border-b hover:bg-gray-50">
+                        <td class="px-6 py-4">
+                            <a href="{{ legislation.document_url }}" class="text-blue-600 hover:text-blue-800" target="_blank">
+                                {{ legislation.legislation.title }}
+                            </a>
+                        </td>
+                        <td class="px-6 py-4">{{ legislation.yes }}</td>
+                        <td class="px-6 py-4">{{ legislation.no }}</td>
+                        <td class="px-6 py-4">{{ legislation.abstain }}</td>
+                        <td class="px-6 py-4">{{ legislation.yes_pct }}%</td>
+                        <td class="px-6 py-4">{{ legislation.no_pct }}%</td>
+                        <td class="px-6 py-4">{{ legislation.required_pct }}%</td>
+                        <td class="px-6 py-4">
+                            {% if legislation.legislation.status == 'passed' %}
+                                Passed
+                            {% elif legislation.legislation.status == 'removed' %}
+                                Not Passed
+                            {% else %}
+                                Voting In Progress
+                            {% endif %}
+                        </td>
+                    <p class="text-sm mt-2 text-gray-500">
+                        <strong>Vote Type:</strong> {{ leg.vote_mode|title }}
+                    </p>
+
+                    {% if leg.vote_mode == "plurality" and leg.plurality_options %}
+                        <p class="text-sm mt-2 text-gray-500">
+                            <strong>Options:</strong> {{ leg.plurality_options|join:", " }}
+                        </p>
+                    {% endif %}
+                        {% if user.member_type == 'Officer' %}
+                        <td class="px-6 py-4">
+                            <!-- Button to Toggle Present Members -->
+                            <button class="text-blue-600 hover:text-blue-800 focus:outline-none" onclick="togglePresentMembers('{{ legislation.legislation.id }}')">
+                                Show Present Members
+                            </button>
+
+                            <!-- Present Members List (Initially hidden) -->
+                            <ul id="present-members-{{ legislation.legislation.id }}" class="mt-2 space-y-2 hidden">
+                                {% for member in legislation.present_members %}
+                                    <li>{{ member.user.name }}</li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-xl text-center text-gray-500 mt-6">No passed legislation found.</p>
+        {% endif %}
+    </div>
+
+    <script>
+        // JavaScript function to toggle the visibility of the present members list
+        function togglePresentMembers(legislationId) {
+            var membersList = document.getElementById("present-members-" + legislationId);
+            if (membersList.classList.contains("hidden")) {
+                membersList.classList.remove("hidden");
+            } else {
+                membersList.classList.add("hidden");
+            }
+        }
+    </script>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Manage {{ committee.name }}</h2>
+
+<h3>Members</h3>
+<ul>
+    {% for m in committee.members.all %}
+        <li>{{ m.name }} 
+            <a href="{% url 'committee_remove_member' committee.id m.user_id %}">Remove</a>
+        </li>
+    {% endfor %}
+</ul>
+
+<form method="POST">
+    {% csrf_token %}
+    <select name="new_member">
+        {% for user in eligible_users %}
+            <option value="{{ user.user_id }}">{{ user.name }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit">Add Member</button>
+</form>
+
+<hr>
+
+<h3>Chairs</h3>
+<ul>
+{% for chair in committee.chairs.all %}
+    <li>{{ chair.name }}</li>
+{% empty %}
+    <li>No chairs assigned.</li>
+{% endfor %}
+</ul>
+
+<a href="{% url 'committee_nominate_chair' committee.id %}">Nominate New Chair</a>
+
+{% endblock %}

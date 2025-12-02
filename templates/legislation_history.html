@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Legislation History{% endblock %}
+
+{% block content %}
+    <div class="container mx-auto p-6 mt-6 bg-white shadow-lg rounded-lg">
+        <h1 class="text-3xl font-bold text-center mb-4">Your Legislation History</h1>
+
+        {% if not legislation_history %}
+            <div class="bg-white p-6 mb-6 rounded shadow">
+                <h2 class="text-lg font-semibold">No Legislation History to View Currently</h2>
+            </div>
+        {% endif %}
+
+        {% for item in legislation_history %}
+            <div class="bg-white p-6 mb-6 rounded shadow">
+                <h2 class="text-2xl font-semibold">{{ item.legislation.title }}</h2>
+                <p class="text-lg">{{ item.legislation.description }}</p>
+
+                <p><strong>Anonymous Vote:</strong> {% if item.anonymous_vote %} Yes {% else %} No {% endif %}</p>
+                <p><strong>Allow Abstain:</strong> {% if item.allow_abstain %} Yes {% else %} No {% endif %}</p>
+                <p><strong>Available At:</strong> {{ item.legislation.available_at|date:"F j, Y, g:i a" }}</p>
+                <p><strong>Voting Ended At:</strong> {% if item.voting_ended_at %} {{ item.voting_ended_at|date:"F j, Y, g:i a" }} {% else %} N/A {% endif %}</p>
+
+                {% if item.document_url %}
+                    <p><a href="{{ item.document_url }}" class="text-blue-600 underline" target="_blank">View Document</a></p>
+                {% endif %}
+
+                <h3 class="text-xl font-semibold mt-4">Vote Results</h3>
+                <p>Yes: {{ item.yes_votes }} ({{ item.yes_pct }}%)</p>
+                <p>No: {{ item.no_votes }} ({{ item.no_pct }}%)</p>
+                <p>Abstain: {{ item.abstain_votes }} ({{ item.abstain_pct }}%)</p>
+                <p>Total Votes: {{ item.total_votes }}</p>
+                <p><strong>Vote Mode:</strong> {{ item.legislation.vote_mode }}</p>
+                {% if item.legislation.vote_mode == 'plurality' %}
+                    <p><strong>Options:</strong> {{ item.legislation.plurality_options|join:", " }}</p>
+                {% endif %}
+
+                {% if item.legislation.passed %}
+                    <p class="text-green-500 font-semibold">This legislation has been passed.</p>
+                {% else %}
+                    <p class="text-red-500 font-semibold">This legislation has not passed.</p>
+                {% endif %}
+
+                {% if item.voting_closed %}
+                    <p class="text-red-500">This legislation's voting has ended.</p>
+                {% else %}
+                    <p class="text-green-500">This legislation is still open for voting.</p>
+                {% endif %}
+            
+                {% if messages %}
+                    <div class="bg-red-500 text-white p-4 mb-4 rounded">
+                        {% for message in messages %}
+                            <p>{{ message }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            
+                <div class="mt-4">
+                    <!-- Reopen button only for closed and not passed legislation -->
+                    {% if item.voting_closed and not item.legislation.passed %}
+                        <form method="POST" action="{% url 'reopen_legislation' item.legislation.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Reopen Legislation</button>
+                        </form>
+                    {% else %}
+                        <p class="text-red-500">Passed legislation cannot be reopened. Please submit a new version.</p>
+                    {% endif %}
+                    {% if not item.legislation.passed %}
+                    <!-- Edit button visible to anyone (or can restrict by role if needed) -->
+                    <form method="POST" action="{% url 'edit_legislation' item.legislation.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded mt-2">Edit Legislation</button>
+                    </form>
+                    {% else %}
+                    <!-- Submit New Version button only for closed and not passed legislation -->
+                    <form method="POST" action="{% url 'submit_new_version' item.legislation.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="bg-yellow-600 text-white px-4 py-2 rounded mt-2">Submit New Version</button>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+
+    </div>
+{% endblock %}

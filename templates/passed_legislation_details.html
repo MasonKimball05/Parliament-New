@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Legislation Details</title>
+    <!-- Adding TailwindCSS from the CDN for styling -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.1.2/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 text-gray-900">
+    <!-- Navigation Bar -->
+    <nav class="bg-blue-600 text-white p-4">
+        <a href="{% url 'home' %}" class="px-4 py-2 hover:bg-blue-700">Home</a> |
+        <a href="{% url 'profile' %}" class="px-4 py-2 hover:bg-blue-700">Profile</a> |
+        <a href="{% url 'vote' %}" class="px-4 py-2 hover:bg-blue-700">Vote</a> |
+        <a href="{% url 'logout' %}" class="px-4 py-2 hover:bg-blue-700">Logout</a>
+    </nav>
+
+    <div class="container mx-auto mt-8 p-4">
+        <h1 class="text-3xl font-bold mb-4">{{ legislation.title }}</h1>
+        <p><strong>Description:</strong> {{ legislation.description }}</p>
+        <p><strong>Date Posted:</strong> {{ legislation.available_at|date:"Y-m-d" }}</p>
+        <p><strong>Document:</strong>
+            {% if legislation.document %}
+            <a href="{{ legislation.document.url }}" class="text-blue-500 hover:underline">Download Document</a>
+            {% else %}
+            No document available.
+            {% endif %}
+        </p>
+        <p><strong>Status:</strong> {{ legislation.status }}</p>
+        <p><strong>Vote Result:</strong> Passed with {{ legislation.yes_votes }} affirmative votes.</p>
+    </div>
+</body>
+</html>

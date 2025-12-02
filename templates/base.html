@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Parliament{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 font-sans">
+    <!-- Navigation Bar -->
+    <nav class="bg-blue-600 text-white p-4 flex justify-between">
+        <div>
+            <a href="{% url 'home' %}" class="px-4 py-2 hover:bg-blue-700">Home</a> |
+            <a href="{% url 'profile' %}" class="px-4 py-2 hover:bg-blue-700">Profile</a> |
+            <a href="{% url 'vote' %}" class="px-4 py-2 hover:bg-blue-700">Vote</a> |
+            <a href="{% url 'passed_legislation' %}" class="px-4 py-2 hover:bg-blue-700">Passed Legislation</a> |
+            <a href="{% url 'view_legislation_history' %}" class="px-4 py-2 hover:bg-blue-700">Your Legislation History</a> |
+            <a href="{% url 'logout' %}" class="px-4 py-2 hover:bg-blue-700">Logout</a>
+        </div>
+        <div>
+            {% if user.member_type == "Officer" %}
+                <a href="{% url 'attendance' %}" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition">Take Attendance</a>
+            {% endif %}
+            {% if user.is_admin %}
+                <!-- Admin button only visible to admins -->
+                <a href="{% url 'admin:index' %}" class="bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700 transition ml-4">
+                    Go to Admin Portal
+                </a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- Main Content Section -->
+    <main class="py-8">
+        <div class="max-w-screen-xl mx-auto px-4">
+            {% block content %}
+            <!-- Content goes here -->
+            {% endblock %}
+        </div>
+    </main>
+
+    <footer class="bg-gray-800 text-white py-4">
+        <div class="max-w-screen-xl mx-auto text-center">
+            <p>&copy; 2025 Parliament. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <style>
+        /* Custom Styles */
+        body {
+            font-family: 'Arial', sans-serif;
+        }
+
+        .page-title {
+            font-size: 2rem;
+            text-align: center;
+            color: #333;
+        }
+
+        .upload-section, .legislation-section {
+            margin-bottom: 40px;
+        }
+
+        .upload-section h2, .legislation-section h2 {
+            font-size: 1.5rem;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .upload-section input, .upload-section textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .upload-section button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+        }
+
+        .upload-section button:hover {
+            background-color: #0056b3;
+        }
+
+        .legislation-list {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .legislation-list li {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .legislation-list li a {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        .legislation-list li a:hover {
+            text-decoration: underline;
+        }
+
+        .back-home {
+            text-align: center;
+        }
+
+        .back-home a {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        .back-home a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</body>
+</html>

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Legislation</title>
+</head>
+<body>
+    <h2>Upload New Legislation</h2>
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Submit</button>
+    </form>
+    <p><a href="{% url 'home' %}">← Back to Home</a></p>
+</body>
+</html>

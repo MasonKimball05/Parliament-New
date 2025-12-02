@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>User List</title>
+</head>
+<body>
+    <h2>User List</h2>
+    <table>
+    <thead>
+        <tr>
+            <th>Username</th>
+            <th>ID</th>
+            <th>Role</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in user_data %}
+            <tr>
+                <td>{{ user.username }}</td>
+                <td>{{ user.id }}</td>
+                <td>{{ user.role }}</td>
+            </tr>
+        {% endfor %}
+
+
+    </tbody>
+</table>
+
+</body>
+</html>

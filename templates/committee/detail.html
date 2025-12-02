@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ committee.name }}</h1>
+
+<p><strong>Chairs:</strong>
+    {% for chair in committee.chairs.all %}
+        {{ chair.name }}{% if not forloop.last %}, {% endif %}
+    {% empty %} None
+    {% endfor %}
+</p>
+
+<p><strong>Members:</strong> {{ committee.members.count }}</p>
+
+<hr>
+
+<h3>Actions</h3>
+
+<ul>
+    {% if permissions.can_view_docs %}
+    <li><a href="{% url 'committee_documents' committee.id %}">View Documents</a></li>
+    {% endif %}
+
+    {% if permissions.can_vote %}
+    <li><a href="{% url 'committee_vote' committee.id %}">Committee Voting</a></li>
+    {% endif %}
+
+    {% if permissions.can_manage_members %}
+    <li><a href="{% url 'committee_manage' committee.id %}">Manage Committee</a></li>
+    {% endif %}
+</ul>
+{% endblock %}

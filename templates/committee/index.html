@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Your Committees</h2>
+
+<ul>
+    {% for committee in committees %}
+        <li>
+            <a href="{% url 'committee_detail' committee.id %}">
+                {{ committee.name }}
+            </a>
+        </li>
+    {% empty %}
+        <p>You are not assigned to any committees.</p>
+    {% endfor %}
+</ul>
+
+{% endblock %}

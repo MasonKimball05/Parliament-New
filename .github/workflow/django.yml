@@ -1,0 +1,82 @@
+name: Django CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mydb
+        ports:
+          - 5432:5432
+        # Wait for Postgres to be available
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      # Checkout the code
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Set up Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.12'  # Change to the version you are using
+
+      # Cache Python dependencies
+      - name: Cache Python dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-python-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-python-
+
+      # Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Set environment variables for Django
+      - name: Set up Django environment
+        run: |
+          echo "DJANGO_SETTINGS_MODULE=src.settings" >> $GITHUB_ENV
+          echo "DATABASE_URL=postgres://postgres:postgres@localhost:5432/mydb" >> $GITHUB_ENV  # PostgreSQL settings
+
+      # Run migrations
+      - name: Run migrations
+        run: python manage.py migrate
+
+      # Run tests
+      - name: Run tests
+        run: python manage.py test --verbosity=2
+
+      # Optionally, run linters (flake8) and formatters (black)
+      - name: Run flake8 (Python linter)
+        run: |
+          pip install flake8
+          flake8 .
+
+      - name: Run black (Python formatter)
+        run: |
+          pip install black
+          black --check .
+
+      # Optionally, you can add further quality checks or scripts here
