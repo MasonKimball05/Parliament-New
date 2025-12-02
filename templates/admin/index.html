@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Index</title>
+</head>
+<body>
+    {% extends "admin/index.html" %}
+
+    {% block content %}
+      {{ block.super }}
+
+      {% if request.user.is_superuser %}
+        <div class="module">
+          <h2>Logs</h2>
+          <ul>
+            <li>
+              <a href="{% url 'admin:view_logs' %}">📜 View Logs</a>
+            </li>
+          </ul>
+        </div>
+      {% endif %}
+    {% endblock %}
+
+</body>
+</html>

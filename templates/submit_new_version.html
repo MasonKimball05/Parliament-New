@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Submit New Version</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-900">
+
+    <div class="max-w-4xl mx-auto p-6 bg-white shadow-lg rounded-lg mt-10">
+        <h2 class="text-3xl font-semibold mb-6">Submit New Version of Legislation</h2>
+
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <div class="mb-4">
+                <label for="title" class="block text-lg font-medium text-gray-700">Title</label>
+                <input type="text" name="title" id="title" value="{{ form.title.value }}" class="w-full p-2 mt-1 border border-gray-300 rounded-lg" required>
+            </div>
+            
+            <div class="mb-4">
+                <label for="description" class="block text-lg font-medium text-gray-700">Description</label>
+                <textarea name="description" id="description" rows="4" class="w-full p-2 mt-1 border border-gray-300 rounded-lg" required>{{ form.description.value }}</textarea>
+            </div>
+            
+            <div class="mb-4">
+                <label for="current_document" class="block text-lg font-medium text-gray-700">Current Document</label>
+                <p class="text-sm text-gray-500 mb-2">Currently: {{ legislation.document.name }}</p>
+                <label for="document" class="block text-lg font-medium text-gray-700">Change Document (optional)</label>
+                <input type="file" name="document" id="document" class="w-full p-2 mt-1 border border-gray-300 rounded-lg">
+            </div>
+
+            <div class="mb-4">
+                <label for="available_at" class="block text-lg font-medium text-gray-700">Available at</label>
+                <input type="datetime-local" name="available_at" id="available_at" value="{{ form.available_at.value|date:'Y-m-d\TH:i' }}" class="w-full p-2 mt-1 border border-gray-300 rounded-lg" required>
+            </div>
+
+            <div class="mb-4">
+                <label for="anonymous_vote" class="block text-lg font-medium text-gray-700">Anonymous Vote</label>
+                <input type="checkbox" name="anonymous_vote" id="anonymous_vote" {% if form.anonymous_vote.value %}checked{% endif %} class="mr-2 leading-tight">
+                <span class="text-sm text-gray-700">Enable anonymous voting</span>
+            </div>
+
+            <div class="mb-4">
+                <label for="allow_abstain" class="block text-lg font-medium text-gray-700">Allow Abstain</label>
+                <input type="checkbox" name="allow_abstain" id="allow_abstain" {% if form.allow_abstain.value %}checked{% endif %} class="mr-2 leading-tight">
+                <span class="text-sm text-gray-700">Allow members to abstain from voting</span>
+            </div>
+
+            <div class="mb-6">
+                <label for="required_percentage" class="block text-lg font-medium text-gray-700">Required Vote to Pass</label>
+                <select name="required_percentage" id="required_percentage" class="w-full p-2 mt-1 border border-gray-300 rounded-lg">
+                    <option value="51" {% if form.required_percentage.value == 51 %}selected{% endif %}>51%</option>
+                    <option value="60" {% if form.required_percentage.value == 60 %}selected{% endif %}>60%</option>
+                    <option value="67" {% if form.required_percentage.value == 67 %}selected{% endif %}>67%</option>
+                    <option value="75" {% if form.required_percentage.value == 75 %}selected{% endif %}>75%</option>
+                    <option value="100" {% if form.required_percentage.value == 100 %}selected{% endif %}>Unanimous</option>
+                </select>
+            </div>
+
+        <div>
+            <!-- Disable changing vote_mode -->
+            <label>Vote Mode:</label>
+            <input type="text" value="{{ legislation.vote_mode|title }}" disabled class="w-full border rounded px-3 py-2">
+            <input type="hidden" name="vote_mode" value="{{ legislation.vote_mode }}">
+        </div>
+
+            <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">Submit New Version</button>
+        </form>
+    </div>
+
+</body>
+</html>

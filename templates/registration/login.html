@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-gray-100">
+    <div class="bg-white p-8 rounded shadow-md w-full max-w-md">
+        <h2 class="text-2xl font-bold text-center mb-6">Login to Parliament</h2>
+
+        {% if messages %}
+            <ul class="mb-4 text-sm text-red-600 list-disc list-inside">
+                {% for message in messages %}
+                    <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <form method="POST" class="space-y-4">
+            {% csrf_token %}
+
+            <div>
+                <label for="username" class="block font-medium mb-1">Username</label>
+                <input type="text" name="username" id="username" required
+                       class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div>
+                <label for="user_id" class="block font-medium mb-1">User ID</label>
+                <input type="text" name="user_id" id="user_id" required
+                       class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <button type="submit"
+                    class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition">
+                Log In
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ legislation.title }}</title>
+    <!-- Ensure Tailwind CSS is linked correctly -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@^2.0/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Ensure Chart.js is linked correctly -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-900">
+    <div class="container mx-auto px-4 py-6">
+        <h1 class="text-2xl font-bold text-center mb-4">{{ legislation.title }}</h1>
+        <!-- Correctly set the hyperlink to read the resolution if available -->
+        <p class="text-xl text-center mb-6">
+            <a href="{{ legislation.document.url }}" class="text-blue-500 hover:text-blue-800">Read resolution</a>
+        </p>
+
+        <!-- Displaying vote results -->
+        <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+            <h2 class="text-lg font-bold mb-2">Vote Results</h2>
+            <ul>
+                <li>Yes Votes: {{ vote_result.yes }}</li>
+                <li>No Votes: {{ vote_result.no }}</li>
+                <li>Abstain Votes: {{ vote_result.abstain }}</li>
+            </ul>
+            <p>Total Votes: {{ vote_result.total }}</p>
+            <p>Yes Percentage: {{ vote_result.yes_percentage }}</p>
+            <p>Percentage Required for Passage: {{ vote_result.required_percentage }}%</p>
+
+            <!-- Canvas for Chart.js -->
+            <canvas id="voteChart" width="400" height="400"></canvas>
+        </div>
+
+        <!-- Documentation link if available -->
+        <div class="mt-6">
+            <h2 class="text-lg font-bold mb-2">Documentation</h2>
+            <a href="{{ legislation.document.url }}" class="text-blue-500 hover:text-blue-800">View Document</a>
+        </div>
+    </div>
+
+    <!-- Script for initializing Chart.js -->
+    <script>
+        var ctx = document.getElementById('voteChart').getContext('2d');
+        var voteChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: ['Yes', 'No', 'Abstain'],
+                datasets: [{
+                    data: [{{ vote_result.yes }}, {{ vote_result.no }}, {{ vote_result.abstain }}],
+                    backgroundColor: ['green', 'red', 'yellow'],
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 4.0,  // Adjust this value to control the size
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        enabled: true
+                    }
+                }
+            }
+        });
+    </script>
+
+</body>
+</html>

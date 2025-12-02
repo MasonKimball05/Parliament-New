@@ -1,0 +1,6 @@
+- name: Slack notification on failure
+  if: failure()
+  uses: rtCamp/action-slack-notify@v2
+  with:
+    slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+    status: failure

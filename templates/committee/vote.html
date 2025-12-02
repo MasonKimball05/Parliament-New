@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ committee.name }} — Vote</h2>
+
+{% if not permissions.can_vote %}
+    <p>You do not have permission to vote.</p>
+{% endif %}
+
+<form method="POST">
+    {% csrf_token %}
+    <button name="vote" value="yes">Vote Yes</button>
+    <button name="vote" value="no">Vote No</button>
+    {% if legislation.allow_abstain %}
+    <button name="vote" value="abstain">Abstain</button>
+    {% endif %}
+</form>
+
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ committee.name }}</h1>
+
+<ul>
+    <li><a href="{% url 'committee_documents' committee.id %}">Documents</a></li>
+    <li><a href="{% url 'committee_vote' committee.id %}">Voting</a></li>
+    {% if perm and perm.can_manage_members %}
+        <li><a href="{% url 'committee_manage_members' committee.id %}">Manage Members</a></li>
+    {% endif %}
+</ul>
+{% endblock %}

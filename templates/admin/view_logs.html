@@ -1,0 +1,22 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}View Logs{% endblock %}
+
+{% block content %}
+<div class="container" style="padding: 20px;">
+    <h1 class="text-2xl font-bold mb-4">System Logs</h1>
+
+    <div class="bg-white shadow rounded p-4 overflow-auto" style="max-height: 70vh;">
+        {% if logs %}
+            <ul style="font-family: monospace; font-size: 0.9em;">
+                {% for log in logs %}
+                    <li>{{ log }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No logs available.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

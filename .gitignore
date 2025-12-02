@@ -1,0 +1,72 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# === Django Migrations ===
+**/migrations/
+!**/migrations/__init__.py
+
+# === Environment / Secrets ===
+.env
+*.env
+
+# === Virtual Environment ===
+.venv/
+env/
+venv/
+ENV/
+*.egg-info/
+.eggs/
+
+# === IDEs ===
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# === Logs ===
+logs/
+*.log
+
+# === Media / Uploaded Files ===
+media/
+uploads/
+
+# === Static Files ===
+staticfiles/
+static/
+
+# === DB / Backups ===
+*.sqlite3
+db.sqlite3
+*.dump
+*.sql
+backup/
+
+# === OS / Misc ===
+.DS_Store
+Thumbs.db
+
+# === PyCharm ===
+*.iml
+*.ipr
+*.iws
+__pycache__/
+.idea/
+
+# === Coverage / Testing ===
+htmlcov/
+.coverage
+.tox/
+.nox/
+pytest_cache/
+
+# === Build / Dist ===
+build/
+dist/
+*.tar.gz
+*.egg
+*.whl

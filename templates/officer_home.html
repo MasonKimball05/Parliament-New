@@ -1,0 +1,60 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Officer Home</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+
+    <!-- Top Navigation Bar -->
+    <nav class="bg-blue-700 text-white py-4 shadow">
+        <div class="max-w-7xl mx-auto px-6 flex justify-between items-center">
+            <div class="space-x-4">
+                <a href="{% url 'home' %}" class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-500 transition">Home</a>
+                <a href="{% url 'attendance' %}" class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-500 transition">Take Attendance</a>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div>
+                    <a href="{% url 'logout' %}" class="bg-red-600 px-4 py-2 rounded hover:bg-red-500 transition">
+                        Logout
+                    </a>
+                </div>
+                {% if user.is_admin %}
+                  <div>
+                    <a href="{% url 'admin:index' %}" class="bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700 transition">
+                        Go to Admin Portal
+                    </a>
+                  </div>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-5xl mx-auto p-8">
+        <!-- Example Officer Sections -->
+        <section class="bg-white shadow rounded-lg p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">Recent Reports</h2>
+            <p class="text-gray-600">View and manage recently submitted activity reports.</p>
+        </section>
+
+        <section class="bg-white shadow rounded-lg p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">Upcoming Meetings</h2>
+            <p class="text-gray-600">Review upcoming meetings, agendas, and notes.</p>
+        </section>
+
+        <section class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Member Actions</h2>
+            <p class="text-gray-600">Approve or manage member submissions and communications.</p>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-200 text-center py-4 mt-auto">
+        <p class="text-sm text-gray-600">© {{ year|default:2025 }} Parliament — Officer Portal</p>
+    </footer>
+
+</body>
+</html>

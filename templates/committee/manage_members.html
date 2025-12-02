@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Manage Members - {{ committee.name }}</h2>
+
+<h3>Current Members</h3>
+<ul>
+    {% for m in committee.members.all %}
+        <li>
+            {{ m.name }}
+            <form method="POST" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="user_id" value="{{ m.user_id }}">
+                <button name="action" value="remove_member">Remove</button>
+            </form>
+        </li>
+    {% endfor %}
+</ul>
+
+<h3>Add Member</h3>
+<form method="POST">
+    {% csrf_token %}
+    <select name="user_id">
+        {% for u in all_users %}
+            <option value="{{ u.user_id }}">{{ u.name }}</option>
+        {% endfor %}
+    </select>
+    <button name="action" value="add_member">Add Member</button>
+</form>
+
+{% endblock %}

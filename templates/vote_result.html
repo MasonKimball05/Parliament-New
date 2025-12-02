@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+
+{% block title %}Vote Results{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto mt-10 bg-white p-6 rounded-xl shadow-md">
+    <h2 class="text-2xl font-bold mb-6">Vote Results for "{{ legislation.title }}"</h2>
+    <p class="text-sm mb-4 text-gray-600">Voting Mode: <strong>{{ legislation.vote_mode|title }}</strong></p>
+
+    {% if passed %}
+        {% if legislation.vote_mode == 'percentage' %}
+            <div class="bg-green-100 text-green-800 p-4 rounded mb-4 font-semibold">
+                ✅ Vote Passed
+                    <div class="text-sm mt-1">Required: {{ required_percentage }}% | Yes Votes: {{ yes_percentage }}%</div>
+            </div>
+        {% endif %}
+    {% else %}
+        {% if legislation.vote_mode == 'percentage' %}
+            <div class="bg-red-100 text-red-800 p-4 rounded mb-4 font-semibold">
+                ❌ Vote Failed
+
+                    <div class="text-sm mt-1">Required: {{ required_percentage }}% | Yes Votes: {{ yes_percentage }}%</div>
+            </div>
+        {% endif %}
+    {% endif %}
+
+    {% if legislation.vote_mode == 'percentage' and yes_percentage is defined and required_percentage is defined %}
+    <!-- Progress Bar -->
+    <div class="mb-6">
+        <div class="flex justify-center text-sm font-medium mb-1">
+            Yes: {{ yes_percentage }}% &nbsp; | &nbsp; Required: {{ required_percentage }}%
+        </div>
+        <div class="relative w-full bg-gray-200 rounded h-6 overflow-hidden">
+            <div class="absolute top-0 left-0 h-full bg-green-500" style="width: {{ yes_percentage|default:'0' }}%;"></div>
+            <div class="absolute top-0 left-[{{ required_percentage }}%] h-full w-1 bg-black opacity-70"></div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Pie Chart -->
+    <div class="w-full flex justify-center mt-6">
+        <canvas id="voteChart" class="w-full max-w-md h-64"></canvas>
+    </div>
+
+    {% if legislation.vote_mode == 'percentage' %}
+    <div class="flex justify-center space-x-4 text-sm mb-6">
+        <div class="flex items-center space-x-1"><span class="w-4 h-4 bg-green-500 inline-block rounded-sm"></span> <span>Yes</span></div>
+        <div class="flex items-center space-x-1"><span class="w-4 h-4 bg-red-500 inline-block rounded-sm"></span> <span>No</span></div>
+        <div class="flex items-center space-x-1"><span class="w-4 h-4 bg-yellow-400 inline-block rounded-sm"></span> <span>Abstain</span></div>
+    </div>
+    {% endif %}
+    {% if legislation.vote_mode == "plurality" and not anonymous %}
+        <div class="mt-6 text-sm">
+            <h3 class="font-semibold mb-4 text-center text-lg">Voter Breakdown by Option</h3>
+        <div class="grid grid-cols-2 gap-6 mt-10 text-sm justify-center text-center">
+            {% for result in plurality_results.results %}
+                <div>
+                    <h3 class="font-semibold mb-2 text-center">{{ result.option }}</h3>
+                    {% if result.voters %}
+                        <ul class="list-disc list-inside text-center">
+                            {% for voter in result.voters %}
+                                <li>{{ voter }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-gray-500 italic">None</p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not anonymous %}
+    <div class="grid grid-cols-3 gap-6 mt-10 text-sm">
+        {% if legislation.vote_mode == 'percentage' %}
+            <div>
+                <h3 class="font-semibold mb-2 text-green-600">Yes</h3>
+                {% if in_favor %}
+                    <ul class="list-disc list-inside">
+                        {% for vote in in_favor %}
+                            <li>{{ vote.user.name }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-gray-500 italic">None</p>
+                {% endif %}
+            </div>
+            <div>
+                <h3 class="font-semibold mb-2 text-red-600">No</h3>
+                {% if against %}
+                    <ul class="list-disc list-inside">
+                        {% for vote in against %}
+                            <li>{{ vote.user.name }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-gray-500 italic">None</p>
+                {% endif %}
+            </div>
+            <div>
+                <h3 class="font-semibold mb-2 text-yellow-600">Abstain</h3>
+                {% if abstain %}
+                    <ul class="list-disc list-inside">
+                        {% for vote in abstain %}
+                            <li>{{ vote.user.name }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-gray-500 italic">None</p>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Chart.js Script -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('voteChart').getContext('2d');
+
+    {% if legislation.vote_mode == 'percentage' %}
+    const chart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['Yes', 'No', 'Abstain'],
+            datasets: [{
+                label: 'Votes',
+                data: [
+                    {{ in_favor.count }},
+                    {{ against.count }},
+                    {{ abstain.count }}
+                ],
+                backgroundColor: [
+                    'rgb(34, 197, 94)',
+                    'rgb(239, 68, 68)',
+                    'rgb(250, 204, 21)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+        }
+    });
+    {% elif legislation.vote_mode == 'plurality' %}
+    const chart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: {{ vote_breakdown.keys|safe }},
+            datasets: [{
+                label: 'Votes',
+                data: {{ vote_breakdown.values|safe }},
+                backgroundColor: [
+                    'rgb(59, 130, 246)',
+                    'rgb(16, 185, 129)',
+                    'rgb(244, 114, 182)',
+                    'rgb(245, 158, 11)',
+                    'rgb(163, 53, 201)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+        }
+    });
+    {% endif %}
+</script>
+{% endblock %}

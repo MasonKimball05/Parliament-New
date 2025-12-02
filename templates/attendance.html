@@ -1,0 +1,62 @@
+{% extends "admin_base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-100 py-10">
+  <div class="max-w-6xl mx-auto bg-white p-8 rounded shadow-md">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold">
+        {% if selected_committee %}
+          {{ selected_committee.name }} Attendance
+        {% else %}
+          General Attendance
+        {% endif %}
+      </h2>
+      <form method="get">
+        <select name="committee_id" onchange="this.form.submit()" class="border-gray-300 rounded px-3 py-2">
+          <option value="" {% if not selected_committee %}selected{% endif %}>General Attendance</option>
+          {% for committee in committees %}
+            <option value="{{ committee.id }}" {% if selected_committee and committee.id == selected_committee.id %}selected{% endif %}>
+              {{ committee.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+      <table class="w-full table-auto border border-gray-300 rounded">
+        <thead>
+          <tr class="bg-gray-200 text-left">
+            <th class="p-3">Name</th>
+            <th class="p-3">Member Type</th>
+            <th class="p-3">Present?</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+            {% if not selected_committee or user in selected_committee.members.all %}
+              <tr class="border-t">
+                <td class="p-3">{{ user.user_id }} - {{ user.name }}</td>
+                <td class="p-3">{{ user.member_type }}</td>
+                <td class="p-3">
+                  <input type="checkbox" name="present" value="{{ user.user_id }}"
+                    {% if user.attendance_set.last.present and user.attendance_set.last.date == today %}checked{% endif %}
+                    class="h-4 w-4 text-blue-600">
+                </td>
+              </tr>
+            {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="text-center mt-8">
+        <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 transition">
+          Submit Attendance
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
