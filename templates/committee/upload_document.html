@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Document - {{ committee.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-6">
+        <a href="{% url 'committee_documents' committee.code %}" class="text-blue-600 hover:text-blue-800">← Back to Documents</a>
+    </div>
+
+    <h2 class="text-3xl font-bold mb-6">Upload Document</h2>
+    <p class="text-gray-600 mb-6">Committee: {{ committee.name }}</p>
+
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <form method="POST" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Document Title <span class="text-red-500">*</span>
+                </label>
+                <input type="text" name="title" required
+                       class="w-full border border-gray-300 rounded px-3 py-2"
+                       placeholder="Enter document title">
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Document Type <span class="text-red-500">*</span>
+                    </label>
+                    <select name="document_type" required
+                            class="w-full border border-gray-300 rounded px-3 py-2"
+                            onchange="toggleMeetingDate(this.value)">
+                        <option value="general">General Document</option>
+                        <option value="minutes">Meeting Minutes</option>
+                        <option value="agenda">Meeting Agenda</option>
+                        <option value="report">Report</option>
+                        <option value="policy">Policy Document</option>
+                    </select>
+                </div>
+
+                <div id="meeting_date_field" style="display: none;">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Meeting Date
+                    </label>
+                    <input type="date" name="meeting_date"
+                           class="w-full border border-gray-300 rounded px-3 py-2">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Description (Optional)
+                </label>
+                <textarea name="description" rows="3"
+                          class="w-full border border-gray-300 rounded px-3 py-2"
+                          placeholder="Brief description of the document"></textarea>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Select File <span class="text-red-500">*</span>
+                </label>
+                <input type="file" name="file" required
+                       class="w-full border border-gray-300 rounded px-3 py-2"
+                       accept=".pdf,.docx,.doc,.txt">
+                <p class="text-sm text-gray-500 mt-1">Accepted formats: PDF, DOCX, DOC, TXT</p>
+            </div>
+
+            <script>
+                function toggleMeetingDate(docType) {
+                    const meetingDateField = document.getElementById('meeting_date_field');
+                    if (docType === 'minutes' || docType === 'agenda') {
+                        meetingDateField.style.display = 'block';
+                    } else {
+                        meetingDateField.style.display = 'none';
+                    }
+                }
+            </script>
+
+            <div class="border-t pt-4">
+                <label class="flex items-center space-x-2">
+                    <input type="checkbox" name="publish_to_chapter" value="true"
+                           class="rounded border-gray-300">
+                    <span class="text-sm font-medium text-gray-700">
+                        Publish to Chapter Documents (visible to all members)
+                    </span>
+                </label>
+                <p class="text-sm text-gray-500 mt-1 ml-6">
+                    If checked, this document will be visible in the general chapter documents section
+                </p>
+            </div>
+
+            <div class="flex gap-3">
+                <button type="submit" class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
+                    Upload Document
+                </button>
+                <a href="{% url 'committee_documents' committee.code %}" 
+                   class="bg-gray-300 text-gray-700 px-6 py-2 rounded hover:bg-gray-400 inline-block text-center">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

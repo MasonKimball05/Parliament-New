@@ -1,4 +1,7 @@
 import logging
+from django.http import HttpResponseForbidden
+from django.shortcuts import get_object_or_404
+from src.models import *
 
 # Set up the logger to capture function call logs
 logger = logging.getLogger('function_calls')
@@ -13,4 +16,15 @@ def log_function_call(func):
         logger.info(f"User {user.username} called {function_name} with arguments: {args}, {kwargs}, Action: {action}")
 
         return func(request, *args, **kwargs)
+    return wrapper
+
+def committee_chair_required(view_func):
+    def wrapper(request, id, *args, **kwargs):
+        committee = get_object_or_404(Committee, id=id)
+
+        if not committee.is_chair(request.user):
+            return HttpResponseForbidden("Chairs only.")
+
+        return view_func(request, id, *args, **kwargs)
+
     return wrapper

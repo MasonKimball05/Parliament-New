@@ -1,12 +1,40 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>{{ committee.name }}</h1>
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h1 class="text-3xl font-bold mb-2">{{ committee.name }}</h1>
+        {% if committee.code %}
+            <p class="text-gray-600 mb-2">Code: <span class="font-semibold">{{ committee.code }}</span></p>
+        {% endif %}
+        
+        {% if committee.role %}
+            <p class="text-gray-700 mb-4">
+                <span class="font-medium">Admin:</span> {{ committee.role.name }}{% if committee_vp %} ({{ committee_vp.name }}){% endif %}
+            </p>
+        {% endif %}
+    </div>
 
-<ul>
-    <li><a href="{% url 'committee_documents' committee.id %}">Documents</a></li>
-    <li><a href="{% url 'committee_vote' committee.id %}">Voting</a></li>
-    {% if perm and perm.can_manage_members %}
-        <li><a href="{% url 'committee_manage_members' committee.id %}">Manage Members</a></li>
-    {% endif %}
-</ul>
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-semibold mb-4">Quick Links</h2>
+        <ul class="space-y-2">
+            <li>
+                <a href="{% url 'committee_documents' committee.id %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                    📄 Documents
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'committee_vote' committee.id %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                    🗳️ Voting
+                </a>
+            </li>
+            {% if perm and perm.can_manage_members %}
+                <li>
+                    <a href="{% url 'committee_manage_members' committee.id %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                        👥 Manage Members
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+    </div>
+</div>
 {% endblock %}

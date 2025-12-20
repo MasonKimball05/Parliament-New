@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}My Committees{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-6">My Committees</h1>
+    
+    {% if committees %}
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {% for item in committees %}
+                <div class="border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow bg-white">
+                    <h2 class="text-xl font-semibold mb-2">
+                        <a href="{% url 'committee_detail' item.committee.code %}" class="text-blue-600 hover:text-blue-800">
+                            {{ item.committee.name }}
+                        </a>
+                    </h2>
+
+                    {% if item.committee.code %}
+                        <p class="text-gray-600 text-sm mb-3">Code: {{ item.committee.code }}</p>
+                    {% endif %}
+
+                    <p class="text-sm text-gray-700 mb-2">
+                        <span class="font-medium">Your Role:</span> {{ item.roles }}
+                    </p>
+
+                    {% if item.is_voting_member %}
+                        <p class="text-sm text-purple-700 mb-4">
+                            <span class="inline-block w-2 h-2 bg-purple-500 rounded-full mr-1"></span>
+                            Voting Member
+                        </p>
+                    {% endif %}
+
+                    <a href="{% url 'committee_detail' item.committee.code %}"
+                       class="inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors text-center w-full">
+                        View Committee →
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="bg-gray-100 border border-gray-300 rounded-lg p-8 text-center">
+            <p class="text-gray-600">You are not currently a member of any committees.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

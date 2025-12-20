@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Push to Chapter - {{ committee.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-6">
+        <a href="{% url 'committee_detail' committee.code %}" class="text-blue-600 hover:text-blue-800">← Back to Committee</a>
+    </div>
+
+    <h1 class="text-3xl font-bold mb-6">Push to Chapter Vote</h1>
+    <p class="text-gray-600 mb-6">Committee: {{ committee.name }}</p>
+
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <p class="text-sm text-blue-800">
+            <strong>Note:</strong> Only passed committee legislation can be pushed to a chapter-wide vote. 
+            Once pushed, it will appear in the general voting page for all members.
+        </p>
+    </div>
+
+    <div class="space-y-4">
+        {% for leg in passed_legislation %}
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-start">
+                <div class="flex-1">
+                    <h3 class="text-xl font-semibold mb-2">{{ leg.title }}</h3>
+                    <p class="text-gray-600 text-sm mb-2">
+                        Posted by {{ leg.posted_by.name }} on {{ leg.available_at|date:"M d, Y" }}
+                    </p>
+                    <p class="text-gray-700 mb-4">{{ leg.description }}</p>
+                    
+                    <div class="flex gap-2 items-center mb-4">
+                        <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                            Passed
+                        </span>
+                        <span class="text-sm text-gray-600">
+                            Required: {{ leg.required_percentage }}%
+                        </span>
+                    </div>
+
+                    {% if leg.document %}
+                        <a href="{{ leg.document.url }}" target="_blank" 
+                           class="text-blue-600 hover:text-blue-800 text-sm flex items-center mb-4">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            View Document
+                        </a>
+                    {% endif %}
+                </div>
+
+                <div class="ml-4">
+                    {% if leg.pushed_to_chapter %}
+                        <div class="text-center">
+                            <span class="bg-gray-200 text-gray-700 px-4 py-2 rounded block mb-2">
+                                Already Pushed
+                            </span>
+                        </div>
+                    {% else %}
+                        <form method="POST" onsubmit="return confirm('Are you sure you want to push this to a chapter vote?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="legislation_id" value="{{ leg.id }}">
+                            <button type="submit" 
+                                    class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 whitespace-nowrap">
+                                Push to Chapter
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="bg-gray-100 border border-gray-300 rounded-lg p-8 text-center">
+            <p class="text-gray-600">No passed legislation available to push to chapter.</p>
+            <p class="text-sm text-gray-500 mt-2">Legislation must pass committee voting before it can be pushed.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
