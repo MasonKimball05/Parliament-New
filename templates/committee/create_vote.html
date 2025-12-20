@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}Create Vote - {{ committee.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-6">
+        <a href="{% url 'vote' committee.code %}" class="text-blue-600 hover:text-blue-800">← Back to Voting</a>
+    </div>
+
+    <h1 class="text-3xl font-bold mb-6">Create Committee Vote</h1>
+    <p class="text-gray-600 mb-6">Committee: {{ committee.name }}</p>
+
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <form method="POST" enctype="multipart/form-data" class="space-y-6">
+            {% csrf_token %}
+
+            <!-- Title -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Title <span class="text-red-500">*</span>
+                </label>
+                <input type="text" name="title" required
+                       class="w-full border border-gray-300 rounded px-3 py-2"
+                       placeholder="Enter legislation title">
+            </div>
+
+            <!-- Description -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Description <span class="text-red-500">*</span>
+                </label>
+                <textarea name="description" required rows="4"
+                          class="w-full border border-gray-300 rounded px-3 py-2"
+                          placeholder="Describe the legislation"></textarea>
+            </div>
+
+            <!-- Vote Mode -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Vote Mode <span class="text-red-500">*</span>
+                </label>
+                <select name="vote_mode" id="vote_mode" required
+                        class="w-full border border-gray-300 rounded px-3 py-2"
+                        onchange="toggleVoteMode()">
+                    <option value="percentage">Percentage (Yes/No/Abstain)</option>
+                    <option value="peacewise">Peacewise (Specific number of Yes votes)</option>
+                    <option value="plurality">Plurality (Multiple options)</option>
+                </select>
+            </div>
+
+            <!-- Percentage Options -->
+            <div id="percentage_options" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Required Percentage
+                    </label>
+                    <select name="required_percentage"
+                            class="w-full border border-gray-300 rounded px-3 py-2">
+                        <option value="51">51%</option>
+                        <option value="60">60%</option>
+                        <option value="67">67% (2/3)</option>
+                        <option value="75">75%</option>
+                        <option value="100">Unanimous (100%)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" name="remove_abstain" class="w-4 h-4">
+                        <span class="text-sm">Remove abstain option</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Peacewise Options -->
+            <div id="peacewise_options" style="display: none;">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Required Number of Yes Votes
+                </label>
+                <input type="number" name="required_number" min="1"
+                       class="w-full border border-gray-300 rounded px-3 py-2"
+                       placeholder="Enter number of required yes votes">
+            </div>
+
+            <!-- Plurality Options -->
+            <div id="plurality_options" style="display: none;" class="space-y-2">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Voting Options (at least 2 required)
+                </label>
+                <input type="text" name="plurality_option_1"
+                       class="w-full border border-gray-300 rounded px-3 py-2"
+                       placeholder="Option 1">
+                <input type="text" name="plurality_option_2"
+                       class="w-full border border-gray-300 rounded px-3 py-2"
+                       placeholder="Option 2">
+                <input type="text" name="plurality_option_3"
+                       class="w-full border border-gray-300 rounded px-3 py-2"
+                       placeholder="Option 3 (optional)">
+                <input type="text" name="plurality_option_4"
+                       class="w-full border border-gray-300 rounded px-3 py-2"
+                       placeholder="Option 4 (optional)">
+                <input type="text" name="plurality_option_5"
+                       class="w-full border border-gray-300 rounded px-3 py-2"
+                       placeholder="Option 5 (optional)">
+            </div>
+
+            <!-- Document Upload -->
+            <div id="document_upload">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Document (PDF or DOCX) <span class="text-red-500" id="doc_required">*</span>
+                </label>
+                <input type="file" name="document" accept=".pdf,.docx"
+                       class="w-full border border-gray-300 rounded px-3 py-2">
+                <p class="text-sm text-gray-500 mt-1">Only PDF and DOCX files are allowed.</p>
+            </div>
+
+            <!-- Available At -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Available At <span class="text-red-500">*</span>
+                </label>
+                <input type="datetime-local" name="available_at" required
+                       class="w-full border border-gray-300 rounded px-3 py-2">
+                <p class="text-sm text-gray-500 mt-1">When should voting open?</p>
+            </div>
+
+            <!-- Anonymous Vote -->
+            <div>
+                <label class="flex items-center space-x-2">
+                    <input type="checkbox" name="anonymous" class="w-4 h-4">
+                    <span class="text-sm">Anonymous voting (hide voter identities)</span>
+                </label>
+            </div>
+
+            <!-- Submit -->
+            <div class="flex gap-3">
+                <button type="submit"
+                        class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
+                    Create Vote
+                </button>
+                <a href="{% url 'vote' committee.code %}"
+                   class="bg-gray-300 text-gray-700 px-6 py-2 rounded hover:bg-gray-400 inline-block">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function toggleVoteMode() {
+    const voteMode = document.getElementById('vote_mode').value;
+    const percentageOptions = document.getElementById('percentage_options');
+    const peacewiseOptions = document.getElementById('peacewise_options');
+    const pluralityOptions = document.getElementById('plurality_options');
+    const documentUpload = document.getElementById('document_upload');
+    const docRequired = document.getElementById('doc_required');
+
+    // Hide all first
+    percentageOptions.style.display = 'none';
+    peacewiseOptions.style.display = 'none';
+    pluralityOptions.style.display = 'none';
+
+    // Show relevant options
+    if (voteMode === 'percentage') {
+        percentageOptions.style.display = 'block';
+        docRequired.style.display = 'inline';
+    } else if (voteMode === 'peacewise') {
+        peacewiseOptions.style.display = 'block';
+        docRequired.style.display = 'inline';
+    } else if (voteMode === 'plurality') {
+        pluralityOptions.style.display = 'block';
+        docRequired.style.display = 'none'; // Document optional for plurality
+    }
+}
+
+// Initialize on page load
+toggleVoteMode();
+</script>
+{% endblock %}

@@ -27,3 +27,5 @@ from src.view.committee.documents import *
 from src.view.committee.upload_document import *
 from src.view.committee.manage_members import *
 from src.view.committee.vote import *
+from src.view.officer.attendance import *
+from .chapter_documents import *

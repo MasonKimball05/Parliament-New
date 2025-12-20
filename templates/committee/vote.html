@@ -1,18 +1,163 @@
 {% extends "base.html" %}
+{% load committee_filters %}
+
+{% block title %}{{ committee.name }} - Voting{% endblock %}
+
 {% block content %}
-<h2>{{ committee.name }} — Vote</h2>
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-6">
+        <a href="{% url 'committee_detail' committee.code %}" class="text-blue-600 hover:text-blue-800">← Back to Committee</a>
+    </div>
 
-{% if not permissions.can_vote %}
-    <p>You do not have permission to vote.</p>
-{% endif %}
+    <h1 class="text-3xl font-bold mb-6">{{ committee.name }} — Voting</h1>
 
-<form method="POST">
-    {% csrf_token %}
-    <button name="vote" value="yes">Vote Yes</button>
-    <button name="vote" value="no">Vote No</button>
-    {% if legislation.allow_abstain %}
-    <button name="vote" value="abstain">Abstain</button>
+    {% if not is_voting_member %}
+        <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-6">
+            <p>You are not a voting member of this committee.</p>
+        </div>
+    {% elif not can_vote %}
+        <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-6">
+            <p>You must be marked present at a meeting to vote. Please check in with attendance.</p>
+        </div>
     {% endif %}
-</form>
 
+    <!-- Chair Actions -->
+    {% if is_chair %}
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Chair Actions</h2>
+            <a href="{% url 'create_committee_vote' committee.code %}"
+               class="inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                Create New Vote
+            </a>
+        </div>
+    {% endif %}
+
+    <!-- Available Legislation -->
+    <div class="space-y-6">
+        <h2 class="text-2xl font-bold">Available Legislation</h2>
+
+        {% for leg in legislation %}
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h3 class="text-xl font-semibold mb-2">{{ leg.title }}</h3>
+                    <p class="text-gray-600 text-sm mb-2">Posted by {{ leg.posted_by.name }} on {{ leg.available_at|date:"M d, Y" }}</p>
+                    {% if leg.anonymous_vote %}
+                        <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">Anonymous Voting</span>
+                    {% endif %}
+                </div>
+                <div class="text-right">
+                    <span class="text-sm text-gray-600">Required: {{ leg.required_percentage }}%</span>
+                </div>
+            </div>
+
+            <p class="text-gray-700 mb-4">{{ leg.description }}</p>
+
+            {% if leg.document %}
+                <div class="mb-4">
+                    <a href="{{ leg.document.url }}" target="_blank"
+                       class="text-blue-600 hover:text-blue-800 flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        View Document
+                    </a>
+                </div>
+            {% endif %}
+
+            <!-- Voting Form -->
+            {% if can_vote %}
+                <form method="POST" class="space-y-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="legislation_id" value="{{ leg.id }}">
+
+                    {% if leg.vote_mode == 'plurality' %}
+                        <!-- Plurality Voting -->
+                        <div class="space-y-2">
+                            <p class="font-medium">Select an option:</p>
+                            {% for option in leg.plurality_options %}
+                                <label class="flex items-center space-x-2">
+                                    <input type="radio" name="vote_choice" value="{{ option }}" required
+                                           class="w-4 h-4 text-blue-600">
+                                    <span>{{ option }}</span>
+                                </label>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <!-- Standard Voting -->
+                        <div class="flex gap-2">
+                            <button type="submit" name="vote_choice" value="yes"
+                                    onclick="return confirmVote(event, 'Yes')"
+                                    class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
+                                Vote Yes
+                            </button>
+                            <button type="submit" name="vote_choice" value="no"
+                                    onclick="return confirmVote(event, 'No')"
+                                    class="bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">
+                                Vote No
+                            </button>
+                            {% if leg.allow_abstain %}
+                                <button type="submit" name="vote_choice" value="abstain"
+                                        onclick="return confirmVote(event, 'Abstain')"
+                                        class="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600">
+                                    Abstain
+                                </button>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Confirm with Password
+                        </label>
+                        <input type="password" name="password" required
+                               class="border border-gray-300 rounded px-3 py-2 w-full max-w-xs"
+                               placeholder="Enter your password">
+                    </div>
+                </form>
+            {% endif %}
+
+            <!-- Vote Results (for chairs/uploaders) -->
+            {% if is_chair and leg.id in vote_data %}
+                <div class="mt-4 pt-4 border-t">
+                    <h4 class="font-semibold mb-2">Current Results:</h4>
+                    {% if leg.vote_mode == 'plurality' %}
+                        <div class="space-y-1">
+                            {% for option, count in vote_data|get_item:leg.id.items %}
+                                {% if option != 'total' %}
+                                    <p class="text-sm">{{ option }}: {{ count }}</p>
+                                {% endif %}
+                            {% endfor %}
+                            <p class="text-sm font-semibold">Total Votes: {{ vote_data|get_item:leg.id.total }}</p>
+                        </div>
+                    {% else %}
+                        <div class="space-y-1">
+                            <p class="text-sm">Yes: {{ vote_data|get_item:leg.id.yes }}</p>
+                            <p class="text-sm">No: {{ vote_data|get_item:leg.id.no }}</p>
+                            <p class="text-sm">Abstain: {{ vote_data|get_item:leg.id.abstain }}</p>
+                            <p class="text-sm font-semibold">Total: {{ vote_data|get_item:leg.id.total }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+        {% empty %}
+        <div class="bg-gray-100 border border-gray-300 rounded-lg p-8 text-center">
+            <p class="text-gray-600">No active legislation at this time.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function confirmVote(event, choice) {
+    const password = event.target.form.querySelector('input[name="password"]').value;
+    if (!password) {
+        alert('Please enter your password to confirm your vote.');
+        event.preventDefault();
+        return false;
+    }
+    return confirm(`Are you sure you want to vote ${choice}?`);
+}
+</script>
 {% endblock %}

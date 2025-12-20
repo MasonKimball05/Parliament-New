@@ -1,10 +1,15 @@
 from django.http import HttpResponseForbidden
 from django.shortcuts import render, redirect, get_object_or_404
 from src.models import Committee, CommitteePermissions, ParliamentUser
+from src.decorators import *
 
+@committee_chair_required
 def committee_manage_members(request, id):
     committee = get_object_or_404(Committee, id=id)
-    perm = CommitteePermissions.objects.filter(user=request.user, committee=committee).first()
+    perm = CommitteePermissions.objects.filter(
+        user=request.user,
+        committee=committee
+    ).first()
 
     if not perm or not perm.can_manage_members:
         return HttpResponseForbidden("You cannot manage committee members.")

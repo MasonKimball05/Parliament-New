@@ -1,7 +1,7 @@
 from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
 from .decorators import log_function_call
-from .models import Committee, ParliamentUser, Legislation, Vote, Attendance
+from .models import Committee, ParliamentUser, Legislation, Vote, Attendance, CommitteeDocument, Role
 import logging
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
@@ -75,11 +75,59 @@ update_status.short_description = "Update status for closed voting legislation"
 
 
 # === MODEL ADMINS ===
+# === ROLE ADMIN ===
+
+# Inline admin for assigning members to roles
+class RoleMemberInline(admin.TabularInline):
+    model = ParliamentUser.roles.through
+    extra = 1
+    verbose_name = "Member with this Role"
+    verbose_name_plural = "Members with this Role"
+    
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "parliamentuser":
+            kwargs["queryset"] = ParliamentUser.objects.filter(member_status="Active").order_by("name")
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+@admin.register(Role)
+class RoleAdmin(admin.ModelAdmin):
+    list_display = ('name', 'code', 'one_per_chapter', 'member_count')
+    search_fields = ('name', 'code')
+    list_filter = ('one_per_chapter',)
+    ordering = ('name',)
+    inlines = [RoleMemberInline]
+    
+    def member_count(self, obj):
+        count = obj.parliamentuser_set.count()
+        return f"{count} member{'s' if count != 1 else ''}"
+    member_count.short_description = 'Members'
+
+
 @log_function_call
 @admin.register(ParliamentUser)
 class ParliamentUserAdmin(admin.ModelAdmin):
-    list_display = ('name', 'user_id', 'member_type', 'is_admin', 'member_status', 'login_as_link')
+    list_display = ('name', 'user_id', 'member_type', 'is_admin', 'member_status', 'role_list', 'login_as_link')
     search_fields = ('name', 'user_id', 'member_type', 'is_admin')
+    filter_horizontal = ('roles',)
+    list_filter = ('member_type', 'member_status', 'is_admin')
+
+    fieldsets = (
+        ('Personal Information', {
+            'fields': ('username', 'name', 'user_id', 'email')
+        }),
+        ('Member Information', {
+            'fields': ('member_type', 'member_status', 'is_admin')
+        }),
+        ('Roles & Positions', {
+            'fields': ('roles',),
+            'description': 'Assign officer roles to this member (e.g., Vice President of Brotherhood)'
+        }),
+    )
+
+    def role_list(self, obj):
+        return ', '.join([role.name for role in obj.roles.all()])
+    role_list.short_description = 'Roles'
+
     actions = [export_as_csv]
 
     def get_urls(self):
@@ -151,16 +199,35 @@ class AttendanceAdmin(admin.ModelAdmin):
     list_filter = ('present', 'date')
     actions = [export_as_csv]
 
+
 @admin.register(Committee)
 class CommitteeAdmin(admin.ModelAdmin):
-    list_display = ('name', 'chair_list', 'member_count', 'created_at')
-    search_fields = ('name', 'chair__name')
-    filter_horizontal = ('members',)
+    list_display = ('name', 'code', 'role', 'chair_list', 'created_at')
+    search_fields = ('name', 'id')
+    filter_horizontal = ('members', 'chairs', 'advisors', 'voting_members')
     ordering = ('name',)
+    list_filter = ('role',)
+    
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'code', 'role', 'allow_multiple_chairs')
+        }),
+        ('Members', {
+            'fields': ('chairs', 'advisors', 'voting_members', 'members')
+        }),
+    )
 
     def member_count(self, obj):
         return obj.members.count()
     member_count.short_description = 'Members'
+
+@admin.register(CommitteeDocument)
+class CommitteeDocumentAdmin(admin.ModelAdmin):
+    list_display = ('title', 'committee', 'document_type', 'meeting_date', 'uploaded_by', 'uploaded_at', 'published_to_chapter')
+    list_filter = ('published_to_chapter', 'document_type', 'committee', 'uploaded_at')
+    search_fields = ('title', 'description', 'committee__name')
+    readonly_fields = ('uploaded_at',)
+    ordering = ('-uploaded_at',)
 
 """
 @admin.register(LogEntry)

@@ -1,31 +1,349 @@
 {% extends "base.html" %}
+
+{% block title %}{{ committee.name }}{% endblock %}
+
 {% block content %}
-<h1>{{ committee.name }}</h1>
+<div class="container mx-auto px-4 py-8">
+    <!-- Back to Committees Link -->
+    <div class="mb-6">
+        <a href="{% url 'committee_index' %}" class="text-blue-600 hover:text-blue-800">← Back to All Committees</a>
+    </div>
 
-<p><strong>Chairs:</strong>
-    {% for chair in committee.chairs.all %}
-        {{ chair.name }}{% if not forloop.last %}, {% endif %}
-    {% empty %} None
+    <!-- Committee Header -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h1 class="text-3xl font-bold mb-2">{{ committee.name }}</h1>
+        {% if committee.code %}
+            <p class="text-gray-600 mb-2">Code: <span class="font-semibold">{{ committee.code }}</span></p>
+        {% endif %}
+
+        {% if committee.role %}
+            <p class="text-gray-700 mb-4">
+                <span class="font-medium">Admin:</span> {{ committee.role.name }}{% if committee_vp %} ({{ committee_vp.name }}){% endif %}
+            </p>
+        {% endif %}
+
+        <!-- User's Roles -->
+        <div class="flex gap-2 mb-4">
+            {% if is_vp %}
+                <span class="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">Vice President</span>
+            {% endif %}
+            {% if is_chair %}
+                <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">Chair</span>
+            {% endif %}
+            {% if is_advisor %}
+                <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">Advisor</span>
+            {% endif %}
+            {% if is_voting_member %}
+                <span class="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">Voting Member</span>
+            {% endif %}
+            {% if is_member and not is_chair and not is_advisor %}
+                <span class="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm font-medium">Member</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Committee Information Grid -->
+    <div class="grid md:grid-cols-2 gap-6 mb-6">
+        <!-- Chairs -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold">Chairs</h2>
+                {% if can_manage %}
+                    <button onclick="openManageModal('chair')" class="text-sm bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
+                        + Add
+                    </button>
+                {% endif %}
+            </div>
+            {% if committee.chairs.all %}
+                <ul class="space-y-2">
+                    {% for chair in committee.chairs.all %}
+                        <li class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                                {{ chair.name }}
+                            </div>
+                            {% if can_manage %}
+                                <form method="post" action="{% url 'committee_remove_member' committee.code %}" class="inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="user_id" value="{{ chair.pk }}">
+                                    <input type="hidden" name="role_type" value="chair">
+                                    <button type="submit" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
+                                </form>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-gray-500 italic">None</p>
+            {% endif %}
+        </div>
+
+        <!-- Advisors -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold">Advisors</h2>
+                {% if can_manage %}
+                    <button onclick="openManageModal('advisor')" class="text-sm bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">
+                        + Add
+                    </button>
+                {% endif %}
+            </div>
+            {% if committee.advisors.all %}
+                <ul class="space-y-2">
+                    {% for advisor in committee.advisors.all %}
+                        <li class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                                {{ advisor.name }}
+                            </div>
+                            {% if can_manage %}
+                                <form method="post" action="{% url 'committee_remove_member' committee.code %}" class="inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="user_id" value="{{ advisor.pk }}">
+                                    <input type="hidden" name="role_type" value="advisor">
+                                    <button type="submit" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
+                                </form>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-gray-500 italic">None</p>
+            {% endif %}
+        </div>
+
+        <!-- Voting Members -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold">Voting Members</h2>
+                {% if can_manage %}
+                    <button onclick="openManageModal('voter')" class="text-sm bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600">
+                        + Add
+                    </button>
+                {% endif %}
+            </div>
+            {% if committee.voting_members.all %}
+                <ul class="space-y-2">
+                    {% for voter in committee.voting_members.all %}
+                        <li class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                                {{ voter.name }}
+                            </div>
+                            {% if can_manage %}
+                                <form method="post" action="{% url 'committee_remove_member' committee.code %}" class="inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="user_id" value="{{ voter.pk }}">
+                                    <input type="hidden" name="role_type" value="voter">
+                                    <button type="submit" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
+                                </form>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-gray-500 italic">None</p>
+            {% endif %}
+        </div>
+
+        <!-- Members -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold">Members ({{ committee.members.count }})</h2>
+                {% if can_manage %}
+                    <button onclick="openManageModal('member')" class="text-sm bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600">
+                        + Add
+                    </button>
+                {% endif %}
+            </div>
+            {% if committee.members.all %}
+                <div class="space-y-2 max-h-64 overflow-y-auto">
+                    {% for member in committee.members.all %}
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <span class="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
+                                {{ member.name }}
+                            </div>
+                            {% if can_manage %}
+                                <form method="post" action="{% url 'committee_remove_member' committee.code %}" class="inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="user_id" value="{{ member.pk }}">
+                                    <input type="hidden" name="role_type" value="member">
+                                    <button type="submit" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-gray-500 italic">No members assigned</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Actions Section -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-xl font-semibold mb-4">Actions</h3>
+
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Chair Actions -->
+            {% if is_chair or can_manage %}
+                <a href="{% url 'upload_document' committee.code %}"
+                   class="flex items-center justify-center bg-blue-500 text-white px-4 py-3 rounded hover:bg-blue-600 transition-colors">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    Upload Document
+                </a>
+
+                <a href="{% url 'create_committee_vote' committee.code %}"
+                   class="flex items-center justify-center bg-green-500 text-white px-4 py-3 rounded hover:bg-green-600 transition-colors">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                    </svg>
+                    Create Committee Vote
+                </a>
+
+                <a href="{% url 'push_to_chapter' committee.code %}"
+                   class="flex items-center justify-center bg-purple-500 text-white px-4 py-3 rounded hover:bg-purple-600 transition-colors">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                    </svg>
+                    Push to Chapter Vote
+                </a>
+
+                <a href="{% url 'minutes' committee.code %}"
+                   class="flex items-center justify-center bg-yellow-500 text-white px-4 py-3 rounded hover:bg-yellow-600 transition-colors">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                    Record Minutes
+                </a>
+            {% endif %}
+
+            <!-- Member Actions -->
+            {% if permissions.can_view_docs %}
+                <a href="{% url 'committee_documents' committee.code %}"
+                   class="flex items-center justify-center bg-gray-500 text-white px-4 py-3 rounded hover:bg-gray-600 transition-colors">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    View Documents
+                </a>
+            {% endif %}
+
+            {% if permissions.can_vote %}
+                <a href="{% url 'vote' committee.code %}"
+                   class="flex items-center justify-center bg-indigo-500 text-white px-4 py-3 rounded hover:bg-indigo-600 transition-colors">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                    </svg>
+                    Committee Voting
+                </a>
+            {% endif %}
+        </div>
+
+        {% if not is_chair and not can_manage and not permissions.can_view_docs and not permissions.can_vote %}
+            <p class="text-gray-500 italic">No actions available</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add Member Modal -->
+<div id="manageModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <h3 class="text-lg font-medium text-gray-900 mb-4" id="modalTitle">Add Member</h3>
+            <form method="post" action="{% url 'committee_add_member' committee.code %}">
+                {% csrf_token %}
+                <input type="hidden" name="role_type" id="roleType">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Select User</label>
+                    <select name="user_id" id="userSelect" class="w-full border border-gray-300 rounded-md px-3 py-2" required>
+                        <option value="">Choose a user...</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1" id="voterNote" style="display: none;">
+                        Only current members and chairs can be added as voting members.
+                    </p>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="closeManageModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                        Add
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Store user lists
+const allUsers = [
+    {% for user in all_users %}
+    {id: "{{ user.pk }}", name: "{{ user.name }}", type: "{{ user.member_type }}"},
     {% endfor %}
-</p>
+];
 
-<p><strong>Members:</strong> {{ committee.members.count }}</p>
+const eligibleVoters = [
+    {% for user in eligible_voters %}
+    {id: "{{ user.pk }}", name: "{{ user.name }}", type: "{{ user.member_type }}"},
+    {% endfor %}
+];
 
-<hr>
+function openManageModal(roleType) {
+    const modal = document.getElementById('manageModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const roleTypeInput = document.getElementById('roleType');
+    const userSelect = document.getElementById('userSelect');
+    const voterNote = document.getElementById('voterNote');
 
-<h3>Actions</h3>
+    roleTypeInput.value = roleType;
 
-<ul>
-    {% if permissions.can_view_docs %}
-    <li><a href="{% url 'committee_documents' committee.id %}">View Documents</a></li>
-    {% endif %}
+    const titles = {
+        'chair': 'Add Chair',
+        'advisor': 'Add Advisor',
+        'voter': 'Add Voting Member',
+        'member': 'Add Member'
+    };
 
-    {% if permissions.can_vote %}
-    <li><a href="{% url 'committee_vote' committee.id %}">Committee Voting</a></li>
-    {% endif %}
+    modalTitle.textContent = titles[roleType] || 'Add Member';
 
-    {% if permissions.can_manage_members %}
-    <li><a href="{% url 'committee_manage' committee.id %}">Manage Committee</a></li>
-    {% endif %}
-</ul>
+    // Clear existing options
+    userSelect.innerHTML = '<option value="">Choose a user...</option>';
+
+    // Show appropriate user list
+    let userList = allUsers;
+    if (roleType === 'voter') {
+        userList = eligibleVoters;
+        voterNote.style.display = 'block';
+    } else {
+        voterNote.style.display = 'none';
+    }
+
+    // Populate dropdown
+    userList.forEach(user => {
+        const option = document.createElement('option');
+        option.value = user.id;
+        option.textContent = `${user.name} (${user.type})`;
+        userSelect.appendChild(option);
+    });
+
+    modal.classList.remove('hidden');
+}
+
+function closeManageModal() {
+    const modal = document.getElementById('manageModal');
+    modal.classList.add('hidden');
+}
+
+// Close modal when clicking outside
+document.getElementById('manageModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeManageModal();
+    }
+});
+</script>
 {% endblock %}
