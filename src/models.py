@@ -541,6 +541,7 @@ class Event(models.Model):
     created_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True, help_text='Uncheck to hide event from calendar')
+    archived = models.BooleanField(default=False, help_text='Events older than 1 year are automatically archived')
 
     class Meta:
         ordering = ['date_time']

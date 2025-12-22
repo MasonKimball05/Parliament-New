@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}All Documents - Officer Portal{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Page Header -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <div class="flex items-center space-x-3 mb-2">
+                    <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <h1 class="text-3xl font-bold text-gray-900">All Committee Documents</h1>
+                </div>
+                <p class="text-gray-600">View all committee documents, including unpublished items</p>
+            </div>
+            <div class="flex space-x-3">
+                <a href="{% url 'upload_report' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition flex items-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    <span>Upload Document</span>
+                </a>
+                <a href="{% url 'officer_home' %}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition">
+                    Back to Officer Home
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="mb-6 bg-white rounded-lg shadow-md p-2">
+        <div class="flex space-x-1" role="tablist">
+            <button onclick="showTab('all')" id="tab-all" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition bg-blue-100 text-blue-700">
+                All Documents ({{ all_documents|length }})
+            </button>
+            <button onclick="showTab('reports')" id="tab-reports" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100">
+                Reports ({{ reports|length }})
+            </button>
+            <button onclick="showTab('minutes')" id="tab-minutes" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100">
+                Minutes ({{ minutes|length }})
+            </button>
+            <button onclick="showTab('agendas')" id="tab-agendas" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100">
+                Agendas ({{ agendas|length }})
+            </button>
+            <button onclick="showTab('policies')" id="tab-policies" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100">
+                Policies ({{ policies|length }})
+            </button>
+            <button onclick="showTab('general')" id="tab-general" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100">
+                General ({{ general_docs|length }})
+            </button>
+        </div>
+    </div>
+
+    <!-- All Documents Tab -->
+    <div id="content-all" class="tab-content">
+        {% include "officer/partials/document_list.html" with documents=all_documents title="All Documents" %}
+    </div>
+
+    <!-- Reports Tab -->
+    <div id="content-reports" class="tab-content hidden">
+        {% include "officer/partials/document_list.html" with documents=reports title="Reports" %}
+    </div>
+
+    <!-- Minutes Tab -->
+    <div id="content-minutes" class="tab-content hidden">
+        {% include "officer/partials/document_list.html" with documents=minutes title="Meeting Minutes" %}
+    </div>
+
+    <!-- Agendas Tab -->
+    <div id="content-agendas" class="tab-content hidden">
+        {% include "officer/partials/document_list.html" with documents=agendas title="Meeting Agendas" %}
+    </div>
+
+    <!-- Policies Tab -->
+    <div id="content-policies" class="tab-content hidden">
+        {% include "officer/partials/document_list.html" with documents=policies title="Policy Documents" %}
+    </div>
+
+    <!-- General Tab -->
+    <div id="content-general" class="tab-content hidden">
+        {% include "officer/partials/document_list.html" with documents=general_docs title="General Documents" %}
+    </div>
+</div>
+
+<script>
+function showTab(tabName) {
+    // Hide all tab contents
+    const contents = document.querySelectorAll('.tab-content');
+    contents.forEach(content => {
+        content.classList.add('hidden');
+    });
+
+    // Reset all tab buttons
+    const buttons = document.querySelectorAll('.tab-button');
+    buttons.forEach(button => {
+        button.classList.remove('bg-blue-100', 'text-blue-700');
+        button.classList.add('text-gray-700', 'hover:bg-gray-100');
+    });
+
+    // Show selected tab content
+    const selectedContent = document.getElementById('content-' + tabName);
+    if (selectedContent) {
+        selectedContent.classList.remove('hidden');
+    }
+
+    // Highlight selected tab button
+    const selectedButton = document.getElementById('tab-' + tabName);
+    if (selectedButton) {
+        selectedButton.classList.add('bg-blue-100', 'text-blue-700');
+        selectedButton.classList.remove('text-gray-700', 'hover:bg-gray-100');
+    }
+}
+</script>
+{% endblock %}

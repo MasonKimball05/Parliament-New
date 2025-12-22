@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}All Activity - Officer Portal{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Page Header -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <div class="flex items-center space-x-3 mb-2">
+                    <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                    </svg>
+                    <h1 class="text-3xl font-bold text-gray-900">All Member Activity</h1>
+                </div>
+                <p class="text-gray-600">View all member submissions and chapter activity</p>
+            </div>
+            <div>
+                <a href="{% url 'officer_home' %}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition">
+                    Back to Officer Home
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="mb-6 bg-white rounded-lg shadow-md p-2">
+        <div class="flex flex-wrap gap-1" role="tablist">
+            <button onclick="showActivityTab('chapter-leg')" id="tab-chapter-leg" class="activity-tab-button flex-1 min-w-fit px-4 py-2 rounded-lg font-medium transition bg-purple-100 text-purple-700">
+                Chapter Legislation ({{ all_chapter_legislation|length }})
+            </button>
+            <button onclick="showActivityTab('committee-leg')" id="tab-committee-leg" class="activity-tab-button flex-1 min-w-fit px-4 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100">
+                Committee Legislation ({{ all_committee_legislation|length }})
+            </button>
+            <button onclick="showActivityTab('committee-docs')" id="tab-committee-docs" class="activity-tab-button flex-1 min-w-fit px-4 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100">
+                Committee Documents ({{ all_committee_docs|length }})
+            </button>
+        </div>
+    </div>
+
+    <!-- Chapter Legislation Tab -->
+    <div id="content-chapter-leg" class="activity-tab-content">
+        <div class="mb-6">
+            <div class="flex space-x-2 mb-4">
+                <button onclick="showSubTab('chapter', 'all')" id="subtab-chapter-all" class="chapter-subtab px-4 py-2 rounded-lg font-medium bg-blue-100 text-blue-700">
+                    All ({{ all_chapter_legislation|length }})
+                </button>
+                <button onclick="showSubTab('chapter', 'draft')" id="subtab-chapter-draft" class="chapter-subtab px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100">
+                    Draft ({{ draft_chapter_leg|length }})
+                </button>
+                <button onclick="showSubTab('chapter', 'passed')" id="subtab-chapter-passed" class="chapter-subtab px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100">
+                    Passed ({{ passed_chapter_leg|length }})
+                </button>
+                <button onclick="showSubTab('chapter', 'removed')" id="subtab-chapter-removed" class="chapter-subtab px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100">
+                    Removed ({{ removed_chapter_leg|length }})
+                </button>
+            </div>
+
+            <div id="chapter-all" class="chapter-subcontent">
+                {% include "officer/partials/legislation_list.html" with legislation=all_chapter_legislation type="chapter" %}
+            </div>
+            <div id="chapter-draft" class="chapter-subcontent hidden">
+                {% include "officer/partials/legislation_list.html" with legislation=draft_chapter_leg type="chapter" %}
+            </div>
+            <div id="chapter-passed" class="chapter-subcontent hidden">
+                {% include "officer/partials/legislation_list.html" with legislation=passed_chapter_leg type="chapter" %}
+            </div>
+            <div id="chapter-removed" class="chapter-subcontent hidden">
+                {% include "officer/partials/legislation_list.html" with legislation=removed_chapter_leg type="chapter" %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Committee Legislation Tab -->
+    <div id="content-committee-leg" class="activity-tab-content hidden">
+        <div class="mb-6">
+            <div class="flex space-x-2 mb-4">
+                <button onclick="showSubTab('committee', 'all')" id="subtab-committee-all" class="committee-subtab px-4 py-2 rounded-lg font-medium bg-blue-100 text-blue-700">
+                    All ({{ all_committee_legislation|length }})
+                </button>
+                <button onclick="showSubTab('committee', 'draft')" id="subtab-committee-draft" class="committee-subtab px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100">
+                    Draft ({{ draft_committee_leg|length }})
+                </button>
+                <button onclick="showSubTab('committee', 'passed')" id="subtab-committee-passed" class="committee-subtab px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100">
+                    Passed ({{ passed_committee_leg|length }})
+                </button>
+                <button onclick="showSubTab('committee', 'removed')" id="subtab-committee-removed" class="committee-subtab px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100">
+                    Removed ({{ removed_committee_leg|length }})
+                </button>
+            </div>
+
+            <div id="committee-all" class="committee-subcontent">
+                {% include "officer/partials/legislation_list.html" with legislation=all_committee_legislation type="committee" %}
+            </div>
+            <div id="committee-draft" class="committee-subcontent hidden">
+                {% include "officer/partials/legislation_list.html" with legislation=draft_committee_leg type="committee" %}
+            </div>
+            <div id="committee-passed" class="committee-subcontent hidden">
+                {% include "officer/partials/legislation_list.html" with legislation=passed_committee_leg type="committee" %}
+            </div>
+            <div id="committee-removed" class="committee-subcontent hidden">
+                {% include "officer/partials/legislation_list.html" with legislation=removed_committee_leg type="committee" %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Committee Documents Tab -->
+    <div id="content-committee-docs" class="activity-tab-content hidden">
+        {% include "officer/partials/document_list.html" with documents=all_committee_docs title="Committee Documents" %}
+    </div>
+</div>
+
+<script>
+function showActivityTab(tabName) {
+    // Hide all main tab contents
+    const contents = document.querySelectorAll('.activity-tab-content');
+    contents.forEach(content => {
+        content.classList.add('hidden');
+    });
+
+    // Reset all main tab buttons
+    const buttons = document.querySelectorAll('.activity-tab-button');
+    buttons.forEach(button => {
+        button.classList.remove('bg-purple-100', 'text-purple-700', 'bg-orange-100', 'text-orange-700', 'bg-indigo-100', 'text-indigo-700');
+        button.classList.add('text-gray-700', 'hover:bg-gray-100');
+    });
+
+    // Show selected tab content
+    const selectedContent = document.getElementById('content-' + tabName);
+    if (selectedContent) {
+        selectedContent.classList.remove('hidden');
+    }
+
+    // Highlight selected tab button with appropriate color
+    const selectedButton = document.getElementById('tab-' + tabName);
+    if (selectedButton) {
+        selectedButton.classList.remove('text-gray-700', 'hover:bg-gray-100');
+        if (tabName === 'chapter-leg') {
+            selectedButton.classList.add('bg-purple-100', 'text-purple-700');
+        } else if (tabName === 'committee-leg') {
+            selectedButton.classList.add('bg-orange-100', 'text-orange-700');
+        } else if (tabName === 'committee-docs') {
+            selectedButton.classList.add('bg-indigo-100', 'text-indigo-700');
+        }
+    }
+}
+
+function showSubTab(type, status) {
+    // Hide all sub-contents for this type
+    const subContents = document.querySelectorAll('.' + type + '-subcontent');
+    subContents.forEach(content => {
+        content.classList.add('hidden');
+    });
+
+    // Reset all sub-tab buttons for this type
+    const subButtons = document.querySelectorAll('.' + type + '-subtab');
+    subButtons.forEach(button => {
+        button.classList.remove('bg-blue-100', 'text-blue-700');
+        button.classList.add('text-gray-700', 'hover:bg-gray-100');
+    });
+
+    // Show selected sub-content
+    const selectedSubContent = document.getElementById(type + '-' + status);
+    if (selectedSubContent) {
+        selectedSubContent.classList.remove('hidden');
+    }
+
+    // Highlight selected sub-tab button
+    const selectedSubButton = document.getElementById('subtab-' + type + '-' + status);
+    if (selectedSubButton) {
+        selectedSubButton.classList.add('bg-blue-100', 'text-blue-700');
+        selectedSubButton.classList.remove('text-gray-700', 'hover:bg-gray-100');
+    }
+}
+</script>
+{% endblock %}

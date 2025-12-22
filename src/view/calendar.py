@@ -16,6 +16,17 @@ def calendar_view(request):
     year = int(request.GET.get('year', now.year))
     month = int(request.GET.get('month', now.month))
 
+    # Calculate date range limits (1 year back and 1 year forward)
+    min_date = now - timedelta(days=365)
+    max_date = now + timedelta(days=365)
+
+    # Clamp requested date to valid range
+    requested_date = datetime(year, month, 1)
+    if requested_date < datetime(min_date.year, min_date.month, 1):
+        year, month = min_date.year, min_date.month
+    elif requested_date > datetime(max_date.year, max_date.month, 1):
+        year, month = max_date.year, max_date.month
+
     # Create calendar for the specified month
     cal = calendar.monthcalendar(year, month)
     month_name = calendar.month_name[month]
@@ -31,6 +42,12 @@ def calendar_view(request):
     else:
         next_month, next_year = month + 1, year
 
+    # Check if prev/next navigation should be disabled
+    prev_date = datetime(prev_year, prev_month, 1)
+    next_date = datetime(next_year, next_month, 1)
+    can_go_prev = prev_date >= datetime(min_date.year, min_date.month, 1)
+    can_go_next = next_date <= datetime(max_date.year, max_date.month, 1)
+
     # Get all active events for this month
     month_start = datetime(year, month, 1)
     if month == 12:
@@ -40,6 +57,7 @@ def calendar_view(request):
 
     events = Event.objects.filter(
         is_active=True,
+        archived=False,
         date_time__gte=month_start,
         date_time__lt=month_end
     ).order_by('date_time')
@@ -53,6 +71,7 @@ def calendar_view(request):
     # Get upcoming events (next 5 from today)
     upcoming_events = Event.objects.filter(
         is_active=True,
+        archived=False,
         date_time__gte=now
     ).order_by('date_time')[:5]
 
@@ -69,6 +88,8 @@ def calendar_view(request):
         'next_month': next_month,
         'next_year': next_year,
         'today': now.day if now.year == year and now.month == month else None,
+        'can_go_prev': can_go_prev,
+        'can_go_next': can_go_next,
     }
 
     return render(request, 'calendar.html', context)
@@ -82,9 +103,37 @@ def calendar_data_api(request):
     year = int(request.GET.get('year', now.year))
     month = int(request.GET.get('month', now.month))
 
+    # Calculate date range limits (1 year back and 1 year forward)
+    min_date = now - timedelta(days=365)
+    max_date = now + timedelta(days=365)
+
+    # Clamp requested date to valid range
+    requested_date = datetime(year, month, 1)
+    if requested_date < datetime(min_date.year, min_date.month, 1):
+        year, month = min_date.year, min_date.month
+    elif requested_date > datetime(max_date.year, max_date.month, 1):
+        year, month = max_date.year, max_date.month
+
     # Create calendar for the specified month
     cal = calendar.monthcalendar(year, month)
     month_name = calendar.month_name[month]
+
+    # Calculate previous and next month
+    if month == 1:
+        prev_month, prev_year = 12, year - 1
+    else:
+        prev_month, prev_year = month - 1, year
+
+    if month == 12:
+        next_month, next_year = 1, year + 1
+    else:
+        next_month, next_year = month + 1, year
+
+    # Check if prev/next navigation should be disabled
+    prev_date = datetime(prev_year, prev_month, 1)
+    next_date = datetime(next_year, next_month, 1)
+    can_go_prev = prev_date >= datetime(min_date.year, min_date.month, 1)
+    can_go_next = next_date <= datetime(max_date.year, max_date.month, 1)
 
     # Get all active events for this month
     month_start = datetime(year, month, 1)
@@ -95,6 +144,7 @@ def calendar_data_api(request):
 
     events = Event.objects.filter(
         is_active=True,
+        archived=False,
         date_time__gte=month_start,
         date_time__lt=month_end
     ).order_by('date_time')
@@ -122,6 +172,12 @@ def calendar_data_api(request):
         'month': month,
         'events': events_data,
         'today': now.day if now.year == year and now.month == month else None,
+        'can_go_prev': can_go_prev,
+        'can_go_next': can_go_next,
+        'prev_month': prev_month,
+        'prev_year': prev_year,
+        'next_month': next_month,
+        'next_year': next_year,
     }
 
     return JsonResponse(data)

@@ -4,95 +4,189 @@
 {% block title %}Passed Legislation{% endblock %}
 
 {% block content %}
-    <!-- Main Content -->
-    <div class="container mx-auto p-6 mt-6 bg-white shadow-lg rounded-lg">
-        <h1 class="text-3xl font-bold text-center mb-4">Passed Legislation</h1>
-
-        <!-- Table -->
-        {% if passed_legislation %}
-        <div class="overflow-x-auto shadow-lg rounded-lg border-t border-b border-gray-200">
-            <table class="min-w-full bg-white table-auto">
-                <thead class="bg-blue-600 text-white">
-                    <tr>
-                        <th class="px-6 py-4 text-left">Title</th>
-                        <th class="px-6 py-4 text-left">Yes Votes</th>
-                        <th class="px-6 py-4 text-left">No Votes</th>
-                        <th class="px-6 py-4 text-left">Abstain Votes</th>
-                        <th class="px-6 py-4 text-left">Yes %</th>
-                        <th class="px-6 py-4 text-left">No %</th>
-                        <th class="px-6 py-4 text-left">Required %</th>
-                        <th class="px-6 py-4 text-left">Passed Status</th>
-                        {% if user.member_type == 'Officer' %}
-                        <th class="px-6 py-4 text-left">Present Members</th> <!-- Show this column only for officers -->
-                        {% endif %}
-                    </tr>
-                </thead>
-                <tbody class="text-sm text-gray-700">
-                    {% for legislation in passed_legislation %}
-                    <tr class="border-t border-b hover:bg-gray-50">
-                        <td class="px-6 py-4">
-                            <a href="{{ legislation.document_url }}" class="text-blue-600 hover:text-blue-800" target="_blank">
-                                {{ legislation.legislation.title }}
-                            </a>
-                        </td>
-                        <td class="px-6 py-4">{{ legislation.yes }}</td>
-                        <td class="px-6 py-4">{{ legislation.no }}</td>
-                        <td class="px-6 py-4">{{ legislation.abstain }}</td>
-                        <td class="px-6 py-4">{{ legislation.yes_pct }}%</td>
-                        <td class="px-6 py-4">{{ legislation.no_pct }}%</td>
-                        <td class="px-6 py-4">{{ legislation.required_pct }}%</td>
-                        <td class="px-6 py-4">
-                            {% if legislation.legislation.status == 'passed' %}
-                                Passed
-                            {% elif legislation.legislation.status == 'removed' %}
-                                Not Passed
-                            {% else %}
-                                Voting In Progress
-                            {% endif %}
-                        </td>
-                    <p class="text-sm mt-2 text-gray-500">
-                        <strong>Vote Type:</strong> {{ leg.vote_mode|title }}
-                    </p>
-
-                    {% if leg.vote_mode == "plurality" and leg.plurality_options %}
-                        <p class="text-sm mt-2 text-gray-500">
-                            <strong>Options:</strong> {{ leg.plurality_options|join:", " }}
-                        </p>
-                    {% endif %}
-                        {% if user.member_type == 'Officer' %}
-                        <td class="px-6 py-4">
-                            <!-- Button to Toggle Present Members -->
-                            <button class="text-blue-600 hover:text-blue-800 focus:outline-none" onclick="togglePresentMembers('{{ legislation.legislation.id }}')">
-                                Show Present Members
-                            </button>
-
-                            <!-- Present Members List (Initially hidden) -->
-                            <ul id="present-members-{{ legislation.legislation.id }}" class="mt-2 space-y-2 hidden">
-                                {% for member in legislation.present_members %}
-                                    <li>{{ member.user.name }}</li>
-                                {% endfor %}
-                            </ul>
-                        </td>
-                        {% endif %}
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Page Header -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div class="flex items-center space-x-3 mb-2">
+            <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <h1 class="text-3xl font-bold text-gray-900">Passed Legislation</h1>
         </div>
-        {% else %}
-        <p class="text-xl text-center text-gray-500 mt-6">No passed legislation found.</p>
-        {% endif %}
+        <p class="text-gray-600">View all legislation that has been voted on by the chapter</p>
     </div>
 
-    <script>
-        // JavaScript function to toggle the visibility of the present members list
-        function togglePresentMembers(legislationId) {
-            var membersList = document.getElementById("present-members-" + legislationId);
-            if (membersList.classList.contains("hidden")) {
-                membersList.classList.remove("hidden");
-            } else {
-                membersList.classList.add("hidden");
-            }
+    <!-- Legislation Cards -->
+    {% if passed_legislation %}
+    <div class="space-y-6">
+        {% for legislation in passed_legislation %}
+        <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+            <!-- Card Header -->
+            <div class="bg-gradient-to-r from-blue-50 to-blue-100 px-6 py-4 border-b border-blue-200">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <h3 class="text-xl font-bold text-gray-900 mb-2">
+                            <a href="{{ legislation.document_url }}" class="text-blue-600 hover:text-blue-800 transition-colors" target="_blank">
+                                {{ legislation.legislation.title }}
+                            </a>
+                        </h3>
+                        <div class="flex items-center space-x-3 text-sm text-gray-600">
+                            {% if legislation.legislation.vote_mode %}
+                            <span class="flex items-center space-x-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                                </svg>
+                                <span>Vote Type: {{ legislation.legislation.vote_mode|title }}</span>
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Status Badge -->
+                    <div class="ml-4">
+                        {% if legislation.legislation.status == 'passed' %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-200">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                            Passed
+                        </span>
+                        {% elif legislation.legislation.status == 'removed' %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 border border-red-200">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                            </svg>
+                            Not Passed
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                            <svg class="w-4 h-4 mr-1 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+                            </svg>
+                            Voting In Progress
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card Body -->
+            <div class="p-6">
+                <!-- Vote Statistics Grid -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-green-600">{{ legislation.yes }}</div>
+                        <div class="text-sm text-gray-600 mt-1">Yes Votes</div>
+                        <div class="text-xs text-green-700 font-medium mt-1">{{ legislation.yes_pct }}%</div>
+                    </div>
+
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-red-600">{{ legislation.no }}</div>
+                        <div class="text-sm text-gray-600 mt-1">No Votes</div>
+                        <div class="text-xs text-red-700 font-medium mt-1">{{ legislation.no_pct }}%</div>
+                    </div>
+
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-gray-600">{{ legislation.abstain }}</div>
+                        <div class="text-sm text-gray-600 mt-1">Abstain</div>
+                    </div>
+
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-blue-600">{{ legislation.required_pct }}%</div>
+                        <div class="text-sm text-gray-600 mt-1">Required</div>
+                    </div>
+                </div>
+
+                <!-- Plurality Options (if applicable) -->
+                {% if legislation.legislation.vote_mode == "plurality" and legislation.legislation.plurality_options %}
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+                    <div class="flex items-start space-x-2">
+                        <svg class="w-5 h-5 text-purple-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                        </svg>
+                        <div>
+                            <h4 class="text-sm font-semibold text-purple-900 mb-1">Plurality Vote Options</h4>
+                            <p class="text-sm text-purple-700">{{ legislation.legislation.plurality_options|join:", " }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Present Members Section (Officers Only) -->
+                {% if user.member_type == 'Officer' %}
+                <div class="border-t border-gray-200 pt-4">
+                    <button
+                        class="flex items-center space-x-2 text-blue-600 hover:text-blue-800 font-medium transition-colors focus:outline-none"
+                        onclick="togglePresentMembers('{{ legislation.legislation.id }}')">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                        </svg>
+                        <span id="button-text-{{ legislation.legislation.id }}">Show Present Members</span>
+                        <svg class="w-4 h-4 transition-transform" id="chevron-{{ legislation.legislation.id }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+
+                    <!-- Present Members List (Initially hidden) -->
+                    <div id="present-members-{{ legislation.legislation.id }}" class="hidden mt-4 bg-gray-50 rounded-lg p-4">
+                        <h4 class="text-sm font-semibold text-gray-700 mb-3">Present Members ({{ legislation.present_members|length }})</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                            {% for member in legislation.present_members %}
+                            <div class="flex items-center space-x-2 text-sm text-gray-700 bg-white rounded px-3 py-2 border border-gray-200">
+                                <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+                                </svg>
+                                <span>{{ member.user.name }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- View Document Button -->
+                <div class="mt-6 pt-4 border-t border-gray-200">
+                    <a href="{{ legislation.document_url }}"
+                       target="_blank"
+                       class="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm hover:shadow-md">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                        </svg>
+                        <span>View Full Document</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="bg-white rounded-lg shadow-md p-12 text-center">
+        <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <h3 class="text-xl font-semibold text-gray-700 mb-2">No Passed Legislation Found</h3>
+        <p class="text-gray-500">There is currently no legislation that has been voted on.</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    // JavaScript function to toggle the visibility of the present members list
+    function togglePresentMembers(legislationId) {
+        const membersList = document.getElementById("present-members-" + legislationId);
+        const buttonText = document.getElementById("button-text-" + legislationId);
+        const chevron = document.getElementById("chevron-" + legislationId);
+
+        if (membersList.classList.contains("hidden")) {
+            membersList.classList.remove("hidden");
+            buttonText.textContent = "Hide Present Members";
+            chevron.style.transform = "rotate(180deg)";
+        } else {
+            membersList.classList.add("hidden");
+            buttonText.textContent = "Show Present Members";
+            chevron.style.transform = "rotate(0deg)";
         }
-    </script>
+    }
+</script>
 {% endblock %}

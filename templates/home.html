@@ -67,6 +67,17 @@
             <p class="text-gray-600 text-sm">View all announcements</p>
         </a>
 
+        <!-- Legislation History Card -->
+        <a href="{% url 'view_legislation_history' %}" class="block bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 group">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">Legislation History</h2>
+                <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <p class="text-gray-600 text-sm">View your legislation history</p>
+        </a>
+
         <!-- Legislation Card -->
         <a href="{% url 'passed_legislation' %}" class="block bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 group">
             <div class="flex items-center justify-between mb-4">
