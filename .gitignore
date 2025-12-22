@@ -49,6 +49,9 @@ backup/
 # === OS / Misc ===
 .DS_Store
 Thumbs.db
+*.bak
+*~
+*.swp
 
 # === PyCharm ===
 *.iml

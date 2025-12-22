@@ -55,6 +55,7 @@ class ParliamentUser(AbstractBaseUser):
 
     user_id = models.CharField(max_length=30, unique=True, primary_key=True)
     name = models.CharField(max_length=100)
+    preferred_name = models.CharField(max_length=50, blank=True, help_text='Optional: Preferred first name (will display as "Preferred LastName")')
     member_type = models.CharField(max_length=20, choices=MEMBER_TYPES)
     is_active = models.BooleanField(default=True)
     is_admin = models.BooleanField(default=False)
@@ -83,6 +84,24 @@ class ParliamentUser(AbstractBaseUser):
     @property
     def is_staff(self):
         return self.is_admin
+
+    @property
+    def is_officer(self):
+        """Check if user is an officer based on member_type"""
+        return self.member_type == 'Officer' or self.is_admin
+
+    def get_display_name(self):
+        """Returns preferred name + last name if preferred name is set, otherwise full name"""
+        if self.preferred_name:
+            # Split the full name to get the last name
+            name_parts = self.name.split()
+            if len(name_parts) > 1:
+                last_name = name_parts[-1]
+                return f"{self.preferred_name} {last_name}"
+            else:
+                # If no last name, just return preferred name
+                return self.preferred_name
+        return self.name
 
     class Meta:
         ordering = ['user_id']
@@ -485,3 +504,51 @@ class CommitteeDocument(models.Model):
 
     def __str__(self):
         return f"{self.committee.code} - {self.title}"
+
+
+class Announcement(models.Model):
+    """Model for officer announcements and event notifications"""
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    posted_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
+    posted_at = models.DateTimeField(auto_now_add=True)
+    publish_at = models.DateTimeField(null=True, blank=True, help_text='Schedule when this announcement should be published. Leave blank to publish immediately.')
+    event_date = models.DateTimeField(null=True, blank=True, help_text='Optional event date/time')
+    is_active = models.BooleanField(default=True, help_text='Uncheck to hide announcement')
+
+    class Meta:
+        ordering = ['-posted_at']
+
+    def __str__(self):
+        return f"{self.title} - {self.posted_at.strftime('%Y-%m-%d')}"
+
+    def is_published(self):
+        """Check if announcement should be visible based on publish_at date"""
+        from django.utils import timezone
+        if not self.is_active:
+            return False
+        if self.publish_at is None:
+            return True
+        return timezone.now() >= self.publish_at
+
+
+class Event(models.Model):
+    """Model for calendar events - officers can create, all members can view"""
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    date_time = models.DateTimeField(help_text='Date and time of the event')
+    location = models.CharField(max_length=300, blank=True, help_text='Event location (physical or virtual)')
+    created_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True, help_text='Uncheck to hide event from calendar')
+
+    class Meta:
+        ordering = ['date_time']
+
+    def __str__(self):
+        return f"{self.title} - {self.date_time.strftime('%Y-%m-%d %H:%M')}"
+
+    def is_upcoming(self):
+        """Check if event is in the future"""
+        from django.utils import timezone
+        return self.date_time > timezone.now()

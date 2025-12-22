@@ -16,19 +16,17 @@
         {% if documents_by_committee %}
             {% for committee, documents in documents_by_committee %}
                 <details class="bg-white rounded-lg shadow-md overflow-hidden" open>
-                    <summary class="bg-blue-50 px-6 py-4 cursor-pointer hover:bg-blue-100 transition">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center space-x-3">
-                                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
-                                </svg>
-                                <span class="text-lg font-semibold text-gray-900">{{ committee.name }}</span>
-                                <span class="text-sm text-gray-500">({{ committee.code }})</span>
-                            </div>
-                            <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                                {{ documents|length }} document{{ documents|length|pluralize }}
-                            </span>
+                    <summary class="bg-blue-50 px-6 py-4 cursor-pointer hover:bg-blue-100 transition flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                            </svg>
+                            <span class="text-lg font-semibold text-gray-900">{{ committee.name }}</span>
+                            <span class="text-sm text-gray-500">({{ committee.code }})</span>
                         </div>
+                        <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                            {{ documents|length }} document{{ documents|length|pluralize }}
+                        </span>
                     </summary>
 
                     <div class="px-6 py-4">
@@ -104,10 +102,20 @@
         border-bottom: 1px solid #e5e7eb;
     }
 
+    /* Hide default browser triangle */
     details summary::-webkit-details-marker {
         display: none;
     }
 
+    details summary::marker {
+        display: none;
+    }
+
+    details summary {
+        list-style: none;
+    }
+
+    /* Add custom triangle */
     details summary::before {
         content: '▶';
         display: inline-block;

@@ -5,7 +5,6 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth import login
 
-@login_required
 def login_view(request):
     list(get_messages(request))  # Clear flash messages
 
@@ -22,6 +21,8 @@ def login_view(request):
 
             # Check against the username, not the name
             if user.username == username:
+                # Set the backend attribute required by Django's auth system
+                user.backend = 'django.contrib.auth.backends.ModelBackend'
                 login(request, user)
 
                 logger = logging.getLogger('function_calls')

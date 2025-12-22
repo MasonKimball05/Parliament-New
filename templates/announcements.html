@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Announcements - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-6 flex items-start justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">Announcements</h1>
+            <p class="text-gray-600">View all active announcements from the past year</p>
+        </div>
+        {% if user.member_type == 'Officer' or user.member_type == 'Chair' %}
+        <div class="flex space-x-3">
+            <a href="{% url 'create_announcement' %}" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition flex items-center space-x-2 shadow-md">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                <span>New Announcement</span>
+            </a>
+            <a href="{% url 'manage_announcements' %}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center space-x-2 shadow-md">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                <span>Manage</span>
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Announcements List -->
+    {% if announcements %}
+        <div class="space-y-6">
+            {% for announcement in announcements %}
+            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                <div class="border-l-4 border-primary-500 p-6">
+                    <div class="flex items-start justify-between mb-3">
+                        <h2 class="text-2xl font-semibold text-gray-900">{{ announcement.title }}</h2>
+                        {% if announcement.event_date %}
+                        <span class="ml-4 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-800">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            Event
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="prose max-w-none mb-4">
+                        <p class="text-gray-700 text-lg whitespace-pre-wrap">{{ announcement.content }}</p>
+                    </div>
+
+                    {% if announcement.event_date %}
+                    <div class="bg-primary-50 border border-primary-200 rounded-lg p-4 mb-4">
+                        <div class="flex items-center space-x-2 text-primary-800">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            <span class="font-semibold">Event Date:</span>
+                            <span>{{ announcement.event_date|date:"l, F j, Y \a\t g:i A" }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="flex items-center space-x-4 text-sm text-gray-500 pt-3 border-t border-gray-200">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                            <span>Posted by <span class="font-medium text-gray-700">{{ announcement.posted_by.get_display_name }}</span></span>
+                        </div>
+                        <span>•</span>
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span>{{ announcement.posted_at|date:"F j, Y \a\t g:i A" }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="bg-white rounded-lg shadow-md p-12 text-center">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+            </svg>
+            <h3 class="mt-2 text-lg font-medium text-gray-900">No announcements</h3>
+            <p class="mt-1 text-sm text-gray-500">There are no active announcements at this time.</p>
+        </div>
+    {% endif %}
+
+    <!-- Back to Home -->
+    <div class="mt-8">
+        <a href="{% url 'home' %}" class="text-primary-600 hover:text-primary-700 font-medium">
+            ← Back to Home
+        </a>
+    </div>
+</div>
+{% endblock %}

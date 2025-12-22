@@ -8,3 +8,6 @@ def login_as_view(request, user_id):
     user = get_object_or_404(ParliamentUser, pk=user_id)
     login(request, user)
     return redirect('home')
+
+# Alias for backwards compatibility
+login_as_user = login_as_view

@@ -1,19 +1,15 @@
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from ..models import *
-from ..decorators import *
-from django.views.decorators.http import require_http_methods
-from django.shortcuts import get_object_or_404, redirect, render
+from django.contrib.auth import authenticate
+from django.contrib import messages
 from django.utils import timezone
 from django.utils.timezone import make_aware
-from django.contrib import messages
-from django.contrib.auth import authenticate
 from django.utils.dateparse import parse_datetime
 from datetime import timedelta
+from ..models import *
 import logging
 
-@require_http_methods(["GET", "POST"])
 @login_required
-@log_function_call
 def vote_view(request):
     user = request.user
 

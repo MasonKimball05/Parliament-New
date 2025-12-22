@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Create Announcement - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Create New Announcement</h1>
+        <p class="text-gray-600">Create an announcement that will appear on the chapter home page</p>
+    </div>
+
+    <!-- Form -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+
+            <!-- Title -->
+            <div>
+                <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    {{ form.title.label }}
+                    <span class="text-red-500">*</span>
+                </label>
+                {{ form.title }}
+                {% if form.title.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.title.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Content -->
+            <div>
+                <label for="{{ form.content.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    {{ form.content.label }}
+                    <span class="text-red-500">*</span>
+                </label>
+                {{ form.content }}
+                {% if form.content.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.content.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Publish Date -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <label for="{{ form.publish_at.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    {{ form.publish_at.label }}
+                </label>
+                {{ form.publish_at }}
+                {% if form.publish_at.help_text %}
+                    <p class="mt-1 text-sm text-gray-600">{{ form.publish_at.help_text }}</p>
+                {% endif %}
+                {% if form.publish_at.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.publish_at.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Event Date -->
+            <div>
+                <label for="{{ form.event_date.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    {{ form.event_date.label }}
+                </label>
+                {{ form.event_date }}
+                {% if form.event_date.help_text %}
+                    <p class="mt-1 text-sm text-gray-500">{{ form.event_date.help_text }}</p>
+                {% endif %}
+                {% if form.event_date.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.event_date.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Is Active -->
+            <div class="flex items-center">
+                {{ form.is_active }}
+                <label for="{{ form.is_active.id_for_label }}" class="ml-2 block text-sm text-gray-700">
+                    {{ form.is_active.label }}
+                </label>
+            </div>
+            {% if form.is_active.help_text %}
+                <p class="ml-6 text-sm text-gray-500">{{ form.is_active.help_text }}</p>
+            {% endif %}
+            {% if form.is_active.errors %}
+                <p class="ml-6 text-sm text-red-600">{{ form.is_active.errors.0 }}</p>
+            {% endif %}
+
+            <!-- Buttons -->
+            <div class="flex items-center justify-end space-x-4 pt-4 border-t border-gray-200">
+                <a href="{% url 'manage_announcements' %}" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition">
+                    Cancel
+                </a>
+                <button type="submit" class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition">
+                    Create Announcement
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Back Link -->
+    <div class="mt-6">
+        <a href="{% url 'manage_announcements' %}" class="text-blue-600 hover:text-blue-700 font-medium">
+            ← Back to Announcements
+        </a>
+    </div>
+</div>
+{% endblock %}

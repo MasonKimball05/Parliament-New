@@ -1,7 +1,7 @@
 from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
 from .decorators import log_function_call
-from .models import Committee, ParliamentUser, Legislation, Vote, Attendance, CommitteeDocument, Role
+from .models import Committee, ParliamentUser, Legislation, Vote, Attendance, CommitteeDocument, Role, Announcement
 import logging
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
@@ -113,7 +113,7 @@ class ParliamentUserAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('Personal Information', {
-            'fields': ('username', 'name', 'user_id', 'email')
+            'fields': ('username', 'name', 'preferred_name', 'user_id')
         }),
         ('Member Information', {
             'fields': ('member_type', 'member_status', 'is_admin')
@@ -228,6 +228,36 @@ class CommitteeDocumentAdmin(admin.ModelAdmin):
     search_fields = ('title', 'description', 'committee__name')
     readonly_fields = ('uploaded_at',)
     ordering = ('-uploaded_at',)
+
+
+@admin.register(Announcement)
+class AnnouncementAdmin(admin.ModelAdmin):
+    list_display = ('title', 'posted_by', 'posted_at', 'event_date', 'is_active')
+    list_filter = ('is_active', 'posted_at', 'event_date')
+    search_fields = ('title', 'content', 'posted_by__name')
+    readonly_fields = ('posted_at',)
+    ordering = ('-posted_at',)
+
+    fieldsets = (
+        ('Announcement Details', {
+            'fields': ('title', 'content', 'posted_by')
+        }),
+        ('Event Information', {
+            'fields': ('event_date',),
+            'description': 'Optional: Set a date/time if this announcement is for a specific event'
+        }),
+        ('Settings', {
+            'fields': ('is_active', 'posted_at'),
+        }),
+    )
+
+    def has_add_permission(self, request):
+        # Only officers and admins can create announcements
+        return request.user.is_authenticated and (request.user.is_admin or request.user.is_officer)
+
+    def has_change_permission(self, request, obj=None):
+        # Only officers and admins can edit announcements
+        return request.user.is_authenticated and (request.user.is_admin or request.user.is_officer)
 
 """
 @admin.register(LogEntry)

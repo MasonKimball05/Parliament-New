@@ -1,16 +1,13 @@
-from ..models import *
-from ..decorators import *
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
+from django.shortcuts import render
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib import messages
+from django.conf import settings
 import os
-LOG_FILE_PATH = os.path.join(settings.BASE_DIR, 'logs')
-if not os.path.exists(LOG_FILE_PATH):
-    os.makedirs(LOG_FILE_PATH)
+
+LOG_FILE_PATH = os.path.join(settings.BASE_DIR, 'logs', 'django_actions.log')
 
 @login_required
-@user_passes_test(lambda u: hasattr(u, 'is_admin') and u.is_admin)
-@log_function_call
+@user_passes_test(lambda u: u.member_type in ['Chair', 'Officer'])
 def view_logs(request):
     logs = []
 

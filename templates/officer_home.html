@@ -13,6 +13,7 @@
         <div class="max-w-7xl mx-auto px-6 flex justify-between items-center">
             <div class="space-x-4">
                 <a href="{% url 'home' %}" class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-500 transition">Home</a>
+                <a href="{% url 'calendar' %}" class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-500 transition">Calendar</a>
                 <a href="{% url 'attendance' %}" class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-500 transition">Take Attendance</a>
             </div>
             <div class="flex items-center space-x-4">
@@ -34,6 +35,40 @@
 
     <!-- Main Content -->
     <main class="flex-grow max-w-5xl mx-auto p-8">
+        <!-- Announcements Management Section -->
+        <section class="bg-white shadow rounded-lg p-6 mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold">Manage Announcements</h2>
+                <a href="{% url 'create_announcement' %}" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition flex items-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    <span>New Announcement</span>
+                </a>
+            </div>
+            <p class="text-gray-600 mb-4">Create and manage chapter announcements that appear on the home page.</p>
+            <a href="{% url 'manage_announcements' %}" class="text-blue-600 hover:text-blue-700 font-medium">
+                View All Announcements →
+            </a>
+        </section>
+
+        <!-- Event Management Section -->
+        <section class="bg-white shadow rounded-lg p-6 mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold">Manage Calendar Events</h2>
+                <a href="{% url 'create_event' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition flex items-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    <span>New Event</span>
+                </a>
+            </div>
+            <p class="text-gray-600 mb-4">Create and manage chapter events that appear on the calendar.</p>
+            <a href="{% url 'manage_events' %}" class="text-blue-600 hover:text-blue-700 font-medium">
+                View All Events →
+            </a>
+        </section>
+
         <!-- Example Officer Sections -->
         <section class="bg-white shadow rounded-lg p-6 mb-8">
             <h2 class="text-xl font-semibold mb-4">Recent Reports</h2>

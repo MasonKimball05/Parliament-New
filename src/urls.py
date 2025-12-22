@@ -1,45 +1,78 @@
 from django.urls import path
-from . import views
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from src.view.officer import *
 from src.view.committee import *
 from src.view.chapter_documents import chapter_documents
+from src.view.announcements import announcements_view
+from src.view.calendar import calendar_view, calendar_data_api
+from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event
+from src.view.home import home
+from src.view.vote_view import vote_view
+from src.view.change_password import change_password
+from src.view.view_legislation_history import view_legislation_history
+from src.view.login_view import login_view
+from src.view.logout_view import logout_view
+from src.view.profile_view import profile_view
+from src.view.upload_legislation import upload_legislation
+from src.view.end_vote import end_vote
+from src.view.passed_legislation import passed_legislation, PassedLegislationDetailView
+from src.view.legislation_detail import legislation_detail
+from src.view.edit_legislation import edit_legislation
+from src.view.reopen_legislation import reopen_legislation
+from src.view.submit_new_version import submit_new_version
+from src.view.login_as_view import login_as_view, login_as_user
 
 urlpatterns = [
     # General User Pages
-    path('', views.home, name='home'),
-    path('login/', views.login_view, name='login'),
-    path('logout/', views.logout_view, name='logout'),
-    path('users/', views.user_list, name='user_list'),
-    path('profile/', views.profile_view, name='profile'),
-    path('upload/', views.upload_legislation, name='upload_legislation'),
-    path('change_password/', views.change_password, name='change_password'),
+    path('', home, name='home'),
+    path('login/', login_view, name='login'),
+    path('logout/', logout_view, name='logout'),
+    path('users/', user_list, name='user_list'),
+    path('profile/', profile_view, name='profile'),
+    path('upload/', upload_legislation, name='upload_legislation'),
+    path('change_password/', change_password, name='change_password'),
     path('chapter-documents/', chapter_documents, name='chapter_documents'),
+    path('announcements/', announcements_view, name='announcements'),
+    path('calendar/', calendar_view, name='calendar'),
+    path('api/calendar-data/', calendar_data_api, name='calendar_data_api'),
 
     # Officer Pages
-    path('officers/', views.officer_home, name='officer_home'),
+    path('officers/', officer_home, name='officer_home'),
     path('attendance/', attendance, name='attendance'),
-    path('make_event/', views.make_event, name='make_event'),
-    path('manage_event/', views.manage_event, name='manage_event'),
-    path('user_list/', views.user_list, name='user_list'),
+    path('make_event/', make_event, name='make_event'),
+    path('manage_event/', manage_event, name='manage_event'),
+    path('user_list/', user_list, name='user_list'),
+
+    # Announcement Management (Officer)
+    path('officers/announcements/', manage_announcements, name='manage_announcements'),
+    path('officers/announcements/create/', create_announcement, name='create_announcement'),
+    path('officers/announcements/<int:announcement_id>/edit/', edit_announcement, name='edit_announcement'),
+    path('officers/announcements/<int:announcement_id>/delete/', delete_announcement, name='delete_announcement'),
+    path('officers/announcements/<int:announcement_id>/toggle/', toggle_announcement_status, name='toggle_announcement_status'),
+
+    # Event Management (Officer)
+    path('officers/events/', manage_events, name='manage_events'),
+    path('officers/events/create/', create_event, name='create_event'),
+    path('officers/events/<int:event_id>/edit/', edit_event, name='edit_event'),
+    path('officers/events/<int:event_id>/delete/', delete_event, name='delete_event'),
 
     # Legislation / Voting Pages
-    path('vote/', views.vote_view, name='vote'),
-    path('vote/end/<int:legislation_id>/', views.end_vote, name='end_vote'),
-    path('passed_legislation/', views.passed_legislation, name='passed_legislation'),
-    path('legislation/detail/<int:pk>/', views.PassedLegislationDetailView.as_view(), name='passed_legislation_detail'),
-    path('legislation/<int:legislation_id>/', views.legislation_detail, name='legislation_detail'),
-    path('legislation/history/', views.view_legislation_history, name='view_legislation_history'),
-    path('legislation/<int:legislation_id>/edit/', views.edit_legislation, name='edit_legislation'),
-    path('legislation/<int:legislation_id>/reopen/', views.reopen_legislation, name='reopen_legislation'),
-    path('legislation/<int:legislation_id>/submit_new_version/', views.submit_new_version, name='submit_new_version'),
+    path('vote/', vote_view, name='vote'),
+    path('vote/end/<int:legislation_id>/', end_vote, name='end_vote'),
+    path('passed_legislation/', passed_legislation, name='passed_legislation'),
+    path('legislation/detail/<int:pk>/', PassedLegislationDetailView.as_view(), name='passed_legislation_detail'),
+    path('legislation/<int:legislation_id>/', legislation_detail, name='legislation_detail'),
+    path('legislation/history/', view_legislation_history, name='view_legislation_history'),
+    path('legislation/<int:legislation_id>/edit/', edit_legislation, name='edit_legislation'),
+    path('legislation/<int:legislation_id>/reopen/', reopen_legislation, name='reopen_legislation'),
+    path('legislation/<int:legislation_id>/submit_new_version/', submit_new_version, name='submit_new_version'),
 
     # Admin Pages
     path('admin/', admin.site.urls),
-    path('admin/login-as/<int:user_id>/', views.login_as_user, name='login-as'),
-    path('accounts/login/', views.login_view, name='admin_login_redirect'),
+    path('admin/login-as/<int:user_id>/', login_as_user, name='login-as'),
+    path('accounts/login/', login_view, name='admin_login_redirect'),
 
     # Committee URLs
     path('committees/', committee_index, name='committee_index'),
