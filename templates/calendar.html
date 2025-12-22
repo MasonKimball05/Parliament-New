@@ -33,14 +33,26 @@
     <!-- Calendar Grid -->
     <div class="bg-white rounded-lg shadow-lg overflow-hidden mb-8">
         <!-- Month Navigation -->
-        <div class="bg-blue-600 text-white px-6 py-4 flex items-center justify-between">
-            <button onclick="navigateMonth(-1)" class="hover:bg-blue-700 p-2 rounded transition">
+        <div class="bg-blue-600 text-white px-6 py-4 flex items-center justify-between relative">
+            <button id="prevMonthBtn" onclick="navigateMonth(-1)" class="hover:bg-blue-700 p-2 rounded transition {% if not can_go_prev %}opacity-50 cursor-not-allowed{% endif %}" {% if not can_go_prev %}disabled{% endif %}>
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                 </svg>
             </button>
-            <h3 id="monthYearTitle" class="text-2xl font-bold">{{ month_name }} {{ year }}</h3>
-            <button onclick="navigateMonth(1)" class="hover:bg-blue-700 p-2 rounded transition">
+            <div class="relative">
+                <button onclick="toggleMonthDropdown()" class="text-2xl font-bold hover:bg-blue-700 px-4 py-2 rounded transition flex items-center space-x-2">
+                    <span id="monthYearTitle">{{ month_name }} {{ year }}</span>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                <div id="monthDropdown" class="hidden absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 z-50 w-80 max-h-96 overflow-y-auto">
+                    <div id="monthDropdownContent" class="p-2">
+                        <!-- Month options will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+            <button id="nextMonthBtn" onclick="navigateMonth(1)" class="hover:bg-blue-700 p-2 rounded transition {% if not can_go_next %}opacity-50 cursor-not-allowed{% endif %}" {% if not can_go_next %}disabled{% endif %}>
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                 </svg>
@@ -204,6 +216,8 @@
     let currentMonth = {{ month }};
     let currentYear = {{ year }};
     let today = {{ today|default:"null" }};
+    let canGoPrev = {{ can_go_prev|yesno:"true,false" }};
+    let canGoNext = {{ can_go_next|yesno:"true,false" }};
 
     // Cache for calendar data
     const calendarCache = {};
@@ -211,6 +225,17 @@
     // Preload adjacent months on page load
     window.addEventListener('DOMContentLoaded', function() {
         preloadAdjacentMonths();
+        populateMonthDropdown();
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(event) {
+        const dropdown = document.getElementById('monthDropdown');
+        const button = event.target.closest('button[onclick="toggleMonthDropdown()"]');
+
+        if (!button && !dropdown.contains(event.target)) {
+            dropdown.classList.add('hidden');
+        }
     });
 
     function preloadAdjacentMonths() {
@@ -276,6 +301,32 @@
 
         // Update today indicator
         today = data.today;
+
+        // Update navigation button states
+        canGoPrev = data.can_go_prev;
+        canGoNext = data.can_go_next;
+        updateNavigationButtons();
+    }
+
+    function updateNavigationButtons() {
+        const prevBtn = document.getElementById('prevMonthBtn');
+        const nextBtn = document.getElementById('nextMonthBtn');
+
+        if (canGoPrev) {
+            prevBtn.disabled = false;
+            prevBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        } else {
+            prevBtn.disabled = true;
+            prevBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
+        if (canGoNext) {
+            nextBtn.disabled = false;
+            nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        } else {
+            nextBtn.disabled = true;
+            nextBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
     }
 
     function renderCalendar(data) {
@@ -382,6 +433,65 @@
 
     function closeEventModal(id) {
         document.getElementById('dynamicModals').innerHTML = '';
+    }
+
+    function toggleMonthDropdown() {
+        const dropdown = document.getElementById('monthDropdown');
+        dropdown.classList.toggle('hidden');
+    }
+
+    function populateMonthDropdown() {
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                           'July', 'August', 'September', 'October', 'November', 'December'];
+
+        const now = new Date();
+        const minDate = new Date(now);
+        minDate.setFullYear(minDate.getFullYear() - 1);
+
+        const maxDate = new Date(now);
+        maxDate.setFullYear(maxDate.getFullYear() + 1);
+
+        const content = document.getElementById('monthDropdownContent');
+        let html = '';
+
+        // Generate list of available months
+        const currentDate = new Date(minDate);
+        let lastYear = null;
+
+        while (currentDate <= maxDate) {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth() + 1;
+
+            // Add year header when year changes
+            if (year !== lastYear) {
+                if (lastYear !== null) {
+                    html += '<div class="border-t border-gray-200 my-2"></div>';
+                }
+                html += `<div class="text-xs font-semibold text-gray-500 px-3 py-2">${year}</div>`;
+                lastYear = year;
+            }
+
+            const isCurrentMonth = year === currentYear && month === currentMonth;
+            const bgClass = isCurrentMonth ? 'bg-blue-100 text-blue-900 font-semibold' : 'text-gray-700 hover:bg-gray-100';
+
+            html += `
+                <button onclick="navigateToMonth(${year}, ${month})" class="w-full text-left px-4 py-2 rounded transition ${bgClass}">
+                    ${monthNames[month - 1]} ${year}
+                </button>
+            `;
+
+            currentDate.setMonth(currentDate.getMonth() + 1);
+        }
+
+        content.innerHTML = html;
+    }
+
+    function navigateToMonth(year, month) {
+        currentYear = year;
+        currentMonth = month;
+        loadCalendar(year, month);
+        document.getElementById('monthDropdown').classList.add('hidden');
+        preloadAdjacentMonths();
     }
 </script>
 

@@ -1,5 +1,5 @@
 from django import forms
-from .models import Legislation, Announcement, Event
+from .models import Legislation, Announcement, Event, CommitteeDocument, Committee
 
 class LegislationForm(forms.ModelForm):
     class Meta:
@@ -88,4 +88,53 @@ class EventForm(forms.ModelForm):
             'date_time': 'When the event will occur',
             'location': 'Physical location or virtual meeting link',
             'is_active': 'Uncheck to hide this event from the calendar'
+        }
+
+class CommitteeDocumentForm(forms.ModelForm):
+    class Meta:
+        model = CommitteeDocument
+        fields = ['committee', 'title', 'document', 'description', 'document_type', 'meeting_date', 'published_to_chapter']
+        widgets = {
+            'committee': forms.Select(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+            }),
+            'title': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'placeholder': 'Enter document title'
+            }),
+            'document': forms.FileInput(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'accept': '.pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'placeholder': 'Enter document description (optional)',
+                'rows': 4
+            }),
+            'document_type': forms.Select(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+            }),
+            'meeting_date': forms.DateInput(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'type': 'date'
+            }),
+            'published_to_chapter': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+            })
+        }
+        labels = {
+            'committee': 'Committee',
+            'title': 'Document Title',
+            'document': 'Upload Document',
+            'description': 'Description',
+            'document_type': 'Document Type',
+            'meeting_date': 'Meeting Date',
+            'published_to_chapter': 'Publish to Chapter'
+        }
+        help_texts = {
+            'committee': 'Select the committee this document belongs to',
+            'description': 'Optional: Provide additional details about this document',
+            'document_type': 'Select the type of document you are uploading',
+            'meeting_date': 'For minutes and agendas, specify the meeting date',
+            'published_to_chapter': 'Check to make this document visible to all chapter members'
         }

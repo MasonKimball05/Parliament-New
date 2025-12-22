@@ -1,9 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Vote</title>
-</head>
 {% extends 'base.html' %}
 {% load static %}
 {% load custom_filters %}
@@ -11,19 +5,36 @@
 {% block title %}Vote{% endblock %}
 
 {% block content %}
-    <div class="container mx-auto p-6 mt-6 bg-white shadow-lg rounded-lg">
-        <h1 class="text-3xl font-bold text-center mb-4">Legislation up for Vote</h1>
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold mb-2">Legislation up for Vote</h1>
+        <p class="text-gray-600">Cast your votes on active legislation</p>
+    </div>
 
+    <!-- Upload Legislation Form (Officers/Chairs Only) -->
     {% if profile.member_type in 'Chair Officer' %}
-        <form method="POST" enctype="multipart/form-data" class="space-y-4 mb-10 bg-white p-6 rounded shadow">
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 class="text-xl font-semibold mb-4 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+            </svg>
+            Upload New Legislation
+        </h2>
+
+        <form method="POST" enctype="multipart/form-data" class="space-y-4">
             {% csrf_token %}
             <input type="hidden" name="upload_submit" value="1">
 
-            <div class="flex justify-between items-center">
-                <h2 class="text-xl font-semibold">Upload Legislation</h2>
-                <div class="flex items-center gap-2">
-                    <label for="vote_mode">Voting Mode:</label>
-                    <select id="vote_mode" name="vote_mode" class="border px-2 py-1 rounded">
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                    <input type="text" name="title" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Voting Mode</label>
+                    <select id="vote_mode" name="vote_mode" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         <option value="percentage" selected>Percentage</option>
                         <option value="piecewise">Piecewise</option>
                         <option value="plurality">Plurality</option>
@@ -31,31 +42,38 @@
                 </div>
             </div>
 
-            <label class="block">Title:</label>
-            <input type="text" name="title" required class="w-full border rounded px-3 py-2">
-
-            <label class="block">Description:</label>
-            <textarea name="description" required class="w-full border rounded px-3 py-2"></textarea>
-
-            <label class="block">Available At:</label>
-            <input type="datetime-local" name="available_at" required class="w-full border rounded px-3 py-2">
-
-            <label class="block">Upload Document:</label>
-            <input type="file" id="documentUpload" name="document" accept=".pdf,.docx" required>
-
-            <div class="flex gap-3">
-                <input type="checkbox" name="anonymous" id="anonymous">
-                <label for="anonymous">Make Vote Anonymous</label>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea name="description" required rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
             </div>
-            <div class="flex gap-3" id="removeAbstainWrapper">
-                <input type="checkbox" name="remove_abstain" id="remove_abstain">
-                <label for="remove_abstain">Remove Abstain Option</label>
+
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Available At</label>
+                    <input type="datetime-local" name="available_at" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Upload Document</label>
+                    <input type="file" id="documentUpload" name="document" accept=".pdf,.docx" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-4">
+                <label class="flex items-center">
+                    <input type="checkbox" name="anonymous" id="anonymous" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <span class="ml-2 text-sm text-gray-700">Make Vote Anonymous</span>
+                </label>
+                <label class="flex items-center" id="removeAbstainWrapper">
+                    <input type="checkbox" name="remove_abstain" id="remove_abstain" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <span class="ml-2 text-sm text-gray-700">Remove Abstain Option</span>
+                </label>
             </div>
 
             <!-- Percentage Mode -->
             <div id="percentage-section">
-                <label>Required Vote to Pass:</label>
-                <select name="required_percentage" class="w-full border rounded px-3 py-2">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Required Vote to Pass</label>
+                <select name="required_percentage" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     <option value="51">51%</option>
                     <option value="60">60%</option>
                     <option value="67">67%</option>
@@ -66,155 +84,214 @@
 
             <!-- Piecewise Mode -->
             <div id="piecewise-section" class="hidden">
-                <label>Piecewise Rules:</label>
-                <textarea name="piecewise_rules" placeholder="e.g., Seniors: 80%, Juniors: 60%" class="w-full border rounded px-3 py-2"></textarea>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Piecewise Rules</label>
+                <textarea name="piecewise_rules" placeholder="e.g., Seniors: 80%, Juniors: 60%" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
             </div>
 
             <!-- Plurality Mode -->
-            <div id="plurality-options" class="mt-4 hidden">
-                <label class="block font-medium mb-1">Plurality Options (at least 2):</label>
+            <div id="plurality-options" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Plurality Options (at least 2)</label>
                 <div class="space-y-2">
-                    <input type="text" name="plurality_option_1" placeholder="Option 1" class="w-full border rounded px-3 py-2">
-                    <input type="text" name="plurality_option_2" placeholder="Option 2" class="w-full border rounded px-3 py-2">
-                    <input type="text" name="plurality_option_3" placeholder="Option 3 (optional)" class="w-full border rounded px-3 py-2">
-                    <input type="text" name="plurality_option_4" placeholder="Option 4 (optional)" class="w-full border rounded px-3 py-2">
-                    <input type="text" name="plurality_option_5" placeholder="Option 5 (optional)" class="w-full border rounded px-3 py-2">
+                    <input type="text" name="plurality_option_1" placeholder="Option 1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <input type="text" name="plurality_option_2" placeholder="Option 2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <input type="text" name="plurality_option_3" placeholder="Option 3 (optional)" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <input type="text" name="plurality_option_4" placeholder="Option 4 (optional)" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <input type="text" name="plurality_option_5" placeholder="Option 5 (optional)" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
             </div>
 
-            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Upload</button>
+            <div class="flex justify-end">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2 rounded-lg transition">
+                    Upload Legislation
+                </button>
+            </div>
         </form>
+    </div>
     {% endif %}
 
-    <script>
-        const modeSelect = document.getElementById("vote_mode");
-        const percentDiv = document.getElementById("percentage-section");
-        const piecewiseDiv = document.getElementById("piecewise-section");
-        const pluralityDiv = document.getElementById("plurality-section");
-
-        modeSelect.addEventListener("change", () => {
-            const mode = modeSelect.value;
-            percentDiv.classList.toggle("hidden", mode !== "percentage");
-            piecewiseDiv.classList.toggle("hidden", mode !== "piecewise");
-            pluralityDiv.classList.toggle("hidden", mode !== "plurality");
-        });
-
-        function togglePluralityFields(value) {
-            const pluralityDiv = document.getElementById('plurality-options');
-            const fileInput = document.getElementById('documentUpload');
-            const abstainDiv = document.getElementById('removeAbstainWrapper');
-
-            if (value === 'plurality') {
-                pluralityDiv.classList.remove('hidden');
-                fileInput.removeAttribute('required');
-                abstainDiv.classList.add('hidden');
-            } else {
-                pluralityDiv.classList.add('hidden');
-                fileInput.setAttribute('required', 'required');
-                abstainDiv.classList.remove('hidden');
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            const voteModeSelect = document.querySelector('select[name="vote_mode"]');
-            if (voteModeSelect) {
-                togglePluralityFields(voteModeSelect.value);
-                voteModeSelect.addEventListener('change', function(e) {
-                    togglePluralityFields(e.target.value);
-                });
-            }
-        });
-    </script>
-
-
-    {% if messages %}
-        {% for message in messages %}
-        <div class="p-3 rounded bg-green-100 text-green-800 mb-3">{{ message }}</div>
-        {% endfor %}
-    {% endif %}
-
+    <!-- Legislation List -->
     {% if not legislation %}
-    <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-        <p class="text-lg text-center">Currently, there is no legislation up for vote.</p>
-        <p class="text-center mt-4">
-            <a href="{% url 'passed_legislation' %}" class="text-blue-500 hover:text-blue-800">View Legislation Already Passed</a>
-        </p>
+    <div class="bg-white rounded-lg shadow-md p-8 text-center">
+        <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        <p class="text-lg text-gray-600 mb-4">Currently, there is no legislation up for vote.</p>
+        <a href="{% url 'passed_legislation' %}" class="text-blue-600 hover:text-blue-800 font-medium">
+            View Legislation Already Passed →
+        </a>
     </div>
     {% else %}
-        {% for leg in legislation %}
-        <div class="bg-white p-5 mb-6 rounded shadow">
-            <h3 class="text-xl font-bold">{{ leg.title }}</h3>
-            <p>{{ leg.description }}</p>
-            <p class="text-sm text-gray-500 mb-2">Available At: {{ leg.available_at|date:"F j, Y, g:i a" }}</p>
-            {% if leg.document %}
-                <a href="{{ leg.document.url }}" class="text-blue-600 underline" target="_blank">View Document</a>
-            {% endif %}
+        <div class="space-y-6">
+            {% for leg in legislation %}
+            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                <div class="bg-blue-50 px-6 py-4 border-b border-blue-100">
+                    <h3 class="text-xl font-bold text-gray-900">{{ leg.title }}</h3>
+                    <p class="text-sm text-gray-600 mt-1">Available: {{ leg.available_at|date:"F j, Y, g:i a" }}</p>
+                </div>
 
+                <div class="p-6">
+                    <p class="text-gray-700 mb-4">{{ leg.description }}</p>
 
-            {% if profile == leg.posted_by %}
-                {% with data=vote_data|get_item:leg.id %}
-                {% if data %}
-                <div class="mt-4 bg-gray-100 p-4 rounded">
-                    <h4 class="font-semibold mb-2">Live Vote Tally</h4>
-                    <ul class="text-sm">
-                        {% if leg.vote_mode == "plurality" %}
-                            {% for option, count in data.items %}
-                                {% if option != "total" %}
-                                    <li>{{ option }}: {{ count }}</li>
+                    <div class="flex items-center space-x-4 mb-4">
+                        {% if leg.document %}
+                        <a href="{{ leg.document.url }}" target="_blank" class="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            View Document
+                        </a>
+                        {% endif %}
+                        <span class="text-sm text-gray-500">Vote Mode: {{ leg.vote_mode|title }}</span>
+                    </div>
+
+                    <!-- Live Vote Tally (for author) -->
+                    {% if profile == leg.posted_by %}
+                        {% with data=vote_data|get_item:leg.id %}
+                        {% if data %}
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                            <h4 class="font-semibold text-gray-900 mb-3 flex items-center">
+                                <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                Live Vote Tally
+                            </h4>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                {% if leg.vote_mode == "plurality" %}
+                                    {% for option, count in data.items %}
+                                        {% if option != "total" %}
+                                            <div class="text-center">
+                                                <div class="text-2xl font-bold text-blue-600">{{ count }}</div>
+                                                <div class="text-sm text-gray-600">{{ option }}</div>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="text-center">
+                                        <div class="text-2xl font-bold text-green-600">{{ data.yes }}</div>
+                                        <div class="text-sm text-gray-600">Yes</div>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="text-2xl font-bold text-red-600">{{ data.no }}</div>
+                                        <div class="text-sm text-gray-600">No</div>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="text-2xl font-bold text-gray-600">{{ data.abstain }}</div>
+                                        <div class="text-sm text-gray-600">Abstain</div>
+                                    </div>
                                 {% endif %}
-                            {% endfor %}
-                            <li>🧮 Total Votes: {{ data.total }}</li>
-                        {% else %}
-                            <li>✅ Yes: {{ data.yes }}</li>
-                            <li>❌ No: {{ data.no }}</li>
-                            <li>⚪ Abstain: {{ data.abstain }}</li>
-                            <li>🧮 Total Votes: {{ data.total }}</li>
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-gray-900">{{ data.total }}</div>
+                                    <div class="text-sm text-gray-600">Total Votes</div>
+                                </div>
+                            </div>
+                        </div>
                         {% endif %}
-                    </ul>
-                </div>
-                {% endif %}
-                {% endwith %}
-            {% endif %}
+                        {% endwith %}
+                    {% endif %}
 
-            {% if profile == leg.posted_by and not leg.voting_closed %}
-            <form method="post" action="{% url 'end_vote' leg.id %}" class="mt-3">
-                {% csrf_token %}
-                <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded">End Vote</button>
-            </form>
-            {% endif %}
+                    <!-- Absent Warning -->
+                    {% if not can_vote %}
+                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                        <div class="flex">
+                            <svg class="w-5 h-5 text-yellow-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            <p class="text-sm text-yellow-700">You are marked as absent and cannot vote on this legislation.</p>
+                        </div>
+                    </div>
+                    {% endif %}
 
-            {% if not can_vote %}
-                <div class="bg-yellow-100 text-yellow-800 p-4 rounded mb-6">
-                    You are marked as absent and cannot vote on this legislation.
-                </div>
-            {% endif %}
+                    <!-- Voting Form -->
+                    {% if can_vote %}
+                    <form method="post" class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        {% csrf_token %}
+                        <input type="hidden" name="legislation_id" value="{{ leg.id }}">
 
-            {% if can_vote %}
-            <form method="post" class="mt-4">
-                {% csrf_token %}
-                <input type="hidden" name="legislation_id" value="{{ leg.id }}">
-                <label class="block font-medium mb-1">Vote:</label>
-                <div class="space-x-4">
-                    {% if leg.vote_mode == "plurality" %}
-                        {% for option in leg.plurality_options %}
-                            <label><input type="radio" name="vote_choice" value="{{ option }}"> {{ option }}</label>
-                        {% endfor %}
-                    {% else %}
-                        <label><input type="radio" name="vote_choice" value="yes"> Yes</label>
-                        <label><input type="radio" name="vote_choice" value="no"> No</label>
-                        {% if leg.allow_abstain %}
-                            <label><input type="radio" name="vote_choice" value="abstain"> Abstain</label>
-                        {% endif %}
+                        <label class="block text-sm font-medium text-gray-700 mb-3">Cast Your Vote:</label>
+                        <div class="space-y-2 mb-4">
+                            {% if leg.vote_mode == "plurality" %}
+                                {% for option in leg.plurality_options %}
+                                <label class="flex items-center p-3 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input type="radio" name="vote_choice" value="{{ option }}" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300">
+                                    <span class="ml-3 text-gray-700">{{ option }}</span>
+                                </label>
+                                {% endfor %}
+                            {% else %}
+                                <label class="flex items-center p-3 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input type="radio" name="vote_choice" value="yes" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300">
+                                    <span class="ml-3 text-gray-700">Yes</span>
+                                </label>
+                                <label class="flex items-center p-3 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input type="radio" name="vote_choice" value="no" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300">
+                                    <span class="ml-3 text-gray-700">No</span>
+                                </label>
+                                {% if leg.allow_abstain %}
+                                <label class="flex items-center p-3 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input type="radio" name="vote_choice" value="abstain" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300">
+                                    <span class="ml-3 text-gray-700">Abstain</span>
+                                </label>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+
+                        <input type="password" name="password" placeholder="Confirm Password" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4">
+
+                        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium px-6 py-2 rounded-lg transition">
+                            Submit Vote
+                        </button>
+                    </form>
+                    {% endif %}
+
+                    <!-- End Vote Button (for author) -->
+                    {% if profile == leg.posted_by and not leg.voting_closed %}
+                    <form method="post" action="{% url 'end_vote' leg.id %}" class="mt-4">
+                        {% csrf_token %}
+                        <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-medium px-6 py-2 rounded-lg transition">
+                            End Vote
+                        </button>
+                    </form>
                     {% endif %}
                 </div>
-                <input type="password" name="password" placeholder="Confirm Password"
-                       class="w-full border rounded px-3 py-2 mt-2">
-                <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded mt-2">Submit Vote</button>
-            </form>
-            {% endif %}
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
     {% endif %}
 </div>
+
+<script>
+    const modeSelect = document.getElementById("vote_mode");
+    const percentDiv = document.getElementById("percentage-section");
+    const piecewiseDiv = document.getElementById("piecewise-section");
+    const pluralityDiv = document.getElementById("plurality-options");
+    const fileInput = document.getElementById('documentUpload');
+    const abstainDiv = document.getElementById('removeAbstainWrapper');
+
+    function togglePluralityFields(value) {
+        if (value === 'plurality') {
+            pluralityDiv.classList.remove('hidden');
+            percentDiv.classList.add('hidden');
+            piecewiseDiv.classList.add('hidden');
+            if (fileInput) fileInput.removeAttribute('required');
+            if (abstainDiv) abstainDiv.classList.add('hidden');
+        } else if (value === 'piecewise') {
+            piecewiseDiv.classList.remove('hidden');
+            percentDiv.classList.add('hidden');
+            pluralityDiv.classList.add('hidden');
+            if (fileInput) fileInput.setAttribute('required', 'required');
+            if (abstainDiv) abstainDiv.classList.remove('hidden');
+        } else {
+            percentDiv.classList.remove('hidden');
+            piecewiseDiv.classList.add('hidden');
+            pluralityDiv.classList.add('hidden');
+            if (fileInput) fileInput.setAttribute('required', 'required');
+            if (abstainDiv) abstainDiv.classList.remove('hidden');
+        }
+    }
+
+    if (modeSelect) {
+        modeSelect.addEventListener('change', (e) => togglePluralityFields(e.target.value));
+        togglePluralityFields(modeSelect.value);
+    }
+</script>
 {% endblock %}
-</html>

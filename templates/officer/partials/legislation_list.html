@@ -1,0 +1,115 @@
+{% if legislation %}
+<div class="space-y-4">
+    {% for leg in legislation %}
+    <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+        <div class="flex items-start justify-between mb-3">
+            <div class="flex-1">
+                <div class="flex items-center space-x-3 mb-2">
+                    <h3 class="text-lg font-semibold text-gray-900">{{ leg.title }}</h3>
+                    {% if leg.status == 'draft' %}
+                    <span class="inline-block px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">
+                        <svg class="w-3 h-3 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                        </svg>
+                        Draft
+                    </span>
+                    {% elif leg.status == 'passed' %}
+                    <span class="inline-block px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
+                        <svg class="w-3 h-3 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        Passed
+                    </span>
+                    {% elif leg.status == 'removed' %}
+                    <span class="inline-block px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded">
+                        <svg class="w-3 h-3 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                        </svg>
+                        Removed
+                    </span>
+                    {% endif %}
+                    {% if leg.voting_closed %}
+                    <span class="inline-block px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
+                        Voting Closed
+                    </span>
+                    {% endif %}
+                </div>
+
+                <div class="flex items-center space-x-4 text-sm text-gray-600 mb-3">
+                    {% if type == "committee" %}
+                    <span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-800 rounded font-medium">
+                        {{ leg.committee.code }}
+                    </span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 rounded font-medium">
+                        Chapter
+                    </span>
+                    {% endif %}
+                    <span class="flex items-center text-gray-500">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                        {{ leg.vote_mode|title }}
+                    </span>
+                    {% if leg.vote_mode == 'percentage' %}
+                    <span class="text-gray-500">{{ leg.required_percentage }}% required</span>
+                    {% elif leg.vote_mode == 'peacewise' %}
+                    <span class="text-gray-500">{{ leg.required_number }} votes required</span>
+                    {% endif %}
+                </div>
+
+                <p class="text-gray-700 text-sm mb-3">{{ leg.description|truncatewords:30 }}</p>
+
+                <div class="flex items-center space-x-4 text-xs text-gray-500">
+                    <span class="flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                        </svg>
+                        {{ leg.posted_by.get_display_name }}
+                    </span>
+                    <span class="flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Created {{ leg.created_at|date:"M d, Y g:i A" }}
+                    </span>
+                    {% if leg.available_at %}
+                    <span class="flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        Available {{ leg.available_at|date:"M d, Y g:i A" }}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="ml-4 flex flex-col space-y-2">
+                <a href="{{ leg.document.url }}" target="_blank" class="inline-flex items-center justify-center space-x-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <span>View</span>
+                </a>
+                {% if type == "chapter" %}
+                <a href="{% url 'legislation_detail' leg.id %}" class="inline-flex items-center justify-center space-x-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-medium transition text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span>Details</span>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-lg shadow-md p-12 text-center">
+    <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+    </svg>
+    <h3 class="text-xl font-semibold text-gray-700 mb-2">No Legislation Found</h3>
+    <p class="text-gray-500">There is no legislation in this category.</p>
+</div>
+{% endif %}

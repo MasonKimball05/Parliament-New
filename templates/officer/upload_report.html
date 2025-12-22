@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Report{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-3xl">
+    <div class="mb-6">
+        <h2 class="text-3xl font-bold mb-2">Upload Committee Document</h2>
+        <p class="text-gray-600">Upload reports, minutes, agendas, and other committee documentation</p>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <form method="post" enctype="multipart/form-data" class="space-y-6">
+            {% csrf_token %}
+
+            <div>
+                <label for="{{ form.committee.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    {{ form.committee.label }} <span class="text-red-600">*</span>
+                </label>
+                {{ form.committee }}
+                {% if form.committee.help_text %}
+                    <p class="mt-1 text-sm text-gray-500">{{ form.committee.help_text }}</p>
+                {% endif %}
+                {% if form.committee.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.committee.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <label for="{{ form.document_type.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    {{ form.document_type.label }} <span class="text-red-600">*</span>
+                </label>
+                {{ form.document_type }}
+                {% if form.document_type.help_text %}
+                    <p class="mt-1 text-sm text-gray-500">{{ form.document_type.help_text }}</p>
+                {% endif %}
+                {% if form.document_type.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.document_type.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    {{ form.title.label }} <span class="text-red-600">*</span>
+                </label>
+                {{ form.title }}
+                {% if form.title.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.title.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <label for="{{ form.document.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    {{ form.document.label }} <span class="text-red-600">*</span>
+                </label>
+                {{ form.document }}
+                <p class="mt-1 text-sm text-gray-500">Accepted formats: PDF, DOCX, DOC, XLSX, XLS, PPTX, PPT</p>
+                {% if form.document.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.document.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    {{ form.description.label }}
+                </label>
+                {{ form.description }}
+                {% if form.description.help_text %}
+                    <p class="mt-1 text-sm text-gray-500">{{ form.description.help_text }}</p>
+                {% endif %}
+                {% if form.description.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.description.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <label for="{{ form.meeting_date.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    {{ form.meeting_date.label }}
+                </label>
+                {{ form.meeting_date }}
+                {% if form.meeting_date.help_text %}
+                    <p class="mt-1 text-sm text-gray-500">{{ form.meeting_date.help_text }}</p>
+                {% endif %}
+                {% if form.meeting_date.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.meeting_date.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="border-t border-gray-200 pt-4">
+                <div class="flex items-start">
+                    {{ form.published_to_chapter }}
+                    <div class="ml-3">
+                        <label for="{{ form.published_to_chapter.id_for_label }}" class="text-sm font-medium text-gray-700">
+                            {{ form.published_to_chapter.label }}
+                        </label>
+                        {% if form.published_to_chapter.help_text %}
+                            <p class="text-sm text-gray-500">{{ form.published_to_chapter.help_text }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if form.published_to_chapter.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.published_to_chapter.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                <a href="{% url 'officer_home' %}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-6 rounded-lg transition">
+                    Cancel
+                </a>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition flex items-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    <span>Upload Document</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Information Panel -->
+    <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <div class="flex items-start">
+            <svg class="w-6 h-6 text-blue-600 mt-0.5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <div>
+                <h3 class="text-sm font-semibold text-blue-900 mb-2">Document Types</h3>
+                <ul class="text-sm text-blue-800 space-y-1">
+                    <li><strong>General Document:</strong> Any committee-related document</li>
+                    <li><strong>Meeting Minutes:</strong> Official records of committee meetings</li>
+                    <li><strong>Meeting Agenda:</strong> Planned topics for upcoming meetings</li>
+                    <li><strong>Report:</strong> Committee activity reports and analyses</li>
+                    <li><strong>Policy Document:</strong> Committee policies and procedures</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

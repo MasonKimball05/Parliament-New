@@ -40,6 +40,11 @@ urlpatterns = [
 
     # Officer Pages
     path('officers/', officer_home, name='officer_home'),
+    path('officers/upload-report/', upload_report, name='upload_report'),
+    path('officers/all-events/', view_all_events, name='view_all_events'),
+    path('officers/all-reports/', view_all_reports, name='view_all_reports'),
+    path('officers/all-activity/', view_all_activity, name='view_all_activity'),
+    path('officers/archived-events/', view_archived_events, name='view_archived_events'),
     path('attendance/', attendance, name='attendance'),
     path('make_event/', make_event, name='make_event'),
     path('manage_event/', manage_event, name='manage_event'),
@@ -57,6 +62,8 @@ urlpatterns = [
     path('officers/events/create/', create_event, name='create_event'),
     path('officers/events/<int:event_id>/edit/', edit_event, name='edit_event'),
     path('officers/events/<int:event_id>/delete/', delete_event, name='delete_event'),
+    path('officers/events/<int:event_id>/archive/', archive_event, name='archive_event'),
+    path('officers/events/<int:event_id>/unarchive/', unarchive_event, name='unarchive_event'),
 
     # Legislation / Voting Pages
     path('vote/', vote_view, name='vote'),
