@@ -1,9 +1,11 @@
 from ..decorators import *
 from ..models import *
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
+from django.utils import timezone
+from datetime import timedelta
 
 @login_required
 @log_function_call
@@ -28,9 +30,18 @@ def home(request):
         } for leg in recently_passed_legislation
     ]
 
+    # Get the 3 most recent active announcements for preview
+    now = timezone.now()
+    announcements = Announcement.objects.filter(
+        is_active=True
+    ).filter(
+        Q(publish_at__isnull=True) | Q(publish_at__lte=now)
+    ).order_by('-posted_at')[:3]
+
     context = {
         'user': request.user,
         'legislation_previews': legislation_previews,
+        'announcements': announcements,
     }
 
     return render(request, 'home.html', context)

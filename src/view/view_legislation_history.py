@@ -1,11 +1,8 @@
-from ..decorators import *
-from ..models import *
 from django.shortcuts import render
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
+from ..models import *
 
 @login_required
-@user_passes_test(lambda u: u.member_type in ['Chair', 'Officer'])
-@log_function_call
 def view_legislation_history(request):
     user = request.user
 

@@ -5,127 +5,137 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Parliament{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        // Loosely inspired by Beta colors - more subtle
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
 </head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+    <!-- Navigation -->
+    <nav class="bg-primary-700 text-white shadow-lg">
+        <div class="max-w-full mx-auto px-3 sm:px-4 lg:px-6">
+            <div class="flex items-center justify-between h-14">
+                <div class="flex items-center space-x-4 lg:space-x-6">
+                    <a href="{% url 'home' %}" class="text-lg font-bold hover:text-primary-200 transition-colors whitespace-nowrap">
+                        Parliament
+                    </a>
 
-<body class="bg-gray-100 font-sans">
-    <!-- Navigation Bar -->
-    <nav class="bg-blue-600 text-white p-4 flex justify-between">
-        <div>
-            <a href="{% url 'home' %}" class="px-4 py-2 hover:bg-blue-700">Home</a> |
-            <a href="{% url 'profile' %}" class="px-4 py-2 hover:bg-blue-700">Profile</a> |
-            <a href="{% url 'vote' %}" class="px-4 py-2 hover:bg-blue-700">Vote</a> |
-            <a href="{% url 'passed_legislation' %}" class="px-4 py-2 hover:bg-blue-700">Passed Legislation</a> |
-            <a href="{% url 'chapter_documents' %}" class="px-4 py-2 hover:bg-blue-700">Documents</a> |
-            <a href="{% url 'view_legislation_history' %}" class="px-4 py-2 hover:bg-blue-700">Your Legislation History</a> |
-            <a href="{% url 'logout' %}" class="px-4 py-2 hover:bg-blue-700">Logout</a>
-        </div>
-        <div>
-            {% if user.member_type == "Officer" %}
-                <a href="{% url 'attendance' %}" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition">Take Attendance</a>
-            {% endif %}
-            {% if user.is_admin %}
-                <!-- Admin button only visible to admins -->
-                <a href="{% url 'admin:index' %}" class="bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700 transition ml-4">
-                    Go to Admin Portal
-                </a>
-            {% endif %}
+                    {% if user.is_authenticated %}
+                        <div class="hidden lg:flex space-x-1">
+                            <a href="{% url 'home' %}" class="px-2 py-2 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
+                                Home
+                            </a>
+                            <a href="{% url 'vote' %}" class="px-2 py-2 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
+                                Vote
+                            </a>
+                            <a href="{% url 'committee_index' %}" class="px-2 py-2 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
+                                Committees
+                            </a>
+                            <a href="{% url 'chapter_documents' %}" class="px-2 py-2 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
+                                Documents
+                            </a>
+                            <a href="{% url 'passed_legislation' %}" class="px-2 py-2 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
+                                Legislation
+                            </a>
+                            <a href="{% url 'announcements' %}" class="px-2 py-2 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
+                                Announcements
+                            </a>
+                            <a href="{% url 'calendar' %}" class="px-2 py-2 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
+                                Calendar
+                            </a>
+                            {% if user.is_officer %}
+                            <a href="{% url 'officer_home' %}" class="px-2 py-2 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
+                                Officers
+                            </a>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                {% if user.is_authenticated %}
+                    <div class="flex items-center space-x-2">
+                        <a href="{% url 'profile' %}" class="px-2 py-2 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
+                            {{ user.get_display_name }}
+                        </a>
+                        {% if user.is_admin %}
+                            <a href="/admin/" class="px-2 py-2 text-sm rounded-md bg-red-700 hover:bg-red-800 transition-colors whitespace-nowrap">
+                                Admin
+                            </a>
+                        {% endif %}
+                        <a href="{% url 'logout' %}" class="px-2 py-2 text-sm rounded-md bg-gray-600 hover:bg-gray-700 transition-colors whitespace-nowrap">
+                            Logout
+                        </a>
+                    </div>
+                {% else %}
+                    <a href="{% url 'login' %}" class="px-3 py-2 text-sm rounded-md bg-white text-primary-700 font-medium hover:bg-gray-100 transition-colors">
+                        Login
+                    </a>
+                {% endif %}
+            </div>
         </div>
     </nav>
 
-    <!-- Main Content Section -->
-    <main class="py-8">
-        <div class="max-w-screen-xl mx-auto px-4">
-            {% block content %}
-            <!-- Content goes here -->
-            {% endblock %}
+    <!-- Messages -->
+    {% if messages %}
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+            {% for message in messages %}
+                <div class="rounded-md p-4 mb-4 {% if message.tags == 'success' %}bg-green-50 border border-green-200 text-green-800{% elif message.tags == 'error' %}bg-red-50 border border-red-200 text-red-800{% elif message.tags == 'warning' %}bg-yellow-50 border border-yellow-200 text-yellow-800{% else %}bg-blue-50 border border-blue-200 text-blue-800{% endif %}">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            {% if message.tags == 'success' %}
+                                <svg class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                            {% elif message.tags == 'error' %}
+                                <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                                </svg>
+                            {% else %}
+                                <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                </svg>
+                            {% endif %}
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium">{{ message }}</p>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
         </div>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main class="flex-grow">
+        {% block content %}{% endblock %}
     </main>
 
-    <footer class="bg-gray-800 text-white py-4">
-        <div class="max-w-screen-xl mx-auto text-center">
-            <p>&copy; 2025 Parliament. All rights reserved.</p>
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <p class="text-center text-gray-500 text-sm">
+                &copy; {% now "Y" %} Parliament System. All rights reserved.
+            </p>
         </div>
     </footer>
-
-    <style>
-        /* Custom Styles */
-        body {
-            font-family: 'Arial', sans-serif;
-        }
-
-        .page-title {
-            font-size: 2rem;
-            text-align: center;
-            color: #333;
-        }
-
-        .upload-section, .legislation-section {
-            margin-bottom: 40px;
-        }
-
-        .upload-section h2, .legislation-section h2 {
-            font-size: 1.5rem;
-            color: #333;
-            margin-bottom: 10px;
-        }
-
-        .upload-section input, .upload-section textarea {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 15px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-
-        .upload-section button {
-            background-color: #007bff;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            width: 100%;
-            font-size: 16px;
-        }
-
-        .upload-section button:hover {
-            background-color: #0056b3;
-        }
-
-        .legislation-list {
-            list-style-type: none;
-            padding: 0;
-        }
-
-        .legislation-list li {
-            background-color: #f9f9f9;
-            padding: 15px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-
-        .legislation-list li a {
-            color: #007bff;
-            text-decoration: none;
-        }
-
-        .legislation-list li a:hover {
-            text-decoration: underline;
-        }
-
-        .back-home {
-            text-align: center;
-        }
-
-        .back-home a {
-            color: #007bff;
-            text-decoration: none;
-        }
-
-        .back-home a:hover {
-            text-decoration: underline;
-        }
-    </style>
 </body>
 </html>
