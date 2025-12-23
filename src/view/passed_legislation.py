@@ -25,21 +25,32 @@ def passed_legislation(request):
             continue
 
         vote_passed = False
-        if leg.vote_mode == 'peacewise':
+        yes_pct = 0
+
+        if leg.vote_mode == 'piecewise':
             vote_passed = yes >= leg.required_yes_votes
-        else:
+        elif leg.vote_mode == 'plurality':
+            # For plurality, use the stored passed status
+            vote_passed = leg.passed
+        else:  # percentage mode
             yes_pct = (yes / total_non_abstain) * 100
             required_pct = int(leg.required_percentage)
             vote_passed = yes_pct >= required_pct
 
-        vote_breakdown = {
-            'yes': yes,
-            'no': no,
-            'abstain': abstain
-        }
+        # Calculate vote breakdown based on mode
         if leg.vote_mode == 'plurality':
-            winner = max(vote_breakdown, key=vote_breakdown.get)
+            # For plurality, get counts for each option
+            vote_breakdown = {}
+            for option in leg.plurality_options:
+                vote_breakdown[option] = votes.filter(vote_choice=option).count()
+            winner = max(vote_breakdown, key=vote_breakdown.get) if vote_breakdown else None
         else:
+            # For yes/no votes
+            vote_breakdown = {
+                'yes': yes,
+                'no': no,
+                'abstain': abstain
+            }
             winner = None
 
 
@@ -62,15 +73,23 @@ def passed_legislation(request):
             created_at__range=(vote_start_utc, vote_end_utc)
         ).order_by('user_id', '-created_at').distinct('user_id').select_related('user')
 
+        # Calculate percentages for display
+        if leg.vote_mode != 'plurality':
+            yes_pct_display = round(yes_pct, 2) if yes_pct > 0 else 0
+            no_pct_display = round((no / total_non_abstain) * 100, 2) if total_non_abstain > 0 else 0
+        else:
+            yes_pct_display = 0
+            no_pct_display = 0
+
         passed.append({
             'legislation': leg,
             'yes': yes,
             'no': no,
             'abstain': abstain,
-            'yes_pct': round(yes_pct, 2),
-            'no_pct': round((no / total_non_abstain) * 100, 2),
-            'required_pct': required_pct,
-            'required_yes_votes': getattr(leg, 'required_yes_votes', None),
+            'yes_pct': yes_pct_display,
+            'no_pct': no_pct_display,
+            'required_pct': int(leg.required_percentage) if leg.vote_mode == 'percentage' else None,
+            'required_yes_votes': leg.required_yes_votes if leg.vote_mode == 'piecewise' else None,
             'vote_mode': leg.vote_mode,
             'vote_passed': vote_passed,
             'present_members': present_members,
