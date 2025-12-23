@@ -73,3 +73,31 @@ dist/
 *.tar.gz
 *.egg
 *.whl
+
+# === Docker ===
+docker-compose.override.yml
+.dockerignore
+
+# === Celery ===
+celerybeat-schedule
+celerybeat.pid
+
+# === Node / Frontend ===
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# === Temporary / Cache ===
+*.tmp
+*.temp
+.cache/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# === Django Specific ===
+local_settings.py
+db_backup/
+fixtures/backup_*.json
