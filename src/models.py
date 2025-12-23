@@ -149,7 +149,7 @@ class Legislation(models.Model):
     voting_closed = models.BooleanField(default=False)
     vote_mode = models.CharField(
         max_length=20,
-        choices=[('percentage', 'Percentage'), ('peacewise', 'Peacewise'), ('plurality', 'Plurality')],
+        choices=[('percentage', 'Percentage'), ('piecewise', 'Piecewise'), ('plurality', 'Plurality')],
         default='percentage',
     )
 
@@ -160,7 +160,7 @@ class Legislation(models.Model):
 
     @property
     def required_yes_votes(self):
-        if self.vote_mode == 'peacewise':
+        if self.vote_mode == 'piecewise':
             return self.required_number or 0
         return None
 
@@ -185,7 +185,7 @@ class Legislation(models.Model):
                 self.passed = len(winners) == 1  # Only passes if there is a single clear winner
             else:
                 self.passed = False
-        elif self.vote_mode == 'peacewise':
+        elif self.vote_mode == 'piecewise':
             yes_votes = total_votes.filter(vote_choice='yes').count()
             self.passed = yes_votes >= self.required_yes_votes
         else:  # percentage
@@ -396,7 +396,7 @@ class CommitteeLegislation(models.Model):
 
     vote_mode = models.CharField(
         max_length=20,
-        choices=[('percentage', 'Percentage'), ('peacewise', 'Peacewise'), ('plurality', 'Plurality')],
+        choices=[('percentage', 'Percentage'), ('piecewise', 'Piecewise'), ('plurality', 'Plurality')],
         default='percentage',
     )
 
@@ -433,7 +433,7 @@ class CommitteeLegislation(models.Model):
                 self.passed = len(winners) == 1
             else:
                 self.passed = False
-        elif self.vote_mode == 'peacewise':
+        elif self.vote_mode == 'piecewise':
             yes_votes = total_votes.filter(vote_choice='yes').count()
             self.passed = yes_votes >= self.required_number
         else:  # percentage

@@ -44,7 +44,7 @@
                         class="w-full border border-gray-300 rounded px-3 py-2"
                         onchange="toggleVoteMode()">
                     <option value="percentage">Percentage (Yes/No/Abstain)</option>
-                    <option value="peacewise">Peacewise (Specific number of Yes votes)</option>
+                    <option value="piecewise">Piecewise (Specific number of Yes votes)</option>
                     <option value="plurality">Plurality (Multiple options)</option>
                 </select>
             </div>
@@ -73,14 +73,15 @@
                 </div>
             </div>
 
-            <!-- Peacewise Options -->
-            <div id="peacewise_options" style="display: none;">
+            <!-- Piecewise Options -->
+            <div id="piecewise_options" style="display: none;">
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                     Required Number of Yes Votes
                 </label>
                 <input type="number" name="required_number" min="1"
                        class="w-full border border-gray-300 rounded px-3 py-2"
                        placeholder="Enter number of required yes votes">
+                <p class="text-sm text-gray-500 mt-1">Enter the exact number of "Yes" votes needed for this legislation to pass</p>
             </div>
 
             <!-- Plurality Options -->
@@ -152,22 +153,22 @@
 function toggleVoteMode() {
     const voteMode = document.getElementById('vote_mode').value;
     const percentageOptions = document.getElementById('percentage_options');
-    const peacewiseOptions = document.getElementById('peacewise_options');
+    const piecewiseOptions = document.getElementById('piecewise_options');
     const pluralityOptions = document.getElementById('plurality_options');
     const documentUpload = document.getElementById('document_upload');
     const docRequired = document.getElementById('doc_required');
 
     // Hide all first
     percentageOptions.style.display = 'none';
-    peacewiseOptions.style.display = 'none';
+    piecewiseOptions.style.display = 'none';
     pluralityOptions.style.display = 'none';
 
     // Show relevant options
     if (voteMode === 'percentage') {
         percentageOptions.style.display = 'block';
         docRequired.style.display = 'inline';
-    } else if (voteMode === 'peacewise') {
-        peacewiseOptions.style.display = 'block';
+    } else if (voteMode === 'piecewise') {
+        piecewiseOptions.style.display = 'block';
         docRequired.style.display = 'inline';
     } else if (voteMode === 'plurality') {
         pluralityOptions.style.display = 'block';
