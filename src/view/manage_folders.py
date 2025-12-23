@@ -5,10 +5,10 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from src.models import ChapterFolder
-from src.decorators import officer_required
+from src.decorators import admin_required
 
 
-@officer_required
+@admin_required
 def create_folder(request):
     """Allow officers to create custom folders for chapter documents"""
     if request.method == 'POST':
@@ -37,7 +37,7 @@ def create_folder(request):
     return redirect('chapter_documents')
 
 
-@officer_required
+@admin_required
 def delete_folder(request, folder_id):
     """Allow officers to delete custom folders"""
     folder = get_object_or_404(ChapterFolder, id=folder_id)
