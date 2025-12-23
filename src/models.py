@@ -511,6 +511,20 @@ class CommitteeMinutes(models.Model):
         return f"{self.committee.code} - {self.title} ({self.date})"
 
 
+class ChapterFolder(models.Model):
+    """Custom folders for organizing chapter documents"""
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    created_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE, related_name='created_folders')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class CommitteeDocument(models.Model):
     DOCUMENT_TYPES = [
         ('general', 'General Document'),
@@ -527,6 +541,7 @@ class CommitteeDocument(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True)
     description = models.TextField(blank=True)
     published_to_chapter = models.BooleanField(default=False)
+    chapter_folder = models.ForeignKey(ChapterFolder, on_delete=models.SET_NULL, null=True, blank=True, related_name='documents', help_text='Optional custom folder for chapter documents')
     document_type = models.CharField(max_length=20, choices=DOCUMENT_TYPES, default='general')
     meeting_date = models.DateField(null=True, blank=True, help_text='For minutes and agendas')
 

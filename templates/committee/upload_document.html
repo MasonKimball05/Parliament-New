@@ -81,8 +81,8 @@
 
             <div class="border-t pt-4">
                 <label class="flex items-center space-x-2">
-                    <input type="checkbox" name="publish_to_chapter" value="true"
-                           class="rounded border-gray-300">
+                    <input type="checkbox" name="publish_to_chapter" value="true" id="publish_to_chapter"
+                           class="rounded border-gray-300" onchange="toggleFolderSelection()">
                     <span class="text-sm font-medium text-gray-700">
                         Publish to Chapter Documents (visible to all members)
                     </span>
@@ -90,7 +90,30 @@
                 <p class="text-sm text-gray-500 mt-1 ml-6">
                     If checked, this document will be visible in the general chapter documents section
                 </p>
+
+                <div id="folder_selection" style="display: none;" class="mt-4 ml-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Select Folder (Optional)
+                    </label>
+                    <select name="chapter_folder" class="w-full md:w-1/2 border border-gray-300 rounded px-3 py-2">
+                        <option value="">-- No Folder (Uncategorized) --</option>
+                        {% for folder in folders %}
+                            <option value="{{ folder.id }}">{{ folder.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-sm text-gray-500 mt-1">
+                        Choose a custom folder to organize this document
+                    </p>
+                </div>
             </div>
+
+            <script>
+                function toggleFolderSelection() {
+                    const publishCheckbox = document.getElementById('publish_to_chapter');
+                    const folderSelection = document.getElementById('folder_selection');
+                    folderSelection.style.display = publishCheckbox.checked ? 'block' : 'none';
+                }
+            </script>
 
             <div class="flex gap-3">
                 <button type="submit" class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">

@@ -5,6 +5,7 @@ from django.contrib import admin
 from src.view.officer import *
 from src.view.committee import *
 from src.view.chapter_documents import chapter_documents
+from src.view.manage_folders import create_folder, delete_folder
 from src.view.announcements import announcements_view
 from src.view.calendar import calendar_view, calendar_data_api
 from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event
@@ -36,6 +37,8 @@ urlpatterns = [
     path('change_password/', change_password, name='change_password'),
     path('forced-password-change/', forced_password_change, name='forced_password_change'),
     path('chapter-documents/', chapter_documents, name='chapter_documents'),
+    path('chapter-documents/create-folder/', create_folder, name='create_folder'),
+    path('chapter-documents/delete-folder/<int:folder_id>/', delete_folder, name='delete_folder'),
     path('announcements/', announcements_view, name='announcements'),
     path('calendar/', calendar_view, name='calendar'),
     path('api/calendar-data/', calendar_data_api, name='calendar_data_api'),

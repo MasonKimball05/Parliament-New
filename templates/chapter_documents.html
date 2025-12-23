@@ -4,88 +4,96 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
-    <div class="mb-6">
-        <h2 class="text-3xl font-bold mb-2">Chapter Documents</h2>
-        <p class="text-gray-600">Documents published by committees for all chapter members</p>
-        {% if total_documents %}
-            <p class="text-sm text-gray-500 mt-1">{{ total_documents }} document{{ total_documents|pluralize }} available</p>
+    <div class="mb-6 flex justify-between items-start">
+        <div>
+            <h2 class="text-3xl font-bold mb-2">Chapter Documents</h2>
+            <p class="text-gray-600">Documents published by committees for all chapter members</p>
+            {% if total_documents %}
+                <p class="text-sm text-gray-500 mt-1">{{ total_documents }} document{{ total_documents|pluralize }} available</p>
+            {% endif %}
+        </div>
+
+        {% if is_officer %}
+            <button onclick="showCreateFolderModal()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Create Folder
+            </button>
         {% endif %}
     </div>
 
     <div class="space-y-4">
-        {% if documents_by_committee %}
-            {% for committee, documents in documents_by_committee %}
+        <!-- Custom Folders -->
+        {% if documents_by_folder %}
+            {% for folder, documents in documents_by_folder %}
                 <details class="bg-white rounded-lg shadow-md overflow-hidden" open>
-                    <summary class="bg-blue-50 px-6 py-4 cursor-pointer hover:bg-blue-100 transition flex items-center justify-between">
+                    <summary class="bg-purple-50 px-6 py-4 cursor-pointer hover:bg-purple-100 transition flex items-center justify-between">
                         <div class="flex items-center space-x-3">
-                            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
                             </svg>
-                            <span class="text-lg font-semibold text-gray-900">{{ committee.name }}</span>
-                            <span class="text-sm text-gray-500">({{ committee.code }})</span>
+                            <div>
+                                <span class="text-lg font-semibold text-gray-900">{{ folder.name }}</span>
+                                {% if folder.description %}
+                                    <p class="text-sm text-gray-600">{{ folder.description }}</p>
+                                {% endif %}
+                            </div>
                         </div>
-                        <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                            {{ documents|length }} document{{ documents|length|pluralize }}
-                        </span>
+                        <div class="flex items-center space-x-2">
+                            <span class="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                                {{ documents|length }} document{{ documents|length|pluralize }}
+                            </span>
+                            {% if is_officer %}
+                                <form method="POST" action="{% url 'delete_folder' folder.id %}" onsubmit="return confirm('Delete this folder? Documents will be moved to Uncategorized.');" class="inline" onclick="event.stopPropagation();">
+                                    {% csrf_token %}
+                                    <button type="submit" class="text-red-600 hover:text-red-800 p-1" title="Delete folder">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                        </svg>
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
                     </summary>
 
                     <div class="px-6 py-4">
                         <div class="space-y-3">
                             {% for doc in documents %}
-                                <div class="border-b pb-3 last:border-b-0 last:pb-0">
-                                    <div class="flex justify-between items-start">
-                                        <div class="flex-1">
-                                            <h3 class="text-base font-semibold text-gray-900">
-                                                <a href="{{ doc.document.url }}" target="_blank" class="text-blue-600 hover:text-blue-800 flex items-center">
-                                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                                    </svg>
-                                                    {{ doc.title }}
-                                                </a>
-                                            </h3>
-                                            {% if doc.description %}
-                                                <p class="text-gray-600 text-sm mt-1 ml-6">{{ doc.description }}</p>
-                                            {% endif %}
-                                            <div class="text-xs text-gray-500 mt-1 ml-6">
-                                                Uploaded by {{ doc.uploaded_by.name }} on {{ doc.uploaded_at|date:"M d, Y" }}
-                                                {% if doc.meeting_date %}
-                                                    • Meeting: {{ doc.meeting_date|date:"M d, Y" }}
-                                                {% endif %}
-                                                {% if doc.document_type == "minutes" %}
-                                                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                                                        📋 Minutes
-                                                    </span>
-                                                {% elif doc.document_type == "agenda" %}
-                                                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                                        📅 Agenda
-                                                    </span>
-                                                {% elif doc.document_type == "report" %}
-                                                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                                                        📊 Report
-                                                    </span>
-                                                {% elif doc.document_type == "policy" %}
-                                                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
-                                                        📜 Policy
-                                                    </span>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                        <div class="ml-4">
-                                            <a href="{{ doc.document.url }}" download class="text-blue-600 hover:text-blue-800 text-sm flex items-center">
-                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                                                </svg>
-                                                Download
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
+                                {% include 'chapter_documents_item.html' %}
                             {% endfor %}
                         </div>
                     </div>
                 </details>
             {% endfor %}
-        {% else %}
+        {% endif %}
+
+        <!-- Uncategorized Documents -->
+        {% if uncategorized_documents %}
+            <details class="bg-white rounded-lg shadow-md overflow-hidden" open>
+                <summary class="bg-gray-50 px-6 py-4 cursor-pointer hover:bg-gray-100 transition flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <span class="text-lg font-semibold text-gray-900">Uncategorized</span>
+                    </div>
+                    <span class="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                        {{ uncategorized_documents|length }} document{{ uncategorized_documents|length|pluralize }}
+                    </span>
+                </summary>
+
+                <div class="px-6 py-4">
+                    <div class="space-y-3">
+                        {% for doc in uncategorized_documents %}
+                            {% include 'chapter_documents_item.html' %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </details>
+        {% endif %}
+
+        {% if not documents_by_folder and not uncategorized_documents %}
             <div class="bg-white rounded-lg shadow-md p-8 text-center">
                 <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -96,6 +104,65 @@
         {% endif %}
     </div>
 </div>
+
+<!-- Create Folder Modal -->
+{% if is_officer %}
+<div id="createFolderModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold mb-4">Create New Folder</h3>
+
+        <form method="POST" action="{% url 'create_folder' %}" class="space-y-4">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Folder Name <span class="text-red-500">*</span>
+                </label>
+                <input type="text" name="folder_name" required
+                       class="w-full border border-gray-300 rounded px-3 py-2"
+                       placeholder="e.g., Financial Reports, Policies">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Description (Optional)
+                </label>
+                <textarea name="folder_description" rows="2"
+                          class="w-full border border-gray-300 rounded px-3 py-2"
+                          placeholder="Brief description of this folder"></textarea>
+            </div>
+
+            <div class="flex gap-3">
+                <button type="submit" class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
+                    Create Folder
+                </button>
+                <button type="button" onclick="hideCreateFolderModal()" class="bg-gray-300 text-gray-700 px-6 py-2 rounded hover:bg-gray-400">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function showCreateFolderModal() {
+        document.getElementById('createFolderModal').classList.remove('hidden');
+        document.getElementById('createFolderModal').classList.add('flex');
+    }
+
+    function hideCreateFolderModal() {
+        document.getElementById('createFolderModal').classList.add('hidden');
+        document.getElementById('createFolderModal').classList.remove('flex');
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('createFolderModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            hideCreateFolderModal();
+        }
+    });
+</script>
+{% endif %}
 
 <style>
     details[open] summary {
