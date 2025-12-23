@@ -578,7 +578,7 @@ chown -R $USER:$USER media/
 - File upload validation
 - Permission-based access control
 
-Report security vulnerabilities to: [your-email@example.com]
+Report security vulnerabilities to: mason.kimball@icloud.com
 
 ---
 
@@ -590,7 +590,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👥 Authors
 
-- **Your Name** - *Initial work* - [YourGitHub](https://github.com/yourusername)
+- **Mason Kimball** - MasonKimball05(https://github.com/MasonKimball05)
 
 See also the list of [contributors](https://github.com/yourusername/Parliament/contributors) who participated in this project.
 
@@ -608,17 +608,15 @@ See also the list of [contributors](https://github.com/yourusername/Parliament/c
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/Parliament/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/Parliament/discussions)
-- **Email**: your-email@example.com
+- **Email**: mason.kimball@icloud.com
 
 ---
 
 ## 🗺️ Roadmap
 
 - [ ] Email notifications for new legislation
-- [ ] Slack/Discord integration for announcements
 - [ ] Mobile app (React Native)
 - [ ] Advanced analytics dashboard
-- [ ] Multi-chapter support
 - [ ] Automated report generation
 - [ ] Calendar integrations (Google Calendar, Outlook)
 - [ ] SMS reminders for events
