@@ -5,29 +5,47 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.shortcuts import render, redirect
 from django.contrib.auth import update_session_auth_hash
+import logging
+
+logger = logging.getLogger('function_calls')
 
 @login_required
 @log_function_call
 def profile_view(request):
     user = request.user
 
-    username_form_submitted = 'username_submit' in request.POST
+    profile_form_submitted = 'profile_submit' in request.POST
     password_form_submitted = 'password_submit' in request.POST
 
     password_form = PasswordChangeForm(user)
-    username = user.username
 
     if request.method == 'POST':
-        if username_form_submitted:
+        if profile_form_submitted:
             new_username = request.POST.get('username')
-            if new_username and new_username != user.username:
-                # Logs new changes
-                logger.info(f"{user.username} changed username to {new_username}")
+            new_preferred_name = request.POST.get('preferred_name', '').strip()
 
+            changes_made = False
+
+            # Update username if changed
+            if new_username and new_username != user.username:
+                logger.info(f"{user.username} changed username to {new_username}")
                 user.username = new_username
+                changes_made = True
+
+            # Update preferred name if changed (allow empty string to clear it)
+            if new_preferred_name != user.preferred_name:
+                old_preferred = user.preferred_name or "(not set)"
+                logger.info(f"{user.username} changed preferred name from '{old_preferred}' to '{new_preferred_name or '(not set)'}'")
+                user.preferred_name = new_preferred_name if new_preferred_name else None
+                changes_made = True
+
+            if changes_made:
                 user.save()
-                messages.success(request, "Username updated successfully.")
-                return redirect('profile')
+                messages.success(request, "Profile updated successfully.")
+            else:
+                messages.info(request, "No changes were made.")
+
+            return redirect('profile')
 
         elif password_form_submitted:
             password_form = PasswordChangeForm(user, request.POST)
@@ -44,6 +62,5 @@ def profile_view(request):
 
     return render(request, 'profile.html', {
         'user': user,
-        'password_form': password_form,
-        'username': username
+        'password_form': password_form
     })

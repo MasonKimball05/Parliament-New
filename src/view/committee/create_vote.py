@@ -31,6 +31,7 @@ def committee_create_vote(request, code):
 
         vote_mode = request.POST.get('vote_mode', 'percentage')
         plurality_options = []
+        required_number = None
 
         if vote_mode == 'plurality':
             for i in range(1, 6):
@@ -41,6 +42,12 @@ def committee_create_vote(request, code):
             if len(plurality_options) < 2:
                 messages.error(request, "Plurality voting requires at least two options.")
                 return redirect('create_committee_vote', code=code)
+        elif vote_mode == 'piecewise':
+            required_number = request.POST.get('required_number')
+            if not required_number or int(required_number) < 1:
+                messages.error(request, "Piecewise voting requires a valid number of required votes (at least 1).")
+                return redirect('create_committee_vote', code=code)
+            required_number = int(required_number)
 
         if title and description and available_at and (document or vote_mode == 'plurality'):
             CommitteeLegislation.objects.create(
@@ -54,7 +61,8 @@ def committee_create_vote(request, code):
                 allow_abstain=allow_abstain,
                 required_percentage=required_percentage,
                 vote_mode=vote_mode,
-                plurality_options=plurality_options if vote_mode == 'plurality' else None
+                plurality_options=plurality_options if vote_mode == 'plurality' else None,
+                required_number=required_number if vote_mode == 'piecewise' else None
             )
 
             logger = logging.getLogger('function_calls')
