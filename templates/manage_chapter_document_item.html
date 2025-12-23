@@ -1,0 +1,64 @@
+<div class="border-b pb-3 last:border-b-0 last:pb-0">
+    <div class="flex justify-between items-start">
+        <div class="flex-1">
+            <div class="flex items-center gap-2">
+                <h3 class="text-base font-semibold text-gray-900">
+                    <a href="{{ doc.document.url }}" target="_blank" class="text-blue-600 hover:text-blue-800 flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        {{ doc.title }}
+                    </a>
+                </h3>
+                {% if not doc.published_to_chapter %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                        Draft
+                    </span>
+                {% endif %}
+            </div>
+            {% if doc.description %}
+                <p class="text-gray-600 text-sm mt-1 ml-6">{{ doc.description }}</p>
+            {% endif %}
+            <div class="text-xs text-gray-500 mt-1 ml-6">
+                Uploaded by {{ doc.uploaded_by.name }} on {{ doc.uploaded_at|date:"M d, Y" }}
+                {% if doc.chapter_folder %}
+                    • Folder: <span class="text-purple-600">{{ doc.chapter_folder.name }}</span>
+                {% else %}
+                    • Folder: <span class="text-gray-600">Uncategorized</span>
+                {% endif %}
+                {% if doc.document_type == "minutes" %}
+                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                        📋 Minutes
+                    </span>
+                {% elif doc.document_type == "agenda" %}
+                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                        📅 Agenda
+                    </span>
+                {% elif doc.document_type == "report" %}
+                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                        📊 Report
+                    </span>
+                {% elif doc.document_type == "policy" %}
+                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                        📜 Policy
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="ml-4 flex items-center gap-2">
+            <a href="{% url 'manage_chapter_document' doc.id %}" class="text-gray-600 hover:text-gray-800 text-sm flex items-center" title="Manage document">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+                Manage
+            </a>
+            <a href="{{ doc.document.url }}" download class="text-blue-600 hover:text-blue-800 text-sm flex items-center">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Download
+            </a>
+        </div>
+    </div>
+</div>

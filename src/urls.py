@@ -7,6 +7,7 @@ from src.view.committee import *
 from src.view.chapter_documents import chapter_documents
 from src.view.upload_chapter_document import upload_chapter_document
 from src.view.manage_chapter_document import manage_chapter_document
+from src.view.manage_chapter_documents import manage_chapter_documents
 from src.view.manage_folders import create_folder, delete_folder
 from src.view.announcements import announcements_view
 from src.view.calendar import calendar_view, calendar_data_api
@@ -39,6 +40,7 @@ urlpatterns = [
     path('change_password/', change_password, name='change_password'),
     path('forced-password-change/', forced_password_change, name='forced_password_change'),
     path('chapter-documents/', chapter_documents, name='chapter_documents'),
+    path('chapter-documents/manage-all/', manage_chapter_documents, name='manage_chapter_documents'),
     path('chapter-documents/upload/', upload_chapter_document, name='upload_chapter_document'),
     path('chapter-documents/manage/<int:doc_id>/', manage_chapter_document, name='manage_chapter_document'),
     path('chapter-documents/create-folder/', create_folder, name='create_folder'),
