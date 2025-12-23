@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Chapter Document{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-6">
+        <a href="{% url 'chapter_documents' %}" class="text-blue-600 hover:text-blue-800">← Back to Chapter Documents</a>
+    </div>
+
+    <h2 class="text-3xl font-bold mb-6">Upload Chapter Document</h2>
+    <p class="text-gray-600 mb-6">Upload a document to be shared with all chapter members</p>
+
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <form method="POST" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Document Title <span class="text-red-500">*</span>
+                </label>
+                <input type="text" name="title" required
+                       class="w-full border border-gray-300 rounded px-3 py-2"
+                       placeholder="Enter document title">
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Document Type <span class="text-red-500">*</span>
+                    </label>
+                    <select name="document_type" required
+                            class="w-full border border-gray-300 rounded px-3 py-2">
+                        <option value="general">General Document</option>
+                        <option value="minutes">Meeting Minutes</option>
+                        <option value="report">Report</option>
+                        <option value="policy">Policy Document</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Folder (Optional)
+                    </label>
+                    <select name="chapter_folder" class="w-full border border-gray-300 rounded px-3 py-2">
+                        <option value="">-- Uncategorized --</option>
+                        {% for folder in folders %}
+                            <option value="{{ folder.id }}">{{ folder.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-sm text-gray-500 mt-1">
+                        Choose a folder to organize this document, or leave uncategorized
+                    </p>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Description (Optional)
+                </label>
+                <textarea name="description" rows="3"
+                          class="w-full border border-gray-300 rounded px-3 py-2"
+                          placeholder="Brief description of the document"></textarea>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Select File <span class="text-red-500">*</span>
+                </label>
+                <input type="file" name="file" required
+                       class="w-full border border-gray-300 rounded px-3 py-2"
+                       accept=".pdf,.docx,.doc,.xls,.xlsx,.ppt,.pptx">
+                <p class="text-sm text-gray-500 mt-1">Accepted formats: PDF, Word, Excel, PowerPoint (max 20 MB)</p>
+            </div>
+
+            <div class="bg-blue-50 border border-blue-200 rounded p-4">
+                <div class="flex items-start">
+                    <svg class="w-5 h-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div class="text-sm text-blue-800">
+                        <p class="font-medium">This document will be:</p>
+                        <ul class="list-disc list-inside mt-1 space-y-1">
+                            <li>Visible to all chapter members</li>
+                            <li>Listed under "Chapter Documents"</li>
+                            <li>Organized in the folder you select (or Uncategorized if none selected)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-3 pt-4">
+                <button type="submit" class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
+                    Upload Document
+                </button>
+                <a href="{% url 'chapter_documents' %}"
+                   class="bg-gray-300 text-gray-700 px-6 py-2 rounded hover:bg-gray-400 inline-block text-center">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

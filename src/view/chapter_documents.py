@@ -9,28 +9,32 @@ def chapter_documents(request):
     documents = CommitteeDocument.objects.filter(published_to_chapter=True).select_related('committee', 'uploaded_by', 'chapter_folder')
 
     # Get all folders
-    folders = ChapterFolder.objects.all()
+    all_folders = ChapterFolder.objects.all()
 
-    # Organize documents by folder
-    documents_by_folder = defaultdict(list)
+    # Organize documents by folder - include ALL folders even if empty
+    folders_with_documents = []
     uncategorized_documents = []
 
+    # First, create dict of documents by folder
+    docs_by_folder_id = defaultdict(list)
     for doc in documents:
         if doc.chapter_folder:
-            documents_by_folder[doc.chapter_folder].append(doc)
+            docs_by_folder_id[doc.chapter_folder.id].append(doc)
         else:
             uncategorized_documents.append(doc)
 
-    # Sort folders by name
-    sorted_folders = sorted(documents_by_folder.items(), key=lambda x: x[0].name)
+    # Now pair each folder with its documents (empty list if no documents)
+    for folder in all_folders.order_by('name'):
+        folder_documents = docs_by_folder_id.get(folder.id, [])
+        folders_with_documents.append((folder, folder_documents))
 
-    # Check if user is officer (for folder management)
+    # Check if user is officer (for folder management and uploads)
     is_officer = request.user.member_type == 'Officer'
 
     return render(request, 'chapter_documents.html', {
-        'documents_by_folder': sorted_folders,
+        'folders_with_documents': folders_with_documents,
         'uncategorized_documents': uncategorized_documents,
-        'all_folders': folders,
+        'all_folders': all_folders,
         'total_documents': documents.count(),
         'is_officer': is_officer,
     })
