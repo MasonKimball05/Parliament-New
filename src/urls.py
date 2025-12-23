@@ -11,6 +11,7 @@ from src.view.officer.manage_events import manage_events, create_event, edit_eve
 from src.view.home import home
 from src.view.vote_view import vote_view
 from src.view.change_password import change_password
+from src.view.forced_password_change import forced_password_change
 from src.view.view_legislation_history import view_legislation_history
 from src.view.login_view import login_view
 from src.view.logout_view import logout_view
@@ -33,6 +34,7 @@ urlpatterns = [
     path('profile/', profile_view, name='profile'),
     path('upload/', upload_legislation, name='upload_legislation'),
     path('change_password/', change_password, name='change_password'),
+    path('forced-password-change/', forced_password_change, name='forced_password_change'),
     path('chapter-documents/', chapter_documents, name='chapter_documents'),
     path('announcements/', announcements_view, name='announcements'),
     path('calendar/', calendar_view, name='calendar'),
