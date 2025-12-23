@@ -32,6 +32,20 @@ class ActiveUserManager(ParliamentUserManager):
         return super().get_queryset().filter(member_status='Active')
 
 class Role(models.Model):
+    # Hard-coded VP roles (ID, Code, Name)
+    # These are the canonical source of truth for roles in the system
+    DEFAULT_ROLES = [
+        (1, 'President', 'President'),
+        (2, 'EVP', 'Executive Vice President'),
+        (3, 'VPB', 'Vice President of Brotherhood'),
+        (4, 'VPRM', 'Vice President of Risk Management'),
+        (5, 'VPE', 'Vice President of Education'),
+        (6, 'VPR', 'Vice President of Recruitment'),
+        (7, 'VPP', 'Vice President of Programming'),
+        (8, 'VPF', 'Vice President of Finance'),
+        (9, 'VPA', 'Vice President of Administration'),
+    ]
+
     name = models.CharField(max_length=100, unique=True)
     code = models.CharField(max_length=20, unique=True)
     description = models.TextField(blank=True)
@@ -291,6 +305,22 @@ def log_model_delete(sender, instance, **kwargs):
     logger.info(log_entry)
 
 class Committee(models.Model):
+    # Hard-coded committees (ID, Code, Name)
+    # These are the canonical source of truth for committees in the system
+    DEFAULT_COMMITTEES = [
+        (1, 'BYLAWS', 'Constitution and Bylaws Committee'),
+        (2, 'RITUAL', 'Ritual Committee'),
+        (3, 'EXEC', 'Executive Board'),
+        (4, 'KAI', 'Kai'),
+        (5, 'BROTHER', 'Brotherhood'),
+        (6, 'RECRUIT', 'Recruitment'),
+        (7, 'EDUCATION', 'Education'),
+        (8, 'RISK', 'Risk Management'),
+        (9, 'FINANCE', 'Finance'),
+        (10, 'ADMIN', 'Administration'),
+        (11, 'PROGRAM', 'Programming'),
+    ]
+
     name = models.CharField(max_length=225, unique=True)
     chairs = models.ManyToManyField(
         settings.AUTH_USER_MODEL,

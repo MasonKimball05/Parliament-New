@@ -21,8 +21,10 @@ def view_legislation_history(request):
         # Calculate the yes percentage
         yes_percentage = (yes_votes / total_votes) * 100 if total_votes > 0 else 0
 
-        # Define the passing threshold (default to 51% if not specified)
-        passed = leg.set_passed()
+        # Update the passed status based on votes
+        if leg.voting_closed:
+            leg.set_passed()
+        passed = leg.passed
 
         is_legislation_active = leg.is_available() and not leg.voting_closed
 
