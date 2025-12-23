@@ -28,3 +28,15 @@ def committee_chair_required(view_func):
         return view_func(request, id, *args, **kwargs)
 
     return wrapper
+
+def officer_required(view_func):
+    """Decorator to restrict access to officers only"""
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            from django.shortcuts import redirect
+            return redirect('login')
+
+        if request.user.member_type != 'Officer':
+            return HttpResponseForbidden("Officers only.")
+        return view_func(request, *args, **kwargs)
+    return wrapper

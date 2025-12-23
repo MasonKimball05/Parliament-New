@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Document - {{ document.title }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-6">
+        <a href="{% url 'chapter_documents' %}" class="text-blue-600 hover:text-blue-800">← Back to Chapter Documents</a>
+    </div>
+
+    <h2 class="text-3xl font-bold mb-6">Manage Document</h2>
+
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <form method="POST" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update">
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Document Title <span class="text-red-500">*</span>
+                </label>
+                <input type="text" name="title" value="{{ document.title }}" required
+                       class="w-full border border-gray-300 rounded px-3 py-2">
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Document Type <span class="text-red-500">*</span>
+                    </label>
+                    <select name="document_type" required class="w-full border border-gray-300 rounded px-3 py-2">
+                        <option value="general" {% if document.document_type == 'general' %}selected{% endif %}>General Document</option>
+                        <option value="minutes" {% if document.document_type == 'minutes' %}selected{% endif %}>Meeting Minutes</option>
+                        <option value="agenda" {% if document.document_type == 'agenda' %}selected{% endif %}>Meeting Agenda</option>
+                        <option value="report" {% if document.document_type == 'report' %}selected{% endif %}>Report</option>
+                        <option value="policy" {% if document.document_type == 'policy' %}selected{% endif %}>Policy Document</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Folder
+                    </label>
+                    <select name="chapter_folder" class="w-full border border-gray-300 rounded px-3 py-2">
+                        <option value="">-- Uncategorized --</option>
+                        {% for folder in folders %}
+                            <option value="{{ folder.id }}" {% if document.chapter_folder and document.chapter_folder.id == folder.id %}selected{% endif %}>
+                                {{ folder.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Description
+                </label>
+                <textarea name="description" rows="3" class="w-full border border-gray-300 rounded px-3 py-2">{{ document.description }}</textarea>
+            </div>
+
+            <div class="border-t pt-4">
+                <label class="flex items-center space-x-2">
+                    <input type="checkbox" name="published_to_chapter" value="true"
+                           {% if document.published_to_chapter %}checked{% endif %}
+                           class="rounded border-gray-300">
+                    <span class="text-sm font-medium text-gray-700">
+                        Published to Chapter (visible to all members)
+                    </span>
+                </label>
+                <p class="text-sm text-gray-500 mt-1 ml-6">
+                    Uncheck to unpublish this document from the chapter documents page
+                </p>
+            </div>
+
+            <div class="bg-gray-50 border rounded p-4">
+                <h3 class="font-medium text-gray-900 mb-2">Document Information</h3>
+                <div class="text-sm text-gray-600 space-y-1">
+                    <p><strong>Committee:</strong> {{ document.committee.name }} ({{ document.committee.code }})</p>
+                    <p><strong>Uploaded by:</strong> {{ document.uploaded_by.name }}</p>
+                    <p><strong>Uploaded on:</strong> {{ document.uploaded_at|date:"F d, Y \a\t g:i A" }}</p>
+                    <p><strong>File:</strong> <a href="{{ document.document.url }}" target="_blank" class="text-blue-600 hover:text-blue-800">View Document</a></p>
+                </div>
+            </div>
+
+            <div class="flex gap-3 pt-4">
+                <button type="submit" class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
+                    Save Changes
+                </button>
+                <a href="{% url 'chapter_documents' %}"
+                   class="bg-gray-300 text-gray-700 px-6 py-2 rounded hover:bg-gray-400 inline-block text-center">
+                    Cancel
+                </a>
+            </div>
+        </form>
+
+        <!-- Delete Section -->
+        <div class="border-t mt-6 pt-6">
+            <h3 class="text-lg font-semibold text-red-600 mb-3">Danger Zone</h3>
+            <p class="text-sm text-gray-600 mb-4">
+                Deleting this document is permanent and cannot be undone. The file will be removed from the server.
+            </p>
+            <form method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this document? This action cannot be undone.');" class="inline">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete">
+                <button type="submit" class="bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700">
+                    Delete Document
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
