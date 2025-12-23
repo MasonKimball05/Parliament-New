@@ -1,5 +1,7 @@
 from django import forms
+from django.conf import settings
 from .models import Legislation, Announcement, Event, CommitteeDocument, Committee
+import magic  # python-magic for MIME type detection
 
 class LegislationForm(forms.ModelForm):
     class Meta:
@@ -8,8 +10,32 @@ class LegislationForm(forms.ModelForm):
 
     def clean_document(self):
         file = self.cleaned_data.get('document')
-        if file and not file.name.endswith(('.pdf', '.docx')):
-            raise forms.ValidationError('The file must be a PDF or DOCX.')
+        if file:
+            # Check file extension
+            if not file.name.lower().endswith(('.pdf', '.docx')):
+                raise forms.ValidationError('Only PDF and DOCX files are allowed.')
+
+            # Check file size (20 MB max)
+            if file.size > 20 * 1024 * 1024:
+                raise forms.ValidationError('File size must not exceed 20 MB.')
+
+            # Check MIME type to prevent file extension spoofing
+            try:
+                mime = magic.from_buffer(file.read(2048), mime=True)
+                file.seek(0)  # Reset file pointer
+
+                allowed_mimes = [
+                    'application/pdf',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                ]
+
+                if mime not in allowed_mimes:
+                    raise forms.ValidationError(
+                        f'Invalid file type. Expected PDF or DOCX, but got {mime}.'
+                    )
+            except Exception as e:
+                raise forms.ValidationError('Unable to verify file type. Please try again.')
+
         return file
 
 class AnnouncementForm(forms.ModelForm):
@@ -138,3 +164,43 @@ class CommitteeDocumentForm(forms.ModelForm):
             'meeting_date': 'For minutes and agendas, specify the meeting date',
             'published_to_chapter': 'Check to make this document visible to all chapter members'
         }
+
+    def clean_document(self):
+        """Validate uploaded committee documents for security"""
+        file = self.cleaned_data.get('document')
+        if file:
+            # Allowed extensions
+            allowed_extensions = ('.pdf', '.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt')
+            if not file.name.lower().endswith(allowed_extensions):
+                raise forms.ValidationError(
+                    f'Only these file types are allowed: {", ".join(allowed_extensions)}'
+                )
+
+            # Check file size (20 MB max)
+            if file.size > 20 * 1024 * 1024:
+                raise forms.ValidationError('File size must not exceed 20 MB.')
+
+            # Check MIME type to prevent file extension spoofing
+            try:
+                mime = magic.from_buffer(file.read(2048), mime=True)
+                file.seek(0)  # Reset file pointer
+
+                allowed_mimes = getattr(settings, 'ALLOWED_DOCUMENT_TYPES', [
+                    'application/pdf',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'application/msword',
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'application/vnd.ms-excel',
+                    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                    'application/vnd.ms-powerpoint',
+                ])
+
+                if mime not in allowed_mimes:
+                    raise forms.ValidationError(
+                        f'Invalid file type detected: {mime}. Please upload a valid document.'
+                    )
+            except Exception as e:
+                # If MIME detection fails, reject the upload for security
+                raise forms.ValidationError('Unable to verify file type. Please try again.')
+
+        return file
