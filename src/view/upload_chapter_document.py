@@ -16,8 +16,7 @@ def upload_chapter_document(request):
     chapter_committee, created = Committee.objects.get_or_create(
         code='CHAPTER',
         defaults={
-            'name': 'Chapter',
-            'description': 'General chapter documents not associated with a specific committee'
+            'name': 'Chapter'
         }
     )
 

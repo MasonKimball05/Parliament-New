@@ -28,8 +28,10 @@ def chapter_documents(request):
         folder_documents = docs_by_folder_id.get(folder.id, [])
         folders_with_documents.append((folder, folder_documents))
 
-    # Check if user is officer (for folder management and uploads)
+    # Check if user is officer (for uploads and document management)
     is_officer = request.user.member_type == 'Officer'
+    # Check if user is admin (for folder management)
+    is_admin = request.user.is_admin
 
     return render(request, 'chapter_documents.html', {
         'folders_with_documents': folders_with_documents,
@@ -37,4 +39,5 @@ def chapter_documents(request):
         'all_folders': all_folders,
         'total_documents': documents.count(),
         'is_officer': is_officer,
+        'is_admin': is_admin,
     })

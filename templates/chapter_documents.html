@@ -21,12 +21,14 @@
                     </svg>
                     Upload Document
                 </a>
-                <button onclick="showCreateFolderModal()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                    </svg>
-                    Create Folder
-                </button>
+                {% if is_admin %}
+                    <button onclick="showCreateFolderModal()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Create Folder
+                    </button>
+                {% endif %}
             </div>
         {% endif %}
     </div>
@@ -35,7 +37,7 @@
         <!-- Custom Folders -->
         {% if folders_with_documents %}
             {% for folder, documents in folders_with_documents %}
-                <details class="bg-white rounded-lg shadow-md overflow-hidden" open>
+                <details class="bg-white rounded-lg shadow-md overflow-hidden" {% if documents %}open{% endif %}>
                     <summary class="bg-purple-50 px-6 py-4 cursor-pointer hover:bg-purple-100 transition flex items-center justify-between">
                         <div class="flex items-center space-x-3">
                             <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -52,7 +54,7 @@
                             <span class="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded">
                                 {{ documents|length }} document{{ documents|length|pluralize }}
                             </span>
-                            {% if is_officer %}
+                            {% if is_admin %}
                                 <form method="POST" action="{% url 'delete_folder' folder.id %}" onsubmit="return confirm('Delete this folder? Documents will be moved to Uncategorized.');" class="inline" onclick="event.stopPropagation();">
                                     {% csrf_token %}
                                     <button type="submit" class="text-red-600 hover:text-red-800 p-1" title="Delete folder">
@@ -126,7 +128,7 @@
 </div>
 
 <!-- Create Folder Modal -->
-{% if is_officer %}
+{% if is_admin %}
 <div id="createFolderModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
     <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
         <h3 class="text-xl font-bold mb-4">Create New Folder</h3>
