@@ -14,19 +14,27 @@
         </div>
 
         {% if is_officer %}
-            <button onclick="showCreateFolderModal()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                </svg>
-                Create Folder
-            </button>
+            <div class="flex gap-2">
+                <a href="{% url 'upload_chapter_document' %}" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    Upload Document
+                </a>
+                <button onclick="showCreateFolderModal()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Create Folder
+                </button>
+            </div>
         {% endif %}
     </div>
 
     <div class="space-y-4">
         <!-- Custom Folders -->
-        {% if documents_by_folder %}
-            {% for folder, documents in documents_by_folder %}
+        {% if folders_with_documents %}
+            {% for folder, documents in folders_with_documents %}
                 <details class="bg-white rounded-lg shadow-md overflow-hidden" open>
                     <summary class="bg-purple-50 px-6 py-4 cursor-pointer hover:bg-purple-100 transition flex items-center justify-between">
                         <div class="flex items-center space-x-3">
@@ -58,11 +66,23 @@
                     </summary>
 
                     <div class="px-6 py-4">
-                        <div class="space-y-3">
-                            {% for doc in documents %}
-                                {% include 'chapter_documents_item.html' %}
-                            {% endfor %}
-                        </div>
+                        {% if documents %}
+                            <div class="space-y-3">
+                                {% for doc in documents %}
+                                    {% include 'chapter_documents_item.html' %}
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-8 text-gray-500">
+                                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                <p>No documents in this folder yet.</p>
+                                {% if is_officer %}
+                                    <p class="text-sm mt-1">Upload a document and assign it to this folder.</p>
+                                {% endif %}
+                            </div>
+                        {% endif %}
                     </div>
                 </details>
             {% endfor %}
