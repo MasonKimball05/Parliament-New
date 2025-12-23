@@ -1,41 +1,83 @@
 {% extends "base.html" %}
 
-{% block title %}Chapter Documents{% endblock %}
+{% block title %}Manage Chapter Documents{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-6 flex justify-between items-start">
         <div>
-            <h2 class="text-3xl font-bold mb-2">Chapter Documents</h2>
-            <p class="text-gray-600">Documents published by committees for all chapter members</p>
+            <h2 class="text-3xl font-bold mb-2">Manage Chapter Documents</h2>
+            <p class="text-gray-600">Manage all chapter documents, including drafts</p>
             {% if total_documents %}
-                <p class="text-sm text-gray-500 mt-1">{{ total_documents }} document{{ total_documents|pluralize }} available</p>
+                <p class="text-sm text-gray-500 mt-1">{{ total_documents }} document{{ total_documents|pluralize }} total</p>
             {% endif %}
         </div>
 
-        {% if is_officer %}
-            <div class="flex gap-2">
-                <a href="{% url 'manage_chapter_documents' %}" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center">
+        <div class="flex gap-2">
+            <a href="{% url 'chapter_documents' %}" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                </svg>
+                View Public Page
+            </a>
+            <a href="{% url 'upload_chapter_document' %}" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                Upload Document
+            </a>
+            {% if is_admin %}
+                <button onclick="showCreateFolderModal()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                     </svg>
-                    Manage Documents
-                </a>
-                <a href="{% url 'upload_chapter_document' %}" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                    </svg>
-                    Upload Document
-                </a>
+                    Create Folder
+                </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Unpublished Documents Section -->
+    {% if unpublished_docs %}
+        <div class="mb-6">
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg shadow-md overflow-hidden">
+                <div class="bg-yellow-100 px-6 py-4 flex items-center justify-between border-b border-yellow-200">
+                    <div class="flex items-center space-x-3">
+                        <svg class="w-6 h-6 text-yellow-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                        </svg>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Draft Documents (Not Published)</h3>
+                            <p class="text-sm text-gray-600">These documents are only visible to officers</p>
+                        </div>
+                    </div>
+                    <span class="bg-yellow-200 text-yellow-900 text-xs font-medium px-2.5 py-0.5 rounded">
+                        {{ unpublished_docs|length }} draft{{ unpublished_docs|length|pluralize }}
+                    </span>
+                </div>
+
+                <div class="px-6 py-4">
+                    <div class="space-y-3">
+                        {% for doc in unpublished_docs %}
+                            {% include 'manage_chapter_document_item.html' %}
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
-        {% endif %}
+        </div>
+    {% endif %}
+
+    <!-- Published Documents Section -->
+    <div class="mb-4">
+        <h3 class="text-2xl font-bold text-gray-900">Published Documents</h3>
+        <p class="text-sm text-gray-600">These documents are visible to all chapter members</p>
     </div>
 
     <div class="space-y-4">
         <!-- Custom Folders -->
-        {% if folders_with_documents %}
-            {% for folder, documents in folders_with_documents %}
+        {% if folders_with_published_docs %}
+            {% for folder, documents in folders_with_published_docs %}
                 <details class="bg-white rounded-lg shadow-md overflow-hidden" {% if documents %}open{% endif %}>
                     <summary class="bg-purple-50 px-6 py-4 cursor-pointer hover:bg-purple-100 transition flex items-center justify-between">
                         <div class="flex items-center space-x-3">
@@ -70,7 +112,7 @@
                         {% if documents %}
                             <div class="space-y-3">
                                 {% for doc in documents %}
-                                    {% include 'chapter_documents_item.html' %}
+                                    {% include 'manage_chapter_document_item.html' %}
                                 {% endfor %}
                             </div>
                         {% else %}
@@ -78,10 +120,7 @@
                                 <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                 </svg>
-                                <p>No documents in this folder yet.</p>
-                                {% if is_officer %}
-                                    <p class="text-sm mt-1">Upload a document and assign it to this folder.</p>
-                                {% endif %}
+                                <p>No published documents in this folder yet.</p>
                             </div>
                         {% endif %}
                     </div>
@@ -90,7 +129,7 @@
         {% endif %}
 
         <!-- Uncategorized Documents -->
-        {% if uncategorized_documents %}
+        {% if uncategorized_published_docs %}
             <details class="bg-white rounded-lg shadow-md overflow-hidden" open>
                 <summary class="bg-gray-50 px-6 py-4 cursor-pointer hover:bg-gray-100 transition flex items-center justify-between">
                     <div class="flex items-center space-x-3">
@@ -100,27 +139,27 @@
                         <span class="text-lg font-semibold text-gray-900">Uncategorized</span>
                     </div>
                     <span class="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                        {{ uncategorized_documents|length }} document{{ uncategorized_documents|length|pluralize }}
+                        {{ uncategorized_published_docs|length }} document{{ uncategorized_published_docs|length|pluralize }}
                     </span>
                 </summary>
 
                 <div class="px-6 py-4">
                     <div class="space-y-3">
-                        {% for doc in uncategorized_documents %}
-                            {% include 'chapter_documents_item.html' %}
+                        {% for doc in uncategorized_published_docs %}
+                            {% include 'manage_chapter_document_item.html' %}
                         {% endfor %}
                     </div>
                 </div>
             </details>
         {% endif %}
 
-        {% if not documents_by_folder and not uncategorized_documents %}
+        {% if not folders_with_published_docs and not uncategorized_published_docs %}
             <div class="bg-white rounded-lg shadow-md p-8 text-center">
                 <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
-                <p class="text-gray-500 text-lg">No chapter documents have been published yet.</p>
-                <p class="text-gray-400 text-sm mt-2">Committee chairs can publish documents to make them available here.</p>
+                <p class="text-gray-500 text-lg">No published documents yet.</p>
+                <p class="text-gray-400 text-sm mt-2">Upload a document and publish it to make it visible to chapter members.</p>
             </div>
         {% endif %}
     </div>

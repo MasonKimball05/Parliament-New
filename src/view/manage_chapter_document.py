@@ -11,7 +11,7 @@ from src.decorators import officer_required
 @officer_required
 def manage_chapter_document(request, doc_id):
     """Allow officers to edit/manage chapter documents"""
-    document = get_object_or_404(CommitteeDocument, id=doc_id, published_to_chapter=True)
+    document = get_object_or_404(CommitteeDocument, id=doc_id)
 
     # Get all folders for the dropdown
     folders = ChapterFolder.objects.all()
@@ -24,7 +24,7 @@ def manage_chapter_document(request, doc_id):
             doc_title = document.title
             document.delete()
             messages.success(request, f'Document "{doc_title}" deleted successfully.')
-            return redirect('chapter_documents')
+            return redirect('manage_chapter_documents')
 
         elif action == 'update':
             # Update document metadata
@@ -47,7 +47,7 @@ def manage_chapter_document(request, doc_id):
 
             document.save()
             messages.success(request, 'Document updated successfully!')
-            return redirect('chapter_documents')
+            return redirect('manage_chapter_documents')
 
     return render(request, 'manage_chapter_document.html', {
         'document': document,

@@ -32,9 +32,9 @@ def create_folder(request):
         )
 
         messages.success(request, f'Folder "{folder_name}" created successfully!')
-        return redirect('chapter_documents')
+        return redirect('manage_chapter_documents')
 
-    return redirect('chapter_documents')
+    return redirect('manage_chapter_documents')
 
 
 @admin_required
@@ -47,7 +47,7 @@ def delete_folder(request, folder_id):
         # Documents in the folder will have their chapter_folder set to NULL (SET_NULL)
         folder.delete()
         messages.success(request, f'Folder "{folder_name}" deleted successfully. Documents moved to "Uncategorized".')
-        return redirect('chapter_documents')
+        return redirect('manage_chapter_documents')
 
     messages.error(request, 'Invalid request.')
-    return redirect('chapter_documents')
+    return redirect('manage_chapter_documents')

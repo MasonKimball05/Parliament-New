@@ -29,6 +29,7 @@ def upload_chapter_document(request):
         description = request.POST.get('description', '')
         document_type = request.POST.get('document_type', 'general')
         folder_id = request.POST.get('chapter_folder', None)
+        publish_now = request.POST.get('publish_now') == 'true'
 
         if file and title:
             # Get folder if specified
@@ -46,18 +47,21 @@ def upload_chapter_document(request):
                 document=file,
                 uploaded_by=request.user,
                 description=description,
-                published_to_chapter=True,  # Always published for direct uploads
+                published_to_chapter=publish_now,
                 chapter_folder=chapter_folder,
                 document_type=document_type,
                 meeting_date=None
             )
 
-            if chapter_folder:
-                messages.success(request, f'Document uploaded successfully to folder "{chapter_folder.name}"!')
+            if publish_now:
+                if chapter_folder:
+                    messages.success(request, f'Document published successfully to folder "{chapter_folder.name}"!')
+                else:
+                    messages.success(request, 'Document published successfully to Uncategorized!')
             else:
-                messages.success(request, 'Document uploaded successfully to Uncategorized!')
+                messages.success(request, 'Document saved as draft. You can publish it from "Manage Documents".')
 
-            return redirect('chapter_documents')
+            return redirect('manage_chapter_documents')
         else:
             messages.error(request, 'Please provide both a file and a title.')
 
