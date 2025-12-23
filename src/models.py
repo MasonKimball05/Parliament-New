@@ -79,6 +79,7 @@ class ParliamentUser(AbstractBaseUser):
     roles = models.ManyToManyField(Role, blank=True)
 
     member_status = models.CharField(max_length=20, choices=MEMBER_STATUS, default='Active')
+    force_password_change = models.BooleanField(default=False, help_text='User must change password on next login')
 
     objects = ParliamentUserManager()
     active = ActiveUserManager()

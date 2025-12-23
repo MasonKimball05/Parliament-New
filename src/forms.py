@@ -204,3 +204,61 @@ class CommitteeDocumentForm(forms.ModelForm):
                 raise forms.ValidationError('Unable to verify file type. Please try again.')
 
         return file
+
+
+class ForcedPasswordChangeForm(forms.Form):
+    """Form for users who must change their password"""
+    old_password = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500',
+            'placeholder': 'Current password'
+        }),
+        label='Current Password'
+    )
+    new_password1 = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500',
+            'placeholder': 'New password'
+        }),
+        label='New Password',
+        help_text='Password must be at least 9 characters with uppercase, lowercase, number, and special character.'
+    )
+    new_password2 = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500',
+            'placeholder': 'Confirm new password'
+        }),
+        label='Confirm New Password'
+    )
+
+    def __init__(self, user, *args, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_old_password(self):
+        """Verify the old password is correct"""
+        old_password = self.cleaned_data.get('old_password')
+        if not self.user.check_password(old_password):
+            raise forms.ValidationError('Your current password is incorrect.')
+        return old_password
+
+    def clean_new_password2(self):
+        """Verify the two password fields match"""
+        password1 = self.cleaned_data.get('new_password1')
+        password2 = self.cleaned_data.get('new_password2')
+        if password1 and password2 and password1 != password2:
+            raise forms.ValidationError('The two password fields must match.')
+        return password2
+
+    def save(self):
+        """Save the new password and clear the force_password_change flag"""
+        from django.contrib.auth.password_validation import validate_password
+        password = self.cleaned_data['new_password1']
+
+        # Validate password against Django's password validators
+        validate_password(password, self.user)
+
+        self.user.set_password(password)
+        self.user.force_password_change = False
+        self.user.save()
+        return self.user
