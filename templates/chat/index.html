@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Chats{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Your Chats</h1>
+        <div class="flex flex-wrap gap-2 sm:gap-3">
+            {% if is_admin %}
+                {% if view_all %}
+                    <a href="{% url 'chat_index' %}"
+                       class="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base rounded-lg border-2 font-semibold hover:bg-gray-50 transition"
+                       style="border-color: #003DA5; color: #003DA5;">
+                        View My Chats
+                    </a>
+                {% else %}
+                    <a href="{% url 'chat_index' %}?view_all=true"
+                       class="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base rounded-lg border-2 font-semibold hover:bg-gray-50 transition"
+                       style="border-color: #003DA5; color: #003DA5;">
+                        View All Channels
+                    </a>
+                {% endif %}
+                <a href="{% url 'create_channel' %}"
+                   class="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base rounded-lg text-white font-semibold hover:opacity-90 transition"
+                   style="background-color: #003DA5;">
+                    + Create Channel
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if channels %}
+        <div class="grid gap-4">
+            {% for item in channels %}
+                {% with channel=item.channel unread=item.unread_count %}
+                    <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow group">
+                        <a href="{% url 'channel_chat' channel.id %}"
+                           class="p-4 sm:p-6 flex items-center justify-between block">
+                            <div class="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                                <!-- Icon with custom color -->
+                                <div class="text-2xl sm:text-4xl flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-lg flex-shrink-0"
+                                     style="background-color: {{ channel.color }}20;">
+                                    <span>{{ channel.icon }}</span>
+                                </div>
+
+                                <!-- Channel info -->
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <h3 class="text-base sm:text-lg font-semibold text-gray-900 group-hover:text-primary-600 transition-colors truncate">
+                                            {{ channel.name }}
+                                        </h3>
+                                        {% if item.admin_only_access %}
+                                            <span class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded font-medium whitespace-nowrap">Admin View</span>
+                                        {% endif %}
+                                    </div>
+                                    {% if channel.description %}
+                                        <p class="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-2">{{ channel.description }}</p>
+                                    {% endif %}
+                                    <div class="flex flex-wrap items-center gap-1 sm:gap-2 mt-1">
+                                        {% if item.type == 'committee' %}
+                                            <span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">Committee</span>
+                                        {% elif item.type == 'custom' %}
+                                            <span class="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">Custom</span>
+                                        {% endif %}
+
+                                        {% if channel.access_type == 'open' %}
+                                            <span class="text-xs text-gray-500">• Open to all</span>
+                                        {% elif channel.access_type == 'restricted' %}
+                                            <span class="text-xs text-gray-500">• Restricted</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Unread badge -->
+                            <div class="flex items-center gap-3 flex-shrink-0 ml-2">
+                                {% if unread > 0 %}
+                                    <div class="bg-red-500 text-white text-xs sm:text-sm font-bold rounded-full min-w-[28px] sm:min-w-[32px] h-7 sm:h-8 flex items-center justify-center px-2">
+                                        {{ unread }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </a>
+
+                        <!-- Admin controls for custom channels -->
+                        {% if is_admin and item.type == 'custom' %}
+                            <div class="border-t border-gray-200 px-4 sm:px-6 py-3 flex gap-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity bg-gray-50">
+                                <a href="{% url 'edit_channel' channel.id %}"
+                                   class="text-blue-600 hover:text-blue-800 text-xs sm:text-sm font-medium">
+                                    ✏️ Edit Settings
+                                </a>
+                                <a href="{% url 'delete_channel' channel.id %}"
+                                   class="text-red-600 hover:text-red-800 text-xs sm:text-sm font-medium">
+                                    🗑️ Delete Channel
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endwith %}
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="bg-white rounded-lg shadow-md p-8 text-center">
+            <div class="text-gray-400 text-6xl mb-4">💬</div>
+            <p class="text-gray-500 text-lg mb-2">No chats available</p>
+            <p class="text-gray-400 text-sm">You don't have access to any chat channels yet.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

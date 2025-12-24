@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Channel{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mb-6">
+        <a href="{% url 'chat_index' %}" class="text-blue-600 hover:text-blue-800">
+            ← Back to Chats
+        </a>
+        <h1 class="text-3xl font-bold text-gray-900 mt-2">Edit Channel: {{ channel.name }}</h1>
+    </div>
+
+    <form method="post" class="bg-white rounded-lg shadow-md p-6">
+        {% csrf_token %}
+
+        <!-- Channel Name -->
+        <div class="mb-6">
+            <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
+                Channel Name *
+            </label>
+            <input
+                type="text"
+                id="name"
+                name="name"
+                required
+                maxlength="200"
+                value="{{ channel.name }}"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., Alumni Chat"
+            >
+        </div>
+
+        <!-- Description -->
+        <div class="mb-6">
+            <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
+                Description
+            </label>
+            <textarea
+                id="description"
+                name="description"
+                rows="3"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Brief description of this channel"
+            >{{ channel.description }}</textarea>
+        </div>
+
+        <!-- Icon -->
+        <div class="mb-6">
+            <label for="icon" class="block text-sm font-medium text-gray-700 mb-2">
+                Icon (emoji)
+            </label>
+            <input
+                type="text"
+                id="icon"
+                name="icon"
+                maxlength="10"
+                value="{{ channel.icon }}"
+                class="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+            <p class="text-xs text-gray-500 mt-1">Use any emoji</p>
+        </div>
+
+        <!-- Color -->
+        <div class="mb-6">
+            <label for="color" class="block text-sm font-medium text-gray-700 mb-2">
+                Color
+            </label>
+            <input
+                type="color"
+                id="color"
+                name="color"
+                value="{{ channel.color }}"
+                class="w-32 h-10 border border-gray-300 rounded-md"
+            >
+        </div>
+
+        <!-- Access Type -->
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                Access Type *
+            </label>
+            <div class="space-y-2">
+                <label class="flex items-center">
+                    <input type="radio" name="access_type" value="open" {% if channel.access_type == 'open' %}checked{% endif %} class="mr-2">
+                    <span class="text-gray-700">Open - All members can access</span>
+                </label>
+                <label class="flex items-center">
+                    <input type="radio" name="access_type" value="restricted" {% if channel.access_type == 'restricted' %}checked{% endif %} class="mr-2">
+                    <span class="text-gray-700">Restricted - Only specified users/roles</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Permissions (shown when restricted is selected) -->
+        <div id="permissions-section" class="border-t pt-6" {% if channel.access_type != 'restricted' %}style="display: none;"{% endif %}>
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Channel Permissions</h3>
+
+            <!-- Specific Users -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Specific Users
+                </label>
+                <div class="border border-gray-300 rounded-md p-3 max-h-60 overflow-y-auto">
+                    {% for user in all_users %}
+                        <label class="flex items-center py-1">
+                            <input type="checkbox" name="users" value="{{ user.user_id }}"
+                                   {% if user.user_id in current_user_permissions %}checked{% endif %}
+                                   class="mr-2">
+                            <span class="text-sm text-gray-700">{{ user.name }} ({{ user.user_id }})</span>
+                        </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Member Types -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Member Types
+                </label>
+                <div class="space-y-2">
+                    {% for type_code, type_name in member_types %}
+                        <label class="flex items-center">
+                            <input type="checkbox" name="member_types" value="{{ type_code }}"
+                                   {% if type_code in current_member_type_permissions %}checked{% endif %}
+                                   class="mr-2">
+                            <span class="text-gray-700">{{ type_name }}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Special Roles -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Special Roles
+                </label>
+                <div class="space-y-2">
+                    <label class="flex items-center">
+                        <input type="checkbox" name="chairs_only" value="true"
+                               {% if current_chairs_only %}checked{% endif %}
+                               class="mr-2">
+                        <span class="text-gray-700">Committee Chairs</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" name="officers_only" value="true"
+                               {% if current_officers_only %}checked{% endif %}
+                               class="mr-2">
+                        <span class="text-gray-700">Chapter Officers</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="flex justify-end gap-3 mt-6">
+            <a href="{% url 'chat_index' %}"
+               class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                Cancel
+            </a>
+            <button type="submit"
+                    class="px-6 py-2 rounded-md text-white font-semibold"
+                    style="background-color: #003DA5;"
+                    onmouseover="this.style.backgroundColor='#002d7a'"
+                    onmouseout="this.style.backgroundColor='#003DA5'">
+                Save Changes
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    // Show/hide permissions section based on access type
+    const accessTypeInputs = document.querySelectorAll('input[name="access_type"]');
+    const permissionsSection = document.getElementById('permissions-section');
+
+    accessTypeInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            if (this.value === 'restricted') {
+                permissionsSection.style.display = 'block';
+            } else {
+                permissionsSection.style.display = 'none';
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+
+{% block title %}{{ committee.name }} - Chat{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 flex flex-col" style="height: calc(100vh - 100px);">
+    <!-- Header -->
+    <div class="mb-4">
+        <div class="flex justify-between items-start">
+            <div class="flex-1">
+                <a href="{% url 'committee_detail' committee.code %}" class="text-blue-600 hover:text-blue-800">
+                    ← Back to {{ committee.code }}
+                </a>
+                <h2 class="text-3xl font-bold mt-2">{{ committee.name }} Chat</h2>
+                <div class="flex items-center gap-4 text-gray-600">
+                    <p>{{ committee.members.count }} members</p>
+                    <div class="relative inline-block group">
+                        <div class="flex items-center gap-1 cursor-pointer">
+                            <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                            <span id="active-count">0 active</span>
+                        </div>
+                        <!-- Tooltip showing active users -->
+                        <div id="active-users-tooltip" class="absolute left-0 top-full mt-2 bg-gray-900 text-white text-xs rounded py-2 px-3 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity z-10 min-w-max">
+                            <div id="active-users-list" class="space-y-1">
+                                Loading...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Settings Button (for chairs) -->
+            {% if is_chair or is_admin %}
+                <a href="{% url 'edit_committee_chat_settings' committee.code %}"
+                   class="px-4 py-2 rounded-lg border-2 font-medium text-sm hover:bg-gray-50 transition flex items-center gap-2"
+                   style="border-color: #003DA5; color: #003DA5;">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    Chat Settings
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Poll indicator -->
+    <div id="poll-status" class="text-xs mb-2" style="color: #003DA5;">
+        ● Connected - polling every 3 seconds
+    </div>
+
+    <!-- Chat Messages Container -->
+    <div id="chat-container" class="flex-1 bg-white rounded-lg shadow-md p-4 overflow-y-auto mb-4 border border-gray-200">
+        <div id="messages-list">
+            {% for msg in initial_messages %}
+                <div id="msg-{{ msg.id }}" class="flex gap-3 p-2 rounded hover:bg-gray-50 mb-2 group {% if msg.sender == request.user %}bg-pink-50{% endif %}">
+                    <!-- Avatar with initials -->
+                    <div class="w-9 h-9 rounded text-white flex items-center justify-center font-bold text-sm flex-shrink-0"
+                         style="background-color: {% if msg.sender == request.user %}#CD8C95{% else %}#003DA5{% endif %}">
+                        {% with first=msg.sender.name|first %}
+                            {% with parts=msg.sender.name|split:' ' %}
+                                {% if parts|length > 1 %}
+                                    {{ first|upper }}{{ parts|last|first|upper }}
+                                {% else %}
+                                    {{ first|upper }}
+                                {% endif %}
+                            {% endwith %}
+                        {% endwith %}
+                    </div>
+
+                    <!-- Message content -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-baseline gap-2 mb-1">
+                            <span class="font-bold text-gray-900">{{ msg.sender.name }}</span>
+                            <span class="text-xs text-gray-500">{{ msg.created_at|date:"g:i A" }}</span>
+                            {% if is_admin or is_chair or msg.sender == request.user %}
+                                <button class="delete-btn text-xs text-red-600 hover:text-red-800 ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onclick="deleteMessage({{ msg.id }}, 'msg-{{ msg.id }}')">
+                                    Delete
+                                </button>
+                            {% endif %}
+                        </div>
+                        <div class="text-gray-900">{{ msg.message }}</div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Message Input -->
+    <div class="bg-white rounded-lg shadow-md p-4 border-2 border-gray-300">
+        <form id="message-form" class="flex gap-2">
+            {% csrf_token %}
+            <input
+                type="text"
+                id="message-input"
+                name="message"
+                placeholder="Type a message..."
+                maxlength="2000"
+                class="flex-1 border border-gray-300 rounded px-4 py-2 focus:outline-none focus:border-blue-500"
+                autocomplete="off"
+            >
+            <button
+                type="submit"
+                class="px-6 py-2 rounded text-white font-semibold"
+                style="background-color: #003DA5;"
+                onmouseover="this.style.backgroundColor='#002d7a'"
+                onmouseout="this.style.backgroundColor='#003DA5'"
+            >
+                Send
+            </button>
+        </form>
+        <p class="text-xs text-gray-500 mt-2 text-right">
+            <span id="char-count">0</span>/2000 characters
+        </p>
+    </div>
+</div>
+
+<script>
+    const committeeCode = "{{ committee.code }}";
+    const currentUserId = {{ request.user.user_id }};
+    const currentUserName = "{{ request.user.name }}";
+    let lastMessageTimestamp = null;
+    let isPolling = false;
+
+    // Initialize with last message timestamp from initial messages
+    {% if initial_messages %}
+        const initialMessages = [
+            {% for msg in initial_messages %}
+                {
+                    id: {{ msg.id }},
+                    created_at: "{{ msg.created_at.isoformat }}"
+                }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        if (initialMessages.length > 0) {
+            lastMessageTimestamp = initialMessages[initialMessages.length - 1].created_at;
+        }
+    {% endif %}
+
+    // Poll for new messages every 3 seconds
+    setInterval(pollForMessages, 3000);
+
+    // Poll for active users every 5 seconds
+    setInterval(updateActiveUsers, 5000);
+    updateActiveUsers(); // Initial call
+
+    function pollForMessages() {
+        if (isPolling) return;
+        isPolling = true;
+
+        let url = `/api/committee/${committeeCode}/chat/messages/`;
+        if (lastMessageTimestamp) {
+            url += `?since=${encodeURIComponent(lastMessageTimestamp)}`;
+        }
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.messages && data.messages.length > 0) {
+                    data.messages.forEach(msg => {
+                        appendMessage(msg);
+                        lastMessageTimestamp = msg.created_at;
+                    });
+                    scrollToBottom();
+                }
+
+                // Update poll indicator
+                const now = new Date().toLocaleTimeString();
+                document.getElementById('poll-status').textContent = `● Last poll: ${now}`;
+            })
+            .catch(error => console.error('Error polling messages:', error))
+            .finally(() => {
+                isPolling = false;
+            });
+    }
+
+    // Send message
+    document.getElementById('message-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const input = document.getElementById('message-input');
+        const message = input.value.trim();
+
+        if (!message) return;
+
+        // Create temporary ID for optimistic update
+        const tempId = 'temp-' + Date.now();
+
+        // Show message immediately (optimistic update)
+        const optimisticMessage = {
+            id: tempId,
+            sender_name: currentUserName,
+            sender_id: currentUserId,
+            message: message,
+            created_at: new Date().toISOString(),
+            is_own_message: true,
+            pending: true  // Mark as pending delivery
+        };
+
+        appendMessage(optimisticMessage);
+        scrollToBottom();
+
+        // Clear input immediately for better UX
+        input.value = '';
+        updateCharCount();
+
+        const formData = new FormData();
+        formData.append('message', message);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch(`/api/committee/${committeeCode}/chat/send/`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Replace temporary message with real one from server
+                const tempElement = document.getElementById(`msg-${tempId}`);
+                if (tempElement) {
+                    tempElement.id = `msg-${data.message.id}`;
+                    // Update checkmark to delivered
+                    const checkmark = tempElement.querySelector('.delivery-indicator');
+                    if (checkmark) {
+                        checkmark.innerHTML = '✓';
+                        checkmark.style.color = '#003DA5';
+                    }
+                }
+                lastMessageTimestamp = data.message.created_at;
+            } else {
+                // Remove failed message
+                const tempElement = document.getElementById(`msg-${tempId}`);
+                if (tempElement) {
+                    tempElement.remove();
+                }
+                alert(data.error || 'Failed to send message');
+            }
+        })
+        .catch(error => {
+            console.error('Error sending message:', error);
+            // Remove failed message
+            const tempElement = document.getElementById(`msg-${tempId}`);
+            if (tempElement) {
+                tempElement.remove();
+            }
+            alert('Failed to send message');
+        });
+    });
+
+    // Append message to chat
+    function appendMessage(msg) {
+        const messagesList = document.getElementById('messages-list');
+
+        // Check if message already exists (skip duplicates from polling)
+        if (document.getElementById(`msg-${msg.id}`) && !msg.id.toString().startsWith('temp-')) {
+            return;
+        }
+
+        const timestamp = new Date(msg.created_at).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit'
+        });
+
+        // Get initials for avatar
+        const nameParts = msg.sender_name.split(' ');
+        const initials = nameParts.length >= 2
+            ? nameParts[0][0] + nameParts[nameParts.length - 1][0]
+            : nameParts[0][0];
+
+        const messageDiv = document.createElement('div');
+        messageDiv.id = `msg-${msg.id}`;
+        messageDiv.className = `flex gap-3 p-2 rounded hover:bg-gray-50 mb-2 ${msg.is_own_message ? 'bg-pink-50' : ''}`;
+
+        const avatarBg = msg.is_own_message ? '#CD8C95' : '#003DA5';
+
+        // Delivery indicator for own messages
+        let deliveryIndicator = '';
+        if (msg.is_own_message) {
+            if (msg.pending) {
+                // Sending (clock icon)
+                deliveryIndicator = `<span class="delivery-indicator text-xs ml-2" style="color: #999;">⏱</span>`;
+            } else {
+                // Delivered (checkmark)
+                deliveryIndicator = `<span class="delivery-indicator text-xs ml-2" style="color: #003DA5;">✓</span>`;
+            }
+        }
+
+        // Delete button for admins/chairs
+        const canDelete = {{ is_admin|lower }} || {{ is_chair|lower }};
+        const isSender = msg.sender_id === currentUserId;
+        let deleteButton = '';
+
+        if (canDelete || isSender) {
+            deleteButton = `
+                <button class="delete-btn text-xs text-red-600 hover:text-red-800 ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onclick="deleteMessage(${msg.id}, '${escapeHtml(msg.id)}')">
+                    Delete
+                </button>
+            `;
+        }
+
+        messageDiv.className = `flex gap-3 p-2 rounded hover:bg-gray-50 mb-2 group ${msg.is_own_message ? 'bg-pink-50' : ''}`;
+
+        messageDiv.innerHTML = `
+            <div class="w-9 h-9 rounded text-white flex items-center justify-center font-bold text-sm flex-shrink-0" style="background-color: ${avatarBg}">
+                ${initials.toUpperCase()}
+            </div>
+            <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2 mb-1">
+                    <span class="font-bold text-gray-900">${escapeHtml(msg.sender_name)}</span>
+                    <span class="text-xs text-gray-500">${timestamp}</span>
+                    ${deliveryIndicator}
+                    ${deleteButton}
+                </div>
+                <div class="text-gray-900">${escapeHtml(msg.message)}</div>
+            </div>
+        `;
+
+        messagesList.appendChild(messageDiv);
+    }
+
+    // Delete message function
+    function deleteMessage(messageId, tempId) {
+        if (!confirm('Delete this message?')) {
+            return;
+        }
+
+        // If it's a temp message (not yet sent), just remove it
+        if (tempId.toString().startsWith('temp-')) {
+            const element = document.getElementById(`msg-${tempId}`);
+            if (element) element.remove();
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch(`/api/committee/${committeeCode}/chat/delete/${messageId}/`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const element = document.getElementById(`msg-${messageId}`);
+                if (element) {
+                    element.remove();
+                }
+            } else {
+                alert('Failed to delete message');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting message:', error);
+            alert('Failed to delete message');
+        });
+    }
+
+    // Auto-scroll to bottom
+    function scrollToBottom() {
+        const container = document.getElementById('chat-container');
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // Character counter
+    const messageInput = document.getElementById('message-input');
+    messageInput.addEventListener('input', updateCharCount);
+
+    function updateCharCount() {
+        const count = messageInput.value.length;
+        document.getElementById('char-count').textContent = count;
+    }
+
+    // HTML escape
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Update active users list
+    function updateActiveUsers() {
+        fetch(`/api/committee/${committeeCode}/chat/active/`)
+            .then(response => response.json())
+            .then(data => {
+                const count = data.count;
+                const users = data.active_users;
+
+                // Update count
+                document.getElementById('active-count').textContent = `${count} active`;
+
+                // Update tooltip list
+                const listElement = document.getElementById('active-users-list');
+                if (users.length === 0) {
+                    listElement.innerHTML = '<div>No one active</div>';
+                } else {
+                    listElement.innerHTML = users.map(user => {
+                        const you = user.is_current_user ? ' (you)' : '';
+                        return `<div>${escapeHtml(user.name)}${you}</div>`;
+                    }).join('');
+                }
+            })
+            .catch(error => console.error('Error fetching active users:', error));
+    }
+
+    // Initial scroll
+    scrollToBottom();
+</script>
+{% endblock %}

@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Chat Settings - {{ committee.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mb-6">
+        <a href="{% url 'committee_chat' committee.code %}" class="text-blue-600 hover:text-blue-800">
+            ← Back to Chat
+        </a>
+        <h1 class="text-3xl font-bold text-gray-900 mt-2">Customize Chat Appearance</h1>
+        <p class="text-gray-600 mt-1">{{ committee.name }}</p>
+    </div>
+
+    <form method="post" class="bg-white rounded-lg shadow-md p-6">
+        {% csrf_token %}
+
+        <!-- Preview -->
+        <div class="mb-6 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+            <p class="text-sm font-medium text-gray-700 mb-3">Preview:</p>
+            <div class="flex items-center gap-4">
+                <div id="preview-icon" class="text-4xl flex items-center justify-center w-16 h-16 rounded-lg transition-colors"
+                     style="background-color: {{ channel.color }}20;">
+                    <span id="preview-icon-text">{{ channel.icon }}</span>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">{{ committee.name }} Chat</h3>
+                    <span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">Committee</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Icon -->
+        <div class="mb-6">
+            <label for="icon" class="block text-sm font-medium text-gray-700 mb-2">
+                Chat Icon (emoji)
+            </label>
+            <input
+                type="text"
+                id="icon"
+                name="icon"
+                maxlength="10"
+                value="{{ channel.icon }}"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="💬"
+            >
+            <p class="text-xs text-gray-500 mt-1">Use any emoji to represent your committee's chat</p>
+        </div>
+
+        <!-- Color -->
+        <div class="mb-6">
+            <label for="color" class="block text-sm font-medium text-gray-700 mb-2">
+                Accent Color
+            </label>
+            <div class="flex items-center gap-4">
+                <input
+                    type="color"
+                    id="color"
+                    name="color"
+                    value="{{ channel.color }}"
+                    class="w-24 h-12 border border-gray-300 rounded-md cursor-pointer"
+                >
+                <div class="flex-1">
+                    <p class="text-sm text-gray-600">Choose a color for your chat's icon background</p>
+                    <p class="text-xs text-gray-500 mt-1">Current: <span id="color-display">{{ channel.color }}</span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preset Colors -->
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                Quick Color Presets
+            </label>
+            <div class="flex gap-2 flex-wrap">
+                <button type="button" class="color-preset w-10 h-10 rounded border-2 border-gray-300 hover:border-gray-500 transition"
+                        style="background-color: #003DA5;" data-color="#003DA5" title="Beta Blue"></button>
+                <button type="button" class="color-preset w-10 h-10 rounded border-2 border-gray-300 hover:border-gray-500 transition"
+                        style="background-color: #CD8C95;" data-color="#CD8C95" title="Beta Pink"></button>
+                <button type="button" class="color-preset w-10 h-10 rounded border-2 border-gray-300 hover:border-gray-500 transition"
+                        style="background-color: #EF4444;" data-color="#EF4444" title="Red"></button>
+                <button type="button" class="color-preset w-10 h-10 rounded border-2 border-gray-300 hover:border-gray-500 transition"
+                        style="background-color: #F59E0B;" data-color="#F59E0B" title="Orange"></button>
+                <button type="button" class="color-preset w-10 h-10 rounded border-2 border-gray-300 hover:border-gray-500 transition"
+                        style="background-color: #10B981;" data-color="#10B981" title="Green"></button>
+                <button type="button" class="color-preset w-10 h-10 rounded border-2 border-gray-300 hover:border-gray-500 transition"
+                        style="background-color: #3B82F6;" data-color="#3B82F6" title="Blue"></button>
+                <button type="button" class="color-preset w-10 h-10 rounded border-2 border-gray-300 hover:border-gray-500 transition"
+                        style="background-color: #8B5CF6;" data-color="#8B5CF6" title="Purple"></button>
+                <button type="button" class="color-preset w-10 h-10 rounded border-2 border-gray-300 hover:border-gray-500 transition"
+                        style="background-color: #EC4899;" data-color="#EC4899" title="Pink"></button>
+            </div>
+        </div>
+
+        <!-- Submit Buttons -->
+        <div class="flex justify-end gap-3 mt-6 pt-6 border-t">
+            <a href="{% url 'committee_chat' committee.code %}"
+               class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                Cancel
+            </a>
+            <button type="submit"
+                    class="px-6 py-2 rounded-md text-white font-semibold"
+                    style="background-color: #003DA5;"
+                    onmouseover="this.style.backgroundColor='#002d7a'"
+                    onmouseout="this.style.backgroundColor='#003DA5'">
+                Save Changes
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    const iconInput = document.getElementById('icon');
+    const colorInput = document.getElementById('color');
+    const previewIcon = document.getElementById('preview-icon');
+    const previewIconText = document.getElementById('preview-icon-text');
+    const colorDisplay = document.getElementById('color-display');
+
+    // Update preview when icon changes
+    iconInput.addEventListener('input', function() {
+        previewIconText.textContent = this.value || '💬';
+    });
+
+    // Update preview when color changes
+    colorInput.addEventListener('input', function() {
+        const color = this.value;
+        previewIcon.style.backgroundColor = color + '20'; // 20 = 12.5% opacity in hex
+        colorDisplay.textContent = color;
+    });
+
+    // Color preset buttons
+    document.querySelectorAll('.color-preset').forEach(button => {
+        button.addEventListener('click', function() {
+            const color = this.getAttribute('data-color');
+            colorInput.value = color;
+            previewIcon.style.backgroundColor = color + '20';
+            colorDisplay.textContent = color;
+        });
+    });
+</script>
+{% endblock %}

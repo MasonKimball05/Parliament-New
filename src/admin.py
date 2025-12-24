@@ -1,7 +1,7 @@
 from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
 from .decorators import log_function_call
-from .models import Committee, ParliamentUser, Legislation, Vote, Attendance, CommitteeDocument, Role, Announcement
+from .models import Committee, ParliamentUser, Legislation, Vote, Attendance, CommitteeDocument, Role, Announcement, ChatChannel, ChatChannelPermission, ChatMessage, ChatReadReceipt
 import logging
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
@@ -307,6 +307,50 @@ def view_error_logs(request):
         'logs': logs,
         'title': 'View Error Logs',
     })
+
+
+# === CHAT CHANNEL ADMIN ===
+
+class ChatChannelPermissionInline(admin.TabularInline):
+    model = ChatChannelPermission
+    extra = 1
+    verbose_name = "Permission"
+    verbose_name_plural = "Channel Permissions"
+    fields = ('user', 'member_type', 'chairs_only', 'officers_only')
+
+@admin.register(ChatChannel)
+class ChatChannelAdmin(admin.ModelAdmin):
+    list_display = ('name', 'channel_type', 'access_type', 'is_active', 'created_by', 'created_at')
+    list_filter = ('channel_type', 'access_type', 'is_active')
+    search_fields = ('name', 'description')
+    ordering = ('name',)
+    inlines = [ChatChannelPermissionInline]
+    readonly_fields = ('created_at', 'created_by')
+
+    def save_model(self, request, obj, form, change):
+        if not change:  # Only set created_by on creation
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+@admin.register(ChatMessage)
+class ChatMessageAdmin(admin.ModelAdmin):
+    list_display = ('sender', 'channel', 'committee', 'message_preview', 'created_at', 'is_deleted')
+    list_filter = ('is_deleted', 'created_at', 'channel', 'committee')
+    search_fields = ('sender__name', 'message', 'channel__name', 'committee__code')
+    ordering = ('-created_at',)
+    readonly_fields = ('created_at', 'edited_at')
+
+    def message_preview(self, obj):
+        return obj.message[:50] + '...' if len(obj.message) > 50 else obj.message
+    message_preview.short_description = 'Message'
+
+@admin.register(ChatReadReceipt)
+class ChatReadReceiptAdmin(admin.ModelAdmin):
+    list_display = ('user', 'channel', 'committee', 'last_read_at')
+    list_filter = ('last_read_at', 'channel', 'committee')
+    search_fields = ('user__name', 'channel__name', 'committee__code')
+    ordering = ('-last_read_at',)
+    readonly_fields = ('last_read_at',)
 
 
 original_get_urls = admin.site.get_urls
