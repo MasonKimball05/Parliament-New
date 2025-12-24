@@ -40,6 +40,7 @@
                     </a>
 
                     {% if user.is_authenticated %}
+                        <!-- Desktop Navigation -->
                         <div class="hidden lg:flex space-x-1">
                             <a href="{% url 'home' %}" class="px-2 py-2 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Home
@@ -49,6 +50,9 @@
                             </a>
                             <a href="{% url 'committee_index' %}" class="px-2 py-2 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Committees
+                            </a>
+                            <a href="{% url 'chat_index' %}" class="px-2 py-2 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
+                                Chats
                             </a>
                             <a href="{% url 'chapter_documents' %}" class="px-2 py-2 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Documents
@@ -71,28 +75,102 @@
                     {% endif %}
                 </div>
 
-                {% if user.is_authenticated %}
-                    <div class="flex items-center space-x-2">
-                        <a href="{% url 'profile' %}" class="px-2 py-2 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
-                            {{ user.get_display_name }}
-                        </a>
-                        {% if user.is_admin %}
-                            <a href="/admin/" class="px-2 py-2 text-sm rounded-md bg-red-700 hover:bg-red-800 transition-colors whitespace-nowrap">
-                                Admin
+                <div class="flex items-center">
+                    {% if user.is_authenticated %}
+                        <!-- Desktop User Menu -->
+                        <div class="hidden lg:flex items-center space-x-2">
+                            <a href="{% url 'profile' %}" class="px-2 py-2 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
+                                {{ user.get_display_name }}
                             </a>
-                        {% endif %}
-                        <a href="{% url 'logout' %}" class="px-2 py-2 text-sm rounded-md bg-gray-600 hover:bg-gray-700 transition-colors whitespace-nowrap">
-                            Logout
+                            {% if user.is_admin %}
+                                <a href="/admin/" class="px-2 py-2 text-sm rounded-md bg-red-700 hover:bg-red-800 transition-colors whitespace-nowrap">
+                                    Admin
+                                </a>
+                            {% endif %}
+                            <a href="{% url 'logout' %}" class="px-2 py-2 text-sm rounded-md bg-gray-600 hover:bg-gray-700 transition-colors whitespace-nowrap">
+                                Logout
+                            </a>
+                        </div>
+
+                        <!-- Mobile Menu Button -->
+                        <button id="mobile-menu-button" class="lg:hidden p-2 rounded-md hover:bg-primary-600 transition-colors">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                            </svg>
+                        </button>
+                    {% else %}
+                        <a href="{% url 'login' %}" class="px-3 py-2 text-sm rounded-md bg-white text-primary-700 font-medium hover:bg-gray-100 transition-colors">
+                            Login
                         </a>
-                    </div>
-                {% else %}
-                    <a href="{% url 'login' %}" class="px-3 py-2 text-sm rounded-md bg-white text-primary-700 font-medium hover:bg-gray-100 transition-colors">
-                        Login
-                    </a>
-                {% endif %}
+                    {% endif %}
+                </div>
             </div>
         </div>
+
+        <!-- Mobile Menu (Hidden by default) -->
+        {% if user.is_authenticated %}
+        <div id="mobile-menu" class="hidden lg:hidden bg-primary-800 border-t border-primary-600">
+            <div class="px-2 pt-2 pb-3 space-y-1">
+                <a href="{% url 'home' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
+                    🏠 Home
+                </a>
+                <a href="{% url 'vote' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
+                    🗳️ Vote
+                </a>
+                <a href="{% url 'committee_index' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
+                    👥 Committees
+                </a>
+                <a href="{% url 'chat_index' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
+                    💬 Chats
+                </a>
+                <a href="{% url 'chapter_documents' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
+                    📄 Documents
+                </a>
+                <a href="{% url 'passed_legislation' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
+                    📜 Legislation
+                </a>
+                <a href="{% url 'announcements' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
+                    📢 Announcements
+                </a>
+                <a href="{% url 'calendar' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
+                    📅 Calendar
+                </a>
+                {% if user.is_officer %}
+                <a href="{% url 'officer_home' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
+                    ⚙️ Officers
+                </a>
+                {% endif %}
+
+                <!-- Mobile User Section -->
+                <div class="border-t border-primary-600 pt-2 mt-2">
+                    <a href="{% url 'profile' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
+                        👤 {{ user.get_display_name }}
+                    </a>
+                    {% if user.is_admin %}
+                    <a href="/admin/" class="block px-3 py-2 rounded-md text-base font-medium bg-red-700 hover:bg-red-800 transition-colors">
+                        🔐 Admin Panel
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'logout' %}" class="block px-3 py-2 rounded-md text-base font-medium bg-gray-600 hover:bg-gray-700 transition-colors">
+                        🚪 Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </nav>
+
+    <!-- Mobile Menu Toggle Script -->
+    <script>
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+
+        if (mobileMenuButton && mobileMenu) {
+            mobileMenuButton.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+            });
+        }
+    </script>
 
     <!-- Messages -->
     {% if messages %}
