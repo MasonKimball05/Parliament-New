@@ -30,8 +30,16 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 # Go to the parent directory (project root)
 PROJECT_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
 
-# Use the venv Python
-PYTHON="$PROJECT_DIR/.venv/bin/python3"
+# Check for virtual environment (development uses .venv, production uses venv)
+if [ -f "$PROJECT_DIR/.venv/bin/python3" ]; then
+    PYTHON="$PROJECT_DIR/.venv/bin/python3"
+elif [ -f "$PROJECT_DIR/venv/bin/python3" ]; then
+    PYTHON="$PROJECT_DIR/venv/bin/python3"
+else
+    echo -e "${RED}Error: Python virtual environment not found${NC}"
+    echo "Expected: $PROJECT_DIR/.venv/bin/python3 OR $PROJECT_DIR/venv/bin/python3"
+    exit 1
+fi
 
 # Build the command
 if [ -z "$CUSTOM_PASSWORD" ]; then
