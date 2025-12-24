@@ -25,13 +25,21 @@ CUSTOM_PASSWORD=$2
 
 echo -e "${YELLOW}Resetting password for user ID: $USER_ID${NC}"
 
+# Get the directory where the script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# Go to the parent directory (project root)
+PROJECT_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
+
+# Use the venv Python
+PYTHON="$PROJECT_DIR/.venv/bin/python3"
+
 # Build the command
 if [ -z "$CUSTOM_PASSWORD" ]; then
     # No custom password provided, use auto-generated format
-    CMD="python manage.py reset_user_password $USER_ID"
+    CMD="cd $PROJECT_DIR && $PYTHON manage.py reset_user_password $USER_ID"
 else
     # Custom password provided
-    CMD="python manage.py reset_user_password $USER_ID --password \"$CUSTOM_PASSWORD\""
+    CMD="cd $PROJECT_DIR && $PYTHON manage.py reset_user_password $USER_ID --password \"$CUSTOM_PASSWORD\""
 fi
 
 # Execute the command
