@@ -1,8 +1,8 @@
 from django.shortcuts import render, get_object_or_404
 from src.models import Committee, CommitteePermissions
 
-def committee_home(request, id):
-    committee = get_object_or_404(Committee.objects.select_related('role'), id=id)
+def committee_home(request, code):
+    committee = get_object_or_404(Committee.objects.select_related('role'), code=code)
     perm = CommitteePermissions.objects.filter(
         committee=committee, user=request.user
     ).first()

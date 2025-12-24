@@ -4,6 +4,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from src.view.officer import *
 from src.view.committee import *
+from src.view.chat import *
 from src.view.chapter_documents import chapter_documents
 from src.view.upload_chapter_document import upload_chapter_document
 from src.view.manage_chapter_document import manage_chapter_document
@@ -109,6 +110,28 @@ urlpatterns = [
     path('committee/<str:code>/minutes/', committee_minutes, name='minutes'),
     path('committee/<str:code>/documents/<int:document_id>/toggle-publish/', toggle_document_publish, name='toggle_document_publish'),
     path('committee/<str:code>/documents/<int:document_id>/delete/', delete_committee_document, name='delete_committee_document'),
+
+    # Committee Chat URLs (legacy - redirects to channel chat)
+    path('committee/<str:code>/chat/', committee_chat, name='committee_chat'),
+    path('committee/<str:code>/chat/settings/', edit_committee_chat_settings, name='edit_committee_chat_settings'),
+    path('api/committee/<str:code>/chat/messages/', get_chat_messages, name='get_chat_messages'),
+    path('api/committee/<str:code>/chat/send/', send_chat_message, name='send_chat_message'),
+    path('api/committee/<str:code>/chat/delete/<int:message_id>/', delete_chat_message, name='delete_chat_message'),
+    path('api/committee/<str:code>/chat/active/', get_active_users, name='get_active_users'),
+
+    # New Channel-based Chat URLs
+    path('chats/', chat_index, name='chat_index'),
+    path('chat/<int:channel_id>/', channel_chat, name='channel_chat'),
+    path('api/channel/<int:channel_id>/messages/', get_channel_messages, name='get_channel_messages'),
+    path('api/channel/<int:channel_id>/send/', send_channel_message, name='send_channel_message'),
+    path('api/channel/<int:channel_id>/edit/<int:message_id>/', edit_channel_message, name='edit_channel_message'),
+    path('api/channel/<int:channel_id>/delete/<int:message_id>/', delete_channel_message, name='delete_channel_message'),
+    path('api/channel/<int:channel_id>/active/', get_channel_active_users, name='get_channel_active_users'),
+
+    # Admin Channel Management
+    path('chats/create/', create_channel, name='create_channel'),
+    path('chats/<int:channel_id>/edit/', edit_channel, name='edit_channel'),
+    path('chats/<int:channel_id>/delete/', delete_channel, name='delete_channel'),
 ]
 
 if settings.DEBUG:

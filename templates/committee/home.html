@@ -18,18 +18,23 @@
         <h2 class="text-xl font-semibold mb-4">Quick Links</h2>
         <ul class="space-y-2">
             <li>
-                <a href="{% url 'committee_documents' committee.id %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                <a href="{% url 'committee_documents' committee.code %}" class="text-blue-600 hover:text-blue-800 hover:underline">
                     📄 Documents
                 </a>
             </li>
             <li>
-                <a href="{% url 'committee_vote' committee.id %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                <a href="{% url 'vote' committee.code %}" class="text-blue-600 hover:text-blue-800 hover:underline">
                     🗳️ Voting
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'committee_chat' committee.code %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                    💬 Chat
                 </a>
             </li>
             {% if perm and perm.can_manage_members %}
                 <li>
-                    <a href="{% url 'committee_manage_members' committee.id %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                    <a href="{% url 'manage_members' committee.code %}" class="text-blue-600 hover:text-blue-800 hover:underline">
                         👥 Manage Members
                     </a>
                 </li>

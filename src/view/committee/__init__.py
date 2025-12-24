@@ -12,3 +12,5 @@ from src.view.committee.upload_document import *
 from src.view.committee.vote import *
 from src.view.committee.toggle_document_publish import *
 from src.view.committee.delete_document import *
+from src.view.committee.chat import *
+from src.view.committee.edit_committee_chat import *

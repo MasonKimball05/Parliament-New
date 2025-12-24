@@ -1,0 +1,576 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+
+{% block title %}{{ channel.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-2 sm:px-4 py-2 sm:py-8 flex flex-col" style="height: calc(100vh - 80px); min-height: 500px;">
+    <!-- Admin Preview Mode Banner -->
+    {% if admin_preview_mode %}
+        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 sm:p-4 mb-2 sm:mb-4 rounded">
+            <div class="flex items-center">
+                <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+                <div>
+                    <p class="font-bold text-sm sm:text-base">Admin Preview Mode</p>
+                    <p class="text-xs sm:text-sm">You are viewing this channel as admin. You cannot send messages but can delete them.</p>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Header -->
+    <div class="mb-2 sm:mb-4">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+            <div class="flex-1">
+                <a href="{% url 'chat_index' %}{% if admin_preview_mode %}?view_all=true{% endif %}" class="text-blue-600 hover:text-blue-800 text-sm sm:text-base">
+                    ← Back to Chats
+                </a>
+                <h2 class="text-xl sm:text-2xl lg:text-3xl font-bold mt-1 sm:mt-2">{{ channel.name }}</h2>
+                <div class="flex flex-wrap items-center gap-2 sm:gap-4 text-gray-600 text-xs sm:text-sm">
+                    {% if channel.description %}
+                        <p class="break-words">{{ channel.description }}</p>
+                    {% endif %}
+                    <div class="relative inline-block group">
+                        <div class="flex items-center gap-1 cursor-pointer">
+                            <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                            <span id="active-count" class="text-xs sm:text-sm">0 active</span>
+                        </div>
+                        <!-- Tooltip showing active users -->
+                        <div id="active-users-tooltip" class="absolute left-0 top-full mt-2 bg-gray-900 text-white text-xs rounded py-2 px-3 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity z-10 min-w-max">
+                            <div id="active-users-list" class="space-y-1">
+                                Loading...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Settings Button (for committee channels - chairs only) -->
+            {% if channel.channel_type == 'committee' and channel.committee and not admin_preview_mode %}
+                {% if is_chair or is_admin %}
+                    <a href="{% url 'edit_committee_chat_settings' channel.committee.code %}"
+                       class="px-3 sm:px-4 py-2 rounded-lg border-2 font-medium text-xs sm:text-sm hover:bg-gray-50 transition flex items-center gap-2 self-start"
+                       style="border-color: #003DA5; color: #003DA5;">
+                        <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                        <span class="hidden sm:inline">Chat Settings</span>
+                        <span class="sm:hidden">Settings</span>
+                    </a>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Poll indicator -->
+    <div id="poll-status" class="text-xs mb-1 sm:mb-2" style="color: #003DA5;">
+        ● Connected - polling every 3 seconds
+    </div>
+
+    <!-- Chat Messages Container -->
+    <div id="chat-container" class="flex-1 bg-white rounded-lg shadow-md p-2 sm:p-4 overflow-y-auto mb-2 sm:mb-4 border border-gray-200">
+        <div id="messages-list">
+            {% for msg in initial_messages %}
+                <div id="msg-{{ msg.id }}" class="flex gap-2 sm:gap-3 p-1.5 sm:p-2 rounded hover:bg-gray-50 mb-1.5 sm:mb-2 group {% if msg.sender == request.user %}bg-pink-50{% endif %}">
+                    <!-- Avatar with initials -->
+                    <div class="w-8 h-8 sm:w-9 sm:h-9 rounded text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0"
+                         style="background-color: {% if msg.sender == request.user %}#CD8C95{% else %}#003DA5{% endif %}">
+                        {% with first=msg.sender.name|first %}
+                            {% with parts=msg.sender.name|split:' ' %}
+                                {% if parts|length > 1 %}
+                                    {{ first|upper }}{{ parts|last|first|upper }}
+                                {% else %}
+                                    {{ first|upper }}
+                                {% endif %}
+                            {% endwith %}
+                        {% endwith %}
+                    </div>
+
+                    <!-- Message content -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex flex-wrap items-baseline gap-1 sm:gap-2 mb-1">
+                            <span class="font-bold text-gray-900 text-sm sm:text-base">{{ msg.sender.name }}</span>
+                            <span class="text-xs text-gray-500">{{ msg.created_at|date:"g:i A" }}</span>
+                            {% if msg.edited_at %}
+                                <span class="text-xs text-gray-400 italic">(edited)</span>
+                            {% endif %}
+                            {% if msg.sender == request.user %}
+                                {% now "U" as current_timestamp %}
+                                {% if msg.created_at|date:"U"|add:"3600" >= current_timestamp %}
+                                    <button class="edit-btn text-xs text-blue-600 hover:text-blue-800 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                                            onclick="editMessage({{ msg.id }})">
+                                        Edit
+                                    </button>
+                                {% endif %}
+                            {% endif %}
+                            {% if is_admin or is_chair or msg.sender == request.user %}
+                                <button class="delete-btn text-xs text-red-600 hover:text-red-800 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                                        onclick="deleteMessage({{ msg.id }}, 'msg-{{ msg.id }}')">
+                                    Delete
+                                </button>
+                            {% endif %}
+                        </div>
+                        <div class="message-text text-gray-900 text-sm sm:text-base break-words" data-message-id="{{ msg.id }}">{{ msg.message }}</div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Message Input -->
+    {% if not admin_preview_mode %}
+        <div class="bg-white rounded-lg shadow-md p-2 sm:p-4 border-2 border-gray-300">
+            <form id="message-form" class="flex gap-2">
+                {% csrf_token %}
+                <input
+                    type="text"
+                    id="message-input"
+                    name="message"
+                    placeholder="Type a message..."
+                    maxlength="2000"
+                    class="flex-1 border border-gray-300 rounded px-3 sm:px-4 py-2 text-sm sm:text-base focus:outline-none focus:border-blue-500"
+                    autocomplete="off"
+                >
+                <button
+                    type="submit"
+                    class="px-4 sm:px-6 py-2 rounded text-white font-semibold text-sm sm:text-base whitespace-nowrap"
+                    style="background-color: #003DA5;"
+                    onmouseover="this.style.backgroundColor='#002d7a'"
+                    onmouseout="this.style.backgroundColor='#003DA5'"
+                >
+                    Send
+                </button>
+            </form>
+            <p class="text-xs text-gray-500 mt-1 sm:mt-2 text-right">
+                <span id="char-count">0</span>/2000 characters
+            </p>
+        </div>
+    {% else %}
+        <div class="bg-gray-100 rounded-lg shadow-md p-3 sm:p-4 border-2 border-gray-300 text-center">
+            <p class="text-gray-600 text-sm sm:text-base">Message sending disabled in admin preview mode</p>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+    const channelId = {{ channel.id }};
+    const currentUserId = {{ request.user.user_id }};
+    const currentUserName = "{{ request.user.name }}";
+    let lastMessageTimestamp = null;
+    let isPolling = false;
+
+    // Initialize with last message timestamp from initial messages
+    {% if initial_messages %}
+        const initialMessages = [
+            {% for msg in initial_messages %}
+                {
+                    id: {{ msg.id }},
+                    created_at: "{{ msg.created_at.isoformat }}"
+                }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        if (initialMessages.length > 0) {
+            lastMessageTimestamp = initialMessages[initialMessages.length - 1].created_at;
+        }
+    {% endif %}
+
+    // Poll for new messages every 3 seconds
+    setInterval(pollForMessages, 3000);
+
+    // Poll for active users every 5 seconds
+    setInterval(updateActiveUsers, 5000);
+    updateActiveUsers(); // Initial call
+
+    function pollForMessages() {
+        if (isPolling) return;
+        isPolling = true;
+
+        let url = `/api/channel/${channelId}/messages/`;
+        if (lastMessageTimestamp) {
+            url += `?since=${encodeURIComponent(lastMessageTimestamp)}`;
+        }
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.messages && data.messages.length > 0) {
+                    data.messages.forEach(msg => {
+                        appendMessage(msg);
+                        lastMessageTimestamp = msg.created_at;
+                    });
+                    scrollToBottom();
+                }
+
+                // Update poll indicator
+                const now = new Date().toLocaleTimeString();
+                document.getElementById('poll-status').textContent = `● Last poll: ${now}`;
+            })
+            .catch(error => console.error('Error polling messages:', error))
+            .finally(() => {
+                isPolling = false;
+            });
+    }
+
+    // Send message (only if not in admin preview mode)
+    const messageForm = document.getElementById('message-form');
+    if (messageForm) {
+        messageForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+
+            if (!message) return;
+
+            // Create temporary ID for optimistic update
+            const tempId = 'temp-' + Date.now();
+
+            // Show message immediately (optimistic update)
+            const optimisticMessage = {
+                id: tempId,
+                sender_name: currentUserName,
+                sender_id: currentUserId,
+                message: message,
+                created_at: new Date().toISOString(),
+                is_own_message: true,
+                pending: true  // Mark as pending delivery
+            };
+
+            appendMessage(optimisticMessage);
+            scrollToBottom();
+
+            // Clear input immediately for better UX
+            input.value = '';
+            updateCharCount();
+
+            const formData = new FormData();
+            formData.append('message', message);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+            fetch(`/api/channel/${channelId}/send/`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Replace temporary message with real one from server
+                    const tempElement = document.getElementById(`msg-${tempId}`);
+                    if (tempElement) {
+                        tempElement.id = `msg-${data.message.id}`;
+                        // Update checkmark to delivered
+                        const checkmark = tempElement.querySelector('.delivery-indicator');
+                        if (checkmark) {
+                            checkmark.innerHTML = '✓';
+                            checkmark.style.color = '#003DA5';
+                        }
+                    }
+                    lastMessageTimestamp = data.message.created_at;
+                } else {
+                    // Remove failed message
+                    const tempElement = document.getElementById(`msg-${tempId}`);
+                    if (tempElement) {
+                        tempElement.remove();
+                    }
+                    alert(data.error || 'Failed to send message');
+                }
+            })
+            .catch(error => {
+                console.error('Error sending message:', error);
+                // Remove failed message
+                const tempElement = document.getElementById(`msg-${tempId}`);
+                if (tempElement) {
+                    tempElement.remove();
+                }
+                alert('Failed to send message');
+            });
+        });
+    }
+
+    // Append message to chat
+    function appendMessage(msg) {
+        const messagesList = document.getElementById('messages-list');
+
+        // Check if message already exists (skip duplicates from polling)
+        if (document.getElementById(`msg-${msg.id}`) && !msg.id.toString().startsWith('temp-')) {
+            return;
+        }
+
+        const timestamp = new Date(msg.created_at).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit'
+        });
+
+        // Get initials for avatar
+        const nameParts = msg.sender_name.split(' ');
+        const initials = nameParts.length >= 2
+            ? nameParts[0][0] + nameParts[nameParts.length - 1][0]
+            : nameParts[0][0];
+
+        const messageDiv = document.createElement('div');
+        messageDiv.id = `msg-${msg.id}`;
+        messageDiv.className = `flex gap-2 sm:gap-3 p-1.5 sm:p-2 rounded hover:bg-gray-50 mb-1.5 sm:mb-2 ${msg.is_own_message ? 'bg-pink-50' : ''}`;
+
+        const avatarBg = msg.is_own_message ? '#CD8C95' : '#003DA5';
+
+        // Delivery indicator for own messages
+        let deliveryIndicator = '';
+        if (msg.is_own_message) {
+            if (msg.pending) {
+                // Sending (clock icon)
+                deliveryIndicator = `<span class="delivery-indicator text-xs ml-2" style="color: #999;">⏱</span>`;
+            } else {
+                // Delivered (checkmark)
+                deliveryIndicator = `<span class="delivery-indicator text-xs ml-2" style="color: #003DA5;">✓</span>`;
+            }
+        }
+
+        // Edited indicator
+        let editedIndicator = '';
+        if (msg.edited_at) {
+            editedIndicator = `<span class="text-xs text-gray-400 italic">(edited)</span>`;
+        }
+
+        // Edit button for sender (only if within 1 hour)
+        let editButton = '';
+        const isSender = msg.sender_id === currentUserId;
+        if (isSender && !msg.pending) {
+            // Check if message is within 1 hour edit window
+            const messageTime = new Date(msg.created_at);
+            const now = new Date();
+            const hourInMs = 60 * 60 * 1000;
+            const timeSinceMessage = now - messageTime;
+
+            if (timeSinceMessage < hourInMs) {
+                editButton = `
+                    <button class="edit-btn text-xs text-blue-600 hover:text-blue-800 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                            onclick="editMessage(${msg.id})">
+                        Edit
+                    </button>
+                `;
+            }
+        }
+
+        // Delete button for admins/chairs/sender
+        const canDelete = {{ is_admin|lower }} || {{ is_chair|lower }};
+        let deleteButton = '';
+
+        if (canDelete || isSender) {
+            deleteButton = `
+                <button class="delete-btn text-xs text-red-600 hover:text-red-800 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                        onclick="deleteMessage(${msg.id}, '${escapeHtml(msg.id)}')">
+                    Delete
+                </button>
+            `;
+        }
+
+        messageDiv.className = `flex gap-2 sm:gap-3 p-1.5 sm:p-2 rounded hover:bg-gray-50 mb-1.5 sm:mb-2 group ${msg.is_own_message ? 'bg-pink-50' : ''}`;
+
+        messageDiv.innerHTML = `
+            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0" style="background-color: ${avatarBg}">
+                ${initials.toUpperCase()}
+            </div>
+            <div class="flex-1 min-w-0">
+                <div class="flex flex-wrap items-baseline gap-1 sm:gap-2 mb-1">
+                    <span class="font-bold text-gray-900 text-sm sm:text-base">${escapeHtml(msg.sender_name)}</span>
+                    <span class="text-xs text-gray-500">${timestamp}</span>
+                    ${editedIndicator}
+                    ${deliveryIndicator}
+                    ${editButton}
+                    ${deleteButton}
+                </div>
+                <div class="message-text text-gray-900 text-sm sm:text-base break-words" data-message-id="${msg.id}">${escapeHtml(msg.message)}</div>
+            </div>
+        `;
+
+        messagesList.appendChild(messageDiv);
+    }
+
+    // Edit message function
+    function editMessage(messageId) {
+        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+        if (!messageElement) return;
+
+        const currentText = messageElement.textContent;
+
+        // Create edit input
+        const editForm = document.createElement('div');
+        editForm.className = 'flex gap-2 mt-1';
+        editForm.innerHTML = `
+            <input type="text"
+                   id="edit-input-${messageId}"
+                   value="${escapeHtml(currentText)}"
+                   maxlength="2000"
+                   class="flex-1 border border-blue-500 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button onclick="saveEdit(${messageId})"
+                    class="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">
+                Save
+            </button>
+            <button onclick="cancelEdit(${messageId}, '${escapeHtml(currentText)}')"
+                    class="px-3 py-1 bg-gray-300 text-gray-700 text-xs rounded hover:bg-gray-400">
+                Cancel
+            </button>
+        `;
+
+        // Replace message text with edit form
+        messageElement.style.display = 'none';
+        messageElement.parentNode.appendChild(editForm);
+
+        // Focus the input
+        document.getElementById(`edit-input-${messageId}`).focus();
+        document.getElementById(`edit-input-${messageId}`).select();
+    }
+
+    function saveEdit(messageId) {
+        const input = document.getElementById(`edit-input-${messageId}`);
+        const newText = input.value.trim();
+
+        if (!newText) {
+            alert('Message cannot be empty');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('message', newText);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch(`/api/channel/${channelId}/edit/${messageId}/`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the message text
+                const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+                messageElement.textContent = data.message.message;
+                messageElement.style.display = 'block';
+
+                // Remove edit form
+                const editForm = input.closest('div');
+                editForm.remove();
+
+                // Add or update "(edited)" indicator
+                const messageContainer = document.getElementById(`msg-${messageId}`);
+                const timeSpan = messageContainer.querySelector('.text-xs.text-gray-500');
+                let editedSpan = messageContainer.querySelector('.text-xs.text-gray-400.italic');
+
+                if (!editedSpan) {
+                    editedSpan = document.createElement('span');
+                    editedSpan.className = 'text-xs text-gray-400 italic';
+                    editedSpan.textContent = '(edited)';
+                    timeSpan.after(editedSpan);
+                }
+            } else {
+                alert(data.error || 'Failed to edit message');
+            }
+        })
+        .catch(error => {
+            console.error('Error editing message:', error);
+            alert('Failed to edit message');
+        });
+    }
+
+    function cancelEdit(messageId, originalText) {
+        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+        const editForm = document.getElementById(`edit-input-${messageId}`).closest('div');
+
+        messageElement.style.display = 'block';
+        editForm.remove();
+    }
+
+    // Delete message function
+    function deleteMessage(messageId, tempId) {
+        if (!confirm('Delete this message?')) {
+            return;
+        }
+
+        // If it's a temp message (not yet sent), just remove it
+        if (tempId.toString().startsWith('temp-')) {
+            const element = document.getElementById(`msg-${tempId}`);
+            if (element) element.remove();
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch(`/api/channel/${channelId}/delete/${messageId}/`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const element = document.getElementById(`msg-${messageId}`);
+                if (element) {
+                    element.remove();
+                }
+            } else {
+                alert('Failed to delete message');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting message:', error);
+            alert('Failed to delete message');
+        });
+    }
+
+    // Auto-scroll to bottom
+    function scrollToBottom() {
+        const container = document.getElementById('chat-container');
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // Character counter (only if not in admin preview mode)
+    const messageInput = document.getElementById('message-input');
+    if (messageInput) {
+        messageInput.addEventListener('input', updateCharCount);
+    }
+
+    function updateCharCount() {
+        if (messageInput) {
+            const count = messageInput.value.length;
+            document.getElementById('char-count').textContent = count;
+        }
+    }
+
+    // HTML escape
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Update active users list
+    function updateActiveUsers() {
+        fetch(`/api/channel/${channelId}/active/`)
+            .then(response => response.json())
+            .then(data => {
+                const count = data.count;
+                const users = data.active_users;
+
+                // Update count
+                document.getElementById('active-count').textContent = `${count} active`;
+
+                // Update tooltip list
+                const listElement = document.getElementById('active-users-list');
+                if (users.length === 0) {
+                    listElement.innerHTML = '<div>No one active</div>';
+                } else {
+                    listElement.innerHTML = users.map(user => {
+                        const you = user.is_current_user ? ' (you)' : '';
+                        return `<div>${escapeHtml(user.name)}${you}</div>`;
+                    }).join('');
+                }
+            })
+            .catch(error => console.error('Error fetching active users:', error));
+    }
+
+    // Initial scroll
+    scrollToBottom();
+</script>
+{% endblock %}

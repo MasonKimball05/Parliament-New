@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat Prototype - Committee Chat</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            margin: 20px;
+            max-width: 900px;
+        }
+        #chat-container {
+            border: 1px solid #ddd;
+            height: 500px;
+            overflow-y: auto;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #fff;
+        }
+        .message {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 8px;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .message:hover {
+            background: #f8f8f8;
+        }
+        .message.own {
+            background: #f7f2f4;  /* Light pink tint */
+        }
+        .message.own:hover {
+            background: #f0e6ea;
+        }
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 4px;
+            background: #003DA5;  /* Beta Blue */
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        .message.own .avatar {
+            background: #CD8C95;  /* Beta Pink */
+        }
+        .message-content {
+            flex: 1;
+            min-width: 0;
+        }
+        .message-header {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            margin-bottom: 2px;
+        }
+        .sender-name {
+            font-weight: 700;
+            font-size: 15px;
+            color: #1d1c1d;
+        }
+        .message.own .sender-name {
+            color: #1d1c1d;
+        }
+        .timestamp {
+            font-size: 12px;
+            color: #616061;
+        }
+        .message-text {
+            font-size: 15px;
+            line-height: 1.46668;
+            color: #1d1c1d;
+            word-wrap: break-word;
+        }
+        #message-form {
+            display: flex;
+            gap: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 8px;
+        }
+        #message-input {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            font-size: 15px;
+            outline: none;
+        }
+        #send-button {
+            padding: 10px 20px;
+            background: #003DA5;  /* Beta Blue */
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        #send-button:hover {
+            background: #002d7a;
+        }
+        .char-count {
+            font-size: 11px;
+            color: #616061;
+            margin-top: 5px;
+            text-align: right;
+        }
+        .header {
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        .header h2 {
+            margin: 0 0 5px 0;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .users-online {
+            font-size: 13px;
+            color: #616061;
+            margin-top: 5px;
+        }
+        .poll-indicator {
+            font-size: 11px;
+            color: #003DA5;  /* Beta Blue */
+            margin-bottom: 10px;
+            padding: 5px 10px;
+            background: #e8f0ff;
+            border-radius: 4px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>Finance Committee - Chat</h2>
+        <div class="users-online">5 members in committee</div>
+    </div>
+
+    <div class="poll-indicator" id="poll-status">● Connected - polling every 3 seconds</div>
+
+    <div id="chat-container"></div>
+
+    <form id="message-form">
+        <input
+            type="text"
+            id="message-input"
+            placeholder="Type a message..."
+            maxlength="2000"
+            autocomplete="off"
+        >
+        <button type="submit" id="send-button">Send</button>
+    </form>
+    <div class="char-count"><span id="char-count">0</span>/2000</div>
+
+    <script>
+        // Simulated current user
+        const currentUser = {
+            id: 73,
+            name: 'Mason Kimball'
+        };
+
+        // Simulated other users for demo
+        const otherUsers = [
+            { id: 1, name: 'John Smith' },
+            { id: 2, name: 'Sarah Johnson' },
+            { id: 3, name: 'Mike Chen' },
+        ];
+
+        // Simulated messages (in real app, these come from server)
+        let messages = [
+            {
+                id: 1,
+                sender_id: 1,
+                sender_name: 'John Smith',
+                message: 'Hey everyone, did you see the budget proposal?',
+                created_at: new Date(Date.now() - 600000).toISOString()
+            },
+            {
+                id: 2,
+                sender_id: 2,
+                sender_name: 'Sarah Johnson',
+                message: 'Yes! I think we need to allocate more for the spring event.',
+                created_at: new Date(Date.now() - 540000).toISOString()
+            },
+            {
+                id: 3,
+                sender_id: 73,
+                sender_name: 'Mason Kimball',
+                message: 'I agree. Should we schedule a meeting to discuss?',
+                created_at: new Date(Date.now() - 480000).toISOString()
+            },
+            {
+                id: 4,
+                sender_id: 3,
+                sender_name: 'Mike Chen',
+                message: 'Works for me. How about Thursday at 3pm?',
+                created_at: new Date(Date.now() - 420000).toISOString()
+            }
+        ];
+
+        let nextMessageId = 5;
+        let lastPollTime = new Date();
+
+        // Initialize chat
+        function init() {
+            renderMessages();
+            scrollToBottom();
+            startPolling();
+        }
+
+        // Render all messages
+        function renderMessages() {
+            const container = document.getElementById('chat-container');
+            container.innerHTML = '';
+
+            messages.forEach(msg => {
+                appendMessage(msg);
+            });
+        }
+
+        // Append a single message
+        function appendMessage(msg) {
+            const container = document.getElementById('chat-container');
+
+            // Check if message already exists
+            if (document.getElementById(`msg-${msg.id}`)) {
+                return;
+            }
+
+            const isOwn = msg.sender_id === currentUser.id;
+            const timestamp = new Date(msg.created_at).toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit'
+            });
+
+            // Get initials for avatar
+            const nameParts = msg.sender_name.split(' ');
+            const initials = nameParts.length >= 2
+                ? nameParts[0][0] + nameParts[nameParts.length - 1][0]
+                : nameParts[0][0];
+
+            const messageDiv = document.createElement('div');
+            messageDiv.id = `msg-${msg.id}`;
+            messageDiv.className = `message ${isOwn ? 'own' : 'other'}`;
+
+            messageDiv.innerHTML = `
+                <div class="avatar">${initials.toUpperCase()}</div>
+                <div class="message-content">
+                    <div class="message-header">
+                        <span class="sender-name">${msg.sender_name}</span>
+                        <span class="timestamp">${timestamp}</span>
+                    </div>
+                    <div class="message-text">${escapeHtml(msg.message)}</div>
+                </div>
+            `;
+
+            container.appendChild(messageDiv);
+        }
+
+        // Handle form submission
+        document.getElementById('message-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+
+            if (!message) return;
+
+            // Create new message
+            const newMessage = {
+                id: nextMessageId++,
+                sender_id: currentUser.id,
+                sender_name: currentUser.name,
+                message: message,
+                created_at: new Date().toISOString()
+            };
+
+            // Add to messages array
+            messages.push(newMessage);
+
+            // Render it
+            appendMessage(newMessage);
+            scrollToBottom();
+
+            // Clear input
+            input.value = '';
+            updateCharCount();
+
+            // In real app, this would send to server via AJAX:
+            // fetch('/api/committee/FIN/chat/send/', { ... })
+        });
+
+        // Simulate polling for new messages
+        function startPolling() {
+            setInterval(() => {
+                // In real app, this would fetch from server:
+                // fetch(`/api/committee/FIN/chat/messages/?since=${lastPollTime}`)
+
+                // For demo, randomly add a message from another user
+                if (Math.random() < 0.1) { // 10% chance every poll
+                    const randomUser = otherUsers[Math.floor(Math.random() * otherUsers.length)];
+                    const randomMessages = [
+                        "Sounds good to me!",
+                        "I'll check the calendar",
+                        "Can someone share that document?",
+                        "Great idea!",
+                        "Let me know if you need help with that"
+                    ];
+
+                    const newMessage = {
+                        id: nextMessageId++,
+                        sender_id: randomUser.id,
+                        sender_name: randomUser.name,
+                        message: randomMessages[Math.floor(Math.random() * randomMessages.length)],
+                        created_at: new Date().toISOString()
+                    };
+
+                    messages.push(newMessage);
+                    appendMessage(newMessage);
+                    scrollToBottom();
+                }
+
+                // Update poll indicator
+                lastPollTime = new Date();
+                const indicator = document.getElementById('poll-status');
+                indicator.textContent = `● Polled at ${lastPollTime.toLocaleTimeString()}`;
+
+            }, 3000); // Poll every 3 seconds
+        }
+
+        // Auto-scroll to bottom
+        function scrollToBottom() {
+            const container = document.getElementById('chat-container');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Character counter
+        const messageInput = document.getElementById('message-input');
+        messageInput.addEventListener('input', updateCharCount);
+
+        function updateCharCount() {
+            const count = messageInput.value.length;
+            document.getElementById('char-count').textContent = count;
+        }
+
+        // HTML escape
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Start the app
+        init();
+    </script>
+
+    <div style="margin-top: 30px; padding: 20px; border: 1px solid #ccc; background: #fffacd;">
+        <h3>Demo Instructions:</h3>
+        <ul>
+            <li>Type a message and click "Send" - it will appear as your message (blue bubble on right)</li>
+            <li>Every 3 seconds, the app "polls" for new messages (shown in green text above chat)</li>
+            <li>Randomly, other users will send messages (gray bubbles on left) to simulate real-time chat</li>
+            <li>In the real app:
+                <ul>
+                    <li>Polling would fetch actual new messages from the database</li>
+                    <li>Sending would save to database via AJAX</li>
+                    <li>Multiple users in different browsers would all see the same messages</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+</body>
+</html>
