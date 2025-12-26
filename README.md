@@ -75,16 +75,6 @@ A comprehensive Django-based management system for student organizations, design
 
 ---
 
-## 📸 Screenshots
-
-*(Add screenshots of your application here)*
-
-```
-Home Page | Vote Page | Committee View | Officer Dashboard
-```
-
----
-
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -590,7 +580,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👥 Authors
 
-- **Mason Kimball** - MasonKimball05(https://github.com/MasonKimball05)
+- **Mason Kimball** - [MasonKimball05](https://github.com/MasonKimball05)
 
 See also the list of [contributors](https://github.com/yourusername/Parliament/contributors) who participated in this project.
 

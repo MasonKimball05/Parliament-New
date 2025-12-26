@@ -13,3 +13,5 @@ All URL patterns have been updated in src/urls.py to import from the individual 
 
 # If you need to add new views, please create them in individual files under src/view/
 # and import them in src/urls.py
+# While this file no longer holds any code, it is still useful to have here for the sake of testing new features
+# and more easily setting up multiple functions at once to see how they work before putting them in their own files
