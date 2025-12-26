@@ -2,7 +2,7 @@
 
 A comprehensive Django-based management system for student organizations, designed to streamline legislation, voting, committee management, and chapter operations.
 
-[![Django CI/CD](https://github.com/yourusername/Parliament/workflows/Django%20CI%2FCD/badge.svg)](https://github.com/yourusername/Parliament/actions)
+[![Django CI/CD](https://github.com/MasonKimball05/Parliament/workflows/Django%20CI%2FCD/badge.svg)](https://github.com/MasonKimball05/Parliament/actions)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Django 4.2+](https://img.shields.io/badge/django-4.2+-green.svg)](https://www.djangoproject.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -12,7 +12,6 @@ A comprehensive Django-based management system for student organizations, design
 ## 📋 Table of Contents
 
 - [Features](#-features)
-- [Screenshots](#-screenshots)
 - [Quick Start](#-quick-start)
 - [Installation](#-installation)
 - [Configuration](#-configuration)
@@ -161,7 +160,7 @@ GRANT ALL PRIVILEGES ON DATABASE parliament_db TO parliament_user;
 #### 3. Application Setup
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/Parliament.git
+git clone https://github.com/MasonKimball05/Parliament.git
 cd Parliament
 
 # Create virtual environment
@@ -376,7 +375,7 @@ docker-compose logs -f web
 
 ```bash
 # 1. Clone repository on server
-git clone https://github.com/yourusername/Parliament.git
+git clone https://github.com/MasonKimball05/Parliament.git
 cd Parliament
 
 # 2. Configure environment
