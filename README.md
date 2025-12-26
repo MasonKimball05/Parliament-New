@@ -86,7 +86,7 @@ A comprehensive Django-based management system for student organizations, design
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/yourusername/Parliament.git
+git clone https://github.com/MasonKimball05/Parliament.git
 cd Parliament
 
 # 2. Create virtual environment
