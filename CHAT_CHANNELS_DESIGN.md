@@ -411,5 +411,3 @@ path('committee/<str:code>/chat/', committee_chat_redirect, name='committee_chat
 5. Create channel creation view and template
 6. Update existing chat views to work with channels
 7. Add navigation links to chat index
-
-Ready to implement?

@@ -490,6 +490,4 @@ If you discover a security vulnerability, please:
 
 ---
 
-**Last Updated**: 2025-12-22
-**Security Contact**: mason.kimball@icloud.com
-**Version**: 1.0.0
+- **Last Updated**: 2025-12-22 | **Security Contact**: mason.kimball@icloud.com | **Version**: 1.0.0

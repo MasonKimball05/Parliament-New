@@ -106,14 +106,14 @@ class RoleAdmin(admin.ModelAdmin):
 @log_function_call
 @admin.register(ParliamentUser)
 class ParliamentUserAdmin(admin.ModelAdmin):
-    list_display = ('name', 'user_id', 'member_type', 'is_admin', 'member_status', 'role_list', 'login_as_link')
-    search_fields = ('name', 'user_id', 'member_type', 'is_admin')
+    list_display = ('name', 'user_id', 'email', 'member_type', 'is_admin', 'member_status', 'role_list', 'login_as_link')
+    search_fields = ('name', 'user_id', 'email', 'member_type', 'is_admin')
     filter_horizontal = ('roles',)
     list_filter = ('member_type', 'member_status', 'is_admin')
 
     fieldsets = (
         ('Personal Information', {
-            'fields': ('username', 'name', 'preferred_name', 'user_id')
+            'fields': ('username', 'name', 'preferred_name', 'user_id', 'email')
         }),
         ('Member Information', {
             'fields': ('member_type', 'member_status', 'is_admin')

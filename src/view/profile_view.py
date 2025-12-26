@@ -23,6 +23,7 @@ def profile_view(request):
         if profile_form_submitted:
             new_username = request.POST.get('username')
             new_preferred_name = request.POST.get('preferred_name', '').strip()
+            new_email = request.POST.get('email', '').strip()
 
             changes_made = False
 
@@ -37,6 +38,19 @@ def profile_view(request):
                 old_preferred = user.preferred_name or "(not set)"
                 logger.info(f"{user.username} changed preferred name from '{old_preferred}' to '{new_preferred_name or '(not set)'}'")
                 user.preferred_name = new_preferred_name if new_preferred_name else None
+                changes_made = True
+
+            # Update email if changed (allow empty string to clear it)
+            current_email = user.email or ''
+            if new_email != current_email:
+                # Check if email is already taken by another user
+                if new_email and ParliamentUser.objects.filter(email=new_email).exclude(user_id=user.user_id).exists():
+                    messages.error(request, "This email address is already in use by another user.")
+                    return redirect('profile')
+
+                old_email = user.email or "(not set)"
+                logger.info(f"{user.username} changed email from '{old_email}' to '{new_email or '(not set)'}'")
+                user.email = new_email if new_email else None
                 changes_made = True
 
             if changes_made:
