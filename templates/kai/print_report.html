@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kai Report - {{ report.title }}</title>
+  <style>
+    /* Print and screen styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Times New Roman', Times, serif;
+      line-height: 1.6;
+      color: #000;
+      background: #fff;
+      padding: 40px;
+      max-width: 8.5in;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 3px solid #000;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    .header h2 {
+      font-size: 18px;
+      font-weight: normal;
+      color: #333;
+    }
+
+    .section {
+      margin-bottom: 25px;
+      page-break-inside: avoid;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      padding-bottom: 5px;
+      border-bottom: 2px solid #333;
+    }
+
+    .field-group {
+      margin-bottom: 15px;
+    }
+
+    .field-label {
+      font-weight: bold;
+      display: inline-block;
+      min-width: 150px;
+      margin-right: 10px;
+    }
+
+    .field-value {
+      display: inline;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 5px;
+    }
+
+    .badge-pending {
+      background-color: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fbbf24;
+    }
+
+    .badge-reviewed {
+      background-color: #d1fae5;
+      color: #065f46;
+      border: 1px solid #10b981;
+    }
+
+    .badge-archived {
+      background-color: #e5e7eb;
+      color: #1f2937;
+      border: 1px solid #9ca3af;
+    }
+
+    .badge-heard {
+      background-color: #d1fae5;
+      color: #065f46;
+      border: 1px solid #10b981;
+    }
+
+    .badge-thrown-out {
+      background-color: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #ef4444;
+    }
+
+    .badge-closed {
+      background-color: #e9d5ff;
+      color: #6b21a8;
+      border: 1px solid #a855f7;
+    }
+
+    .text-block {
+      margin-top: 10px;
+      padding: 15px;
+      background-color: #f9fafb;
+      border-left: 4px solid #333;
+      white-space: pre-wrap;
+      font-family: Arial, sans-serif;
+    }
+
+    .activity-timeline {
+      margin-top: 10px;
+    }
+
+    .activity-item {
+      padding: 10px;
+      margin-bottom: 10px;
+      border-left: 3px solid #cbd5e1;
+      padding-left: 15px;
+    }
+
+    .activity-action {
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .activity-details {
+      color: #4b5563;
+      font-size: 13px;
+      margin-top: 3px;
+    }
+
+    .activity-meta {
+      color: #6b7280;
+      font-size: 12px;
+      margin-top: 5px;
+    }
+
+    .footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 2px solid #000;
+      text-align: center;
+      font-size: 12px;
+      color: #6b7280;
+    }
+
+    .no-print {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .no-print button {
+      padding: 12px 24px;
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      margin: 0 5px;
+    }
+
+    .no-print button:hover {
+      background-color: #1d4ed8;
+    }
+
+    .no-print .back-button {
+      background-color: #6b7280;
+    }
+
+    .no-print .back-button:hover {
+      background-color: #4b5563;
+    }
+
+    @media print {
+      body {
+        padding: 20px;
+      }
+
+      .no-print {
+        display: none;
+      }
+
+      .section {
+        page-break-inside: avoid;
+      }
+
+      .header {
+        page-break-after: avoid;
+      }
+    }
+
+    @page {
+      margin: 0.5in;
+    }
+  </style>
+</head>
+<body>
+  <!-- Print/Back Buttons (hidden when printing) -->
+  <div class="no-print">
+    <button onclick="window.print()">🖨️ Print / Save as PDF</button>
+    <button class="back-button" onclick="window.location.href='{% url 'manage_kai_report' report.id %}'">← Back to Report</button>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <h1>KAI COMMITTEE REPORT</h1>
+    <h2>Samford University Chapter</h2>
+  </div>
+
+  <!-- Report Information -->
+  <div class="section">
+    <div class="section-title">Report Information</div>
+
+    <div class="field-group">
+      <span class="field-label">Report ID:</span>
+      <span class="field-value">#{{ report.id }}</span>
+    </div>
+
+    <div class="field-group">
+      <span class="field-label">Title:</span>
+      <span class="field-value">{{ report.title }}</span>
+    </div>
+
+    <div class="field-group">
+      <span class="field-label">Category:</span>
+      <span class="field-value">{{ report.get_category_display }}</span>
+    </div>
+
+    <div class="field-group">
+      <span class="field-label">Status:</span>
+      <span class="field-value">
+        {{ report.get_status_display }}
+        <span class="badge badge-{{ report.status }}">{{ report.get_status_display }}</span>
+      </span>
+    </div>
+
+    <div class="field-group">
+      <span class="field-label">Deliberation Outcome:</span>
+      <span class="field-value">
+        {{ report.get_deliberation_outcome_display }}
+        <span class="badge badge-{{ report.deliberation_outcome }}">{{ report.get_deliberation_outcome_display }}</span>
+        {% if report.closed_by_accused_request %}
+        <span class="badge badge-closed">Minutes Closed</span>
+        {% endif %}
+      </span>
+    </div>
+
+    <div class="field-group">
+      <span class="field-label">Submitted By:</span>
+      <span class="field-value">{{ report.submitted_by.name }}</span>
+    </div>
+
+    {% if report.targeted_to %}
+    <div class="field-group">
+      <span class="field-label">Directed To:</span>
+      <span class="field-value">{{ report.targeted_to.name }}</span>
+    </div>
+    {% endif %}
+
+    <div class="field-group">
+      <span class="field-label">Submitted At:</span>
+      <span class="field-value">{{ report.submitted_at|date:"F d, Y \a\t g:i A" }}</span>
+    </div>
+
+    {% if report.reviewed_by %}
+    <div class="field-group">
+      <span class="field-label">Reviewed By:</span>
+      <span class="field-value">{{ report.reviewed_by.name }} on {{ report.reviewed_at|date:"F d, Y \a\t g:i A" }}</span>
+    </div>
+    {% endif %}
+
+    {% if report.tags %}
+    <div class="field-group">
+      <span class="field-label">Tags:</span>
+      <span class="field-value">{{ report.tags }}</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Description -->
+  <div class="section">
+    <div class="section-title">Report Description</div>
+    <div class="text-block">{{ report.description }}</div>
+  </div>
+
+  <!-- Committee Notes (if case was heard) -->
+  {% if report.deliberation_outcome == 'heard' and report.committee_notes %}
+  <div class="section">
+    <div class="section-title">Committee Notes & Sanctions</div>
+    <div class="text-block">{{ report.committee_notes }}</div>
+  </div>
+  {% endif %}
+
+  <!-- Chair Notes -->
+  {% if report.chair_notes %}
+  <div class="section">
+    <div class="section-title">Chair Notes</div>
+    <div class="text-block">{{ report.chair_notes }}</div>
+  </div>
+  {% endif %}
+
+  <!-- Related Reports -->
+  {% if report.related_reports.all %}
+  <div class="section">
+    <div class="section-title">Related Reports</div>
+    <div class="text-block">
+      <ul style="margin: 0; padding-left: 20px;">
+        {% for related in report.related_reports.all %}
+        <li style="margin-bottom: 8px;">
+          <strong>Report #{{ related.id }}:</strong> {{ related.title }}<br>
+          <span style="color: #6b7280; font-size: 13px;">
+            Submitted by {{ related.submitted_by.name }} on {{ related.submitted_at|date:"F d, Y" }}
+            {% if related.targeted_to %} → Directed to {{ related.targeted_to.name }}{% endif %}
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Activity Timeline -->
+  {% if activity_log %}
+  <div class="section">
+    <div class="section-title">Activity Timeline</div>
+    <div class="activity-timeline">
+      {% for activity in activity_log %}
+      <div class="activity-item">
+        <div class="activity-action">{{ activity.get_action_display }}</div>
+        {% if activity.details %}
+        <div class="activity-details">{{ activity.details }}</div>
+        {% endif %}
+        <div class="activity-meta">
+          {{ activity.user.name|default:"System" }} • {{ activity.timestamp|date:"F d, Y \a\t g:i A" }}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Footer -->
+  <div class="footer">
+    <p>This report is confidential and intended for Kai Committee use only.</p>
+    <p>Printed on {{ print_date|date:"F d, Y \a\t g:i A" }}</p>
+  </div>
+</body>
+</html>

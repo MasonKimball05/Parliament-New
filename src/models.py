@@ -1021,8 +1021,23 @@ class KaiReport(models.Model):
         ('heard', 'Case Heard'),
     ]
 
+    CATEGORY_CHOICES = [
+        ('academic', 'Academic Misconduct'),
+        ('behavioral', 'Behavioral Issues'),
+        ('hazing', 'Hazing Concerns'),
+        ('social', 'Social Conduct'),
+        ('financial', 'Financial Issues'),
+        ('other', 'Other'),
+    ]
+
     # Report Details
     title = models.CharField(max_length=255, help_text="Brief title for the report")
+    category = models.CharField(
+        max_length=20,
+        choices=CATEGORY_CHOICES,
+        default='other',
+        help_text="Category/type of the report"
+    )
     description = models.TextField(help_text="Detailed description of the report")
     attachment = models.FileField(
         upload_to='kai_reports/',
@@ -1083,6 +1098,14 @@ class KaiReport(models.Model):
         help_text="Case closed at the request of the accused (only applicable when case was heard)"
     )
 
+    # Related Reports
+    related_reports = models.ManyToManyField(
+        'self',
+        blank=True,
+        symmetrical=True,
+        help_text="Link related reports (e.g., follow-ups, same incident)"
+    )
+
     class Meta:
         ordering = ['-submitted_at']
         verbose_name = 'Kai Report'
@@ -1104,3 +1127,84 @@ class KaiReport(models.Model):
         self.reviewed_by = reviewer
         self.reviewed_at = timezone.now()
         self.save()
+
+
+class KaiReportActivity(models.Model):
+    """Activity log for tracking changes to Kai reports"""
+
+    ACTION_CHOICES = [
+        ('created', 'Report Created'),
+        ('status_changed', 'Status Changed'),
+        ('deliberation_updated', 'Deliberation Outcome Updated'),
+        ('notes_updated', 'Chair Notes Updated'),
+        ('tags_updated', 'Tags Updated'),
+        ('committee_notes_updated', 'Committee Notes Updated'),
+        ('minutes_closed', 'Minutes Closed'),
+        ('archived', 'Report Archived'),
+    ]
+
+    report = models.ForeignKey(
+        KaiReport,
+        on_delete=models.CASCADE,
+        related_name='activity_log'
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    action = models.CharField(max_length=30, choices=ACTION_CHOICES)
+    details = models.TextField(blank=True, help_text="Additional details about the action")
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = 'Kai Report Activity'
+        verbose_name_plural = 'Kai Report Activities'
+
+    def __str__(self):
+        user_name = self.user.name if self.user else 'System'
+        return f"{user_name} - {self.get_action_display()} - {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
+
+
+class KaiReportTemplate(models.Model):
+    """Templates for common types of Kai reports"""
+
+    name = models.CharField(max_length=200, help_text="Template name (e.g., 'Academic Dishonesty Report')")
+    description = models.TextField(help_text="Description of when to use this template")
+    category = models.CharField(
+        max_length=20,
+        choices=KaiReport.CATEGORY_CHOICES,
+        default='other',
+        help_text="Default category for reports using this template"
+    )
+    title_template = models.CharField(
+        max_length=300,
+        help_text="Template for report title (can include placeholders like {member_name})"
+    )
+    description_template = models.TextField(
+        help_text="Template for report description with guidelines and placeholders"
+    )
+    suggested_tags = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Comma-separated suggested tags for this type of report"
+    )
+    is_active = models.BooleanField(default=True, help_text="Whether this template is currently available")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_kai_templates'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['category', 'name']
+        verbose_name = 'Kai Report Template'
+        verbose_name_plural = 'Kai Report Templates'
+
+    def __str__(self):
+        return f"{self.name} ({self.get_category_display()})"

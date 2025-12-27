@@ -13,7 +13,7 @@
     <div class="bg-white rounded-lg shadow-md p-6 mb-6">
         <div class="flex justify-between items-start mb-4">
             <div class="flex items-start gap-4 flex-1">
-                <img src="/media/beta-seal.webp" alt="Beta Theta Pi Seal" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-1 shadow-md flex-shrink-0">
+                <img src="{% static 'images/beta-seal.webp' %}" alt="Beta Theta Pi Seal" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-1 shadow-md flex-shrink-0">
                 <div>
                     <h1 class="text-3xl font-bold mb-2">{{ committee.name }}</h1>
                     {% if committee.code %}
