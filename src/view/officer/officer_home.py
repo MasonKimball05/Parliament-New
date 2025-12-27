@@ -1,10 +1,11 @@
 from django.shortcuts import render
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from src.models import CommitteeDocument, Event, Legislation, CommitteeLegislation
+from src.decorators import officer_or_advisor_required
 
 @login_required
-@user_passes_test(lambda u: u.member_type in ['Chair', 'Officer'])
+@officer_or_advisor_required
 def officer_home(request):
     # Get recent reports (last 5)
     recent_reports = CommitteeDocument.objects.filter(

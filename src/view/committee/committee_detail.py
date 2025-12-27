@@ -57,4 +57,27 @@ def committee_detail(request, code):
         'eligible_voters': eligible_voters,
     }
 
+    # If this is the Kai committee and user is a chair, add Kai reports
+    if committee.code == 'KAI' and (is_chair or user.is_admin):
+        try:
+            from src.models import KaiReport
+            # Try select_related for production
+            try:
+                kai_reports = list(KaiReport.objects.filter(
+                    status__in=['pending', 'reviewed']
+                ).select_related('submitted_by', 'reviewed_by', 'targeted_to').order_by('-submitted_at')[:10])
+            except:
+                # Fallback for test database without select_related
+                kai_reports = list(KaiReport.objects.filter(
+                    status__in=['pending', 'reviewed']
+                ).order_by('-submitted_at')[:10])
+
+            kai_report_count = KaiReport.objects.filter(status='pending').count()
+            context['kai_reports'] = kai_reports
+            context['kai_report_count'] = kai_report_count
+        except Exception:
+            # KaiReport table may not exist yet if migrations haven't been run
+            # Don't add kai_reports to context at all
+            pass
+
     return render(request, 'committee/detail.html', context)

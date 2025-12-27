@@ -1,3 +1,4 @@
+from src.decorators import officer_or_advisor_required
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
@@ -7,7 +8,7 @@ import os
 LOG_FILE_PATH = os.path.join(settings.BASE_DIR, 'logs', 'django_actions.log')
 
 @login_required
-@user_passes_test(lambda u: u.member_type in ['Chair', 'Officer'])
+@officer_or_advisor_required
 def view_logs(request):
     logs = []
 

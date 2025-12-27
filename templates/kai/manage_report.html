@@ -1,0 +1,264 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Manage Report - {{ report.title }}{% endblock %}
+
+{% block content %}
+<div class="bg-gradient-to-br from-gray-50 to-gray-100 -m-8 p-8 min-h-screen">
+  <div class="max-w-6xl mx-auto">
+    <!-- Back Button -->
+    <div class="mb-6">
+      <a href="{% url 'view_kai_reports' %}" class="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Back to Reports
+      </a>
+    </div>
+
+    <!-- Report Details -->
+    <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
+      <div class="flex justify-between items-start mb-6">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-800 mb-2">{{ report.title }}</h1>
+          <div class="flex items-center space-x-4 text-sm text-gray-600">
+            <span class="flex items-center">
+              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+              </svg>
+              {{ report.submitted_by.name }}
+            </span>
+            <span class="flex items-center">
+              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              {{ report.submitted_at|date:"F d, Y \a\t g:i A" }}
+            </span>
+          </div>
+        </div>
+        <span class="px-4 py-2 rounded-lg text-sm font-semibold
+          {% if report.status == 'pending' %}bg-yellow-100 text-yellow-800
+          {% elif report.status == 'reviewed' %}bg-green-100 text-green-800
+          {% else %}bg-gray-100 text-gray-800{% endif %}">
+          {{ report.get_status_display }}
+        </span>
+      </div>
+
+      <div class="prose max-w-none mb-6">
+        <h3 class="text-lg font-semibold text-gray-700 mb-2">Description</h3>
+        <p class="text-gray-600 whitespace-pre-wrap">{{ report.description }}</p>
+      </div>
+
+      {% if report.targeted_to %}
+      <div class="mb-6">
+        <h3 class="text-lg font-semibold text-gray-700 mb-2">Directed To</h3>
+        <div class="flex items-center space-x-2 text-gray-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+          </svg>
+          <span>{{ report.targeted_to.name }}</span>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if report.attachment %}
+      <div class="mb-6">
+        <h3 class="text-lg font-semibold text-gray-700 mb-2">Attachment</h3>
+        <a href="{{ report.attachment.url }}" target="_blank" class="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+          </svg>
+          Download Attachment
+        </a>
+      </div>
+      {% endif %}
+
+      {% if report.reviewed_by %}
+      <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+        <p class="text-sm text-green-800">
+          <strong>Reviewed by:</strong> {{ report.reviewed_by.name }} on {{ report.reviewed_at|date:"F d, Y \a\t g:i A" }}
+        </p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Tags Management -->
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">Tags</h2>
+      <form method="post" class="flex gap-2">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_tags">
+        <input type="text" name="tags" value="{{ report.tags }}" placeholder="urgent, academic, follow-up..."
+          class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+        <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+          Update Tags
+        </button>
+      </form>
+      {% if report.get_tags_list %}
+      <div class="mt-3 flex flex-wrap gap-2">
+        {% for tag in report.get_tags_list %}
+        <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">{{ tag }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Chair Notes -->
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">Chair Notes</h2>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_notes">
+        <textarea name="chair_notes" rows="4" placeholder="Add notes about this report..."
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-3">{{ report.chair_notes }}</textarea>
+        <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+          Save Notes
+        </button>
+      </form>
+    </div>
+
+    <!-- Deliberation Outcome -->
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">Deliberation Outcome</h2>
+
+      <!-- Current Status Badge -->
+      <div class="mb-4">
+        <span class="text-sm text-gray-600 mr-2">Current Status:</span>
+        <span class="px-3 py-1 rounded-full text-sm font-semibold
+          {% if report.deliberation_outcome == 'pending' %}bg-yellow-100 text-yellow-800
+          {% elif report.deliberation_outcome == 'thrown_out' %}bg-red-100 text-red-800
+          {% elif report.deliberation_outcome == 'heard' %}bg-green-100 text-green-800
+          {% endif %}">
+          {{ report.get_deliberation_outcome_display }}
+        </span>
+        {% if report.closed_by_accused_request %}
+        <span class="px-3 py-1 rounded-full text-sm font-semibold bg-purple-100 text-purple-800 ml-2">
+          Minutes Closed
+        </span>
+        {% endif %}
+      </div>
+
+      <!-- Update Form -->
+      <form method="post" id="deliberationForm">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_deliberation">
+
+        <div class="mb-4">
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Select Outcome</label>
+          <select name="deliberation_outcome" id="deliberationOutcome"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <option value="">-- Select Outcome --</option>
+            <option value="pending" {% if report.deliberation_outcome == 'pending' %}selected{% endif %}>Pending Deliberation</option>
+            <option value="thrown_out" {% if report.deliberation_outcome == 'thrown_out' %}selected{% endif %}>Case Thrown Out</option>
+            <option value="heard" {% if report.deliberation_outcome == 'heard' %}selected{% endif %}>Case Heard</option>
+          </select>
+        </div>
+
+        <!-- Committee Notes (shown for "Case Heard") -->
+        <div id="committeeNotesSection" class="mb-4" style="display: none;">
+          <label class="block text-sm font-semibold text-gray-700 mb-2">
+            Committee Notes <span class="text-gray-500 text-xs">(Sanctions, hearing notes, decisions, etc.)</span>
+          </label>
+          <textarea name="committee_notes" id="committeeNotesField" rows="5"
+                    placeholder="Enter sanctions applied, hearing details, or other committee decisions..."
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">{{ report.committee_notes }}</textarea>
+        </div>
+
+        <!-- Minutes Closed Checkbox (shown for "Case Heard") -->
+        <div id="minutesClosedSection" class="mb-4" style="display: none;">
+          <label class="flex items-center space-x-2 cursor-pointer">
+            <input type="checkbox" name="closed_by_accused_request" id="closedByAccusedCheckbox"
+                   {% if report.closed_by_accused_request %}checked{% endif %}
+                   class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
+            <span class="text-sm font-semibold text-gray-700">
+              Minutes closed at the request of the accused
+              <span class="text-gray-500 text-xs">(Will archive the report)</span>
+            </span>
+          </label>
+        </div>
+
+        <!-- Display existing committee notes if case was heard -->
+        {% if report.deliberation_outcome == 'heard' and report.committee_notes %}
+        <div class="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
+          <p class="text-sm text-green-700"><strong>Current Committee Notes:</strong></p>
+          <p class="text-gray-700 mt-1 whitespace-pre-wrap">{{ report.committee_notes }}</p>
+        </div>
+        {% endif %}
+
+        <button type="submit" class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium">
+          Update Deliberation Outcome
+        </button>
+      </form>
+    </div>
+
+    <!-- Actions -->
+    <div class="bg-white rounded-lg shadow-lg p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">Actions</h2>
+      <div class="flex flex-wrap gap-3">
+        {% if report.status == 'pending' %}
+        <form method="post" class="inline">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="mark_reviewed">
+          <button type="submit" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium flex items-center space-x-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            <span>Mark as Reviewed</span>
+          </button>
+        </form>
+        {% else %}
+        <form method="post" class="inline">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="mark_pending">
+          <button type="submit" class="px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition font-medium flex items-center space-x-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span>Mark as Pending</span>
+          </button>
+        </form>
+        {% endif %}
+
+        {% if report.status != 'archived' %}
+        <form method="post" class="inline">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="archive">
+          <button type="submit" class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition font-medium flex items-center space-x-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+            </svg>
+            <span>Archive Report</span>
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Show/hide committee notes and minutes closed checkbox based on deliberation outcome selection
+  const deliberationOutcome = document.getElementById('deliberationOutcome');
+  const committeeNotesSection = document.getElementById('committeeNotesSection');
+  const minutesClosedSection = document.getElementById('minutesClosedSection');
+
+  function updateDeliberationSections() {
+    const selectedValue = deliberationOutcome.value;
+
+    if (selectedValue === 'heard') {
+      // Show both committee notes and minutes closed checkbox for "Case Heard"
+      committeeNotesSection.style.display = 'block';
+      minutesClosedSection.style.display = 'block';
+    } else {
+      // Hide both for other outcomes
+      committeeNotesSection.style.display = 'none';
+      minutesClosedSection.style.display = 'none';
+    }
+  }
+
+  // Initialize on page load
+  updateDeliberationSections();
+
+  // Update when selection changes
+  deliberationOutcome.addEventListener('change', updateDeliberationSections);
+</script>
+{% endblock %}

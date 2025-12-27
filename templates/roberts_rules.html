@@ -1,0 +1,2100 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Robert's Rules of Order{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-7xl">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-lg p-6 mb-6">
+        <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">Robert's Rules of Order</h1>
+        <p class="text-blue-100 text-sm md:text-base">Quick Reference Guide for Parliamentary Procedure</p>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="bg-white rounded-lg shadow-md p-4 mb-6">
+        <div class="relative">
+            <input
+                type="text"
+                id="searchInput"
+                placeholder="Search Robert's Rules... (e.g., 'motion to table', 'quorum', 'amendment')"
+                class="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+            <svg class="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+        </div>
+        <div id="searchResults" class="mt-2 text-sm text-gray-600"></div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <!-- Table of Contents (Sticky Sidebar) -->
+        <div class="lg:col-span-1">
+            <div class="bg-white rounded-lg shadow-md p-6 lg:sticky lg:top-6 max-h-[calc(100vh-2rem)] overflow-y-auto">
+                <h2 class="text-lg font-bold mb-4 text-gray-900">Table of Contents</h2>
+                <nav class="space-y-2" id="tocNav">
+                    <a href="#overview" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Overview</a>
+                    <a href="#quorum" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Quorum Requirements</a>
+                    <a href="#order-of-business" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Order of Business</a>
+                    <a href="#special-meetings" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Special Meetings</a>
+                    <a href="#main-motions" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Main Motions</a>
+                    <a href="#subsidiary-motions" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Subsidiary Motions</a>
+                    <a href="#privileged-motions" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Privileged Motions</a>
+                    <a href="#incidental-motions" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Incidental Motions</a>
+                    <a href="#reconsider-rescind" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Reconsider & Rescind</a>
+                    <a href="#voting" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Voting Procedures</a>
+                    <a href="#secret-ballot" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Secret Ballot Details</a>
+                    <a href="#unanimous-consent" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Unanimous Consent</a>
+                    <a href="#debate-rules" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Debate Rules</a>
+                    <a href="#chair-duties" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Chair's Duties</a>
+                    <a href="#committees" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Committee Procedures</a>
+                    <a href="#nominations-elections" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Nominations & Elections</a>
+                    <a href="#minutes-records" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Minutes & Records</a>
+                    <a href="#executive-sessions" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Executive Sessions</a>
+                    <a href="#amending-bylaws" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Amending Bylaws</a>
+                    <a href="#common-situations" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Common Situations</a>
+                    <a href="#quick-reference" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm text-gray-700 hover:text-blue-600 transition">Quick Reference Table</a>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="lg:col-span-3 space-y-6" id="mainContent">
+
+            <!-- Overview Section -->
+            <section id="overview" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Overview</h2>
+                <div class="prose max-w-none">
+                    <p class="mb-4">Robert's Rules of Order is the most widely used manual of parliamentary procedure in the United States. It governs the meetings of a deliberative assembly, ensuring fairness, efficiency, and order in the decision-making process.</p>
+
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Basic Principles</h3>
+                    <ul class="list-disc pl-6 space-y-2">
+                        <li><strong>Justice and courtesy to all members</strong> - Every member has equal rights, privileges, and obligations.</li>
+                        <li><strong>Only one question at a time</strong> - Debates and votes on one motion before considering another.</li>
+                        <li><strong>The rule of the majority, with respect for the minority</strong> - Majority decides, but minority has the right to be heard.</li>
+                        <li><strong>Every member has the right to be heard</strong> - All members may speak when properly recognized.</li>
+                    </ul>
+
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Quorum</h3>
+                    <p>A quorum is the minimum number of members that must be present for business to be conducted legally. See the <a href="#quorum" class="text-blue-600 hover:underline">Quorum Requirements</a> section for detailed information.</p>
+                </div>
+            </section>
+
+            <!-- Quorum Requirements Section -->
+            <section id="quorum" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Quorum Requirements</h2>
+                <div class="prose max-w-none">
+                    <p class="mb-4">A quorum is the minimum number of voting members who must be present at a meeting for business to be legally transacted.</p>
+
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                        <p class="text-sm font-semibold text-blue-900 mb-2">🔗 Alpha Mu Chapter Requirement</p>
+                        <p class="text-sm text-gray-700">According to our <a href="{% url 'constitution_bylaws' %}#const-meetings" class="text-blue-600 hover:underline">Constitution Article IV, Section 3</a>, quorum is defined as a <strong>simple majority of Active Members</strong>.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">General Quorum Principles</h3>
+                    <ul class="list-disc pl-6 space-y-2 mb-4">
+                        <li><strong>Default standard:</strong> Unless otherwise specified in bylaws, quorum is a majority of all members of the organization</li>
+                        <li><strong>Present in person:</strong> Members must be physically present (or virtually if authorized by bylaws)</li>
+                        <li><strong>Cannot be less than 1/3:</strong> Robert's Rules recommends never setting quorum below one-third of members</li>
+                        <li><strong>Should reflect active participation:</strong> Set high enough to be representative, low enough to be achievable</li>
+                    </ul>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Verifying Quorum</h3>
+                    <div class="bg-gray-50 p-4 rounded mb-4">
+                        <p class="font-semibold mb-2">Before Opening Meeting:</p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm">
+                            <li>Chair or secretary counts all members present</li>
+                            <li>Compare count to quorum requirement</li>
+                            <li>If quorum is not present, meeting cannot be called to order</li>
+                        </ul>
+
+                        <p class="font-semibold mt-4 mb-2">If Quorum Not Present:</p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm">
+                            <li>Meeting cannot conduct business</li>
+                            <li>Members may take a recess and attempt to gather more members</li>
+                            <li>May fix time for adjourned meeting</li>
+                            <li>May take measures to obtain quorum at adjourned meeting</li>
+                        </ul>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Loss of Quorum During Meeting</h3>
+                    <div class="space-y-3">
+                        <div class="border-l-4 border-red-500 pl-4 bg-red-50 p-3">
+                            <p class="font-semibold text-red-900 mb-2">Critical Rule:</p>
+                            <p class="text-sm text-gray-700">If quorum is lost during a meeting (members leave), the meeting can no longer conduct business. Any votes taken without quorum present are null and void.</p>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded">
+                            <p class="font-semibold mb-2">When Quorum is Lost:</p>
+                            <ol class="list-decimal pl-6 space-y-1 text-sm">
+                                <li>Point of order may be raised: "Point of order! We no longer have a quorum present."</li>
+                                <li>Chair verifies the count</li>
+                                <li>If confirmed, chair announces: "The chair finds that a quorum is no longer present. No business can be conducted."</li>
+                                <li>Chair entertains motion to adjourn or recess</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Actions Allowed Without Quorum</h3>
+                    <div class="bg-yellow-50 p-4 rounded mb-4">
+                        <p class="mb-2"><strong>Even without quorum present, members may:</strong></p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li>Fix the time to which to adjourn (schedule a continuation meeting)</li>
+                            <li>Adjourn the meeting</li>
+                            <li>Take a recess</li>
+                            <li>Take measures to obtain a quorum (call/text members, send runner, etc.)</li>
+                        </ul>
+                        <p class="text-xs text-gray-600 mt-2 italic">These actions allow the organization to function administratively without conducting substantive business.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Quorum in Committees</h3>
+                    <p class="mb-2">Committee quorum rules differ from main assembly:</p>
+                    <ul class="list-disc pl-6 space-y-2 text-sm mb-4">
+                        <li><strong>Default:</strong> Majority of all committee members (not just those present)</li>
+                        <li><strong>Cannot be set below majority:</strong> Unlike assembly quorum, committee quorum must always be majority</li>
+                        <li><strong>Good practice:</strong> Small committees (5 or fewer) should require all members present</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Order of Business Section -->
+            <section id="order-of-business" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Order of Business</h2>
+                <div class="prose max-w-none">
+                    <p class="mb-4">The standard order of business for a meeting:</p>
+                    <ol class="list-decimal pl-6 space-y-3">
+                        <li><strong>Call to Order</strong> - The presiding officer opens the meeting.</li>
+                        <li><strong>Reading and Approval of Minutes</strong> - Minutes from the previous meeting are read and approved.</li>
+                        <li><strong>Reports of Officers, Boards, and Standing Committees</strong> - Regular reports from leadership.</li>
+                        <li><strong>Reports of Special (Select or Ad Hoc) Committees</strong> - Reports from temporary committees.</li>
+                        <li><strong>Special Orders</strong> - Items scheduled for a specific time.</li>
+                        <li><strong>Unfinished Business and General Orders</strong> - Business carried over from previous meeting.</li>
+                        <li><strong>New Business</strong> - New motions and topics.</li>
+                        <li><strong>Announcements</strong> - Informational items.</li>
+                        <li><strong>Adjournment</strong> - Closing of the meeting.</li>
+                    </ol>
+                </div>
+            </section>
+
+            <!-- Special Meetings Section -->
+            <section id="special-meetings" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Special Meetings</h2>
+                <div class="prose max-w-none">
+                    <p class="mb-4">A special meeting is a meeting called at a time other than the regular meeting schedule to address specific urgent or important business.</p>
+
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                        <p class="text-sm font-semibold text-blue-900 mb-2">🔗 Alpha Mu Chapter Requirements</p>
+                        <p class="text-sm text-gray-700">According to our <a href="{% url 'constitution_bylaws' %}#const-meetings" class="text-blue-600 hover:underline">Constitution Article IV, Section 2</a>:</p>
+                        <ul class="list-disc pl-6 mt-2 text-sm text-gray-700 space-y-1">
+                            <li>Special meetings require <strong>4 hours advance notice</strong></li>
+                            <li>May be called by: President, Executive Board, Advisory Team, or Supermajority of active members</li>
+                            <li>New business introduced at regular meetings cannot be voted on until subsequent meeting unless 2/3 present deem it necessary</li>
+                        </ul>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Who Can Call Special Meetings</h3>
+                    <div class="bg-gray-50 p-4 rounded mb-4">
+                        <p class="mb-2"><strong>Typical authorities (varies by organization's bylaws):</strong></p>
+                        <ul class="list-disc pl-6 space-y-2 text-sm">
+                            <li><strong>President or presiding officer</strong> - Most common authority</li>
+                            <li><strong>Board or executive committee</strong> - Acting collectively</li>
+                            <li><strong>A specified number/percentage of members</strong> - Democratic safeguard (e.g., "10 members" or "20% of membership")</li>
+                            <li><strong>Other officers</strong> - If specified in bylaws</li>
+                        </ul>
+                        <p class="text-xs text-gray-600 mt-2 italic">Always check your specific bylaws for who has the authority to call special meetings.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Notice Requirements</h3>
+                    <div class="space-y-3">
+                        <div class="border-l-4 border-yellow-500 pl-4 bg-yellow-50 p-3">
+                            <p class="font-semibold text-yellow-900 mb-2">Required Elements of Notice:</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                                <li><strong>Time and date</strong> of the meeting</li>
+                                <li><strong>Location</strong> (physical address or virtual meeting link)</li>
+                                <li><strong>Purpose</strong> - The specific business to be transacted</li>
+                                <li><strong>Who called it</strong> - Authority invoking the special meeting</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded">
+                            <p class="font-semibold mb-2">Timing of Notice:</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Bylaws should specify minimum notice period (e.g., "24 hours," "one week")</li>
+                                <li>Notice must reach all members entitled to attend</li>
+                                <li>Electronic notice (email, text) is acceptable if authorized by bylaws</li>
+                                <li>Insufficient notice invalidates any business conducted</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Scope of Business at Special Meetings</h3>
+                    <div class="border-l-4 border-red-500 pl-4 bg-red-50 p-3 mb-4">
+                        <p class="font-semibold text-red-900 mb-2">Critical Limitation:</p>
+                        <p class="text-sm text-gray-700">Only business specified in the call of the special meeting may be transacted. No other business is in order, even if all members are present and agree.</p>
+                    </div>
+
+                    <div class="bg-gray-50 p-4 rounded mb-4">
+                        <p class="font-semibold mb-2">Example:</p>
+                        <p class="text-sm text-gray-700 mb-2">Notice states: "Special meeting called to vote on emergency facility repairs."</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>✓ In order:</strong> Discussion and vote on facility repairs</p>
+                        <p class="text-sm text-gray-700"><strong>✗ Out of order:</strong> Discussion of budget, elections, or any other matter not mentioned in the notice</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Quorum at Special Meetings</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm mb-4">
+                        <li>Same quorum requirement as regular meetings applies</li>
+                        <li>Cannot conduct business without quorum present</li>
+                        <li>Members should not be surprised by special meetings - proper notice prevents this</li>
+                    </ul>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Emergency Meetings</h3>
+                    <div class="bg-orange-50 p-4 rounded">
+                        <p class="font-semibold mb-2">True Emergencies:</p>
+                        <p class="text-sm text-gray-700 mb-2">In cases of genuine emergency where normal notice is impossible:</p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li>Make best effort to contact all members</li>
+                            <li>Document the emergency circumstances</li>
+                            <li>Actions taken may be ratified at next regular meeting</li>
+                            <li>Use this exception sparingly - abuse undermines democratic process</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Main Motions Section -->
+            <section id="main-motions" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Main Motions</h2>
+                <div class="prose max-w-none">
+                    <p class="mb-4">Main motions introduce new business for the assembly's consideration.</p>
+
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                        <h3 class="font-semibold mb-2">How to Make a Main Motion</h3>
+                        <ol class="list-decimal pl-6 space-y-2">
+                            <li>Wait to be recognized by the chair</li>
+                            <li>Say: "I move that..." (state your motion)</li>
+                            <li>Wait for someone to second: "I second the motion"</li>
+                            <li>Chair states the motion: "It has been moved and seconded that..."</li>
+                            <li>Debate (if debatable)</li>
+                            <li>Vote on the motion</li>
+                        </ol>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Requirements</h3>
+                    <ul class="list-disc pl-6 space-y-2">
+                        <li><strong>Requires Second:</strong> Yes</li>
+                        <li><strong>Debatable:</strong> Yes</li>
+                        <li><strong>Amendable:</strong> Yes</li>
+                        <li><strong>Vote Required:</strong> Majority</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Subsidiary Motions Section -->
+            <section id="subsidiary-motions" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Subsidiary Motions</h2>
+                <div class="prose max-w-none">
+                    <p class="mb-4">Subsidiary motions change or affect how a main motion is handled. Listed in order of precedence (highest to lowest):</p>
+
+                    <div class="space-y-4">
+                        <!-- Lay on the Table -->
+                        <div class="border-l-4 border-gray-400 pl-4">
+                            <h3 class="text-lg font-semibold mb-2">1. Lay on the Table</h3>
+                            <p class="mb-2"><strong>Purpose:</strong> Temporarily set aside a pending motion</p>
+                            <p class="mb-2"><strong>Form:</strong> "I move to lay the question on the table"</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Requires second: Yes</li>
+                                <li>Debatable: No</li>
+                                <li>Amendable: No</li>
+                                <li>Vote required: Majority</li>
+                            </ul>
+                        </div>
+
+                        <!-- Previous Question -->
+                        <div class="border-l-4 border-gray-400 pl-4">
+                            <h3 class="text-lg font-semibold mb-2">2. Previous Question (Call the Question)</h3>
+                            <p class="mb-2"><strong>Purpose:</strong> Immediately end debate and vote</p>
+                            <p class="mb-2"><strong>Form:</strong> "I move the previous question" or "I call the question"</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Requires second: Yes</li>
+                                <li>Debatable: No</li>
+                                <li>Amendable: No</li>
+                                <li>Vote required: Two-thirds</li>
+                            </ul>
+                        </div>
+
+                        <!-- Limit/Extend Debate -->
+                        <div class="border-l-4 border-gray-400 pl-4">
+                            <h3 class="text-lg font-semibold mb-2">3. Limit or Extend Debate</h3>
+                            <p class="mb-2"><strong>Purpose:</strong> Modify the limits of debate</p>
+                            <p class="mb-2"><strong>Form:</strong> "I move that debate be limited to..."</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Requires second: Yes</li>
+                                <li>Debatable: No</li>
+                                <li>Amendable: Yes</li>
+                                <li>Vote required: Two-thirds</li>
+                            </ul>
+                        </div>
+
+                        <!-- Postpone to Certain Time -->
+                        <div class="border-l-4 border-gray-400 pl-4">
+                            <h3 class="text-lg font-semibold mb-2">4. Postpone to a Certain Time</h3>
+                            <p class="mb-2"><strong>Purpose:</strong> Delay consideration until a specific time</p>
+                            <p class="mb-2"><strong>Form:</strong> "I move to postpone the motion until..."</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Requires second: Yes</li>
+                                <li>Debatable: Yes (limited to whether to postpone)</li>
+                                <li>Amendable: Yes</li>
+                                <li>Vote required: Majority</li>
+                            </ul>
+                        </div>
+
+                        <!-- Refer to Committee -->
+                        <div class="border-l-4 border-gray-400 pl-4">
+                            <h3 class="text-lg font-semibold mb-2">5. Refer to Committee (Commit)</h3>
+                            <p class="mb-2"><strong>Purpose:</strong> Send a motion to a committee for study</p>
+                            <p class="mb-2"><strong>Form:</strong> "I move to refer the motion to..."</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Requires second: Yes</li>
+                                <li>Debatable: Yes (limited)</li>
+                                <li>Amendable: Yes</li>
+                                <li>Vote required: Majority</li>
+                            </ul>
+                        </div>
+
+                        <!-- Amend -->
+                        <div class="border-l-4 border-gray-400 pl-4">
+                            <h3 class="text-lg font-semibold mb-2">6. Amend</h3>
+                            <p class="mb-2"><strong>Purpose:</strong> Modify the pending motion</p>
+                            <p class="mb-2"><strong>Form:</strong> "I move to amend the motion by..."</p>
+                            <div class="bg-gray-50 p-3 rounded mt-2 mb-2">
+                                <p class="font-semibold text-sm mb-1">Three ways to amend:</p>
+                                <ul class="list-disc pl-6 text-sm">
+                                    <li>Insert or add words/paragraphs</li>
+                                    <li>Strike out words/paragraphs</li>
+                                    <li>Strike out and insert (substitute)</li>
+                                </ul>
+                            </div>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Requires second: Yes</li>
+                                <li>Debatable: Yes (if main motion is debatable)</li>
+                                <li>Amendable: Yes (but not beyond second degree)</li>
+                                <li>Vote required: Majority</li>
+                            </ul>
+                        </div>
+
+                        <!-- Postpone Indefinitely -->
+                        <div class="border-l-4 border-gray-400 pl-4">
+                            <h3 class="text-lg font-semibold mb-2">7. Postpone Indefinitely</h3>
+                            <p class="mb-2"><strong>Purpose:</strong> Kill the main motion without a direct vote</p>
+                            <p class="mb-2"><strong>Form:</strong> "I move to postpone the motion indefinitely"</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Requires second: Yes</li>
+                                <li>Debatable: Yes (opens main question to debate)</li>
+                                <li>Amendable: No</li>
+                                <li>Vote required: Majority</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Privileged Motions Section -->
+            <section id="privileged-motions" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Privileged Motions</h2>
+                <div class="prose max-w-none">
+                    <p class="mb-4">Privileged motions relate to special matters of immediate importance. Listed in order of precedence (highest to lowest):</p>
+
+                    <div class="space-y-4">
+                        <!-- Fix Time to Adjourn -->
+                        <div class="border-l-4 border-purple-400 pl-4">
+                            <h3 class="text-lg font-semibold mb-2">1. Fix the Time to Which to Adjourn</h3>
+                            <p class="mb-2"><strong>Purpose:</strong> Set the time and place for continued meeting</p>
+                            <p class="mb-2"><strong>Form:</strong> "I move that when we adjourn, we adjourn to meet at..."</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Requires second: Yes</li>
+                                <li>Debatable: No</li>
+                                <li>Amendable: Yes</li>
+                                <li>Vote required: Majority</li>
+                            </ul>
+                        </div>
+
+                        <!-- Adjourn -->
+                        <div class="border-l-4 border-purple-400 pl-4">
+                            <h3 class="text-lg font-semibold mb-2">2. Adjourn</h3>
+                            <p class="mb-2"><strong>Purpose:</strong> Close the meeting</p>
+                            <p class="mb-2"><strong>Form:</strong> "I move to adjourn"</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Requires second: Yes</li>
+                                <li>Debatable: No</li>
+                                <li>Amendable: No</li>
+                                <li>Vote required: Majority</li>
+                            </ul>
+                        </div>
+
+                        <!-- Recess -->
+                        <div class="border-l-4 border-purple-400 pl-4">
+                            <h3 class="text-lg font-semibold mb-2">3. Recess</h3>
+                            <p class="mb-2"><strong>Purpose:</strong> Take a short break</p>
+                            <p class="mb-2"><strong>Form:</strong> "I move to recess for..."</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Requires second: Yes</li>
+                                <li>Debatable: No</li>
+                                <li>Amendable: Yes (as to length of recess)</li>
+                                <li>Vote required: Majority</li>
+                            </ul>
+                        </div>
+
+                        <!-- Question of Privilege -->
+                        <div class="border-l-4 border-purple-400 pl-4">
+                            <h3 class="text-lg font-semibold mb-2">4. Question of Privilege</h3>
+                            <p class="mb-2"><strong>Purpose:</strong> Bring urgent matters affecting the assembly or a member</p>
+                            <p class="mb-2"><strong>Form:</strong> "I rise to a question of privilege" (then state the issue)</p>
+                            <div class="bg-purple-50 p-3 rounded mt-2 mb-2">
+                                <p class="font-semibold text-sm mb-1">Examples:</p>
+                                <ul class="list-disc pl-6 text-sm">
+                                    <li>Room is too noisy/hot/cold</li>
+                                    <li>Cannot hear the speaker</li>
+                                    <li>Safety concerns</li>
+                                    <li>Personal attack or rights violation</li>
+                                </ul>
+                            </div>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Requires second: No</li>
+                                <li>Debatable: No (chair rules immediately)</li>
+                                <li>Amendable: No</li>
+                                <li>Vote required: None (chair decides)</li>
+                            </ul>
+                        </div>
+
+                        <!-- Call for Orders of the Day -->
+                        <div class="border-l-4 border-purple-400 pl-4">
+                            <h3 class="text-lg font-semibold mb-2">5. Call for the Orders of the Day</h3>
+                            <p class="mb-2"><strong>Purpose:</strong> Demand that the agenda be followed</p>
+                            <p class="mb-2"><strong>Form:</strong> "I call for the orders of the day"</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Requires second: No</li>
+                                <li>Debatable: No</li>
+                                <li>Amendable: No</li>
+                                <li>Vote required: None (chair must comply or 2/3 vote to set aside)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Incidental Motions Section -->
+            <section id="incidental-motions" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Incidental Motions</h2>
+                <div class="prose max-w-none">
+                    <p class="mb-4">Incidental motions arise out of other questions and must be decided before the pending question. No order of precedence among themselves.</p>
+
+                    <div class="space-y-4">
+                        <!-- Point of Order -->
+                        <div class="border-l-4 border-orange-400 pl-4">
+                            <h3 class="text-lg font-semibold mb-2">Point of Order</h3>
+                            <p class="mb-2"><strong>Purpose:</strong> Enforce rules of procedure</p>
+                            <p class="mb-2"><strong>Form:</strong> "Point of order!" or "I rise to a point of order"</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Requires second: No</li>
+                                <li>Debatable: No</li>
+                                <li>Chair rules on the point immediately</li>
+                            </ul>
+                        </div>
+
+                        <!-- Appeal -->
+                        <div class="border-l-4 border-orange-400 pl-4">
+                            <h3 class="text-lg font-semibold mb-2">Appeal from the Decision of the Chair</h3>
+                            <p class="mb-2"><strong>Purpose:</strong> Challenge the chair's ruling</p>
+                            <p class="mb-2"><strong>Form:</strong> "I appeal from the decision of the chair"</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Requires second: Yes</li>
+                                <li>Debatable: Yes (in most cases)</li>
+                                <li>Vote required: Majority (tie sustains chair)</li>
+                            </ul>
+                        </div>
+
+                        <!-- Suspend Rules -->
+                        <div class="border-l-4 border-orange-400 pl-4">
+                            <h3 class="text-lg font-semibold mb-2">Suspend the Rules</h3>
+                            <p class="mb-2"><strong>Purpose:</strong> Temporarily set aside standing rules</p>
+                            <p class="mb-2"><strong>Form:</strong> "I move to suspend the rules to..."</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Requires second: Yes</li>
+                                <li>Debatable: No</li>
+                                <li>Vote required: Two-thirds</li>
+                                <li>Cannot suspend bylaws or fundamental rules</li>
+                            </ul>
+                        </div>
+
+                        <!-- Object to Consideration -->
+                        <div class="border-l-4 border-orange-400 pl-4">
+                            <h3 class="text-lg font-semibold mb-2">Object to Consideration of a Question</h3>
+                            <p class="mb-2"><strong>Purpose:</strong> Suppress inappropriate or sensitive motion</p>
+                            <p class="mb-2"><strong>Form:</strong> "I object to consideration of this question"</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Requires second: No</li>
+                                <li>Debatable: No</li>
+                                <li>Must be made before debate begins</li>
+                                <li>Vote required: Two-thirds to sustain objection</li>
+                            </ul>
+                        </div>
+
+                        <!-- Division of Question -->
+                        <div class="border-l-4 border-orange-400 pl-4">
+                            <h3 class="text-lg font-semibold mb-2">Division of a Question</h3>
+                            <p class="mb-2"><strong>Purpose:</strong> Separate a motion into independent parts</p>
+                            <p class="mb-2"><strong>Form:</strong> "I move to divide the question..."</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Requires second: Yes</li>
+                                <li>Debatable: No</li>
+                                <li>Amendable: Yes</li>
+                                <li>Vote required: Majority</li>
+                            </ul>
+                        </div>
+
+                        <!-- Parliamentary Inquiry -->
+                        <div class="border-l-4 border-orange-400 pl-4">
+                            <h3 class="text-lg font-semibold mb-2">Parliamentary Inquiry</h3>
+                            <p class="mb-2"><strong>Purpose:</strong> Ask the chair a question about procedure</p>
+                            <p class="mb-2"><strong>Form:</strong> "Parliamentary inquiry" or "Point of information"</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Requires second: No</li>
+                                <li>Not a motion - request for information</li>
+                                <li>Chair answers or directs to parliamentarian</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Reconsider and Rescind Section -->
+            <section id="reconsider-rescind" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Reconsider and Rescind</h2>
+                <div class="prose max-w-none">
+                    <p class="mb-4">These motions allow an assembly to revisit and potentially reverse previous decisions.</p>
+
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                        <p class="text-sm font-semibold text-blue-900 mb-2">🔗 Alpha Mu Chapter Protection Periods</p>
+                        <p class="text-sm text-gray-700">Our <a href="{% url 'constitution_bylaws' %}#const-amendments" class="text-blue-600 hover:underline">Constitution and Bylaws</a> establish "protection periods" for failed amendments:</p>
+                        <ul class="list-disc pl-6 mt-2 text-sm text-gray-700 space-y-1">
+                            <li><strong>Constitution amendments:</strong> Cannot be reintroduced for 15 chapter meetings after failure</li>
+                            <li><strong>Bylaws amendments:</strong> Cannot be reintroduced for 10 chapter meetings after failure</li>
+                        </ul>
+                        <p class="text-sm text-gray-600 mt-2 italic">These periods prevent repeated attempts to pass the same failed amendment.</p>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6 mb-6">
+                        <!-- Reconsider -->
+                        <div class="border-2 border-green-400 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-green-900 mb-3">Motion to Reconsider</h3>
+                            <p class="text-sm mb-3"><strong>Purpose:</strong> Bring a motion back for another vote during the same session or within the same day (depending on organization)</p>
+
+                            <div class="bg-green-50 p-3 rounded mb-3">
+                                <p class="font-semibold text-sm mb-1">How It Works:</p>
+                                <p class="text-sm mb-2"><strong>Form:</strong> "I move to reconsider the vote on..."</p>
+                                <ul class="list-disc pl-6 space-y-1 text-xs">
+                                    <li>Must be made by someone who voted on the <em>prevailing side</em></li>
+                                    <li>Can only reconsider once (cannot reconsider a reconsideration)</li>
+                                    <li>Can be made while another motion is pending</li>
+                                    <li>Takes precedence over any other motion</li>
+                                </ul>
+                            </div>
+
+                            <div class="bg-gray-50 p-3 rounded text-xs space-y-1">
+                                <p><strong>Requires second:</strong> Yes</p>
+                                <p><strong>Debatable:</strong> Only if original motion was debatable</p>
+                                <p><strong>Amendable:</strong> No</p>
+                                <p><strong>Vote required:</strong> Majority</p>
+                                <p><strong>Time limit:</strong> Same meeting/session (or next meeting for committees)</p>
+                            </div>
+                        </div>
+
+                        <!-- Rescind -->
+                        <div class="border-2 border-purple-400 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-purple-900 mb-3">Motion to Rescind (Amend Something Previously Adopted)</h3>
+                            <p class="text-sm mb-3"><strong>Purpose:</strong> Cancel or repeal a motion previously adopted, with no time limit</p>
+
+                            <div class="bg-purple-50 p-3 rounded mb-3">
+                                <p class="font-semibold text-sm mb-1">How It Works:</p>
+                                <p class="text-sm mb-2"><strong>Form:</strong> "I move to rescind the motion that..." or "I move to amend the motion previously adopted by..."</p>
+                                <ul class="list-disc pl-6 space-y-1 text-xs">
+                                    <li>Can be made by any member</li>
+                                    <li>Can be used to nullify actions from previous meetings</li>
+                                    <li>Useful for reversing outdated or problematic decisions</li>
+                                </ul>
+                            </div>
+
+                            <div class="bg-gray-50 p-3 rounded text-xs space-y-1">
+                                <p><strong>Requires second:</strong> Yes</p>
+                                <p><strong>Debatable:</strong> Yes</p>
+                                <p><strong>Amendable:</strong> Yes</p>
+                                <p><strong>Vote required:</strong> 2/3 majority, OR majority with previous notice</p>
+                                <p><strong>Time limit:</strong> None (can be used anytime)</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">When to Use Each Motion</h3>
+                    <div class="bg-gray-50 p-4 rounded mb-4">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-gray-200">
+                                <tr>
+                                    <th class="px-3 py-2 text-left">Scenario</th>
+                                    <th class="px-3 py-2 text-left">Use This</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-t">
+                                    <td class="px-3 py-2">Realized mistake immediately after vote</td>
+                                    <td class="px-3 py-2 font-semibold text-green-700">Reconsider</td>
+                                </tr>
+                                <tr class="border-t bg-gray-100">
+                                    <td class="px-3 py-2">New information available same meeting</td>
+                                    <td class="px-3 py-2 font-semibold text-green-700">Reconsider</td>
+                                </tr>
+                                <tr class="border-t">
+                                    <td class="px-3 py-2">Want to reverse last week's decision</td>
+                                    <td class="px-3 py-2 font-semibold text-purple-700">Rescind</td>
+                                </tr>
+                                <tr class="border-t bg-gray-100">
+                                    <td class="px-3 py-2">Policy adopted years ago needs changing</td>
+                                    <td class="px-3 py-2 font-semibold text-purple-700">Rescind</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">What Cannot Be Reconsidered or Rescinded</h3>
+                    <div class="border-l-4 border-red-500 pl-4 bg-red-50 p-3 mb-4">
+                        <p class="font-semibold text-red-900 mb-2">Cannot be used for:</p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li>Actions where something cannot be undone (contracts signed, resignations accepted, members expelled after they've left)</li>
+                            <li>Votes that are purely procedural (like adjournment, recess after it's been taken)</li>
+                            <li>Nominations or elections after person has been notified and assumed office</li>
+                            <li>Any action where innocent third parties have acquired rights</li>
+                        </ul>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Practical Examples</h3>
+                    <div class="space-y-3">
+                        <div class="bg-green-50 p-4 rounded">
+                            <p class="font-semibold text-green-900 mb-2">Example 1: Reconsider (Same Meeting)</p>
+                            <p class="text-sm text-gray-700 mb-2"><strong>Situation:</strong> Chapter voted to hold formal chapter at 6pm. Member who voted "yes" realizes most members have 6pm classes.</p>
+                            <p class="text-sm text-gray-700"><strong>Solution:</strong> Member says: "I voted on the prevailing side, and I move to reconsider the vote on the time of formal chapter."</p>
+                        </div>
+
+                        <div class="bg-purple-50 p-4 rounded">
+                            <p class="font-semibold text-purple-900 mb-2">Example 2: Rescind (Different Meeting)</p>
+                            <p class="text-sm text-gray-700 mb-2"><strong>Situation:</strong> Chapter voted last semester to require ties at all meetings. Members now find this impractical.</p>
+                            <p class="text-sm text-gray-700"><strong>Solution:</strong> Any member says: "I move to rescind the motion requiring ties at all meetings."</p>
+                            <p class="text-xs text-gray-600 mt-2">Requires 2/3 vote, OR majority if notice was given at previous meeting.</p>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Previous Notice Reduces Vote Requirement</h3>
+                    <div class="bg-yellow-50 p-4 rounded">
+                        <p class="text-sm text-gray-700 mb-2">For Rescind (or Amend Something Previously Adopted):</p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li><strong>Without notice:</strong> Requires 2/3 vote</li>
+                            <li><strong>With previous notice:</strong> Requires only majority vote</li>
+                        </ul>
+                        <p class="text-xs text-gray-600 mt-2 italic">Previous notice means announcing at a previous meeting or in the call of the meeting that this motion will be introduced.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Voting Section -->
+            <section id="voting" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Voting Procedures</h2>
+                <div class="prose max-w-none">
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Methods of Voting</h3>
+                    <div class="space-y-3">
+                        <div class="bg-gray-50 p-4 rounded">
+                            <h4 class="font-semibold mb-2">1. Voice Vote (Viva Voce)</h4>
+                            <p class="text-sm">Chair: "All in favor say 'aye.' Those opposed say 'no.'"</p>
+                            <p class="text-sm text-gray-600 mt-1">Most common method for routine motions.</p>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded">
+                            <h4 class="font-semibold mb-2">2. Rising Vote (Standing)</h4>
+                            <p class="text-sm">Chair: "All in favor please rise. Be seated. Those opposed please rise."</p>
+                            <p class="text-sm text-gray-600 mt-1">Used when voice vote result is unclear or for important matters.</p>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded">
+                            <h4 class="font-semibold mb-2">3. Show of Hands</h4>
+                            <p class="text-sm">Chair: "All in favor raise your hand. Thank you. Those opposed raise your hand."</p>
+                            <p class="text-sm text-gray-600 mt-1">Often used in small groups or committees.</p>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded">
+                            <h4 class="font-semibold mb-2">4. Ballot Vote</h4>
+                            <p class="text-sm">Written votes, typically for elections or sensitive matters.</p>
+                            <p class="text-sm text-gray-600 mt-1">Ensures secrecy and allows for accurate count.</p>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded">
+                            <h4 class="font-semibold mb-2">5. Roll Call Vote</h4>
+                            <p class="text-sm">Each member's vote is recorded individually by name.</p>
+                            <p class="text-sm text-gray-600 mt-1">Used when a record of individual votes is required.</p>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Vote Requirements</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full border border-gray-300 mt-4">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="border border-gray-300 px-4 py-2 text-left">Vote Type</th>
+                                    <th class="border border-gray-300 px-4 py-2 text-left">Requirement</th>
+                                    <th class="border border-gray-300 px-4 py-2 text-left">Examples</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-sm">
+                                <tr>
+                                    <td class="border border-gray-300 px-4 py-2 font-semibold">Majority Vote</td>
+                                    <td class="border border-gray-300 px-4 py-2">More than half of votes cast</td>
+                                    <td class="border border-gray-300 px-4 py-2">Most motions, adopt minutes</td>
+                                </tr>
+                                <tr class="bg-gray-50">
+                                    <td class="border border-gray-300 px-4 py-2 font-semibold">Two-Thirds Vote</td>
+                                    <td class="border border-gray-300 px-4 py-2">At least 2/3 of votes cast</td>
+                                    <td class="border border-gray-300 px-4 py-2">Close debate, suspend rules, limit debate</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-4 py-2 font-semibold">Plurality</td>
+                                    <td class="border border-gray-300 px-4 py-2">Most votes (not majority)</td>
+                                    <td class="border border-gray-300 px-4 py-2">Elections (if bylaws specify)</td>
+                                </tr>
+                                <tr class="bg-gray-50">
+                                    <td class="border border-gray-300 px-4 py-2 font-semibold">Unanimous Consent</td>
+                                    <td class="border border-gray-300 px-4 py-2">No objection</td>
+                                    <td class="border border-gray-300 px-4 py-2">Approve minutes, grant requests</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mt-4">
+                        <h4 class="font-semibold mb-2">Important Notes</h4>
+                        <ul class="list-disc pl-6 space-y-1 text-sm">
+                            <li>Abstentions are not counted in determining if a majority or two-thirds vote has been achieved.</li>
+                            <li>The chair may vote to make or break a tie in small boards/committees.</li>
+                            <li>In assemblies, the chair only votes when it would change the outcome.</li>
+                            <li>A tie vote means the motion fails (except on appeals).</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Secret Ballot Procedures Section -->
+            <section id="secret-ballot" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Secret Ballot Procedures (Detailed)</h2>
+                <div class="prose max-w-none">
+                    <p class="mb-4">Secret ballots protect voter privacy and prevent coercion, commonly used for elections, sensitive motions, and membership decisions.</p>
+
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                        <p class="text-sm font-semibold text-blue-900 mb-2">🔗 Alpha Mu Chapter Requirements</p>
+                        <p class="text-sm text-gray-700">Our Constitution and Bylaws require secret ballots for:</p>
+                        <ul class="list-disc pl-6 mt-2 text-sm text-gray-700 space-y-1">
+                            <li><strong>Officer Elections:</strong> All Executive Board positions (Article IV, Section 5)</li>
+                            <li><strong>Slate Approval:</strong> Officer slate votes (Bylaws Article II)</li>
+                            <li><strong>Kai Committee Decisions:</strong> Disciplinary hearings and sanctions</li>
+                            <li><strong>Membership Selection:</strong> Voting on potential new members</li>
+                        </ul>
+                        <p class="text-sm text-gray-600 mt-2">An advisor must be present for elections and PNM selection.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Appointing Tellers</h3>
+                    <div class="bg-gray-50 p-4 rounded mb-4">
+                        <p class="mb-2"><strong>Tellers are responsible for distributing, collecting, and counting ballots.</strong></p>
+                        <ul class="list-disc pl-6 space-y-2 text-sm">
+                            <li><strong>Number:</strong> Typically 2-3 tellers (odd number prevents ties)</li>
+                            <li><strong>Selection:</strong> Appointed by chair or elected by assembly</li>
+                            <li><strong>Qualifications:</strong> Must be impartial, trustworthy members in good standing</li>
+                            <li><strong>Cannot be:</strong> Candidates, or members with direct interest in the outcome</li>
+                            <li><strong>Tellers' chairman:</strong> One teller designated as lead to report results</li>
+                        </ul>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Ballot Preparation</h3>
+                    <div class="space-y-3">
+                        <div class="border-l-4 border-green-500 pl-4 bg-green-50 p-3">
+                            <p class="font-semibold text-green-900 mb-2">Good Ballot Design:</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                                <li>Uniform size and color (prevents identification)</li>
+                                <li>Clear instructions at top</li>
+                                <li>List all candidates or choices in alphabetical order</li>
+                                <li>Sufficient space to write in votes or mark boxes</li>
+                                <li>No identifying marks, numbers, or watermarks</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded">
+                            <p class="font-semibold mb-2">Example Ballot Format:</p>
+                            <div class="bg-white p-3 rounded border border-gray-300 text-sm font-mono">
+                                <p class="font-bold text-center mb-2">BALLOT - PRESIDENT</p>
+                                <p class="text-xs mb-2">Vote for ONE (1) candidate. Mark an X or checkmark.</p>
+                                <p>☐ Candidate A</p>
+                                <p>☐ Candidate B</p>
+                                <p>☐ Candidate C</p>
+                                <p class="mt-2 text-xs">Leave blank to abstain.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Conducting the Ballot Vote</h3>
+                    <div class="bg-yellow-50 p-4 rounded mb-4">
+                        <p class="font-semibold mb-2">Step-by-Step Procedure:</p>
+                        <ol class="list-decimal pl-6 space-y-2 text-sm">
+                            <li><strong>Chair announces:</strong> "The vote will be by ballot. Tellers will distribute ballots."</li>
+                            <li><strong>Tellers distribute ballots:</strong> One blank ballot to each eligible voter</li>
+                            <li><strong>Members vote:</strong> Mark ballots privately, fold to conceal vote</li>
+                            <li><strong>Tellers collect:</strong> Pass around ballot box or container
+                                <ul class="list-disc pl-6 mt-1 text-xs">
+                                    <li>Members drop folded ballots in themselves (tellers don't touch)</li>
+                                    <li>Ensures nobody can identify who voted how</li>
+                                </ul>
+                            </li>
+                            <li><strong>Chair verifies quorum still present</strong> before tellers leave to count</li>
+                            <li><strong>Tellers retire to count:</strong> Leave assembly to count in private</li>
+                            <li><strong>Tellers report:</strong> Return and tellers' chairman reads report aloud</li>
+                            <li><strong>Chair announces result:</strong> Declares outcome based on tellers' report</li>
+                        </ol>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Counting Ballots</h3>
+                    <div class="space-y-3">
+                        <div class="bg-gray-50 p-4 rounded">
+                            <p class="font-semibold mb-2">Counting Process:</p>
+                            <ol class="list-decimal pl-6 space-y-1 text-sm">
+                                <li>Count total number of ballots collected</li>
+                                <li>Separate illegal ballots (see below)</li>
+                                <li>Count votes for each candidate/choice</li>
+                                <li>Count blank ballots separately</li>
+                                <li>Verify totals add up correctly</li>
+                                <li>All tellers sign the tellers' report</li>
+                            </ol>
+                        </div>
+
+                        <div class="border-l-4 border-red-500 pl-4 bg-red-50 p-3">
+                            <p class="font-semibold text-red-900 mb-2">Illegal Ballots (Not Counted):</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                                <li><strong>Identifying marks:</strong> Ballots with names, initials, or unique markings</li>
+                                <li><strong>Unclear intent:</strong> Ballots that cannot be deciphered</li>
+                                <li><strong>Over-votes:</strong> More votes than allowed (e.g., voting for 2 when only 1 allowed)</li>
+                                <li><strong>Write-ins (if prohibited):</strong> When bylaws don't allow write-in candidates</li>
+                            </ul>
+                            <p class="text-xs text-gray-600 mt-2 italic">Illegal ballots are not counted toward any candidate but are included in "ballots cast" total.</p>
+                        </div>
+
+                        <div class="bg-blue-50 p-4 rounded">
+                            <p class="font-semibold mb-2">Blank Ballots:</p>
+                            <p class="text-sm text-gray-700">A blank ballot (left completely unmarked) is legal but counts as abstention. It is counted in "ballots cast" but not counted for any candidate.</p>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Tellers' Report</h3>
+                    <div class="bg-gray-50 p-4 rounded mb-4">
+                        <p class="font-semibold mb-2">Standard Report Format:</p>
+                        <div class="bg-white p-3 rounded border border-gray-300 text-sm font-mono">
+                            <p class="font-bold mb-2">TELLERS' REPORT</p>
+                            <p>Number of votes cast: 45</p>
+                            <p>Necessary for election (majority): 23</p>
+                            <p>Illegal ballots: 2</p>
+                            <p>Blank ballots: 3</p>
+                            <p class="mt-2">Votes received:</p>
+                            <p class="ml-4">Candidate A: 28</p>
+                            <p class="ml-4">Candidate B: 12</p>
+                            <p class="ml-4">Candidate C: 2</p>
+                            <p class="mt-2">Candidate A, having received a majority, is elected.</p>
+                            <p class="mt-2 text-xs">Signed: [Tellers' names]</p>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Announcing Results</h3>
+                    <div class="space-y-3">
+                        <div class="bg-green-50 p-4 rounded">
+                            <p class="font-semibold text-green-900 mb-2">Chair's Announcement (Result Decided):</p>
+                            <p class="text-sm text-gray-700">"The tellers report that Candidate A has received 28 votes, a majority, and is therefore elected President. The next item of business is..."</p>
+                        </div>
+
+                        <div class="bg-orange-50 p-4 rounded">
+                            <p class="font-semibold text-orange-900 mb-2">Chair's Announcement (No Majority):</p>
+                            <p class="text-sm text-gray-700 mb-2">"The tellers report that no candidate has received a majority. We will proceed to a second ballot."</p>
+                            <p class="text-xs text-gray-600">Assembly may vote to eliminate lowest candidate or continue with all candidates.</p>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Recounts and Challenges</h3>
+                    <div class="bg-yellow-50 p-4 rounded mb-4">
+                        <p class="mb-2"><strong>When can ballots be recounted?</strong></p>
+                        <ul class="list-disc pl-6 space-y-2 text-sm">
+                            <li><strong>Before announcement:</strong> Tellers may recount on their own if numbers don't add up</li>
+                            <li><strong>After announcement:</strong> Member may move to recount if they believe error occurred
+                                <ul class="list-circle pl-6 mt-1 text-xs">
+                                    <li>Requires second and majority vote</li>
+                                    <li>Should occur immediately after announcement</li>
+                                </ul>
+                            </li>
+                            <li><strong>Ballots are preserved:</strong> Keep ballots until challenge period passes (usually next meeting)</li>
+                        </ul>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Disposing of Ballots</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm mb-4">
+                        <li>Tellers retain ballots until next meeting (in case of challenge)</li>
+                        <li>After challenge period, destroy ballots to maintain secrecy</li>
+                        <li>Never identify how specific members voted</li>
+                        <li>Tellers' report becomes part of permanent minutes</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Unanimous Consent Section -->
+            <section id="unanimous-consent" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Unanimous Consent (General Consent)</h2>
+                <div class="prose max-w-none">
+                    <p class="mb-4">Unanimous consent is a time-saving procedure that allows the assembly to approve routine or non-controversial matters without taking a formal vote. This is one of the most frequently used procedures in actual practice.</p>
+
+                    <div class="bg-green-50 border-l-4 border-green-500 p-4 mb-6">
+                        <p class="text-sm font-semibold text-green-900 mb-2">⚡ Why Use Unanimous Consent?</p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li><strong>Saves time:</strong> Avoids lengthy formal voting procedures for routine matters</li>
+                            <li><strong>Increases efficiency:</strong> Meetings move faster when non-controversial items are handled quickly</li>
+                            <li><strong>Common practice:</strong> Used for approving minutes, simple requests, routine approvals</li>
+                            <li><strong>Still democratic:</strong> Any single member can object and force a formal vote</li>
+                        </ul>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">How Unanimous Consent Works</h3>
+                    <div class="bg-gray-50 p-4 rounded mb-4">
+                        <p class="font-semibold mb-2">Basic Procedure:</p>
+                        <ol class="list-decimal pl-6 space-y-2 text-sm">
+                            <li><strong>Chair states the action:</strong> "If there is no objection, [state the action to be taken]."</li>
+                            <li><strong>Chair pauses:</strong> Brief pause to allow objections</li>
+                            <li><strong>If no objection:</strong> Chair announces: "Hearing no objection, it is so ordered." (Action is approved)</li>
+                            <li><strong>If anyone objects:</strong> Chair states: "Objection is heard. The question is on [restate action]. Those in favor say 'aye'..." (Proceed with normal vote)</li>
+                        </ol>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Common Uses</h3>
+                    <div class="grid md:grid-cols-2 gap-4 mb-4">
+                        <div class="border-l-4 border-blue-500 pl-4 bg-blue-50 p-3">
+                            <p class="font-semibold text-blue-900 mb-2">Typical Applications:</p>
+                            <ul class="list-disc pl-6 space-y-1 text-xs text-gray-700">
+                                <li>Approving meeting minutes</li>
+                                <li>Accepting committee reports (informational)</li>
+                                <li>Allowing a member to speak when not entitled (out of turn)</li>
+                                <li>Granting brief recess</li>
+                                <li>Dispensing with reading of documents</li>
+                                <li>Fixing time for next meeting</li>
+                                <li>Allowing withdrawal of a motion</li>
+                            </ul>
+                        </div>
+
+                        <div class="border-l-4 border-purple-500 pl-4 bg-purple-50 p-3">
+                            <p class="font-semibold text-purple-900 mb-2">NOT Appropriate For:</p>
+                            <ul class="list-disc pl-6 space-y-1 text-xs text-gray-700">
+                                <li>Controversial decisions</li>
+                                <li>Elections</li>
+                                <li>Anything requiring specific vote (bylaws amendments)</li>
+                                <li>Matters where opposition is likely</li>
+                                <li>Final budgets or major expenditures</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Example Scenarios</h3>
+                    <div class="space-y-4">
+                        <div class="bg-white border border-gray-300 p-4 rounded">
+                            <p class="font-semibold text-gray-800 mb-2">Example 1: Approving Minutes</p>
+                            <div class="text-sm text-gray-700 space-y-1">
+                                <p><strong>Chair:</strong> "The minutes of the last meeting have been distributed. If there is no objection, the minutes will be approved as written."</p>
+                                <p><em>[Pause 2-3 seconds]</em></p>
+                                <p><strong>Chair:</strong> "Hearing no objection, the minutes are approved."</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-white border border-gray-300 p-4 rounded">
+                            <p class="font-semibold text-gray-800 mb-2">Example 2: Taking a Recess</p>
+                            <div class="text-sm text-gray-700 space-y-1">
+                                <p><strong>Chair:</strong> "If there is no objection, we will take a 10-minute recess."</p>
+                                <p><em>[Pause]</em></p>
+                                <p><strong>Chair:</strong> "There being no objection, we are in recess for 10 minutes."</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-white border border-gray-300 p-4 rounded">
+                            <p class="font-semibold text-gray-800 mb-2">Example 3: With Objection</p>
+                            <div class="text-sm text-gray-700 space-y-1">
+                                <p><strong>Chair:</strong> "If there is no objection, the chapter will purchase new furniture for $500."</p>
+                                <p><strong>Member:</strong> "I object!"</p>
+                                <p><strong>Chair:</strong> "Objection is heard. The question is on whether to purchase furniture for $500. Those in favor, say 'aye'..."</p>
+                                <p><em>[Proceeds with formal vote]</em></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Requesting Unanimous Consent</h3>
+                    <div class="bg-yellow-50 p-4 rounded mb-4">
+                        <p class="mb-2"><strong>Members can also request unanimous consent:</strong></p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>Member:</strong> "I ask unanimous consent to [state request]."</p>
+                        <p class="text-sm text-gray-700 mb-3"><strong>Chair:</strong> "Is there any objection?" <em>[Pause]</em> "Hearing none, it is so ordered."</p>
+                        <p class="text-sm text-gray-700"><strong>Example:</strong> "I ask unanimous consent to withdraw my motion."</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Important Points</h3>
+                    <div class="border-l-4 border-orange-500 pl-4 bg-orange-50 p-3">
+                        <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                            <li><strong>One objection is enough:</strong> Even if only one member objects, the matter must be put to a formal vote</li>
+                            <li><strong>No explanation needed:</strong> A member may object without stating reasons</li>
+                            <li><strong>Cannot be debated:</strong> No debate on whether to grant unanimous consent</li>
+                            <li><strong>Chair's discretion:</strong> Chair judges whether a matter is appropriate for unanimous consent</li>
+                            <li><strong>Assumed consent:</strong> Silence equals agreement; objection must be voiced</li>
+                        </ul>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Benefits in Practice</h3>
+                    <div class="bg-green-50 p-4 rounded">
+                        <p class="text-sm text-gray-700 mb-3">Using unanimous consent appropriately can dramatically improve meeting efficiency:</p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li>Routine approvals that would take 2-3 minutes of formal voting can be handled in 10 seconds</li>
+                            <li>Keeps meetings focused on substantive issues that require discussion</li>
+                            <li>Demonstrates trust and cooperation among members</li>
+                            <li>Still preserves democratic rights (any member can object and force a vote)</li>
+                        </ul>
+                        <p class="text-xs text-gray-600 mt-3 italic">Best practice: Use unanimous consent for routine matters, but always take formal votes on controversial or important decisions.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Debate Rules Section -->
+            <section id="debate-rules" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Debate Rules</h2>
+                <div class="prose max-w-none">
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Basic Principles of Debate</h3>
+                    <ul class="list-disc pl-6 space-y-2">
+                        <li><strong>Recognition Required:</strong> Members must be recognized by the chair before speaking.</li>
+                        <li><strong>Speak to the Motion:</strong> Remarks must be germane (relevant) to the pending question.</li>
+                        <li><strong>Address the Chair:</strong> Always address comments through the chair, not to other members.</li>
+                        <li><strong>Avoid Personalities:</strong> Debate the merits of the motion, not the personalities of members.</li>
+                        <li><strong>Speak Only Twice:</strong> No member may speak more than twice on the same question on the same day.</li>
+                        <li><strong>Time Limits:</strong> Speeches limited to 10 minutes unless extended by assembly.</li>
+                    </ul>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Obtaining the Floor</h3>
+                    <div class="bg-gray-50 p-4 rounded">
+                        <ol class="list-decimal pl-6 space-y-2">
+                            <li>Rise and address the chair ("Mr./Madam President" or "Mr./Madam Chairman")</li>
+                            <li>Wait to be recognized by the chair</li>
+                            <li>When recognized, state your purpose or make your motion</li>
+                        </ol>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Who Gets Priority to Speak?</h3>
+                    <ol class="list-decimal pl-6 space-y-2">
+                        <li>The mover of the motion (if they haven't spoken)</li>
+                        <li>Member who hasn't spoken on the question</li>
+                        <li>Member who wishes to speak on opposite side from previous speaker</li>
+                        <li>Member who has already spoken</li>
+                    </ol>
+
+                    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mt-4">
+                        <h4 class="font-semibold mb-2">Improper Debate Tactics</h4>
+                        <ul class="list-disc pl-6 space-y-1 text-sm">
+                            <li>Attacking a member's motives</li>
+                            <li>Making personal references to other members</li>
+                            <li>Speaking on irrelevant matters</li>
+                            <li>Disturbing the assembly</li>
+                            <li>Reading from papers without permission</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Chair Duties Section -->
+            <section id="chair-duties" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Chair's Duties</h2>
+                <div class="prose max-w-none">
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Primary Responsibilities</h3>
+                    <ul class="list-disc pl-6 space-y-2">
+                        <li><strong>Open the Meeting:</strong> Call meeting to order when quorum is present.</li>
+                        <li><strong>Announce Business:</strong> State business in proper order as it comes before assembly.</li>
+                        <li><strong>Recognize Members:</strong> Assign the floor to members entitled to speak.</li>
+                        <li><strong>State Questions:</strong> Clearly state each motion before the assembly.</li>
+                        <li><strong>Moderate Debate:</strong> Enforce debate rules and maintain order.</li>
+                        <li><strong>Put Questions to Vote:</strong> Take the vote and announce the result.</li>
+                        <li><strong>Protect Rights:</strong> Ensure the rights of all members are respected.</li>
+                        <li><strong>Expedite Business:</strong> Keep meetings moving efficiently.</li>
+                    </ul>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Handling Motions (Template)</h3>
+                    <div class="bg-blue-50 p-4 rounded">
+                        <p class="font-semibold mb-2">When a motion is made:</p>
+                        <ol class="list-decimal pl-6 space-y-2 text-sm">
+                            <li><strong>Member:</strong> "I move that..." (make motion)</li>
+                            <li><strong>Another Member:</strong> "I second the motion"</li>
+                            <li><strong>Chair:</strong> "It has been moved and seconded that... [repeat motion]. Is there any discussion?"</li>
+                            <li><strong>[Allow debate]</strong></li>
+                            <li><strong>Chair:</strong> "Is there any further discussion? [pause] Hearing none, all those in favor of [motion], say 'aye.'"</li>
+                            <li><strong>Members:</strong> "Aye"</li>
+                            <li><strong>Chair:</strong> "Those opposed, say 'no.'"</li>
+                            <li><strong>Members:</strong> "No"</li>
+                            <li><strong>Chair:</strong> "The ayes have it, and the motion is adopted." OR "The noes have it, and the motion is lost."</li>
+                        </ol>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Chair's Impartiality</h3>
+                    <div class="bg-gray-50 p-4 rounded">
+                        <p class="mb-2">The presiding officer must be impartial and should:</p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm">
+                            <li>Not enter into debate while presiding</li>
+                            <li>Relinquish the chair if they wish to speak on a question</li>
+                            <li>Remain fair and neutral in enforcing rules</li>
+                            <li>Protect the rights of the minority while recognizing majority rule</li>
+                        </ul>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">When No Motion Needs a Second</h3>
+                    <p class="text-sm mb-2">These items do not require a second:</p>
+                    <ul class="list-disc pl-6 space-y-1 text-sm">
+                        <li>Committee reports</li>
+                        <li>Nominations</li>
+                        <li>Point of order</li>
+                        <li>Parliamentary inquiry</li>
+                        <li>Question of privilege</li>
+                        <li>Call for orders of the day</li>
+                        <li>Object to consideration (before debate)</li>
+                        <li>Division of the assembly (call for standing vote)</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Committee Procedures Section -->
+            <section id="committees" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Committee Procedures</h2>
+                <div class="prose max-w-none">
+                    <p class="mb-4">Committees are smaller groups formed to consider matters in greater detail than would be practical in the full assembly.</p>
+
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Types of Committees</h3>
+                    <div class="space-y-4">
+                        <div class="border-l-4 border-blue-400 pl-4 bg-blue-50 p-4">
+                            <h4 class="font-semibold text-gray-800 mb-2">Standing Committees</h4>
+                            <p class="text-sm text-gray-700 mb-2">Permanent committees established in the bylaws with ongoing responsibilities.</p>
+                            <p class="text-xs text-gray-600"><strong>Examples:</strong> Finance Committee, Kai Committee, Recruitment Committee</p>
+                            <p class="text-xs text-gray-600 mt-1"><strong>Duration:</strong> Continues indefinitely until bylaws are changed</p>
+                            <p class="text-xs text-gray-600"><strong>Authority:</strong> Defined by bylaws; typically has ongoing jurisdiction over specific area</p>
+                        </div>
+                        <div class="border-l-4 border-green-400 pl-4 bg-green-50 p-4">
+                            <h4 class="font-semibold text-gray-800 mb-2">Special (Ad Hoc) Committees</h4>
+                            <p class="text-sm text-gray-700 mb-2">Temporary committees created for a specific purpose. They cease to exist when their task is completed and they report to the assembly.</p>
+                            <p class="text-xs text-gray-600"><strong>Examples:</strong> Event planning committee, bylaws revision committee, investigation committee</p>
+                            <p class="text-xs text-gray-600 mt-1"><strong>Duration:</strong> Exists only until task is complete or deadline expires</p>
+                            <p class="text-xs text-gray-600"><strong>Authority:</strong> Limited to specific charge given by assembly</p>
+
+                            <div class="bg-white p-3 rounded mt-3 border border-green-300">
+                                <p class="text-xs font-semibold text-green-900 mb-2">Creating an Ad Hoc Committee:</p>
+                                <ol class="list-decimal pl-6 space-y-1 text-xs text-gray-700">
+                                    <li>Motion made: "I move that a committee of 5 be appointed to plan our spring formal"</li>
+                                    <li>Specify: Size, purpose, deadline, and member selection method</li>
+                                    <li>After committee completes task and reports, it is automatically dissolved</li>
+                                </ol>
+                            </div>
+
+                            <div class="mt-3">
+                                <p class="text-xs font-semibold text-gray-700 mb-1">Common Uses for Ad Hoc Committees:</p>
+                                <ul class="list-disc pl-6 space-y-1 text-xs text-gray-600">
+                                    <li>Investigate specific issues or complaints</li>
+                                    <li>Plan one-time events (formals, retreats, alumni weekends)</li>
+                                    <li>Draft proposed amendments or policy changes</li>
+                                    <li>Research options and make recommendations</li>
+                                    <li>Handle temporary situations not covered by standing committees</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="border-l-4 border-purple-400 pl-4 bg-purple-50 p-4">
+                            <h4 class="font-semibold text-gray-800 mb-2">Committee of the Whole</h4>
+                            <p class="text-sm text-gray-700 mb-2">The entire assembly acting as one committee. Useful for informal discussion of complex matters.</p>
+                            <p class="text-xs text-gray-600"><strong>Purpose:</strong> Allows more relaxed rules for thorough discussion before formal consideration</p>
+                            <p class="text-xs text-gray-600 mt-1"><strong>When to Use:</strong> Complex legislation needing extensive debate, or when assembly wants to discuss freely without formal constraints</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mt-6">
+                        <p class="text-sm font-semibold text-yellow-900 mb-2">📋 Alpha Mu Standing Committees</p>
+                        <p class="text-sm text-gray-700">Our chapter maintains 11 standing committees as defined in <a href="{% url 'constitution_bylaws' %}#const-committees" class="text-blue-600 hover:underline">Constitution Article V</a>. For complete details, see our <a href="{% url 'committee_details' %}" class="text-blue-600 hover:underline">Committee Details page</a>.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Creating a Committee</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                        <p class="mb-2"><strong>Motion to Create:</strong> "I move that a committee of [number] be appointed to [state purpose]"</p>
+                        <p class="text-sm text-gray-600">The motion should specify: committee size, purpose, reporting deadline (if applicable), and how members are selected.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Committee Member Selection Methods</h3>
+                    <ul class="list-disc pl-6 space-y-2">
+                        <li><strong>Appointed by the Chair:</strong> President/Chair selects members</li>
+                        <li><strong>Nominated by Chair, Approved by Assembly:</strong> Chair nominates, assembly votes</li>
+                        <li><strong>Elected by Assembly:</strong> Members nominated and elected by the body</li>
+                        <li><strong>Volunteers:</strong> Members volunteer and are accepted by chair/assembly</li>
+                    </ul>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Committee Meetings</h3>
+                    <ul class="list-disc pl-6 space-y-2">
+                        <li>Committee chair (or first-named member) calls and conducts meetings</li>
+                        <li>Quorum is a majority of committee members unless otherwise specified</li>
+                        <li>Rules of debate are more relaxed - members may speak multiple times without limit</li>
+                        <li>Motions don't require a second in small committees (12 or fewer members)</li>
+                        <li>Chair may participate in debate and make motions</li>
+                    </ul>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Committee Reports</h3>
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                        <p class="mb-2"><strong>Report Format:</strong></p>
+                        <ol class="list-decimal pl-6 space-y-1 text-sm">
+                            <li>Identification of committee</li>
+                            <li>Statement of task assigned</li>
+                            <li>Description of how committee performed its work</li>
+                            <li>Findings and recommendations</li>
+                            <li>Committee's recommended action (if any)</li>
+                            <li>Signatures (at minimum, committee chair)</li>
+                        </ol>
+                    </div>
+
+                    <p class="text-sm text-gray-600 mt-4"><strong>Presenting Reports:</strong> Committee chair (or designee) rises and says "Madam/Mr. President, the committee on [subject] submits the following report..."</p>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Receiving Committee Reports</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm">
+                        <li><strong>"Receive" the report:</strong> Simply acknowledges receipt, does not adopt recommendations</li>
+                        <li><strong>"Accept" or "Adopt" the report:</strong> Endorses the committee's recommendations and makes them the assembly's action</li>
+                        <li>Assembly may refer report back to committee for further work</li>
+                        <li>Assembly may amend committee recommendations before adopting</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Nominations and Elections Section -->
+            <section id="nominations-elections" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Nominations and Elections</h2>
+                <div class="prose max-w-none">
+                    <p class="mb-4">Elections are how an organization chooses its officers and other leaders. Nominations are the formal process of proposing candidates.</p>
+
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Methods of Nomination</h3>
+                    <div class="space-y-4">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-gray-800 mb-2">1. Nominations from the Floor (Open Nominations)</h4>
+                            <p class="text-sm mb-2"><strong>How it works:</strong></p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Chair says: "Nominations are now in order for [office]"</li>
+                                <li>Members say: "I nominate [name]"</li>
+                                <li>No second required for nominations</li>
+                                <li>Nominee need not be present (but should be willing to serve)</li>
+                                <li>Chair says: "Are there any further nominations?" (repeated until no response)</li>
+                                <li>Chair: "Hearing none, nominations are closed" OR member moves to close nominations</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-gray-800 mb-2">2. Nominating Committee</h4>
+                            <p class="text-sm mb-2">Committee presents slate of candidates. Floor nominations typically still permitted afterward.</p>
+                            <p class="text-sm"><strong>Committee report:</strong> "The nominating committee places in nomination for [office]: [name(s)]"</p>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-gray-800 mb-2">3. Nominations by Ballot</h4>
+                            <p class="text-sm">Members write nominees on paper ballots. Tellers compile list of all nominees receiving votes.</p>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-gray-800 mb-2">4. Nominations by Mail/Email</h4>
+                            <p class="text-sm">Members submit nominations in writing before the meeting. All valid nominations are presented at the meeting.</p>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Closing Nominations</h3>
+                    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4">
+                        <p class="mb-2"><strong>Motion:</strong> "I move that nominations be closed" or "I move that nominations cease"</p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm">
+                            <li>Requires second: Yes</li>
+                            <li>Debatable: No</li>
+                            <li>Amendable: No</li>
+                            <li>Vote required: Two-thirds (prevents suppression of minority nominations)</li>
+                        </ul>
+                        <p class="text-sm mt-2 text-gray-700"><strong>Note:</strong> Chair cannot close nominations on their own. If no further nominations are offered after asking 2-3 times, chair may declare nominations closed.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Election Methods</h3>
+                    <div class="space-y-3">
+                        <div class="border-l-4 border-blue-400 pl-4">
+                            <h4 class="font-semibold">Ballot Vote</h4>
+                            <p class="text-sm text-gray-700">Most formal method. Ensures secrecy. Members write choice on paper ballot.</p>
+                        </div>
+                        <div class="border-l-4 border-green-400 pl-4">
+                            <h4 class="font-semibold">Voice Vote (Viva Voce)</h4>
+                            <p class="text-sm text-gray-700">Members call out candidate's name. Used when only one nominee or election is uncontested.</p>
+                        </div>
+                        <div class="border-l-4 border-purple-400 pl-4">
+                            <h4 class="font-semibold">Roll Call</h4>
+                            <p class="text-sm text-gray-700">Secretary calls each member's name; each states their vote aloud. Creates public record of each person's vote.</p>
+                        </div>
+                        <div class="border-l-4 border-red-400 pl-4">
+                            <h4 class="font-semibold">Acclamation (Unanimous Consent)</h4>
+                            <p class="text-sm text-gray-700">When only one nominee, may elect "by acclamation." Requires unanimous consent.</p>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Vote Required to Elect</h3>
+                    <div class="bg-blue-50 p-4 rounded-lg mb-4">
+                        <p class="mb-2"><strong>Majority Vote:</strong> More than half of votes cast (blank ballots not counted)</p>
+                        <p class="mb-2"><strong>Plurality:</strong> Candidate with most votes wins (even if less than majority). Only valid if bylaws specifically authorize.</p>
+                        <p class="text-sm text-gray-600">If no candidate receives majority, balloting continues. Chair may declare lowest candidate eliminated, or assembly may vote to do so.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Handling Ties</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm">
+                        <li>If tie occurs on first ballot, vote again</li>
+                        <li>If tie persists, assembly may:
+                            <ul class="list-circle pl-6 mt-1">
+                                <li>Continue balloting</li>
+                                <li>Re-open nominations</li>
+                                <li>Refer to committee to investigate candidates</li>
+                            </ul>
+                        </li>
+                        <li>Chair may vote to break (or create) a tie if voting by ballot</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Minutes and Record-Keeping Section -->
+            <section id="minutes-records" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Minutes and Record-Keeping</h2>
+                <div class="prose max-w-none">
+                    <p class="mb-4">Minutes are the official record of an organization's meetings. They provide an objective account of what was done, not what was said.</p>
+
+                    <h3 class="text-lg font-semibold mt-4 mb-2">What Minutes Should Include</h3>
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                        <ol class="list-decimal pl-6 space-y-2 text-sm">
+                            <li><strong>Opening Information:</strong>
+                                <ul class="list-disc pl-6 mt-1">
+                                    <li>Type of meeting (regular, special, emergency)</li>
+                                    <li>Name of organization</li>
+                                    <li>Date, time, and place of meeting</li>
+                                    <li>Name of presiding officer and secretary</li>
+                                    <li>Whether quorum was present</li>
+                                </ul>
+                            </li>
+                            <li><strong>Approval of Previous Minutes:</strong> Note if minutes were read and approved, or approved with corrections</li>
+                            <li><strong>Reports:</strong> Brief summary of each report given (full reports may be attached as exhibits)</li>
+                            <li><strong>All Main Motions:</strong>
+                                <ul class="list-disc pl-6 mt-1">
+                                    <li>Exact wording of each motion</li>
+                                    <li>Name of mover (seconder not required in minutes)</li>
+                                    <li>Whether motion passed, failed, or was postponed</li>
+                                    <li>Vote count if taken (or "by unanimous consent")</li>
+                                </ul>
+                            </li>
+                            <li><strong>Points of Order and Appeals:</strong> Record the ruling and outcome</li>
+                            <li><strong>Closing:</strong> Time of adjournment</li>
+                            <li><strong>Signature:</strong> Secretary signs minutes</li>
+                        </ol>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">What Minutes Should NOT Include</h3>
+                    <ul class="list-disc pl-6 space-y-2">
+                        <li>Opinions or commentary from the secretary</li>
+                        <li>Details of discussion or debate (unless specifically ordered)</li>
+                        <li>Motions that were withdrawn before being stated by chair</li>
+                        <li>Personal remarks or attacks</li>
+                        <li>Name of seconder (optional, but not required)</li>
+                    </ul>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Sample Minute Entry</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4 text-sm font-mono">
+                        <p class="mb-2"><strong>MINUTES OF THE REGULAR MEETING</strong></p>
+                        <p class="mb-2">Alpha Mu Chapter of Beta Theta Pi</p>
+                        <p class="mb-2">November 15, 2025, 6:00 PM, Chapter Room</p>
+                        <p class="mb-4">President John Smith presiding. Secretary Michael Johnson recording. Quorum present (45 of 60 members).</p>
+
+                        <p class="mb-2"><strong>APPROVAL OF MINUTES:</strong> The minutes of the November 8, 2025 meeting were approved as corrected (correction: date of Spring Formal changed to April 12).</p>
+
+                        <p class="mb-2"><strong>TREASURER'S REPORT:</strong> Treasurer David Williams reported a balance of $15,430.25. Report filed.</p>
+
+                        <p class="mb-2"><strong>OLD BUSINESS:</strong></p>
+                        <p class="mb-4">The motion to purchase new sound equipment for $2,500, postponed from the previous meeting, was taken up. After discussion, the motion passed (35 yes, 8 no, 2 abstain).</p>
+
+                        <p class="mb-2"><strong>NEW BUSINESS:</strong></p>
+                        <p class="mb-4">Robert Chen moved "that the chapter host a campus-wide charity basketball tournament on March 15, 2026, with proceeds going to the local food bank." Motion passed unanimously.</p>
+
+                        <p class="mb-2">Meeting adjourned at 7:45 PM.</p>
+                        <p>Michael Johnson, Secretary</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Approving Minutes</h3>
+                    <ul class="list-disc pl-6 space-y-2">
+                        <li>Minutes are normally approved at the next meeting</li>
+                        <li>Chair asks: "Are there any corrections to the minutes?"</li>
+                        <li>Members may suggest corrections (no motion needed)</li>
+                        <li>Chair asks: "Are there any further corrections? ... Hearing none, the minutes are approved as read" (or "as corrected")</li>
+                        <li>Approval can be done by unanimous consent (no vote needed unless objection)</li>
+                    </ul>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Correcting Minutes After Approval</h3>
+                    <p class="text-sm text-gray-700 mb-2">If error is discovered after minutes are approved:</p>
+                    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4">
+                        <p class="text-sm"><strong>Motion:</strong> "I move to amend the minutes of [date] by [state correction]"</p>
+                        <p class="text-sm mt-2">Requires majority vote to adopt. Correction noted in current meeting's minutes.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Executive Sessions Section -->
+            <section id="executive-sessions" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Executive Sessions (Closed Meetings)</h2>
+                <div class="prose max-w-none">
+                    <p class="mb-4">An executive session is a meeting, or portion of a meeting, held in secret with limited attendance for discussion of sensitive matters.</p>
+
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                        <p class="text-sm font-semibold text-blue-900 mb-2">🔗 Alpha Mu Chapter Practice</p>
+                        <p class="text-sm text-gray-700">Our <a href="{% url 'constitution_bylaws' %}#const-meetings" class="text-blue-600 hover:underline">Constitution Article IV, Section 4</a> states: "Meetings are closed to the public unless there are specific matters that permit non-members or non-pledges to attend."</p>
+                        <ul class="list-disc pl-6 mt-2 text-sm text-gray-700 space-y-1">
+                            <li>Most chapter meetings are already "closed" (members-only)</li>
+                            <li>Executive sessions go further by excluding certain members or records</li>
+                            <li>Common uses: Kai Committee hearings, personnel matters, sensitive discussions</li>
+                        </ul>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">When to Use Executive Session</h3>
+                    <div class="bg-gray-50 p-4 rounded mb-4">
+                        <p class="mb-2"><strong>Appropriate Topics:</strong></p>
+                        <ul class="list-disc pl-6 space-y-2 text-sm">
+                            <li><strong>Disciplinary matters:</strong> Kai Committee cases, member conduct issues</li>
+                            <li><strong>Personnel discussions:</strong> Officer performance, hiring/firing</li>
+                            <li><strong>Legal matters:</strong> Potential lawsuits, legal advice from counsel</li>
+                            <li><strong>Financial sensitivity:</strong> Individual member accounts, confidential finances</li>
+                            <li><strong>Membership candidates:</strong> Discussion of individuals seeking membership</li>
+                            <li><strong>Negotiations:</strong> Contract negotiations where publicity would harm position</li>
+                        </ul>
+                    </div>
+
+                    <div class="border-l-4 border-red-500 pl-4 bg-red-50 p-3 mb-4">
+                        <p class="font-semibold text-red-900 mb-2">⚠️ Do NOT Use Executive Session For:</p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li>Avoiding transparency or accountability</li>
+                            <li>Hiding mistakes or mismanagement</li>
+                            <li>Making routine decisions</li>
+                            <li>Excluding members to prevent opposition</li>
+                        </ul>
+                        <p class="text-xs text-gray-600 mt-2 italic">Executive sessions should be rare and used only when secrecy truly serves the organization's interests.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">How to Enter Executive Session</h3>
+                    <div class="bg-yellow-50 p-4 rounded mb-4">
+                        <p class="font-semibold mb-2">Motion and Procedure:</p>
+                        <ol class="list-decimal pl-6 space-y-2 text-sm">
+                            <li><strong>Member moves:</strong> "I move that we go into executive session to discuss [state general subject without details]"
+                                <ul class="list-disc pl-6 mt-1 text-xs">
+                                    <li>State reason (e.g., "personnel matter," "disciplinary case")</li>
+                                    <li>Don't reveal details publicly</li>
+                                </ul>
+                            </li>
+                            <li><strong>Requires second:</strong> Yes</li>
+                            <li><strong>Debatable:</strong> No (but chair may briefly explain need)</li>
+                            <li><strong>Vote required:</strong> Majority</li>
+                            <li><strong>Who must leave:</strong> Motion should specify (e.g., "all non-members," "all except officers")</li>
+                        </ol>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Who May Attend Executive Session</h3>
+                    <div class="space-y-3">
+                        <div class="bg-gray-50 p-4 rounded">
+                            <p class="font-semibold mb-2">Typically Included:</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Members in good standing (unless motion specifies otherwise)</li>
+                                <li>Officers and necessary staff</li>
+                                <li>Advisors (if authorized by bylaws or motion)</li>
+                                <li>Legal counsel (when needed)</li>
+                                <li>Specific individuals invited for their expertise or involvement</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-orange-50 p-4 rounded">
+                            <p class="font-semibold mb-2">Usually Excluded:</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm">
+                                <li>Non-members, guests, and observers</li>
+                                <li>Press and media</li>
+                                <li>Members with direct conflict of interest in the matter</li>
+                                <li>Individuals who are the subject of the discussion (may be invited for part of session)</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Conducting Executive Session</h3>
+                    <div class="bg-blue-50 p-4 rounded mb-4">
+                        <p class="mb-2"><strong>During Executive Session:</strong></p>
+                        <ul class="list-disc pl-6 space-y-2 text-sm">
+                            <li><strong>Confidentiality rule:</strong> All attendees pledge not to discuss proceedings outside the room</li>
+                            <li><strong>Normal rules apply:</strong> Robert's Rules still govern procedure</li>
+                            <li><strong>Minutes:</strong> Secretary may take minimal minutes or no minutes (depending on sensitivity)</li>
+                            <li><strong>Actions recorded:</strong> Any votes or decisions must be recorded, even if details are not</li>
+                            <li><strong>Only stated business:</strong> Discuss only the matter specified in the motion</li>
+                        </ul>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Leaving Executive Session</h3>
+                    <div class="bg-green-50 p-4 rounded mb-4">
+                        <p class="mb-2"><strong>To Return to Regular Session:</strong></p>
+                        <ol class="list-decimal pl-6 space-y-1 text-sm">
+                            <li>Member moves: "I move that we rise from executive session"</li>
+                            <li>Requires second and majority vote</li>
+                            <li>Chair declares: "We are no longer in executive session"</li>
+                            <li>Those who were excluded may return</li>
+                            <li>Regular business resumes</li>
+                        </ol>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Minutes of Executive Session</h3>
+                    <div class="space-y-3">
+                        <div class="border-l-4 border-purple-500 pl-4 bg-purple-50 p-3">
+                            <p class="font-semibold text-purple-900 mb-2">Recording Executive Sessions:</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                                <li><strong>Separate minutes:</strong> Executive session minutes kept separate from regular minutes</li>
+                                <li><strong>Limited distribution:</strong> Only shown to authorized members (e.g., officers, board)</li>
+                                <li><strong>Regular minutes note:</strong> "Meeting went into executive session at 7:30pm to discuss a personnel matter. Executive session ended at 8:00pm."</li>
+                                <li><strong>Actions reported:</strong> Decisions/votes may be reported in regular minutes without details</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded">
+                            <p class="font-semibold mb-2">Example (Regular Minutes):</p>
+                            <p class="text-sm text-gray-700 font-mono italic">"At 7:30pm, the chapter voted to enter executive session to discuss a disciplinary matter. Non-members were excused. Executive session concluded at 8:15pm. The chapter voted to impose sanctions as recommended by the Kai Committee. Details are recorded in confidential executive session minutes."</p>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Confidentiality and Ethics</h3>
+                    <div class="border-l-4 border-yellow-500 pl-4 bg-yellow-50 p-3">
+                        <p class="font-semibold text-yellow-900 mb-2">All Attendees Must:</p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li>Maintain strict confidentiality about what was discussed</li>
+                            <li>Not disclose details to those who were not present</li>
+                            <li>Understand that breach of confidentiality may result in sanctions</li>
+                            <li>Remember that executive session is a privilege, not a tool for gossip</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Amending Bylaws/Constitution Section -->
+            <section id="amending-bylaws" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Amending the Constitution and Bylaws</h2>
+                <div class="prose max-w-none">
+                    <p class="mb-4">Amending governing documents (constitution, bylaws) is different from amending ordinary motions. These procedures protect the organization's fundamental rules from hasty changes.</p>
+
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                        <p class="text-sm font-semibold text-blue-900 mb-2">🔗 Alpha Mu Chapter Requirements</p>
+                        <p class="text-sm text-gray-700 mb-3">Our <a href="{% url 'constitution_bylaws' %}" class="text-blue-600 hover:underline">Constitution and Bylaws</a> establish specific amendment procedures:</p>
+
+                        <div class="bg-white p-3 rounded mb-2">
+                            <p class="font-semibold text-sm text-indigo-900">Constitution Amendments (Article VI):</p>
+                            <ol class="list-decimal pl-6 space-y-1 text-xs mt-1">
+                                <li>Submit in writing to Executive Board for approval</li>
+                                <li>Requires <strong>supermajority (2/3)</strong> of Executive Board</li>
+                                <li>If Board rejects, member may bring to chapter meeting</li>
+                                <li>Chapter vote requires <strong>2/3 supermajority</strong> with quorum present</li>
+                                <li>Failed proposals cannot be reintroduced for <strong>15 chapter meetings</strong></li>
+                            </ol>
+                        </div>
+
+                        <div class="bg-white p-3 rounded">
+                            <p class="font-semibold text-sm text-purple-900">Bylaws Amendments (Article X):</p>
+                            <ol class="list-decimal pl-6 space-y-1 text-xs mt-1">
+                                <li>Submit in writing to Executive Board for approval</li>
+                                <li>Requires <strong>simple majority</strong> of Executive Board</li>
+                                <li>If Board rejects, member may bring to chapter meeting</li>
+                                <li>Chapter vote requires <strong>simple majority (51%)</strong> with quorum present</li>
+                                <li>Failed proposals cannot be reintroduced for <strong>10 chapter meetings</strong></li>
+                                <li>"Protected Status" prevents similar amendments during protection period</li>
+                            </ol>
+                        </div>
+
+                        <p class="text-xs text-gray-600 mt-2 italic">Both are subordinate to the Code of Beta Theta Pi, IFC, Samford University, and applicable laws.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">General Principles for Amending Bylaws</h3>
+                    <div class="bg-gray-50 p-4 rounded mb-4">
+                        <p class="mb-2"><strong>Key Differences from Regular Motions:</strong></p>
+                        <ul class="list-disc pl-6 space-y-2 text-sm">
+                            <li><strong>Higher vote threshold:</strong> Usually 2/3 majority or higher (vs. simple majority)</li>
+                            <li><strong>Previous notice required:</strong> Members must be notified in advance</li>
+                            <li><strong>Cannot be reconsidered:</strong> Once adopted or rejected, cannot use motion to reconsider</li>
+                            <li><strong>Protection periods:</strong> Failed amendments often cannot be quickly reintroduced</li>
+                            <li><strong>Written submission:</strong> Must be submitted in exact wording</li>
+                        </ul>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Requirement for Previous Notice</h3>
+                    <div class="border-l-4 border-yellow-500 pl-4 bg-yellow-50 p-3 mb-4">
+                        <p class="font-semibold text-yellow-900 mb-2">What is Previous Notice?</p>
+                        <p class="text-sm text-gray-700 mb-2">Previous notice means informing members at a previous meeting (or in the meeting call) that an amendment will be proposed. This gives members time to consider and prepare.</p>
+
+                        <p class="font-semibold text-sm mt-3 mb-1">Methods of Giving Notice:</p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li>Announce at previous meeting: "At the next meeting, I will move to amend Article 5..."</li>
+                            <li>Include in meeting call/notice</li>
+                            <li>Distribute proposed amendment text to all members before meeting</li>
+                        </ul>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Vote Requirements</h3>
+                    <div class="overflow-x-auto mb-4">
+                        <table class="min-w-full border border-gray-300 text-sm">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="border border-gray-300 px-4 py-2 text-left">Document Type</th>
+                                    <th class="border border-gray-300 px-4 py-2 text-left">Vote Required</th>
+                                    <th class="border border-gray-300 px-4 py-2 text-left">Notice Required?</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="border border-gray-300 px-4 py-2">Constitution (Alpha Mu)</td>
+                                    <td class="border border-gray-300 px-4 py-2 font-semibold">2/3 supermajority</td>
+                                    <td class="border border-gray-300 px-4 py-2">Yes (via Executive Board process)</td>
+                                </tr>
+                                <tr class="bg-gray-50">
+                                    <td class="border border-gray-300 px-4 py-2">Bylaws (Alpha Mu)</td>
+                                    <td class="border border-gray-300 px-4 py-2 font-semibold">Simple majority</td>
+                                    <td class="border border-gray-300 px-4 py-2">Yes (via Executive Board process)</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-4 py-2">Bylaws (Standard)</td>
+                                    <td class="border border-gray-300 px-4 py-2">2/3, OR majority with notice</td>
+                                    <td class="border border-gray-300 px-4 py-2">Recommended</td>
+                                </tr>
+                                <tr class="bg-gray-50">
+                                    <td class="border border-gray-300 px-4 py-2">Standing Rules</td>
+                                    <td class="border border-gray-300 px-4 py-2">Simple majority</td>
+                                    <td class="border border-gray-300 px-4 py-2">No</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Procedure for Amending</h3>
+                    <div class="bg-green-50 p-4 rounded mb-4">
+                        <p class="font-semibold mb-2">Standard Process:</p>
+                        <ol class="list-decimal pl-6 space-y-2 text-sm">
+                            <li><strong>Draft amendment:</strong> Write exact wording of proposed change</li>
+                            <li><strong>Give previous notice:</strong> Announce at previous meeting or in call</li>
+                            <li><strong>Introduce at meeting:</strong> "I move to amend Article [X] by [striking/inserting/substituting]..."</li>
+                            <li><strong>Second required:</strong> Another member seconds</li>
+                            <li><strong>Debate:</strong> Open to full debate (members discuss merits)</li>
+                            <li><strong>May be amended:</strong> The proposed amendment itself can be amended</li>
+                            <li><strong>Vote:</strong> Take vote using required threshold</li>
+                            <li><strong>If adopted:</strong> Amendment takes effect immediately (unless specified otherwise)</li>
+                        </ol>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Amending the Amendment</h3>
+                    <div class="bg-purple-50 p-4 rounded mb-4">
+                        <p class="text-sm text-gray-700 mb-2">Even proposed amendments to bylaws can be amended during the meeting:</p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li>Member proposes change to the proposed amendment</li>
+                            <li>Vote on the amendment to the amendment first</li>
+                            <li>Then vote on the (possibly modified) main amendment</li>
+                            <li>This requires notice only for the original amendment, not the changes</li>
+                        </ul>
+                        <p class="text-xs text-gray-600 mt-2 italic">Exception: Cannot completely change the scope if notice was given for specific content.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Special Considerations</h3>
+                    <div class="space-y-3">
+                        <div class="border-l-4 border-blue-500 pl-4 bg-blue-50 p-3">
+                            <p class="font-semibold text-blue-900 mb-2">Subordination:</p>
+                            <p class="text-sm text-gray-700">Amendments must not conflict with superior governing documents (parent organization's rules, state law, federal law). Such amendments are null and void even if adopted.</p>
+                        </div>
+
+                        <div class="border-l-4 border-green-500 pl-4 bg-green-50 p-3">
+                            <p class="font-semibold text-green-900 mb-2">Effective Date:</p>
+                            <p class="text-sm text-gray-700">Unless the amendment specifies otherwise, changes take effect immediately upon adoption. May specify: "This amendment takes effect at the start of the next academic year."</p>
+                        </div>
+
+                        <div class="border-l-4 border-orange-500 pl-4 bg-orange-50 p-3">
+                            <p class="font-semibold text-orange-900 mb-2">Revision vs. Amendment:</p>
+                            <p class="text-sm text-gray-700"><strong>Revision:</strong> Complete rewrite of bylaws. <strong>Amendment:</strong> Changes to specific sections. Revision requires even more stringent notice and vote requirements.</p>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-6 mb-2">Example Amendment Process</h3>
+                    <div class="bg-gray-50 p-4 rounded">
+                        <p class="font-semibold mb-2">Scenario: Changing GPA Requirement</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>Current Bylaws:</strong> "Officers must maintain a 2.5 GPA"</p>
+                        <ol class="list-decimal pl-6 space-y-2 text-sm text-gray-700">
+                            <li><strong>Previous Meeting:</strong> Member announces: "At the next meeting, I will move to amend the bylaws to change the officer GPA requirement from 2.5 to 3.0."</li>
+                            <li><strong>Current Meeting:</strong> Member moves: "I move to amend Article VII, Section 2 by striking '2.5' and inserting '3.0' so that it reads 'Officers must maintain a 3.0 GPA.'"</li>
+                            <li><strong>Second:</strong> Another member seconds</li>
+                            <li><strong>Debate:</strong> Members discuss pros and cons</li>
+                            <li><strong>Amendment:</strong> Member might move to change to "2.75" instead of "3.0"</li>
+                            <li><strong>Vote:</strong> Vote using required threshold (2/3 or majority depending on bylaws)</li>
+                            <li><strong>Result:</strong> If passed, new GPA requirement takes effect immediately</li>
+                        </ol>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Common Parliamentary Situations Section -->
+            <section id="common-situations" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Common Parliamentary Situations</h2>
+                <div class="prose max-w-none">
+                    <p class="mb-4">Practical guidance for handling frequently encountered scenarios in meetings.</p>
+
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Someone Makes a Motion While Another is Pending</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                        <p class="text-sm mb-2"><strong>Chair's Response:</strong> "There is already a motion on the floor. We must dispose of it before considering another main motion."</p>
+                        <p class="text-sm text-gray-600">Alternative: The new motion may be appropriate if it's a subsidiary, privileged, or incidental motion that takes precedence.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Member Speaks Without Being Recognized</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                        <p class="text-sm mb-2"><strong>Chair's Response:</strong> "The member will please be seated. You have not been recognized to speak."</p>
+                        <p class="text-sm text-gray-600">Chair should then recognize members in the order they sought recognition, alternating between opposing viewpoints when possible.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Motion Has No Second</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                        <p class="text-sm mb-2"><strong>Chair's Response:</strong> "Is there a second?" [pause] "Hearing no second, the motion is not before the assembly."</p>
+                        <p class="text-sm text-gray-600">The motion dies for lack of a second. Chair moves to next item of business.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Member Calls "Question!" to End Debate</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                        <p class="text-sm mb-2"><strong>Proper Procedure:</strong> Member must be recognized and formally move "previous question"</p>
+                        <p class="text-sm mb-2"><strong>Chair's Response to "Question!":</strong> "The member is calling for the question. Is there a second to move the previous question?"</p>
+                        <p class="text-sm text-gray-600">Previous question requires 2/3 vote. If it passes, take immediate vote on pending motion. If it fails, debate continues.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Confusion About What's Being Voted On</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                        <p class="text-sm mb-2"><strong>Member's Right:</strong> Any member may request clarification before vote</p>
+                        <p class="text-sm mb-2"><strong>Member says:</strong> "Parliamentary inquiry. What is the exact motion before the assembly?"</p>
+                        <p class="text-sm text-gray-600">Chair must clearly restate the motion before calling for vote.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Vote Seems Close or Unclear</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                        <p class="text-sm mb-2"><strong>Member's Option:</strong> Call for "Division of the Assembly"</p>
+                        <p class="text-sm mb-2"><strong>Member says:</strong> "Division!" or "I call for a division"</p>
+                        <p class="text-sm text-gray-600">No second required. Chair must take a standing vote (or other countable method). Does not require a revote, only a verifiable count of the same vote.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Member Wants to Change Their Vote</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                        <p class="text-sm mb-2"><strong>Before Result Announced:</strong> Member has right to change vote</p>
+                        <p class="text-sm mb-2"><strong>After Result Announced:</strong> Requires unanimous consent of assembly</p>
+                        <p class="text-sm text-gray-600">On ballot votes, changes not possible after ballot is submitted to tellers.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Member Disagrees with Chair's Ruling</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                        <p class="text-sm mb-2"><strong>Member's Right:</strong> Appeal the decision to the assembly</p>
+                        <p class="text-sm mb-2"><strong>Member says:</strong> "I appeal from the decision of the chair"</p>
+                        <p class="text-sm mb-2"><strong>Requires:</strong> Second required. Is debatable. Chair may explain ruling. Majority vote sustains or overrules chair.</p>
+                        <p class="text-sm text-gray-600">Chair says: "The decision of the chair is appealed. Those in favor of sustaining the chair's decision say aye... Those opposed say no..."</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Member Brings Up Unrelated Topic During Debate</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                        <p class="text-sm mb-2"><strong>Point of Order:</strong> Any member may raise "Point of order!"</p>
+                        <p class="text-sm mb-2"><strong>Member says:</strong> "Point of order, Mr./Madam President. The speaker is not confining remarks to the pending question."</p>
+                        <p class="text-sm text-gray-600">Chair rules on the point and directs speaker to stay on topic or yields floor to another member.</p>
+                    </div>
+
+                    <h3 class="text-lg font-semibold mt-4 mb-2">Urgent Matter Arises During Meeting</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                        <p class="text-sm mb-2"><strong>Question of Privilege:</strong> Member may interrupt for urgent matter affecting assembly</p>
+                        <p class="text-sm mb-2"><strong>Member says:</strong> "I rise to a question of privilege affecting the assembly"</p>
+                        <p class="text-sm text-gray-600">Examples: Room too hot/cold, can't hear speaker, emergency situation, assault on integrity of assembly. Chair determines if it's truly privileged and handles accordingly.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Quick Reference Table Section -->
+            <section id="quick-reference" class="bg-white rounded-lg shadow-md p-6 scroll-mt-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 border-b-2 border-blue-500 pb-2">Quick Reference Table</h2>
+                <div class="prose max-w-none">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full border border-gray-300 text-sm">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="border border-gray-300 px-3 py-2 text-left">Motion</th>
+                                    <th class="border border-gray-300 px-2 py-2 text-center">2nd?</th>
+                                    <th class="border border-gray-300 px-2 py-2 text-center">Debate?</th>
+                                    <th class="border border-gray-300 px-2 py-2 text-center">Amend?</th>
+                                    <th class="border border-gray-300 px-3 py-2 text-center">Vote</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Main Motions -->
+                                <tr class="bg-blue-50 font-semibold">
+                                    <td colspan="5" class="border border-gray-300 px-3 py-2">MAIN MOTIONS</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Main Motion</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">Majority</td>
+                                </tr>
+
+                                <!-- Subsidiary Motions -->
+                                <tr class="bg-gray-50 font-semibold">
+                                    <td colspan="5" class="border border-gray-300 px-3 py-2">SUBSIDIARY MOTIONS</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Lay on the Table</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">Majority</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Previous Question</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">2/3</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Limit/Extend Debate</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">2/3</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Postpone to Certain Time</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Limited</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">Majority</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Refer to Committee</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Limited</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">Majority</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Amend</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes*</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">Majority</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Postpone Indefinitely</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">Majority</td>
+                                </tr>
+
+                                <!-- Privileged Motions -->
+                                <tr class="bg-purple-50 font-semibold">
+                                    <td colspan="5" class="border border-gray-300 px-3 py-2">PRIVILEGED MOTIONS</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Fix Time to Adjourn</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">Majority</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Adjourn</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">Majority</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Recess</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">Majority</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Question of Privilege</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">Chair</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Orders of the Day</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">None</td>
+                                </tr>
+
+                                <!-- Incidental Motions -->
+                                <tr class="bg-orange-50 font-semibold">
+                                    <td colspan="5" class="border border-gray-300 px-3 py-2">INCIDENTAL MOTIONS</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Point of Order</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">Chair</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Appeal</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes*</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">Majority</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Suspend Rules</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">2/3</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Object to Consideration</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">2/3</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Division of Question</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">Yes</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">Majority</td>
+                                </tr>
+                                <tr>
+                                    <td class="border border-gray-300 px-3 py-2">Parliamentary Inquiry</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">No</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">-</td>
+                                    <td class="border border-gray-300 px-2 py-2 text-center">-</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-center">-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-4">* Debatable if main motion is debatable</p>
+                </div>
+            </section>
+
+        </div>
+    </div>
+</div>
+
+<!-- Search and Scroll Functionality -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+    const mainContent = document.getElementById('mainContent');
+    const tocLinks = document.querySelectorAll('.toc-link');
+
+    // Search functionality
+    searchInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+
+        if (query.length < 2) {
+            searchResults.textContent = '';
+            highlightSearchResults('');
+            return;
+        }
+
+        // Count matches
+        const matches = countMatches(query);
+        searchResults.textContent = matches > 0
+            ? `Found ${matches} result${matches !== 1 ? 's' : ''} for "${query}"`
+            : `No results found for "${query}"`;
+
+        // Highlight matches
+        highlightSearchResults(query);
+    });
+
+    function countMatches(query) {
+        const text = mainContent.textContent.toLowerCase();
+        const regex = new RegExp(query, 'gi');
+        const matches = text.match(regex);
+        return matches ? matches.length : 0;
+    }
+
+    function highlightSearchResults(query) {
+        const sections = mainContent.querySelectorAll('section');
+        sections.forEach(section => {
+            const elements = section.querySelectorAll('p, li, td, h3, h4');
+            elements.forEach(el => {
+                const originalText = el.getAttribute('data-original') || el.textContent;
+                if (!el.getAttribute('data-original')) {
+                    el.setAttribute('data-original', originalText);
+                }
+
+                if (query) {
+                    const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+                    const highlighted = originalText.replace(regex, '<mark class="bg-yellow-200">$1</mark>');
+                    el.innerHTML = highlighted;
+                } else {
+                    el.textContent = originalText;
+                }
+            });
+        });
+    }
+
+    function escapeRegex(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // Smooth scroll for TOC links
+    tocLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const targetId = this.getAttribute('href').substring(1);
+            const targetSection = document.getElementById(targetId);
+
+            if (targetSection) {
+                targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+                // Update active state
+                tocLinks.forEach(l => l.classList.remove('bg-blue-100', 'text-blue-700', 'font-semibold'));
+                this.classList.add('bg-blue-100', 'text-blue-700', 'font-semibold');
+            }
+        });
+    });
+
+    // Highlight active TOC link on scroll
+    const observer = new IntersectionObserver(
+        (entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const id = entry.target.getAttribute('id');
+                    const correspondingLink = document.querySelector(`a[href="#${id}"]`);
+
+                    tocLinks.forEach(l => l.classList.remove('bg-blue-100', 'text-blue-700', 'font-semibold'));
+                    if (correspondingLink) {
+                        correspondingLink.classList.add('bg-blue-100', 'text-blue-700', 'font-semibold');
+                    }
+                }
+            });
+        },
+        { threshold: 0.5, rootMargin: '-100px 0px -66%' }
+    );
+
+    document.querySelectorAll('section[id]').forEach(section => {
+        observer.observe(section);
+    });
+});
+</script>
+{% endblock %}

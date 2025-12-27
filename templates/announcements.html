@@ -6,9 +6,12 @@
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Header -->
     <div class="mb-6 flex items-start justify-between">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-900 mb-2">Announcements</h1>
-            <p class="text-gray-600">View all active announcements from the past year</p>
+        <div class="flex items-center gap-4">
+            <img src="/media/beta-seal.webp" alt="Beta Theta Pi Seal" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-1 shadow-md">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Announcements</h1>
+                <p class="text-gray-600">View all active announcements from the past year</p>
+            </div>
         </div>
         {% if user.member_type == 'Officer' or user.member_type == 'Chair' %}
         <div class="flex space-x-3">

@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+
+{% block title %}Academic Standards - Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-orange-600 to-yellow-600 text-white py-8 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center mb-4">
+                <a href="{% url 'constitution_bylaws' %}" class="text-orange-100 hover:text-white mr-4">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </a>
+                <h1 class="text-4xl font-bold">Academic Standards & GPA Requirements</h1>
+            </div>
+            <p class="text-orange-100 text-lg">Cultivating the Intellect - A Core Beta Value</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Overview -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Academic Excellence Overview</h2>
+            <p class="text-gray-700 mb-4">Academic excellence is one of the Five Pillars of Beta membership. The Alpha Mu chapter maintains high academic standards to ensure members succeed academically while pursuing their degrees.</p>
+
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                <p class="text-sm font-semibold text-blue-900 mb-2">📚 Chapter GPA Requirement</p>
+                <p class="text-sm text-gray-700">All members must maintain a GPA <strong>greater than or equal to</strong> the higher of:</p>
+                <ul class="list-disc pl-6 mt-2 text-sm text-gray-700 space-y-1">
+                    <li><strong>3.0</strong> cumulative GPA, OR</li>
+                    <li>The <strong>All-Men's Average (AMA)</strong> at Samford University</li>
+                </ul>
+                <p class="text-xs text-gray-600 mt-2 italic">Whichever is higher becomes the chapter standard.</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mt-6">
+                <div class="bg-gradient-to-br from-green-500 to-green-600 text-white p-4 rounded-lg text-center">
+                    <div class="text-3xl font-bold">3.0</div>
+                    <div class="text-sm">Minimum GPA Baseline</div>
+                </div>
+                <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg text-center">
+                    <div class="text-3xl font-bold">AMA</div>
+                    <div class="text-sm">All-Men's Average (if higher)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Academic Standing Levels -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Academic Standing Levels</h2>
+            <p class="text-gray-700 mb-6">Members are classified into four academic standing levels based on their cumulative GPA. Each level has specific requirements and interventions designed to support academic success.</p>
+
+            <!-- Good Standing -->
+            <div class="mb-6 border-l-4 border-green-500 bg-green-50 p-6 rounded-r-lg">
+                <div class="flex items-center mb-3">
+                    <div class="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-white font-bold mr-4">✓</div>
+                    <div>
+                        <h3 class="text-xl font-bold text-green-900">Good Academic Standing</h3>
+                        <p class="text-sm text-green-700">Meeting Chapter Standards</p>
+                    </div>
+                </div>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <p class="font-semibold text-gray-800 mb-2">GPA Requirement:</p>
+                        <p class="text-gray-700">≥ 3.0 or ≥ All-Men's Average (whichever is higher)</p>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-800 mb-2">Requirements:</p>
+                        <p class="text-gray-700">None - Full membership privileges</p>
+                    </div>
+                </div>
+                <div class="mt-4 bg-white p-4 rounded">
+                    <p class="text-sm text-gray-700"><strong>Status:</strong> Member is in good academic standing and eligible for all chapter activities, voting, and holding office.</p>
+                </div>
+            </div>
+
+            <!-- Academic Warning -->
+            <div class="mb-6 border-l-4 border-yellow-500 bg-yellow-50 p-6 rounded-r-lg">
+                <div class="flex items-center mb-3">
+                    <div class="w-12 h-12 bg-yellow-600 rounded-full flex items-center justify-center text-white font-bold mr-4">!</div>
+                    <div>
+                        <h3 class="text-xl font-bold text-yellow-900">Academic Warning</h3>
+                        <p class="text-sm text-yellow-700">Close to Standard - Support Activated</p>
+                    </div>
+                </div>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <p class="font-semibold text-gray-800 mb-2">GPA Range:</p>
+                        <ul class="list-disc pl-6 text-gray-700 space-y-1">
+                            <li>Within 0.2 of AMA, OR</li>
+                            <li>2.8 to 2.99</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-800 mb-2">Required Actions:</p>
+                        <ul class="list-disc pl-6 text-gray-700 space-y-1">
+                            <li>5 study hours per week</li>
+                            <li>Meet with Kai Committee</li>
+                            <li>Visit campus academic office</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="mt-4 bg-white p-4 rounded">
+                    <p class="text-sm text-gray-700"><strong>Purpose:</strong> Early intervention to prevent further academic decline. Scholarship Chair and Kai Committee will work with member to develop improvement plan.</p>
+                </div>
+            </div>
+
+            <!-- Academic Probation One -->
+            <div class="mb-6 border-l-4 border-orange-500 bg-orange-50 p-6 rounded-r-lg">
+                <div class="flex items-center mb-3">
+                    <div class="w-12 h-12 bg-orange-600 rounded-full flex items-center justify-center text-white font-bold mr-4">⚠</div>
+                    <div>
+                        <h3 class="text-xl font-bold text-orange-900">Academic Probation One</h3>
+                        <p class="text-sm text-orange-700">Below Standard - Enhanced Support Required</p>
+                    </div>
+                </div>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <p class="font-semibold text-gray-800 mb-2">GPA Range:</p>
+                        <ul class="list-disc pl-6 text-gray-700 space-y-1">
+                            <li>Within 0.4 of AMA, OR</li>
+                            <li>2.6 to 2.79</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-800 mb-2">Required Actions:</p>
+                        <ul class="list-disc pl-6 text-gray-700 space-y-1">
+                            <li>10 study hours per week</li>
+                            <li>Monthly check-ins with Vice President of Brotherhood</li>
+                            <li>Monthly check-ins with Scholarship Chair</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="mt-4 bg-white p-4 rounded">
+                    <p class="text-sm text-gray-700"><strong>Status:</strong> Member may have restricted participation in some social events. Focus is on academic recovery with structured support and accountability.</p>
+                </div>
+            </div>
+
+            <!-- Academic Probation Two -->
+            <div class="mb-6 border-l-4 border-red-500 bg-red-50 p-6 rounded-r-lg">
+                <div class="flex items-center mb-3">
+                    <div class="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center text-white font-bold mr-4">✕</div>
+                    <div>
+                        <h3 class="text-xl font-bold text-red-900">Academic Probation Two</h3>
+                        <p class="text-sm text-red-700">Critical - Membership at Risk</p>
+                    </div>
+                </div>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <p class="font-semibold text-gray-800 mb-2">GPA Range:</p>
+                        <ul class="list-disc pl-6 text-gray-700 space-y-1">
+                            <li>More than 0.4 below AMA, OR</li>
+                            <li>Less than 2.6</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-800 mb-2">Automatic Consequences:</p>
+                        <ul class="list-disc pl-6 text-gray-700 space-y-1">
+                            <li>Automatic referral to Kai Committee</li>
+                            <li>Recommendation for expulsion</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="mt-4 bg-white p-4 rounded border-l-4 border-red-600">
+                    <p class="text-sm text-red-900 font-semibold mb-2">⚠️ CRITICAL STATUS</p>
+                    <p class="text-sm text-gray-700">Member's academic performance has fallen to a level where continued membership is in jeopardy. Kai Committee will conduct a hearing to determine appropriate action, which may include suspension or expulsion to allow member to focus on academics.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Academic Support Resources -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Academic Support & Resources</h2>
+            <p class="text-gray-700 mb-6">The chapter provides multiple resources to help members maintain academic excellence:</p>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-blue-50 p-6 rounded-lg">
+                    <h3 class="font-semibold text-gray-800 mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        Study Hours
+                    </h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                        <li>Mandatory study hours for members on Warning/Probation</li>
+                        <li>Optional study hours for all members</li>
+                        <li>Quiet study environment provided</li>
+                        <li>Accountability and tracking by Scholarship Chair</li>
+                    </ul>
+                </div>
+
+                <div class="bg-green-50 p-6 rounded-lg">
+                    <h3 class="font-semibold text-gray-800 mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                        Peer Tutoring
+                    </h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                        <li>Brothers with expertise in specific subjects</li>
+                        <li>Study groups organized by Scholarship Chair</li>
+                        <li>Upperclassmen mentoring underclassmen</li>
+                        <li>Class-specific help sessions</li>
+                    </ul>
+                </div>
+
+                <div class="bg-purple-50 p-6 rounded-lg">
+                    <h3 class="font-semibold text-gray-800 mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                        Campus Resources
+                    </h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                        <li>Samford University Academic Success Center</li>
+                        <li>Writing Center for paper assistance</li>
+                        <li>Department-specific tutoring</li>
+                        <li>Academic advising services</li>
+                    </ul>
+                </div>
+
+                <div class="bg-orange-50 p-6 rounded-lg">
+                    <h3 class="font-semibold text-gray-800 mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Accountability & Monitoring
+                    </h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                        <li>Regular check-ins with Scholarship Chair</li>
+                        <li>GPA tracking each semester</li>
+                        <li>Early alerts for struggling students</li>
+                        <li>Progress monitoring by Vice President of Brotherhood</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Officer-Specific GPA Requirements -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Officer-Specific GPA Requirements</h2>
+            <p class="text-gray-700 mb-6">While all officers must maintain the minimum 2.5 GPA, certain positions have higher academic requirements due to the nature of their responsibilities:</p>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full border border-gray-300 text-sm">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="border border-gray-300 px-4 py-2 text-left">Officer Position</th>
+                            <th class="border border-gray-300 px-4 py-2 text-left">Minimum GPA</th>
+                            <th class="border border-gray-300 px-4 py-2 text-left">Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="bg-gray-50">
+                            <td class="border border-gray-300 px-4 py-2">Most Officers</td>
+                            <td class="border border-gray-300 px-4 py-2 font-semibold">2.5</td>
+                            <td class="border border-gray-300 px-4 py-2">Standard requirement for leadership positions</td>
+                        </tr>
+                        <tr>
+                            <td class="border border-gray-300 px-4 py-2">Vice President of Finance</td>
+                            <td class="border border-gray-300 px-4 py-2 font-semibold text-orange-700">2.7</td>
+                            <td class="border border-gray-300 px-4 py-2">Financial responsibility requires higher academic standing</td>
+                        </tr>
+                        <tr class="bg-gray-50">
+                            <td class="border border-gray-300 px-4 py-2">Scholarship Chair</td>
+                            <td class="border border-gray-300 px-4 py-2 font-semibold text-green-700">3.0</td>
+                            <td class="border border-gray-300 px-4 py-2">Must model academic excellence to advise others</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mt-4">
+                <p class="text-sm font-semibold text-yellow-900 mb-1">📘 Complete Officer Requirements</p>
+                <p class="text-sm text-gray-700">For complete officer eligibility requirements, see the <a href="{% url 'officer_duties_detail' %}" class="text-blue-600 hover:underline">Officer Duties Reference Guide</a> and <a href="{% url 'slating_elections_detail' %}" class="text-blue-600 hover:underline">Officer Slating & Elections Guide</a>.</p>
+            </div>
+        </div>
+
+        <!-- Academic Integrity -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Academic Integrity</h2>
+            <p class="text-gray-700 mb-4">Beyond GPA requirements, Beta Theta Pi members are expected to uphold the highest standards of academic integrity.</p>
+
+            <div class="border-l-4 border-red-500 bg-red-50 p-6 rounded-r-lg mb-4">
+                <h3 class="font-semibold text-red-900 mb-3">Prohibited Conduct</h3>
+                <ul class="list-disc pl-6 space-y-2 text-gray-700">
+                    <li><strong>Cheating:</strong> Using unauthorized materials or assistance on exams or assignments</li>
+                    <li><strong>Plagiarism:</strong> Presenting another's work as your own without proper citation</li>
+                    <li><strong>Fabrication:</strong> Falsifying data, citations, or research results</li>
+                    <li><strong>Facilitating Academic Dishonesty:</strong> Helping others cheat or providing unauthorized assistance</li>
+                </ul>
+                <p class="mt-4 text-sm text-red-900 font-semibold">⚠️ Academic dishonesty violations may result in automatic referral to Kai Committee with possible severe sanctions including expulsion.</p>
+            </div>
+
+            <div class="border-l-4 border-green-500 bg-green-50 p-6 rounded-r-lg">
+                <h3 class="font-semibold text-green-900 mb-3">Cultivating the Intellect</h3>
+                <p class="text-gray-700 mb-2">As stated in our Five Pillars, Beta men are committed to:</p>
+                <ul class="list-disc pl-6 space-y-2 text-gray-700">
+                    <li>Pursuing knowledge for its own sake</li>
+                    <li>Challenging ourselves intellectually</li>
+                    <li>Supporting brothers in their academic endeavors</li>
+                    <li>Maintaining the highest standards of honesty and integrity</li>
+                    <li>Representing Beta well in the classroom and beyond</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- FAQs -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Frequently Asked Questions</h2>
+
+            <div class="space-y-4">
+                <div class="border-l-4 border-blue-500 pl-4 py-2">
+                    <p class="font-semibold text-gray-800 mb-1">Q: What is the All-Men's Average (AMA)?</p>
+                    <p class="text-sm text-gray-700">A: The AMA is the average cumulative GPA of all male students at Samford University. It is calculated each semester by the university.</p>
+                </div>
+
+                <div class="border-l-4 border-blue-500 pl-4 py-2">
+                    <p class="font-semibold text-gray-800 mb-1">Q: When are GPAs checked?</p>
+                    <p class="text-sm text-gray-700">A: GPAs are reviewed at the end of each semester when official grades are posted. The Scholarship Chair tracks all members' academic standing.</p>
+                </div>
+
+                <div class="border-l-4 border-blue-500 pl-4 py-2">
+                    <p class="font-semibold text-gray-800 mb-1">Q: Can I still participate in events if I'm on Academic Warning?</p>
+                    <p class="text-sm text-gray-700">A: Yes. Members on Academic Warning retain full membership privileges but must complete required study hours and check-ins.</p>
+                </div>
+
+                <div class="border-l-4 border-blue-500 pl-4 py-2">
+                    <p class="font-semibold text-gray-800 mb-1">Q: What happens if I improve my GPA?</p>
+                    <p class="text-sm text-gray-700">A: If your GPA improves to meet the chapter standard, you immediately return to Good Academic Standing and requirements are lifted.</p>
+                </div>
+
+                <div class="border-l-4 border-blue-500 pl-4 py-2">
+                    <p class="font-semibold text-gray-800 mb-1">Q: Who should I contact if I'm struggling academically?</p>
+                    <p class="text-sm text-gray-700">A: Reach out to the Scholarship Chair first. They can connect you with tutoring, study resources, and support. The Vice President of Brotherhood and chapter advisors are also available to help.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Back Navigation -->
+        <div class="bg-gradient-to-r from-orange-600 to-yellow-600 text-white rounded-lg shadow-lg p-8">
+            <h2 class="text-2xl font-bold mb-4">Additional Resources</h2>
+            <p class="mb-4">All academic standards are defined in the Constitution and Bylaws. For questions about your academic standing, contact the Scholarship Chair.</p>
+            <div class="flex gap-4 flex-wrap">
+                <a href="{% url 'constitution_bylaws' %}" class="inline-block bg-white text-orange-600 px-6 py-3 rounded-lg font-semibold hover:bg-orange-50 transition">
+                    View Constitution & Bylaws →
+                </a>
+                <a href="{% url 'officer_duties_detail' %}" class="inline-block bg-orange-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-800 transition">
+                    Officer Duties →
+                </a>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

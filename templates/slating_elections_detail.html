@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block title %}Officer Slating & Elections - Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-red-50 to-pink-50">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-red-600 to-pink-700 text-white py-8 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center mb-4">
+                <a href="{% url 'constitution_bylaws' %}" class="text-red-100 hover:text-white mr-4">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </a>
+                <h1 class="text-4xl font-bold">Officer Slating & Elections</h1>
+            </div>
+            <p class="text-red-100 text-lg">Complete Guide to Executive Board Elections</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Overview -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Election Overview</h2>
+            <p class="text-gray-700 mb-4">Executive Board elections occur annually in the spring semester. The process ensures qualified, dedicated leaders are selected through a fair and transparent system.</p>
+
+            <div class="grid grid-cols-3 gap-4">
+                <div class="bg-gradient-to-br from-red-500 to-red-600 text-white p-4 rounded-lg text-center">
+                    <div class="text-3xl font-bold">9</div>
+                    <div class="text-sm">Officer Positions</div>
+                </div>
+                <div class="bg-gradient-to-br from-pink-500 to-pink-600 text-white p-4 rounded-lg text-center">
+                    <div class="text-3xl font-bold">2.5+</div>
+                    <div class="text-sm">Minimum GPA Required</div>
+                </div>
+                <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-4 rounded-lg text-center">
+                    <div class="text-3xl font-bold">1</div>
+                    <div class="text-sm">Year Term</div>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mt-6">
+                <p class="text-sm font-semibold text-blue-900 mb-2">📚 Related Procedures</p>
+                <p class="text-sm text-gray-700">See <a href="{% url 'roberts_rules' %}#nominations-elections" class="text-blue-600 hover:underline">Robert's Rules: Nominations and Elections</a> for parliamentary procedure during elections.</p>
+            </div>
+        </div>
+
+        <!-- Eligibility Requirements -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Eligibility Requirements</h2>
+
+            <div class="space-y-4">
+                <div class="bg-gray-50 p-6 rounded-lg">
+                    <h3 class="font-semibold text-gray-800 mb-3">General Requirements (All Officers)</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-gray-700">
+                        <li>Must be an Active Member in good standing</li>
+                        <li>Minimum 2.5 cumulative GPA (some positions require higher)</li>
+                        <li>No outstanding Kai cases or sanctions</li>
+                        <li>Financially current (no unpaid dues or fees)</li>
+                        <li>Able to serve full one-year term</li>
+                        <li>Complete officer training requirements</li>
+                    </ul>
+                </div>
+
+                <div class="bg-blue-50 p-6 rounded-lg">
+                    <h3 class="font-semibold text-gray-800 mb-3">Position-Specific GPA Requirements</h3>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-sm font-semibold text-blue-900 mb-2">Higher GPA Required (2.7+):</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                                <li>Treasurer</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-blue-900 mb-2">Highest GPA Required (3.0+):</p>
+                            <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                                <li>Scholarship Chair</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-green-50 p-6 rounded-lg">
+                    <h3 class="font-semibold text-gray-800 mb-3">Experience Preferences</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-gray-700">
+                        <li><strong>President:</strong> Prior Executive Board service strongly preferred</li>
+                        <li><strong>EVP:</strong> Understanding of Robert's Rules required</li>
+                        <li><strong>All positions:</strong> Demonstrated leadership and commitment to chapter</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slating Process Timeline -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Slating Process Timeline</h2>
+            <p class="text-gray-700 mb-6">The slating and election process typically occurs over 4-6 weeks in the spring semester.</p>
+
+            <div class="space-y-6">
+                <!-- Week 1-2 -->
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 w-16 h-16 bg-red-600 rounded-full flex items-center justify-center text-white font-bold mr-4">
+                        <div class="text-center">
+                            <div class="text-xs">Week</div>
+                            <div class="text-lg">1-2</div>
+                        </div>
+                    </div>
+                    <div class="flex-grow">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Announcement & Application Period</h3>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li>President announces election timeline</li>
+                            <li>Position descriptions distributed to membership</li>
+                            <li>Application forms made available</li>
+                            <li>Current officers host informational sessions</li>
+                            <li>Members encouraged to shadow current officers</li>
+                            <li>Application deadline set (typically 2 weeks)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Week 3 -->
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 w-16 h-16 bg-red-600 rounded-full flex items-center justify-center text-white font-bold mr-4">
+                        <div class="text-center">
+                            <div class="text-xs">Week</div>
+                            <div class="text-lg">3</div>
+                        </div>
+                    </div>
+                    <div class="flex-grow">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Candidate Review & Interviews</h3>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li>Executive Board reviews all applications</li>
+                            <li>Verify eligibility (GPA, conduct, finances)</li>
+                            <li>Schedule candidate interviews</li>
+                            <li>Conduct individual interviews with each candidate</li>
+                            <li>Assess qualifications and readiness</li>
+                            <li>Request references if needed</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Week 4 -->
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 w-16 h-16 bg-red-600 rounded-full flex items-center justify-center text-white font-bold mr-4">
+                        <div class="text-center">
+                            <div class="text-xs">Week</div>
+                            <div class="text-lg">4</div>
+                        </div>
+                    </div>
+                    <div class="flex-grow">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Slate Creation & Presentation</h3>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li>Executive Board deliberates on best candidates</li>
+                            <li>Create proposed slate of officers</li>
+                            <li>Consider team dynamics and balance</li>
+                            <li>Present slate to chapter at meeting</li>
+                            <li>Allow time for questions about slate</li>
+                            <li>Open floor for additional nominations</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Week 5 -->
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 w-16 h-16 bg-red-600 rounded-full flex items-center justify-center text-white font-bold mr-4">
+                        <div class="text-center">
+                            <div class="text-xs">Week</div>
+                            <div class="text-lg">5</div>
+                        </div>
+                    </div>
+                    <div class="flex-grow">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Campaigning & Candidate Speeches</h3>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li>Candidates may campaign to membership</li>
+                            <li>One-on-one conversations encouraged</li>
+                            <li>Attend chapter events and meetings</li>
+                            <li>Prepare speech for election meeting (3-5 minutes)</li>
+                            <li>Address qualifications and vision</li>
+                            <li>Positive campaigning only (no attacks on opponents)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Week 6 -->
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 w-16 h-16 bg-red-600 rounded-full flex items-center justify-center text-white font-bold mr-4">
+                        <div class="text-center">
+                            <div class="text-xs">Week</div>
+                            <div class="text-lg">6</div>
+                        </div>
+                    </div>
+                    <div class="flex-grow">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Election Meeting & Vote</h3>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li>Special chapter meeting for elections</li>
+                            <li>All candidates give speeches</li>
+                            <li>Q&A session with membership</li>
+                            <li>Secret ballot voting</li>
+                            <li>Vote counting by impartial tellers</li>
+                            <li>Results announced immediately</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Voting Methods -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Voting Procedures</h2>
+
+            <div class="grid md:grid-cols-2 gap-6 mb-6">
+                <div class="bg-blue-50 p-6 rounded-lg">
+                    <h3 class="font-semibold text-gray-800 mb-3">Slate Voting (Preferred Method)</h3>
+                    <p class="text-sm text-gray-700 mb-3">Vote on entire slate of officers as a package:</p>
+                    <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                        <li>Single vote: Accept or Reject slate</li>
+                        <li>Requires 2/3 majority to pass</li>
+                        <li>Faster and more efficient</li>
+                        <li>Ensures balanced leadership team</li>
+                    </ul>
+                    <div class="bg-white p-3 rounded mt-3">
+                        <p class="text-xs text-gray-600"><strong>If slate passes:</strong> All officers elected immediately</p>
+                        <p class="text-xs text-gray-600"><strong>If slate fails:</strong> Vote on individual positions</p>
+                    </div>
+                </div>
+
+                <div class="bg-green-50 p-6 rounded-lg">
+                    <h3 class="font-semibold text-gray-800 mb-3">Individual Position Voting</h3>
+                    <p class="text-sm text-gray-700 mb-3">Vote on each position separately:</p>
+                    <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                        <li>One position at a time</li>
+                        <li>Multiple candidates possible per position</li>
+                        <li>Requires majority to win</li>
+                        <li>Runoff if no majority achieved</li>
+                    </ul>
+                    <div class="bg-white p-3 rounded mt-3">
+                        <p class="text-xs text-gray-600"><strong>Used when:</strong> Slate fails 3 times OR only one position contested</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4">
+                <p class="text-sm font-semibold text-yellow-900 mb-2">⚖️ Vote Requirements</p>
+                <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                    <li><strong>Slate vote:</strong> 2/3 majority required to pass</li>
+                    <li><strong>Individual positions:</strong> Simple majority (>50%) required</li>
+                    <li><strong>Quorum:</strong> 2/3 of active members must be present</li>
+                    <li><strong>Ballot method:</strong> Secret ballot for all officer elections</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- After Election -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Post-Election Procedures</h2>
+
+            <div class="space-y-6">
+                <div class="border-l-4 border-green-500 pl-4">
+                    <h3 class="font-semibold text-gray-800 mb-2">Immediate Actions (Within 48 hours)</h3>
+                    <ul class="list-disc pl-6 space-y-1 text-gray-700">
+                        <li>Results announced to membership</li>
+                        <li>Election results reported to General Fraternity</li>
+                        <li>Updated roster submitted to university</li>
+                        <li>Transition timeline established</li>
+                    </ul>
+                </div>
+
+                <div class="border-l-4 border-blue-500 pl-4">
+                    <h3 class="font-semibold text-gray-800 mb-2">Transition Period (2-4 weeks)</h3>
+                    <ul class="list-disc pl-6 space-y-1 text-gray-700">
+                        <li>Elected officers shadow current officers</li>
+                        <li>Access to files, accounts, and resources transferred</li>
+                        <li>Attend mandatory officer training</li>
+                        <li>Meet with advisors and General Fraternity staff</li>
+                        <li>Receive position-specific training</li>
+                        <li>Develop goals and plans for term</li>
+                    </ul>
+                </div>
+
+                <div class="border-l-4 border-purple-500 pl-4">
+                    <h3 class="font-semibold text-gray-800 mb-2">Installation & Oath</h3>
+                    <ul class="list-disc pl-6 space-y-1 text-gray-700">
+                        <li>Formal installation ceremony</li>
+                        <li>Officers take oath of office</li>
+                        <li>Recognition from chapter and alumni</li>
+                        <li>Official term begins</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tips for Candidates -->
+        <div class="bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-lg shadow-lg p-8">
+            <h2 class="text-2xl font-bold mb-4">Running for Office?</h2>
+            <p class="mb-4">Review the detailed duties and expectations for each position before applying.</p>
+            <div class="flex gap-4">
+                <a href="{% url 'officer_duties_detail' %}" class="inline-block bg-white text-red-600 px-6 py-3 rounded-lg font-semibold hover:bg-red-50 transition">
+                    View Officer Duties →
+                </a>
+                <a href="{% url 'constitution_bylaws' %}" class="inline-block bg-red-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-800 transition">
+                    Back to Constitution →
+                </a>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

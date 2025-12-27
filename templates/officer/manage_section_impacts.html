@@ -1,0 +1,123 @@
+{% extends "admin_base.html" %}
+{% load static %}
+
+{% block title %}Manage Section Impacts - {{ resolution.title }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-6xl">
+    <!-- Header -->
+    <div class="mb-6">
+        <nav class="text-sm text-gray-600 mb-2">
+            <a href="{% url 'manage_resolutions' %}" class="hover:text-blue-600">Manage Resolutions</a>
+            <span class="mx-2">›</span>
+            <span class="text-gray-900">{{ resolution.title }}</span>
+        </nav>
+        <h1 class="text-3xl font-bold text-gray-900">Manage Section Impacts</h1>
+        <p class="text-gray-600 mt-1">Add tags linking to sections impacted by this resolution</p>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-4 p-4 rounded-lg {% if message.tags == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Resolution Info -->
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 p-6 mb-6 rounded-r-lg">
+        <h2 class="text-xl font-bold text-gray-900 mb-2">{{ resolution.title }}</h2>
+        <p class="text-gray-700 mb-2">{{ resolution.description }}</p>
+        <p class="text-sm text-gray-600">Passed: <strong>{{ resolution.date_passed|date:"F j, Y" }}</strong></p>
+    </div>
+
+    <!-- Add New Impact Button -->
+    <div class="mb-6">
+        <a href="{% url 'add_section_impact' resolution.id %}" class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow transition-colors">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Add Section Impact Tag
+        </a>
+    </div>
+
+    <!-- Section Impacts List -->
+    {% if section_impacts %}
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Order</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Section Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Link</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Preview</th>
+                        <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for impact in section_impacts %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ impact.display_order }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {{ impact.section_name }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                <span class="px-2 py-1 text-xs font-semibold rounded {% if impact.section_type == 'constitution' %}bg-blue-100 text-blue-800{% elif impact.section_type == 'bylaws' %}bg-indigo-100 text-indigo-800{% else %}bg-purple-100 text-purple-800{% endif %}">
+                                    {{ impact.get_section_type_display }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                {% if impact.external_url %}
+                                    <span class="text-blue-600">{{ impact.external_url|truncatechars:30 }}</span>
+                                {% elif impact.section_anchor %}
+                                    <span class="text-green-600">{{ impact.section_anchor }}</span>
+                                {% else %}
+                                    <span class="text-gray-400 italic">No link</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium {% if impact.section_type == 'constitution' %}bg-blue-100 text-blue-800{% elif impact.section_type == 'bylaws' %}bg-indigo-100 text-indigo-800{% else %}bg-purple-100 text-purple-800{% endif %}">
+                                    {{ impact.section_name }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <a href="{% url 'edit_section_impact' impact.id %}" class="text-blue-600 hover:text-blue-900 mr-3">Edit</a>
+                                <a href="{% url 'delete_section_impact' impact.id %}" class="text-red-600 hover:text-red-900">Delete</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <!-- Empty State -->
+        <div class="bg-white rounded-lg shadow-md p-12 text-center">
+            <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+            </svg>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">No Section Impacts Yet</h3>
+            <p class="text-gray-600 mb-6">Add tags to show which parts of the Constitution/Bylaws this resolution impacts.</p>
+            <a href="{% url 'add_section_impact' resolution.id %}" class="inline-flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Add First Tag
+            </a>
+        </div>
+    {% endif %}
+
+    <!-- Back Button -->
+    <div class="mt-8">
+        <a href="{% url 'manage_resolutions' %}" class="inline-flex items-center text-blue-600 hover:text-blue-800">
+            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Back to Manage Resolutions
+        </a>
+    </div>
+</div>
+{% endblock %}

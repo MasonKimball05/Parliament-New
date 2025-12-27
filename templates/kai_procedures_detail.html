@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+
+{% block title %}Kai Committee Procedures - Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-purple-600 to-indigo-700 text-white py-8 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center mb-4">
+                <a href="{% url 'constitution_bylaws' %}" class="text-purple-100 hover:text-white mr-4">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </a>
+                <h1 class="text-4xl font-bold">Kai Committee Procedures</h1>
+            </div>
+            <p class="text-purple-100 text-lg">Standards Enforcement & Member Conduct</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Overview -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">About the Kai Committee</h2>
+            <p class="text-gray-700 mb-4">The Kai Committee is the chapter's judicial body responsible for adjudicating breaches of membership expectations and acting as a mediating body for conflicts and conduct issues.</p>
+
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                <p class="text-sm font-semibold text-blue-900 mb-2">📚 Additional Resources</p>
+                <div class="space-y-1 text-sm text-gray-700">
+                    <p>• <a href="/media/legislation_docs/Kai-Binder.pdf" target="_blank" class="text-blue-600 hover:underline">Download Kai Committee Binder</a> - Complete procedures and guidelines</p>
+                    <p>• <a href="/media/legislation_docs/Trial-By-Chapter-Overview.pdf" target="_blank" class="text-blue-600 hover:underline">Trial by Chapter Overview</a> - Severe violation procedures</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Committee Composition -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Committee Composition</h2>
+
+            <div class="bg-gradient-to-r from-purple-100 to-indigo-100 p-6 rounded-lg mb-6">
+                <div class="text-center mb-4">
+                    <div class="text-4xl font-bold text-purple-900">5-9 Members</div>
+                    <div class="text-purple-700">Total Committee Size</div>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="border-l-4 border-purple-500 pl-4">
+                    <h3 class="font-semibold text-gray-800 mb-2">Chair</h3>
+                    <p class="text-sm text-gray-700 mb-2"><strong>Kai Committee Chair</strong> (typically VP of Brotherhood)</p>
+                    <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                        <li>Convenes all Kai meetings</li>
+                        <li>Contacts referred members</li>
+                        <li>Maintains records</li>
+                        <li>Reports to Executive Board</li>
+                    </ul>
+                </div>
+
+                <div class="border-l-4 border-indigo-500 pl-4">
+                    <h3 class="font-semibold text-gray-800 mb-2">Elected Delegates</h3>
+                    <p class="text-sm text-gray-700 mb-2">4-8 members elected from membership:</p>
+                    <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                        <li>1-2 Senior delegates</li>
+                        <li>1-2 Junior delegates</li>
+                        <li>1-2 Sophomore delegates</li>
+                        <li>1-2 At-large delegates</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="mt-6 bg-yellow-50 border-l-4 border-yellow-500 p-4">
+                <p class="text-sm font-semibold text-yellow-900 mb-1">⚖️ Impartiality Requirements</p>
+                <p class="text-sm text-gray-700">Committee members must recuse themselves from cases where they have a personal conflict of interest or bias.</p>
+            </div>
+        </div>
+
+        <!-- Violation Categories -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Violation Categories & Sanctions</h2>
+
+            <!-- Severe Violations -->
+            <div class="mb-6">
+                <div class="bg-gradient-to-r from-red-500 to-red-600 text-white p-4 rounded-t-lg">
+                    <h3 class="text-xl font-bold">Severe Violations</h3>
+                    <p class="text-sm text-red-100">Potential for expulsion via Trial by Chapter</p>
+                </div>
+                <div class="border-4 border-red-500 border-t-0 p-6 rounded-b-lg">
+                    <h4 class="font-semibold text-gray-800 mb-2">Examples:</h4>
+                    <ul class="list-disc pl-6 space-y-1 text-gray-700 mb-4">
+                        <li>Illegal drug use or distribution</li>
+                        <li>Hazing violations</li>
+                        <li>Felony criminal charges</li>
+                        <li>DUI/DWI</li>
+                        <li>Alcohol possession on chapter property</li>
+                        <li>Sexual misconduct</li>
+                        <li>Assault or violence</li>
+                    </ul>
+                    <h4 class="font-semibold text-gray-800 mb-2">Potential Sanctions:</h4>
+                    <ul class="list-disc pl-6 space-y-1 text-gray-700">
+                        <li><strong>Expulsion via <a href="/media/legislation_docs/Trial-By-Chapter-Overview.pdf" target="_blank" class="text-blue-600 hover:underline">Trial by Chapter</a></strong></li>
+                        <li>Indefinite suspension from chapter activities</li>
+                        <li>Referral to university conduct board</li>
+                        <li>Loss of housing privileges</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Moderate Violations -->
+            <div class="mb-6">
+                <div class="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4 rounded-t-lg">
+                    <h3 class="text-xl font-bold">Moderate Violations</h3>
+                    <p class="text-sm text-orange-100">Suspension, probation, or removal from office</p>
+                </div>
+                <div class="border-4 border-orange-500 border-t-0 p-6 rounded-b-lg">
+                    <h4 class="font-semibold text-gray-800 mb-2">Examples:</h4>
+                    <ul class="list-disc pl-6 space-y-1 text-gray-700 mb-4">
+                        <li>Risk management policy violations</li>
+                        <li>Failure to fulfill official duties</li>
+                        <li>Property destruction or vandalism</li>
+                        <li>Minor in possession (MIP) citation</li>
+                        <li>Violation of university policies</li>
+                        <li>Disruptive behavior at events</li>
+                    </ul>
+                    <h4 class="font-semibold text-gray-800 mb-2">Potential Sanctions:</h4>
+                    <ul class="list-disc pl-6 space-y-1 text-gray-700">
+                        <li>Removal from officer or chair position</li>
+                        <li>Suspension from social events (1-6 months)</li>
+                        <li>Social probation</li>
+                        <li>Fines ($100-$500)</li>
+                        <li>Community service hours</li>
+                        <li>Mandatory counseling or education</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Minor Violations -->
+            <div class="mb-6">
+                <div class="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white p-4 rounded-t-lg">
+                    <h3 class="text-xl font-bold">Minor Violations</h3>
+                    <p class="text-sm text-yellow-100">Warnings, fines, or work duty</p>
+                </div>
+                <div class="border-4 border-yellow-500 border-t-0 p-6 rounded-b-lg">
+                    <h4 class="font-semibold text-gray-800 mb-2">Examples:</h4>
+                    <ul class="list-disc pl-6 space-y-1 text-gray-700 mb-4">
+                        <li>Excessive absences from required events</li>
+                        <li>Unpaid dues or fees</li>
+                        <li>Minor property damage</li>
+                        <li>Disrespectful behavior</li>
+                        <li>Failure to complete work duty</li>
+                        <li>Dress code violations</li>
+                    </ul>
+                    <h4 class="font-semibold text-gray-800 mb-2">Potential Sanctions:</h4>
+                    <ul class="list-disc pl-6 space-y-1 text-gray-700">
+                        <li>Written or verbal warning</li>
+                        <li>Minor fines ($25-$100)</li>
+                        <li>Additional work duty hours</li>
+                        <li>Letter of apology</li>
+                        <li>Educational requirements</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Kai Process -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Kai Committee Process</h2>
+
+            <div class="space-y-6">
+                <!-- Step 1 -->
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg mr-4">1</div>
+                    <div class="flex-grow">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Referral to Kai</h3>
+                        <p class="text-gray-700 mb-2">Member is referred to Kai Committee by:</p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li>Executive Board member</li>
+                            <li>Committee chair</li>
+                            <li>Any chapter member with evidence</li>
+                            <li>Self-referral</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg mr-4">2</div>
+                    <div class="flex-grow">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Notification</h3>
+                        <p class="text-gray-700 mb-2">Kai Chair contacts the referred member:</p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li>Written notification of charges</li>
+                            <li>Scheduled hearing date/time</li>
+                            <li>Opportunity to prepare defense</li>
+                            <li>Right to bring witnesses</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg mr-4">3</div>
+                    <div class="flex-grow">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Hearing</h3>
+                        <p class="text-gray-700 mb-2">Formal Kai Committee hearing:</p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li>Presentation of evidence</li>
+                            <li>Member's statement and defense</li>
+                            <li>Witness testimony (if applicable)</li>
+                            <li>Committee questions</li>
+                            <li>Closed deliberation</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Step 4 -->
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg mr-4">4</div>
+                    <div class="flex-grow">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Decision</h3>
+                        <p class="text-gray-700 mb-2">Committee votes on findings and sanctions:</p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li>Majority vote determines guilt/innocence</li>
+                            <li>Sanctions determined if guilty</li>
+                            <li>Written decision provided to member</li>
+                            <li>Report filed with Executive Board</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Step 5 -->
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg mr-4">5</div>
+                    <div class="flex-grow">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Appeals Process</h3>
+                        <p class="text-gray-700 mb-2">Member may appeal decision:</p>
+                        <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                            <li>Written appeal to Executive Board within 7 days</li>
+                            <li>Board reviews case and Kai decision</li>
+                            <li>Board may uphold, reduce, or overturn sanctions</li>
+                            <li>Board decision is final</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Member Rights -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Member Rights in Kai Proceedings</h2>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-blue-50 p-6 rounded-lg">
+                    <h3 class="font-semibold text-gray-800 mb-3">Before the Hearing</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                        <li>Written notification of specific charges</li>
+                        <li>Reasonable time to prepare defense (minimum 48 hours)</li>
+                        <li>Access to evidence against them</li>
+                        <li>Right to request postponement (once, for good cause)</li>
+                    </ul>
+                </div>
+
+                <div class="bg-green-50 p-6 rounded-lg">
+                    <h3 class="font-semibold text-gray-800 mb-3">During the Hearing</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                        <li>Present their side of the story</li>
+                        <li>Bring witnesses to testify</li>
+                        <li>Question evidence presented</li>
+                        <li>Have an advisor present (non-voting)</li>
+                        <li>Fair and impartial committee</li>
+                    </ul>
+                </div>
+
+                <div class="bg-purple-50 p-6 rounded-lg">
+                    <h3 class="font-semibold text-gray-800 mb-3">After the Decision</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                        <li>Receive written decision with explanation</li>
+                        <li>Right to appeal to Executive Board</li>
+                        <li>Confidentiality of proceedings</li>
+                        <li>Opportunity for future reinstatement (if suspended)</li>
+                    </ul>
+                </div>
+
+                <div class="bg-yellow-50 p-6 rounded-lg">
+                    <h3 class="font-semibold text-gray-800 mb-3">General Protections</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                        <li>Presumption of innocence</li>
+                        <li>No double jeopardy (same offense)</li>
+                        <li>Protection from retaliation</li>
+                        <li>Confidential records</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Academic & Attendance Violations -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Special Procedures</h2>
+
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-3">Academic Performance Issues</h3>
+                <p class="text-gray-700 mb-3">Members failing to meet GPA requirements are subject to automatic sanctions:</p>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full border border-gray-300 text-sm">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="border px-4 py-2 text-left">GPA Level</th>
+                                <th class="border px-4 py-2 text-left">Automatic Sanctions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="border px-4 py-2"><strong>Level 1:</strong> 2.5-2.7</td>
+                                <td class="border px-4 py-2">5 study hours/week, Scholarship Chair meeting</td>
+                            </tr>
+                            <tr>
+                                <td class="border px-4 py-2"><strong>Level 2:</strong> 2.3-2.49</td>
+                                <td class="border px-4 py-2">8 study hours/week, Kai meeting, academic office referral</td>
+                            </tr>
+                            <tr>
+                                <td class="border px-4 py-2"><strong>Level 3:</strong> 2.0-2.29</td>
+                                <td class="border px-4 py-2">12 study hours/week, mandatory tutoring, social restrictions</td>
+                            </tr>
+                            <tr>
+                                <td class="border px-4 py-2 bg-red-50"><strong>Below 2.0:</strong></td>
+                                <td class="border px-4 py-2 bg-red-50">Automatic Kai referral with expulsion recommendation</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800 mb-3">Financial Delinquency</h3>
+                <p class="text-gray-700 mb-2">Members with outstanding dues or fees:</p>
+                <ul class="list-disc pl-6 space-y-1 text-gray-700">
+                    <li>Referred to Treasurer for payment plan</li>
+                    <li>If unresolved after 30 days, referred to Kai Committee</li>
+                    <li>Possible suspension of privileges until paid</li>
+                    <li>Cannot vote in elections or hold office while delinquent</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Contact Information -->
+        <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg shadow-lg p-8">
+            <h2 class="text-2xl font-bold mb-4">Questions About Kai Procedures?</h2>
+            <p class="mb-4">Contact the Kai Committee Chair (VP of Brotherhood) or review the comprehensive Kai Binder.</p>
+            <div class="flex gap-4">
+                <a href="/media/legislation_docs/Kai-Binder.pdf" target="_blank" class="inline-block bg-white text-purple-600 px-6 py-3 rounded-lg font-semibold hover:bg-purple-50 transition">
+                    Download Kai Binder →
+                </a>
+                <a href="{% url 'officer_duties_detail' %}#vpb" class="inline-block bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-800 transition">
+                    Contact VP of Brotherhood →
+                </a>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

@@ -1,7 +1,8 @@
 from django.shortcuts import render
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
+from src.decorators import officer_required
 
 @login_required
-@user_passes_test(lambda u: u.member_type in ['Chair', 'Officer'])
+@officer_required
 def make_event(request):
     return render(request, 'make_event.html', {})

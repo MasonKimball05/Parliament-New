@@ -12,3 +12,4 @@ from .view_all_reports import *
 from .view_all_activity import *
 from .view_archived_events import *
 from .archive_event import *
+from .manage_resolutions import *

@@ -1,0 +1,408 @@
+{% extends "base.html" %}
+
+{% block title %}Officer Duties - Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-8 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center mb-4">
+                <a href="{% url 'constitution_bylaws' %}" class="text-blue-100 hover:text-white mr-4">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </a>
+                <h1 class="text-4xl font-bold">Officer Duties & Responsibilities</h1>
+            </div>
+            <p class="text-blue-100 text-lg">The 9 Executive Board Officers (Constitution Article III)</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Overview -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">About the Executive Board</h2>
+            <p class="text-gray-700 mb-4">The Executive Board consists of 9 elected officers who lead the Alpha Mu chapter. Each officer has specific responsibilities outlined in the Constitution and Bylaws.</p>
+
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                <p class="text-sm font-semibold text-blue-900 mb-2">📋 The 9 Executive Board Officers</p>
+                <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                    <li>President</li>
+                    <li>Executive Vice President & IFC Delegate</li>
+                    <li>Vice President of Administration</li>
+                    <li>Vice President of Brotherhood</li>
+                    <li>Vice President of Finance</li>
+                    <li>Vice President of Risk Management</li>
+                    <li>Vice President of Recruitment</li>
+                    <li>Vice President of Education</li>
+                    <li>Vice President of Programming</li>
+                </ul>
+                <p class="text-xs text-gray-600 mt-2 italic">Source: Constitution Article III, Section 3</p>
+            </div>
+
+            <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4">
+                <p class="text-sm font-semibold text-yellow-900 mb-2">General Officer Requirements</p>
+                <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                    <li>Attend annual officer transition meeting</li>
+                    <li>Attend all required campus and General Fraternity events/trainings</li>
+                    <li>Attend regularly scheduled Chapter and Executive Board meetings</li>
+                    <li>Prepare and give officer reports at each meeting</li>
+                    <li>Understand and abide by <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 hover:underline">Code of Beta</a>, Risk Management Policy, Chapter Constitution & Bylaws, and IFC policies</li>
+                    <li>Serve as role model within chapter and campus community</li>
+                </ul>
+            </div>
+
+            <div class="grid grid-cols-3 gap-4 mt-6">
+                <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg text-center">
+                    <div class="text-3xl font-bold">9</div>
+                    <div class="text-sm">Executive Officers</div>
+                </div>
+                <div class="bg-gradient-to-br from-green-500 to-green-600 text-white p-4 rounded-lg text-center">
+                    <div class="text-3xl font-bold">1</div>
+                    <div class="text-sm">Year Term</div>
+                </div>
+                <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-4 rounded-lg text-center">
+                    <div class="text-3xl font-bold">2.5+</div>
+                    <div class="text-sm">Minimum GPA (some positions higher)</div>
+                </div>
+            </div>
+
+            <div class="bg-green-50 border-l-4 border-green-500 p-4 mt-6">
+                <p class="text-sm font-semibold text-green-900 mb-2">🗳️ Officer Elections</p>
+                <p class="text-sm text-gray-700">For information on officer elections, slating process, and eligibility requirements, see our <a href="{% url 'slating_elections_detail' %}" class="text-blue-600 hover:underline font-semibold">Officer Slating & Elections Guide</a>.</p>
+            </div>
+        </div>
+
+        <!-- The 9 Executive Board Officers -->
+
+        <!-- President -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-6" id="president">
+            <div class="flex items-center mb-4">
+                <div class="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mr-4">P</div>
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-900">President</h2>
+                    <p class="text-gray-600">Chief Executive Officer of the Chapter</p>
+                </div>
+            </div>
+
+            <p class="text-sm text-gray-700 mb-4 italic">Detailed duties and responsibilities are specified in the Constitution and Bylaws.</p>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Core Responsibilities</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                        <li>Preside over all chapter and Executive Board meetings</li>
+                        <li>Act as official representative of the chapter</li>
+                        <li>Serve as primary liaison with General Fraternity</li>
+                        <li>Coordinate with chapter advisors and house corporation</li>
+                        <li>Lead strategic planning and goal setting</li>
+                        <li>Ensure chapter compliance with all policies</li>
+                        <li>Appoint committee chairs (with board approval)</li>
+                        <li>Facilitate conflict resolution</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Additional Duties</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                        <li>Create meeting agendas</li>
+                        <li>Call special meetings when necessary</li>
+                        <li>Sign official chapter documents</li>
+                        <li>Represent chapter at IFC and university events</li>
+                        <li>Mentor other executive officers</li>
+                        <li>Oversee officer transition process</li>
+                        <li>Make executive decisions in emergencies</li>
+                        <li>Submit required reports to General Fraternity</li>
+                    </ul>
+
+                    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mt-4">
+                        <p class="text-sm font-semibold text-yellow-900 mb-1">🔗 Related Procedures</p>
+                        <p class="text-sm text-gray-700">See <a href="{% url 'roberts_rules' %}#chair-duties" class="text-blue-600 hover:underline">Robert's Rules: Chair's Duties</a></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 bg-gray-50 p-4 rounded-lg">
+                <p class="text-sm text-gray-700"><strong>Qualifications:</strong> Must have served on Executive Board for at least one semester. Strong leadership skills, organizational ability, and comprehensive understanding of chapter operations required.</p>
+            </div>
+        </div>
+
+        <!-- Executive Vice President & IFC Delegate -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-6" id="evp">
+            <div class="flex items-center mb-4">
+                <div class="w-16 h-16 bg-indigo-600 rounded-full flex items-center justify-center text-white text-lg font-bold mr-4">EVP</div>
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-900">Executive Vice President & IFC Delegate</h2>
+                    <p class="text-gray-600">Parliamentarian & Second-in-Command</p>
+                </div>
+            </div>
+
+            <p class="text-sm text-gray-700 mb-4 italic">Detailed duties and responsibilities are specified in the Constitution and Bylaws.</p>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Core Responsibilities</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                        <li>Serve as chapter parliamentarian</li>
+                        <li>Assume President's duties in their absence</li>
+                        <li>Enforce <a href="{% url 'roberts_rules' %}" class="text-blue-600 hover:underline">Robert's Rules of Order</a></li>
+                        <li>Conduct Robert's Rules training (minimum once per term)</li>
+                        <li>Oversee chapter bylaws and constitution</li>
+                        <li>Manage amendment process</li>
+                        <li>Serve as IFC Delegate</li>
+                        <li>Advise on parliamentary procedure</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Additional Duties</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                        <li>Rule on points of order during meetings</li>
+                        <li>Review proposed amendments for compliance</li>
+                        <li>Train new members on meeting procedures</li>
+                        <li>Assist President with meeting management</li>
+                        <li>Coordinate with General Fraternity on governance</li>
+                        <li>Maintain official copy of governing documents</li>
+                        <li>Represent chapter at IFC meetings</li>
+                    </ul>
+
+                    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mt-4">
+                        <p class="text-sm font-semibold text-yellow-900 mb-1">🔗 Related Procedures</p>
+                        <p class="text-sm text-gray-700">See <a href="{% url 'roberts_rules' %}" class="text-blue-600 hover:underline">Robert's Rules of Order</a></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 bg-gray-50 p-4 rounded-lg">
+                <p class="text-sm text-gray-700"><strong>Qualifications:</strong> Must have strong understanding of Robert's Rules of Order and parliamentary procedure. Previous board experience preferred. Must be able to remain impartial and enforce rules fairly.</p>
+            </div>
+        </div>
+
+        <!-- Vice President of Administration -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-6" id="vpa">
+            <div class="flex items-center mb-4">
+                <div class="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center text-white text-lg font-bold mr-4">VPA</div>
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-900">Vice President of Administration</h2>
+                    <p class="text-gray-600">Record Keeper & Chapter Secretary</p>
+                </div>
+            </div>
+
+            <p class="text-sm text-gray-700 mb-4 italic">Detailed duties and responsibilities are specified in the Constitution and Bylaws.</p>
+
+            <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700 mb-4">
+                <li>Record and maintain meeting minutes per <a href="{% url 'roberts_rules' %}#minutes-records" class="text-blue-600 hover:underline">Robert's Rules standards</a></li>
+                <li>Manage chapter correspondence</li>
+                <li>Maintain attendance records</li>
+                <li>Distribute meeting agendas and minutes</li>
+                <li>Archive official chapter documents</li>
+                <li>Track member contact information</li>
+                <li>Count and record all votes</li>
+                <li>Ensure absences are submitted 24 hours in advance</li>
+            </ul>
+
+            <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mt-4">
+                <p class="text-sm font-semibold text-yellow-900 mb-1">🔗 Related Procedures</p>
+                <p class="text-sm text-gray-700">See <a href="{% url 'roberts_rules' %}#minutes-records" class="text-blue-600 hover:underline">Minutes & Record-Keeping</a></p>
+            </div>
+        </div>
+
+        <!-- Vice President of Brotherhood -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-6" id="vpb">
+            <div class="flex items-center mb-4">
+                <div class="w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center text-white text-lg font-bold mr-4">VPB</div>
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-900">Vice President of Brotherhood</h2>
+                    <p class="text-gray-600">Kai Committee Chair & Member Development</p>
+                </div>
+            </div>
+
+            <p class="text-sm text-gray-700 mb-4 italic">Detailed duties and responsibilities are specified in the Constitution and Bylaws.</p>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Core Responsibilities</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                        <li>Chair the <a href="{% url 'kai_procedures_detail' %}" class="text-blue-600 hover:underline">Kai Committee</a></li>
+                        <li>Plan and execute brotherhood events</li>
+                        <li>Foster positive chapter culture</li>
+                        <li>Manage member conduct issues</li>
+                        <li>Coordinate Big Brother/Little Brother program</li>
+                        <li>Oversee new member education</li>
+                        <li>Plan social activities and bonding events</li>
+                        <li>Address interpersonal conflicts</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Additional Duties</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                        <li>Convene Kai Committee meetings</li>
+                        <li>Contact members referred to Kai</li>
+                        <li>Maintain Kai Committee records</li>
+                        <li>Organize semester brotherhood retreat</li>
+                        <li>Plan weekly brotherhood activities</li>
+                        <li>Facilitate Big/Little matching process</li>
+                        <li>Track member satisfaction and morale</li>
+                        <li>Coordinate with advisors on member development</li>
+                    </ul>
+
+                    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mt-4">
+                        <p class="text-sm font-semibold text-yellow-900 mb-1">🔗 Related Procedures</p>
+                        <p class="text-sm text-gray-700">See <a href="{% url 'kai_procedures_detail' %}" class="text-blue-600 hover:underline">Kai Committee Procedures</a></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 bg-gray-50 p-4 rounded-lg">
+                <p class="text-sm text-gray-700"><strong>Qualifications:</strong> Strong interpersonal skills and emotional intelligence required. Must be trusted and respected by membership. Experience in conflict resolution and mediation preferred.</p>
+            </div>
+        </div>
+
+        <!-- Condensed Grid for Remaining 5 Officers -->
+        <div class="grid md:grid-cols-2 gap-6">
+
+            <!-- Vice President of Finance -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center mb-3">
+                    <div class="w-12 h-12 bg-yellow-600 rounded-full flex items-center justify-center text-white text-lg font-bold mr-3">VPF</div>
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-900">Vice President of Finance</h3>
+                        <p class="text-sm text-gray-600">Financial Officer</p>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-700 mb-3 italic">Detailed duties in Constitution & Bylaws</p>
+                <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700 mb-3">
+                    <li>Manage chapter finances and budget</li>
+                    <li>Collect dues and fees via Billhighway</li>
+                    <li>Pay bills and manage accounts</li>
+                    <li>Present financial reports at meetings</li>
+                    <li>Oversee fundraising activities</li>
+                    <li>Maintain financial records</li>
+                    <li>Coordinate with house corporation on finances</li>
+                    <li>Prepare annual budget with Finance Committee</li>
+                </ul>
+                <div class="bg-red-50 border-l-4 border-red-500 p-3 rounded text-xs">
+                    <strong>GPA Requirement:</strong> Must maintain 2.7+ GPA
+                </div>
+            </div>
+
+            <!-- Vice President of Risk Management -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center mb-3">
+                    <div class="w-12 h-12 bg-red-700 rounded-full flex items-center justify-center text-white text-xs font-bold mr-3">VPRM</div>
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-900">Vice President of Risk Management</h3>
+                        <p class="text-sm text-gray-600">Safety & Policy Compliance</p>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-700 mb-3 italic">Detailed duties in Constitution & Bylaws</p>
+                <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700 mb-3">
+                    <li>Ensure event safety compliance</li>
+                    <li>Educate on Beta Risk Management Policy</li>
+                    <li>Monitor alcohol and substance policies</li>
+                    <li>Coordinate with university officials</li>
+                    <li>Manage event sober monitors</li>
+                    <li>Review all chapter events for risk</li>
+                    <li>Ensure chapter follows all safety protocols</li>
+                </ul>
+                <div class="bg-blue-50 p-3 rounded text-xs">
+                    <strong>Works closely with:</strong> President, Advisors, Risk Management Committee
+                </div>
+            </div>
+
+            <!-- Vice President of Recruitment -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center mb-3">
+                    <div class="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center text-white text-lg font-bold mr-3">VPR</div>
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-900">Vice President of Recruitment</h3>
+                        <p class="text-sm text-gray-600">Membership Growth</p>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-700 mb-3 italic">Detailed duties in Constitution & Bylaws</p>
+                <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700 mb-3">
+                    <li>Lead recruitment strategy and planning</li>
+                    <li>Organize rush events</li>
+                    <li>Coordinate with IFC on recruitment</li>
+                    <li>Manage potential new member outreach</li>
+                    <li>Train recruitment team</li>
+                    <li>Track recruitment metrics</li>
+                    <li>Coordinate with Alumni for recruitment support</li>
+                    <li>Lead Recruitment Committee (5-9 members)</li>
+                </ul>
+                <div class="bg-blue-50 p-3 rounded text-xs">
+                    <strong>Works closely with:</strong> Rush Chair, President, Recruitment Advisor
+                </div>
+            </div>
+
+            <!-- Vice President of Education -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center mb-3">
+                    <div class="w-12 h-12 bg-orange-600 rounded-full flex items-center justify-center text-white text-lg font-bold mr-3">VPE</div>
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-900">Vice President of Education</h3>
+                        <p class="text-sm text-gray-600">New Member Education & Development</p>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-700 mb-3 italic">Detailed duties in Constitution & Bylaws</p>
+                <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700 mb-3">
+                    <li>Lead Standard New Member Orientation</li>
+                    <li>Coordinate annual member education programs</li>
+                    <li>Oversee new member development</li>
+                    <li>Ensure compliance with General Fraternity education requirements</li>
+                    <li>Plan educational workshops and seminars</li>
+                    <li>Track new member progress</li>
+                    <li>Lead Education Committee</li>
+                </ul>
+                <div class="bg-blue-50 p-3 rounded text-xs">
+                    <strong>Works closely with:</strong> Vice President of Brotherhood, Education Advisor
+                </div>
+            </div>
+
+            <!-- Vice President of Programming -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center mb-3">
+                    <div class="w-12 h-12 bg-teal-600 rounded-full flex items-center justify-center text-white text-lg font-bold mr-3">VPP</div>
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-900">Vice President of Programming</h3>
+                        <p class="text-sm text-gray-600">Events, Service & Activities</p>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-700 mb-3 italic">Detailed duties in Constitution & Bylaws</p>
+                <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700 mb-3">
+                    <li>Plan and coordinate service events</li>
+                    <li>Organize philanthropy activities</li>
+                    <li>Coordinate intramural sports teams</li>
+                    <li>Plan special chapter events</li>
+                    <li>Track service hours for members</li>
+                    <li>Lead Programming Committee</li>
+                    <li>Coordinate with campus organizations</li>
+                </ul>
+                <div class="bg-blue-50 p-3 rounded text-xs">
+                    <strong>Works closely with:</strong> President, Social Chair, Programming Committee
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Back Navigation -->
+        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg shadow-lg p-8 mt-8">
+            <h2 class="text-2xl font-bold mb-4">Additional Information</h2>
+            <p class="mb-4">For complete officer requirements, GPA standards, and election procedures, consult the Constitution & Bylaws.</p>
+            <div class="flex gap-4 flex-wrap">
+                <a href="{% url 'slating_elections_detail' %}" class="inline-block bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition">
+                    Officer Elections Process →
+                </a>
+                <a href="{% url 'constitution_bylaws' %}" class="inline-block bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-800 transition">
+                    View Constitution & Bylaws →
+                </a>
+                <a href="{% url 'committee_details' %}" class="inline-block bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-800 transition">
+                    View Committee Details →
+                </a>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

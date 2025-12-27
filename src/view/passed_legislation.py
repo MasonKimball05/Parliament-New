@@ -21,13 +21,18 @@ def passed_legislation(request):
         abstain = votes.filter(vote_choice='abstain').count()
         total_non_abstain = yes + no
 
-        if total_non_abstain == 0:
+        # Skip only if not passed AND has no votes
+        if total_non_abstain == 0 and not leg.passed:
             continue
 
         vote_passed = False
         yes_pct = 0
 
-        if leg.vote_mode == 'piecewise':
+        # If there are no votes, use the stored passed status
+        if total_non_abstain == 0:
+            vote_passed = leg.passed
+            yes_pct = 0
+        elif leg.vote_mode == 'piecewise':
             vote_passed = yes >= leg.required_yes_votes
         elif leg.vote_mode == 'plurality':
             # For plurality, use the stored passed status
@@ -38,7 +43,7 @@ def passed_legislation(request):
             vote_passed = yes_pct >= required_pct
 
         # Calculate vote breakdown based on mode
-        if leg.vote_mode == 'plurality':
+        if leg.vote_mode == 'plurality' and leg.plurality_options:
             # For plurality, get counts for each option
             vote_breakdown = {}
             for option in leg.plurality_options:
@@ -54,24 +59,25 @@ def passed_legislation(request):
             winner = None
 
 
-        # Determine time range for attendance window
-        local_tz = pytz.timezone("America/Chicago")
-        vote_end = leg.voting_ended_at or leg.available_at
-        vote_start = vote_end - timedelta(hours=3)
+        # Determine time range for attendance window (only if there were votes)
+        present_members = []
+        if total_non_abstain > 0:
+            local_tz = pytz.timezone("America/Chicago")
+            vote_end = leg.voting_ended_at or leg.available_at
+            vote_start = vote_end - timedelta(hours=3)
 
-        # Convert to local time and back to UTC to simulate attendance in UTC-6 window
-        vote_start_local = vote_start.astimezone(local_tz)
-        vote_end_local = vote_end.astimezone(local_tz)
+            # Convert to local time and back to UTC to simulate attendance in UTC-6 window
+            vote_start_local = vote_start.astimezone(local_tz)
+            vote_end_local = vote_end.astimezone(local_tz)
 
-        vote_start_utc = vote_start_local.astimezone(pytz.UTC)
-        vote_end_utc = vote_end_local.astimezone(pytz.UTC)
+            vote_start_utc = vote_start_local.astimezone(pytz.UTC)
+            vote_end_utc = vote_end_local.astimezone(pytz.UTC)
 
-
-        # Only get the latest attendance record per user in the window
-        present_members = Attendance.objects.filter(
-            present=True,
-            created_at__range=(vote_start_utc, vote_end_utc)
-        ).order_by('user_id', '-created_at').distinct('user_id').select_related('user')
+            # Only get the latest attendance record per user in the window
+            present_members = Attendance.objects.filter(
+                present=True,
+                created_at__range=(vote_start_utc, vote_end_utc)
+            ).order_by('user_id', '-created_at').distinct('user_id').select_related('user')
 
         # Calculate percentages for display
         if leg.vote_mode != 'plurality':
@@ -98,11 +104,12 @@ def passed_legislation(request):
             'winner': winner,
         })
 
-        logger.info(f"{leg.title} present members: {[a.user.name for a in present_members]}")
+        if present_members:
+            logger.info(f"{leg.title} present members: {[a.user.name for a in present_members]}")
 
-        print("Present members for:", leg.title)
-        for pm in present_members:
-            print(f"- {pm.user.name} @ {pm.created_at}")
+            print("Present members for:", leg.title)
+            for pm in present_members:
+                print(f"- {pm.user.name} @ {pm.created_at}")
 
     return render(request, 'passed_legislation.html', {'passed_legislation': passed})
 

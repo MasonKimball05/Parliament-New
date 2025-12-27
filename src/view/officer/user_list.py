@@ -1,9 +1,10 @@
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from src.models import *
 from django.shortcuts import render
+from src.decorators import officer_or_advisor_required
 
 @login_required
-@user_passes_test(lambda u: u.member_type in ['Chair', 'Officer'])
+@officer_or_advisor_required
 def user_list(request):
     users = ParliamentUser.objects.all()
 

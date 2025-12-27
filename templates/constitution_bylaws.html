@@ -1,0 +1,1193 @@
+{% extends "base.html" %}
+
+{% block title %}Constitution & Bylaws - Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-8 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h1 class="text-4xl font-bold mb-2">Constitution & Bylaws</h1>
+            <p class="text-blue-100 text-lg">Alpha Mu Chapter of Beta Theta Pi at Samford University</p>
+            <p class="text-blue-200 text-sm mt-2">Last Updated: August 2025</p>
+
+            <!-- Search Bar -->
+            <div class="mt-6 relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+                <input type="text" id="searchInput" placeholder="Search Constitution & Bylaws... (e.g., 'quorum', 'officer', 'voting')"
+                       class="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900">
+                <div id="searchResults" class="mt-2 text-sm text-blue-100"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <!-- Table of Contents Sidebar -->
+            <div class="lg:col-span-1">
+                <div class="sticky top-4 bg-white rounded-lg shadow-md p-6 max-h-[calc(100vh-2rem)] overflow-y-auto">
+                    <h2 class="text-lg font-bold text-gray-900 mb-4">Table of Contents</h2>
+                    <nav class="space-y-2" id="tocNav">
+                        <!-- Quick Links -->
+                        <div class="mb-4 pb-4 border-b border-gray-200 space-y-2">
+                            <a href="{% url 'roberts_rules' %}" class="text-blue-600 hover:text-blue-800 text-sm flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                </svg>
+                                Robert's Rules →
+                            </a>
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-3 mb-1">Reference Documents</p>
+                            <a href="/media/legislation_docs/Constitution%20and%20Bylaws%20of%20the%20Samford%20Chapter%20-%20August%202025.pdf"
+                               target="_blank"
+                               class="text-green-600 hover:text-green-800 text-sm flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                Constitution & Bylaws PDF
+                            </a>
+                            <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf"
+                               target="_blank"
+                               class="text-purple-600 hover:text-purple-800 text-sm flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                Code of Beta Theta Pi
+                            </a>
+                            <a href="/media/legislation_docs/Kai-Binder.pdf"
+                               target="_blank"
+                               class="text-indigo-600 hover:text-indigo-800 text-sm flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                Kai Committee Binder
+                            </a>
+                            <a href="/media/legislation_docs/Trial-By-Chapter-Overview.pdf"
+                               target="_blank"
+                               class="text-red-600 hover:text-red-800 text-sm flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                Trial by Chapter Overview
+                            </a>
+                        </div>
+
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Constitution</p>
+                        <a href="#const-name" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">I. Name & Purpose</a>
+                        <a href="#const-membership" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">II. Membership</a>
+                        <a href="#const-leadership" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">III. Leadership</a>
+                        <a href="#const-meetings" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">IV. Meetings</a>
+                        <a href="#const-committees" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">V. Committees</a>
+                        <a href="#const-amendments" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">VI. Amendments</a>
+
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-4">Bylaws</p>
+                        <a href="#bylaws-membership" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">I. Membership</a>
+                        <a href="#bylaws-officers" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">II. Officers</a>
+                        <a href="#bylaws-governance" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">III. Self-Governance</a>
+                        <a href="#bylaws-financial" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">IV. Financial</a>
+                        <a href="#bylaws-rituals" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">V. Rituals & Ceremonies</a>
+                        <a href="#bylaws-expectations" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">VI. Board Expectations</a>
+                        <a href="#bylaws-committees" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">VII. Committee Details</a>
+                        <a href="#bylaws-chairs" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">VIII. Chair Details</a>
+                        <a href="#bylaws-advisors" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">IX. Advisors</a>
+                        <a href="#bylaws-amendments" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">X. Amendments</a>
+
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-4">Appendix</p>
+                        <a href="#appendix-forms" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">Executive Forms</a>
+                        <a href="#appendix-gpa" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">GPA Levels</a>
+                        <a href="#appendix-terms" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">Common Terms</a>
+
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-4 mb-1">Detail Pages</p>
+                        <a href="{% url 'passed_resolutions_detail' %}" class="block px-3 py-2 rounded hover:bg-emerald-50 text-sm text-emerald-700 hover:text-emerald-800 font-semibold">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Passed Resolutions →
+                        </a>
+                        <a href="{% url 'officer_duties_detail' %}" class="block px-3 py-2 rounded hover:bg-green-50 text-sm text-green-700 hover:text-green-800">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                            </svg>
+                            Officer Duties →
+                        </a>
+                        <a href="{% url 'committee_details' %}" class="block px-3 py-2 rounded hover:bg-purple-50 text-sm text-purple-700 hover:text-purple-800">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                            </svg>
+                            Committee Details →
+                        </a>
+                        <a href="{% url 'kai_procedures_detail' %}" class="block px-3 py-2 rounded hover:bg-yellow-50 text-sm text-yellow-700 hover:text-yellow-800">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                            </svg>
+                            Kai Procedures →
+                        </a>
+                        <a href="{% url 'slating_elections_detail' %}" class="block px-3 py-2 rounded hover:bg-red-50 text-sm text-red-700 hover:text-red-800">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                            </svg>
+                            Slating & Elections →
+                        </a>
+                        <a href="{% url 'advisors_detail' %}" class="block px-3 py-2 rounded hover:bg-blue-50 text-sm text-blue-700 hover:text-blue-800">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                            </svg>
+                            Chapter Advisors →
+                        </a>
+                        <a href="{% url 'academic_standards_detail' %}" class="block px-3 py-2 rounded hover:bg-orange-50 text-sm text-orange-700 hover:text-orange-800">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                            </svg>
+                            Academic Standards →
+                        </a>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="lg:col-span-3">
+                <div class="bg-white rounded-lg shadow-md p-8 space-y-8">
+
+                    <!-- Introduction -->
+                    <section id="overview">
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-6 mb-6">
+                            <h2 class="text-2xl font-bold text-blue-900 mb-3">About This Document</h2>
+                            <p class="text-gray-700 mb-2">This Constitution and Bylaws governs the operations of the Alpha Mu chapter of Beta Theta Pi at Samford University.</p>
+                            <p class="text-sm text-gray-600"><strong>Last Updated:</strong> August 2025</p>
+                            <p class="text-sm text-gray-600 mb-2"><strong>Note:</strong> All chapter meetings are governed by <a href="{% url 'roberts_rules' %}" class="text-blue-600 hover:underline">Robert's Rules of Order</a>.</p>
+                        </div>
+
+                        <!-- Passed Resolutions Link -->
+                        <div class="bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 p-6 mb-6 rounded-r-lg">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center flex-1">
+                                    <svg class="w-6 h-6 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <div>
+                                        <h3 class="text-lg font-bold text-green-900">Passed Resolutions & Amendments</h3>
+                                        <p class="text-sm text-gray-700">View all legislation that has impacted this document</p>
+                                    </div>
+                                </div>
+                                <a href="{% url 'passed_resolutions_detail' %}" class="ml-4 inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow transition-colors">
+                                    View Resolutions
+                                    <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- CONSTITUTION -->
+                    <div class="border-t-4 border-blue-600 pt-6">
+                        <h1 class="text-3xl font-bold text-blue-900 mb-6">Constitution</h1>
+
+                        <!-- Article I: Name and Purpose -->
+                        <section id="const-name" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Article I: Name and Purpose</h2>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 1. Name</h3>
+                            <p class="text-gray-700 mb-4">The name of this organization shall be the Samford chapter, the Alpha Mu of Beta Theta Pi.</p>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 2. Purpose</h3>
+                            <p class="text-gray-700 mb-4">The purpose of this chapter is to uphold the values, principles, and standards of Beta Theta Pi as outlined in the fraternity's Constitution and <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 hover:underline">Code</a>.</p>
+
+                            <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4 mt-4">
+                                <p class="text-sm font-semibold text-yellow-900 mb-2">📄 Reference Document</p>
+                                <p class="text-sm text-gray-700">
+                                    <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 hover:underline">Code of Beta Theta Pi (44th Edition)</a> - The fraternity's governing document that this chapter follows.
+                                </p>
+                            </div>
+                        </section>
+
+                        <!-- Article II: Membership -->
+                        <section id="const-membership" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Article II: Membership</h2>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 1. Membership Requirements</h3>
+                            <ul class="list-disc pl-6 space-y-2 text-gray-700 mb-4">
+                                <li>Eligible members must be regularly enrolled male students, either graduate or undergraduate, at Samford University</li>
+                                <li>Members must not belong to any similar fraternity or organization</li>
+                            </ul>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 2. Membership Categories</h3>
+                            <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                                <ul class="space-y-2 text-gray-700">
+                                    <li><strong>Collegiate Member:</strong> As defined in the <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 hover:underline">Code of Beta Theta Pi</a>, Chapter VIII Section 1(B)(a)</li>
+                                    <li><strong>Active Member:</strong> A Collegiate Member who is neither a Temporarily Inactive Member nor a Suspended Member</li>
+                                    <li><strong>Temporarily Inactive Member:</strong> As defined in the <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 hover:underline">Code of Beta Theta Pi</a>, Chapter VIII Section 1(B)(b)</li>
+                                    <li><strong>Alumnus Member:</strong> As defined in the <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 hover:underline">Code of Beta Theta Pi</a>, Chapter VIII Section 1(B)(c)</li>
+                                    <li><strong>Suspended Member:</strong> As defined in the <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 hover:underline">Code of Beta Theta Pi</a>, Chapter VIII Section 1(B)(d)</li>
+                                    <li><strong>Recused Member:</strong> As defined in the <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 hover:underline">Code of Beta Theta Pi</a>, Chapter VIII Section 1(B)(e)</li>
+                                </ul>
+                            </div>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 3. Membership Procedures</h3>
+                            <ul class="list-disc pl-6 space-y-2 text-gray-700 mb-4">
+                                <li>All new members must be initiated according to the General Fraternity's initiation Ritual and the chapter's pre-initiation rituals</li>
+                                <li>Membership rights are equal for all members, regardless of race, color, creed, religion, age, disability, ethnic orientation, sexual orientation, national origin, or position within the fraternity or chapter</li>
+                            </ul>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 4. Membership Records</h3>
+                            <p class="text-gray-700 mb-4">The chapter must maintain an official roll book of all initiated members, which should include each member's first name, last name, initiation date, roll number, and date of birth.</p>
+                        </section>
+
+                        <!-- Article III: Leadership -->
+                        <section id="const-leadership" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Article III: Leadership</h2>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 1. Introduction</h3>
+                            <p class="text-gray-700 mb-4">An Executive Board will serve as leaders and officers. These members are responsible for all operational activities and facilitate the development of a positive chapter culture congruent with the values of Beta Theta Pi.</p>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 2. Purpose of the Executive Board</h3>
+                            <ul class="list-disc pl-6 space-y-2 text-gray-700 mb-4">
+                                <li>Facilitate the strategic vision and sustainable operation of the chapter</li>
+                                <li>Control financial assets</li>
+                                <li>Report at stated times and intervals on the condition of the chapter</li>
+                                <li>Prepare business resulting in orderly and succinct meetings</li>
+                                <li>Determine policy in advance for approval at chapter meetings</li>
+                                <li>Provide in all other ways possible for the business-like administration of chapter affairs and policies</li>
+                            </ul>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 3. Chapter Officers</h3>
+                            <div class="bg-blue-50 p-4 rounded-lg mb-4">
+                                <p class="text-gray-700 mb-2"><strong>Officer Positions:</strong></p>
+                                <ul class="grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-700">
+                                    <li>• President</li>
+                                    <li>• Executive Vice President & IFC Delegate</li>
+                                    <li>• Vice President of Administration</li>
+                                    <li>• Vice President of Brotherhood</li>
+                                    <li>• Vice President of Finance</li>
+                                    <li>• Vice President of Risk Management</li>
+                                    <li>• Vice President of Recruitment</li>
+                                    <li>• Vice President of Education</li>
+                                    <li>• Vice President of Programming</li>
+                                </ul>
+                            </div>
+
+                            <div class="bg-green-50 border-l-4 border-green-500 p-4 mb-4">
+                                <p class="text-sm font-semibold text-green-900 mb-2">📋 Detailed Officer Information</p>
+                                <p class="text-sm text-gray-700">For comprehensive duties, responsibilities, and expectations for each officer position, see our <a href="{% url 'officer_duties_detail' %}" class="text-blue-600 hover:underline font-semibold">Officer Duties Reference Guide</a>.</p>
+                            </div>
+
+                            <p class="text-gray-700 mb-4">No member of the chapter may hold a title or office without first being elected to that position by the chapter.</p>
+                        </section>
+
+                        <!-- Article IV: Meetings -->
+                        <section id="const-meetings" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Article IV: Meetings</h2>
+
+                            <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4">
+                                <p class="text-sm font-semibold text-yellow-900 mb-2">🔗 Connection to Robert's Rules</p>
+                                <p class="text-sm text-gray-700">Section 4 states: "All meetings are to be governed by <a href="{% url 'roberts_rules' %}" class="text-blue-600 hover:underline">Robert's Rules of Order</a>."</p>
+                            </div>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 1. Regular Meetings</h3>
+                            <ul class="list-disc pl-6 space-y-2 text-gray-700 mb-4">
+                                <li>Weekly chapter meetings will be held at a set time to be established no later than the final weekly meeting of the proceeding semester</li>
+                                <li>Executive Board meetings shall be scheduled at the discretion of the Executive Board and should generally be open to all chapter members</li>
+                            </ul>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 2. Special Meetings</h3>
+                            <p class="text-gray-700 mb-2">Special meetings may be called with four (4) hours advance notice by:</p>
+                            <ul class="list-disc pl-6 space-y-2 text-gray-700 mb-4">
+                                <li>The President</li>
+                                <li>The Executive Board</li>
+                                <li>The advisory team</li>
+                                <li>A supermajority of active, good standing members of the chapter</li>
+                            </ul>
+                            <p class="text-gray-700 mb-4">New Business introduced at a chapter meeting may not be voted upon until a subsequent meeting, unless two-thirds of the active members present and eligible to vote deem it necessary.</p>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 3. Quorum</h3>
+                            <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                                <p class="text-gray-700 mb-2">A quorum for chapter meetings shall consist of a <strong>simple majority of Active Members</strong>.</p>
+                                <p class="text-gray-700">A quorum is required to pass any legislation at any special meetings or chapter meetings.</p>
+                            </div>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 4. Meeting Processes</h3>
+                            <div class="bg-yellow-50 p-4 rounded-lg mb-4">
+                                <p class="text-gray-700 mb-2"><strong>1. All meetings are to be governed by Robert's Rules of Order</strong></p>
+                                <p class="text-sm text-gray-600">See our <a href="{% url 'roberts_rules' %}" class="text-blue-600 hover:underline">Robert's Rules Reference</a> for detailed procedures on making motions, voting, and parliamentary procedure.</p>
+                                <p class="text-gray-700 mt-2"><strong>2. Meetings are closed to the public</strong> unless there are specific matters that permit non-members or non-pledges to attend.</p>
+                            </div>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 5. Voting</h3>
+                            <ul class="list-disc pl-6 space-y-2 text-gray-700 mb-4">
+                                <li>All present Active Members in Good Standing have one vote</li>
+                                <li>The Vice President of Administration will count and record all votes in the minutes</li>
+                                <li>An advisor of the chapter must be present for elections, amendments, Trial by Chapters, and selection of potential new members</li>
+                            </ul>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 6. Attendance</h3>
+
+                            <div class="bg-orange-50 border-l-4 border-orange-500 p-6 mb-4">
+                                <div class="flex items-start mb-4">
+                                    <div class="flex-shrink-0">
+                                        <svg class="h-6 w-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                    </div>
+                                    <div class="ml-3">
+                                        <h4 class="text-lg font-bold text-orange-900">Attendance Requirements</h4>
+                                        <p class="text-sm text-orange-800 mt-1">Attendance is a key component of Good Standing status</p>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-4">
+                                    <div class="bg-white p-4 rounded-lg border border-orange-200">
+                                        <p class="font-semibold text-gray-900 mb-3">📅 Absence Policy:</p>
+                                        <ul class="space-y-2 text-gray-700">
+                                            <li class="flex items-start">
+                                                <span class="text-orange-500 mr-2 mt-1">•</span>
+                                                <span><strong>Maximum absences:</strong> Three (3) chapter meetings per semester</span>
+                                            </li>
+                                            <li class="flex items-start">
+                                                <span class="text-orange-500 mr-2 mt-1">•</span>
+                                                <span><strong>Unexcused absences:</strong> Not more than one (1) per semester</span>
+                                            </li>
+                                            <li class="flex items-start">
+                                                <span class="text-orange-500 mr-2 mt-1">•</span>
+                                                <span><strong>Advance notice required:</strong> Submit absence to VP of Administration at least 24 hours in advance</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+
+                                    <div class="bg-white p-4 rounded-lg border border-orange-200">
+                                        <p class="font-semibold text-gray-900 mb-3">⏰ Tardiness Policy:</p>
+                                        <div class="space-y-3">
+                                            <div class="flex items-center justify-between bg-yellow-50 p-3 rounded">
+                                                <span class="text-sm text-gray-700">Arriving more than <strong>3 minutes</strong> late</span>
+                                                <span class="text-xs font-semibold text-yellow-800 bg-yellow-200 px-2 py-1 rounded">Marked "Tardy"</span>
+                                            </div>
+                                            <div class="flex items-center justify-between bg-red-50 p-3 rounded">
+                                                <span class="text-sm text-gray-700">Arriving more than <strong>15 minutes</strong> late</span>
+                                                <span class="text-xs font-semibold text-red-800 bg-red-200 px-2 py-1 rounded">Marked "Absent"</span>
+                                            </div>
+                                            <div class="bg-gray-50 p-3 rounded border-l-4 border-gray-400">
+                                                <p class="text-sm text-gray-700"><strong>Conversion:</strong> Two (2) tardies = one (1) absence for Good Standing purposes</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="bg-red-50 border border-red-300 p-3 rounded">
+                                        <p class="text-sm font-semibold text-red-900 mb-1">⚠️ Consequences of Excessive Absences:</p>
+                                        <p class="text-xs text-red-800">Exceeding attendance limits may result in loss of Good Standing status and potential referral to the Kai Committee.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Article V: Committees -->
+                        <section id="const-committees" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Article V: Committees</h2>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 3. Maintained Committees</h3>
+                            <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                                <ul class="grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-700">
+                                    <li>• Executive Board</li>
+                                    <li>• Kai Committee</li>
+                                    <li>• Brotherhood Committee</li>
+                                    <li>• Recruitment Committee</li>
+                                    <li>• Education Committee</li>
+                                    <li>• Risk Management Committee</li>
+                                    <li>• Finance Committee</li>
+                                    <li>• Administration Committee</li>
+                                    <li>• Programming Committee</li>
+                                    <li>• Ritual Committee</li>
+                                    <li>• Constitution and Bylaws Committee</li>
+                                </ul>
+                            </div>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 5. Committee Chairs</h3>
+                            <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                                <ul class="grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-700">
+                                    <li>• Social Chair</li>
+                                    <li>• Tabling Chair</li>
+                                    <li>• Ritual Chair</li>
+                                    <li>• Historian & Archivist</li>
+                                    <li>• Health & Wellness Chair</li>
+                                    <li>• Chaplain</li>
+                                    <li>• DEI Chair</li>
+                                    <li>• Chorister</li>
+                                    <li>• Scholarship Chair</li>
+                                    <li>• Kai Committee Chair</li>
+                                    <li>• Marketing & Advertising Chair</li>
+                                    <li>• Constitution and Bylaws Chair</li>
+                                    <li>• Sergeant at Arms</li>
+                                    <li>• Awards Chair</li>
+                                </ul>
+                            </div>
+
+                            <div class="bg-purple-50 border-l-4 border-purple-500 p-4 mb-4">
+                                <p class="text-sm font-semibold text-purple-900 mb-2">📋 Detailed Committee Information</p>
+                                <p class="text-sm text-gray-700">For complete information on committee composition, meetings, responsibilities, and chair duties, see our <a href="{% url 'committee_details' %}" class="text-blue-600 hover:underline font-semibold">Committee Details Reference Guide</a>.</p>
+                            </div>
+                        </section>
+
+                        <!-- Article VI: Amendments to the Constitution -->
+                        <section id="const-amendments" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Article VI: Amendments to the Constitution</h2>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 1. Proposals</h3>
+                            <ul class="list-disc pl-6 space-y-2 text-gray-700 mb-4">
+                                <li>Proposed amendments must be submitted in writing to the Executive Board for initial approval</li>
+                                <li>Requires <strong>supermajority vote</strong> from the Executive Board</li>
+                                <li>If Executive Board approval fails, member may bring motion to chapter meeting</li>
+                                <li>Failed proposals cannot be reintroduced for <strong>15 chapter meetings</strong></li>
+                            </ul>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 2. Approval of Amendments</h3>
+                            <div class="bg-blue-50 p-4 rounded-lg mb-4">
+                                <p class="text-gray-700">Amendments to the constitution must be approved by a <strong>supermajority (2/3) of the active members present</strong> at a chapter or special meeting where a quorum is present.</p>
+                            </div>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 3. Amendment Authority</h3>
+                            <p class="text-gray-700 mb-2">All amendments are subordinate to:</p>
+                            <ul class="list-disc pl-6 space-y-2 text-gray-700 mb-4">
+                                <li>The <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 hover:underline">Code of Beta Theta Pi</a></li>
+                                <li>The Interfraternity Council</li>
+                                <li>Samford University</li>
+                                <li>Any applicable municipal, state, or federal laws</li>
+                            </ul>
+                        </section>
+                    </div>
+
+                    <!-- BYLAWS -->
+                    <div class="border-t-4 border-indigo-600 pt-6 mt-8">
+                        <h1 class="text-3xl font-bold text-indigo-900 mb-6">Bylaws</h1>
+
+                        <!-- Article I: Membership -->
+                        <section id="bylaws-membership" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Article I: Membership</h2>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 1. Membership Expectations</h3>
+                            <div class="bg-indigo-50 p-4 rounded-lg mb-4">
+                                <p class="text-gray-700 mb-3"><strong>The Five Pillars of Beta Membership:</strong></p>
+                                <ul class="space-y-3 text-gray-700">
+                                    <li><strong>Cultivation of the Intellect:</strong>
+                                        <ul class="list-disc pl-6 mt-1 text-sm">
+                                            <li>Maintain GPA at or above All Men's Average or 3.0 (whichever is higher) - <a href="{% url 'academic_standards_detail' %}" class="text-blue-600 hover:underline font-semibold">See Academic Standards Guide</a></li>
+                                            <li>No cheating, plagiarism, or academic dishonesty</li>
+                                        </ul>
+                                    </li>
+                                    <li><strong>Responsible Conduct:</strong>
+                                        <ul class="list-disc pl-6 mt-1 text-sm">
+                                            <li>Urbane in deportment, courteous in expression, steadfast in friendship</li>
+                                            <li>No illegal or controlled substances</li>
+                                            <li>No alcohol or drug abuse</li>
+                                            <li>Follow all laws and Beta Risk Management Policy</li>
+                                        </ul>
+                                    </li>
+                                    <li><strong>Mutual Assistance:</strong>
+                                        <ul class="list-disc pl-6 mt-1 text-sm">
+                                            <li>Complete at least 15 hours of service per academic year</li>
+                                        </ul>
+                                    </li>
+                                    <li><strong>Integrity:</strong>
+                                        <ul class="list-disc pl-6 mt-1 text-sm">
+                                            <li>Uphold Beta standards even if campus culture is lower</li>
+                                            <li>No alcohol during PNM events or interactions</li>
+                                            <li>Substance and alcohol-free fraternity house</li>
+                                            <li>Meet all financial obligations in timely manner</li>
+                                        </ul>
+                                    </li>
+                                    <li><strong>Trust:</strong>
+                                        <ul class="list-disc pl-6 mt-1 text-sm">
+                                            <li>No hazing (as defined by Beta and Samford University)</li>
+                                            <li>Treat others with respect</li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 4. Good Standing</h3>
+                            <p class="text-gray-700 mb-2">A member shall be considered in Good Standing unless such member:</p>
+                            <ul class="list-disc pl-6 space-y-2 text-gray-700 mb-4">
+                                <li>Is deemed otherwise through the Kai Committee</li>
+                                <li>Fails to meet requirements for Good Academic Standing</li>
+                                <li>Fails to meet all fraternity financial obligations</li>
+                            </ul>
+                        </section>
+
+                        <!-- Article II: Officers (Condensed) -->
+                        <section id="bylaws-officers" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Article II: Officers</h2>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Officer Slating Process</h3>
+                            <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                                <p class="text-gray-700 mb-2"><strong>Timeline:</strong></p>
+                                <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700 mb-3">
+                                    <li>Selection occurs between fall initiation and end of fall semester</li>
+                                    <li>Class Representative Elections first</li>
+                                    <li>Slating Committee meetings (at least 2 weeks before presentation)</li>
+                                    <li>Slate presentation (at least 1 week before end of semester)</li>
+                                </ul>
+
+                                <p class="text-gray-700 mb-2"><strong>Slating Committee Membership:</strong></p>
+                                <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                                    <li>President (chair)</li>
+                                    <li>Constitution and Bylaws Chair</li>
+                                    <li>One representative from each class (Senior, Junior, Sophomore, New Member)</li>
+                                    <li>Advisors (advisory vote for tie-breaking only)</li>
+                                </ul>
+                            </div>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">GPA-Based Applicant Levels</h3>
+                            <table class="min-w-full border border-gray-300 text-sm mb-4">
+                                <thead class="bg-gray-100">
+                                    <tr>
+                                        <th class="border px-4 py-2">Level</th>
+                                        <th class="border px-4 py-2">GPA Range</th>
+                                        <th class="border px-4 py-2">Priority</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="border px-4 py-2">Level 1</td>
+                                        <td class="border px-4 py-2">Meets/Exceeds requirement</td>
+                                        <td class="border px-4 py-2">First consideration</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="border px-4 py-2">Level 2</td>
+                                        <td class="border px-4 py-2">Within 0.20 of requirement</td>
+                                        <td class="border px-4 py-2">Second consideration</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="border px-4 py-2">Level 3</td>
+                                        <td class="border px-4 py-2">Below Level 2</td>
+                                        <td class="border px-4 py-2">Final consideration</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Slate Approval Process</h3>
+                            <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4">
+                                <p class="text-sm font-semibold text-yellow-900 mb-2">🔗 Uses Robert's Rules</p>
+                                <p class="text-sm text-gray-700">The slate presentation follows <a href="{% url 'roberts_rules' %}" class="text-blue-600 hover:underline">Robert's Rules of Order</a> with moderated caucus and voting procedures.</p>
+                            </div>
+                            <ul class="list-disc pl-6 space-y-2 text-gray-700 mb-4">
+                                <li>Requires <strong>60% majority</strong> to pass</li>
+                                <li>Secret ballot voting</li>
+                                <li>Up to 3 attempts with possible modifications</li>
+                                <li>If slate fails 3 times, individual office votes occur</li>
+                            </ul>
+
+                            <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+                                <p class="text-sm font-semibold text-red-900 mb-2">🗳️ Complete Election Process</p>
+                                <p class="text-sm text-gray-700">For the complete officer slating and election process, including eligibility requirements, timelines, voting methods, and post-election procedures, see our <a href="{% url 'slating_elections_detail' %}" class="text-blue-600 hover:underline font-semibold">Officer Slating & Elections Guide</a>.</p>
+                            </div>
+                        </section>
+
+                        <!-- Article III: Self-Governance -->
+                        <section id="bylaws-governance" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Article III: Self-Governance</h2>
+
+                            <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4">
+                                <p class="text-sm font-semibold text-yellow-900 mb-2">📚 Reference Documents & Resources</p>
+                                <div class="text-sm text-gray-700 space-y-1">
+                                    <p>• <a href="{% url 'kai_procedures_detail' %}" class="text-blue-600 hover:underline font-semibold">Kai Procedures Detail Page</a> - Interactive guide to the complete Kai process, violations, sanctions, and member rights</p>
+                                    <p>• <a href="/media/legislation_docs/Kai-Binder.pdf" target="_blank" class="text-blue-600 hover:underline">Kai Committee Binder</a> - Complete procedures and guidelines for Kai Committee operations</p>
+                                    <p>• <a href="/media/legislation_docs/Trial-By-Chapter-Overview.pdf" target="_blank" class="text-blue-600 hover:underline">Trial by Chapter Overview</a> - Process for severe violations requiring expulsion consideration</p>
+                                </div>
+                            </div>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Kai Committee</h3>
+                            <div class="bg-indigo-50 p-4 rounded-lg mb-4">
+                                <p class="text-gray-700 mb-3"><strong>Purpose:</strong> Adjudicating breaches of membership expectations and acting as a mediating body.</p>
+
+                                <p class="text-gray-700 mb-2"><strong>Membership (5 to 9 members):</strong></p>
+                                <ul class="list-disc pl-6 text-sm text-gray-700 mb-3">
+                                    <li>Kai Committee Chair (usually VP of Brotherhood)</li>
+                                    <li>1-2 Senior delegates (elected)</li>
+                                    <li>1-2 Junior delegates (elected)</li>
+                                    <li>1-2 Sophomore delegates (elected)</li>
+                                    <li>1-2 At-large delegates (elected)</li>
+                                </ul>
+
+                                <p class="text-gray-700 mb-2"><strong>Violation Categories & Sanctions:</strong></p>
+                                <div class="text-sm space-y-2">
+                                    <div class="border-l-4 border-red-500 pl-3">
+                                        <p class="font-semibold text-red-900">Severe Violations:</p>
+                                        <p class="text-gray-600">Illegal drugs, hazing, felonies, DUI, alcohol on property → Possible expulsion via <a href="/media/legislation_docs/Trial-By-Chapter-Overview.pdf" target="_blank" class="text-blue-600 hover:underline">Trial by Chapter</a></p>
+                                    </div>
+                                    <div class="border-l-4 border-orange-500 pl-3">
+                                        <p class="font-semibold text-orange-900">Moderate Violations:</p>
+                                        <p class="text-gray-600">Risk management duty failure, property destruction, MIP → Removal from office, suspension, social probation, fines</p>
+                                    </div>
+                                    <div class="border-l-4 border-yellow-500 pl-3">
+                                        <p class="font-semibold text-yellow-900">Minor Violations:</p>
+                                        <p class="text-gray-600">Accidental damage, attendance issues, grade failures → Formal apology, repairs, fines, education</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Academic Assistance Plan</h3>
+                            <table class="min-w-full border border-gray-300 text-sm mb-4">
+                                <thead class="bg-gray-100">
+                                    <tr>
+                                        <th class="border px-4 py-2">Status</th>
+                                        <th class="border px-4 py-2">GPA Range</th>
+                                        <th class="border px-4 py-2">Requirements</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="border px-4 py-2 bg-green-50">Good Standing</td>
+                                        <td class="border px-4 py-2">≥ AMA or 3.0</td>
+                                        <td class="border px-4 py-2">None</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="border px-4 py-2 bg-yellow-50">Warning</td>
+                                        <td class="border px-4 py-2">Within 0.2 of AMA or 2.8-2.99</td>
+                                        <td class="border px-4 py-2">5 study hours/week, Kai meeting, campus academic office</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="border px-4 py-2 bg-orange-50">Probation One</td>
+                                        <td class="border px-4 py-2">Within 0.4 of AMA or 2.6-2.79</td>
+                                        <td class="border px-4 py-2">10 study hours/week, monthly VP/Scholarship check-ins</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="border px-4 py-2 bg-red-50">Probation Two</td>
+                                        <td class="border px-4 py-2">> 0.4 below AMA or < 2.6</td>
+                                        <td class="border px-4 py-2">Automatic Kai referral with expulsion recommendation</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <div class="bg-orange-50 border-l-4 border-orange-500 p-4 mb-4">
+                                <p class="text-sm font-semibold text-orange-900 mb-2">📚 Comprehensive Academic Standards Information</p>
+                                <p class="text-sm text-gray-700">For detailed information on each academic standing level, support resources available, officer GPA requirements, academic integrity expectations, and frequently asked questions, see our <a href="{% url 'academic_standards_detail' %}" class="text-blue-600 hover:underline font-semibold">Academic Standards Reference Guide</a>.</p>
+                            </div>
+                        </section>
+
+                        <!-- Article IV: Financial -->
+                        <section id="bylaws-financial" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Article IV: Financial</h2>
+
+                            <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                                <h3 class="font-semibold text-gray-800 mb-2">Dues & Fees</h3>
+                                <ul class="list-disc pl-6 space-y-2 text-gray-700 text-sm">
+                                    <li>Annual dues set by chapter (majority vote required)</li>
+                                    <li>Payment plans available upon request to VP of Finance</li>
+                                    <li>All fees distributed via Billhighway</li>
+                                    <li>2 weeks to pay in full or make first payment</li>
+                                    <li>Delinquent members referred to Kai Committee</li>
+                                </ul>
+
+                                <h3 class="font-semibold text-gray-800 mb-2 mt-4">Budget</h3>
+                                <ul class="list-disc pl-6 space-y-2 text-gray-700 text-sm">
+                                    <li>Prepared by VP of Finance with Finance Committee and President</li>
+                                    <li>Must be approved by Finance Advisor and Chapter Counselor</li>
+                                    <li>Chapter approval by simple majority required</li>
+                                    <li>Must be approved prior to final chapter meeting of preceding term</li>
+                                </ul>
+
+                                <h3 class="font-semibold text-gray-800 mb-2 mt-4">Spending</h3>
+                                <ul class="list-disc pl-6 space-y-2 text-gray-700 text-sm">
+                                    <li>All bills paid by check or Billhighway card</li>
+                                    <li>Funding requests submitted 48 hours in advance</li>
+                                    <li>Requires approval from 2 of: VP Finance, President, Finance Advisor, or Chapter Counselor</li>
+                                </ul>
+                            </div>
+                        </section>
+
+                        <!-- Article V: Rituals and Ceremonies -->
+                        <section id="bylaws-rituals" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Article V: Rituals and Ceremonies</h2>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 1. Formal Chapter</h3>
+                            <ul class="list-disc pl-6 space-y-2 text-gray-700 mb-4">
+                                <li>Formal Chapter meetings must be held at least once a month</li>
+                                <li>Follow Ritual outline for formal meetings</li>
+                                <li>Badge Attire required (including tie and badge)</li>
+                                <li>First meeting of each month should be designated as Formal Chapter</li>
+                                <li>Opening and closing chapter meetings of each semester should be formal</li>
+                            </ul>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 2. Pre-Initiation Practices</h3>
+                            <p class="text-gray-700 mb-4">All pre-initiation and initiation ceremonies shall follow the fraternity's prescribed Ritual and be conducted within the chapter house or hall unless prior approval is obtained.</p>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 3. Ceremony Approval</h3>
+                            <p class="text-gray-700 mb-4">Local ritual ceremonies, not stated in the ritual book, must be submitted in writing to the District Chief for pre-approval.</p>
+                        </section>
+
+                        <!-- Article VI: Executive Board Expectations (Condensed) -->
+                        <section id="bylaws-expectations" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Article VI: Executive Board Expectations</h2>
+
+                            <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4">
+                                <p class="text-sm font-semibold text-yellow-900 mb-2">🔗 Connection to Robert's Rules</p>
+                                <p class="text-sm text-gray-700">EVP serves as parliamentarian and must understand <a href="{% url 'roberts_rules' %}" class="text-blue-600 hover:underline">Robert's Rules of Order</a>. EVP must host Robert's Rules training at least once per term.</p>
+                            </div>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">All Board Members Must:</h3>
+                            <ul class="list-disc pl-6 space-y-2 text-gray-700 mb-4">
+                                <li>Attend annual officer transition meeting</li>
+                                <li>Attend all required campus and General Fraternity events/trainings</li>
+                                <li>Attend regularly scheduled Chapter and Executive Board meetings</li>
+                                <li>Prepare and give officer reports at each meeting</li>
+                                <li>Understand and abide by <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 hover:underline">Code of Beta</a>, Risk Management Policy, Chapter Constitution & Bylaws, and IFC policies</li>
+                                <li>Serve as role model within chapter and campus community</li>
+                            </ul>
+
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <p class="text-sm text-gray-700"><strong>Note:</strong> Detailed responsibilities for each officer position (President, EVP, VPs) are outlined in Section 2 of this Article. See full Constitution & Bylaws document for complete officer duties.</p>
+                            </div>
+                        </section>
+
+                        <!-- Article VII: Committee Details (Summary) -->
+                        <section id="bylaws-committees" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Article VII: Committee Details</h2>
+
+                            <p class="text-gray-700 mb-4">This article provides detailed operational guidelines for each maintained committee:</p>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div class="border border-gray-200 p-3 rounded">
+                                    <h4 class="font-semibold text-gray-800">Kai Committee</h4>
+                                    <p class="text-sm text-gray-600">Handles all disciplinary reviews, maintains written records, ensures Rights of the Accused</p>
+                                </div>
+                                <div class="border border-gray-200 p-3 rounded">
+                                    <h4 class="font-semibold text-gray-800">Brotherhood Committee</h4>
+                                    <p class="text-sm text-gray-600">Organizes brotherhood events, ensures positive atmosphere</p>
+                                </div>
+                                <div class="border border-gray-200 p-3 rounded">
+                                    <h4 class="font-semibold text-gray-800">Recruitment Committee</h4>
+                                    <p class="text-sm text-gray-600">5-9 members plus VP and President, supermajority vote required for bids</p>
+                                </div>
+                                <div class="border border-gray-200 p-3 rounded">
+                                    <h4 class="font-semibold text-gray-800">Education Committee</h4>
+                                    <p class="text-sm text-gray-600">Standard New Member Orientation, annual education, member development</p>
+                                </div>
+                                <div class="border border-gray-200 p-3 rounded">
+                                    <h4 class="font-semibold text-gray-800">Risk Management Committee</h4>
+                                    <p class="text-sm text-gray-600">Ensures Beta Risk Management Policy implementation, member education</p>
+                                </div>
+                                <div class="border border-gray-200 p-3 rounded">
+                                    <h4 class="font-semibold text-gray-800">Finance Committee</h4>
+                                    <p class="text-sm text-gray-600">Budget preparation, bill collection, complete financial records</p>
+                                </div>
+                                <div class="border border-gray-200 p-3 rounded">
+                                    <h4 class="font-semibold text-gray-800">Administration Committee</h4>
+                                    <p class="text-sm text-gray-600">Announcements, reporting, alumni relations, social media</p>
+                                </div>
+                                <div class="border border-gray-200 p-3 rounded">
+                                    <h4 class="font-semibold text-gray-800">Programming Committee</h4>
+                                    <p class="text-sm text-gray-600">Service, philanthropy, intramurals, special events</p>
+                                </div>
+                                <div class="border border-gray-200 p-3 rounded">
+                                    <h4 class="font-semibold text-gray-800">Ritual Committee</h4>
+                                    <p class="text-sm text-gray-600">President, VPB, VPE, Ritual Chair, Chorister, +2 members</p>
+                                </div>
+                                <div class="border border-gray-200 p-3 rounded">
+                                    <h4 class="font-semibold text-gray-800">Constitution & Bylaws Committee</h4>
+                                    <p class="text-sm text-gray-600">Min. 5 members, drafts amendments, requires unanimous committee vote</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Article VIII: Committee Chair Details (Summary) -->
+                        <section id="bylaws-chairs" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Article VIII: Committee Chair Details</h2>
+
+                            <p class="text-gray-700 mb-4">Specific duties and responsibilities for all committee chairs:</p>
+
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                    <div><strong>Social Chair:</strong> Plans mixers, formals, social events</div>
+                                    <div><strong>Tabling Chair:</strong> Organizes recruitment & event tabling</div>
+                                    <div><strong>Ritual Chair:</strong> Runs all rituals, manages Ritual Committee</div>
+                                    <div><strong>Historian & Archivist:</strong> Preserves chapter history, maintains records</div>
+                                    <div><strong>Health & Wellness:</strong> Wellness hours, programming support</div>
+                                    <div><strong>Chaplain:</strong> Moral/spiritual guidance, optional events</div>
+                                    <div><strong>DEI Chair:</strong> Diversity, equity, inclusion initiatives</div>
+                                    <div><strong>Chorister:</strong> Leads musical traditions, songs, hymns</div>
+                                    <div><strong>Scholarship Chair:</strong> Finds scholarship opportunities</div>
+                                    <div><strong>Kai Committee Chair:</strong> Convenes Kai meetings, contacts referred members</div>
+                                    <div><strong>Marketing & Advertising:</strong> Manages public image, social media</div>
+                                    <div><strong>Constitution & Bylaws Chair:</strong> Heads committee, drafts amendments</div>
+                                    <div><strong>Sergeant at Arms:</strong> Maintains order during meetings</div>
+                                    <div><strong>Awards Chair:</strong> Manages chapter awards and recognition</div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Article IX: Advisors -->
+                        <section id="bylaws-advisors" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Article IX: Advisors</h2>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Advisory Team Structure</h3>
+                            <p class="text-gray-700 mb-2">Recommended minimum of five (5) members serving as coaches for the Executive Board:</p>
+
+                            <div class="bg-indigo-50 p-4 rounded-lg mb-4">
+                                <p class="font-semibold text-gray-800 mb-2">Core Advisors (Required):</p>
+                                <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700 mb-3">
+                                    <li>Chapter Counselor (advises President & EVP, coordinates team)</li>
+                                    <li>Recruitment Advisor (advises VP of Recruitment)</li>
+                                    <li>Finance Advisor (advises VP of Finance)</li>
+                                    <li>Risk Management Advisor (advises VP of Risk Management)</li>
+                                    <li>Member Education Advisor (advises VP of Education)</li>
+                                </ul>
+
+                                <p class="font-semibold text-gray-800 mb-2">Additional Advisors (Optional):</p>
+                                <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                                    <li>Brotherhood Advisor (advises VP of Brotherhood, Kai Committee)</li>
+                                    <li>Administration Advisor (advises VP of Administration)</li>
+                                    <li>Programming Advisor (advises VP of Programming)</li>
+                                    <li>Other specialized advisors as needed</li>
+                                </ul>
+                            </div>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Purpose</h3>
+                            <p class="text-gray-700 mb-4">Provide advice and assistance in chapter operations and development of culture and identity, as well as a sustained link between multiple Executive Boards.</p>
+
+                            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                                <p class="text-sm font-semibold text-blue-900 mb-2">👥 Detailed Advisor Information</p>
+                                <p class="text-sm text-gray-700">For comprehensive information on advisor roles, responsibilities, how they help, when to contact them, and the advisor selection process, see our <a href="{% url 'advisors_detail' %}" class="text-blue-600 hover:underline font-semibold">Chapter Advisors Reference Guide</a>.</p>
+                            </div>
+                        </section>
+
+                        <!-- Article X: Amendments to the Bylaws -->
+                        <section id="bylaws-amendments" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Article X: Amendments to the Bylaws</h2>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 1. Proposals</h3>
+                            <ul class="list-disc pl-6 space-y-2 text-gray-700 mb-4">
+                                <li>Proposed amendments must be submitted in writing to the Executive Board for initial approval</li>
+                                <li>Requires <strong>simple majority vote</strong> from the Executive Board</li>
+                                <li>If Executive Board approval fails, member may bring motion to chapter meeting</li>
+                                <li>Failed proposals cannot be reintroduced for <strong>10 chapter meetings</strong></li>
+                                <li>"Protected Status" prevents changes to failed amendment content during protection period</li>
+                            </ul>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 2. Approval of Amendments</h3>
+                            <div class="bg-indigo-50 p-4 rounded-lg mb-4">
+                                <p class="text-gray-700">Amendments must be approved by a <strong>simple majority of the active members present</strong> at a chapter or special meeting where a quorum is present.</p>
+                                <p class="text-sm text-gray-600 mt-2"><em>Note: Bylaws require simple majority (51%) vs. Constitution which requires supermajority (67%)</em></p>
+                            </div>
+
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Section 3. Amendment Authority</h3>
+                            <p class="text-gray-700 mb-2">All amendments are subordinate to:</p>
+                            <ul class="list-disc pl-6 space-y-2 text-gray-700 mb-4">
+                                <li>The <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 hover:underline">Code of Beta Theta Pi</a></li>
+                                <li>The Interfraternity Council</li>
+                                <li>Samford University</li>
+                                <li>Any applicable municipal, state, or federal laws</li>
+                            </ul>
+                        </section>
+                    </div>
+
+                    <!-- APPENDIX -->
+                    <div class="border-t-4 border-purple-600 pt-6 mt-8">
+                        <h1 class="text-3xl font-bold text-purple-900 mb-6">Appendix</h1>
+
+                        <!-- Section 1: Executive Interest Forms -->
+                        <section id="appendix-forms" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Section 1: Executive Interest Form Outline</h2>
+
+                            <div class="bg-purple-50 p-4 rounded-lg">
+                                <p class="text-gray-700 mb-2"><strong>Required Fields:</strong></p>
+                                <ul class="list-disc pl-6 space-y-2 text-gray-700">
+                                    <li>First and last name of member</li>
+                                    <li>Overall Grade Point Average (screenshot from Degreeworks required)</li>
+                                    <li>Desired Position (separate form for each position if running for multiple)</li>
+                                    <li>Reason for Interest/Why running for position</li>
+                                </ul>
+                            </div>
+                        </section>
+
+                        <!-- Section 2: GPA Requirements -->
+                        <section id="appendix-gpa" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Section 2: Grade Point Average Requirements and Levels</h2>
+
+                            <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                                <p class="text-gray-700 mb-3"><strong>GPA Requirement:</strong> Greater than either <strong>3.0</strong> or the <strong>All-Men's Average (AMA)</strong>, whichever is higher.</p>
+
+                                <table class="min-w-full border border-gray-300 text-sm">
+                                    <thead class="bg-gray-100">
+                                        <tr>
+                                            <th class="border px-4 py-2">Level</th>
+                                            <th class="border px-4 py-2">GPA Range</th>
+                                            <th class="border px-4 py-2">Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr class="bg-green-50">
+                                            <td class="border px-4 py-2 font-semibold">LEVEL 1</td>
+                                            <td class="border px-4 py-2">Meet/Exceeds</td>
+                                            <td class="border px-4 py-2">Meets or exceeds the GPA requirement</td>
+                                        </tr>
+                                        <tr class="bg-yellow-50">
+                                            <td class="border px-4 py-2 font-semibold">LEVEL 2</td>
+                                            <td class="border px-4 py-2">Within 0.20</td>
+                                            <td class="border px-4 py-2">Below the GPA requirement, however within 0.20 points</td>
+                                        </tr>
+                                        <tr class="bg-red-50">
+                                            <td class="border px-4 py-2 font-semibold">LEVEL 3</td>
+                                            <td class="border px-4 py-2">Below</td>
+                                            <td class="border px-4 py-2">Any GPA below the requirements of level 2</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+
+                        <!-- Section 3: Common Terms -->
+                        <section id="appendix-terms" class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-4">Section 3: Definition of Common Terms</h2>
+
+                            <div class="space-y-4">
+                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50">
+                                    <h3 class="font-semibold text-gray-900">Good Standing</h3>
+                                    <p class="text-sm text-gray-700">Members in "Good Standing" are eligible to vote, hold office, and enjoy other membership privileges. Requirements:</p>
+                                    <ul class="list-disc pl-6 text-sm text-gray-700 mt-1">
+                                        <li><strong>Financial Standing:</strong> All dues, fines, fees paid</li>
+                                        <li><strong>Conduct:</strong> Adheres to all rules, no outstanding Kai cases</li>
+                                        <li><strong>Participation:</strong> Active participation in chapter events, meetings, activities</li>
+                                        <li><strong>Academic Standing:</strong> Meets or exceeds required GPA</li>
+                                    </ul>
+                                </div>
+
+                                <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50">
+                                    <h3 class="font-semibold text-gray-900">Quorum</h3>
+                                    <p class="text-sm text-gray-700">The number of members required to pass legislation. A quorum is a <strong>simple majority of active, Good Standing members</strong> within the chapter.</p>
+                                </div>
+
+                                <div class="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50">
+                                    <h3 class="font-semibold text-gray-900">Supermajority</h3>
+                                    <p class="text-sm text-gray-700"><strong>Two-Thirds (67%)</strong> of all members present. For voting, this is two-thirds of all eligible voting members of the chapter present.</p>
+                                </div>
+
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <h3 class="font-semibold text-gray-900 mb-2">Commonly Used Acronyms</h3>
+                                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm text-gray-700">
+                                        <div><strong>EVP:</strong> Executive Vice President</div>
+                                        <div><strong>VPA:</strong> VP of Administration</div>
+                                        <div><strong>VPB:</strong> VP of Brotherhood</div>
+                                        <div><strong>VPF:</strong> VP of Finance</div>
+                                        <div><strong>VPE:</strong> VP of Education</div>
+                                        <div><strong>VPP:</strong> VP of Programming</div>
+                                        <div><strong>VPR:</strong> VP of Recruitment</div>
+                                        <div><strong>VPRM:</strong> VP of Risk Management</div>
+                                        <div><strong>PNM:</strong> Potential New Member</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Document History -->
+                        <section class="mb-8 bg-gray-50 p-6 rounded-lg">
+                            <h2 class="text-xl font-bold text-gray-900 mb-4">Document History</h2>
+                            <div class="text-sm text-gray-700 space-y-2">
+                                <p><strong>Written by:</strong> Constitution and Bylaws Committee (Fall 2024)</p>
+                                <p><strong>Committee Members:</strong></p>
+                                <ul class="list-disc pl-6 text-sm">
+                                    <li>Mason Kimball (αμ 73) - Chair & Primary Writer, Constitution & Bylaws Chair, Tabling Chair</li>
+                                    <li>Ian Viner (αμ 64) - Executive Vice President</li>
+                                    <li>Brennan Paulus (αμ 68) - Vice President of Education</li>
+                                    <li>Alexander "Xander" Guill (αμ 72) - Ritual Chair, Historian/Archivist</li>
+                                    <li>Jacob Hoffman (αμ 77)</li>
+                                </ul>
+                                <p><strong>Committee Approval:</strong> November 19, 2024</p>
+                                <p><strong>Chapter Approval:</strong> January 26, 2025</p>
+                                <p><strong>Last Amendment to Constitution:</strong> January 26, 2025</p>
+                                <p><strong>Last Amendment to Bylaws:</strong> January 26, 2025</p>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Cross-Reference Section -->
+                    <div class="bg-gradient-to-r from-yellow-50 to-blue-50 border-2 border-yellow-400 rounded-lg p-6 mt-8">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-4">📚 Relationship to Robert's Rules</h2>
+                        <p class="text-gray-700 mb-4">This Constitution and Bylaws works in conjunction with Robert's Rules of Order to govern chapter meetings and procedures:</p>
+
+                        <div class="space-y-3">
+                            <div class="bg-white p-4 rounded-lg">
+                                <h3 class="font-semibold text-gray-900 mb-2">Constitution Article IV, Section 4:</h3>
+                                <p class="text-sm text-gray-700 italic">"All meetings are to be governed by Robert's Rules of Order"</p>
+                                <p class="text-sm text-gray-600 mt-2">→ See <a href="{% url 'roberts_rules' %}" class="text-blue-600 hover:underline">Robert's Rules Reference</a> for meeting procedures</p>
+                            </div>
+
+                            <div class="bg-white p-4 rounded-lg">
+                                <h3 class="font-semibold text-gray-900 mb-2">Executive Vice President Duties:</h3>
+                                <p class="text-sm text-gray-700">Must understand Robert's Rules and serve as parliamentarian during chapter meetings. Required to host Robert's Rules training at least once per term.</p>
+                                <p class="text-sm text-gray-600 mt-2">→ Reference: <a href="{% url 'roberts_rules' %}#debate-rules" class="text-blue-600 hover:underline">Debate Rules</a> and <a href="{% url 'roberts_rules' %}#chair-duties" class="text-blue-600 hover:underline">Chair's Duties</a></p>
+                            </div>
+
+                            <div class="bg-white p-4 rounded-lg">
+                                <h3 class="font-semibold text-gray-900 mb-2">Voting Requirements:</h3>
+                                <p class="text-sm text-gray-700 mb-2">Our Constitution/Bylaws specifies different vote thresholds:</p>
+                                <ul class="list-disc pl-6 text-sm text-gray-700">
+                                    <li>Simple Majority (51%) - Most bylaws amendments, officer slate approval (60%)</li>
+                                    <li>Supermajority (67%) - Constitution amendments, certain recruitment decisions</li>
+                                </ul>
+                                <p class="text-sm text-gray-600 mt-2">→ See <a href="{% url 'roberts_rules' %}#voting" class="text-blue-600 hover:underline">Robert's Rules Voting Procedures</a> for vote execution methods</p>
+                            </div>
+
+                            <div class="bg-white p-4 rounded-lg">
+                                <h3 class="font-semibold text-gray-900 mb-2">Making Motions & Amendments:</h3>
+                                <p class="text-sm text-gray-700">New business introduced at chapter meetings follows Robert's Rules procedures for main motions and amendments.</p>
+                                <p class="text-sm text-gray-600 mt-2">→ See <a href="{% url 'roberts_rules' %}#main-motions" class="text-blue-600 hover:underline">Main Motions</a> and <a href="{% url 'roberts_rules' %}#subsidiary-motions" class="text-blue-600 hover:underline">Subsidiary Motions</a></p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for Search and Navigation -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+    const tocLinks = document.querySelectorAll('.toc-link');
+    const sections = document.querySelectorAll('section[id]');
+
+    // Search functionality
+    searchInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+
+        if (query.length === 0) {
+            searchResults.textContent = '';
+            removeHighlights();
+            return;
+        }
+
+        const matches = countMatches(query);
+        searchResults.textContent = matches > 0 ? `Found ${matches} match${matches !== 1 ? 'es' : ''}` : 'No matches found';
+
+        highlightSearchResults(query);
+    });
+
+    function countMatches(query) {
+        if (!query) return 0;
+        const content = document.querySelector('.lg\\:col-span-3').textContent.toLowerCase();
+        const regex = new RegExp(query, 'gi');
+        const matches = content.match(regex);
+        return matches ? matches.length : 0;
+    }
+
+    function highlightSearchResults(query) {
+        removeHighlights();
+
+        if (!query) return;
+
+        const sections = document.querySelectorAll('.lg\\:col-span-3 section, .lg\\:col-span-3 div');
+        sections.forEach(section => {
+            highlightInElement(section, query);
+        });
+    }
+
+    function highlightInElement(element, query) {
+        const walker = document.createTreeWalker(
+            element,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode: function(node) {
+                    if (node.parentElement.classList.contains('highlight')) {
+                        return NodeFilter.FILTER_REJECT;
+                    }
+                    if (node.nodeValue.toLowerCase().includes(query.toLowerCase())) {
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                    return NodeFilter.FILTER_REJECT;
+                }
+            }
+        );
+
+        const nodesToReplace = [];
+        while (walker.nextNode()) {
+            nodesToReplace.push(walker.currentNode);
+        }
+
+        nodesToReplace.forEach(node => {
+            const parent = node.parentElement;
+            if (parent && !parent.classList.contains('highlight')) {
+                const text = node.nodeValue;
+                const regex = new RegExp(`(${query})`, 'gi');
+                const parts = text.split(regex);
+
+                const fragment = document.createDocumentFragment();
+                parts.forEach(part => {
+                    if (part.toLowerCase() === query.toLowerCase()) {
+                        const mark = document.createElement('mark');
+                        mark.className = 'highlight bg-yellow-300 px-1 rounded';
+                        mark.textContent = part;
+                        fragment.appendChild(mark);
+                    } else if (part) {
+                        fragment.appendChild(document.createTextNode(part));
+                    }
+                });
+
+                node.parentNode.replaceChild(fragment, node);
+            }
+        });
+    }
+
+    function removeHighlights() {
+        document.querySelectorAll('mark.highlight').forEach(mark => {
+            const parent = mark.parentNode;
+            parent.replaceChild(document.createTextNode(mark.textContent), mark);
+            parent.normalize();
+        });
+    }
+
+    // Smooth scroll for TOC links
+    tocLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const targetId = this.getAttribute('href').substring(1);
+            const targetSection = document.getElementById(targetId);
+
+            if (targetSection) {
+                const offset = 100;
+                const elementPosition = targetSection.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - offset;
+
+                window.scrollTo({
+                    top: offsetPosition,
+                    behavior: 'smooth'
+                });
+            }
+        });
+    });
+
+    // Intersection Observer for active section highlighting
+    const observerOptions = {
+        threshold: 0.3,
+        rootMargin: '-100px 0px -66%'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const id = entry.target.getAttribute('id');
+
+                tocLinks.forEach(link => {
+                    link.classList.remove('bg-blue-100', 'font-semibold', 'text-blue-700');
+                    link.classList.add('text-gray-700');
+                });
+
+                const activeLink = document.querySelector(`.toc-link[href="#${id}"]`);
+                if (activeLink) {
+                    activeLink.classList.add('bg-blue-100', 'font-semibold', 'text-blue-700');
+                    activeLink.classList.remove('text-gray-700');
+                }
+            }
+        });
+    }, observerOptions);
+
+    sections.forEach(section => {
+        observer.observe(section);
+    });
+});
+</script>
+
+{% endblock %}

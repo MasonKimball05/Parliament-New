@@ -1,0 +1,131 @@
+{% extends "admin_base.html" %}
+{% load static %}
+
+{% block title %}{{ action }} Section Impact{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-3xl">
+    <!-- Header -->
+    <div class="mb-6">
+        <nav class="text-sm text-gray-600 mb-2">
+            <a href="{% url 'manage_resolutions' %}" class="hover:text-blue-600">Manage Resolutions</a>
+            <span class="mx-2">›</span>
+            <a href="{% url 'manage_section_impacts' resolution.id %}" class="hover:text-blue-600">{{ resolution.title }}</a>
+            <span class="mx-2">›</span>
+            <span class="text-gray-900">{{ action }} Section Impact</span>
+        </nav>
+        <h1 class="text-3xl font-bold text-gray-900">{{ action }} Section Impact Tag</h1>
+        <p class="text-gray-600 mt-1">For: <strong>{{ resolution.title }}</strong></p>
+    </div>
+
+    <!-- Info Box -->
+    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg">
+        <div class="flex">
+            <svg class="w-5 h-5 text-blue-600 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div class="text-sm text-blue-800">
+                <p class="font-semibold mb-1">Tips for adding section impacts:</p>
+                <ul class="list-disc list-inside space-y-1">
+                    <li>Use <strong>Section Anchor</strong> for links within the Constitution/Bylaws page (e.g., #const-leadership)</li>
+                    <li>Use <strong>External URL</strong> for links to other pages (e.g., officer duties detail)</li>
+                    <li>The tag color is automatically determined by the Section Type you select</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <div class="bg-white rounded-lg shadow-md p-8">
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+
+            <!-- Section Name -->
+            <div>
+                <label for="{{ form.section_name.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-2">
+                    {{ form.section_name.label }} <span class="text-red-600">*</span>
+                </label>
+                {{ form.section_name }}
+                {% if form.section_name.help_text %}
+                    <p class="mt-1 text-sm text-gray-500">{{ form.section_name.help_text }}</p>
+                {% endif %}
+                {% if form.section_name.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.section_name.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Section Type -->
+            <div>
+                <label for="{{ form.section_type.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-2">
+                    {{ form.section_type.label }} <span class="text-red-600">*</span>
+                </label>
+                {{ form.section_type }}
+                <div class="mt-2 space-y-1 text-xs text-gray-600">
+                    <p><span class="inline-block w-3 h-3 bg-blue-600 rounded mr-1"></span> Constitution Article = Blue tag</p>
+                    <p><span class="inline-block w-3 h-3 bg-indigo-600 rounded mr-1"></span> Bylaws Article = Indigo tag</p>
+                    <p><span class="inline-block w-3 h-3 bg-purple-600 rounded mr-1"></span> Other Document = Purple tag</p>
+                </div>
+                {% if form.section_type.help_text %}
+                    <p class="mt-1 text-sm text-gray-500">{{ form.section_type.help_text }}</p>
+                {% endif %}
+                {% if form.section_type.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.section_type.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Section Anchor -->
+            <div>
+                <label for="{{ form.section_anchor.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-2">
+                    {{ form.section_anchor.label }}
+                </label>
+                {{ form.section_anchor }}
+                <p class="mt-1 text-sm text-gray-500">
+                    Example anchors: <code class="bg-gray-100 px-1 py-0.5 rounded">#const-leadership</code>,
+                    <code class="bg-gray-100 px-1 py-0.5 rounded">#bylaws-committees</code>
+                </p>
+                {% if form.section_anchor.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.section_anchor.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- External URL -->
+            <div>
+                <label for="{{ form.external_url.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-2">
+                    {{ form.external_url.label }}
+                </label>
+                {{ form.external_url }}
+                {% if form.external_url.help_text %}
+                    <p class="mt-1 text-sm text-gray-500">{{ form.external_url.help_text }}</p>
+                {% endif %}
+                {% if form.external_url.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.external_url.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Display Order -->
+            <div>
+                <label for="{{ form.display_order.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-2">
+                    {{ form.display_order.label }}
+                </label>
+                {{ form.display_order }}
+                {% if form.display_order.help_text %}
+                    <p class="mt-1 text-sm text-gray-500">{{ form.display_order.help_text }}</p>
+                {% endif %}
+                {% if form.display_order.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.display_order.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Form Actions -->
+            <div class="flex items-center justify-between pt-6 border-t border-gray-200">
+                <a href="{% url 'manage_section_impacts' resolution.id %}" class="text-gray-600 hover:text-gray-800 font-semibold">
+                    Cancel
+                </a>
+                <button type="submit" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow transition-colors">
+                    {{ action }} Section Impact
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

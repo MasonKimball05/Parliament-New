@@ -1,15 +1,12 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from src.models import Announcement
 from src.forms import AnnouncementForm
-from src.decorators import log_function_call
-
-def is_officer_or_chair(user):
-    return user.member_type in ['Chair', 'Officer']
+from src.decorators import log_function_call, officer_required
 
 @login_required
-@user_passes_test(is_officer_or_chair)
+@officer_required
 @log_function_call
 def manage_announcements(request):
     """View to manage all announcements"""
@@ -19,7 +16,7 @@ def manage_announcements(request):
     })
 
 @login_required
-@user_passes_test(is_officer_or_chair)
+@officer_required
 @log_function_call
 def create_announcement(request):
     """View to create a new announcement"""
@@ -39,7 +36,7 @@ def create_announcement(request):
     })
 
 @login_required
-@user_passes_test(is_officer_or_chair)
+@officer_required
 @log_function_call
 def edit_announcement(request, announcement_id):
     """View to edit an existing announcement"""
@@ -60,7 +57,7 @@ def edit_announcement(request, announcement_id):
     })
 
 @login_required
-@user_passes_test(is_officer_or_chair)
+@officer_required
 @log_function_call
 def delete_announcement(request, announcement_id):
     """View to delete an announcement"""
@@ -76,7 +73,7 @@ def delete_announcement(request, announcement_id):
     })
 
 @login_required
-@user_passes_test(is_officer_or_chair)
+@officer_required
 @log_function_call
 def toggle_announcement_status(request, announcement_id):
     """View to toggle announcement active status"""

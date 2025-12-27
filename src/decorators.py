@@ -30,14 +30,26 @@ def committee_chair_required(view_func):
     return wrapper
 
 def officer_required(view_func):
-    """Decorator to restrict access to officers only"""
+    """Decorator to restrict access to officers and chairs (for write operations, excludes advisors and pledges)"""
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             from django.shortcuts import redirect
             return redirect('login')
 
-        if request.user.member_type != 'Officer':
-            return HttpResponseForbidden("Officers only.")
+        if not request.user.is_officer:
+            return HttpResponseForbidden("Officers and chairs only.")
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+def officer_or_advisor_required(view_func):
+    """Decorator to restrict access to officers and advisors (read-only for advisors)"""
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            from django.shortcuts import redirect
+            return redirect('login')
+
+        if not request.user.can_view_officer_pages:
+            return HttpResponseForbidden("Officers and advisors only.")
         return view_func(request, *args, **kwargs)
     return wrapper
 
@@ -50,5 +62,17 @@ def admin_required(view_func):
 
         if not request.user.is_admin:
             return HttpResponseForbidden("Admins only.")
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+def exclude_pledges(view_func):
+    """Decorator to exclude pledges from accessing a view"""
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            from django.shortcuts import redirect
+            return redirect('login')
+
+        if request.user.is_pledge:
+            return HttpResponseForbidden("This page is not accessible to pledge members.")
         return view_func(request, *args, **kwargs)
     return wrapper

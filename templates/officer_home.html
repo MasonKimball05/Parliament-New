@@ -6,13 +6,18 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Welcome Section -->
     <div class="bg-gradient-to-r from-red-600 to-red-700 rounded-lg shadow-md p-6 mb-8 text-white">
-        <div class="flex items-center space-x-3 mb-2">
-            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
-            </svg>
-            <h1 class="text-3xl font-bold">Officer Portal</h1>
+        <div class="flex items-center justify-between">
+            <div>
+                <div class="flex items-center space-x-3 mb-2">
+                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+                    </svg>
+                    <h1 class="text-3xl font-bold">Officer Portal</h1>
+                </div>
+                <p class="text-red-100">Welcome, {{ user.get_display_name }} - Manage chapter operations and administrative functions</p>
+            </div>
+            <img src="/media/beta-seal.webp" alt="Beta Theta Pi Seal" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-contain opacity-90 bg-white p-1">
         </div>
-        <p class="text-red-100">Welcome, {{ user.get_display_name }} - Manage chapter operations and administrative functions</p>
     </div>
 
     <!-- Quick Actions Grid -->
@@ -118,6 +123,25 @@
                 </svg>
             </div>
         </a>
+
+        <!-- Resolutions Management Card (Admin Only) -->
+        {% if user.is_admin %}
+        <a href="{% url 'manage_resolutions' %}" class="block bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 group">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">Passed Resolutions</h2>
+                <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            <p class="text-gray-600 text-sm mb-4">Manage passed resolutions and section impacts</p>
+            <div class="flex items-center text-sm text-primary-600 font-medium">
+                <span>Manage Resolutions</span>
+                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </div>
+        </a>
+        {% endif %}
     </div>
 
     <!-- Information Sections -->
