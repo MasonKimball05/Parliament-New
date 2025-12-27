@@ -12,22 +12,25 @@
     <!-- Committee Header -->
     <div class="bg-white rounded-lg shadow-md p-6 mb-6">
         <div class="flex justify-between items-start mb-4">
-            <div class="flex-1">
-                <h1 class="text-3xl font-bold mb-2">{{ committee.name }}</h1>
-                {% if committee.code %}
-                    <p class="text-gray-600 mb-2">Code: <span class="font-semibold">{{ committee.code }}</span></p>
-                {% endif %}
+            <div class="flex items-start gap-4 flex-1">
+                <img src="/media/beta-seal.webp" alt="Beta Theta Pi Seal" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-1 shadow-md flex-shrink-0">
+                <div>
+                    <h1 class="text-3xl font-bold mb-2">{{ committee.name }}</h1>
+                    {% if committee.code %}
+                        <p class="text-gray-600 mb-2">Code: <span class="font-semibold">{{ committee.code }}</span></p>
+                    {% endif %}
 
-                {% if committee.role %}
-                    <p class="text-gray-700 mb-4">
-                        <span class="font-medium">Admin:</span> {{ committee.role.name }}{% if committee_vp %} ({{ committee_vp.name }}){% endif %}
-                    </p>
-                {% endif %}
+                    {% if committee.role %}
+                        <p class="text-gray-700 mb-4">
+                            <span class="font-medium">Admin:</span> {{ committee.role.name }}{% if committee_vp %} ({{ committee_vp.name }}){% endif %}
+                        </p>
+                    {% endif %}
+                </div>
             </div>
 
             <!-- Chat Button -->
             <a href="{% url 'committee_chat' committee.code %}"
-               class="px-6 py-3 rounded-lg text-white font-semibold flex items-center gap-2 hover:opacity-90 transition"
+               class="px-6 py-3 rounded-lg text-white font-semibold flex items-center gap-2 hover:opacity-90 transition flex-shrink-0 ml-4"
                style="background-color: #003DA5;">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
@@ -37,7 +40,7 @@
         </div>
 
         <!-- User's Roles -->
-        <div class="flex gap-2">
+        <div class="flex gap-2 ml-20">
             {% if is_vp %}
                 <span class="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">Vice President</span>
             {% endif %}
@@ -261,6 +264,58 @@
             <p class="text-gray-500 italic">No actions available</p>
         {% endif %}
     </div>
+
+    <!-- Kai Reports Section (Only for Kai Committee Chairs) -->
+    {% if committee.code == 'KAI' and is_chair or committee.code == 'KAI' and user.is_admin %}
+    <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <h3 class="text-xl font-semibold">Recent Kai Reports</h3>
+                {% if kai_report_count > 0 %}
+                <p class="text-sm text-yellow-600 mt-1">{{ kai_report_count }} pending report{{ kai_report_count|pluralize }}</p>
+                {% endif %}
+            </div>
+            <a href="{% url 'view_kai_reports' %}" class="text-sm bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                View All Reports
+            </a>
+        </div>
+
+        {% if kai_reports %}
+        <div class="space-y-3">
+            {% for report in kai_reports %}
+            <div class="border-l-4 p-4 rounded-r-lg {% if report.status == 'pending' %}border-yellow-500 bg-yellow-50{% else %}border-green-500 bg-green-50{% endif %}">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <h4 class="font-semibold text-gray-800">{{ report.title }}</h4>
+                            <span class="px-2 py-1 rounded text-xs font-semibold {% if report.status == 'pending' %}bg-yellow-200 text-yellow-800{% else %}bg-green-200 text-green-800{% endif %}">
+                                {{ report.get_status_display }}
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-2">{{ report.description|truncatewords:20 }}</p>
+                        <div class="flex flex-wrap gap-3 text-xs text-gray-500">
+                            <span>By: {{ report.submitted_by.name }}</span>
+                            {% if report.targeted_to %}
+                            <span>• To: {{ report.targeted_to.name }}</span>
+                            {% endif %}
+                            <span>• {{ report.submitted_at|date:"M d, Y" }}</span>
+                            {% if report.get_tags_list %}
+                            <span>• Tags: {{ report.get_tags_list|join:", " }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <a href="{% url 'manage_kai_report' report.id %}" class="ml-4 text-sm bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700">
+                        Manage
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-center py-8 italic">No recent reports to display</p>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
 
 <!-- Add Member Modal -->

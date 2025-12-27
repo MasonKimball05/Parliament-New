@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+
+{% block title %}Chapter Advisors - Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-teal-50 to-cyan-50">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-teal-600 to-cyan-700 text-white py-8 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center mb-4">
+                <a href="{% url 'constitution_bylaws' %}" class="text-teal-100 hover:text-white mr-4">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </a>
+                <h1 class="text-4xl font-bold">Chapter Advisors</h1>
+            </div>
+            <p class="text-teal-100 text-lg">Guidance, Support, and Mentorship for the Alpha Mu Chapter</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Overview -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">About Chapter Advisors</h2>
+            <p class="text-gray-700 mb-4">Chapter advisors are experienced Beta alumni and professionals who provide guidance, support, and mentorship to the undergraduate chapter. They serve as a vital link between the chapter and its rich history.</p>
+
+            <div class="grid grid-cols-3 gap-4">
+                <div class="bg-gradient-to-br from-teal-500 to-teal-600 text-white p-4 rounded-lg text-center">
+                    <div class="text-3xl font-bold">4</div>
+                    <div class="text-sm">Primary Advisors</div>
+                </div>
+                <div class="bg-gradient-to-br from-cyan-500 to-cyan-600 text-white p-4 rounded-lg text-center">
+                    <div class="text-3xl font-bold">∞</div>
+                    <div class="text-sm">Years of Experience</div>
+                </div>
+                <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg text-center">
+                    <div class="text-3xl font-bold">24/7</div>
+                    <div class="text-sm">Availability</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Primary Advisors -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Primary Chapter Advisors</h2>
+
+            <div class="space-y-6">
+                <!-- Chapter Advisor -->
+                <div class="border-l-4 border-teal-500 bg-teal-50 p-6 rounded-r-lg">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 w-16 h-16 bg-teal-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mr-4">CA</div>
+                        <div class="flex-grow">
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Chapter Advisor</h3>
+                            <p class="text-gray-700 mb-4">Primary advisor working directly with the President and Executive Board</p>
+
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2">Key Responsibilities</h4>
+                                    <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                                        <li>Provide guidance on chapter operations</li>
+                                        <li>Advise President and Executive Board</li>
+                                        <li>Attend executive board meetings (monthly)</li>
+                                        <li>Review major chapter decisions</li>
+                                        <li>Ensure compliance with policies</li>
+                                        <li>Serve as liaison to General Fraternity</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2">Areas of Focus</h4>
+                                    <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                                        <li>Strategic planning</li>
+                                        <li>Leadership development</li>
+                                        <li>Risk management</li>
+                                        <li>Chapter growth and sustainability</li>
+                                        <li>Crisis intervention</li>
+                                        <li>Alumni relations</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recruitment Advisor -->
+                <div class="border-l-4 border-blue-500 bg-blue-50 p-6 rounded-r-lg">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mr-4">RA</div>
+                        <div class="flex-grow">
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Recruitment Advisor</h3>
+                            <p class="text-gray-700 mb-4">Specialized advisor for recruitment strategy and rush activities</p>
+
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2">Key Responsibilities</h4>
+                                    <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                                        <li>Advise VP of Recruitment and Rush Chair</li>
+                                        <li>Develop recruitment strategies</li>
+                                        <li>Plan rush events and activities</li>
+                                        <li>Train recruitment team</li>
+                                        <li>Evaluate potential new members</li>
+                                        <li>Coordinate with IFC and university</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2">Expertise</h4>
+                                    <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                                        <li>Recruitment best practices</li>
+                                        <li>Event planning and logistics</li>
+                                        <li>Marketing and promotion</li>
+                                        <li>Candidate evaluation</li>
+                                        <li>IFC recruitment regulations</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scholarship Advisor -->
+                <div class="border-l-4 border-orange-500 bg-orange-50 p-6 rounded-r-lg">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 w-16 h-16 bg-orange-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mr-4">SA</div>
+                        <div class="flex-grow">
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Scholarship Advisor</h3>
+                            <p class="text-gray-700 mb-4">Academic excellence and student success advisor</p>
+
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2">Key Responsibilities</h4>
+                                    <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                                        <li>Advise Scholarship Chair</li>
+                                        <li>Monitor chapter academic performance</li>
+                                        <li>Develop academic support programs</li>
+                                        <li>Connect members with tutoring resources</li>
+                                        <li>Coordinate with campus academic services</li>
+                                        <li>Track and report GPA statistics</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2">Support Services</h4>
+                                    <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                                        <li>Study skills workshops</li>
+                                        <li>Time management coaching</li>
+                                        <li>Academic goal setting</li>
+                                        <li>Career planning guidance</li>
+                                        <li>Graduate school preparation</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Brotherhood Advisor -->
+                <div class="border-l-4 border-purple-500 bg-purple-50 p-6 rounded-r-lg">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mr-4">BA</div>
+                        <div class="flex-grow">
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Brotherhood Advisor</h3>
+                            <p class="text-gray-700 mb-4">Member development, culture, and Kai Committee advisor</p>
+
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2">Key Responsibilities</h4>
+                                    <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                                        <li>Advise VP of Brotherhood</li>
+                                        <li>Mentor Kai Committee</li>
+                                        <li>Support member development initiatives</li>
+                                        <li>Facilitate conflict resolution</li>
+                                        <li>Guide conduct proceedings</li>
+                                        <li>Promote positive chapter culture</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2">Special Focus Areas</h4>
+                                    <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                                        <li>Kai Committee procedures</li>
+                                        <li>Standards enforcement</li>
+                                        <li>Member wellness and support</li>
+                                        <li>Brotherhood event planning</li>
+                                        <li>Big/Little program</li>
+                                        <li>New member integration</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- How Advisors Help -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">How Advisors Support the Chapter</h2>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-blue-50 p-6 rounded-lg">
+                    <h3 class="font-semibold text-gray-800 mb-3">🎯 Strategic Guidance</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                        <li>Long-term chapter planning</li>
+                        <li>Goal setting and achievement</li>
+                        <li>Problem-solving complex issues</li>
+                        <li>Institutional memory and history</li>
+                        <li>Connections to alumni network</li>
+                    </ul>
+                </div>
+
+                <div class="bg-green-50 p-6 rounded-lg">
+                    <h3 class="font-semibold text-gray-800 mb-3">👥 Mentorship</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                        <li>One-on-one officer coaching</li>
+                        <li>Leadership skill development</li>
+                        <li>Career guidance and networking</li>
+                        <li>Personal and professional growth</li>
+                        <li>Role model and support system</li>
+                    </ul>
+                </div>
+
+                <div class="bg-purple-50 p-6 rounded-lg">
+                    <h3 class="font-semibold text-gray-800 mb-3">⚖️ Compliance & Risk</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                        <li>Policy interpretation and guidance</li>
+                        <li>Risk management review</li>
+                        <li>Event safety planning</li>
+                        <li>Legal and liability education</li>
+                        <li>University relations support</li>
+                    </ul>
+                </div>
+
+                <div class="bg-orange-50 p-6 rounded-lg">
+                    <h3 class="font-semibold text-gray-800 mb-3">🤝 Resources & Connections</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700">
+                        <li>Access to alumni network</li>
+                        <li>Professional connections</li>
+                        <li>Funding and sponsorship opportunities</li>
+                        <li>General Fraternity resources</li>
+                        <li>External partnership development</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- When to Contact Advisors -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">When to Contact Advisors</h2>
+
+            <div class="space-y-4">
+                <div class="bg-red-50 border-l-4 border-red-500 p-4">
+                    <h3 class="font-semibold text-red-900 mb-2">🚨 Immediate Contact Required</h3>
+                    <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                        <li>Medical emergencies involving members</li>
+                        <li>Serious conduct violations or safety issues</li>
+                        <li>Legal problems or police involvement</li>
+                        <li>University disciplinary actions</li>
+                        <li>Financial crises</li>
+                        <li>Mental health emergencies</li>
+                    </ul>
+                </div>
+
+                <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4">
+                    <h3 class="font-semibold text-yellow-900 mb-2">⚠️ Contact Within 24-48 Hours</h3>
+                    <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                        <li>Moderate Kai Committee cases</li>
+                        <li>Officer conflicts or leadership issues</li>
+                        <li>Major event planning</li>
+                        <li>Budget concerns</li>
+                        <li>Membership recruitment challenges</li>
+                        <li>IFC or university compliance questions</li>
+                    </ul>
+                </div>
+
+                <div class="bg-green-50 border-l-4 border-green-500 p-4">
+                    <h3 class="font-semibold text-green-900 mb-2">✅ Regular Consultation</h3>
+                    <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700">
+                        <li>Scheduled monthly meetings</li>
+                        <li>Strategic planning sessions</li>
+                        <li>Officer training and development</li>
+                        <li>General advice and mentorship</li>
+                        <li>Program and event planning</li>
+                        <li>Long-term goal setting</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advisor Selection & Appointments -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Advisor Selection & Appointments</h2>
+
+            <div class="bg-gray-50 p-6 rounded-lg mb-4">
+                <h3 class="font-semibold text-gray-800 mb-3">Selection Criteria</h3>
+                <ul class="list-disc pl-6 space-y-2 text-gray-700">
+                    <li>Must be initiated member of Beta Theta Pi</li>
+                    <li>Strong understanding of fraternity values and policies</li>
+                    <li>Availability to commit time and energy to chapter</li>
+                    <li>Relevant expertise in assigned area (recruitment, academics, etc.)</li>
+                    <li>Positive relationship with undergraduate members</li>
+                    <li>Good standing with General Fraternity</li>
+                </ul>
+            </div>
+
+            <div class="bg-blue-50 p-6 rounded-lg">
+                <h3 class="font-semibold text-gray-800 mb-3">Appointment Process</h3>
+                <ol class="list-decimal pl-6 space-y-2 text-gray-700">
+                    <li>Chapter identifies need for advisor or replacement</li>
+                    <li>Recommendations solicited from members and alumni</li>
+                    <li>President interviews potential advisors</li>
+                    <li>Executive Board votes on appointment</li>
+                    <li>Appointment reported to General Fraternity for approval</li>
+                    <li>Formal installation and orientation for new advisor</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- Working with Advisors -->
+        <div class="bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-lg shadow-lg p-8">
+            <h2 class="text-2xl font-bold mb-4">Building Strong Advisor Relationships</h2>
+            <p class="mb-4">Advisors are here to help you succeed. Take advantage of their experience, wisdom, and support throughout your time in the chapter.</p>
+
+            <div class="grid md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-white bg-opacity-20 p-4 rounded-lg">
+                    <h3 class="font-semibold mb-2">Be Proactive</h3>
+                    <p class="text-sm">Reach out regularly, don't wait for problems</p>
+                </div>
+                <div class="bg-white bg-opacity-20 p-4 rounded-lg">
+                    <h3 class="font-semibold mb-2">Be Honest</h3>
+                    <p class="text-sm">Share challenges openly and transparently</p>
+                </div>
+                <div class="bg-white bg-opacity-20 p-4 rounded-lg">
+                    <h3 class="font-semibold mb-2">Be Receptive</h3>
+                    <p class="text-sm">Listen to advice and implement suggestions</p>
+                </div>
+            </div>
+
+            <a href="{% url 'constitution_bylaws' %}" class="inline-block bg-white text-teal-600 px-6 py-3 rounded-lg font-semibold hover:bg-teal-50 transition">
+                Back to Constitution & Bylaws →
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

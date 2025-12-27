@@ -1,15 +1,12 @@
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from src.models import Event
 from src.forms import EventForm
-
-def is_officer_or_chair(user):
-    """Check if user is an officer or chair"""
-    return user.member_type in ['Officer', 'Chair']
+from src.decorators import officer_required
 
 @login_required
-@user_passes_test(is_officer_or_chair)
+@officer_required
 def manage_events(request):
     """View for officers to manage all events"""
     events = Event.objects.all().order_by('date_time')
@@ -22,7 +19,7 @@ def manage_events(request):
     return render(request, 'officer/manage_events.html', context)
 
 @login_required
-@user_passes_test(is_officer_or_chair)
+@officer_required
 def create_event(request):
     """View for officers to create a new event"""
     if request.method == 'POST':
@@ -38,7 +35,7 @@ def create_event(request):
     return render(request, 'officer/create_event.html', {'form': form})
 
 @login_required
-@user_passes_test(is_officer_or_chair)
+@officer_required
 def edit_event(request, event_id):
     """View for officers to edit an existing event"""
     event = get_object_or_404(Event, pk=event_id)
@@ -54,7 +51,7 @@ def edit_event(request, event_id):
     return render(request, 'officer/edit_event.html', {'form': form, 'event': event})
 
 @login_required
-@user_passes_test(is_officer_or_chair)
+@officer_required
 def delete_event(request, event_id):
     """View for officers to delete an event"""
     event = get_object_or_404(Event, pk=event_id)

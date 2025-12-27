@@ -1,10 +1,11 @@
+from src.decorators import officer_or_advisor_required
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.utils import timezone
 from src.models import Event
 
 @login_required
-@user_passes_test(lambda u: u.member_type in ['Chair', 'Officer'])
+@officer_or_advisor_required
 def view_all_events(request):
     """View all events (past and upcoming) for officers"""
     now = timezone.now()

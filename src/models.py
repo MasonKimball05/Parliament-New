@@ -6,6 +6,7 @@ import logging
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.conf import settings
+from src.storage import DualLocationStorage
 
 logger = logging.getLogger('function_calls')
 
@@ -60,6 +61,8 @@ class ParliamentUser(AbstractBaseUser):
         ('Member', 'Member'),
         ('Chair', 'Chair'),
         ('Officer', 'Officer'),
+        ('Advisor', 'Advisor'),
+        ('Pledge', 'Pledge'),
     )
     MEMBER_STATUS = (
         ('Active', 'Active'),
@@ -105,6 +108,26 @@ class ParliamentUser(AbstractBaseUser):
     def is_officer(self):
         """Check if user is an officer based on member_type"""
         return self.member_type == 'Officer' or self.is_admin
+
+    @property
+    def is_advisor(self):
+        """Check if user is an advisor"""
+        return self.member_type == 'Advisor'
+
+    @property
+    def is_pledge(self):
+        """Check if user is a pledge"""
+        return self.member_type == 'Pledge'
+
+    @property
+    def can_vote(self):
+        """Check if user is allowed to vote (excludes pledges)"""
+        return self.member_type in ['Member', 'Chair', 'Officer'] and not self.is_pledge
+
+    @property
+    def can_view_officer_pages(self):
+        """Check if user can view officer pages (Officers and Advisors)"""
+        return self.is_officer or self.is_advisor
 
     def get_display_name(self):
         """Returns preferred name + last name if preferred name is set, otherwise full name"""
@@ -153,7 +176,7 @@ class Legislation(models.Model):
 
     title = models.CharField(max_length=200)
     description = models.TextField()
-    document = models.FileField(upload_to='legislation_docs/', validators=[validate_legislation_file])
+    document = models.FileField(upload_to='legislation_docs/', validators=[validate_legislation_file], storage=DualLocationStorage())
     posted_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
     available_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -416,7 +439,7 @@ class CommitteeLegislation(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
     document = models.FileField(upload_to='committee_legislation/', validators=[validate_legislation_file], null=True,
-                                blank=True)
+                                blank=True, storage=DualLocationStorage())
     posted_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
     available_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -500,7 +523,7 @@ class CommitteeMinutes(models.Model):
     title = models.CharField(max_length=200)
     date = models.DateField()
     content = models.TextField(blank=True)
-    document = models.FileField(upload_to='committee_minutes/', null=True, blank=True)
+    document = models.FileField(upload_to='committee_minutes/', null=True, blank=True, storage=DualLocationStorage())
     posted_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -537,7 +560,7 @@ class CommitteeDocument(models.Model):
 
     committee = models.ForeignKey(Committee, on_delete=models.CASCADE, related_name='documents')
     title = models.CharField(max_length=200)
-    document = models.FileField(upload_to='committee_documents/')
+    document = models.FileField(upload_to='committee_documents/', storage=DualLocationStorage())
     uploaded_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     description = models.TextField(blank=True)
@@ -701,10 +724,11 @@ class ChatChannelPermission(models.Model):
     """Defines who has access to a restricted channel"""
 
     MEMBER_TYPES = [
-        ('Active Member', 'Active Member'),
+        ('Member', 'Member'),
+        ('Chair', 'Chair'),
         ('Officer', 'Officer'),
-        ('Alumni', 'Alumni'),
-        ('New Member', 'New Member'),
+        ('Advisor', 'Advisor'),
+        ('Pledge', 'Pledge'),
     ]
 
     channel = models.ForeignKey(ChatChannel, on_delete=models.CASCADE, related_name='permissions')
@@ -838,3 +862,245 @@ class ChatReadReceipt(models.Model):
                 is_deleted=False
             ).count()
         return 0
+
+
+class PassedResolution(models.Model):
+    """Model for tracking passed resolutions and their impact on Constitution/Bylaws"""
+
+    BORDER_COLOR_CHOICES = [
+        ('green', 'Green'),
+        ('blue', 'Blue'),
+        ('purple', 'Purple'),
+        ('pink', 'Pink'),
+        ('indigo', 'Indigo'),
+        ('red', 'Red'),
+        ('yellow', 'Yellow'),
+    ]
+
+    title = models.CharField(max_length=200, help_text='Title of the resolution')
+    description = models.TextField(help_text='Brief description of what this resolution does')
+    date_passed = models.DateField(help_text='Date this resolution was passed')
+
+    # Link to legislation document
+    legislation = models.ForeignKey(
+        Legislation,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text='Optional: Link to the actual legislation document'
+    )
+
+    # Alternative: Direct document upload
+    document = models.FileField(
+        upload_to='passed_resolutions/',
+        null=True,
+        blank=True,
+        storage=DualLocationStorage(),
+        help_text='Optional: Upload a document if not linked to legislation'
+    )
+
+    # Visual styling
+    border_color = models.CharField(
+        max_length=20,
+        choices=BORDER_COLOR_CHOICES,
+        default='green',
+        help_text='Border color for the resolution card'
+    )
+
+    # Impact details
+    impact_summary = models.TextField(
+        blank=True,
+        help_text='Brief summary of sections impacted (displayed in the card)'
+    )
+
+    # Display settings
+    display_order = models.IntegerField(
+        default=0,
+        help_text='Order to display resolutions (lower numbers first)'
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text='Uncheck to hide this resolution from the page'
+    )
+
+    # Metadata
+    created_by = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_resolutions'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['display_order', '-date_passed']
+
+    def __str__(self):
+        return f"{self.title} ({self.date_passed})"
+
+    def get_document_url(self):
+        """Get the URL to the resolution document"""
+        if self.legislation:
+            return self.legislation.document.url if self.legislation.document else None
+        elif self.document:
+            return self.document.url
+        return None
+
+
+class ResolutionSectionImpact(models.Model):
+    """Track which sections of Constitution/Bylaws are impacted by a resolution"""
+
+    SECTION_TYPE_CHOICES = [
+        ('constitution', 'Constitution Article'),
+        ('bylaws', 'Bylaws Article'),
+        ('other', 'Other Document'),
+    ]
+
+    resolution = models.ForeignKey(
+        PassedResolution,
+        on_delete=models.CASCADE,
+        related_name='section_impacts'
+    )
+
+    section_name = models.CharField(
+        max_length=200,
+        help_text='Display name for the section (e.g., "Constitution Article III (Leadership)")'
+    )
+
+    section_type = models.CharField(
+        max_length=20,
+        choices=SECTION_TYPE_CHOICES,
+        default='constitution'
+    )
+
+    # URL/anchor to link to (e.g., "#const-leadership")
+    section_anchor = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text='URL anchor/fragment (e.g., "#const-leadership")'
+    )
+
+    # Alternative: link to another page
+    external_url = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text='Full URL to another page (e.g., officer duties detail page)'
+    )
+
+    display_order = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ['display_order', 'section_name']
+
+    def __str__(self):
+        return f"{self.resolution.title} - {self.section_name}"
+
+    def get_link_url(self):
+        """Get the full URL for this section link"""
+        if self.external_url:
+            return self.external_url
+        elif self.section_anchor:
+            # Return just the anchor - template will handle the base URL
+            return self.section_anchor
+        return None
+
+
+class KaiReport(models.Model):
+    """Model for Kai Committee reports submitted by members"""
+
+    STATUS_CHOICES = [
+        ('pending', 'Pending Review'),
+        ('reviewed', 'Reviewed'),
+        ('archived', 'Archived'),
+    ]
+
+    DELIBERATION_CHOICES = [
+        ('pending', 'Pending Deliberation'),
+        ('thrown_out', 'Case Thrown Out'),
+        ('heard', 'Case Heard'),
+    ]
+
+    # Report Details
+    title = models.CharField(max_length=255, help_text="Brief title for the report")
+    description = models.TextField(help_text="Detailed description of the report")
+    attachment = models.FileField(
+        upload_to='kai_reports/',
+        storage=DualLocationStorage(),
+        blank=True,
+        null=True,
+        help_text="Optional file attachment"
+    )
+
+    # Submission Information
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='kai_reports_submitted'
+    )
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    targeted_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='kai_reports_targeted',
+        help_text="Optional: Specific person this report is directed to"
+    )
+
+    # Status and Review
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='kai_reports_reviewed'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    # Tags and Notes
+    tags = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Comma-separated tags (e.g., 'urgent, follow-up, academic')"
+    )
+    chair_notes = models.TextField(blank=True, help_text="Notes from the Kai chair")
+
+    # Deliberation and Committee Decision
+    deliberation_outcome = models.CharField(
+        max_length=20,
+        choices=DELIBERATION_CHOICES,
+        default='pending',
+        help_text="Outcome of the deliberation process"
+    )
+    committee_notes = models.TextField(
+        blank=True,
+        help_text="Committee notes about the hearing, sanctions applied, or other decisions"
+    )
+    closed_by_accused_request = models.BooleanField(
+        default=False,
+        help_text="Case closed at the request of the accused (only applicable when case was heard)"
+    )
+
+    class Meta:
+        ordering = ['-submitted_at']
+        verbose_name = 'Kai Report'
+        verbose_name_plural = 'Kai Reports'
+
+    def __str__(self):
+        return f"{self.title} - {self.submitted_by.name} ({self.submitted_at.strftime('%Y-%m-%d')})"
+
+    def get_tags_list(self):
+        """Return tags as a list"""
+        if self.tags:
+            return [tag.strip() for tag in self.tags.split(',')]
+        return []
+
+    def mark_as_reviewed(self, reviewer):
+        """Mark the report as reviewed"""
+        from django.utils import timezone
+        self.status = 'reviewed'
+        self.reviewed_by = reviewer
+        self.reviewed_at = timezone.now()
+        self.save()

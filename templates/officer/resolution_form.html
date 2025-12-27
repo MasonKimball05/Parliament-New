@@ -1,0 +1,211 @@
+{% extends "admin_base.html" %}
+{% load static %}
+
+{% block title %}{{ action }} Resolution{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+    <!-- Header -->
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">{{ action }} Resolution</h1>
+        <p class="text-gray-600 mt-1">{% if action == 'Create' %}Add a new passed resolution{% else %}Update resolution details{% endif %}</p>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-4 p-4 rounded-lg {% if message.tags == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Form -->
+    <div class="bg-white rounded-lg shadow-md p-8">
+        <form method="post" enctype="multipart/form-data" class="space-y-6">
+            {% csrf_token %}
+
+            <!-- Non-field errors -->
+            {% if form.non_field_errors %}
+                <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            <!-- Title -->
+            <div>
+                <label for="{{ form.title.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-2">
+                    {{ form.title.label }}
+                </label>
+                {{ form.title }}
+                {% if form.title.help_text %}
+                    <p class="mt-1 text-sm text-gray-500">{{ form.title.help_text }}</p>
+                {% endif %}
+                {% if form.title.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.title.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Description -->
+            <div>
+                <label for="{{ form.description.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-2">
+                    {{ form.description.label }}
+                </label>
+                {{ form.description }}
+                {% if form.description.help_text %}
+                    <p class="mt-1 text-sm text-gray-500">{{ form.description.help_text }}</p>
+                {% endif %}
+                {% if form.description.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.description.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Date Passed -->
+            <div>
+                <label for="{{ form.date_passed.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-2">
+                    {{ form.date_passed.label }}
+                </label>
+                {{ form.date_passed }}
+                {% if form.date_passed.help_text %}
+                    <p class="mt-1 text-sm text-gray-500">{{ form.date_passed.help_text }}</p>
+                {% endif %}
+                {% if form.date_passed.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.date_passed.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Legislation Link -->
+            <div>
+                <label for="{{ form.legislation.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-2">
+                    {{ form.legislation.label }}
+                </label>
+                {{ form.legislation }}
+                {% if form.legislation.help_text %}
+                    <p class="mt-1 text-sm text-gray-500">{{ form.legislation.help_text }}</p>
+                {% endif %}
+                {% if form.legislation.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.legislation.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Document Upload -->
+            <div>
+                <label for="{{ form.document.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-2">
+                    {{ form.document.label }}
+                </label>
+                {% if resolution.document %}
+                    <div class="mb-2 p-3 bg-blue-50 border border-blue-200 rounded">
+                        <p class="text-sm text-blue-900">
+                            <strong>Current document:</strong>
+                            <a href="{{ resolution.document.url }}" target="_blank" class="underline">{{ resolution.document.name }}</a>
+                        </p>
+                    </div>
+                {% endif %}
+                {{ form.document }}
+                {% if form.document.help_text %}
+                    <p class="mt-1 text-sm text-gray-500">{{ form.document.help_text }}</p>
+                {% endif %}
+                {% if form.document.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.document.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Border Color -->
+            <div>
+                <label for="{{ form.border_color.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-2">
+                    {{ form.border_color.label }}
+                </label>
+                {{ form.border_color }}
+                <div class="mt-2 flex gap-2 flex-wrap">
+                    <div class="flex items-center gap-1">
+                        <div class="w-8 h-4 border-l-4 border-green-600"></div>
+                        <span class="text-xs text-gray-600">Green</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <div class="w-8 h-4 border-l-4 border-blue-600"></div>
+                        <span class="text-xs text-gray-600">Blue</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <div class="w-8 h-4 border-l-4 border-purple-600"></div>
+                        <span class="text-xs text-gray-600">Purple</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <div class="w-8 h-4 border-l-4 border-pink-600"></div>
+                        <span class="text-xs text-gray-600">Pink</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <div class="w-8 h-4 border-l-4 border-indigo-600"></div>
+                        <span class="text-xs text-gray-600">Indigo</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <div class="w-8 h-4 border-l-4 border-red-600"></div>
+                        <span class="text-xs text-gray-600">Red</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <div class="w-8 h-4 border-l-4 border-yellow-600"></div>
+                        <span class="text-xs text-gray-600">Yellow</span>
+                    </div>
+                </div>
+                {% if form.border_color.help_text %}
+                    <p class="mt-1 text-sm text-gray-500">{{ form.border_color.help_text }}</p>
+                {% endif %}
+                {% if form.border_color.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.border_color.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Impact Summary -->
+            <div>
+                <label for="{{ form.impact_summary.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-2">
+                    {{ form.impact_summary.label }}
+                </label>
+                {{ form.impact_summary }}
+                {% if form.impact_summary.help_text %}
+                    <p class="mt-1 text-sm text-gray-500">{{ form.impact_summary.help_text }}</p>
+                {% endif %}
+                {% if form.impact_summary.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.impact_summary.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Display Order -->
+            <div>
+                <label for="{{ form.display_order.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-2">
+                    {{ form.display_order.label }}
+                </label>
+                {{ form.display_order }}
+                {% if form.display_order.help_text %}
+                    <p class="mt-1 text-sm text-gray-500">{{ form.display_order.help_text }}</p>
+                {% endif %}
+                {% if form.display_order.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.display_order.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Is Active -->
+            <div class="flex items-center">
+                {{ form.is_active }}
+                <label for="{{ form.is_active.id_for_label }}" class="ml-2 text-sm font-semibold text-gray-700">
+                    {{ form.is_active.label }}
+                </label>
+                {% if form.is_active.help_text %}
+                    <span class="ml-2 text-sm text-gray-500">({{ form.is_active.help_text }})</span>
+                {% endif %}
+                {% if form.is_active.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.is_active.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Form Actions -->
+            <div class="flex items-center justify-between pt-6 border-t border-gray-200">
+                <a href="{% url 'manage_resolutions' %}" class="text-gray-600 hover:text-gray-800 font-semibold">
+                    Cancel
+                </a>
+                <button type="submit" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow transition-colors">
+                    {{ action }} Resolution
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

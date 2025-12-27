@@ -7,13 +7,20 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Page Header -->
     <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-        <div class="flex items-center space-x-3 mb-2">
-            <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-            </svg>
-            <h1 class="text-3xl font-bold text-gray-900">Passed Legislation</h1>
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <img src="/media/beta-seal.webp" alt="Beta Theta Pi Seal" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-1 shadow-md">
+                <div>
+                    <div class="flex items-center space-x-3 mb-2">
+                        <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <h1 class="text-3xl font-bold text-gray-900">Passed Legislation</h1>
+                    </div>
+                    <p class="text-gray-600">View all legislation that has been voted on by the chapter</p>
+                </div>
+            </div>
         </div>
-        <p class="text-gray-600">View all legislation that has been voted on by the chapter</p>
     </div>
 
     <!-- Legislation Cards -->
@@ -72,45 +79,60 @@
 
             <!-- Card Body -->
             <div class="p-6">
-                <!-- Vote Statistics Grid -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                        <div class="text-3xl font-bold text-green-600">{{ legislation.yes }}</div>
-                        <div class="text-sm text-gray-600 mt-1">Yes Votes</div>
-                        <div class="text-xs text-green-700 font-medium mt-1">{{ legislation.yes_pct }}%</div>
-                    </div>
+                <!-- Toggle Voting Details Button -->
+                <button
+                    class="flex items-center space-x-2 text-gray-700 hover:text-blue-600 font-medium transition-colors focus:outline-none mb-4"
+                    onclick="toggleVotingDetails('{{ legislation.legislation.id }}')">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                    <span id="voting-button-text-{{ legislation.legislation.id }}">Show Voting Details</span>
+                    <svg class="w-4 h-4 transition-transform" id="voting-chevron-{{ legislation.legislation.id }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
 
-                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-                        <div class="text-3xl font-bold text-red-600">{{ legislation.no }}</div>
-                        <div class="text-sm text-gray-600 mt-1">No Votes</div>
-                        <div class="text-xs text-red-700 font-medium mt-1">{{ legislation.no_pct }}%</div>
-                    </div>
+                <!-- Vote Statistics Grid (Initially hidden) -->
+                <div id="voting-details-{{ legislation.legislation.id }}" class="hidden mb-6">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                            <div class="text-3xl font-bold text-green-600">{{ legislation.yes }}</div>
+                            <div class="text-sm text-gray-600 mt-1">Yes Votes</div>
+                            <div class="text-xs text-green-700 font-medium mt-1">{{ legislation.yes_pct }}%</div>
+                        </div>
 
-                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-                        <div class="text-3xl font-bold text-gray-600">{{ legislation.abstain }}</div>
-                        <div class="text-sm text-gray-600 mt-1">Abstain</div>
-                    </div>
+                        <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                            <div class="text-3xl font-bold text-red-600">{{ legislation.no }}</div>
+                            <div class="text-sm text-gray-600 mt-1">No Votes</div>
+                            <div class="text-xs text-red-700 font-medium mt-1">{{ legislation.no_pct }}%</div>
+                        </div>
 
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-                        <div class="text-3xl font-bold text-blue-600">{{ legislation.required_pct }}%</div>
-                        <div class="text-sm text-gray-600 mt-1">Required</div>
-                    </div>
-                </div>
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                            <div class="text-3xl font-bold text-gray-600">{{ legislation.abstain }}</div>
+                            <div class="text-sm text-gray-600 mt-1">Abstain</div>
+                        </div>
 
-                <!-- Plurality Options (if applicable) -->
-                {% if legislation.legislation.vote_mode == "plurality" and legislation.legislation.plurality_options %}
-                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
-                    <div class="flex items-start space-x-2">
-                        <svg class="w-5 h-5 text-purple-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
-                        </svg>
-                        <div>
-                            <h4 class="text-sm font-semibold text-purple-900 mb-1">Plurality Vote Options</h4>
-                            <p class="text-sm text-purple-700">{{ legislation.legislation.plurality_options|join:", " }}</p>
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                            <div class="text-3xl font-bold text-blue-600">{{ legislation.required_pct }}%</div>
+                            <div class="text-sm text-gray-600 mt-1">Required</div>
                         </div>
                     </div>
+
+                    <!-- Plurality Options (if applicable) -->
+                    {% if legislation.legislation.vote_mode == "plurality" and legislation.legislation.plurality_options %}
+                    <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                        <div class="flex items-start space-x-2">
+                            <svg class="w-5 h-5 text-purple-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                            </svg>
+                            <div>
+                                <h4 class="text-sm font-semibold text-purple-900 mb-1">Plurality Vote Options</h4>
+                                <p class="text-sm text-purple-700">{{ legislation.legislation.plurality_options|join:", " }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
-                {% endif %}
 
                 <!-- Present Members Section (Officers Only) -->
                 {% if user.member_type == 'Officer' %}
@@ -172,6 +194,23 @@
 </div>
 
 <script>
+    // JavaScript function to toggle the visibility of voting details
+    function toggleVotingDetails(legislationId) {
+        const votingDetails = document.getElementById("voting-details-" + legislationId);
+        const buttonText = document.getElementById("voting-button-text-" + legislationId);
+        const chevron = document.getElementById("voting-chevron-" + legislationId);
+
+        if (votingDetails.classList.contains("hidden")) {
+            votingDetails.classList.remove("hidden");
+            buttonText.textContent = "Hide Voting Details";
+            chevron.style.transform = "rotate(180deg)";
+        } else {
+            votingDetails.classList.add("hidden");
+            buttonText.textContent = "Show Voting Details";
+            chevron.style.transform = "rotate(0deg)";
+        }
+    }
+
     // JavaScript function to toggle the visibility of the present members list
     function togglePresentMembers(legislationId) {
         const membersList = document.getElementById("present-members-" + legislationId);

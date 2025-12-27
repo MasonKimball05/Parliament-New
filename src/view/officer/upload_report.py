@@ -1,10 +1,11 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from src.forms import CommitteeDocumentForm
+from src.decorators import officer_required
 
 @login_required
-@user_passes_test(lambda u: u.member_type in ['Chair', 'Officer'])
+@officer_required
 def upload_report(request):
     """View for officers to upload committee reports and documents"""
     if request.method == 'POST':

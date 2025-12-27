@@ -1,0 +1,68 @@
+{% extends "admin_base.html" %}
+{% load static %}
+
+{% block title %}Delete Resolution{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+    <!-- Header -->
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-red-700">Delete Resolution</h1>
+        <p class="text-gray-600 mt-1">Are you sure you want to delete this resolution?</p>
+    </div>
+
+    <!-- Warning Box -->
+    <div class="bg-red-50 border-l-4 border-red-500 p-6 mb-6 rounded-r-lg">
+        <div class="flex">
+            <svg class="w-6 h-6 text-red-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            <div>
+                <h3 class="text-lg font-semibold text-red-900 mb-2">Warning: This action cannot be undone!</h3>
+                <p class="text-red-800 text-sm mb-2">Deleting this resolution will:</p>
+                <ul class="list-disc list-inside text-red-800 text-sm space-y-1">
+                    <li>Permanently remove the resolution from the database</li>
+                    <li>Delete all associated section impact tags ({{ resolution.section_impacts.count }} tag{% if resolution.section_impacts.count != 1 %}s{% endif %})</li>
+                    <li>Remove it from the public Passed Resolutions page</li>
+                    <li>This <strong>cannot be reversed</strong></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resolution Details -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6 border-l-4 border-gray-600">
+        <h3 class="text-xl font-bold text-gray-900 mb-2">{{ resolution.title }}</h3>
+        <p class="text-gray-700 mb-2">{{ resolution.description }}</p>
+        <p class="text-sm text-gray-600 mb-3">Passed: <strong>{{ resolution.date_passed|date:"F j, Y" }}</strong></p>
+
+        {% if resolution.section_impacts.all %}
+            <div class="mt-4">
+                <p class="text-sm font-semibold text-gray-700 mb-2">Section Impacts ({{ resolution.section_impacts.count }}):</p>
+                <div class="flex flex-wrap gap-2">
+                    {% for impact in resolution.section_impacts.all %}
+                        <span class="px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-700">
+                            {{ impact.section_name }}
+                        </span>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Confirmation Form -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <form method="post">
+            {% csrf_token %}
+            <div class="flex items-center justify-between">
+                <a href="{% url 'manage_resolutions' %}" class="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors">
+                    Cancel
+                </a>
+                <button type="submit" class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shadow transition-colors">
+                    Yes, Delete Resolution
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

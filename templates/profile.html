@@ -7,16 +7,19 @@
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Page Header -->
     <div class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-md p-6 mb-8 text-white">
-        <div class="flex items-center space-x-4">
-            <div class="bg-white bg-opacity-20 rounded-full p-4">
-                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                </svg>
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <div class="bg-white bg-opacity-20 rounded-full p-4">
+                    <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-bold">My Profile</h1>
+                    <p class="text-blue-100 mt-1">Welcome, {{ user.get_display_name }}</p>
+                </div>
             </div>
-            <div>
-                <h1 class="text-3xl font-bold">My Profile</h1>
-                <p class="text-blue-100 mt-1">Welcome, {{ user.get_display_name }}</p>
-            </div>
+            <img src="/media/beta-seal.webp" alt="Beta Theta Pi Seal" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-contain bg-white p-1 opacity-90">
         </div>
     </div>
 

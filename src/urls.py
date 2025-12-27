@@ -6,6 +6,7 @@ from django.contrib.auth import views as auth_views
 from src.view.officer import *
 from src.view.committee import *
 from src.view.chat import *
+from src.view.kai_reports import submit_kai_report, view_kai_reports, manage_kai_report
 from src.view.chapter_documents import chapter_documents
 from src.view.upload_chapter_document import upload_chapter_document
 from src.view.manage_chapter_document import manage_chapter_document
@@ -30,12 +31,30 @@ from src.view.edit_legislation import edit_legislation
 from src.view.reopen_legislation import reopen_legislation
 from src.view.submit_new_version import submit_new_version
 from src.view.login_as_view import login_as_view, login_as_user
+from src.view.roberts_rules import roberts_rules
+from src.view.constitution_bylaws import constitution_bylaws
+from src.view.passed_resolutions import passed_resolutions
+from src.view.officer_duties_detail import officer_duties_detail
+from src.view.committee_details import committee_details
+from src.view.kai_procedures_detail import kai_procedures_detail
+from src.view.slating_elections_detail import slating_elections_detail
+from src.view.advisors_detail import advisors_detail
+from src.view.academic_standards_detail import academic_standards_detail
 
 urlpatterns = [
     # General User Pages
     path('', home, name='home'),
     path('login/', login_view, name='login'),
     path('logout/', logout_view, name='logout'),
+    path('roberts-rules/', roberts_rules, name='roberts_rules'),
+    path('constitution-bylaws/', constitution_bylaws, name='constitution_bylaws'),
+    path('constitution-bylaws/passed-resolutions/', passed_resolutions, name='passed_resolutions_detail'),
+    path('constitution-bylaws/officer-duties/', officer_duties_detail, name='officer_duties_detail'),
+    path('constitution-bylaws/committees/', committee_details, name='committee_details'),
+    path('constitution-bylaws/kai-procedures/', kai_procedures_detail, name='kai_procedures_detail'),
+    path('constitution-bylaws/slating-elections/', slating_elections_detail, name='slating_elections_detail'),
+    path('constitution-bylaws/advisors/', advisors_detail, name='advisors_detail'),
+    path('constitution-bylaws/academic-standards/', academic_standards_detail, name='academic_standards_detail'),
 
     # Password Reset URLs
     path('password-reset/', auth_views.PasswordResetView.as_view(template_name='registration/password_reset.html'), name='password_reset'),
@@ -85,6 +104,16 @@ urlpatterns = [
     path('officers/events/<int:event_id>/archive/', archive_event, name='archive_event'),
     path('officers/events/<int:event_id>/unarchive/', unarchive_event, name='unarchive_event'),
 
+    # Resolution Management (Officer)
+    path('officers/resolutions/', manage_resolutions, name='manage_resolutions'),
+    path('officers/resolutions/create/', create_resolution, name='create_resolution'),
+    path('officers/resolutions/<int:resolution_id>/edit/', edit_resolution, name='edit_resolution'),
+    path('officers/resolutions/<int:resolution_id>/delete/', delete_resolution, name='delete_resolution'),
+    path('officers/resolutions/<int:resolution_id>/sections/', manage_section_impacts, name='manage_section_impacts'),
+    path('officers/resolutions/<int:resolution_id>/sections/add/', add_section_impact, name='add_section_impact'),
+    path('officers/resolutions/sections/<int:impact_id>/edit/', edit_section_impact, name='edit_section_impact'),
+    path('officers/resolutions/sections/<int:impact_id>/delete/', delete_section_impact, name='delete_section_impact'),
+
     # Legislation / Voting Pages
     path('vote/', vote_view, name='vote'),
     path('vote/end/<int:legislation_id>/', end_vote, name='end_vote'),
@@ -118,6 +147,11 @@ urlpatterns = [
     path('committee/<str:code>/minutes/', committee_minutes, name='minutes'),
     path('committee/<str:code>/documents/<int:document_id>/toggle-publish/', toggle_document_publish, name='toggle_document_publish'),
     path('committee/<str:code>/documents/<int:document_id>/delete/', delete_committee_document, name='delete_committee_document'),
+
+    # Kai Report URLs
+    path('kai/submit-report/', submit_kai_report, name='submit_kai_report'),
+    path('kai/reports/', view_kai_reports, name='view_kai_reports'),
+    path('kai/reports/<int:report_id>/', manage_kai_report, name='manage_kai_report'),
 
     # Committee Chat URLs (legacy - redirects to channel chat)
     path('committee/<str:code>/chat/', committee_chat, name='committee_chat'),

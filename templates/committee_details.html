@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}Committee Details - Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-green-50 to-teal-50">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-green-600 to-teal-700 text-white py-8 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center mb-4">
+                <a href="{% url 'constitution_bylaws' %}" class="text-green-100 hover:text-white mr-4">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </a>
+                <h1 class="text-4xl font-bold">Chapter Committees</h1>
+            </div>
+            <p class="text-green-100 text-lg">11 Standing Committees (Constitution Article V)</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Overview -->
+        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Committee System Overview</h2>
+            <p class="text-gray-700 mb-4">Per <a href="{% url 'constitution_bylaws' %}#const-committees" class="text-blue-600 hover:underline">Constitution Article V</a>, the Alpha Mu chapter maintains these 11 standing committees. Detailed operational guidelines are found in <a href="{% url 'constitution_bylaws' %}#bylaws-committees" class="text-blue-600 hover:underline">Bylaws Article VII</a>.</p>
+
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mt-6">
+                <p class="text-sm font-semibold text-blue-900 mb-2">📋 Committee Procedures</p>
+                <p class="text-sm text-gray-700">See <a href="{% url 'roberts_rules' %}#committees" class="text-blue-600 hover:underline">Robert's Rules: Committee Procedures</a> for information on how committees operate, meet, and report.</p>
+            </div>
+        </div>
+
+        <!-- The 11 Committees from Constitution Article V -->
+        <div class="space-y-6">
+
+            <!-- Executive Board -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-start mb-4">
+                    <div class="w-16 h-16 bg-blue-600 rounded-lg flex items-center justify-center text-white text-2xl font-bold mr-4 flex-shrink-0">EB</div>
+                    <div class="flex-grow">
+                        <h3 class="text-2xl font-bold text-gray-900">Executive Board</h3>
+                        <p class="text-gray-600 mb-2">All 9 Executive Officers</p>
+                        <div class="flex gap-2 flex-wrap">
+                            <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">Permanent Committee</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-700">
+                    <p class="mb-2"><strong>Composition:</strong> All 9 Executive Board Officers (President, Executive Vice President & IFC Delegate, Vice President of Administration, Vice President of Brotherhood, Vice President of Finance, Vice President of Risk Management, Vice President of Recruitment, Vice President of Education, Vice President of Programming)</p>
+                    <p class="text-xs text-gray-600 italic">Source: Constitution Article V</p>
+                </div>
+            </div>
+
+            <!-- Kai Committee -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-start mb-4">
+                    <div class="w-16 h-16 bg-purple-600 rounded-lg flex items-center justify-center text-white text-2xl font-bold mr-4 flex-shrink-0">KC</div>
+                    <div class="flex-grow">
+                        <h3 class="text-2xl font-bold text-gray-900">Kai Committee</h3>
+                        <p class="text-gray-600 mb-2">5-9 members including elected delegates</p>
+                        <div class="flex gap-2 flex-wrap">
+                            <span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">Judicial</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-700">
+                    <p class="mb-2"><strong>Composition:</strong> Kai Committee Chair (Vice President of Brotherhood), plus 1-2 delegates from each class (Senior, Junior, Sophomore, At-large), totaling 5-9 members</p>
+                    <p class="mb-2"><strong>Responsibilities (per Bylaws Article VII):</strong> Handles all disciplinary reviews, maintains written records, ensures Rights of the Accused are upheld</p>
+                </div>
+                <div class="mt-4 bg-yellow-50 border-l-4 border-yellow-500 p-4">
+                    <p class="text-sm font-semibold text-yellow-900 mb-1">📚 Detailed Procedures</p>
+                    <p class="text-sm text-gray-700">See <a href="{% url 'kai_procedures_detail' %}" class="text-blue-600 hover:underline">Kai Committee Procedures</a> for comprehensive information on processes and sanctions.</p>
+                </div>
+            </div>
+
+            <!-- Brotherhood Committee -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-start mb-4">
+                    <div class="w-16 h-16 bg-indigo-600 rounded-lg flex items-center justify-center text-white text-2xl font-bold mr-4 flex-shrink-0">BC</div>
+                    <div class="flex-grow">
+                        <h3 class="text-2xl font-bold text-gray-900">Brotherhood Committee</h3>
+                        <p class="text-gray-600 mb-2">Social bonding and chapter culture</p>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-700">
+                    <p class="mb-2"><strong>Responsibilities (per Bylaws Article VII):</strong> Organizes brotherhood events, ensures positive atmosphere</p>
+                    <p class="text-xs text-gray-600 italic">Source: Constitution Article V, Bylaws Article VII</p>
+                </div>
+            </div>
+
+            <!-- Recruitment Committee -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-start mb-4">
+                    <div class="w-16 h-16 bg-red-600 rounded-lg flex items-center justify-center text-white text-2xl font-bold mr-4 flex-shrink-0">RC</div>
+                    <div class="flex-grow">
+                        <h3 class="text-2xl font-bold text-gray-900">Recruitment Committee</h3>
+                        <p class="text-gray-600 mb-2">Membership growth and rush activities</p>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-700">
+                    <p class="mb-2"><strong>Composition (per Bylaws Article VII):</strong> 5-9 members plus Vice President of Recruitment and President</p>
+                    <p class="mb-2"><strong>Voting:</strong> Supermajority vote required for bids</p>
+                    <p class="text-xs text-gray-600 italic">Source: Constitution Article V, Bylaws Article VII</p>
+                </div>
+            </div>
+
+            <!-- Education Committee -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-start mb-4">
+                    <div class="w-16 h-16 bg-orange-600 rounded-lg flex items-center justify-center text-white text-2xl font-bold mr-4 flex-shrink-0">EC</div>
+                    <div class="flex-grow">
+                        <h3 class="text-2xl font-bold text-gray-900">Education Committee</h3>
+                        <p class="text-gray-600 mb-2">New member orientation and education</p>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-700">
+                    <p class="mb-2"><strong>Responsibilities (per Bylaws Article VII):</strong> Standard New Member Orientation, annual education, member development</p>
+                    <p class="text-xs text-gray-600 italic">Source: Constitution Article V, Bylaws Article VII</p>
+                </div>
+            </div>
+
+            <!-- Risk Management Committee -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-start mb-4">
+                    <div class="w-16 h-16 bg-yellow-600 rounded-lg flex items-center justify-center text-white text-2xl font-bold mr-4 flex-shrink-0">RM</div>
+                    <div class="flex-grow">
+                        <h3 class="text-2xl font-bold text-gray-900">Risk Management Committee</h3>
+                        <p class="text-gray-600 mb-2">Safety and policy compliance</p>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-700">
+                    <p class="mb-2"><strong>Responsibilities (per Bylaws Article VII):</strong> Ensures Beta Risk Management Policy implementation, member education</p>
+                    <p class="text-xs text-gray-600 italic">Source: Constitution Article V, Bylaws Article VII</p>
+                </div>
+            </div>
+
+            <!-- Finance Committee -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-start mb-4">
+                    <div class="w-16 h-16 bg-green-600 rounded-lg flex items-center justify-center text-white text-2xl font-bold mr-4 flex-shrink-0">FC</div>
+                    <div class="flex-grow">
+                        <h3 class="text-2xl font-bold text-gray-900">Finance Committee</h3>
+                        <p class="text-gray-600 mb-2">Budget management and financial planning</p>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-700">
+                    <p class="mb-2"><strong>Responsibilities (per Bylaws Article VII):</strong> Budget preparation, bill collection, complete financial records</p>
+                    <p class="text-xs text-gray-600 italic">Source: Constitution Article V, Bylaws Article VII</p>
+                </div>
+            </div>
+
+            <!-- Administration Committee -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-start mb-4">
+                    <div class="w-16 h-16 bg-teal-600 rounded-lg flex items-center justify-center text-white text-2xl font-bold mr-4 flex-shrink-0">AC</div>
+                    <div class="flex-grow">
+                        <h3 class="text-2xl font-bold text-gray-900">Administration Committee</h3>
+                        <p class="text-gray-600 mb-2">Communications and records</p>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-700">
+                    <p class="mb-2"><strong>Responsibilities (per Bylaws Article VII):</strong> Announcements, reporting, alumni relations, social media</p>
+                    <p class="text-xs text-gray-600 italic">Source: Constitution Article V, Bylaws Article VII</p>
+                </div>
+            </div>
+
+            <!-- Programming Committee -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-start mb-4">
+                    <div class="w-16 h-16 bg-pink-600 rounded-lg flex items-center justify-center text-white text-2xl font-bold mr-4 flex-shrink-0">PC</div>
+                    <div class="flex-grow">
+                        <h3 class="text-2xl font-bold text-gray-900">Programming Committee</h3>
+                        <p class="text-gray-600 mb-2">Events and activities</p>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-700">
+                    <p class="mb-2"><strong>Responsibilities (per Bylaws Article VII):</strong> Service, philanthropy, intramurals, special events</p>
+                    <p class="text-xs text-gray-600 italic">Source: Constitution Article V, Bylaws Article VII</p>
+                </div>
+            </div>
+
+            <!-- Ritual Committee -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-start mb-4">
+                    <div class="w-16 h-16 bg-gray-700 rounded-lg flex items-center justify-center text-white text-2xl font-bold mr-4 flex-shrink-0">RT</div>
+                    <div class="flex-grow">
+                        <h3 class="text-2xl font-bold text-gray-900">Ritual Committee</h3>
+                        <p class="text-gray-600 mb-2">Ceremonial traditions and rituals</p>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-700">
+                    <p class="mb-2"><strong>Composition (per Bylaws Article VII):</strong> President, Vice President of Brotherhood, Vice President of Education, Ritual Chair, Chorister, plus 2 additional members</p>
+                    <p class="text-xs text-gray-600 italic">Source: Constitution Article V, Bylaws Article VII</p>
+                </div>
+            </div>
+
+            <!-- Constitution and Bylaws Committee -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-start mb-4">
+                    <div class="w-16 h-16 bg-blue-700 rounded-lg flex items-center justify-center text-white text-2xl font-bold mr-4 flex-shrink-0">CB</div>
+                    <div class="flex-grow">
+                        <h3 class="text-2xl font-bold text-gray-900">Constitution and Bylaws Committee</h3>
+                        <p class="text-gray-600 mb-2">Governing documents and amendments</p>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-700">
+                    <p class="mb-2"><strong>Composition (per Bylaws Article VII):</strong> Minimum 5 members</p>
+                    <p class="mb-2"><strong>Responsibilities:</strong> Drafts amendments</p>
+                    <p class="mb-2"><strong>Voting:</strong> Requires unanimous committee vote to forward amendments</p>
+                    <p class="text-xs text-gray-600 italic">Source: Constitution Article V, Bylaws Article VII</p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Committee Chairs Summary -->
+        <div class="bg-white rounded-lg shadow-md p-8 mt-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Committee Chairs</h2>
+            <p class="text-gray-700 mb-6">Per <a href="{% url 'constitution_bylaws' %}#bylaws-chairs" class="text-blue-600 hover:underline">Bylaws Article VIII</a>, the chapter maintains these 14 chair positions. Specific duties for each chair are detailed in the Bylaws.</p>
+
+            <div class="grid md:grid-cols-3 gap-4">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h3 class="font-semibold text-gray-800 mb-3">Chairs (Listed in Constitution Article V, Section 5)</h3>
+                    <ul class="text-sm text-gray-700 space-y-1">
+                        <li>• Social Chair</li>
+                        <li>• Tabling Chair</li>
+                        <li>• Ritual Chair</li>
+                        <li>• Historian & Archivist</li>
+                        <li>• Health & Wellness Chair</li>
+                        <li>• Chaplain</li>
+                        <li>• DEI Chair</li>
+                        <li>• Chorister</li>
+                        <li>• Scholarship Chair</li>
+                        <li>• Kai Committee Chair</li>
+                        <li>• Marketing & Advertising Chair</li>
+                        <li>• Constitution and Bylaws Chair</li>
+                        <li>• Sergeant at Arms</li>
+                        <li>• Awards Chair</li>
+                    </ul>
+                </div>
+                <div class="bg-blue-50 p-4 rounded-lg col-span-2">
+                    <h3 class="font-semibold text-gray-800 mb-3">Chair Duties</h3>
+                    <p class="text-sm text-gray-700 mb-2">Detailed responsibilities for each chair position are specified in <a href="{% url 'constitution_bylaws' %}#bylaws-chairs" class="text-blue-600 hover:underline">Bylaws Article VIII</a>, including:</p>
+                    <ul class="text-sm text-gray-700 space-y-1 list-disc pl-6">
+                        <li><strong>Social Chair:</strong> Plans mixers, formals, social events</li>
+                        <li><strong>Ritual Chair:</strong> Runs all rituals, manages Ritual Committee</li>
+                        <li><strong>Scholarship Chair:</strong> Finds scholarship opportunities</li>
+                        <li><strong>Kai Committee Chair:</strong> Convenes Kai meetings, contacts referred members</li>
+                        <li><strong>And 10 other chairs</strong> - see Bylaws for complete details</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Back Navigation -->
+        <div class="bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg shadow-lg p-8 mt-8">
+            <h2 class="text-2xl font-bold mb-4">References</h2>
+            <p class="mb-4">All committee information on this page is sourced directly from the Constitution and Bylaws.</p>
+            <div class="flex gap-4">
+                <a href="{% url 'constitution_bylaws' %}" class="inline-block bg-white text-green-600 px-6 py-3 rounded-lg font-semibold hover:bg-green-50 transition">
+                    View Full Constitution & Bylaws →
+                </a>
+                <a href="{% url 'officer_duties_detail' %}" class="inline-block bg-green-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-800 transition">
+                    View Officer Duties →
+                </a>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

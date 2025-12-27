@@ -2,11 +2,11 @@ from ..decorators import *
 from ..forms import *
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 
 @login_required
-@user_passes_test(lambda u: u.member_type in ['Chair', 'Officer'])
+@officer_required
 @log_function_call
 def edit_legislation(request, legislation_id):
     legislation = get_object_or_404(Legislation, id=legislation_id)

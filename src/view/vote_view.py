@@ -74,7 +74,8 @@ def vote_view(request):
         created_at__gte=three_hours_ago,
         present=True
     ).order_by('-created_at').first()
-    can_vote = bool(attendance)
+    # Check both attendance AND if user type can vote (excludes pledges)
+    can_vote = bool(attendance) and user.can_vote
 
     # Handle voting
     if request.method == 'POST' and 'vote_choice' in request.POST and can_vote:

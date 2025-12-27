@@ -1,9 +1,10 @@
+from src.decorators import officer_or_advisor_required
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required, user_passes_test
 from src.models import CommitteeDocument
 
 @login_required
-@user_passes_test(lambda u: u.member_type in ['Chair', 'Officer'])
+@officer_or_advisor_required
 def view_all_reports(request):
     """View all committee documents for officers, including unpublished ones"""
 
