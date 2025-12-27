@@ -388,11 +388,14 @@ class KaiReportForm(forms.ModelForm):
     """Form for submitting Kai reports"""
     class Meta:
         model = KaiReport
-        fields = ['title', 'description', 'targeted_to', 'attachment', 'tags']
+        fields = ['title', 'category', 'description', 'targeted_to', 'attachment', 'tags']
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
                 'placeholder': 'Enter a brief title for your report'
+            }),
+            'category': forms.Select(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent'
             }),
             'description': forms.Textarea(attrs={
                 'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
@@ -413,6 +416,7 @@ class KaiReportForm(forms.ModelForm):
         }
         labels = {
             'title': 'Report Title',
+            'category': 'Category',
             'description': 'Description',
             'targeted_to': 'Directed To (Optional)',
             'attachment': 'Attachment (Optional)',

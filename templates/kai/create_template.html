@@ -1,0 +1,131 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Create Report Template{% endblock %}
+
+{% block content %}
+<div class="bg-gradient-to-br from-gray-50 to-gray-100 -m-8 p-8 min-h-screen">
+  <div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="mb-6">
+      <a href="{% url 'manage_kai_templates' %}" class="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Back to Templates
+      </a>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-lg p-8">
+      <h1 class="text-3xl font-bold text-gray-800 mb-2">Create Report Template</h1>
+      <p class="text-gray-600 mb-6">Define a reusable template for common report types</p>
+
+      <form method="post">
+        {% csrf_token %}
+
+        <!-- Template Name -->
+        <div class="mb-6">
+          <label class="block text-sm font-semibold text-gray-700 mb-2">
+            Template Name <span class="text-red-600">*</span>
+          </label>
+          <input type="text" name="name" required
+                 placeholder="e.g., Academic Dishonesty Report"
+                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+          <p class="text-xs text-gray-500 mt-1">A descriptive name for this template</p>
+        </div>
+
+        <!-- Description -->
+        <div class="mb-6">
+          <label class="block text-sm font-semibold text-gray-700 mb-2">
+            Description <span class="text-red-600">*</span>
+          </label>
+          <textarea name="description" rows="3" required
+                    placeholder="Describe when to use this template..."
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+          <p class="text-xs text-gray-500 mt-1">Explain when this template should be used</p>
+        </div>
+
+        <!-- Category -->
+        <div class="mb-6">
+          <label class="block text-sm font-semibold text-gray-700 mb-2">
+            Category <span class="text-red-600">*</span>
+          </label>
+          <select name="category" required
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <option value="">-- Select Category --</option>
+            {% for cat_value, cat_label in category_choices %}
+            <option value="{{ cat_value }}">{{ cat_label }}</option>
+            {% endfor %}
+          </select>
+          <p class="text-xs text-gray-500 mt-1">Default category for reports using this template</p>
+        </div>
+
+        <!-- Title Template -->
+        <div class="mb-6">
+          <label class="block text-sm font-semibold text-gray-700 mb-2">
+            Title Template <span class="text-red-600">*</span>
+          </label>
+          <input type="text" name="title_template" required
+                 placeholder="e.g., Academic Dishonesty - {member_name}"
+                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+          <p class="text-xs text-gray-500 mt-1">Template for the report title. Use {member_name} or other placeholders as needed.</p>
+        </div>
+
+        <!-- Description Template -->
+        <div class="mb-6">
+          <label class="block text-sm font-semibold text-gray-700 mb-2">
+            Description Template <span class="text-red-600">*</span>
+          </label>
+          <textarea name="description_template" rows="10" required
+                    placeholder="Enter the template description with guidelines...
+
+Example:
+Date of Incident: [Enter date]
+Location: [Enter location]
+Description of Incident:
+[Describe what happened in detail]
+
+Evidence:
+[Attach or describe any evidence]
+
+Witnesses:
+[List any witnesses]"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"></textarea>
+          <p class="text-xs text-gray-500 mt-1">Pre-filled description with guidelines and placeholders for the submitter to fill in</p>
+        </div>
+
+        <!-- Suggested Tags -->
+        <div class="mb-6">
+          <label class="block text-sm font-semibold text-gray-700 mb-2">
+            Suggested Tags <span class="text-gray-500 text-xs">(Optional)</span>
+          </label>
+          <input type="text" name="suggested_tags"
+                 placeholder="e.g., academic, dishonesty, exam"
+                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+          <p class="text-xs text-gray-500 mt-1">Comma-separated tags that will be suggested when using this template</p>
+        </div>
+
+        <!-- Active Status -->
+        <div class="mb-6">
+          <label class="flex items-center space-x-2 cursor-pointer">
+            <input type="checkbox" name="is_active" checked
+                   class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
+            <span class="text-sm font-semibold text-gray-700">
+              Active (template will be available for use)
+            </span>
+          </label>
+        </div>
+
+        <!-- Buttons -->
+        <div class="flex gap-3">
+          <button type="submit" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+            Create Template
+          </button>
+          <a href="{% url 'manage_kai_templates' %}" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium">
+            Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

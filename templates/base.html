@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -36,7 +37,7 @@
             <div class="flex items-center justify-between h-14">
                 <div class="flex items-center space-x-4 lg:space-x-6">
                     <a href="{% url 'home' %}" class="flex items-center space-x-2 text-lg font-bold hover:text-primary-200 transition-colors whitespace-nowrap">
-                        <img src="/media/beta-seal.webp" alt="Beta Theta Pi Seal" class="w-8 h-8 rounded-full object-contain bg-white p-0.5">
+                        <img src="{% static 'images/beta-seal.webp' %}" alt="Beta Theta Pi Seal" class="w-8 h-8 rounded-full object-contain bg-white p-0.5">
                         <span>Parliament</span>
                     </a>
 

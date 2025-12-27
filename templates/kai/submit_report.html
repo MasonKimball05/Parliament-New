@@ -22,8 +22,45 @@
 
     <!-- Form -->
     <div class="bg-white rounded-lg shadow-lg p-8">
+      <!-- Template Selector -->
+      {% if templates %}
+      <div class="mb-8 pb-6 border-b border-gray-200">
+        <label class="block text-sm font-semibold text-gray-700 mb-2">
+          Use a Template <span class="text-gray-500 text-xs">(Optional)</span>
+        </label>
+        <select id="templateSelector" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+          <option value="">-- Start from scratch or select a template --</option>
+          {% for template in templates %}
+          <option value="{{ template.id }}"
+                  data-category="{{ template.category }}"
+                  data-title="{{ template.title_template }}"
+                  data-description="{{ template.description_template }}"
+                  data-tags="{{ template.suggested_tags }}">
+            {{ template.name }} ({{ template.get_category_display }})
+          </option>
+          {% endfor %}
+        </select>
+        <p class="text-xs text-gray-500 mt-1">Select a template to pre-fill the form with recommended structure and guidelines</p>
+      </div>
+      {% endif %}
+
       <form method="post" enctype="multipart/form-data" class="space-y-6">
         {% csrf_token %}
+
+        <!-- Category Field (added) -->
+        <div>
+          <label for="{{ form.category.id_for_label }}" class="block text-sm font-semibold text-gray-700 mb-2">
+            {{ form.category.label }}
+            <span class="text-red-500">*</span>
+          </label>
+          {{ form.category }}
+          {% if form.category.help_text %}
+          <p class="mt-1 text-sm text-gray-500">{{ form.category.help_text }}</p>
+          {% endif %}
+          {% if form.category.errors %}
+          <p class="mt-1 text-sm text-red-600">{{ form.category.errors.0 }}</p>
+          {% endif %}
+        </div>
 
         <!-- Title Field -->
         <div>
@@ -169,5 +206,76 @@ function addTag(tag) {
     }
   }
 }
+
+// Template selector functionality
+const templateSelector = document.getElementById('templateSelector');
+if (templateSelector) {
+  templateSelector.addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+
+    if (this.value === '') {
+      // Reset form if no template selected
+      return;
+    }
+
+    // Get template data from data attributes
+    const category = selectedOption.dataset.category;
+    const titleTemplate = selectedOption.dataset.title;
+    const descriptionTemplate = selectedOption.dataset.description;
+    const tags = selectedOption.dataset.tags;
+
+    // Fill in the form fields
+    const categoryField = document.getElementById('{{ form.category.id_for_label }}');
+    const titleField = document.getElementById('{{ form.title.id_for_label }}');
+    const descriptionField = document.getElementById('{{ form.description.id_for_label }}');
+    const tagsField = document.getElementById('{{ form.tags.id_for_label }}');
+
+    if (categoryField && category) {
+      categoryField.value = category;
+    }
+
+    if (titleField && titleTemplate) {
+      titleField.value = titleTemplate;
+    }
+
+    if (descriptionField && descriptionTemplate) {
+      descriptionField.value = descriptionTemplate;
+    }
+
+    if (tagsField && tags) {
+      tagsField.value = tags;
+    }
+
+    // Scroll to form fields
+    titleField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Show a success message
+    const message = document.createElement('div');
+    message.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
+    message.innerHTML = '<strong>Template applied!</strong> Feel free to customize the pre-filled content.';
+    document.body.appendChild(message);
+
+    setTimeout(() => {
+      message.remove();
+    }, 3000);
+  });
+}
 </script>
+
+<style>
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+</style>
 {% endblock %}

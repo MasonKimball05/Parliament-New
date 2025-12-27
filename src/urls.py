@@ -6,7 +6,7 @@ from django.contrib.auth import views as auth_views
 from src.view.officer import *
 from src.view.committee import *
 from src.view.chat import *
-from src.view.kai_reports import submit_kai_report, view_kai_reports, manage_kai_report
+from src.view.kai_reports import submit_kai_report, view_kai_reports, manage_kai_report, export_kai_reports_csv, print_kai_report, kai_dashboard, bulk_actions_kai_reports, manage_kai_templates, create_kai_template, edit_kai_template, delete_kai_template
 from src.view.chapter_documents import chapter_documents
 from src.view.upload_chapter_document import upload_chapter_document
 from src.view.manage_chapter_document import manage_chapter_document
@@ -149,9 +149,17 @@ urlpatterns = [
     path('committee/<str:code>/documents/<int:document_id>/delete/', delete_committee_document, name='delete_committee_document'),
 
     # Kai Report URLs
+    path('kai/dashboard/', kai_dashboard, name='kai_dashboard'),
     path('kai/submit-report/', submit_kai_report, name='submit_kai_report'),
     path('kai/reports/', view_kai_reports, name='view_kai_reports'),
+    path('kai/reports/bulk-actions/', bulk_actions_kai_reports, name='bulk_actions_kai_reports'),
+    path('kai/reports/export/', export_kai_reports_csv, name='export_kai_reports_csv'),
     path('kai/reports/<int:report_id>/', manage_kai_report, name='manage_kai_report'),
+    path('kai/reports/<int:report_id>/print/', print_kai_report, name='print_kai_report'),
+    path('kai/templates/', manage_kai_templates, name='manage_kai_templates'),
+    path('kai/templates/create/', create_kai_template, name='create_kai_template'),
+    path('kai/templates/<int:template_id>/edit/', edit_kai_template, name='edit_kai_template'),
+    path('kai/templates/<int:template_id>/delete/', delete_kai_template, name='delete_kai_template'),
 
     # Committee Chat URLs (legacy - redirects to channel chat)
     path('committee/<str:code>/chat/', committee_chat, name='committee_chat'),
