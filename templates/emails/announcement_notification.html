@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Announcement</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background: #f9fafb;
+            padding: 30px 20px;
+            border-left: 1px solid #e5e7eb;
+            border-right: 1px solid #e5e7eb;
+        }
+        .announcement-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 15px;
+        }
+        .announcement-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            margin: 20px 0;
+            white-space: pre-wrap;
+        }
+        .event-info {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .footer {
+            background: #f3f4f6;
+            padding: 20px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+            border-radius: 0 0 8px 8px;
+            border: 1px solid #e5e7eb;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #3b82f6;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 15px 0;
+        }
+        .btn:hover {
+            background: #2563eb;
+        }
+        .meta-info {
+            color: #6b7280;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 style="margin: 0; font-size: 28px;">📢 New Announcement</h1>
+        <p style="margin: 10px 0 0 0; opacity: 0.9;">Parliament System</p>
+    </div>
+
+    <div class="content">
+        <div class="announcement-title">{{ announcement.title }}</div>
+
+        <div class="meta-info">
+            Posted by {{ announcement.posted_by.get_display_name }} on {{ announcement.posted_at|date:"F j, Y \a\t g:i A" }}
+        </div>
+
+        <div class="announcement-content">
+            {{ announcement.content }}
+        </div>
+
+        {% if announcement.event_date %}
+        <div class="event-info">
+            <strong>📅 Event Date:</strong> {{ announcement.event_date|date:"l, F j, Y \a\t g:i A" }}
+        </div>
+        {% endif %}
+
+        <div style="text-align: center;">
+            <a href="{{ site_url }}/announcements/" class="btn">
+                View All Announcements
+            </a>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>This email was sent because you are a member of the Parliament system.</p>
+        <p>You can view all announcements by logging into the <a href="{{ site_url }}" style="color: #3b82f6;">Parliament portal</a>.</p>
+    </div>
+</body>
+</html>

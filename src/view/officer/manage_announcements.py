@@ -4,6 +4,8 @@ from django.contrib import messages
 from src.models import Announcement
 from src.forms import AnnouncementForm
 from src.decorators import log_function_call, officer_required
+from src.notifications import send_announcement_notification
+from django.utils import timezone
 
 @login_required
 @officer_required
@@ -26,7 +28,17 @@ def create_announcement(request):
             announcement = form.save(commit=False)
             announcement.posted_by = request.user
             announcement.save()
-            messages.success(request, 'Announcement created successfully!')
+
+            # Send email notifications if announcement is published now
+            if announcement.is_published():
+                try:
+                    sent_count = send_announcement_notification(announcement)
+                    messages.success(request, f'Announcement created and {sent_count} email notifications sent!')
+                except Exception as e:
+                    messages.warning(request, f'Announcement created but email notifications failed: {str(e)}')
+            else:
+                messages.success(request, 'Announcement created and scheduled for publication!')
+
             return redirect('manage_announcements')
     else:
         form = AnnouncementForm(initial={'is_active': True})
