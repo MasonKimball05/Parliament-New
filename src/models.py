@@ -10,6 +10,12 @@ from src.storage import DualLocationStorage
 
 logger = logging.getLogger('function_calls')
 
+
+def get_default_visible_to():
+    """Default value for visible_to fields - empty list means visible to all"""
+    return []
+
+
 class ParliamentUserManager(BaseUserManager):
     def create_user(self, user_id, name, username, member_type, password=None):
         if not user_id:
@@ -578,13 +584,26 @@ class CommitteeDocument(models.Model):
 
 class Announcement(models.Model):
     """Model for officer announcements and event notifications"""
+    MEMBER_TYPES = (
+        ('Member', 'Member'),
+        ('Chair', 'Chair'),
+        ('Officer', 'Officer'),
+        ('Advisor', 'Advisor'),
+        ('Pledge', 'Pledge'),
+    )
+
     title = models.CharField(max_length=200)
     content = models.TextField()
     posted_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
     posted_at = models.DateTimeField(auto_now_add=True)
     publish_at = models.DateTimeField(null=True, blank=True, help_text='Schedule when this announcement should be published. Leave blank to publish immediately.')
-    event_date = models.DateTimeField(null=True, blank=True, help_text='Optional event date/time')
+    event_date = models.DateTimeField(null=True, blank=True, help_text='Optional event/time')
     is_active = models.BooleanField(default=True, help_text='Uncheck to hide announcement')
+    visible_to = models.JSONField(
+        null=True,
+        blank=True,
+        help_text='Select which member types can see this announcement. Leave empty for all members.'
+    )
 
     class Meta:
         ordering = ['-posted_at']
@@ -601,9 +620,42 @@ class Announcement(models.Model):
             return True
         return timezone.now() >= self.publish_at
 
+    def is_visible_to_user(self, user):
+        """Check if user should be able to see this announcement"""
+        if not self.is_published():
+            return False
+        # If visible_to is None or empty, show to all users
+        if not self.visible_to:
+            return True
+        # Otherwise, check if user's member_type is in the list
+        return user.member_type in self.visible_to
+
+
+class UserAnnouncementView(models.Model):
+    """Track which announcements users have seen/dismissed"""
+    user = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
+    announcement = models.ForeignKey(Announcement, on_delete=models.CASCADE)
+    viewed_at = models.DateTimeField(auto_now_add=True)
+    dismissed = models.BooleanField(default=False, help_text='User has dismissed this notification')
+
+    class Meta:
+        unique_together = ('user', 'announcement')
+        ordering = ['-viewed_at']
+
+    def __str__(self):
+        return f"{self.user.name} - {self.announcement.title}"
+
 
 class Event(models.Model):
     """Model for calendar events - officers can create, all members can view"""
+    MEMBER_TYPES = (
+        ('Member', 'Member'),
+        ('Chair', 'Chair'),
+        ('Officer', 'Officer'),
+        ('Advisor', 'Advisor'),
+        ('Pledge', 'Pledge'),
+    )
+
     title = models.CharField(max_length=200)
     description = models.TextField()
     date_time = models.DateTimeField(help_text='Date and time of the event')
@@ -612,6 +664,11 @@ class Event(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True, help_text='Uncheck to hide event from calendar')
     archived = models.BooleanField(default=False, help_text='Events older than 1 year are automatically archived')
+    visible_to = models.JSONField(
+        null=True,
+        blank=True,
+        help_text='Select which member types can see this event. Leave empty for all members.'
+    )
 
     class Meta:
         ordering = ['date_time']
@@ -623,6 +680,16 @@ class Event(models.Model):
         """Check if event is in the future"""
         from django.utils import timezone
         return self.date_time > timezone.now()
+
+    def is_visible_to_user(self, user):
+        """Check if user should be able to see this event"""
+        if not self.is_active:
+            return False
+        # If visible_to is None or empty, show to all users
+        if not self.visible_to:
+            return True
+        # Otherwise, check if user's member_type is in the list
+        return user.member_type in self.visible_to
 
 
 class ChatChannel(models.Model):
