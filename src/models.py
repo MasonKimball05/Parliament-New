@@ -11,11 +11,6 @@ from src.storage import DualLocationStorage
 logger = logging.getLogger('function_calls')
 
 
-def get_default_visible_to():
-    """Default value for visible_to fields - empty list means visible to all"""
-    return []
-
-
 class ParliamentUserManager(BaseUserManager):
     def create_user(self, user_id, name, username, member_type, password=None):
         if not user_id:

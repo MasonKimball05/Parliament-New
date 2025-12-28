@@ -55,12 +55,15 @@ def calendar_view(request):
     else:
         month_end = datetime(year, month + 1, 1)
 
-    events = Event.objects.filter(
+    all_events = Event.objects.filter(
         is_active=True,
         archived=False,
         date_time__gte=month_start,
         date_time__lt=month_end
     ).order_by('date_time')
+
+    # Filter by visibility
+    events = [e for e in all_events if e.is_visible_to_user(request.user)]
 
     # Group events by day
     events_by_day = defaultdict(list)
@@ -69,11 +72,12 @@ def calendar_view(request):
         events_by_day[day].append(event)
 
     # Get upcoming events (next 5 from today)
-    upcoming_events = Event.objects.filter(
+    all_upcoming = Event.objects.filter(
         is_active=True,
         archived=False,
         date_time__gte=now
-    ).order_by('date_time')[:5]
+    ).order_by('date_time')
+    upcoming_events = [e for e in all_upcoming if e.is_visible_to_user(request.user)][:5]
 
     context = {
         'calendar': cal,
@@ -142,12 +146,15 @@ def calendar_data_api(request):
     else:
         month_end = datetime(year, month + 1, 1)
 
-    events = Event.objects.filter(
+    all_events = Event.objects.filter(
         is_active=True,
         archived=False,
         date_time__gte=month_start,
         date_time__lt=month_end
     ).order_by('date_time')
+
+    # Filter by visibility
+    events = [e for e in all_events if e.is_visible_to_user(request.user)]
 
     # Build events data
     events_data = {}

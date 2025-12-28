@@ -39,9 +39,18 @@ class LegislationForm(forms.ModelForm):
         return file
 
 class AnnouncementForm(forms.ModelForm):
+    visible_to = forms.MultipleChoiceField(
+        choices=Announcement.MEMBER_TYPES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={
+            'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+        }),
+        help_text='Select which member types can see this announcement. Leave empty for all members.'
+    )
+
     class Meta:
         model = Announcement
-        fields = ['title', 'content', 'publish_at', 'event_date', 'is_active']
+        fields = ['title', 'content', 'publish_at', 'event_date', 'visible_to', 'is_active']
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
@@ -69,6 +78,7 @@ class AnnouncementForm(forms.ModelForm):
             'content': 'Content',
             'publish_at': 'Publish Date & Time (Optional)',
             'event_date': 'Event Date (Optional)',
+            'visible_to': 'Visible To',
             'is_active': 'Active'
         }
         help_texts = {
@@ -77,10 +87,27 @@ class AnnouncementForm(forms.ModelForm):
             'is_active': 'Uncheck to hide this announcement from members'
         }
 
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        # Convert the list from MultipleChoiceField to JSON for storage
+        instance.visible_to = self.cleaned_data.get('visible_to') or None
+        if commit:
+            instance.save()
+        return instance
+
 class EventForm(forms.ModelForm):
+    visible_to = forms.MultipleChoiceField(
+        choices=Event.MEMBER_TYPES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={
+            'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+        }),
+        help_text='Select which member types can see this event. Leave empty for all members.'
+    )
+
     class Meta:
         model = Event
-        fields = ['title', 'description', 'date_time', 'location', 'is_active']
+        fields = ['title', 'description', 'date_time', 'location', 'visible_to', 'is_active']
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
@@ -108,6 +135,7 @@ class EventForm(forms.ModelForm):
             'description': 'Description',
             'date_time': 'Date & Time',
             'location': 'Location',
+            'visible_to': 'Visible To',
             'is_active': 'Active'
         }
         help_texts = {
@@ -115,6 +143,14 @@ class EventForm(forms.ModelForm):
             'location': 'Physical location or virtual meeting link',
             'is_active': 'Uncheck to hide this event from the calendar'
         }
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        # Convert the list from MultipleChoiceField to JSON for storage
+        instance.visible_to = self.cleaned_data.get('visible_to') or None
+        if commit:
+            instance.save()
+        return instance
 
 class CommitteeDocumentForm(forms.ModelForm):
     class Meta:
