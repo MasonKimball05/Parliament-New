@@ -110,13 +110,13 @@ echo ""
 print_step "Step 6: Setting up optimized Gunicorn systemd service..."
 
 # Stop current Gunicorn service (find its name)
-CURRENT_SERVICE=$(systemctl list-units --type=service --state=running | grep -i gunicorn | awk '{print $1}' | head -1)
+CURRENT_SERVICE=$(systemctl list-units --type=service --state=running | grep -iE 'gunicorn|parliament' | grep -v 'parliament-gunicorn' | awk '{print $1}' | head -1)
 if [ -n "$CURRENT_SERVICE" ]; then
     print_status "Found existing service: $CURRENT_SERVICE"
     print_warning "Stopping current service..."
     systemctl stop "$CURRENT_SERVICE"
 else
-    print_warning "No running Gunicorn service found"
+    print_warning "No running Gunicorn/Parliament service found"
 fi
 
 # Install new systemd service

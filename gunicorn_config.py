@@ -5,8 +5,8 @@ Designed for minimal RAM usage while maintaining performance
 import multiprocessing
 import os
 
-# Server socket
-bind = "0.0.0.0:8000"
+# Server socket - using unix socket for nginx communication
+bind = "unix:/var/www/Parliament-New/parliament.sock"
 backlog = 2048
 
 # Worker processes - optimized for low memory
