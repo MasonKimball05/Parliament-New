@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('src', '0037_alter_loginhistory_ip_address_and_more'),
+        ('src', '0036_increase_encrypted_field_lengths'),
     ]
 
     operations = [
