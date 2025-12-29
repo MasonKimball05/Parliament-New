@@ -2,11 +2,13 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.timezone import make_aware
 from django.utils.dateparse import parse_datetime
 from datetime import timedelta
 from ..models import *
+from src.utils.file_validation import validate_uploaded_file
 import logging
 
 @login_required
@@ -18,6 +20,15 @@ def vote_view(request):
         title = request.POST.get('title')
         description = request.POST.get('description')
         document = request.FILES.get('document')
+
+        # Validate uploaded file for security
+        if document:
+            try:
+                validate_uploaded_file(document)
+            except ValidationError as e:
+                messages.error(request, f'File upload error: {str(e)}')
+                return redirect('home')
+
         anonymous = request.POST.get('anonymous') == 'on'
         allow_abstain = not (request.POST.get('remove_abstain') == 'on')
         required_percentage = int(request.POST.get('required_percentage', 51))

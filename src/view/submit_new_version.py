@@ -5,6 +5,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from django.shortcuts import render, get_object_or_404, redirect
+from django.core.exceptions import ValidationError
+from src.utils.file_validation import validate_uploaded_file
 
 @login_required
 @officer_required
@@ -16,6 +18,14 @@ def submit_new_version(request, legislation_id):
         return HttpResponseForbidden("Only the uploader can submit a new version.")
 
     if request.method == 'POST':
+        # Validate uploaded file before processing form
+        if 'document' in request.FILES:
+            try:
+                validate_uploaded_file(request.FILES['document'])
+            except ValidationError as e:
+                messages.error(request, f'File upload error: {str(e)}')
+                return render(request, 'submit_new_version.html', {'form': LegislationForm(instance=legislation), 'legislation': legislation})
+
         form = LegislationForm(request.POST, request.FILES)
         if form.is_valid():
             new_legislation = form.save(commit=False)

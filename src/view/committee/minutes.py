@@ -5,6 +5,8 @@ from src.models import Committee, CommitteeDocument
 import logging
 from django.views.decorators.http import require_http_methods
 from django.core.files.base import ContentFile
+from django.core.exceptions import ValidationError
+from src.utils.file_validation import validate_uploaded_file
 
 @require_http_methods(["GET", "POST"])
 @login_required
@@ -21,6 +23,20 @@ def committee_minutes(request, code):
         date = request.POST.get('date')
         content = request.POST.get('content')
         document_file = request.FILES.get('document')
+
+        # Validate uploaded file if provided
+        if document_file:
+            try:
+                validate_uploaded_file(document_file)
+            except ValidationError as e:
+                messages.error(request, f'File upload error: {str(e)}')
+                return render(request, 'committee/minutes.html', {
+                    'committee': committee,
+                    'minutes': CommitteeDocument.objects.filter(
+                        committee=committee,
+                        document_type='minutes'
+                    ).order_by('-meeting_date', '-uploaded_at')
+                })
 
         if title and date:
             # If there's text content but no file, create a text file

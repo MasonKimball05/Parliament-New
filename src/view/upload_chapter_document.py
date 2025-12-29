@@ -4,8 +4,10 @@ View for officers to upload documents directly to chapter (not through committee
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from src.models import CommitteeDocument, ChapterFolder, Committee
 from src.decorators import officer_required
+from src.utils.file_validation import validate_uploaded_file
 
 
 @officer_required
@@ -30,6 +32,14 @@ def upload_chapter_document(request):
         document_type = request.POST.get('document_type', 'general')
         folder_id = request.POST.get('chapter_folder', None)
         publish_now = request.POST.get('publish_now') == 'true'
+
+        # Validate uploaded file
+        if file:
+            try:
+                validate_uploaded_file(file)
+            except ValidationError as e:
+                messages.error(request, f'File upload error: {str(e)}')
+                return render(request, 'upload_chapter_document.html', {'folders': folders})
 
         if file and title:
             # Get folder if specified

@@ -3,6 +3,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from src.models import Committee, CommitteePermissions, CommitteeDocument, ChapterFolder
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.exceptions import ValidationError
+from src.utils.file_validation import validate_uploaded_file
 
 @login_required
 def committee_upload_document(request, code):  # Make sure this says 'code' not 'id'
@@ -24,6 +26,17 @@ def committee_upload_document(request, code):  # Make sure this says 'code' not 
         document_type = request.POST.get('document_type', 'general')
         meeting_date = request.POST.get('meeting_date', None)
         folder_id = request.POST.get('chapter_folder', None)
+
+        # Validate uploaded file
+        if file:
+            try:
+                validate_uploaded_file(file)
+            except ValidationError as e:
+                messages.error(request, f'File upload error: {str(e)}')
+                return render(request, 'committee/upload_document.html', {
+                    'committee': committee,
+                    'folders': folders
+                })
 
         if file and title:
             # Get folder if specified

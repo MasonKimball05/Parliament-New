@@ -5,6 +5,8 @@ from django.db import transaction
 from src.models import PassedResolution, ResolutionSectionImpact
 from src.forms import PassedResolutionForm, ResolutionSectionImpactForm
 from src.decorators import admin_required
+from django.core.exceptions import ValidationError
+from src.utils.file_validation import validate_uploaded_file
 
 
 @login_required
@@ -24,6 +26,17 @@ def manage_resolutions(request):
 def create_resolution(request):
     """Create a new passed resolution"""
     if request.method == 'POST':
+        # Validate uploaded file before processing form
+        if 'document' in request.FILES:
+            try:
+                validate_uploaded_file(request.FILES['document'])
+            except ValidationError as e:
+                messages.error(request, f'File upload error: {str(e)}')
+                return render(request, 'officer/resolution_form.html', {
+                    'form': PassedResolutionForm(),
+                    'action': 'Create',
+                })
+
         form = PassedResolutionForm(request.POST, request.FILES)
         if form.is_valid():
             resolution = form.save(commit=False)
@@ -48,6 +61,18 @@ def edit_resolution(request, resolution_id):
     resolution = get_object_or_404(PassedResolution, id=resolution_id)
 
     if request.method == 'POST':
+        # Validate uploaded file before processing form
+        if 'document' in request.FILES:
+            try:
+                validate_uploaded_file(request.FILES['document'])
+            except ValidationError as e:
+                messages.error(request, f'File upload error: {str(e)}')
+                return render(request, 'officer/resolution_form.html', {
+                    'form': PassedResolutionForm(instance=resolution),
+                    'resolution': resolution,
+                    'action': 'Edit',
+                })
+
         form = PassedResolutionForm(request.POST, request.FILES, instance=resolution)
         if form.is_valid():
             form.save()

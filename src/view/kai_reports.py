@@ -5,10 +5,12 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
 from django.http import HttpResponse
+from django.core.exceptions import ValidationError
 import csv
 from src.models import KaiReport, Committee, ParliamentUser, KaiReportActivity, KaiReportTemplate
 from src.forms import KaiReportForm
 from src.decorators import log_function_call
+from src.utils.file_validation import validate_uploaded_file
 
 
 @login_required
@@ -18,6 +20,29 @@ def submit_kai_report(request):
     # Check if KaiReport table exists
     try:
         if request.method == 'POST':
+            # Validate uploaded file if provided
+            if 'supporting_document' in request.FILES:
+                try:
+                    validate_uploaded_file(request.FILES['supporting_document'])
+                except ValidationError as e:
+                    messages.error(request, f'File upload error: {str(e)}')
+                    # Re-initialize form with templates
+                    form = KaiReportForm()
+                    try:
+                        queryset = ParliamentUser.objects.filter(member_status='Active').order_by('name')
+                        list(queryset)
+                        form.fields['targeted_to'].queryset = queryset
+                    except:
+                        try:
+                            queryset = ParliamentUser.objects.filter(is_active=True).only('name', 'member_type').order_by('name')
+                            list(queryset)
+                            form.fields['targeted_to'].queryset = queryset
+                        except:
+                            queryset = ParliamentUser.objects.all().only('name', 'member_type')
+                            form.fields['targeted_to'].queryset = queryset
+                    templates = KaiReportTemplate.objects.filter(is_active=True)
+                    return render(request, 'kai/submit_report.html', {'form': form, 'templates': templates})
+
             form = KaiReportForm(request.POST, request.FILES)
             if form.is_valid():
                 report = form.save(commit=False)

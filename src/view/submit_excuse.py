@@ -6,8 +6,10 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
 from django.core.files.storage import default_storage
+from django.core.exceptions import ValidationError
 
 from src.models import Event, AttendanceExcuse, ActivityLog
+from src.utils.file_validation import validate_uploaded_file
 
 
 @login_required
@@ -76,6 +78,14 @@ def submit_excuse(request, event_id):
     if request.method == 'POST':
         reason = request.POST.get('reason', '').strip()
         supporting_document = request.FILES.get('supporting_document')
+
+        # Validate uploaded file if provided
+        if supporting_document:
+            try:
+                validate_uploaded_file(supporting_document)
+            except ValidationError as e:
+                messages.error(request, f'File upload error: {str(e)}')
+                return render(request, 'submit_excuse.html', {'event': event})
 
         # Validate reason
         if not reason or len(reason) < 10:

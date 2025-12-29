@@ -6,6 +6,8 @@ from django.utils.dateparse import parse_datetime
 from django.utils.timezone import make_aware
 from django.views.decorators.http import require_http_methods
 import logging
+from django.core.exceptions import ValidationError
+from src.utils.file_validation import validate_uploaded_file
 
 @require_http_methods(["GET", "POST"])
 @login_required
@@ -21,6 +23,15 @@ def committee_create_vote(request, code):
         title = request.POST.get('title')
         description = request.POST.get('description')
         document = request.FILES.get('document')
+
+        # Validate uploaded file if provided
+        if document:
+            try:
+                validate_uploaded_file(document)
+            except ValidationError as e:
+                messages.error(request, f'File upload error: {str(e)}')
+                return render(request, 'committee/create_vote.html', {'committee': committee})
+
         anonymous = request.POST.get('anonymous') == 'on'
         allow_abstain = not (request.POST.get('remove_abstain') == 'on')
         required_percentage = request.POST.get('required_percentage', '51')
