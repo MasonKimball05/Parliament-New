@@ -41,8 +41,10 @@ def committee_detail(request, code):
     # Members dropdown: only active members
     eligible_members = ParliamentUser.objects.filter(member_status='Active').order_by('name')
 
-    # Chairs dropdown: only current committee members
-    eligible_chairs = committee.members.all().order_by('name')
+    # Chairs dropdown: only current committee members who are NOT already chairs
+    eligible_chairs = committee.members.exclude(
+        pk__in=committee.chairs.all()
+    ).order_by('name')
 
     # Advisors dropdown: active members + advisor member_type
     from django.db.models import Q

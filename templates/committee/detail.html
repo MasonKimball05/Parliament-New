@@ -402,7 +402,7 @@ function openManageModal(roleType) {
 
     if (roleType === 'chair') {
         userList = eligibleChairs;
-        noteText = 'Only current committee members can be added as chairs.';
+        noteText = 'Only current committee members who are not already chairs.';
     } else if (roleType === 'advisor') {
         userList = eligibleAdvisors;
         noteText = 'Shows active members and advisors.';
