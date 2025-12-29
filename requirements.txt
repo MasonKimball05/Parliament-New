@@ -20,3 +20,7 @@ psycopg2-pool==1.1
 # Redis for shared caching across workers (optional but recommended)
 redis==5.2.1
 django-redis==5.4.0
+
+# Field-level encryption for sensitive data (AES encryption)
+django-fernet-fields==0.6
+cryptography==43.0.3
