@@ -21,6 +21,5 @@ psycopg2-pool==1.1
 redis==5.2.1
 django-redis==5.4.0
 
-# Field-level encryption for sensitive data (AES encryption)
-django-cryptography==1.1
+# Field-level encryption for sensitive data (AES encryption via Fernet)
 cryptography==43.0.3

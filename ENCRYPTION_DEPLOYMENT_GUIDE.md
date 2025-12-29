@@ -17,7 +17,7 @@ The following sensitive fields are now encrypted at rest using Fernet (AES-128-C
 
 ### Encryption Algorithm
 
-We use **django-cryptography** which implements **Fernet symmetric encryption**:
+We use **custom encrypted fields** (in `src/encrypted_fields.py`) which implement **Fernet symmetric encryption**:
 - **Algorithm**: AES in CBC mode with 128-bit keys
 - **Authentication**: HMAC using SHA256
 - **Key Derivation**: Uses cryptography library's Fernet implementation
@@ -32,12 +32,14 @@ We use **django-cryptography** which implements **Fernet symmetric encryption**:
 ### Step 1: Install Dependencies
 
 ```bash
-# Install encryption libraries
-pip install django-cryptography==1.1 cryptography==43.0.3
+# Install cryptography library (no third-party Django packages needed)
+pip install cryptography==43.0.3
 
 # Or use requirements.txt
 pip install -r requirements.txt
 ```
+
+**Note**: We use custom encrypted fields (`src/encrypted_fields.py`) instead of third-party packages for better Django 5.x compatibility and control.
 
 ### Step 2: Generate Encryption Key
 
@@ -109,7 +111,7 @@ sudo systemctl restart parliament-gunicorn
    user.save()
    ```
 
-2. django-cryptography automatically:
+2. our custom encrypted field automatically:
    - Encrypts "mkimball" using the Fernet key
    - Stores encrypted data in database: `gAAAAABf...` (base64-encoded ciphertext)
 
@@ -122,7 +124,7 @@ sudo systemctl restart parliament-gunicorn
    username = user.username
    ```
 
-2. django-cryptography automatically:
+2. our custom encrypted field automatically:
    - Decrypts the ciphertext using the Fernet key
    - Returns plain text: "mkimball"
 
@@ -311,8 +313,8 @@ test@example.com
 ## Additional Resources
 
 - [Fernet Specification](https://github.com/fernet/spec/)
-- [django-cryptography on GitHub](https://github.com/georgemarshall/django-cryptography)
-- [Cryptography Library](https://cryptography.io/en/latest/)
+- [Cryptography Library Documentation](https://cryptography.io/en/latest/)
+- [Custom Encrypted Fields Implementation](src/encrypted_fields.py)
 
 ## Support
 
