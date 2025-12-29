@@ -350,9 +350,21 @@
 </div>
 
 <script>
-// Store user lists
-const allUsers = [
-    {% for user in all_users %}
+// Store filtered user lists for each role type
+const eligibleMembers = [
+    {% for user in eligible_members %}
+    {id: "{{ user.pk }}", name: "{{ user.name }}", type: "{{ user.member_type }}"},
+    {% endfor %}
+];
+
+const eligibleChairs = [
+    {% for user in eligible_chairs %}
+    {id: "{{ user.pk }}", name: "{{ user.name }}", type: "{{ user.member_type }}"},
+    {% endfor %}
+];
+
+const eligibleAdvisors = [
+    {% for user in eligible_advisors %}
     {id: "{{ user.pk }}", name: "{{ user.name }}", type: "{{ user.member_type }}"},
     {% endfor %}
 ];
@@ -384,14 +396,27 @@ function openManageModal(roleType) {
     // Clear existing options
     userSelect.innerHTML = '<option value="">Choose a user...</option>';
 
-    // Show appropriate user list
-    let userList = allUsers;
-    if (roleType === 'voter') {
+    // Show appropriate filtered user list based on role type
+    let userList;
+    let noteText = '';
+
+    if (roleType === 'chair') {
+        userList = eligibleChairs;
+        noteText = 'Only current committee members can be added as chairs.';
+    } else if (roleType === 'advisor') {
+        userList = eligibleAdvisors;
+        noteText = 'Shows active members and advisors.';
+    } else if (roleType === 'voter') {
         userList = eligibleVoters;
-        voterNote.style.display = 'block';
+        noteText = 'Only current members and chairs who are not already voting members.';
     } else {
-        voterNote.style.display = 'none';
+        userList = eligibleMembers;
+        noteText = 'Shows active members only.';
     }
+
+    // Update note text
+    voterNote.textContent = noteText;
+    voterNote.style.display = noteText ? 'block' : 'none';
 
     // Populate dropdown
     userList.forEach(user => {

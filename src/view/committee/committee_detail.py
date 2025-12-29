@@ -37,11 +37,23 @@ def committee_detail(request, code):
             can_view_results=True
         )
 
-    # Get all active users for different roles
-    all_users = ParliamentUser.objects.filter(member_status='Active').order_by('name')
+    # Get filtered user lists for different roles
+    # Members dropdown: only active members
+    eligible_members = ParliamentUser.objects.filter(member_status='Active').order_by('name')
 
-    # For voting members, only show current members and chairs
-    eligible_voters = (committee.members.all() | committee.chairs.all()).distinct().order_by('name')
+    # Chairs dropdown: only current committee members
+    eligible_chairs = committee.members.all().order_by('name')
+
+    # Advisors dropdown: active members + advisor member_type
+    from django.db.models import Q
+    eligible_advisors = ParliamentUser.objects.filter(
+        Q(member_status='Active') | Q(member_type='Advisor')
+    ).order_by('name')
+
+    # Voting members dropdown: committee members/chairs NOT already voting members
+    eligible_voters = (committee.members.all() | committee.chairs.all()).exclude(
+        pk__in=committee.voting_members.all()
+    ).distinct().order_by('name')
 
     context = {
         'committee': committee,
@@ -53,7 +65,9 @@ def committee_detail(request, code):
         'is_vp': is_vp,
         'can_manage': is_vp or user.is_admin,
         'permissions': permissions,
-        'all_users': all_users,
+        'eligible_members': eligible_members,
+        'eligible_chairs': eligible_chairs,
+        'eligible_advisors': eligible_advisors,
         'eligible_voters': eligible_voters,
     }
 
