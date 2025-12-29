@@ -81,6 +81,16 @@ def post_fork(server, worker):
     """Called just after a worker has been forked"""
     server.log.info(f"Worker spawned (pid: {worker.pid})")
 
+    # CRITICAL FIX: Close all database connections from the master process
+    # This prevents thread-safety errors with gevent workers
+    # Each worker will create its own database connections
+    try:
+        from django.db import connections
+        connections.close_all()
+        server.log.info(f"Closed inherited database connections in worker {worker.pid}")
+    except Exception as e:
+        server.log.error(f"Error closing database connections in worker {worker.pid}: {e}")
+
 def pre_exec(server):
     """Called just before a new master process is forked"""
     server.log.info("Forking new master process")
