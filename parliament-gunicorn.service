@@ -1,0 +1,47 @@
+[Unit]
+Description=Parliament Gunicorn Application Server
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=exec
+# User and group to run as (adjust as needed)
+User=root
+Group=root
+RuntimeDirectory=gunicorn
+WorkingDirectory=/var/www/Parliament-New
+
+# Environment variables
+Environment="PATH=/var/www/Parliament-New/venv/bin"
+Environment="DJANGO_SETTINGS_MODULE=Parliament.settings_postgres"
+EnvironmentFile=/var/www/Parliament-New/.env
+
+# Memory optimization: Use the optimized gunicorn config
+ExecStart=/var/www/Parliament-New/venv/bin/gunicorn \
+    --config /var/www/Parliament-New/gunicorn_config.py \
+    --pid /run/gunicorn/parliament.pid \
+    Parliament.wsgi:application
+
+# Restart policy
+Restart=on-failure
+RestartSec=5s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Resource limits (optional but recommended)
+# Limit each worker to ~256MB (2 workers = ~512MB total)
+# This prevents memory bloat
+LimitAS=536870912
+# 512MB in bytes
+MemoryLimit=512M
+# Systemd cgroup memory limit
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=parliament-gunicorn
+
+[Install]
+WantedBy=multi-user.target
