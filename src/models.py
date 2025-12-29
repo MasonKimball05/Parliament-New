@@ -7,7 +7,7 @@ from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.conf import settings
 from src.storage import DualLocationStorage
-from fernet_fields import EncryptedCharField, EncryptedEmailField
+from django_cryptography.fields import encrypt
 
 logger = logging.getLogger('function_calls')
 
@@ -77,8 +77,8 @@ class ParliamentUser(AbstractBaseUser):
     member_type = models.CharField(max_length=20, choices=MEMBER_TYPES)
     is_active = models.BooleanField(default=True)
     is_admin = models.BooleanField(default=False)
-    username = EncryptedCharField(max_length=255, unique=True, help_text='Encrypted username for secure storage')
-    email = EncryptedEmailField(max_length=255, blank=True, null=True, unique=True, help_text='Encrypted email address for password reset and notifications')
+    username = encrypt(models.CharField(max_length=255, unique=True, help_text='Encrypted username for secure storage'))
+    email = encrypt(models.EmailField(max_length=255, blank=True, null=True, unique=True, help_text='Encrypted email address for password reset and notifications'))
     anonymous_vote = models.BooleanField(default=False)
     allow_abstain = models.BooleanField(default=True)
     roles = models.ManyToManyField(Role, blank=True)
@@ -1929,7 +1929,7 @@ class LoginHistory(models.Model):
     status = models.CharField(max_length=10, choices=LOGIN_STATUS_CHOICES, default='success')
 
     # IP and Location data
-    ip_address = EncryptedCharField(max_length=255, help_text='Encrypted IP address of login attempt')
+    ip_address = encrypt(models.CharField(max_length=255, help_text='Encrypted IP address of login attempt'))
     country = models.CharField(max_length=100, blank=True, help_text='Country from IP geolocation')
     city = models.CharField(max_length=100, blank=True, help_text='City from IP geolocation')
     region = models.CharField(max_length=100, blank=True, help_text='State/Region from IP geolocation')

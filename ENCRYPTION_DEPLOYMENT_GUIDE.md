@@ -17,7 +17,7 @@ The following sensitive fields are now encrypted at rest using Fernet (AES-128-C
 
 ### Encryption Algorithm
 
-We use **django-fernet-fields** which implements **Fernet symmetric encryption**:
+We use **django-cryptography** which implements **Fernet symmetric encryption**:
 - **Algorithm**: AES in CBC mode with 128-bit keys
 - **Authentication**: HMAC using SHA256
 - **Key Derivation**: Uses cryptography library's Fernet implementation
@@ -33,7 +33,7 @@ We use **django-fernet-fields** which implements **Fernet symmetric encryption**
 
 ```bash
 # Install encryption libraries
-pip install django-fernet-fields==0.6 cryptography==43.0.3
+pip install django-cryptography==1.1 cryptography==43.0.3
 
 # Or use requirements.txt
 pip install -r requirements.txt
@@ -109,7 +109,7 @@ sudo systemctl restart parliament-gunicorn
    user.save()
    ```
 
-2. django-fernet-fields automatically:
+2. django-cryptography automatically:
    - Encrypts "mkimball" using the Fernet key
    - Stores encrypted data in database: `gAAAAABf...` (base64-encoded ciphertext)
 
@@ -122,7 +122,7 @@ sudo systemctl restart parliament-gunicorn
    username = user.username
    ```
 
-2. django-fernet-fields automatically:
+2. django-cryptography automatically:
    - Decrypts the ciphertext using the Fernet key
    - Returns plain text: "mkimball"
 
@@ -311,7 +311,7 @@ test@example.com
 ## Additional Resources
 
 - [Fernet Specification](https://github.com/fernet/spec/)
-- [django-fernet-fields Documentation](https://django-fernet-fields.readthedocs.io/)
+- [django-cryptography on GitHub](https://github.com/georgemarshall/django-cryptography)
 - [Cryptography Library](https://cryptography.io/en/latest/)
 
 ## Support
