@@ -1,6 +1,10 @@
 """
 Django management command to reset all user passwords except specified IDs
 Usage: python manage.py reset_all_passwords --exclude 73,72,67
+
+Security:
+- Active members get simple passwords: [first_initial][lastname][user_id]
+- Inactive/Alumni members get strong random passwords for security
 """
 from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth import get_user_model
@@ -49,29 +53,45 @@ class Command(BaseCommand):
         if exclude_ids:
             self.stdout.write(self.style.WARNING(f'Excluding user IDs: {", ".join(map(str, exclude_ids))}'))
 
-        self.stdout.write(self.style.WARNING('Password format: [first letter of first name][last name][user_id]'))
-        self.stdout.write(self.style.WARNING('Example: Mason Kimball (ID 73) → mkimball73'))
+        self.stdout.write(self.style.WARNING('Password format:'))
+        self.stdout.write(self.style.WARNING('  - Active members: [first_initial][lastname][user_id] (e.g., mkimball73)'))
+        self.stdout.write(self.style.WARNING('  - Inactive/Alumni: Strong random password (16 characters)'))
         self.stdout.write('')
 
         # Reset passwords
         reset_count = 0
+        active_count = 0
+        inactive_count = 0
+
         for user in users:
-            # Generate password: first letter of first name + last name + user_id
-            # Example: Mason Kimball with ID 73 → mkimball73
+            # Check member status to determine password type
+            is_active = user.member_status == 'Active'
 
-            # Parse the name field (format: "First Middle Last" or "First Last")
-            if user.name and user.name.strip():
-                name_parts = user.name.strip().split()
-                # First letter of first name
-                first_initial = name_parts[0][0].lower()
-                # Last name is the last part (handles middle names/initials)
-                last_name = name_parts[-1].lower().replace('.', '').replace(' ', '')
+            # Generate password based on member status
+            if is_active:
+                # Active members get simple password: [first_initial][lastname][user_id]
+                # Example: Mason Kimball with ID 73 → mkimball73
+
+                # Parse the name field (format: "First Middle Last" or "First Last")
+                if user.name and user.name.strip():
+                    name_parts = user.name.strip().split()
+                    # First letter of first name
+                    first_initial = name_parts[0][0].lower()
+                    # Last name is the last part (handles middle names/initials)
+                    last_name = name_parts[-1].lower().replace('.', '').replace(' ', '')
+                else:
+                    # Fallback if name is empty
+                    first_initial = 'x'
+                    last_name = 'user'
+
+                new_password = f"{first_initial}{last_name}{user.user_id}"
+                password_type = "Simple"
             else:
-                # Fallback if name is empty
-                first_initial = 'x'
-                last_name = 'user'
-
-            new_password = f"{first_initial}{last_name}{user.user_id}"
+                # Inactive/Alumni members get strong random password for security
+                # 16 characters with uppercase, lowercase, digits, and special chars
+                alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+                new_password = ''.join(secrets.choice(alphabet) for _ in range(16))
+                password_type = f"Random ({user.member_status})"
 
             # Create display name - show full name if available, otherwise username
             if user.name and user.name.strip():
@@ -80,7 +100,7 @@ class Command(BaseCommand):
                 display_name = f"{user.username} (No name in database)"
 
             if dry_run:
-                self.stdout.write(f'Would reset: {display_name} [ID: {user.user_id}] → {new_password}')
+                self.stdout.write(f'Would reset: {display_name} [ID: {user.user_id}] [{password_type}] → {new_password}')
             else:
                 # Set the new password
                 user.set_password(new_password)
@@ -93,8 +113,14 @@ class Command(BaseCommand):
                 # Save the user
                 user.save()
 
-                self.stdout.write(f'✓ Reset: {display_name} [ID: {user.user_id}] → {new_password}')
+                self.stdout.write(f'✓ Reset: {display_name} [ID: {user.user_id}] [{password_type}] → {new_password}')
                 reset_count += 1
+
+                # Track counts by type
+                if is_active:
+                    active_count += 1
+                else:
+                    inactive_count += 1
 
         self.stdout.write('')
 
@@ -105,12 +131,18 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f'Successfully reset {reset_count} passwords'))
             self.stdout.write('')
             self.stdout.write(self.style.WARNING('IMPORTANT INFORMATION:'))
-            self.stdout.write(f'  Password format: [first letter of first name][last name][user_id]')
-            self.stdout.write(f'  Example: Mason Kimball (ID 73) → mkimball73')
-            self.stdout.write(f'  Users affected: {reset_count}')
+            self.stdout.write(f'  Total users affected: {reset_count}')
+            self.stdout.write(f'  - Active members: {active_count} (simple passwords)')
+            self.stdout.write(f'  - Inactive/Alumni: {inactive_count} (random passwords)')
             self.stdout.write(f'  Users excluded: {len(exclude_ids)}')
             self.stdout.write('')
+            self.stdout.write('Password formats:')
+            self.stdout.write('  - Active: [first_initial][lastname][user_id]')
+            self.stdout.write('    Example: Mason Kimball (ID 73) → mkimball73')
+            self.stdout.write('  - Inactive/Alumni: 16-character random password (see output above)')
+            self.stdout.write('')
             self.stdout.write('Next steps:')
-            self.stdout.write('  1. Notify affected users of the password format')
-            self.stdout.write('  2. Users must change their password on next login')
-            self.stdout.write('  3. Passwords are case-sensitive (all lowercase)')
+            self.stdout.write('  1. Notify Active members of the simple password format')
+            self.stdout.write('  2. Notify Inactive/Alumni members of their individual random passwords')
+            self.stdout.write('  3. All users must change their password on next login')
+            self.stdout.write('  4. Passwords are case-sensitive')

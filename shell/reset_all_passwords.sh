@@ -59,7 +59,9 @@ if [ -z "$EXCLUDE_IDS" ]; then
 fi
 
 print_warning "This will reset passwords for ALL users except: $EXCLUDE_IDS"
-print_warning "Password format: [first letter of first name][last name][user_id]"
+print_warning "Password format:"
+print_warning "  - Active members: [first_initial][lastname][user_id] (simple)"
+print_warning "  - Inactive/Alumni: Random 16-character password (secure)"
 echo ""
 
 # Run dry-run first to show what will happen
@@ -93,8 +95,10 @@ DJANGO_SETTINGS_MODULE=Parliament.settings_postgres python manage.py reset_all_p
 echo ""
 print_status "Password reset complete!"
 echo ""
-print_warning "IMPORTANT: Notify users of the password format:"
-print_warning "  Password = [first letter of first name][last name][user_id]"
-print_warning "  Example: Mason Kimball (ID 73) → mkimball73"
-print_warning "Users will be forced to change their password on next login"
+print_warning "IMPORTANT: Notify users of their passwords:"
+print_warning "  Active members: [first_initial][lastname][user_id]"
+print_warning "    Example: Mason Kimball (ID 73) → mkimball73"
+print_warning "  Inactive/Alumni: Individual random passwords (see output above)"
+print_warning ""
+print_warning "All users will be forced to change their password on next login"
 echo ""
