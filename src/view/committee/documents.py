@@ -15,7 +15,11 @@ def committee_documents(request, code):  # Changed from id to code
     if not perm or not perm.can_view_docs:
         return HttpResponseForbidden("You cannot view documents in this committee.")
 
-    documents = CommitteeDocument.objects.filter(committee=committee)
+    # Get all documents for this committee
+    all_documents = CommitteeDocument.objects.filter(committee=committee)
+
+    # Filter documents based on visibility permissions
+    documents = [doc for doc in all_documents if doc.can_user_view(user)]
 
     # Check if user is VP (committee admin) or chair
     is_vp = committee.is_vp(user)

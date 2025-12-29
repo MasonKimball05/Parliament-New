@@ -1,8 +1,9 @@
 version: '3.8'
 
 services:
+  # PostgreSQL database with memory limits
   db:
-    image: postgres:15
+    image: postgres:15-alpine  # Alpine version is smaller
     container_name: parliament-db
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -10,6 +11,28 @@ services:
       POSTGRES_DB: ${DB_NAME:-parliament_db}
       POSTGRES_USER: ${DB_USER:-parliament_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-change_this_password}
+      # PostgreSQL memory optimization
+      POSTGRES_INITDB_ARGS: "-E UTF8 --lc-collate=C --lc-ctype=C"
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c effective_cache_size=256MB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=4MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+      -c max_connections=50
+    deploy:
+      resources:
+        limits:
+          memory: 256M  # Limit PostgreSQL to 256MB RAM
+        reservations:
+          memory: 128M
     ports:
       - "5432:5432"
     healthcheck:
@@ -17,11 +40,37 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
+  # Redis for shared caching (optional but recommended)
+  redis:
+    image: redis:7-alpine
+    container_name: parliament-redis
+    command: >
+      redis-server
+      --maxmemory 64mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
+    deploy:
+      resources:
+        limits:
+          memory: 80M  # Limit Redis to 80MB RAM
+        reservations:
+          memory: 32M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Django application with Gunicorn
   web:
     build: .
     container_name: parliament-web
-    command: python manage.py runserver 0.0.0.0:8000
+    # Use gunicorn with config file instead of runserver
+    command: gunicorn --config gunicorn_config.py Parliament.wsgi:application
     volumes:
       - .:/app
       - static_volume:/app/staticfiles
@@ -29,18 +78,31 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DEBUG=${DEBUG:-True}
-      - SECRET_KEY=${SECRET_KEY:-django-insecure-dev-key}
+      - DJANGO_SETTINGS_MODULE=Parliament.settings_postgres
+      - DEBUG=${DEBUG:-False}
+      - SECRET_KEY=${SECRET_KEY}
       - DB_NAME=${DB_NAME:-parliament_db}
       - DB_USER=${DB_USER:-parliament_user}
       - DB_PASSWORD=${DB_PASSWORD:-change_this_password}
       - DB_HOST=db
       - DB_PORT=5432
+      - DB_CONN_MAX_AGE=300
+      - REDIS_URL=redis://redis:6379/0
+      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-2}
+    deploy:
+      resources:
+        limits:
+          memory: 512M  # Limit Django app to 512MB RAM
+        reservations:
+          memory: 256M
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
+  # Nginx reverse proxy
   nginx:
     image: nginx:alpine
     container_name: parliament-nginx
@@ -50,6 +112,12 @@ services:
       - media_volume:/app/media:ro
     ports:
       - "80:80"
+    deploy:
+      resources:
+        limits:
+          memory: 64M  # Limit Nginx to 64MB RAM
+        reservations:
+          memory: 32M
     depends_on:
       - web
     restart: unless-stopped

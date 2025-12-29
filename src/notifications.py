@@ -14,21 +14,32 @@ logger = logging.getLogger(__name__)
 
 def send_announcement_notification(announcement):
     """
-    Send email notification to all users who should see this announcement
+    Send email notification to all ACTIVE users who should see this announcement
+
+    IMPORTANT: Only ACTIVE members receive email notifications.
+    Inactive/Alumni members can still see announcements in-app, but won't get emails.
 
     Args:
         announcement: Announcement instance that was just created/published
     """
-    # Get all users who should receive this announcement
+    # Get all ACTIVE users who should receive this announcement
+    # NOTE: We only send emails to ACTIVE members to avoid spam to alumni/inactive users
     if announcement.visible_to:
         # Filter by member types if visibility is restricted
+        # "Member" includes Chair and Officer types
+        member_types = list(announcement.visible_to)
+        if 'Member' in member_types:
+            member_types.extend(['Chair', 'Officer'])
+
         users = ParliamentUser.objects.filter(
-            member_type__in=announcement.visible_to,
+            member_status='Active',
+            member_type__in=member_types,
             email__isnull=False
         ).exclude(email='')
     else:
-        # Send to all users with emails
+        # Send to all active users with emails
         users = ParliamentUser.objects.filter(
+            member_status='Active',
             email__isnull=False
         ).exclude(email='')
 
@@ -84,12 +95,13 @@ def send_announcement_notification(announcement):
 def get_unread_announcements(user):
     """
     Get announcements that the user hasn't dismissed yet
+    Note: In-app notifications shown to all members, but emails only sent to active members
 
     Args:
         user: ParliamentUser instance
 
     Returns:
-        QuerySet of Announcement objects
+        List of Announcement objects
     """
     from django.db.models import Q
     from django.utils import timezone

@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}My Excuse Requests{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-6">
+        <h2 class="text-3xl font-bold mb-2">My Excuse Requests</h2>
+        <p class="text-gray-600">Submit and track excuse requests for events you cannot attend</p>
+    </div>
+
+    <!-- Available Events to Request Excuse -->
+    {% if available_events %}
+    <div class="mb-8">
+        <h3 class="text-2xl font-bold mb-4 flex items-center">
+            <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm mr-3">Available</span>
+            Submit Excuse Requests
+        </h3>
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Excuse Deadline</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for event in available_events %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-2">
+                                    <div class="text-sm font-medium text-gray-900">{{ event.title }}</div>
+                                    {% if not event.requires_attendance %}
+                                    <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700" title="Attendance is not marked as required for this event">
+                                        Optional Attendance
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                {% if event.description %}
+                                <div class="text-sm text-gray-500">{{ event.description|truncatewords:15 }}</div>
+                                {% endif %}
+                                {% if event.location %}
+                                <div class="text-xs text-gray-500 mt-1">📍 {{ event.location }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">{{ event.date_time|date:"M j, Y" }}</div>
+                                <div class="text-sm text-gray-500">{{ event.date_time|date:"g:i A" }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if event.excuse_deadline %}
+                                <div class="text-sm text-gray-900">{{ event.excuse_deadline|date:"M j, Y" }}</div>
+                                <div class="text-sm text-gray-500">{{ event.excuse_deadline|date:"g:i A" }}</div>
+                                {% else %}
+                                <span class="text-sm text-gray-500">Event time</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <a href="{% url 'submit_excuse' event.id %}" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition inline-block">
+                                    Submit Excuse
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- My Excuse Requests -->
+    <div>
+        <h3 class="text-2xl font-bold mb-4 flex items-center">
+            <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm mr-3">History</span>
+            My Excuse Requests
+        </h3>
+
+        {% if my_excuses %}
+        <div class="space-y-4">
+            {% for excuse in my_excuses %}
+            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                <div class="p-6">
+                    <!-- Event Info & Status -->
+                    <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-4">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <h4 class="text-lg font-bold text-gray-900">{{ excuse.event.title }}</h4>
+                                {% if not excuse.event.requires_attendance %}
+                                <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700" title="Attendance is not marked as required for this event">
+                                    Optional Attendance
+                                </span>
+                                {% endif %}
+                            </div>
+                            <div class="flex flex-wrap items-center text-sm text-gray-600 gap-3">
+                                <span>📅 {{ excuse.event.date_time|date:"F j, Y" }}</span>
+                                <span>🕐 {{ excuse.event.date_time|date:"g:i A" }}</span>
+                                {% if excuse.event.location %}
+                                <span>📍 {{ excuse.event.location }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col items-end gap-2">
+                            {% if excuse.status == 'pending' %}
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                Pending Review
+                            </span>
+                            {% elif excuse.status == 'approved' %}
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                ✓ Approved
+                            </span>
+                            {% elif excuse.status == 'denied' %}
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                ✗ Denied
+                            </span>
+                            {% elif excuse.status == 'expired' %}
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                Expired
+                            </span>
+                            {% endif %}
+                            <span class="text-xs text-gray-500">Submitted {{ excuse.submitted_at|date:"M j, Y" }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Reason -->
+                    <div class="mb-4">
+                        <h5 class="text-sm font-semibold text-gray-700 mb-1">Reason:</h5>
+                        <p class="text-sm text-gray-600 whitespace-pre-wrap">{{ excuse.reason }}</p>
+                    </div>
+
+                    <!-- Supporting Document -->
+                    {% if excuse.supporting_document %}
+                    <div class="mb-4">
+                        <a href="{{ excuse.supporting_document.url }}" target="_blank" class="text-sm text-blue-600 hover:text-blue-800 flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                            </svg>
+                            View Supporting Document
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    <!-- Review Info (if reviewed) -->
+                    {% if excuse.status == 'approved' or excuse.status == 'denied' %}
+                    <div class="border-t pt-4 mt-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-600">
+                                    Reviewed by <span class="font-medium">{{ excuse.reviewed_by.get_display_name }}</span>
+                                    on {{ excuse.reviewed_at|date:"M j, Y g:i A" }}
+                                </p>
+                                {% if excuse.review_notes %}
+                                <p class="text-sm text-gray-600 mt-2">
+                                    <span class="font-semibold">Notes:</span> {{ excuse.review_notes }}
+                                </p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Actions -->
+                    {% if excuse.status == 'pending' %}
+                    <div class="border-t pt-4 mt-4 flex justify-end">
+                        <form method="post" action="{% url 'cancel_excuse' excuse.id %}" onsubmit="return confirm('Are you sure you want to cancel this excuse request?')">
+                            {% csrf_token %}
+                            <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition">
+                                Cancel Request
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <p class="mt-4 text-gray-600">You haven't submitted any excuse requests yet.</p>
+            {% if available_events %}
+            <p class="mt-2 text-sm text-gray-500">Submit an excuse request for an upcoming event above.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    {% if not available_events and not my_excuses %}
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
+        <svg class="mx-auto h-12 w-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <p class="mt-4 text-blue-800 font-medium">No events available for excuse requests at this time.</p>
+        <p class="mt-2 text-sm text-blue-600">Check back later when events are scheduled.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

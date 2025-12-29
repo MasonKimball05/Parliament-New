@@ -59,6 +59,29 @@
                 {% endif %}
             </div>
 
+            <!-- Visibility Controls -->
+            <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <label class="block text-sm font-medium text-gray-700 mb-3">
+                    {{ form.visible_to.label }}
+                </label>
+                <div class="space-y-2">
+                    {% for choice in form.visible_to %}
+                        <div class="flex items-center">
+                            {{ choice.tag }}
+                            <label for="{{ choice.id_for_label }}" class="ml-2 text-sm text-gray-700">
+                                {{ choice.choice_label }}
+                            </label>
+                        </div>
+                    {% endfor %}
+                </div>
+                {% if form.visible_to.help_text %}
+                    <p class="mt-2 text-sm text-gray-600">{{ form.visible_to.help_text }}</p>
+                {% endif %}
+                {% if form.visible_to.errors %}
+                    <p class="mt-2 text-sm text-red-600">{{ form.visible_to.errors.0 }}</p>
+                {% endif %}
+            </div>
+
             <div class="flex items-center">
                 {{ form.is_active }}
                 <label for="{{ form.is_active.id_for_label }}" class="ml-2 text-sm font-medium text-gray-700">
@@ -67,6 +90,46 @@
                 {% if form.is_active.help_text %}
                     <p class="ml-2 text-sm text-gray-500">{{ form.is_active.help_text }}</p>
                 {% endif %}
+            </div>
+
+            <!-- Attendance Tracking Section -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 class="text-sm font-semibold text-blue-900 mb-3">Attendance Tracking</h3>
+
+                <div class="space-y-3">
+                    <div class="flex items-start">
+                        {{ form.requires_attendance }}
+                        <label for="{{ form.requires_attendance.id_for_label }}" class="ml-2 text-sm text-gray-700">
+                            <span class="font-medium">{{ form.requires_attendance.label }}</span>
+                            {% if form.requires_attendance.help_text %}
+                                <span class="block text-gray-500 text-xs mt-1">{{ form.requires_attendance.help_text }}</span>
+                            {% endif %}
+                        </label>
+                    </div>
+
+                    <div class="flex items-start">
+                        {{ form.allow_excuses }}
+                        <label for="{{ form.allow_excuses.id_for_label }}" class="ml-2 text-sm text-gray-700">
+                            <span class="font-medium">{{ form.allow_excuses.label }}</span>
+                            {% if form.allow_excuses.help_text %}
+                                <span class="block text-gray-500 text-xs mt-1">{{ form.allow_excuses.help_text }}</span>
+                            {% endif %}
+                        </label>
+                    </div>
+
+                    <div>
+                        <label for="{{ form.excuse_deadline.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                            {{ form.excuse_deadline.label }}
+                        </label>
+                        {{ form.excuse_deadline }}
+                        {% if form.excuse_deadline.help_text %}
+                            <p class="mt-1 text-sm text-gray-500">{{ form.excuse_deadline.help_text }}</p>
+                        {% endif %}
+                        {% if form.excuse_deadline.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.excuse_deadline.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
 
             <div class="flex justify-end space-x-3 pt-4">

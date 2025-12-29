@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h1 class="text-3xl font-bold">{{ committee.name }}</h1>
+                <p class="text-gray-600 mt-1">Committee Attendance - {{ today|date:"l, F j, Y" }}</p>
+            </div>
+            <a href="{% url 'committee_home' committee.code %}"
+               class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                ← Back to Committee
+            </a>
+        </div>
+
+        <!-- Attendance Statistics -->
+        <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+            <div class="flex items-center gap-6">
+                <div>
+                    <span class="text-2xl font-bold text-blue-600">{{ present_count }}</span>
+                    <span class="text-gray-600"> / {{ total_members }}</span>
+                    <p class="text-sm text-gray-500">Present Today</p>
+                </div>
+                {% if is_officer %}
+                <div class="ml-auto">
+                    <a href="{% url 'committee_attendance_history' committee.code %}"
+                       class="text-blue-600 hover:text-blue-800 text-sm hover:underline">
+                        View Attendance History →
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Form -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-semibold mb-4">Mark Committee Members Present</h2>
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="mark_attendance">
+
+            <!-- Member List -->
+            <div class="space-y-2">
+                {% for data in member_data %}
+                <div class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <label class="flex items-center gap-3 flex-1 cursor-pointer">
+                        <input type="checkbox"
+                               name="present"
+                               value="{{ data.user.user_id }}"
+                               {% if data.is_present %}checked{% endif %}
+                               class="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-900">{{ data.user.get_display_name }}</div>
+                            {% if data.attendance_record %}
+                            <div class="text-xs text-gray-500">
+                                Marked by {{ data.attendance_record.marked_by.name }} at {{ data.attendance_record.marked_at|date:"g:i A" }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if data.is_present %}
+                        <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
+                            Present
+                        </span>
+                        {% endif %}
+                    </label>
+                </div>
+                {% empty %}
+                <p class="text-gray-500 text-center py-4">No active members in this committee.</p>
+                {% endfor %}
+            </div>
+
+            <!-- Submit Button -->
+            <div class="flex items-center justify-between pt-4 border-t">
+                <p class="text-sm text-gray-600">
+                    Check the boxes for members who are present. Unchecked members will be removed from today's attendance.
+                </p>
+                <button type="submit"
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                    Update Attendance
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Info Box -->
+    <div class="mt-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-yellow-700">
+                    <span class="font-medium">Note:</span> This attendance is for committee meetings only and is separate from chapter event attendance.
+                    Marking someone present here does not affect event attendance records.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Select all / deselect all functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('input[name="present"]');
+
+    // Add keyboard shortcut for quick select all (Ctrl+A)
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+            e.preventDefault();
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !allChecked);
+        }
+    });
+});
+</script>
+{% endblock %}

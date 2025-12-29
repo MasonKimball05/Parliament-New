@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Review Excuse Requests{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-6">
+        <div class="flex items-center text-sm text-gray-600 mb-4">
+            <a href="{% url 'event_attendance_list' %}" class="hover:text-blue-600">Attendance</a>
+            <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+            </svg>
+            <span class="text-gray-900">Review Excuses</span>
+        </div>
+
+        <div class="flex justify-between items-center">
+            <div>
+                <h2 class="text-3xl font-bold mb-2">Review Excuse Requests</h2>
+                <p class="text-gray-600">Approve or deny member excuse requests for events</p>
+            </div>
+            <div class="flex items-center space-x-3">
+                <label class="flex items-center space-x-2 text-sm">
+                    <input type="checkbox" id="showArchivedToggle" {% if show_archived %}checked{% endif %}
+                           onchange="toggleArchived()" class="rounded text-blue-600 focus:ring-blue-500">
+                    <span class="text-gray-700">Show Archived Events</span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-yellow-50 rounded-lg shadow p-4">
+            <div class="text-3xl font-bold text-yellow-600">{{ stats.pending }}</div>
+            <div class="text-sm text-gray-600">Pending Review</div>
+        </div>
+        <div class="bg-green-50 rounded-lg shadow p-4">
+            <div class="text-3xl font-bold text-green-600">{{ stats.approved }}</div>
+            <div class="text-sm text-gray-600">Approved</div>
+        </div>
+        <div class="bg-red-50 rounded-lg shadow p-4">
+            <div class="text-3xl font-bold text-red-600">{{ stats.denied }}</div>
+            <div class="text-sm text-gray-600">Denied</div>
+        </div>
+        <div class="bg-gray-50 rounded-lg shadow p-4">
+            <div class="text-3xl font-bold text-gray-600">{{ stats.total }}</div>
+            <div class="text-sm text-gray-600">Total Requests</div>
+        </div>
+    </div>
+
+    {% if events_with_stats %}
+    <!-- Event Tabs -->
+    <div class="bg-white rounded-lg shadow-md mb-6 overflow-hidden">
+        <div class="border-b border-gray-200">
+            <div class="overflow-x-auto">
+                <nav class="-mb-px flex space-x-2 px-4" aria-label="Event Tabs">
+                    {% for event_data in events_with_stats %}
+                    <a href="?event={{ event_data.event.id }}{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if show_archived %}&show_archived=true{% endif %}"
+                       class="{% if event_data.event.id == selected_event_id %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-4 border-b-2 font-medium text-sm transition-colors flex-shrink-0">
+                        <div class="flex items-center space-x-2">
+                            <span>{{ event_data.event.title|truncatewords:3 }}</span>
+                            {% if event_data.pending_count > 0 %}
+                            <span class="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">
+                                {{ event_data.pending_count }}
+                            </span>
+                            {% endif %}
+                            {% if event_data.is_past %}
+                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Past event">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            {% endif %}
+                        </div>
+                    </a>
+                    {% endfor %}
+                </nav>
+            </div>
+        </div>
+
+        <!-- Status Filter -->
+        <div class="p-4 bg-gray-50 border-b border-gray-200">
+            <div class="flex items-center space-x-3">
+                <span class="text-sm font-medium text-gray-700">Filter by Status:</span>
+                <div class="flex space-x-2">
+                    <a href="?event={{ selected_event_id }}{% if show_archived %}&show_archived=true{% endif %}"
+                       class="{% if selected_status == 'all' %}bg-blue-600 text-white{% else %}bg-white text-gray-700 hover:bg-gray-100{% endif %} px-3 py-1.5 rounded-md text-sm font-medium transition-colors border border-gray-300">
+                        All ({{ events_with_stats|length|default:0 }})
+                    </a>
+                    <a href="?event={{ selected_event_id }}&status=pending{% if show_archived %}&show_archived=true{% endif %}"
+                       class="{% if selected_status == 'pending' %}bg-yellow-600 text-white{% else %}bg-white text-gray-700 hover:bg-gray-100{% endif %} px-3 py-1.5 rounded-md text-sm font-medium transition-colors border border-gray-300">
+                        Pending
+                    </a>
+                    <a href="?event={{ selected_event_id }}&status=approved{% if show_archived %}&show_archived=true{% endif %}"
+                       class="{% if selected_status == 'approved' %}bg-green-600 text-white{% else %}bg-white text-gray-700 hover:bg-gray-100{% endif %} px-3 py-1.5 rounded-md text-sm font-medium transition-colors border border-gray-300">
+                        Approved
+                    </a>
+                    <a href="?event={{ selected_event_id }}&status=denied{% if show_archived %}&show_archived=true{% endif %}"
+                       class="{% if selected_status == 'denied' %}bg-red-600 text-white{% else %}bg-white text-gray-700 hover:bg-gray-100{% endif %} px-3 py-1.5 rounded-md text-sm font-medium transition-colors border border-gray-300">
+                        Denied
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Event Info -->
+        {% for event_data in events_with_stats %}
+        {% if event_data.event.id == selected_event_id %}
+        <div class="p-4 bg-blue-50 border-b border-blue-200">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">{{ event_data.event.title }}</h3>
+                    <p class="text-sm text-gray-600 mt-1">
+                        {{ event_data.event.date_time|date:"l, F j, Y" }} at {{ event_data.event.date_time|date:"g:i A" }}
+                        {% if event_data.event.location %} • {{ event_data.event.location }}{% endif %}
+                    </p>
+                </div>
+                <div class="flex space-x-4 text-sm">
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-yellow-600">{{ event_data.pending_count }}</div>
+                        <div class="text-xs text-gray-600">Pending</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-green-600">{{ event_data.approved_count }}</div>
+                        <div class="text-xs text-gray-600">Approved</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-red-600">{{ event_data.denied_count }}</div>
+                        <div class="text-xs text-gray-600">Denied</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+
+        <!-- Excuse Requests List -->
+        {% if excuses %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for excuse in excuses %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <span class="text-blue-600 font-semibold text-sm">
+                                        {{ excuse.user.name|slice:":1"|upper }}
+                                    </span>
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-gray-900">{{ excuse.user.get_display_name }}</div>
+                                    <div class="text-sm text-gray-500">{{ excuse.user.user_id }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="text-sm text-gray-900 max-w-md">
+                                {{ excuse.reason|truncatewords:30 }}
+                                {% if excuse.reason|wordcount > 30 %}
+                                <button type="button" onclick="showFullReason('{{ excuse.id }}')" class="text-blue-600 hover:text-blue-800 text-xs">
+                                    Read more
+                                </button>
+                                {% endif %}
+                            </div>
+                            {% if excuse.supporting_document %}
+                            <a href="{{ excuse.supporting_document.url }}" target="_blank" class="text-xs text-blue-600 hover:text-blue-800 flex items-center mt-1">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                                </svg>
+                                View Document
+                            </a>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ excuse.submitted_at|date:"M j, Y" }}</div>
+                            <div class="text-sm text-gray-500">{{ excuse.submitted_at|date:"g:i A" }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if excuse.status == 'pending' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                Pending Review
+                            </span>
+                            {% elif excuse.status == 'approved' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                Approved
+                            </span>
+                            <div class="text-xs text-gray-500 mt-1">
+                                by {{ excuse.reviewed_by.get_display_name }}<br>
+                                {{ excuse.reviewed_at|date:"M j, g:i A" }}
+                            </div>
+                            {% if excuse.review_notes %}
+                            <div class="text-xs text-gray-600 mt-1 italic">{{ excuse.review_notes|truncatewords:10 }}</div>
+                            {% endif %}
+                            {% elif excuse.status == 'denied' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                Denied
+                            </span>
+                            <div class="text-xs text-gray-500 mt-1">
+                                by {{ excuse.reviewed_by.get_display_name }}<br>
+                                {{ excuse.reviewed_at|date:"M j, g:i A" }}
+                            </div>
+                            {% if excuse.review_notes %}
+                            <div class="text-xs text-gray-600 mt-1 italic">{{ excuse.review_notes|truncatewords:10 }}</div>
+                            {% endif %}
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            {% if excuse.status == 'pending' %}
+                            <button type="button" onclick="openReviewModal({{ excuse.id }}, 'approve', '{{ excuse.user.get_display_name }}', '{{ excuse.event.title }}')"
+                                    class="text-green-600 hover:text-green-900 mr-3">
+                                Approve
+                            </button>
+                            <button type="button" onclick="openReviewModal({{ excuse.id }}, 'deny', '{{ excuse.user.get_display_name }}', '{{ excuse.event.title }}')"
+                                    class="text-red-600 hover:text-red-900">
+                                Deny
+                            </button>
+                            {% else %}
+                            <span class="text-gray-400">No actions</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <!-- Hidden full reason for modal -->
+                    <div id="full-reason-{{ excuse.id }}" class="hidden">{{ excuse.reason }}</div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-8 text-center">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <p class="mt-4 text-gray-500">No excuse requests found for this event with the selected status filter.</p>
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-lg shadow-md p-12 text-center">
+        <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">No Excuse Requests Found</h3>
+        <p class="text-gray-500">There are no events with excuse requests{% if not show_archived %} in the recent timeframe{% endif %}.</p>
+        {% if not show_archived %}
+        <p class="text-sm text-gray-500 mt-2">Try enabling "Show Archived Events" to see older requests.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="mt-6">
+        <a href="{% url 'event_attendance_list' %}" class="text-gray-600 hover:text-gray-900">← Back to Attendance</a>
+    </div>
+</div>
+
+<!-- Review Modal -->
+<div id="reviewModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+        <form method="post" id="reviewForm">
+            {% csrf_token %}
+            <input type="hidden" name="excuse_id" id="modal_excuse_id">
+            <input type="hidden" name="action" id="modal_action">
+
+            <div class="mt-3">
+                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4" id="modalTitle"></h3>
+
+                <div class="mb-4">
+                    <p class="text-sm text-gray-600" id="modalMessage"></p>
+                </div>
+
+                <div class="mb-4">
+                    <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">
+                        Notes (Optional)
+                    </label>
+                    <textarea name="notes" id="notes" rows="3"
+                              class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                              placeholder="Add any notes about your decision..."></textarea>
+                </div>
+
+                <div class="flex space-x-3">
+                    <button type="submit" id="confirmButton"
+                            class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition">
+                        Confirm
+                    </button>
+                    <button type="button" onclick="closeReviewModal()"
+                            class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-lg transition">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Full Reason Modal -->
+<div id="reasonModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Full Excuse Reason</h3>
+            <div class="mb-4">
+                <p class="text-sm text-gray-700 whitespace-pre-wrap" id="fullReasonText"></p>
+            </div>
+            <button type="button" onclick="closeReasonModal()"
+                    class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-lg transition">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleArchived() {
+    const checkbox = document.getElementById('showArchivedToggle');
+    const currentUrl = new URL(window.location.href);
+    if (checkbox.checked) {
+        currentUrl.searchParams.set('show_archived', 'true');
+    } else {
+        currentUrl.searchParams.delete('show_archived');
+    }
+    window.location.href = currentUrl.toString();
+}
+
+function openReviewModal(excuseId, action, userName, eventTitle) {
+    const modal = document.getElementById('reviewModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalMessage = document.getElementById('modalMessage');
+    const confirmButton = document.getElementById('confirmButton');
+
+    document.getElementById('modal_excuse_id').value = excuseId;
+    document.getElementById('modal_action').value = action;
+    document.getElementById('notes').value = '';
+
+    if (action === 'approve') {
+        modalTitle.textContent = 'Approve Excuse Request';
+        modalMessage.textContent = `Are you sure you want to approve the excuse request from ${userName} for "${eventTitle}"?`;
+        confirmButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+        confirmButton.classList.add('bg-green-600', 'hover:bg-green-700');
+        confirmButton.textContent = 'Approve';
+    } else {
+        modalTitle.textContent = 'Deny Excuse Request';
+        modalMessage.textContent = `Are you sure you want to deny the excuse request from ${userName} for "${eventTitle}"?`;
+        confirmButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+        confirmButton.classList.add('bg-red-600', 'hover:bg-red-700');
+        confirmButton.textContent = 'Deny';
+    }
+
+    modal.classList.remove('hidden');
+}
+
+function closeReviewModal() {
+    document.getElementById('reviewModal').classList.add('hidden');
+}
+
+function showFullReason(excuseId) {
+    const fullReason = document.getElementById('full-reason-' + excuseId).textContent;
+    document.getElementById('fullReasonText').textContent = fullReason;
+    document.getElementById('reasonModal').classList.remove('hidden');
+}
+
+function closeReasonModal() {
+    document.getElementById('reasonModal').classList.add('hidden');
+}
+
+// Close modals when clicking outside
+window.onclick = function(event) {
+    const reviewModal = document.getElementById('reviewModal');
+    const reasonModal = document.getElementById('reasonModal');
+    if (event.target === reviewModal) {
+        closeReviewModal();
+    }
+    if (event.target === reasonModal) {
+        closeReasonModal();
+    }
+}
+</script>
+{% endblock %}

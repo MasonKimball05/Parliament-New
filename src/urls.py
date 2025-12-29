@@ -4,16 +4,21 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from src.view.officer import *
+from src.view.officer.event_attendance import event_attendance_list, mark_event_attendance, review_excuses
 from src.view.committee import *
 from src.view.chat import *
+from src.view.submit_excuse import my_excuses, submit_excuse, cancel_excuse
 from src.view.kai_reports import submit_kai_report, view_kai_reports, manage_kai_report, export_kai_reports_csv, print_kai_report, kai_dashboard, bulk_actions_kai_reports, manage_kai_templates, create_kai_template, edit_kai_template, delete_kai_template
 from src.view.chapter_documents import chapter_documents
+from src.view.api import dismiss_announcement_api
+from src.view.set_email import set_email
 from src.view.upload_chapter_document import upload_chapter_document
 from src.view.manage_chapter_document import manage_chapter_document
 from src.view.manage_chapter_documents import manage_chapter_documents
 from src.view.manage_folders import create_folder, delete_folder
 from src.view.announcements import announcements_view
-from src.view.calendar import calendar_view, calendar_data_api
+from src.view.calendar import calendar_view, calendar_data_api, export_calendar_ical, export_event_ical
+from src.view.global_search import global_search
 from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event
 from src.view.home import home
 from src.view.vote_view import vote_view
@@ -23,6 +28,8 @@ from src.view.view_legislation_history import view_legislation_history
 from src.view.login_view import login_view
 from src.view.logout_view import logout_view
 from src.view.profile_view import profile_view
+from src.view.preferences import preferences_view
+from src.view.activity_logs import activity_logs_view, export_activity_logs
 from src.view.upload_legislation import upload_legislation
 from src.view.end_vote import end_vote
 from src.view.passed_legislation import passed_legislation, PassedLegislationDetailView
@@ -64,6 +71,7 @@ urlpatterns = [
 
     path('users/', user_list, name='user_list'),
     path('profile/', profile_view, name='profile'),
+    path('preferences/', preferences_view, name='preferences'),
     path('upload/', upload_legislation, name='upload_legislation'),
     path('change_password/', change_password, name='change_password'),
     path('forced-password-change/', forced_password_change, name='forced_password_change'),
@@ -76,6 +84,14 @@ urlpatterns = [
     path('announcements/', announcements_view, name='announcements'),
     path('calendar/', calendar_view, name='calendar'),
     path('api/calendar-data/', calendar_data_api, name='calendar_data_api'),
+    path('calendar/export/', export_calendar_ical, name='export_calendar_ical'),
+    path('calendar/event/<int:event_id>/export/', export_event_ical, name='export_event_ical'),
+    path('search/', global_search, name='global_search'),
+
+    # Member Excuse Requests
+    path('excuses/', my_excuses, name='my_excuses'),
+    path('excuses/submit/<int:event_id>/', submit_excuse, name='submit_excuse'),
+    path('excuses/cancel/<int:excuse_id>/', cancel_excuse, name='cancel_excuse'),
 
     # Officer Pages
     path('officers/', officer_home, name='officer_home'),
@@ -84,10 +100,21 @@ urlpatterns = [
     path('officers/all-reports/', view_all_reports, name='view_all_reports'),
     path('officers/all-activity/', view_all_activity, name='view_all_activity'),
     path('officers/archived-events/', view_archived_events, name='view_archived_events'),
+    path('officers/activity-logs/', activity_logs_view, name='activity_logs'),
+    path('officers/activity-logs/export/', export_activity_logs, name='export_activity_logs'),
+    # Attendance (Legacy)
     path('attendance/', attendance, name='attendance'),
+
+    # Event-based Attendance (New System)
+    path('officers/attendance/', event_attendance_list, name='event_attendance_list'),
+    path('officers/attendance/event/<int:event_id>/', mark_event_attendance, name='mark_event_attendance'),
+    path('officers/excuses/', review_excuses, name='review_excuses'),
+    path('officers/excuses/<int:event_id>/', review_excuses, name='review_excuses'),
+
     path('make_event/', make_event, name='make_event'),
     path('manage_event/', manage_event, name='manage_event'),
     path('user_list/', user_list, name='user_list'),
+    path('user_list/export/', export_user_list, name='export_user_list'),
 
     # Announcement Management (Officer)
     path('officers/announcements/', manage_announcements, name='manage_announcements'),
@@ -147,6 +174,8 @@ urlpatterns = [
     path('committee/<str:code>/minutes/', committee_minutes, name='minutes'),
     path('committee/<str:code>/documents/<int:document_id>/toggle-publish/', toggle_document_publish, name='toggle_document_publish'),
     path('committee/<str:code>/documents/<int:document_id>/delete/', delete_committee_document, name='delete_committee_document'),
+    path('committee/<str:code>/attendance/', committee_attendance, name='committee_attendance'),
+    path('committee/<str:code>/attendance/history/', committee_attendance_history, name='committee_attendance_history'),
 
     # Kai Report URLs
     path('kai/dashboard/', kai_dashboard, name='kai_dashboard'),
@@ -182,6 +211,12 @@ urlpatterns = [
     path('chats/create/', create_channel, name='create_channel'),
     path('chats/<int:channel_id>/edit/', edit_channel, name='edit_channel'),
     path('chats/<int:channel_id>/delete/', delete_channel, name='delete_channel'),
+
+    # API Endpoints
+    path('api/dismiss-announcement/<int:announcement_id>/', dismiss_announcement_api, name='dismiss_announcement_api'),
+
+    # User Settings
+    path('set-email/', set_email, name='set_email'),
 ]
 
 if settings.DEBUG:

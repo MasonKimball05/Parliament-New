@@ -61,5 +61,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8000/health/', timeout=10)" || exit 1
 
-# Run gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120", "Parliament.wsgi:application"]
+# Run gunicorn with optimized configuration
+CMD ["gunicorn", "--config", "gunicorn_config.py", "Parliament.wsgi:application"]

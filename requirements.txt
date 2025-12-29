@@ -1,8 +1,22 @@
 asgiref==3.8.1
 Django==5.1.7
+icalendar==6.1.0
 psycopg2==2.9.10
 psycopg2-binary==2.9.10
 python-dotenv==1.1.0
 python-magic==0.4.27
 pytz==2025.2
+requests==2.32.3
 sqlparse==0.5.3
+user-agents==2.2.0
+
+# Production server with async workers for better memory efficiency
+gunicorn==22.0.0
+gevent==24.2.1
+
+# Database connection pooling for better resource management
+psycopg2-pool==1.1
+
+# Redis for shared caching across workers (optional but recommended)
+redis==5.2.1
+django-redis==5.4.0

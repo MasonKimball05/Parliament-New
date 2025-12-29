@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}Search Results - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Search Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-4">Search Results</h1>
+
+        <!-- Search Form -->
+        <form method="get" action="{% url 'global_search' %}" class="mb-6">
+            <div class="flex gap-2">
+                <input
+                    type="text"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="Search legislation, announcements, events, documents..."
+                    class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
+                    autofocus
+                >
+                <button type="submit" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+                    Search
+                </button>
+            </div>
+        </form>
+
+        {% if query %}
+            <p class="text-gray-600">
+                {% if total_count %}
+                    Found <strong>{{ total_count }}</strong> result{{ total_count|pluralize }} for "<strong>{{ query }}</strong>"
+                {% else %}
+                    No results found for "<strong>{{ query }}</strong>"
+                {% endif %}
+            </p>
+        {% endif %}
+    </div>
+
+    <!-- Results -->
+    {% if query and results %}
+        <div class="space-y-8">
+            <!-- Quick Suggestions -->
+            {% if results.suggestions %}
+            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-md p-6 border-2 border-blue-200">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                    <span class="text-blue-600 mr-2">🚀</span>
+                    Quick Links
+                </h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {% for suggestion in results.suggestions %}
+                    <a href="{% url suggestion.url %}" class="flex items-center p-3 bg-white border-2 border-blue-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition shadow-sm">
+                        <span class="text-2xl mr-3">{{ suggestion.icon }}</span>
+                        <span class="font-semibold text-gray-900">{{ suggestion.name }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Chat Channels Results -->
+            {% if results.chat_channels %}
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                    <span class="text-blue-600 mr-2">💬</span>
+                    Chat Channels ({{ results.chat_channels|length }})
+                </h2>
+                <div class="space-y-3">
+                    {% for channel in results.chat_channels %}
+                    <a href="{% url 'channel_chat' channel.id %}" class="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-semibold text-gray-900">{{ channel.name }}</h3>
+                            {% if channel.access_type == 'open' %}
+                                <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">Public</span>
+                            {% elif channel.access_type == 'committee' %}
+                                <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">Committee</span>
+                            {% else %}
+                                <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">Restricted</span>
+                            {% endif %}
+                        </div>
+                        {% if channel.description %}
+                            <p class="text-sm text-gray-600 mt-1">{{ channel.description|truncatewords:20 }}</p>
+                        {% endif %}
+                        <p class="text-xs text-gray-500 mt-2">
+                            {% if channel.committee %}
+                                Committee: {{ channel.committee.name }}
+                            {% else %}
+                                General Channel
+                            {% endif %}
+                        </p>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Committees Results -->
+            {% if results.committees %}
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                    <span class="text-purple-600 mr-2">👥</span>
+                    Committees ({{ results.committees.count }})
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {% for committee in results.committees %}
+                    <a href="{% url 'committee_home' committee.code %}" class="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="font-semibold text-gray-900">{{ committee.name }}</h3>
+                            <span class="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded">{{ committee.code }}</span>
+                        </div>
+                        <p class="text-xs text-gray-500">
+                            {% with committee.members.count as member_count %}
+                                {{ member_count }} member{{ member_count|pluralize }}
+                            {% endwith %}
+                            {% with committee.chairs.count as chair_count %}
+                                • {{ chair_count }} chair{{ chair_count|pluralize }}
+                            {% endwith %}
+                        </p>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Legislation Results -->
+            {% if results.legislation %}
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                    <span class="text-blue-600 mr-2">📄</span>
+                    Legislation ({{ results.legislation.count }})
+                </h2>
+                <div class="space-y-3">
+                    {% for item in results.legislation %}
+                    <a href="{% url 'legislation_detail' item.id %}" class="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                        <h3 class="font-semibold text-gray-900">{{ item.title }}</h3>
+                        <p class="text-sm text-gray-600 mt-1">{{ item.description|truncatewords:20 }}</p>
+                        <p class="text-xs text-gray-500 mt-2">
+                            Status: <span class="font-medium">{{ item.get_status_display }}</span> •
+                            Uploaded: {{ item.uploaded_at|date:"M j, Y" }}
+                        </p>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Announcements Results -->
+            {% if results.announcements %}
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                    <span class="text-green-600 mr-2">📢</span>
+                    Announcements ({{ results.announcements|length }})
+                </h2>
+                <div class="space-y-3">
+                    {% for item in results.announcements %}
+                    <a href="{% url 'announcements' %}" class="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                        <h3 class="font-semibold text-gray-900">{{ item.title }}</h3>
+                        <p class="text-sm text-gray-600 mt-1">{{ item.content|truncatewords:25 }}</p>
+                        <p class="text-xs text-gray-500 mt-2">
+                            Posted by {{ item.posted_by.get_display_name }} • {{ item.posted_at|date:"M j, Y" }}
+                        </p>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Events Results -->
+            {% if results.events %}
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                    <span class="text-purple-600 mr-2">📅</span>
+                    Events ({{ results.events|length }})
+                </h2>
+                <div class="space-y-3">
+                    {% for item in results.events %}
+                    <a href="{% url 'calendar' %}" class="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                        <h3 class="font-semibold text-gray-900">{{ item.title }}</h3>
+                        <p class="text-sm text-gray-600 mt-1">{{ item.description|truncatewords:20 }}</p>
+                        <p class="text-xs text-gray-500 mt-2">
+                            📍 {{ item.location }} • {{ item.date_time|date:"M j, Y g:i A" }}
+                        </p>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Chapter Documents Results -->
+            {% if results.chapter_documents %}
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                    <span class="text-yellow-600 mr-2">📁</span>
+                    Chapter Documents ({{ results.chapter_documents.count }})
+                </h2>
+                <div class="space-y-3">
+                    {% for item in results.chapter_documents %}
+                    <a href="{{ item.document.url }}" target="_blank" class="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                        <h3 class="font-semibold text-gray-900">{{ item.title }}</h3>
+                        {% if item.description %}
+                            <p class="text-sm text-gray-600 mt-1">{{ item.description|truncatewords:20 }}</p>
+                        {% endif %}
+                        <p class="text-xs text-gray-500 mt-2">
+                            Uploaded: {{ item.uploaded_at|date:"M j, Y" }}
+                            {% if item.chapter_folder %} • Folder: {{ item.chapter_folder.name }}{% endif %}
+                        </p>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Committee Documents Results -->
+            {% if results.committee_documents %}
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                    <span class="text-indigo-600 mr-2">📋</span>
+                    Committee Documents ({{ results.committee_documents.count }})
+                </h2>
+                <div class="space-y-3">
+                    {% for item in results.committee_documents %}
+                    <a href="{% url 'committee_documents' item.committee.code %}" class="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                        <h3 class="font-semibold text-gray-900">{{ item.title }}</h3>
+                        {% if item.description %}
+                            <p class="text-sm text-gray-600 mt-1">{{ item.description|truncatewords:20 }}</p>
+                        {% endif %}
+                        <p class="text-xs text-gray-500 mt-2">
+                            Committee: {{ item.committee.name }} • Uploaded: {{ item.uploaded_at|date:"M j, Y" }}
+                        </p>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Users Results (Officers only) -->
+            {% if results.users %}
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                    <span class="text-red-600 mr-2">👥</span>
+                    Users ({{ results.users.count }})
+                </h2>
+                <div class="space-y-3">
+                    {% for item in results.users %}
+                    <div class="block p-4 border border-gray-200 rounded-lg">
+                        <h3 class="font-semibold text-gray-900">{{ item.get_display_name }}</h3>
+                        <p class="text-sm text-gray-600 mt-1">
+                            Username: {{ item.user_id }} •
+                            Type: {{ item.member_type }} •
+                            Status: {{ item.member_status }}
+                        </p>
+                        {% if item.email %}
+                            <p class="text-xs text-gray-500 mt-2">{{ item.email }}</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    {% elif query %}
+        <div class="bg-white rounded-lg shadow-md p-8 text-center">
+            <div class="text-6xl mb-4">🔍</div>
+            <h2 class="text-xl font-semibold text-gray-900 mb-2">No results found</h2>
+            <p class="text-gray-600">Try different keywords or check your spelling</p>
+        </div>
+    {% else %}
+        <div class="bg-white rounded-lg shadow-md p-8 text-center">
+            <div class="text-6xl mb-4">🔍</div>
+            <h2 class="text-xl font-semibold text-gray-900 mb-2">Search Parliament</h2>
+            <p class="text-gray-600">Search across legislation, announcements, events, documents, and more</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

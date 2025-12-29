@@ -7,7 +7,7 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <!-- Header Section -->
-    <div class="mb-6 flex justify-between items-center">
+    <div class="mb-6 flex flex-wrap justify-between items-start gap-4">
         <div class="flex items-center gap-4">
             <img src="{% static 'images/beta-seal.webp' %}" alt="Beta Theta Pi Seal" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-1 shadow-md">
             <div>
@@ -15,8 +15,14 @@
                 <p class="text-gray-600">View chapter events and meetings</p>
             </div>
         </div>
-        {% if user.member_type == 'Officer' or user.member_type == 'Chair' %}
-            <div class="flex space-x-2">
+        <div class="flex flex-wrap gap-2">
+            <a href="{% url 'export_calendar_ical' %}" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition flex items-center" title="Export to calendar app (Google Calendar, Apple Calendar, Outlook, etc.)">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                Export Calendar
+            </a>
+            {% if user.member_type == 'Officer' or user.member_type == 'Chair' %}
                 <a href="{% url 'create_event' %}" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition flex items-center">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
@@ -30,8 +36,8 @@
                     </svg>
                     Manage
                 </a>
-            </div>
-        {% endif %}
+            {% endif %}
+        </div>
     </div>
 
     <!-- Calendar Grid -->
@@ -130,6 +136,7 @@
     <!-- Event Details Modals -->
     {% for day, day_events in events_by_day.items %}
         {% for event in day_events %}
+            {% load custom_filters %}
             <div id="eventModal{{ event.id }}" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="if(event.target === this) closeEventDetails{{ event.id }}()">
                 <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6">
                     <div class="flex justify-between items-start mb-4">
@@ -141,12 +148,19 @@
                         </button>
                     </div>
                     <div class="space-y-4">
-                        <p class="text-gray-700">{{ event.description }}</p>
+                        <div class="flex items-center gap-2 mb-2">
+                            <p class="text-gray-700">{{ event.description }}</p>
+                            {% if event.allow_excuses and not event.requires_attendance %}
+                            <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700" title="Attendance is not marked as required for this event">
+                                Optional Attendance
+                            </span>
+                            {% endif %}
+                        </div>
                         <div class="flex items-center text-gray-600">
                             <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
-                            <span class="font-medium">{{ event.date_time|date:"l, F j, Y at g:i A" }}</span>
+                            <span class="font-medium">{{ event.date_time|date:"l, F j, Y" }} at {{ event.date_time|date:"g:i A" }}</span>
                         </div>
                         {% if event.location %}
                             <div class="flex items-center text-gray-600">
@@ -163,6 +177,67 @@
                             </svg>
                             <span>Posted by {{ event.created_by.get_display_name }}</span>
                         </div>
+
+                        <!-- Excuse section for static modals -->
+                        {% if event.allow_excuses %}
+                            {% with user_excuse=event.excuse_requests.all|filter_by_user:user|first %}
+                            {% if user_excuse %}
+                                <div class="border-t pt-4">
+                                    <div class="flex items-center justify-between">
+                                        {% if user_excuse.status == 'pending' %}
+                                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Excuse Pending Review</span>
+                                        {% elif user_excuse.status == 'approved' %}
+                                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Excuse Approved</span>
+                                        {% elif user_excuse.status == 'denied' %}
+                                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Excuse Denied</span>
+                                        {% endif %}
+                                        <a href="{% url 'my_excuses' %}" class="text-sm text-blue-600 hover:text-blue-800">View My Excuses →</a>
+                                    </div>
+                                </div>
+                            {% elif event.can_submit_excuse %}
+                                <div class="border-t pt-4">
+                                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                        <div class="flex items-start">
+                                            <svg class="w-5 h-5 text-blue-600 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                            <div class="flex-1">
+                                                {% if event.requires_attendance %}
+                                                <p class="text-sm font-medium text-blue-900 mb-2">This event requires attendance</p>
+                                                <p class="text-sm text-blue-700 mb-3">Unable to attend? Submit an excuse request.</p>
+                                                {% else %}
+                                                <p class="text-sm font-medium text-blue-900 mb-2">Attendance is optional for this event</p>
+                                                <p class="text-sm text-blue-700 mb-3">If you cannot attend, you may still submit an excuse request.</p>
+                                                {% endif %}
+                                                <a href="{% url 'submit_excuse' event.id %}" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition text-sm">
+                                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                                    </svg>
+                                                    Submit Excuse Request
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="border-t pt-4">
+                                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                        <p class="text-sm text-gray-600">
+                                            <span class="font-medium">Attendance required.</span> Excuse deadline has passed.
+                                        </p>
+                                    </div>
+                                </div>
+                            {% endif %}
+                            {% endwith %}
+                        {% elif event.requires_attendance %}
+                            <div class="border-t pt-4">
+                                <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                    <p class="text-sm text-gray-600">
+                                        <span class="font-medium">Attendance required</span> for this event.
+                                    </p>
+                                </div>
+                            </div>
+                        {% endif %}
                     </div>
                     <div class="mt-6 flex justify-end">
                         <button onclick="closeEventDetails{{ event.id }}()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition">
@@ -283,7 +358,14 @@
         }
 
         try {
-            const response = await fetch(`/api/calendar-data/?year=${year}&month=${month}`);
+            // Add cache-busting parameter and headers to force fresh data
+            const cacheBuster = new Date().getTime();
+            const response = await fetch(`/api/calendar-data/?year=${year}&month=${month}&_=${cacheBuster}`, {
+                cache: 'no-store',
+                headers: {
+                    'Cache-Control': 'no-cache'
+                }
+            });
             const data = await response.json();
             calendarCache[cacheKey] = data;
             return data;
@@ -364,7 +446,7 @@
                         data.events[day].forEach(event => {
                             html += `
                                 <div class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded cursor-pointer hover:bg-blue-200 transition"
-                                     onclick="showEventModal(${event.id}, '${escapeHtml(event.title)}', '${escapeHtml(event.description)}', '${event.full_datetime}', '${escapeHtml(event.location)}', '${escapeHtml(event.created_by)}')">
+                                     onclick="showEventModal(${event.id}, '${escapeHtml(event.title)}', '${escapeHtml(event.description)}', '${event.full_datetime}', '${escapeHtml(event.location)}', '${escapeHtml(event.created_by)}', ${event.requires_attendance}, ${event.allow_excuses}, ${event.can_submit_excuse}, ${event.has_excuse}, '${event.excuse_status}')">
                                     <div class="font-semibold truncate">${event.time}</div>
                                     <div class="truncate">${escapeHtml(event.title)}</div>
                                 </div>
@@ -387,7 +469,81 @@
         return div.innerHTML;
     }
 
-    function showEventModal(id, title, description, datetime, location, createdBy) {
+    function showEventModal(id, title, description, datetime, location, createdBy, requiresAttendance, allowExcuses, canSubmitExcuse, hasExcuse, excuseStatus) {
+        // Debug logging
+        console.log('Event Modal Debug:', {
+            id, requiresAttendance, allowExcuses, canSubmitExcuse, hasExcuse, excuseStatus
+        });
+
+        // Build excuse section HTML
+        let excuseHtml = '';
+        if (requiresAttendance && allowExcuses) {
+            if (hasExcuse) {
+                // User already has an excuse
+                let statusBadge = '';
+                if (excuseStatus === 'pending') {
+                    statusBadge = '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Excuse Pending Review</span>';
+                } else if (excuseStatus === 'approved') {
+                    statusBadge = '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Excuse Approved</span>';
+                } else if (excuseStatus === 'denied') {
+                    statusBadge = '<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Excuse Denied</span>';
+                }
+                excuseHtml = `
+                    <div class="border-t pt-4">
+                        <div class="flex items-center justify-between">
+                            ${statusBadge}
+                            <a href="/excuses/" class="text-sm text-blue-600 hover:text-blue-800">View My Excuses →</a>
+                        </div>
+                    </div>
+                `;
+            } else if (canSubmitExcuse) {
+                // User can submit an excuse
+                excuseHtml = `
+                    <div class="border-t pt-4">
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div class="flex items-start">
+                                <svg class="w-5 h-5 text-blue-600 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-blue-900 mb-2">This event requires attendance</p>
+                                    <p class="text-sm text-blue-700 mb-3">Unable to attend? Submit an excuse request.</p>
+                                    <a href="/excuses/submit/${id}/" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition text-sm">
+                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                        </svg>
+                                        Submit Excuse Request
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Excuse deadline has passed
+                excuseHtml = `
+                    <div class="border-t pt-4">
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                            <p class="text-sm text-gray-600">
+                                <span class="font-medium">Attendance required.</span> Excuse deadline has passed.
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }
+        } else if (requiresAttendance) {
+            // Requires attendance but doesn't allow excuses
+            excuseHtml = `
+                <div class="border-t pt-4">
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <p class="text-sm text-gray-600">
+                            <span class="font-medium">Attendance required</span> for this event.
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+
         const modalHtml = `
             <div id="eventModal${id}" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="if(event.target === this) closeEventModal(${id})">
                 <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6">
@@ -422,6 +578,7 @@
                             </svg>
                             <span>Posted by ${createdBy}</span>
                         </div>
+                        ${excuseHtml}
                     </div>
                     <div class="mt-6 flex justify-end">
                         <button onclick="closeEventModal(${id})" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition">

@@ -6,7 +6,10 @@ from collections import defaultdict
 @login_required
 def chapter_documents(request):
     """View for displaying all documents published to the chapter, organized by folder"""
-    documents = CommitteeDocument.objects.filter(published_to_chapter=True).select_related('committee', 'uploaded_by', 'chapter_folder')
+    all_documents = CommitteeDocument.objects.filter(published_to_chapter=True).select_related('committee', 'uploaded_by', 'chapter_folder')
+
+    # Filter documents based on visibility permissions
+    documents = [doc for doc in all_documents if doc.can_user_view(request.user)]
 
     # Get all folders
     all_folders = ChapterFolder.objects.all()
@@ -37,7 +40,7 @@ def chapter_documents(request):
         'folders_with_documents': folders_with_documents,
         'uncategorized_documents': uncategorized_documents,
         'all_folders': all_folders,
-        'total_documents': documents.count(),
+        'total_documents': len(documents),
         'is_officer': is_officer,
         'is_admin': is_admin,
     })

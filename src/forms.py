@@ -1,6 +1,6 @@
 from django import forms
 from django.conf import settings
-from .models import Legislation, Announcement, Event, CommitteeDocument, Committee, PassedResolution, ResolutionSectionImpact, KaiReport
+from .models import Legislation, Announcement, Event, CommitteeDocument, Committee, PassedResolution, ResolutionSectionImpact, KaiReport, UserPreferences
 import magic  # python-magic for MIME type detection
 
 class LegislationForm(forms.ModelForm):
@@ -107,7 +107,8 @@ class EventForm(forms.ModelForm):
 
     class Meta:
         model = Event
-        fields = ['title', 'description', 'date_time', 'location', 'visible_to', 'is_active']
+        fields = ['title', 'description', 'date_time', 'location', 'visible_to', 'is_active',
+                  'requires_attendance', 'allow_excuses', 'excuse_deadline']
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
@@ -128,6 +129,16 @@ class EventForm(forms.ModelForm):
             }),
             'is_active': forms.CheckboxInput(attrs={
                 'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+            }),
+            'requires_attendance': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+            }),
+            'allow_excuses': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+            }),
+            'excuse_deadline': forms.DateTimeInput(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'type': 'datetime-local'
             })
         }
         labels = {
@@ -136,12 +147,18 @@ class EventForm(forms.ModelForm):
             'date_time': 'Date & Time',
             'location': 'Location',
             'visible_to': 'Visible To',
-            'is_active': 'Active'
+            'is_active': 'Active',
+            'requires_attendance': 'Requires Attendance',
+            'allow_excuses': 'Allow Excuse Requests',
+            'excuse_deadline': 'Excuse Deadline (Optional)'
         }
         help_texts = {
             'date_time': 'When the event will occur',
             'location': 'Physical location or virtual meeting link',
-            'is_active': 'Uncheck to hide this event from the calendar'
+            'is_active': 'Uncheck to hide this event from the calendar',
+            'requires_attendance': 'Check if this event requires attendance tracking',
+            'allow_excuses': 'Allow members to submit excuse requests for this event',
+            'excuse_deadline': 'Deadline for submitting excuses. Leave blank to use event time as deadline.'
         }
 
     def save(self, commit=True):
@@ -504,3 +521,61 @@ class KaiReportForm(forms.ModelForm):
                 raise forms.ValidationError('Unable to verify file type. Please try again.')
 
         return file
+
+
+
+class UserPreferencesForm(forms.ModelForm):
+    """
+    Form for users to update their preferences
+    """
+    class Meta:
+        model = UserPreferences
+        fields = [
+            "theme",
+            "email_announcements",
+            "email_legislation",
+            "email_events",
+            "email_committee_updates",
+            "show_announcement_popups",
+            "items_per_page",
+            "compact_view",
+        ]
+        widgets = {
+            "theme": forms.Select(attrs={
+                "class": "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+            }),
+            "email_announcements": forms.CheckboxInput(attrs={
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+            }),
+            "email_legislation": forms.CheckboxInput(attrs={
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+            }),
+            "email_events": forms.CheckboxInput(attrs={
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+            }),
+            "email_committee_updates": forms.CheckboxInput(attrs={
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+            }),
+            "show_announcement_popups": forms.CheckboxInput(attrs={
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+            }),
+            "items_per_page": forms.NumberInput(attrs={
+                "class": "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500",
+                "min": "10",
+                "max": "100"
+            }),
+            "compact_view": forms.CheckboxInput(attrs={
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+            }),
+        }
+        labels = {
+            "theme": "Color Theme",
+            "email_announcements": "Announcements",
+            "email_legislation": "New Legislation",
+            "email_events": "Upcoming Events",
+            "email_committee_updates": "Committee Updates",
+            "show_announcement_popups": "Show announcement popups",
+            "items_per_page": "Items per page",
+            "compact_view": "Compact view mode",
+        }
+

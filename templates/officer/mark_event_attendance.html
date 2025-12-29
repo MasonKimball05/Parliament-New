@@ -1,0 +1,347 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Mark Attendance - {{ event.title }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-6">
+        <div class="flex items-center text-sm text-gray-600 mb-4">
+            <a href="{% url 'event_attendance_list' %}" class="hover:text-blue-600">Attendance</a>
+            <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+            </svg>
+            <span class="text-gray-900">{{ event.title }}</span>
+        </div>
+
+        <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+            <div>
+                <h2 class="text-3xl font-bold mb-2">{{ event.title }}</h2>
+                <div class="flex items-center text-gray-600 space-x-4">
+                    <span>📅 {{ event.date_time|date:"F j, Y" }}</span>
+                    <span>🕐 {{ event.date_time|date:"g:i A" }}</span>
+                    {% if event.location %}
+                    <span>📍 {{ event.location }}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if event.attendance_finalized %}
+            <div class="bg-blue-100 border border-blue-300 text-blue-800 px-4 py-2 rounded-lg">
+                <div class="font-semibold">✓ Attendance Finalized</div>
+                <div class="text-sm">By {{ event.finalized_by.get_display_name }} on {{ event.finalized_at|date:"M j, Y g:i A" }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Stats -->
+    {% if stats %}
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+        <div class="bg-white rounded-lg shadow p-4">
+            <div class="text-3xl font-bold text-gray-900">{{ stats.total_members }}</div>
+            <div class="text-sm text-gray-600">Total Members</div>
+        </div>
+        <div class="bg-green-50 rounded-lg shadow p-4">
+            <div class="text-3xl font-bold text-green-600">{{ stats.present }}</div>
+            <div class="text-sm text-gray-600">Present</div>
+        </div>
+        <div class="bg-red-50 rounded-lg shadow p-4">
+            <div class="text-3xl font-bold text-red-600">{{ stats.absent }}</div>
+            <div class="text-sm text-gray-600">Absent</div>
+        </div>
+        <div class="bg-blue-50 rounded-lg shadow p-4">
+            <div class="text-3xl font-bold text-blue-600">{{ stats.excused }}</div>
+            <div class="text-sm text-gray-600">Excused</div>
+        </div>
+        <div class="bg-gray-50 rounded-lg shadow p-4">
+            <div class="text-3xl font-bold text-gray-600">{{ stats.pending }}</div>
+            <div class="text-sm text-gray-600">Pending</div>
+        </div>
+        <div class="bg-purple-50 rounded-lg shadow p-4">
+            <div class="text-3xl font-bold text-purple-600">{{ stats.attendance_rate|floatformat:0 }}%</div>
+            <div class="text-sm text-gray-600">Attendance</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Attendance Form -->
+    <form method="post" class="bg-white rounded-lg shadow-md overflow-hidden">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="mark_attendance">
+
+        <div class="p-4 sm:p-6">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+                <h3 class="text-lg sm:text-xl font-bold">Member Attendance</h3>
+                {% if not event.attendance_finalized %}
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" id="selectAllPresent" class="text-sm sm:text-base px-3 py-1.5 text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg transition font-medium">
+                        Select All Present
+                    </button>
+                    <button type="button" id="clearAll" class="text-sm sm:text-base px-3 py-1.5 text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 rounded-lg transition font-medium">
+                        Clear All
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Desktop Table View (hidden on mobile) -->
+            <div class="hidden md:block overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Present</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Late</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Absent</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for data in member_data %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                        <span class="text-blue-600 font-semibold text-sm">
+                                            {{ data.user.name|slice:":1"|upper }}
+                                        </span>
+                                    </div>
+                                    <div class="ml-4 flex-1">
+                                        <div class="flex items-center gap-2">
+                                            <div class="text-sm font-medium text-gray-900">{{ data.user.get_display_name }}</div>
+                                            {% if data.excuse_status %}
+                                                {% if data.excuse_status == 'pending' %}
+                                                    <a href="{% url 'review_excuses' event.id %}" class="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 hover:bg-yellow-200 transition-colors" title="{{ data.excuse_reason }}">
+                                                        Excuse Pending
+                                                    </a>
+                                                {% elif data.excuse_status == 'approved' %}
+                                                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800" title="{{ data.excuse_reason }}">
+                                                        Excuse Approved
+                                                    </span>
+                                                {% elif data.excuse_status == 'denied' %}
+                                                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800" title="{{ data.excuse_reason }}">
+                                                        Excuse Denied
+                                                    </span>
+                                                {% endif %}
+                                            {% endif %}
+                                        </div>
+                                        <div class="text-sm text-gray-500">{{ data.user.user_id }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            {% if data.has_excuse %}
+                            <!-- Excused - can't be changed -->
+                            <td class="px-6 py-4 text-center" colspan="3">
+                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    Excused (Approved)
+                                </span>
+                                {% if data.excuse_reason %}
+                                <div class="text-xs text-gray-500 mt-1">{{ data.excuse_reason }}</div>
+                                {% endif %}
+                            </td>
+                            {% elif event.attendance_finalized %}
+                            <!-- Finalized - read only -->
+                            <td class="px-6 py-4 text-center" colspan="3">
+                                {% if data.current_status == 'present' %}
+                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Present</span>
+                                {% elif data.current_status == 'late' %}
+                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Late</span>
+                                {% elif data.current_status == 'absent' %}
+                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Absent</span>
+                                {% else %}
+                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Not Marked</span>
+                                {% endif %}
+                            </td>
+                            {% else %}
+                            <!-- Active checkboxes -->
+                            <td class="px-6 py-4 text-center">
+                                <input type="checkbox" name="present" value="{{ data.user.user_id }}"
+                                       class="attendance-checkbox present-checkbox h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                                       {% if data.current_status == 'present' %}checked{% endif %}
+                                       data-member="{{ data.user.user_id }}">
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <input type="checkbox" name="late" value="{{ data.user.user_id }}"
+                                       class="attendance-checkbox late-checkbox h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                                       {% if data.current_status == 'late' %}checked{% endif %}
+                                       data-member="{{ data.user.user_id }}">
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <input type="checkbox" name="absent" value="{{ data.user.user_id }}"
+                                       class="attendance-checkbox absent-checkbox h-5 w-5 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                                       {% if data.current_status == 'absent' %}checked{% endif %}
+                                       data-member="{{ data.user.user_id }}">
+                            </td>
+                            {% endif %}
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if data.current_status == 'present' %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Present</span>
+                                {% elif data.current_status == 'late' %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Late</span>
+                                {% elif data.current_status == 'absent' %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Absent</span>
+                                {% elif data.current_status == 'excused' %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Excused</span>
+                                {% else %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Pending</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Mobile Card View (hidden on desktop) -->
+            <div class="md:hidden divide-y divide-gray-200">
+                {% for data in member_data %}
+                <div class="p-4 hover:bg-gray-50">
+                    <div class="flex items-start gap-3">
+                        <!-- Avatar -->
+                        <div class="flex-shrink-0 h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                            <span class="text-blue-600 font-semibold text-lg">
+                                {{ data.user.name|slice:":1"|upper }}
+                            </span>
+                        </div>
+
+                        <!-- Member Info -->
+                        <div class="flex-1 min-w-0">
+                            <h3 class="text-base font-semibold text-gray-900 mb-1">{{ data.user.get_display_name }}</h3>
+                            <div class="flex flex-wrap items-center gap-1.5 mb-2">
+                                <span class="text-xs text-gray-500">{{ data.user.user_id }}</span>
+                                {% if data.excuse_status %}
+                                    {% if data.excuse_status == 'pending' %}
+                                        <a href="{% url 'review_excuses' event.id %}" class="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800" title="{{ data.excuse_reason }}">
+                                            Excuse Pending
+                                        </a>
+                                    {% elif data.excuse_status == 'approved' %}
+                                        <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800" title="{{ data.excuse_reason }}">
+                                            Excuse Approved
+                                        </span>
+                                    {% elif data.excuse_status == 'denied' %}
+                                        <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800" title="{{ data.excuse_reason }}">
+                                            Excuse Denied
+                                        </span>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+
+                            {% if data.has_excuse %}
+                            <!-- Excused - can't be changed -->
+                            <div class="mt-3">
+                                <span class="px-3 py-1.5 inline-flex text-sm font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    Excused (Approved)
+                                </span>
+                                {% if data.excuse_reason %}
+                                <div class="text-xs text-gray-500 mt-2">{{ data.excuse_reason }}</div>
+                                {% endif %}
+                            </div>
+                            {% elif event.attendance_finalized %}
+                            <!-- Finalized - read only -->
+                            <div class="mt-3">
+                                {% if data.current_status == 'present' %}
+                                <span class="px-3 py-1.5 inline-flex text-sm font-semibold rounded-full bg-green-100 text-green-800">Present</span>
+                                {% elif data.current_status == 'late' %}
+                                <span class="px-3 py-1.5 inline-flex text-sm font-semibold rounded-full bg-yellow-100 text-yellow-800">Late</span>
+                                {% elif data.current_status == 'absent' %}
+                                <span class="px-3 py-1.5 inline-flex text-sm font-semibold rounded-full bg-red-100 text-red-800">Absent</span>
+                                {% else %}
+                                <span class="px-3 py-1.5 inline-flex text-sm font-semibold rounded-full bg-gray-100 text-gray-800">Not Marked</span>
+                                {% endif %}
+                            </div>
+                            {% else %}
+                            <!-- Active checkboxes -->
+                            <div class="mt-3 flex flex-wrap gap-3">
+                                <label class="flex items-center gap-2 bg-green-50 px-3 py-2 rounded-lg border-2 border-transparent has-[:checked]:border-green-500 has-[:checked]:bg-green-100 cursor-pointer">
+                                    <input type="checkbox" name="present" value="{{ data.user.user_id }}"
+                                           class="attendance-checkbox present-checkbox h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                                           {% if data.current_status == 'present' %}checked{% endif %}
+                                           data-member="{{ data.user.user_id }}">
+                                    <span class="text-sm font-medium text-green-800">Present</span>
+                                </label>
+                                <label class="flex items-center gap-2 bg-yellow-50 px-3 py-2 rounded-lg border-2 border-transparent has-[:checked]:border-yellow-500 has-[:checked]:bg-yellow-100 cursor-pointer">
+                                    <input type="checkbox" name="late" value="{{ data.user.user_id }}"
+                                           class="attendance-checkbox late-checkbox h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                                           {% if data.current_status == 'late' %}checked{% endif %}
+                                           data-member="{{ data.user.user_id }}">
+                                    <span class="text-sm font-medium text-yellow-800">Late</span>
+                                </label>
+                                <label class="flex items-center gap-2 bg-red-50 px-3 py-2 rounded-lg border-2 border-transparent has-[:checked]:border-red-500 has-[:checked]:bg-red-100 cursor-pointer">
+                                    <input type="checkbox" name="absent" value="{{ data.user.user_id }}"
+                                           class="attendance-checkbox absent-checkbox h-5 w-5 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                                           {% if data.current_status == 'absent' %}checked{% endif %}
+                                           data-member="{{ data.user.user_id }}">
+                                    <span class="text-sm font-medium text-red-800">Absent</span>
+                                </label>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% if not event.attendance_finalized %}
+        <div class="bg-gray-50 px-4 sm:px-6 py-4">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                <a href="{% url 'event_attendance_list' %}" class="text-gray-600 hover:text-gray-900 text-center sm:text-left">← Back to Events</a>
+                <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-6 rounded-lg transition">
+                        Save Attendance
+                    </button>
+                    {% if can_finalize %}
+                    <button type="submit" name="action" value="finalize"
+                            class="bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 px-6 rounded-lg transition"
+                            onclick="return confirm('Are you sure you want to finalize attendance? This cannot be undone.')">
+                        Finalize Attendance
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="bg-gray-50 px-4 sm:px-6 py-4">
+            <a href="{% url 'event_attendance_list' %}" class="text-gray-600 hover:text-gray-900 block text-center sm:text-left">← Back to Events</a>
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle mutually exclusive checkboxes
+    const checkboxes = document.querySelectorAll('.attendance-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            if (this.checked) {
+                const memberId = this.dataset.member;
+                // Uncheck other checkboxes for this member
+                checkboxes.forEach(other => {
+                    if (other.dataset.member === memberId && other !== this) {
+                        other.checked = false;
+                    }
+                });
+            }
+        });
+    });
+
+    // Select all present
+    document.getElementById('selectAllPresent')?.addEventListener('click', function() {
+        document.querySelectorAll('.present-checkbox').forEach(checkbox => {
+            checkbox.checked = true;
+            checkbox.dispatchEvent(new Event('change'));
+        });
+    });
+
+    // Clear all
+    document.getElementById('clearAll')?.addEventListener('click', function() {
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+    });
+});
+</script>
+{% endblock %}

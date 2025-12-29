@@ -91,17 +91,17 @@
             </div>
         </a>
 
-        <!-- Attendance Card -->
-        <a href="{% url 'attendance' %}" class="block bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 group">
+        <!-- Event Attendance Card -->
+        <a href="{% url 'event_attendance_list' %}" class="block bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 group">
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">Take Attendance</h2>
+                <h2 class="text-xl font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">Event Attendance</h2>
                 <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
                 </svg>
             </div>
-            <p class="text-gray-600 text-sm mb-4">Record member attendance for meetings</p>
+            <p class="text-gray-600 text-sm mb-4">Manage attendance and review excuse requests</p>
             <div class="flex items-center text-sm text-primary-600 font-medium">
-                <span>Open Attendance</span>
+                <span>Manage Attendance</span>
                 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>

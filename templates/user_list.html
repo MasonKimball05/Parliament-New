@@ -6,137 +6,379 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <!-- Header -->
-    <div class="mb-6 flex justify-between items-start">
-        <div class="flex items-center gap-4">
-            <img src="{% static 'images/beta-seal.webp' %}" alt="Beta Theta Pi Seal" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-1 shadow-md">
+    <div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+        <div class="flex items-center gap-3 sm:gap-4">
+            <img src="{% static 'images/beta-seal.webp' %}" alt="Beta Theta Pi Seal" class="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full object-contain bg-white p-1 shadow-md">
             <div>
-                <h2 class="text-3xl font-bold mb-2">Chapter Members</h2>
-                <p class="text-gray-600">Complete list of all chapter members</p>
-                <p class="text-sm text-gray-500 mt-1">{{ user_data|length }} member{{ user_data|length|pluralize }}</p>
+                <h2 class="text-2xl sm:text-3xl font-bold mb-1">Chapter Members</h2>
+                <p class="text-sm sm:text-base text-gray-600">Complete list of all chapter members</p>
+                <p class="text-xs sm:text-sm text-gray-500 mt-1">{{ total_users }} member{{ total_users|pluralize }}</p>
             </div>
         </div>
-    </div>
-
-    <!-- Search Bar -->
-    <div class="mb-6">
-        <div class="relative">
-            <input type="text" id="searchInput" placeholder="Search by name, ID, or role..."
-                   class="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-            <svg class="absolute left-3 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+        <a href="{% url 'export_user_list' %}?status={{ selected_status }}" class="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center justify-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
+            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
             </svg>
-        </div>
+            <span>Export CSV</span>
+        </a>
     </div>
 
-    <!-- Members Table -->
+    <!-- Filters and Search -->
+    <form method="get" class="mb-6">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <!-- Search -->
+                <div class="md:col-span-1">
+                    <label for="searchInput" class="block text-sm font-medium text-gray-700 mb-2">Search</label>
+                    <div class="relative">
+                        <input type="text" id="searchInput" name="q" value="{{ search_query }}" placeholder="Name, ID, or email..."
+                               class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <svg class="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Status Filter -->
+                <div class="md:col-span-1">
+                    <label for="statusFilter" class="block text-sm font-medium text-gray-700 mb-2">Member Status</label>
+                    <select id="statusFilter" name="status" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active & Advisors</option>
+                        <option value="all" {% if selected_status == 'all' %}selected{% endif %}>All Members</option>
+                        <option value="inactive" {% if selected_status == 'inactive' %}selected{% endif %}>Inactive</option>
+                        <option value="alumni" {% if selected_status == 'alumni' %}selected{% endif %}>Alumni</option>
+                    </select>
+                </div>
+
+                <!-- Type Filter -->
+                <div class="md:col-span-1">
+                    <label for="typeFilter" class="block text-sm font-medium text-gray-700 mb-2">Member Type</label>
+                    <select id="typeFilter" name="type" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="" {% if not selected_type %}selected{% endif %}>All Types</option>
+                        {% for value, label in member_types %}
+                            <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Filter Buttons -->
+            <div class="flex flex-col sm:flex-row justify-end gap-2">
+                <a href="{% url 'user_list' %}" class="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-center font-medium">
+                    Clear Filters
+                </a>
+                <button type="submit" class="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+                    Apply Filters
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Members List - Table on Desktop, Cards on Mobile -->
     <div class="bg-white rounded-lg shadow-md overflow-hidden">
-        <div class="overflow-x-auto">
+        <!-- Desktop Table View (hidden on mobile) -->
+        <div class="hidden md:block overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Name
+                            <a href="?sort=name&order={% if current_sort == 'name' and current_order == 'asc' %}desc{% else %}asc{% endif %}&status={{ selected_status }}&type={{ selected_type }}&q={{ search_query }}" class="flex items-center gap-1 hover:text-gray-700">
+                                Name
+                                {% if current_sort == 'name' %}
+                                    {% if current_order == 'asc' %}
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                                    {% else %}
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"/></svg>
+                                    {% endif %}
+                                {% endif %}
+                            </a>
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Member ID
+                            <a href="?sort=id&order={% if current_sort == 'id' and current_order == 'asc' %}desc{% else %}asc{% endif %}&status={{ selected_status }}&type={{ selected_type }}&q={{ search_query }}" class="flex items-center gap-1 hover:text-gray-700">
+                                Member ID
+                                {% if current_sort == 'id' %}
+                                    {% if current_order == 'asc' %}
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                                    {% else %}
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"/></svg>
+                                    {% endif %}
+                                {% endif %}
+                            </a>
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Role
+                            <a href="?sort=email&order={% if current_sort == 'email' and current_order == 'asc' %}desc{% else %}asc{% endif %}&status={{ selected_status }}&type={{ selected_type }}&q={{ search_query }}" class="flex items-center gap-1 hover:text-gray-700">
+                                Email
+                                {% if current_sort == 'email' %}
+                                    {% if current_order == 'asc' %}
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                                    {% else %}
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"/></svg>
+                                    {% endif %}
+                                {% endif %}
+                            </a>
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <a href="?sort=type&order={% if current_sort == 'type' and current_order == 'asc' %}desc{% else %}asc{% endif %}&status={{ selected_status }}&type={{ selected_type }}&q={{ search_query }}" class="flex items-center gap-1 hover:text-gray-700">
+                                Member Type
+                                {% if current_sort == 'type' %}
+                                    {% if current_order == 'asc' %}
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                                    {% else %}
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"/></svg>
+                                    {% endif %}
+                                {% endif %}
+                            </a>
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <a href="?sort=status&order={% if current_sort == 'status' and current_order == 'asc' %}desc{% else %}asc{% endif %}&status={{ selected_status }}&type={{ selected_type }}&q={{ search_query }}" class="flex items-center gap-1 hover:text-gray-700">
+                                Status
+                                {% if current_sort == 'status' %}
+                                    {% if current_order == 'asc' %}
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                                    {% else %}
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"/></svg>
+                                    {% endif %}
+                                {% endif %}
+                            </a>
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <a href="?sort=role_count&order={% if current_sort == 'role_count' and current_order == 'asc' %}desc{% else %}asc{% endif %}&status={{ selected_status }}&type={{ selected_type }}&q={{ search_query }}" class="flex items-center gap-1 hover:text-gray-700">
+                                Roles
+                                {% if current_sort == 'role_count' %}
+                                    {% if current_order == 'asc' %}
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                                    {% else %}
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"/></svg>
+                                    {% endif %}
+                                {% endif %}
+                            </a>
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <a href="?sort=last_login&order={% if current_sort == 'last_login' and current_order == 'asc' %}desc{% else %}asc{% endif %}&status={{ selected_status }}&type={{ selected_type }}&q={{ search_query }}" class="flex items-center gap-1 hover:text-gray-700">
+                                Last Login
+                                {% if current_sort == 'last_login' %}
+                                    {% if current_order == 'asc' %}
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                                    {% else %}
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"/></svg>
+                                    {% endif %}
+                                {% endif %}
+                            </a>
                         </th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200" id="memberTableBody">
-                    {% for user in user_data %}
-                        <tr class="hover:bg-gray-50 transition-colors member-row" data-search="{{ user.username|lower }} {{ user.id|lower }} {{ user.role|lower }}">
+                    {% for data in user_data %}
+                        <tr class="hover:bg-gray-50 transition-colors">
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                                         <span class="text-blue-600 font-semibold text-sm">
-                                            {{ user.username|slice:":1"|upper }}
+                                            {{ data.username|slice:":1"|upper }}
                                         </span>
                                     </div>
                                     <div class="ml-4">
-                                        <div class="text-sm font-medium text-gray-900">{{ user.username }}</div>
+                                        <div class="text-sm font-medium text-gray-900">{{ data.username }}</div>
                                     </div>
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-900 font-mono">{{ user.id }}</div>
+                                <div class="text-sm text-gray-900 font-mono">{{ data.id }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                {% if user.role == 'Officer' %}
+                                <div class="text-sm text-gray-600">{{ data.email }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if data.role == 'Officer' %}
                                     <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
-                                        {{ user.role }}
+                                        Officer
                                     </span>
-                                {% elif user.role == 'Chair' %}
+                                {% elif data.role == 'Chair' %}
                                     <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                        {{ user.role }}
+                                        Chair
                                     </span>
-                                {% elif user.role == 'Advisor' %}
+                                {% elif data.role == 'Advisor' %}
                                     <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                        {{ user.role }}
+                                        Advisor
                                     </span>
                                 {% else %}
                                     <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                        {{ user.role }}
+                                        {{ data.role }}
                                     </span>
                                 {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if data.member_status == 'Active' %}
+                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                        Active
+                                    </span>
+                                {% elif data.member_status == 'Inactive' %}
+                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                        Inactive
+                                    </span>
+                                {% elif data.member_status == 'Alumni' %}
+                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                        Alumni
+                                    </span>
+                                {% else %}
+                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                        {{ data.member_status }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-1">
+                                    <span class="px-2 py-1 inline-flex text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">
+                                        {{ data.role_count }}
+                                    </span>
+                                    {% if data.roles %}
+                                        <div class="text-xs text-gray-500 ml-1">
+                                            {% for role in data.roles %}
+                                                {{ role.name }}{% if not forloop.last %}, {% endif %}
+                                            {% endfor %}
+                                            {% if data.has_more_roles %}
+                                                <span class="text-gray-400">...</span>
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-600">{{ data.last_login }}</div>
                             </td>
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="3" class="px-6 py-12 text-center text-gray-500">
+                            <td colspan="7" class="px-6 py-12 text-center text-gray-500">
                                 <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                                 </svg>
-                                <p>No members found.</p>
+                                <p>No members found matching your filters.</p>
+                                <a href="{% url 'user_list' %}" class="text-blue-600 hover:text-blue-700 text-sm mt-2 inline-block">Clear all filters</a>
                             </td>
                         </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+
+        <!-- Mobile Card View (hidden on desktop) -->
+        <div class="md:hidden divide-y divide-gray-200">
+            {% for data in user_data %}
+            <div class="p-4 hover:bg-gray-50 transition-colors">
+                <div class="flex items-start gap-3">
+                    <!-- Avatar -->
+                    <div class="flex-shrink-0 h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                        <span class="text-blue-600 font-semibold text-lg">
+                            {{ data.username|slice:":1"|upper }}
+                        </span>
+                    </div>
+
+                    <!-- Member Info -->
+                    <div class="flex-1 min-w-0">
+                        <!-- Name -->
+                        <h3 class="text-base font-semibold text-gray-900 mb-1">{{ data.username }}</h3>
+
+                        <!-- Badges Row -->
+                        <div class="flex flex-wrap gap-1.5 mb-2">
+                            <!-- Member Type -->
+                            {% if data.role == 'Officer' %}
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                                    Officer
+                                </span>
+                            {% elif data.role == 'Chair' %}
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    Chair
+                                </span>
+                            {% elif data.role == 'Advisor' %}
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                    Advisor
+                                </span>
+                            {% else %}
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                    {{ data.role }}
+                                </span>
+                            {% endif %}
+
+                            <!-- Status -->
+                            {% if data.member_status == 'Active' %}
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                    Active
+                                </span>
+                            {% elif data.member_status == 'Inactive' %}
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                    Inactive
+                                </span>
+                            {% elif data.member_status == 'Alumni' %}
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    Alumni
+                                </span>
+                            {% else %}
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                    {{ data.member_status }}
+                                </span>
+                            {% endif %}
+
+                            <!-- Roles Count -->
+                            {% if data.role_count > 0 %}
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">
+                                    {{ data.role_count }} role{{ data.role_count|pluralize }}
+                                </span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Details -->
+                        <div class="space-y-1 text-sm text-gray-600">
+                            <div class="flex items-center gap-1.5">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                </svg>
+                                <span class="truncate">{{ data.email }}</span>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/>
+                                </svg>
+                                <span class="font-mono text-xs">ID: {{ data.id }}</span>
+                            </div>
+                            {% if data.last_login %}
+                            <div class="flex items-center gap-1.5">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <span class="text-xs">Last login: {{ data.last_login }}</span>
+                            </div>
+                            {% endif %}
+                            {% if data.roles %}
+                            <div class="flex items-start gap-1.5 mt-1.5">
+                                <svg class="w-4 h-4 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                </svg>
+                                <span class="text-xs">
+                                    {% for role in data.roles %}
+                                        {{ role.name }}{% if not forloop.last %}, {% endif %}
+                                    {% endfor %}
+                                    {% if data.has_more_roles %}
+                                        <span class="text-gray-400">...</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="p-8 text-center">
+                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+                <p class="text-gray-600 mb-2">No members found matching your filters.</p>
+                <a href="{% url 'user_list' %}" class="text-blue-600 hover:text-blue-700 text-sm font-medium">Clear all filters</a>
+            </div>
+            {% endfor %}
+        </div>
     </div>
 
-    <!-- No Results Message -->
-    <div id="noResults" class="hidden bg-white rounded-lg shadow-md p-8 text-center mt-6">
-        <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-        </svg>
-        <p class="text-gray-500 text-lg">No members match your search.</p>
-        <p class="text-gray-400 text-sm mt-2">Try adjusting your search terms.</p>
-    </div>
 </div>
-
-<script>
-    // Search functionality
-    const searchInput = document.getElementById('searchInput');
-    const memberRows = document.querySelectorAll('.member-row');
-    const noResults = document.getElementById('noResults');
-    const tableBody = document.getElementById('memberTableBody');
-
-    searchInput.addEventListener('input', function(e) {
-        const searchTerm = e.target.value.toLowerCase();
-        let visibleCount = 0;
-
-        memberRows.forEach(row => {
-            const searchData = row.getAttribute('data-search');
-            if (searchData.includes(searchTerm)) {
-                row.style.display = '';
-                visibleCount++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Show/hide no results message
-        if (visibleCount === 0 && searchTerm !== '') {
-            noResults.classList.remove('hidden');
-            tableBody.parentElement.parentElement.style.display = 'none';
-        } else {
-            noResults.classList.add('hidden');
-            tableBody.parentElement.parentElement.style.display = '';
-        }
-    });
-</script>
 {% endblock %}

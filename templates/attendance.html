@@ -86,24 +86,24 @@
     <div class="bg-white rounded-lg shadow-lg overflow-hidden">
       <!-- Search and Actions Bar -->
       <div class="bg-gray-50 border-b border-gray-200 p-4">
-        <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div class="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
           <!-- Search Box -->
           <div class="relative w-full md:w-96">
             <input type="text" id="search-input" placeholder="Search by name or ID..."
-                   class="w-full pl-10 pr-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                   class="w-full pl-10 pr-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-base">
             <svg class="absolute left-3 top-3 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
           </div>
 
           <!-- Quick Actions -->
-          <div class="flex gap-2">
+          <div class="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
             <button type="button" onclick="selectAll()"
-                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium flex items-center gap-2">
+                    class="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium flex items-center justify-center gap-2">
               <span>✓</span> Select All
             </button>
             <button type="button" onclick="selectNone()"
-                    class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition font-medium flex items-center gap-2">
+                    class="px-4 py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition font-medium flex items-center justify-center gap-2">
               <span>✗</span> Clear All
             </button>
           </div>
@@ -113,8 +113,8 @@
       <form method="post" id="attendance-form">
         {% csrf_token %}
 
-        <!-- Table -->
-        <div class="overflow-x-auto">
+        <!-- Desktop Table View (hidden on mobile) -->
+        <div class="hidden md:block overflow-x-auto">
           <table class="w-full">
             <thead class="bg-gray-100 border-b-2 border-gray-200">
               <tr>
@@ -188,14 +188,71 @@
           </table>
         </div>
 
+        <!-- Mobile Card View (hidden on desktop) -->
+        <div class="md:hidden divide-y divide-gray-200">
+          {% for user in users %}
+            <div class="transition-all duration-200 user-row border-l-4 border-transparent p-4" data-search-text="{{ user.user_id|lower }} {{ user.name|lower }}">
+              <div class="flex items-start gap-3">
+                <!-- Avatar -->
+                <div class="flex-shrink-0 h-12 w-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                  {{ user.name|slice:":1"|upper }}
+                </div>
+
+                <!-- Member Info -->
+                <div class="flex-1 min-w-0">
+                  <h3 class="text-base font-semibold text-gray-900 mb-1">{{ user.name }}</h3>
+                  <div class="flex items-center gap-2 mb-2">
+                    <span class="text-xs text-gray-500">ID: {{ user.user_id }}</span>
+                    <span class="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full
+                      {% if user.member_type == 'Officer' %}bg-purple-100 text-purple-800
+                      {% elif user.member_type == 'Chair' %}bg-yellow-100 text-yellow-800
+                      {% else %}bg-blue-100 text-blue-800{% endif %}">
+                      {{ user.member_type }}
+                    </span>
+                  </div>
+
+                  <!-- Attendance Toggle -->
+                  <div class="flex items-center gap-2 mt-3">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" name="present" value="{{ user.user_id }}"
+                        {% if user.attendance_set.last.present and user.attendance_set.last.date == today %}checked{% endif %}
+                        class="attendance-checkbox sr-only peer" onchange="updateCounts(); toggleRowHighlight(this)">
+                      <!-- Toggle Switch Background -->
+                      <div class="relative w-16 h-8 bg-red-500 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full transition-all duration-300 peer-checked:bg-green-500 shadow-inner">
+                        <!-- Icons inside toggle background -->
+                        <div class="absolute inset-0 flex items-center justify-between px-2 pointer-events-none">
+                          <span class="text-white text-xs font-bold transition-opacity duration-300">✗</span>
+                          <span class="text-white text-xs font-bold transition-opacity duration-300">✓</span>
+                        </div>
+                      </div>
+                      <!-- Slider Circle -->
+                      <div class="absolute top-1 left-1 bg-white border-gray-300 border rounded-full h-6 w-6 transition-all duration-300 peer-checked:translate-x-8 pointer-events-none shadow-md"></div>
+                    </label>
+                    <!-- Text Label -->
+                    <span class="text-sm font-semibold transition-colors duration-200 status-label">
+                      <span class="text-red-600 absent-label">Absent</span>
+                      <span class="text-green-600 present-label hidden">Present</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {% empty %}
+            <div class="px-4 py-12 text-center text-gray-500">
+              <div class="text-5xl mb-4">📭</div>
+              <p class="text-base font-medium">No members to display</p>
+            </div>
+          {% endfor %}
+        </div>
+
         <!-- Submit Button -->
-        <div class="bg-gray-50 px-6 py-4 border-t border-gray-200">
-          <div class="flex justify-between items-center">
-            <p class="text-sm text-gray-600">
+        <div class="bg-gray-50 px-4 sm:px-6 py-4 border-t border-gray-200">
+          <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+            <p class="text-xs sm:text-sm text-gray-600 text-center sm:text-left">
               Mark members as present or absent, then submit to save attendance.
             </p>
             <button type="submit"
-                    class="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-3 rounded-lg hover:from-green-700 hover:to-green-800 transition font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-2">
+                    class="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 sm:px-8 py-3 rounded-lg hover:from-green-700 hover:to-green-800 transition font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center justify-center gap-2 w-full sm:w-auto">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
               </svg>

@@ -10,7 +10,6 @@ from src.storage import DualLocationStorage
 
 logger = logging.getLogger('function_calls')
 
-
 class ParliamentUserManager(BaseUserManager):
     def create_user(self, user_id, name, username, member_type, password=None):
         if not user_id:
@@ -147,6 +146,52 @@ class ParliamentUser(AbstractBaseUser):
         ordering = ['user_id']
 
 
+class UserPreferences(models.Model):
+    """
+    User preferences for customizing their Parliament experience
+    """
+    THEME_CHOICES = (
+        ('light', 'Light'),
+        ('dark', 'Dark'),
+        ('auto', 'Auto (System)'),
+    )
+
+    user = models.OneToOneField(ParliamentUser, on_delete=models.CASCADE, related_name='preferences', primary_key=True)
+
+    # Theme Preferences
+    theme = models.CharField(max_length=10, choices=THEME_CHOICES, default='light')
+
+    # Notification Preferences
+    email_announcements = models.BooleanField(default=True, help_text='Receive email notifications for new announcements')
+    email_legislation = models.BooleanField(default=True, help_text='Receive email notifications for new legislation')
+    email_events = models.BooleanField(default=True, help_text='Receive email notifications for upcoming events')
+    email_committee_updates = models.BooleanField(default=True, help_text='Receive email notifications for committee updates')
+
+    # In-app Notification Preferences
+    show_announcement_popups = models.BooleanField(default=True, help_text='Show in-app popups for announcements')
+
+    # Display Preferences
+    items_per_page = models.IntegerField(default=20, help_text='Number of items to display per page in lists')
+    compact_view = models.BooleanField(default=False, help_text='Use compact view for lists and tables')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Preferences for {self.user.name}"
+
+    class Meta:
+        verbose_name = 'User Preferences'
+        verbose_name_plural = 'User Preferences'
+
+
+# Signal to auto-create UserPreferences when a user is created
+@receiver(post_save, sender=ParliamentUser)
+def create_user_preferences(sender, instance, created, **kwargs):
+    if created:
+        UserPreferences.objects.get_or_create(user=instance)
+
+
 def validate_legislation_file(value):
     """Validates the file extension."""
     if not value.name.endswith('.pdf') and not value.name.endswith('.docx'):
@@ -241,10 +286,241 @@ class Legislation(models.Model):
         self.save()
 
 class Attendance(models.Model):
-    user = models.ForeignKey(ParliamentUser, on_delete=models.CASCADE, limit_choices_to={'member_status': 'Active'})
+    """
+    Attendance record for events and committee meetings
+    """
+    ATTENDANCE_TYPE_CHOICES = (
+        ('event', 'Event Attendance'),
+        ('committee', 'Committee Attendance'),
+    )
+
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),  # Not yet marked
+        ('present', 'Present'),
+        ('absent', 'Absent'),
+        ('excused', 'Excused'),
+        ('late', 'Late'),
+    )
+
+    # Type of attendance
+    attendance_type = models.CharField(
+        max_length=10,
+        choices=ATTENDANCE_TYPE_CHOICES,
+        default='event',
+        help_text='Type of attendance (event or committee)'
+    )
+
+    # For event attendance
+    event = models.ForeignKey(
+        'Event',
+        on_delete=models.CASCADE,
+        related_name='attendance_records',
+        null=True,
+        blank=True,
+        help_text='Event this attendance record is for (if event attendance)'
+    )
+
+    # For committee attendance
+    committee = models.ForeignKey(
+        'Committee',
+        on_delete=models.CASCADE,
+        related_name='attendance_records',
+        null=True,
+        blank=True,
+        help_text='Committee this attendance record is for (if committee attendance)'
+    )
+
+    user = models.ForeignKey(
+        ParliamentUser,
+        on_delete=models.CASCADE,
+        limit_choices_to={'member_status': 'Active'},
+        related_name='attendance_records'
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='pending',
+        help_text='Attendance status'
+    )
+
+    # Tracking fields
+    marked_by = models.ForeignKey(
+        ParliamentUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='marked_attendance',
+        help_text='Officer/Chair who marked this attendance'
+    )
+    marked_at = models.DateTimeField(null=True, blank=True, help_text='When attendance was marked')
+    created_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True, help_text='Additional notes about attendance')
+
+    # Legacy field for backwards compatibility
     date = models.DateField(auto_now_add=True)
     present = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', 'user__name']
+        verbose_name = 'Attendance Record'
+        verbose_name_plural = 'Attendance Records'
+        indexes = [
+            models.Index(fields=['event', 'status']),
+            models.Index(fields=['committee', 'status']),
+            models.Index(fields=['user', 'status']),
+            models.Index(fields=['attendance_type', 'created_at']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['event', 'user'],
+                condition=models.Q(event__isnull=False, attendance_type='event'),
+                name='unique_event_user_attendance'
+            ),
+            models.UniqueConstraint(
+                fields=['committee', 'user', 'date'],
+                condition=models.Q(committee__isnull=False, attendance_type='committee'),
+                name='unique_committee_user_date_attendance'
+            )
+        ]
+
+    def __str__(self):
+        if self.attendance_type == 'event' and self.event:
+            return f"{self.user.name} - {self.event.title} - {self.get_status_display()}"
+        elif self.attendance_type == 'committee' and self.committee:
+            return f"{self.user.name} - {self.committee.name} - {self.get_status_display()}"
+        return f"{self.user.name} - {self.get_status_display()}"
+
+    def save(self, *args, **kwargs):
+        # Update legacy 'present' field based on status
+        self.present = self.status == 'present'
+        super().save(*args, **kwargs)
+
+
+class AttendanceExcuse(models.Model):
+    """
+    Excuse request for an event
+    """
+    STATUS_CHOICES = (
+        ('pending', 'Pending Review'),
+        ('approved', 'Approved'),
+        ('denied', 'Denied'),
+        ('expired', 'Expired (past deadline)'),
+    )
+
+    event = models.ForeignKey(
+        'Event',
+        on_delete=models.CASCADE,
+        related_name='excuse_requests',
+        help_text='Event for which excuse is requested'
+    )
+    user = models.ForeignKey(
+        ParliamentUser,
+        on_delete=models.CASCADE,
+        related_name='excuse_requests',
+        help_text='Member requesting the excuse'
+    )
+
+    # Excuse details
+    reason = models.TextField(help_text='Reason for absence')
+    supporting_document = models.FileField(
+        upload_to='excuse_documents/',
+        null=True,
+        blank=True,
+        help_text='Optional supporting document (doctor note, etc.)'
+    )
+
+    # Status and review
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    reviewed_by = models.ForeignKey(
+        ParliamentUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_excuses',
+        help_text='Officer who reviewed this excuse'
+    )
+    reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When the excuse was reviewed'
+    )
+    review_notes = models.TextField(
+        blank=True,
+        help_text='Officer notes about the excuse decision'
+    )
+
+    # Timestamps
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-submitted_at']
+        unique_together = ('event', 'user')
+        verbose_name = 'Attendance Excuse'
+        verbose_name_plural = 'Attendance Excuses'
+        indexes = [
+            models.Index(fields=['event', 'status']),
+            models.Index(fields=['user', 'status']),
+            models.Index(fields=['-submitted_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.name} - {self.event.title} - {self.get_status_display()}"
+
+    def is_past_deadline(self):
+        """Check if this excuse was submitted after the deadline"""
+        from django.utils import timezone
+
+        if not self.event.excuse_deadline:
+            # If no deadline, check against event time
+            return self.submitted_at > self.event.date_time
+
+        return self.submitted_at > self.event.excuse_deadline
+
+    def approve(self, officer, notes=''):
+        """Approve the excuse and update attendance"""
+        from django.utils import timezone
+
+        self.status = 'approved'
+        self.reviewed_by = officer
+        self.reviewed_at = timezone.now()
+        self.review_notes = notes
+        self.save()
+
+        # Update or create attendance record
+        attendance, created = Attendance.objects.get_or_create(
+            event=self.event,
+            user=self.user,
+            attendance_type='event',
+            defaults={
+                'status': 'excused',
+                'marked_by': officer,
+                'marked_at': timezone.now(),
+                'notes': f'Excused: {self.reason[:100]}'
+            }
+        )
+
+        if not created and attendance.status != 'excused':
+            attendance.status = 'excused'
+            attendance.marked_by = officer
+            attendance.marked_at = timezone.now()
+            attendance.notes = f'Excused: {self.reason[:100]}'
+            attendance.save()
+
+    def deny(self, officer, notes=''):
+        """Deny the excuse"""
+        from django.utils import timezone
+
+        self.status = 'denied'
+        self.reviewed_by = officer
+        self.reviewed_at = timezone.now()
+        self.review_notes = notes
+        self.save()
+
 
 class Vote(models.Model):
     user = models.ForeignKey(ParliamentUser, on_delete=models.CASCADE, limit_choices_to={'member_status': 'Active'})
@@ -550,6 +826,24 @@ class ChapterFolder(models.Model):
         return self.name
 
 
+class DocumentTag(models.Model):
+    """Tags for categorizing and organizing documents"""
+    name = models.CharField(max_length=50, unique=True)
+    color = models.CharField(
+        max_length=20,
+        default='gray',
+        help_text='Badge color for the tag (e.g., blue, green, red, yellow, purple, pink)'
+    )
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class CommitteeDocument(models.Model):
     DOCUMENT_TYPES = [
         ('general', 'General Document'),
@@ -557,6 +851,14 @@ class CommitteeDocument(models.Model):
         ('agenda', 'Meeting Agenda'),
         ('report', 'Report'),
         ('policy', 'Policy Document'),
+    ]
+
+    VISIBILITY_CHOICES = [
+        ('all_members', 'All Chapter Members'),
+        ('committee_only', 'Committee Members Only'),
+        ('chairs_only', 'Committee Chairs Only'),
+        ('officers_only', 'Officers Only'),
+        ('custom', 'Custom Users'),
     ]
 
     committee = models.ForeignKey(Committee, on_delete=models.CASCADE, related_name='documents')
@@ -570,21 +872,91 @@ class CommitteeDocument(models.Model):
     document_type = models.CharField(max_length=20, choices=DOCUMENT_TYPES, default='general')
     meeting_date = models.DateField(null=True, blank=True, help_text='For minutes and agendas')
 
+    # Enhanced document management features
+    tags = models.ManyToManyField(DocumentTag, blank=True, related_name='documents')
+    version_number = models.IntegerField(default=1, help_text='Current version number')
+    is_latest_version = models.BooleanField(default=True, help_text='Whether this is the latest version')
+
+    # Visibility controls
+    visibility = models.CharField(
+        max_length=20,
+        choices=VISIBILITY_CHOICES,
+        default='committee_only',
+        help_text='Control who can view this document'
+    )
+    custom_viewers = models.ManyToManyField(
+        'ParliamentUser',
+        blank=True,
+        related_name='viewable_documents',
+        help_text='Specific users who can view this document (only applies when visibility is set to Custom)'
+    )
+
     class Meta:
         ordering = ['-uploaded_at']
 
     def __str__(self):
         return f"{self.committee.code} - {self.title}"
 
+    def get_version_string(self):
+        """Return formatted version string like 'v1.0'"""
+        return f"v{self.version_number}.0"
+
+    def can_user_view(self, user):
+        """Check if a user has permission to view this document"""
+        # Admins and the uploader can always view
+        if user.is_admin or user == self.uploaded_by:
+            return True
+
+        # Check based on visibility setting
+        if self.visibility == 'all_members':
+            return True
+        elif self.visibility == 'committee_only':
+            return user in self.committee.members.all()
+        elif self.visibility == 'chairs_only':
+            return user in self.committee.chairs.all()
+        elif self.visibility == 'officers_only':
+            return user.member_type == 'Officer' or user.is_officer
+        elif self.visibility == 'custom':
+            return user in self.custom_viewers.all()
+
+        return False
+
+
+class DocumentVersion(models.Model):
+    """Track document version history"""
+    document = models.ForeignKey(CommitteeDocument, on_delete=models.CASCADE, related_name='versions')
+    version_number = models.IntegerField()
+    file = models.FileField(upload_to='document_versions/', storage=DualLocationStorage())
+    uploaded_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    change_notes = models.TextField(blank=True, help_text='Description of changes in this version')
+    file_size = models.BigIntegerField(null=True, blank=True, help_text='File size in bytes')
+
+    class Meta:
+        ordering = ['-version_number']
+        unique_together = ['document', 'version_number']
+
+    def __str__(self):
+        return f"{self.document.title} - v{self.version_number}"
+
+    def get_file_size_display(self):
+        """Return human-readable file size"""
+        if not self.file_size:
+            return 'Unknown'
+        size = self.file_size
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size < 1024.0:
+                return f"{size:.1f} {unit}"
+            size /= 1024.0
+        return f"{size:.1f} TB"
+
 
 class Announcement(models.Model):
     """Model for officer announcements and event notifications"""
     MEMBER_TYPES = (
-        ('Member', 'Member'),
-        ('Chair', 'Chair'),
-        ('Officer', 'Officer'),
-        ('Advisor', 'Advisor'),
-        ('Pledge', 'Pledge'),
+        ('Member', 'Members'),
+        ('Advisor', 'Advisors'),
+        ('Pledge', 'Pledges'),
     )
 
     title = models.CharField(max_length=200)
@@ -622,8 +994,13 @@ class Announcement(models.Model):
         # If visible_to is None or empty, show to all users
         if not self.visible_to:
             return True
-        # Otherwise, check if user's member_type is in the list
-        return user.member_type in self.visible_to
+        # Check if user's member_type is directly in the list
+        if user.member_type in self.visible_to:
+            return True
+        # If "Member" is selected, also include Chair and Officer
+        if 'Member' in self.visible_to and user.member_type in ['Chair', 'Officer']:
+            return True
+        return False
 
 
 class UserAnnouncementView(models.Model):
@@ -644,11 +1021,9 @@ class UserAnnouncementView(models.Model):
 class Event(models.Model):
     """Model for calendar events - officers can create, all members can view"""
     MEMBER_TYPES = (
-        ('Member', 'Member'),
-        ('Chair', 'Chair'),
-        ('Officer', 'Officer'),
-        ('Advisor', 'Advisor'),
-        ('Pledge', 'Pledge'),
+        ('Member', 'Members'),
+        ('Advisor', 'Advisors'),
+        ('Pledge', 'Pledges'),
     )
 
     title = models.CharField(max_length=200)
@@ -663,6 +1038,38 @@ class Event(models.Model):
         null=True,
         blank=True,
         help_text='Select which member types can see this event. Leave empty for all members.'
+    )
+
+    # Attendance tracking fields
+    requires_attendance = models.BooleanField(
+        default=True,
+        help_text='Check if this event requires attendance tracking (chapter meetings, etc.)'
+    )
+    allow_excuses = models.BooleanField(
+        default=True,
+        help_text='Allow members to submit excuse requests for this event'
+    )
+    excuse_deadline = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Deadline for submitting excuses (leave empty to allow until event time)'
+    )
+    attendance_finalized = models.BooleanField(
+        default=False,
+        help_text='Mark as true when attendance has been finalized by an officer'
+    )
+    finalized_by = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='finalized_events',
+        help_text='Officer who finalized attendance'
+    )
+    finalized_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When attendance was finalized'
     )
 
     class Meta:
@@ -683,8 +1090,55 @@ class Event(models.Model):
         # If visible_to is None or empty, show to all users
         if not self.visible_to:
             return True
-        # Otherwise, check if user's member_type is in the list
-        return user.member_type in self.visible_to
+        # Check if user's member_type is directly in the list
+        if user.member_type in self.visible_to:
+            return True
+        # If "Member" is selected, also include Chair and Officer
+        if 'Member' in self.visible_to and user.member_type in ['Chair', 'Officer']:
+            return True
+        return False
+
+    def can_submit_excuse(self):
+        """Check if excuses can still be submitted for this event"""
+        from django.utils import timezone
+
+        if not self.allow_excuses:
+            return False
+
+        if self.attendance_finalized:
+            return False
+
+        # Check excuse deadline
+        if self.excuse_deadline:
+            return timezone.now() < self.excuse_deadline
+
+        # If no deadline set, allow until event time
+        return timezone.now() < self.date_time
+
+    def get_attendance_stats(self):
+        """Get attendance statistics for this event"""
+        from django.db.models import Count, Q
+
+        if not self.requires_attendance:
+            return None
+
+        total_members = ParliamentUser.objects.filter(member_status='Active').count()
+
+        attendance_records = self.attendance_records.all()
+        present_count = attendance_records.filter(status='present').count()
+        absent_count = attendance_records.filter(status='absent').count()
+        excused_count = attendance_records.filter(status='excused').count()
+        pending_count = attendance_records.filter(status='pending').count()
+
+        return {
+            'total_members': total_members,
+            'present': present_count,
+            'absent': absent_count,
+            'excused': excused_count,
+            'pending': pending_count,
+            'unmarked': total_members - attendance_records.count(),
+            'attendance_rate': (present_count / total_members * 100) if total_members > 0 else 0
+        }
 
 
 class ChatChannel(models.Model):
@@ -1270,3 +1724,362 @@ class KaiReportTemplate(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.get_category_display()})"
+
+class ActivityLog(models.Model):
+    """
+    Comprehensive activity logging for audit trails and security monitoring
+    """
+    ACTION_CATEGORIES = (
+        ('auth', 'Authentication'),
+        ('legislation', 'Legislation'),
+        ('vote', 'Voting'),
+        ('committee', 'Committee'),
+        ('document', 'Document'),
+        ('announcement', 'Announcement'),
+        ('event', 'Event'),
+        ('user', 'User Management'),
+        ('settings', 'Settings'),
+        ('other', 'Other'),
+    )
+
+    ACTION_TYPES = (
+        # Authentication
+        ('login', 'User Login'),
+        ('logout', 'User Logout'),
+        ('login_failed', 'Failed Login Attempt'),
+        ('password_changed', 'Password Changed'),
+        ('password_reset', 'Password Reset'),
+        
+        # Legislation
+        ('legislation_created', 'Legislation Created'),
+        ('legislation_edited', 'Legislation Edited'),
+        ('legislation_deleted', 'Legislation Deleted'),
+        ('legislation_reopened', 'Legislation Reopened'),
+        ('vote_ended', 'Vote Ended'),
+        
+        # Voting
+        ('vote_cast', 'Vote Cast'),
+        ('vote_changed', 'Vote Changed'),
+        
+        # Committee
+        ('committee_member_added', 'Committee Member Added'),
+        ('committee_member_removed', 'Committee Member Removed'),
+        ('committee_vote_created', 'Committee Vote Created'),
+        ('committee_document_uploaded', 'Committee Document Uploaded'),
+        ('committee_document_deleted', 'Committee Document Deleted'),
+        ('committee_document_published', 'Committee Document Published to Chapter'),
+        
+        # Documents
+        ('document_uploaded', 'Document Uploaded'),
+        ('document_downloaded', 'Document Downloaded'),
+        ('document_deleted', 'Document Deleted'),
+        ('document_viewed', 'Document Viewed'),
+        
+        # Announcements
+        ('announcement_created', 'Announcement Created'),
+        ('announcement_edited', 'Announcement Edited'),
+        ('announcement_deleted', 'Announcement Deleted'),
+        ('announcement_toggled', 'Announcement Status Toggled'),
+        
+        # Events
+        ('event_created', 'Event Created'),
+        ('event_edited', 'Event Edited'),
+        ('event_deleted', 'Event Deleted'),
+        ('attendance_taken', 'Attendance Taken'),
+        
+        # User Management
+        ('user_created', 'User Created'),
+        ('user_edited', 'User Profile Edited'),
+        ('user_role_changed', 'User Role Changed'),
+        ('login_as_user', 'Admin Logged In As User'),
+        
+        # Settings
+        ('preferences_updated', 'Preferences Updated'),
+        ('settings_changed', 'System Settings Changed'),
+        
+        # Other
+        ('other', 'Other Action'),
+    )
+
+    # Core fields
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='activity_logs',
+        help_text='User who performed the action (null for system actions)'
+    ) # Yeehaw God bless America
+    action_category = models.CharField(max_length=20, choices=ACTION_CATEGORIES)
+    action_type = models.CharField(max_length=50, choices=ACTION_TYPES)
+    description = models.TextField(help_text='Human-readable description of the action')
+    
+    # Context fields
+    ip_address = models.GenericIPAddressField(null=True, blank=True, help_text='IP address of the user')
+    user_agent = models.CharField(max_length=500, blank=True, help_text='Browser/device information')
+    
+    # Related objects (optional)
+    object_type = models.CharField(max_length=100, blank=True, help_text='Type of object affected (e.g., Legislation, User)')
+    object_id = models.IntegerField(null=True, blank=True, help_text='ID of the affected object')
+    object_repr = models.CharField(max_length=500, blank=True, help_text='String representation of the affected object')
+    
+    # Additional data
+    metadata = models.JSONField(null=True, blank=True, help_text='Additional data about the action (JSON)')
+    
+    # Timestamp
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = 'Activity Log'
+        verbose_name_plural = 'Activity Logs'
+        indexes = [
+            models.Index(fields=['-timestamp']),
+            models.Index(fields=['user', '-timestamp']),
+            models.Index(fields=['action_category', '-timestamp']),
+            models.Index(fields=['action_type', '-timestamp']),
+        ]
+    
+    def __str__(self):
+        user_name = self.user.name if self.user else 'System'
+        return f"{user_name} - {self.get_action_type_display()} - {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
+    
+    @classmethod
+    def log_activity(cls, action_type, user=None, description='', ip_address=None, user_agent='',
+                     object_type='', object_id=None, object_repr='', metadata=None, request=None):
+        """
+        Helper method to create an activity log entry
+        
+        Usage:
+            ActivityLog.log_activity(
+                action_type='login',
+                user=request.user,
+                description='User logged in successfully',
+                request=request
+            )
+        """
+        # Determine category from action_type
+        category_map = {
+            'login': 'auth', 'logout': 'auth', 'login_failed': 'auth',
+            'password_changed': 'auth', 'password_reset': 'auth',
+            'legislation_created': 'legislation', 'legislation_edited': 'legislation',
+            'legislation_deleted': 'legislation', 'legislation_reopened': 'legislation',
+            'vote_ended': 'legislation', 'vote_cast': 'vote', 'vote_changed': 'vote',
+            'committee_member_added': 'committee', 'committee_member_removed': 'committee',
+            'committee_vote_created': 'committee', 'committee_document_uploaded': 'committee',
+            'committee_document_deleted': 'committee', 'committee_document_published': 'committee',
+            'document_uploaded': 'document', 'document_downloaded': 'document',
+            'document_deleted': 'document', 'document_viewed': 'document',
+            'announcement_created': 'announcement', 'announcement_edited': 'announcement',
+            'announcement_deleted': 'announcement', 'announcement_toggled': 'announcement',
+            'event_created': 'event', 'event_edited': 'event',
+            'event_deleted': 'event', 'attendance_taken': 'event',
+            'user_created': 'user', 'user_edited': 'user',
+            'user_role_changed': 'user', 'login_as_user': 'user',
+            'preferences_updated': 'settings', 'settings_changed': 'settings',
+        }
+        action_category = category_map.get(action_type, 'other')
+        
+        # Extract IP and user agent from request if provided
+        if request:
+            if not ip_address:
+                ip_address = request.META.get('REMOTE_ADDR')
+            if not user_agent:
+                user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
+        
+        return cls.objects.create(
+            user=user,
+            action_category=action_category,
+            action_type=action_type,
+            description=description,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            object_type=object_type,
+            object_id=object_id,
+            object_repr=object_repr,
+            metadata=metadata
+        )
+
+
+class LoginHistory(models.Model):
+    """
+    Detailed login tracking for security monitoring and anomaly detection
+    """
+    LOGIN_STATUS_CHOICES = (
+        ('success', 'Successful'),
+        ('failed', 'Failed'),
+        ('blocked', 'Blocked'),
+    )
+
+    RISK_LEVEL_CHOICES = (
+        ('low', 'Low Risk'),
+        ('medium', 'Medium Risk'),
+        ('high', 'High Risk'),
+        ('critical', 'Critical Risk'),
+    )
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='login_history',
+        help_text='User who attempted to login'
+    )
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    status = models.CharField(max_length=10, choices=LOGIN_STATUS_CHOICES, default='success')
+
+    # IP and Location data
+    ip_address = models.GenericIPAddressField(help_text='IP address of login attempt')
+    country = models.CharField(max_length=100, blank=True, help_text='Country from IP geolocation')
+    city = models.CharField(max_length=100, blank=True, help_text='City from IP geolocation')
+    region = models.CharField(max_length=100, blank=True, help_text='State/Region from IP geolocation')
+    latitude = models.FloatField(null=True, blank=True, help_text='Approximate latitude')
+    longitude = models.FloatField(null=True, blank=True, help_text='Approximate longitude')
+
+    # Device information
+    user_agent = models.CharField(max_length=500, blank=True, help_text='Browser/device user agent string')
+    device_type = models.CharField(max_length=50, blank=True, help_text='Device type (mobile, desktop, tablet)')
+    browser = models.CharField(max_length=100, blank=True, help_text='Browser name and version')
+    os = models.CharField(max_length=100, blank=True, help_text='Operating system')
+
+    # Security analysis
+    is_suspicious = models.BooleanField(default=False, help_text='Flagged as suspicious by automated detection')
+    risk_level = models.CharField(max_length=10, choices=RISK_LEVEL_CHOICES, default='low')
+    risk_factors = models.JSONField(default=list, blank=True, help_text='List of detected risk factors')
+
+    # Distance calculations (for impossible travel detection)
+    distance_from_last = models.FloatField(null=True, blank=True, help_text='Distance in km from previous login location')
+    time_from_last = models.FloatField(null=True, blank=True, help_text='Time in hours from previous login')
+
+    # Alert tracking
+    alert_created = models.BooleanField(default=False, help_text='Whether an alert was created for this login')
+    reviewed = models.BooleanField(default=False, help_text='Whether this login has been reviewed by an admin')
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_logins',
+        help_text='Admin who reviewed this login'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True, help_text='When this login was reviewed')
+    notes = models.TextField(blank=True, help_text='Admin notes about this login')
+
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = 'Login History'
+        verbose_name_plural = 'Login Histories'
+        indexes = [
+            models.Index(fields=['-timestamp']),
+            models.Index(fields=['user', '-timestamp']),
+            models.Index(fields=['is_suspicious', '-timestamp']),
+            models.Index(fields=['risk_level', '-timestamp']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.name} - {self.status} - {self.timestamp.strftime('%Y-%m-%d %H:%M')} from {self.city or 'Unknown'}"
+
+    @property
+    def location_display(self):
+        """Human-readable location string"""
+        parts = []
+        if self.city:
+            parts.append(self.city)
+        if self.region:
+            parts.append(self.region)
+        if self.country:
+            parts.append(self.country)
+        return ', '.join(parts) if parts else f'IP: {self.ip_address}'
+
+    @property
+    def is_impossible_travel(self):
+        """Check if this login represents impossible travel"""
+        if self.distance_from_last and self.time_from_last:
+            # If distance is more than 500km and time is less than 1 hour, flag as impossible
+            if self.distance_from_last > 500 and self.time_from_last < 1:
+                return True
+            # Calculate average speed in km/h
+            avg_speed = self.distance_from_last / self.time_from_last if self.time_from_last > 0 else 0
+            # Flag if average speed exceeds 1000 km/h (typical commercial flight speed)
+            return avg_speed > 1000
+        return False
+
+
+class LoginAlert(models.Model):
+    """
+    Security alerts for suspicious login activity
+    """
+    ALERT_TYPE_CHOICES = (
+        ('impossible_travel', 'Impossible Travel'),
+        ('new_location', 'New Location'),
+        ('new_device', 'New Device'),
+        ('multiple_failures', 'Multiple Failed Attempts'),
+        ('unusual_time', 'Unusual Login Time'),
+        ('vpn_detected', 'VPN/Proxy Detected'),
+        ('other', 'Other Suspicious Activity'),
+    )
+
+    SEVERITY_CHOICES = (
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('critical', 'Critical'),
+    )
+
+    STATUS_CHOICES = (
+        ('new', 'New'),
+        ('investigating', 'Under Investigation'),
+        ('resolved', 'Resolved'),
+        ('false_positive', 'False Positive'),
+    )
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='login_alerts',
+        help_text='User whose account triggered the alert'
+    )
+    login_history = models.ForeignKey(
+        LoginHistory,
+        on_delete=models.CASCADE,
+        related_name='alerts',
+        help_text='Login attempt that triggered this alert'
+    )
+
+    alert_type = models.CharField(max_length=30, choices=ALERT_TYPE_CHOICES)
+    severity = models.CharField(max_length=10, choices=SEVERITY_CHOICES, default='medium')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new')
+
+    title = models.CharField(max_length=200, help_text='Alert title/summary')
+    description = models.TextField(help_text='Detailed description of the security concern')
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    # Admin review
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_alerts',
+        help_text='Admin who reviewed this alert'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True, help_text='When this alert was reviewed')
+    resolution_notes = models.TextField(blank=True, help_text='Notes about alert resolution')
+
+    # User notification
+    user_notified = models.BooleanField(default=False, help_text='Whether the user was notified of this alert')
+    notified_at = models.DateTimeField(null=True, blank=True, help_text='When the user was notified')
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Login Alert'
+        verbose_name_plural = 'Login Alerts'
+        indexes = [
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['status', '-created_at']),
+            models.Index(fields=['severity', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.get_alert_type_display()} - {self.user.name} - {self.get_severity_display()}"

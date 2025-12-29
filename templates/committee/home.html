@@ -32,6 +32,11 @@
                     💬 Chat
                 </a>
             </li>
+            <li>
+                <a href="{% url 'committee_attendance' committee.code %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                    ✅ Mark Attendance
+                </a>
+            </li>
             {% if perm and perm.can_manage_members %}
                 <li>
                     <a href="{% url 'manage_members' committee.code %}" class="text-blue-600 hover:text-blue-800 hover:underline">
