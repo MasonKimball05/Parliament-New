@@ -58,13 +58,24 @@ class Command(BaseCommand):
         for user in users:
             # Generate password: first letter of first name + last name + user_id
             # Example: Mason Kimball with ID 73 → mkimball73
-            first_initial = user.first_name[0].lower() if user.first_name else 'x'
-            last_name = user.last_name.lower().replace(' ', '') if user.last_name else 'user'
+
+            # Parse the name field (format: "First Middle Last" or "First Last")
+            if user.name and user.name.strip():
+                name_parts = user.name.strip().split()
+                # First letter of first name
+                first_initial = name_parts[0][0].lower()
+                # Last name is the last part (handles middle names/initials)
+                last_name = name_parts[-1].lower().replace('.', '').replace(' ', '')
+            else:
+                # Fallback if name is empty
+                first_initial = 'x'
+                last_name = 'user'
+
             new_password = f"{first_initial}{last_name}{user.user_id}"
 
             # Create display name - show full name if available, otherwise username
-            if user.first_name and user.last_name:
-                display_name = f"{user.first_name} {user.last_name} ({user.username})"
+            if user.name and user.name.strip():
+                display_name = f"{user.name} ({user.username})"
             else:
                 display_name = f"{user.username} (No name in database)"
 
