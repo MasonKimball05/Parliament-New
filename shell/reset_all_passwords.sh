@@ -44,36 +44,31 @@ fi
 
 # Parse arguments
 EXCLUDE_IDS="${1:-}"
-TEMP_PASSWORD="${2:-}"
 
 if [ -z "$EXCLUDE_IDS" ]; then
-    print_error "Usage: $0 <comma-separated-user-ids> [temp-password]"
+    print_error "Usage: $0 <comma-separated-user-ids>"
+    echo ""
+    echo "Password format: [first letter of first name][last name][user_id]"
+    echo "Example: Mason Kimball (ID 73) will get password 'mkimball73'"
     echo ""
     echo "Examples:"
-    echo "  $0 73,72,67                    # Reset all except IDs 73, 72, 67 with random password"
-    echo "  $0 73,72,67 TempPass123!       # Reset all except IDs 73, 72, 67 with specific password"
-    echo "  $0 1                           # Reset all except ID 1"
+    echo "  $0 73,72,67    # Reset all except IDs 73, 72, 67"
+    echo "  $0 1           # Reset all except ID 1"
     echo ""
     exit 1
 fi
 
 print_warning "This will reset passwords for ALL users except: $EXCLUDE_IDS"
+print_warning "Password format: [first letter of first name][last name][user_id]"
 echo ""
 
 # Run dry-run first to show what will happen
 print_step "Step 1: Checking which users will be affected (dry run)..."
 echo ""
 
-if [ -n "$TEMP_PASSWORD" ]; then
-    DJANGO_SETTINGS_MODULE=Parliament.settings_postgres python manage.py reset_all_passwords \
-        --exclude "$EXCLUDE_IDS" \
-        --temp-password "$TEMP_PASSWORD" \
-        --dry-run
-else
-    DJANGO_SETTINGS_MODULE=Parliament.settings_postgres python manage.py reset_all_passwords \
-        --exclude "$EXCLUDE_IDS" \
-        --dry-run
-fi
+DJANGO_SETTINGS_MODULE=Parliament.settings_postgres python manage.py reset_all_passwords \
+    --exclude "$EXCLUDE_IDS" \
+    --dry-run
 
 echo ""
 print_warning "The above users will have their passwords reset."
@@ -92,18 +87,14 @@ print_step "Step 2: Resetting passwords..."
 echo ""
 
 # Run actual reset
-if [ -n "$TEMP_PASSWORD" ]; then
-    DJANGO_SETTINGS_MODULE=Parliament.settings_postgres python manage.py reset_all_passwords \
-        --exclude "$EXCLUDE_IDS" \
-        --temp-password "$TEMP_PASSWORD"
-else
-    DJANGO_SETTINGS_MODULE=Parliament.settings_postgres python manage.py reset_all_passwords \
-        --exclude "$EXCLUDE_IDS"
-fi
+DJANGO_SETTINGS_MODULE=Parliament.settings_postgres python manage.py reset_all_passwords \
+    --exclude "$EXCLUDE_IDS"
 
 echo ""
 print_status "Password reset complete!"
 echo ""
-print_warning "IMPORTANT: Make sure to communicate the temporary password to affected users"
-print_warning "Users will need to change their password on next login"
+print_warning "IMPORTANT: Notify users of the password format:"
+print_warning "  Password = [first letter of first name][last name][user_id]"
+print_warning "  Example: Mason Kimball (ID 73) → mkimball73"
+print_warning "Users will be forced to change their password on next login"
 echo ""

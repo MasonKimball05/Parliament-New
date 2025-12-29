@@ -22,12 +22,6 @@ class Command(BaseCommand):
             help='Comma-separated list of user IDs to exclude (e.g., "73,72,67")'
         )
         parser.add_argument(
-            '--temp-password',
-            type=str,
-            default=None,
-            help='Set a specific temporary password (default: random 12-char password)'
-        )
-        parser.add_argument(
             '--dry-run',
             action='store_true',
             help='Show what would be changed without actually changing it'
@@ -42,14 +36,6 @@ class Command(BaseCommand):
             except ValueError:
                 raise CommandError('Invalid user IDs. Please provide comma-separated numbers.')
 
-        # Generate or use provided temporary password
-        if options['temp_password']:
-            temp_password = options['temp_password']
-        else:
-            # Generate random 12-character password
-            alphabet = string.ascii_letters + string.digits + "!@#$%&*"
-            temp_password = ''.join(secrets.choice(alphabet) for _ in range(12))
-
         dry_run = options['dry_run']
 
         # Get all users except excluded ones
@@ -63,20 +49,30 @@ class Command(BaseCommand):
         if exclude_ids:
             self.stdout.write(self.style.WARNING(f'Excluding user IDs: {", ".join(map(str, exclude_ids))}'))
 
-        if not dry_run:
-            self.stdout.write(self.style.WARNING(f'Temporary password: {temp_password}'))
-            self.stdout.write(self.style.WARNING('Users will need to change their password on next login'))
-
+        self.stdout.write(self.style.WARNING('Password format: [first letter of first name][last name][user_id]'))
+        self.stdout.write(self.style.WARNING('Example: Mason Kimball (ID 73) → mkimball73'))
         self.stdout.write('')
 
         # Reset passwords
         reset_count = 0
         for user in users:
-            if dry_run:
-                self.stdout.write(f'Would reset: {user.username} (ID: {user.user_id})')
+            # Generate password: first letter of first name + last name + user_id
+            # Example: Mason Kimball with ID 73 → mkimball73
+            first_initial = user.first_name[0].lower() if user.first_name else 'x'
+            last_name = user.last_name.lower().replace(' ', '') if user.last_name else 'user'
+            new_password = f"{first_initial}{last_name}{user.user_id}"
+
+            # Create display name - show full name if available, otherwise username
+            if user.first_name and user.last_name:
+                display_name = f"{user.first_name} {user.last_name} ({user.username})"
             else:
-                # Set the temporary password
-                user.set_password(temp_password)
+                display_name = f"{user.username} (No name in database)"
+
+            if dry_run:
+                self.stdout.write(f'Would reset: {display_name} [ID: {user.user_id}] → {new_password}')
+            else:
+                # Set the new password
+                user.set_password(new_password)
 
                 # Mark that password change is required
                 # Use the force_password_change field from the ParliamentUser model
@@ -86,7 +82,7 @@ class Command(BaseCommand):
                 # Save the user
                 user.save()
 
-                self.stdout.write(f'✓ Reset: {user.username} (ID: {user.user_id})')
+                self.stdout.write(f'✓ Reset: {display_name} [ID: {user.user_id}] → {new_password}')
                 reset_count += 1
 
         self.stdout.write('')
@@ -98,10 +94,12 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f'Successfully reset {reset_count} passwords'))
             self.stdout.write('')
             self.stdout.write(self.style.WARNING('IMPORTANT INFORMATION:'))
-            self.stdout.write(f'  Temporary Password: {temp_password}')
+            self.stdout.write(f'  Password format: [first letter of first name][last name][user_id]')
+            self.stdout.write(f'  Example: Mason Kimball (ID 73) → mkimball73')
             self.stdout.write(f'  Users affected: {reset_count}')
             self.stdout.write(f'  Users excluded: {len(exclude_ids)}')
             self.stdout.write('')
             self.stdout.write('Next steps:')
-            self.stdout.write('  1. Notify affected users of the temporary password')
-            self.stdout.write('  2. Users should change their password on next login')
+            self.stdout.write('  1. Notify affected users of the password format')
+            self.stdout.write('  2. Users must change their password on next login')
+            self.stdout.write('  3. Passwords are case-sensitive (all lowercase)')
