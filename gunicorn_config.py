@@ -14,10 +14,11 @@ backlog = 2048
 # Formula for higher traffic: (2 x $num_cores) + 1
 workers = int(os.getenv('GUNICORN_WORKERS', '2'))
 
-# Worker class - gevent for async I/O with lower memory footprint
-# gevent uses greenlets (lightweight threads) instead of full processes
-worker_class = 'gevent'
-worker_connections = 1000  # Max simultaneous clients per worker
+# Worker class - sync workers for maximum Django compatibility
+# Note: gevent workers have thread-safety issues with Django's database connections
+# Sync workers are more reliable and work properly with preload_app
+worker_class = 'sync'
+# worker_connections only applies to async workers like gevent
 
 # Threading - adds threads to workers for handling concurrent requests
 # Only use with sync workers, not with gevent
