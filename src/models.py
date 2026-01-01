@@ -175,6 +175,14 @@ class UserPreferences(models.Model):
     items_per_page = models.IntegerField(default=20, help_text='Number of items to display per page in lists')
     compact_view = models.BooleanField(default=False, help_text='Use compact view for lists and tables')
 
+    # Menu Customization
+    show_vote_menu = models.BooleanField(default=True, help_text='Show Vote link in navigation menu')
+    show_committees_menu = models.BooleanField(default=True, help_text='Show Committees link in navigation menu')
+    show_chats_menu = models.BooleanField(default=True, help_text='Show Chats link in navigation menu')
+    show_documents_menu = models.BooleanField(default=True, help_text='Show Documents link in navigation menu')
+    show_announcements_menu = models.BooleanField(default=True, help_text='Show Announcements link in navigation menu')
+    show_calendar_menu = models.BooleanField(default=True, help_text='Show Calendar link in navigation menu')
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -618,7 +626,7 @@ class Committee(models.Model):
         (5, 'BROTHER', 'Brotherhood Committee'),
         (6, 'RECRUIT', 'Recruitment Committee'),
         (7, 'EDUCATION', 'Education Committee'),
-        (8, 'RISK', 'Risk Management Committee'),
+        (8, 'SOCIAL', ' Social Committee'),
         (9, 'FINANCE', 'Finance Committee'),
         (10, 'ADMIN', 'Administration Committee'),
         (11, 'PROGRAM', 'Programming Committee'),
