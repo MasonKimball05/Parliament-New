@@ -443,26 +443,22 @@ class AttendanceExcuseAdmin(admin.ModelAdmin):
 
 @admin.register(Committee, site=admin_site)
 class CommitteeAdmin(admin.ModelAdmin):
-    list_display = ('name', 'code', 'role', 'member_count', 'chair_count', 'created_at')
+    list_display = ('name', 'code', 'role', 'member_count', 'chair_count')
     search_fields = ('name', 'code', 'description')
     filter_horizontal = ('members', 'chairs', 'advisors', 'voting_members')
     ordering = ('name',)
-    list_filter = ('role', 'allow_multiple_chairs', 'created_at')
+    list_filter = ('role', 'allow_multiple_chairs')
     list_per_page = 25
 
     fieldsets = (
         ('Basic Information', {
-            'fields': ('name', 'code', 'role', 'description', 'allow_multiple_chairs')
+            'fields': ('name', 'code', 'role', 'allow_multiple_chairs')
         }),
         ('Leadership', {
             'fields': ('chairs', 'advisors')
         }),
         ('Membership', {
             'fields': ('voting_members', 'members')
-        }),
-        ('Metadata', {
-            'fields': ('created_at',),
-            'classes': ('collapse',)
         }),
     )
 
