@@ -600,7 +600,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Mason Kimball** - [MasonKimball05](https://github.com/MasonKimball05)
 
-See also the list of [contributors](https://github.com/yourusername/Parliament/contributors) who participated in this project.
+See also the list of [contributors](https://github.com/MasonKimball05/Parliament/contributors) who participated in this project.
 
 ---
 
@@ -608,14 +608,13 @@ See also the list of [contributors](https://github.com/yourusername/Parliament/c
 
 - Built for student organizations to streamline chapter operations
 - Inspired by parliamentary procedure and democratic governance
-- Thanks to all contributors and testers
 
 ---
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/Parliament/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/Parliament/discussions)
+- **Issues**: [GitHub Issues](https://github.com/MasonKimball05/Parliament/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/MasonKimball05/Parliament/discussions)
 - **Email**: mason.kimball@icloud.com
 
 ---
