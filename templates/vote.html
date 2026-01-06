@@ -10,16 +10,16 @@
     <div class="mb-4 sm:mb-6 flex items-center gap-4">
         <img src="{% static 'images/beta-seal.webp' %}" alt="Beta Theta Pi Seal" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-1 shadow-md">
         <div>
-            <h1 class="text-2xl sm:text-3xl font-bold mb-2">Legislation up for Vote</h1>
-            <p class="text-sm sm:text-base text-gray-600">Cast your votes on active legislation</p>
+            <h1 class="text-2xl sm:text-3xl font-bold mb-2 text-gray-900 dark:text-gray-100">Legislation up for Vote</h1>
+            <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">Cast your votes on active legislation</p>
         </div>
     </div>
 
     <!-- Upload Legislation Form (Officers/Chairs Only) -->
     {% if profile.member_type in 'Chair Officer' %}
-    <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6 sm:mb-8">
-        <h2 class="text-lg sm:text-xl font-semibold mb-4 flex items-center">
-            <svg class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 mb-6 sm:mb-8 transition-colors duration-200">
+        <h2 class="text-lg sm:text-xl font-semibold mb-4 flex items-center text-gray-900 dark:text-gray-100">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
             </svg>
             Upload New Legislation
@@ -31,13 +31,13 @@
 
             <div class="grid md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Title</label>
-                    <input type="text" name="title" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Title</label>
+                    <input type="text" name="title" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Voting Mode</label>
-                    <select id="vote_mode" name="vote_mode" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Voting Mode</label>
+                    <select id="vote_mode" name="vote_mode" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
                         <option value="percentage" selected>Percentage</option>
                         <option value="piecewise">Piecewise</option>
                         <option value="plurality">Plurality</option>
@@ -46,37 +46,37 @@
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                <textarea name="description" required rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</label>
+                <textarea name="description" required rows="3" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"></textarea>
             </div>
 
             <div class="grid md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Available At</label>
-                    <input type="datetime-local" name="available_at" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Available At</label>
+                    <input type="datetime-local" name="available_at" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Upload Document</label>
-                    <input type="file" id="documentUpload" name="document" accept=".pdf,.docx" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Upload Document</label>
+                    <input type="file" id="documentUpload" name="document" accept=".pdf,.docx" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
                 </div>
             </div>
 
             <div class="flex flex-wrap gap-4">
                 <label class="flex items-center">
-                    <input type="checkbox" name="anonymous" id="anonymous" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                    <span class="ml-2 text-sm text-gray-700">Make Vote Anonymous</span>
+                    <input type="checkbox" name="anonymous" id="anonymous" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Make Vote Anonymous</span>
                 </label>
                 <label class="flex items-center" id="removeAbstainWrapper">
-                    <input type="checkbox" name="remove_abstain" id="remove_abstain" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                    <span class="ml-2 text-sm text-gray-700">Remove Abstain Option</span>
+                    <input type="checkbox" name="remove_abstain" id="remove_abstain" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Remove Abstain Option</span>
                 </label>
             </div>
 
             <!-- Percentage Mode -->
             <div id="percentage-section">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Required Vote to Pass</label>
-                <select name="required_percentage" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Required Vote to Pass</label>
+                <select name="required_percentage" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
                     <option value="51">51%</option>
                     <option value="60">60%</option>
                     <option value="67">67%</option>
@@ -87,25 +87,25 @@
 
             <!-- Piecewise Mode -->
             <div id="piecewise-section" class="hidden">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Required Number of Yes Votes to Pass</label>
-                <input type="number" name="required_number" min="1" placeholder="e.g., 15" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                <p class="text-sm text-gray-500 mt-1">Enter the exact number of "Yes" votes needed for this legislation to pass</p>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Required Number of Yes Votes to Pass</label>
+                <input type="number" name="required_number" min="1" placeholder="e.g., 15" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Enter the exact number of "Yes" votes needed for this legislation to pass</p>
             </div>
 
             <!-- Plurality Mode -->
             <div id="plurality-options" class="hidden">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Plurality Options (at least 2)</label>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Plurality Options (at least 2)</label>
                 <div class="space-y-2">
-                    <input type="text" name="plurality_option_1" placeholder="Option 1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <input type="text" name="plurality_option_2" placeholder="Option 2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <input type="text" name="plurality_option_3" placeholder="Option 3 (optional)" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <input type="text" name="plurality_option_4" placeholder="Option 4 (optional)" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <input type="text" name="plurality_option_5" placeholder="Option 5 (optional)" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <input type="text" name="plurality_option_1" placeholder="Option 1" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
+                    <input type="text" name="plurality_option_2" placeholder="Option 2" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
+                    <input type="text" name="plurality_option_3" placeholder="Option 3 (optional)" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
+                    <input type="text" name="plurality_option_4" placeholder="Option 4 (optional)" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
+                    <input type="text" name="plurality_option_5" placeholder="Option 5 (optional)" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
                 </div>
             </div>
 
             <div class="flex justify-end">
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2 rounded-lg transition">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium px-6 py-2 rounded-lg transition">
                     Upload Legislation
                 </button>
             </div>
@@ -115,46 +115,46 @@
 
     <!-- Legislation List -->
     {% if not legislation %}
-    <div class="bg-white rounded-lg shadow-md p-8 text-center">
-        <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center transition-colors duration-200">
+        <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
         </svg>
-        <p class="text-lg text-gray-600 mb-4">Currently, there is no legislation up for vote.</p>
-        <a href="{% url 'passed_legislation' %}" class="text-blue-600 hover:text-blue-800 font-medium">
+        <p class="text-lg text-gray-600 dark:text-gray-400 mb-4">Currently, there is no legislation up for vote.</p>
+        <a href="{% url 'passed_legislation' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium">
             View Legislation Already Passed →
         </a>
     </div>
     {% else %}
         <div class="space-y-6">
             {% for leg in legislation %}
-            <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                <div class="bg-blue-50 px-6 py-4 border-b border-blue-100">
-                    <h3 class="text-xl font-bold text-gray-900">{{ leg.title }}</h3>
-                    <p class="text-sm text-gray-600 mt-1">Available: {{ leg.available_at|date:"F j, Y, g:i a" }}</p>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
+                <div class="bg-blue-50 dark:bg-blue-900/20 px-6 py-4 border-b border-blue-100 dark:border-blue-800">
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ leg.title }}</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Available: {{ leg.available_at|date:"F j, Y, g:i a" }}</p>
                 </div>
 
                 <div class="p-6">
-                    <p class="text-gray-700 mb-4">{{ leg.description }}</p>
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">{{ leg.description }}</p>
 
                     <div class="flex items-center space-x-4 mb-4">
                         {% if leg.document %}
-                        <a href="{{ leg.document.url }}" target="_blank" class="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium">
+                        <a href="{{ leg.document.url }}" target="_blank" class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium">
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                             </svg>
                             View Document
                         </a>
                         {% endif %}
-                        <span class="text-sm text-gray-500">Vote Mode: {{ leg.vote_mode|title }}</span>
+                        <span class="text-sm text-gray-500 dark:text-gray-400">Vote Mode: {{ leg.vote_mode|title }}</span>
                     </div>
 
                     <!-- Live Vote Tally (for author) -->
                     {% if profile == leg.posted_by %}
                         {% with data=vote_data|get_item:leg.id %}
                         {% if data %}
-                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-                            <h4 class="font-semibold text-gray-900 mb-3 flex items-center">
-                                <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4 mb-4 transition-colors duration-200">
+                            <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center">
+                                <svg class="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
                                 </svg>
                                 Live Vote Tally
@@ -164,28 +164,28 @@
                                     {% for option, count in data.items %}
                                         {% if option != "total" %}
                                             <div class="text-center">
-                                                <div class="text-2xl font-bold text-blue-600">{{ count }}</div>
-                                                <div class="text-sm text-gray-600">{{ option }}</div>
+                                                <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ count }}</div>
+                                                <div class="text-sm text-gray-600 dark:text-gray-400">{{ option }}</div>
                                             </div>
                                         {% endif %}
                                     {% endfor %}
                                 {% else %}
                                     <div class="text-center">
-                                        <div class="text-2xl font-bold text-green-600">{{ data.yes }}</div>
-                                        <div class="text-sm text-gray-600">Yes</div>
+                                        <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ data.yes }}</div>
+                                        <div class="text-sm text-gray-600 dark:text-gray-400">Yes</div>
                                     </div>
                                     <div class="text-center">
-                                        <div class="text-2xl font-bold text-red-600">{{ data.no }}</div>
-                                        <div class="text-sm text-gray-600">No</div>
+                                        <div class="text-2xl font-bold text-red-600 dark:text-red-400">{{ data.no }}</div>
+                                        <div class="text-sm text-gray-600 dark:text-gray-400">No</div>
                                     </div>
                                     <div class="text-center">
-                                        <div class="text-2xl font-bold text-gray-600">{{ data.abstain }}</div>
-                                        <div class="text-sm text-gray-600">Abstain</div>
+                                        <div class="text-2xl font-bold text-gray-600 dark:text-gray-400">{{ data.abstain }}</div>
+                                        <div class="text-sm text-gray-600 dark:text-gray-400">Abstain</div>
                                     </div>
                                 {% endif %}
                                 <div class="text-center">
-                                    <div class="text-2xl font-bold text-gray-900">{{ data.total }}</div>
-                                    <div class="text-sm text-gray-600">Total Votes</div>
+                                    <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ data.total }}</div>
+                                    <div class="text-sm text-gray-600 dark:text-gray-400">Total Votes</div>
                                 </div>
                             </div>
                         </div>
@@ -195,53 +195,53 @@
 
                     <!-- Absent Warning -->
                     {% if not can_vote %}
-                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                    <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 dark:border-yellow-500 p-4 mb-4 transition-colors duration-200">
                         <div class="flex">
-                            <svg class="w-5 h-5 text-yellow-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <svg class="w-5 h-5 text-yellow-400 dark:text-yellow-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
                             </svg>
-                            <p class="text-sm text-yellow-700">You are marked as absent and cannot vote on this legislation.</p>
+                            <p class="text-sm text-yellow-700 dark:text-yellow-300">You are marked as absent and cannot vote on this legislation.</p>
                         </div>
                     </div>
                     {% endif %}
 
                     <!-- Voting Form -->
                     {% if can_vote %}
-                    <form method="post" class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <form method="post" class="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4 transition-colors duration-200">
                         {% csrf_token %}
                         <input type="hidden" name="legislation_id" value="{{ leg.id }}">
 
-                        <label class="block text-sm font-medium text-gray-700 mb-3">Cast Your Vote:</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Cast Your Vote:</label>
                         <div class="space-y-2 mb-4">
                             {% if leg.vote_mode == "plurality" %}
                                 {% for option in leg.plurality_options %}
-                                <label class="flex items-center p-3 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
-                                    <input type="radio" name="vote_choice" value="{{ option }}" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300">
-                                    <span class="ml-3 text-gray-700">{{ option }}</span>
+                                <label class="flex items-center p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                    <input type="radio" name="vote_choice" value="{{ option }}" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600">
+                                    <span class="ml-3 text-gray-700 dark:text-gray-300">{{ option }}</span>
                                 </label>
                                 {% endfor %}
                             {% else %}
-                                <label class="flex items-center p-3 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
-                                    <input type="radio" name="vote_choice" value="yes" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300">
-                                    <span class="ml-3 text-gray-700">Yes</span>
+                                <label class="flex items-center p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                    <input type="radio" name="vote_choice" value="yes" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600">
+                                    <span class="ml-3 text-gray-700 dark:text-gray-300">Yes</span>
                                 </label>
-                                <label class="flex items-center p-3 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
-                                    <input type="radio" name="vote_choice" value="no" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300">
-                                    <span class="ml-3 text-gray-700">No</span>
+                                <label class="flex items-center p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                    <input type="radio" name="vote_choice" value="no" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600">
+                                    <span class="ml-3 text-gray-700 dark:text-gray-300">No</span>
                                 </label>
                                 {% if leg.allow_abstain %}
-                                <label class="flex items-center p-3 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
-                                    <input type="radio" name="vote_choice" value="abstain" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300">
-                                    <span class="ml-3 text-gray-700">Abstain</span>
+                                <label class="flex items-center p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                    <input type="radio" name="vote_choice" value="abstain" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600">
+                                    <span class="ml-3 text-gray-700 dark:text-gray-300">Abstain</span>
                                 </label>
                                 {% endif %}
                             {% endif %}
                         </div>
 
                         <input type="password" name="password" placeholder="Confirm Password" required
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4">
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent mb-4">
 
-                        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium px-6 py-2 rounded-lg transition">
+                        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 text-white font-medium px-6 py-2 rounded-lg transition">
                             Submit Vote
                         </button>
                     </form>
@@ -251,7 +251,7 @@
                     {% if profile == leg.posted_by and not leg.voting_closed %}
                     <form method="post" action="{% url 'end_vote' leg.id %}" class="mt-4">
                         {% csrf_token %}
-                        <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-medium px-6 py-2 rounded-lg transition">
+                        <button type="submit" class="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 text-white font-medium px-6 py-2 rounded-lg transition">
                             End Vote
                         </button>
                     </form>

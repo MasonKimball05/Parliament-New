@@ -1,9 +1,12 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from src.models import ChatChannel
+from src.feature_flag_decorators import require_feature_flag, require_page_enabled
 
 
 @login_required
+@require_feature_flag('chats')
+@require_page_enabled('chat_index')
 def chat_index(request):
     """Show all accessible chat channels with unread counts"""
     user = request.user

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Page Unavailable - Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 transition-colors duration-200">
+    <div class="max-w-md w-full text-center">
+        <div class="mb-8 flex justify-center">
+            <img src="{% static 'images/beta-seal.webp' %}" alt="Beta Theta Pi Seal" class="w-32 h-32 rounded-full object-contain bg-white dark:bg-gray-800 p-4 shadow-lg">
+        </div>
+
+        <div class="mb-8">
+            <svg class="w-24 h-24 mx-auto text-red-500 dark:text-red-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+            </svg>
+            <h1 class="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                {% if page_name %}{{ page_name }} Unavailable{% else %}Page Unavailable{% endif %}
+            </h1>
+            <p class="text-lg text-gray-600 dark:text-gray-400 mb-6">
+                {{ message|default:"This page is currently unavailable." }}
+            </p>
+        </div>
+
+        <div class="space-y-3">
+            <a href="{% url 'home' %}"
+               class="block w-full px-6 py-3 bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 text-white rounded-lg transition-colors font-medium">
+                ← Back to Home
+            </a>
+            <button onclick="window.history.back()"
+                    class="block w-full px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-lg transition-colors font-medium">
+                Go Back
+            </button>
+        </div>
+
+        <p class="mt-8 text-sm text-gray-500 dark:text-gray-500">
+            This page has been temporarily disabled. Please check back later.
+        </p>
+    </div>
+</div>
+{% endblock %}

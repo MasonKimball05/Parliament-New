@@ -7,26 +7,30 @@ from django.http import JsonResponse, HttpResponseForbidden
 from django.views.decorators.http import require_http_methods
 from src.models import Committee, ChatMessage, ChatReadReceipt, ChatChannel
 from django.utils import timezone
+from src.feature_flag_decorators import require_feature_flag
 
 
 @login_required
+@require_feature_flag('chats')
 def committee_chat(request, code):
     """Redirect to channel-based chat for this committee"""
     committee = get_object_or_404(Committee, code=code)
 
-    # Check if user is member of committee
-    if not committee.is_member(request.user) and not request.user.is_admin:
-        return HttpResponseForbidden("You must be a member of this committee to access chat.")
-
     # Get the chat channel for this committee
     try:
         channel = ChatChannel.objects.get(committee=committee, channel_type='committee')
-        return redirect('channel_chat', channel_id=channel.id)
     except ChatChannel.DoesNotExist:
         return HttpResponseForbidden("Chat channel not found for this committee.")
 
+    # Check if user has at least read access
+    if not channel.can_read(request.user):
+        return HttpResponseForbidden("You do not have permission to access this chat.")
+
+    return redirect('channel_chat', channel_id=channel.id)
+
 
 @login_required
+@require_feature_flag('chats')
 def get_chat_messages(request, code):
     """API endpoint to get new messages - redirects to channel-based API"""
     committee = get_object_or_404(Committee, code=code)
@@ -37,9 +41,9 @@ def get_chat_messages(request, code):
     except ChatChannel.DoesNotExist:
         return JsonResponse({'error': 'Chat channel not found'}, status=404)
 
-    # Check membership
-    if not committee.is_member(request.user) and not request.user.is_admin:
-        return JsonResponse({'error': 'Forbidden'}, status=403)
+    # Check if user has read access
+    if not channel.can_read(request.user):
+        return JsonResponse({'error': 'You do not have permission to read messages in this chat'}, status=403)
 
     # Update user's last activity in this chat
     receipt, created = ChatReadReceipt.objects.get_or_create(
@@ -79,6 +83,7 @@ def get_chat_messages(request, code):
 
 
 @login_required
+@require_feature_flag('chats')
 @require_http_methods(["POST"])
 def send_chat_message(request, code):
     """API endpoint to send a new message - uses channel system"""
@@ -90,9 +95,9 @@ def send_chat_message(request, code):
     except ChatChannel.DoesNotExist:
         return JsonResponse({'error': 'Chat channel not found'}, status=404)
 
-    # Check membership
-    if not committee.is_member(request.user) and not request.user.is_admin:
-        return JsonResponse({'error': 'Forbidden'}, status=403)
+    # Check if user has write permission
+    if not channel.can_write(request.user):
+        return JsonResponse({'error': 'You do not have permission to send messages in this chat'}, status=403)
 
     message_text = request.POST.get('message', '').strip()
 
@@ -124,6 +129,7 @@ def send_chat_message(request, code):
 
 
 @login_required
+@require_feature_flag('chats')
 @require_http_methods(["POST"])
 def delete_chat_message(request, code, message_id):
     """API endpoint to delete a message (soft delete) - uses channel system"""
@@ -152,6 +158,7 @@ def delete_chat_message(request, code, message_id):
 
 
 @login_required
+@require_feature_flag('chats')
 def get_active_users(request, code):
     """API endpoint to get list of users currently active in chat - uses channel system"""
     committee = get_object_or_404(Committee, code=code)

@@ -5,28 +5,28 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
-    <div class="mb-6 flex justify-between items-start">
+    <div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
         <div class="flex items-center gap-4">
             <img src="{% static 'images/beta-seal.webp' %}" alt="Beta Theta Pi Seal" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-1 shadow-md">
             <div>
-                <h2 class="text-3xl font-bold mb-2">Chapter Documents</h2>
-                <p class="text-gray-600">Documents published by committees for all chapter members</p>
+                <h2 class="text-2xl sm:text-3xl font-bold mb-2 text-gray-900 dark:text-gray-100">Chapter Documents</h2>
+                <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">Documents published by committees for all chapter members</p>
                 {% if total_documents %}
-                    <p class="text-sm text-gray-500 mt-1">{{ total_documents }} document{{ total_documents|pluralize }} available</p>
+                    <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{{ total_documents }} document{{ total_documents|pluralize }} available</p>
                 {% endif %}
             </div>
         </div>
 
         {% if is_officer %}
-            <div class="flex gap-2">
-                <a href="{% url 'manage_chapter_documents' %}" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center">
+            <div class="flex flex-col sm:flex-row gap-2">
+                <a href="{% url 'manage_chapter_documents' %}" class="bg-gray-600 dark:bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-700 dark:hover:bg-gray-600 flex items-center justify-center text-sm sm:text-base whitespace-nowrap transition-colors">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     </svg>
                     Manage Documents
                 </a>
-                <a href="{% url 'upload_chapter_document' %}" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center">
+                <a href="{% url 'upload_chapter_document' %}" class="bg-blue-500 dark:bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-600 dark:hover:bg-blue-700 flex items-center justify-center text-sm sm:text-base whitespace-nowrap transition-colors">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                     </svg>
@@ -40,27 +40,27 @@
         <!-- Custom Folders -->
         {% if folders_with_documents %}
             {% for folder, documents in folders_with_documents %}
-                <details class="bg-white rounded-lg shadow-md overflow-hidden" {% if documents %}open{% endif %}>
-                    <summary class="bg-purple-50 px-6 py-4 cursor-pointer hover:bg-purple-100 transition flex items-center justify-between">
+                <details class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200" {% if documents %}open{% endif %}>
+                    <summary class="bg-purple-50 dark:bg-purple-900/20 px-6 py-4 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/30 transition flex items-center justify-between">
                         <div class="flex items-center space-x-3">
-                            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
                             </svg>
                             <div>
-                                <span class="text-lg font-semibold text-gray-900">{{ folder.name }}</span>
+                                <span class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ folder.name }}</span>
                                 {% if folder.description %}
-                                    <p class="text-sm text-gray-600">{{ folder.description }}</p>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ folder.description }}</p>
                                 {% endif %}
                             </div>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <span class="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                            <span class="bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 text-xs font-medium px-2.5 py-0.5 rounded">
                                 {{ documents|length }} document{{ documents|length|pluralize }}
                             </span>
                             {% if is_admin %}
                                 <form method="POST" action="{% url 'delete_folder' folder.id %}" onsubmit="return confirm('Delete this folder? Documents will be moved to Uncategorized.');" class="inline" onclick="event.stopPropagation();">
                                     {% csrf_token %}
-                                    <button type="submit" class="text-red-600 hover:text-red-800 p-1" title="Delete folder">
+                                    <button type="submit" class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" title="Delete folder">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                         </svg>
@@ -78,8 +78,8 @@
                                 {% endfor %}
                             </div>
                         {% else %}
-                            <div class="text-center py-8 text-gray-500">
-                                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+                                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                 </svg>
                                 <p>No documents in this folder yet.</p>
@@ -95,15 +95,15 @@
 
         <!-- Uncategorized Documents -->
         {% if uncategorized_documents %}
-            <details class="bg-white rounded-lg shadow-md overflow-hidden" open>
-                <summary class="bg-gray-50 px-6 py-4 cursor-pointer hover:bg-gray-100 transition flex items-center justify-between">
+            <details class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200" open>
+                <summary class="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center justify-between">
                     <div class="flex items-center space-x-3">
-                        <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
-                        <span class="text-lg font-semibold text-gray-900">Uncategorized</span>
+                        <span class="text-lg font-semibold text-gray-900 dark:text-gray-100">Uncategorized</span>
                     </div>
-                    <span class="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                    <span class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs font-medium px-2.5 py-0.5 rounded">
                         {{ uncategorized_documents|length }} document{{ uncategorized_documents|length|pluralize }}
                     </span>
                 </summary>
@@ -119,12 +119,12 @@
         {% endif %}
 
         {% if not documents_by_folder and not uncategorized_documents %}
-            <div class="bg-white rounded-lg shadow-md p-8 text-center">
-                <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center transition-colors duration-200">
+                <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
-                <p class="text-gray-500 text-lg">No chapter documents have been published yet.</p>
-                <p class="text-gray-400 text-sm mt-2">Committee chairs can publish documents to make them available here.</p>
+                <p class="text-gray-500 dark:text-gray-400 text-lg">No chapter documents have been published yet.</p>
+                <p class="text-gray-400 dark:text-gray-500 text-sm mt-2">Committee chairs can publish documents to make them available here.</p>
             </div>
         {% endif %}
     </div>
@@ -133,35 +133,35 @@
 <!-- Create Folder Modal -->
 {% if is_admin %}
 <div id="createFolderModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h3 class="text-xl font-bold mb-4">Create New Folder</h3>
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 transition-colors duration-200">
+        <h3 class="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">Create New Folder</h3>
 
         <form method="POST" action="{% url 'create_folder' %}" class="space-y-4">
             {% csrf_token %}
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Folder Name <span class="text-red-500">*</span>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Folder Name <span class="text-red-500 dark:text-red-400">*</span>
                 </label>
                 <input type="text" name="folder_name" required
-                       class="w-full border border-gray-300 rounded px-3 py-2"
+                       class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2"
                        placeholder="e.g., Financial Reports, Policies">
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Description (Optional)
                 </label>
                 <textarea name="folder_description" rows="2"
-                          class="w-full border border-gray-300 rounded px-3 py-2"
+                          class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2"
                           placeholder="Brief description of this folder"></textarea>
             </div>
 
             <div class="flex gap-3">
-                <button type="submit" class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
+                <button type="submit" class="bg-green-500 dark:bg-green-600 text-white px-6 py-2 rounded hover:bg-green-600 dark:hover:bg-green-700 transition-colors">
                     Create Folder
                 </button>
-                <button type="button" onclick="hideCreateFolderModal()" class="bg-gray-300 text-gray-700 px-6 py-2 rounded hover:bg-gray-400">
+                <button type="button" onclick="hideCreateFolderModal()" class="bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 px-6 py-2 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors">
                     Cancel
                 </button>
             </div>

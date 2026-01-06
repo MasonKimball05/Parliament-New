@@ -10,16 +10,16 @@
 
         <!-- Search Form -->
         <form method="get" action="{% url 'global_search' %}" class="mb-6">
-            <div class="flex gap-2">
+            <div class="flex flex-col sm:flex-row gap-2">
                 <input
                     type="text"
                     name="q"
                     value="{{ query }}"
                     placeholder="Search legislation, announcements, events, documents..."
-                    class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
+                    class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg"
                     autofocus
                 >
-                <button type="submit" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+                <button type="submit" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium whitespace-nowrap">
                     Search
                 </button>
             </div>

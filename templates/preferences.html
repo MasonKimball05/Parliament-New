@@ -6,8 +6,8 @@
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Header -->
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Preferences</h1>
-        <p class="text-gray-600">Customize your Parliament experience</p>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Preferences</h1>
+        <p class="text-gray-600 dark:text-gray-400">Customize your Parliament experience</p>
     </div>
 
     <!-- Preferences Form -->
@@ -15,72 +15,155 @@
         {% csrf_token %}
 
         <!-- Theme Preferences -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                <svg class="w-6 h-6 text-primary-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+                <svg class="w-6 h-6 text-primary-600 dark:text-primary-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
                 </svg>
                 Appearance
             </h2>
             <div class="space-y-4">
                 <div>
-                    <label for="{{ form.theme.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                    <label for="{{ form.theme.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         {{ form.theme.label }}
                     </label>
                     {{ form.theme }}
-                    <p class="mt-1 text-xs text-gray-500">{{ form.theme.help_text }}</p>
-                    <div class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-                        <strong>Note:</strong> Theme customization will be fully implemented in a future update. Currently, only Light mode is available.
-                    </div>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Choose between light mode, dark mode, or automatic based on your system preferences</p>
                 </div>
             </div>
         </div>
 
+        <!-- Menu Customization -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+                <svg class="w-6 h-6 text-primary-600 dark:text-primary-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+                Navigation Menu
+            </h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Customize which items appear in your navigation menu</p>
+            <div class="space-y-4">
+                <div class="flex items-center">
+                    {{ form.show_vote_menu }}
+                    <label for="{{ form.show_vote_menu.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.show_vote_menu.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">{{ form.show_vote_menu.help_text }}</p>
+                    </label>
+                </div>
+                <div class="flex items-center">
+                    {{ form.show_committees_menu }}
+                    <label for="{{ form.show_committees_menu.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.show_committees_menu.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">{{ form.show_committees_menu.help_text }}</p>
+                    </label>
+                </div>
+                <div class="flex items-center">
+                    {{ form.show_chats_menu }}
+                    <label for="{{ form.show_chats_menu.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.show_chats_menu.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">{{ form.show_chats_menu.help_text }}</p>
+                    </label>
+                </div>
+                <div class="flex items-center">
+                    {{ form.show_documents_menu }}
+                    <label for="{{ form.show_documents_menu.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.show_documents_menu.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">{{ form.show_documents_menu.help_text }}</p>
+                    </label>
+                </div>
+                <div class="flex items-center">
+                    {{ form.show_announcements_menu }}
+                    <label for="{{ form.show_announcements_menu.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.show_announcements_menu.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">{{ form.show_announcements_menu.help_text }}</p>
+                    </label>
+                </div>
+                <div class="flex items-center">
+                    {{ form.show_calendar_menu }}
+                    <label for="{{ form.show_calendar_menu.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.show_calendar_menu.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">{{ form.show_calendar_menu.help_text }}</p>
+                    </label>
+                </div>
+                <div class="flex items-center">
+                    {{ form.show_legislation_menu }}
+                    <label for="{{ form.show_legislation_menu.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.show_legislation_menu.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">{{ form.show_legislation_menu.help_text }}</p>
+                    </label>
+                </div>
+                <div class="flex items-center">
+                    {{ form.show_excuses_menu }}
+                    <label for="{{ form.show_excuses_menu.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.show_excuses_menu.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">{{ form.show_excuses_menu.help_text }}</p>
+                    </label>
+                </div>
+                <div class="flex items-center">
+                    {{ form.show_search_menu }}
+                    <label for="{{ form.show_search_menu.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.show_search_menu.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">{{ form.show_search_menu.help_text }}</p>
+                    </label>
+                </div>
+                <div class="flex items-center">
+                    {{ form.show_roberts_rules_menu }}
+                    <label for="{{ form.show_roberts_rules_menu.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.show_roberts_rules_menu.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">{{ form.show_roberts_rules_menu.help_text }}</p>
+                    </label>
+                </div>
+            </div>
+            <div id="menu-limit-warning" class="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-sm text-yellow-800 dark:text-yellow-200 hidden">
+                <strong>Limit reached:</strong> You can select up to 7 menu items. Uncheck an item to select another.
+            </div>
+        </div>
+
         <!-- Email Notification Preferences -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                <svg class="w-6 h-6 text-primary-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+                <svg class="w-6 h-6 text-primary-600 dark:text-primary-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                 </svg>
                 Email Notifications
             </h2>
-            <p class="text-sm text-gray-600 mb-4">Choose which notifications you'd like to receive via email</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Choose which notifications you'd like to receive via email</p>
             <div class="space-y-4">
                 <div class="flex items-center">
                     {{ form.email_announcements }}
                     <label for="{{ form.email_announcements.id_for_label }}" class="ml-3 text-sm">
-                        <span class="font-medium text-gray-700">{{ form.email_announcements.label }}</span>
-                        <p class="text-gray-500">{{ form.email_announcements.help_text }}</p>
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.email_announcements.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">{{ form.email_announcements.help_text }}</p>
                     </label>
                 </div>
                 <div class="flex items-center">
                     {{ form.email_legislation }}
                     <label for="{{ form.email_legislation.id_for_label }}" class="ml-3 text-sm">
-                        <span class="font-medium text-gray-700">{{ form.email_legislation.label }}</span>
-                        <p class="text-gray-500">{{ form.email_legislation.help_text }}</p>
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.email_legislation.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">{{ form.email_legislation.help_text }}</p>
                     </label>
                 </div>
                 <div class="flex items-center">
                     {{ form.email_events }}
                     <label for="{{ form.email_events.id_for_label }}" class="ml-3 text-sm">
-                        <span class="font-medium text-gray-700">{{ form.email_events.label }}</span>
-                        <p class="text-gray-500">{{ form.email_events.help_text }}</p>
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.email_events.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">{{ form.email_events.help_text }}</p>
                     </label>
                 </div>
                 <div class="flex items-center">
                     {{ form.email_committee_updates }}
                     <label for="{{ form.email_committee_updates.id_for_label }}" class="ml-3 text-sm">
-                        <span class="font-medium text-gray-700">{{ form.email_committee_updates.label }}</span>
-                        <p class="text-gray-500">{{ form.email_committee_updates.help_text }}</p>
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.email_committee_updates.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">{{ form.email_committee_updates.help_text }}</p>
                     </label>
                 </div>
             </div>
         </div>
 
         <!-- In-App Notification Preferences -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                <svg class="w-6 h-6 text-primary-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+                <svg class="w-6 h-6 text-primary-600 dark:text-primary-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
                 </svg>
                 In-App Notifications
@@ -89,53 +172,123 @@
                 <div class="flex items-center">
                     {{ form.show_announcement_popups }}
                     <label for="{{ form.show_announcement_popups.id_for_label }}" class="ml-3 text-sm">
-                        <span class="font-medium text-gray-700">{{ form.show_announcement_popups.label }}</span>
-                        <p class="text-gray-500">{{ form.show_announcement_popups.help_text }}</p>
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.show_announcement_popups.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">{{ form.show_announcement_popups.help_text }}</p>
                     </label>
                 </div>
             </div>
         </div>
 
         <!-- Display Preferences -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                <svg class="w-6 h-6 text-primary-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+                <svg class="w-6 h-6 text-primary-600 dark:text-primary-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
                 Display Settings
             </h2>
             <div class="space-y-4">
-                <div>
-                    <label for="{{ form.items_per_page.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
-                        {{ form.items_per_page.label }}
-                    </label>
-                    {{ form.items_per_page }}
-                    <p class="mt-1 text-xs text-gray-500">{{ form.items_per_page.help_text }}</p>
-                </div>
                 <div class="flex items-center">
                     {{ form.compact_view }}
                     <label for="{{ form.compact_view.id_for_label }}" class="ml-3 text-sm">
-                        <span class="font-medium text-gray-700">{{ form.compact_view.label }}</span>
-                        <p class="text-gray-500">{{ form.compact_view.help_text }}</p>
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.compact_view.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">{{ form.compact_view.help_text }}</p>
                     </label>
                 </div>
             </div>
         </div>
 
         <!-- Action Buttons -->
-        <div class="flex items-center justify-between border-t border-gray-200 pt-6">
-            <a href="{% url 'profile' %}" class="text-sm text-gray-600 hover:text-gray-900">
+        <div class="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-6">
+            <a href="{% url 'profile' %}" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
                 ← Back to Profile
             </a>
             <div class="flex space-x-3">
-                <a href="{% url 'home' %}" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
+                <a href="{% url 'home' %}" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                     Cancel
                 </a>
-                <button type="submit" class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium">
+                <button type="submit" id="save-preferences-btn" class="px-6 py-2 bg-primary-600 dark:bg-primary-500 text-white rounded-lg hover:bg-primary-700 dark:hover:bg-primary-600 transition font-medium">
                     Save Preferences
                 </button>
             </div>
         </div>
     </form>
 </div>
+
+<script>
+    // Menu checkbox limit validation (max 7 items)
+    document.addEventListener('DOMContentLoaded', function() {
+        const menuCheckboxes = document.querySelectorAll('.menu-checkbox');
+        const warningDiv = document.getElementById('menu-limit-warning');
+        const maxItems = 7;
+
+        function updateCheckboxStates() {
+            const checkedCount = Array.from(menuCheckboxes).filter(cb => cb.checked).length;
+
+            // Show/hide warning
+            if (checkedCount >= maxItems) {
+                warningDiv.classList.remove('hidden');
+            } else {
+                warningDiv.classList.add('hidden');
+            }
+
+            // Disable unchecked boxes if limit reached
+            menuCheckboxes.forEach(checkbox => {
+                if (!checkbox.checked && checkedCount >= maxItems) {
+                    checkbox.disabled = true;
+                    checkbox.parentElement.style.opacity = '0.5';
+                } else if (checkbox.disabled) {
+                    checkbox.disabled = false;
+                    checkbox.parentElement.style.opacity = '1';
+                }
+            });
+        }
+
+        // Add event listeners to all menu checkboxes
+        menuCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', updateCheckboxStates);
+        });
+
+        // Initial state check
+        updateCheckboxStates();
+    });
+
+    // Theme change detection and forced reload
+    (function() {
+        const form = document.querySelector('form');
+        const themeSelect = document.getElementById('id_theme');
+        let originalTheme = themeSelect ? themeSelect.value : null;
+
+        if (form && themeSelect) {
+            form.addEventListener('submit', function(e) {
+                const newTheme = themeSelect.value;
+                if (originalTheme !== newTheme) {
+                    // Theme changed - add a flag to localStorage to force reload
+                    localStorage.setItem('themeJustChanged', 'true');
+                }
+            });
+        }
+
+        // Check if we just changed theme and need to reload
+        if (localStorage.getItem('themeJustChanged') === 'true') {
+            localStorage.removeItem('themeJustChanged');
+            console.log('Theme changed, forcing reload...');
+            // Force a hard reload
+            setTimeout(function() {
+                window.location.reload(true);
+            }, 500);
+        }
+    })();
+
+    // Force hard reload when theme changes (server-side flag)
+    {% if theme_changed %}
+    (function() {
+        console.log('Server detected theme change, forcing reload...');
+        setTimeout(function() {
+            window.location.href = window.location.pathname;
+        }, 100);
+    })();
+    {% endif %}
+</script>
+
 {% endblock %}

@@ -6,6 +6,7 @@ from django.contrib.auth import views as auth_views
 from src.view.officer import *
 from src.view.officer.event_attendance import event_attendance_list, mark_event_attendance, review_excuses
 from src.view.committee import *
+from src.view.committee.manage_chat_permissions import manage_chat_permissions, add_guest_permission, update_guest_permission, remove_guest_permission
 from src.view.chat import *
 from src.view.submit_excuse import my_excuses, submit_excuse, cancel_excuse
 from src.view.kai_reports import submit_kai_report, view_kai_reports, manage_kai_report, export_kai_reports_csv, print_kai_report, kai_dashboard, bulk_actions_kai_reports, manage_kai_templates, create_kai_template, edit_kai_template, delete_kai_template
@@ -17,8 +18,12 @@ from src.view.manage_chapter_document import manage_chapter_document
 from src.view.manage_chapter_documents import manage_chapter_documents
 from src.view.manage_folders import create_folder, delete_folder
 from src.view.announcements import announcements_view
-from src.view.calendar import calendar_view, calendar_data_api, export_calendar_ical, export_event_ical
+from src.view.calendar import calendar_view, calendar_data_api, export_calendar_ical, export_event_ical, calendar_subscription_feed, get_calendar_subscription_url, regenerate_calendar_token
 from src.view.global_search import global_search
+from src.view.admin_v2 import (
+    admin_v2_login, admin_v2_dashboard, toggle_feature_flag,
+    toggle_page, admin_v2_logout
+)
 from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event
 from src.view.home import home
 from src.view.vote_view import vote_view
@@ -86,6 +91,9 @@ urlpatterns = [
     path('api/calendar-data/', calendar_data_api, name='calendar_data_api'),
     path('calendar/export/', export_calendar_ical, name='export_calendar_ical'),
     path('calendar/event/<int:event_id>/export/', export_event_ical, name='export_event_ical'),
+    path('calendar/subscribe/', get_calendar_subscription_url, name='get_calendar_subscription_url'),
+    path('calendar/subscribe/regenerate/', regenerate_calendar_token, name='regenerate_calendar_token'),
+    path('calendar/feed/<str:token>/', calendar_subscription_feed, name='calendar_subscription_feed'),
     path('search/', global_search, name='global_search'),
 
     # Member Excuse Requests
@@ -193,10 +201,14 @@ urlpatterns = [
     # Committee Chat URLs (legacy - redirects to channel chat)
     path('committee/<str:code>/chat/', committee_chat, name='committee_chat'),
     path('committee/<str:code>/chat/settings/', edit_committee_chat_settings, name='edit_committee_chat_settings'),
+    path('committee/<str:code>/chat/permissions/', manage_chat_permissions, name='manage_chat_permissions'),
     path('api/committee/<str:code>/chat/messages/', get_chat_messages, name='get_chat_messages'),
     path('api/committee/<str:code>/chat/send/', send_chat_message, name='send_chat_message'),
     path('api/committee/<str:code>/chat/delete/<int:message_id>/', delete_chat_message, name='delete_chat_message'),
     path('api/committee/<str:code>/chat/active/', get_active_users, name='get_active_users'),
+    path('api/committee/<str:code>/chat/permissions/add/', add_guest_permission, name='add_guest_permission'),
+    path('api/committee/<str:code>/chat/permissions/<str:user_id>/update/', update_guest_permission, name='update_guest_permission'),
+    path('api/committee/<str:code>/chat/permissions/<str:user_id>/remove/', remove_guest_permission, name='remove_guest_permission'),
 
     # New Channel-based Chat URLs
     path('chats/', chat_index, name='chat_index'),
@@ -217,7 +229,21 @@ urlpatterns = [
 
     # User Settings
     path('set-email/', set_email, name='set_email'),
+
+    # Admin v2 - Advanced Administration
+    path('admin-v2/', admin_v2_login, name='admin_v2_login'),
+    path('admin_v2/', admin_v2_login, name='admin_v2_login'),
+    path('admin-v2/dashboard/', admin_v2_dashboard, name='admin_v2_dashboard'),
+    path('admin-v2/feature-flag/<int:flag_id>/toggle/', toggle_feature_flag, name='toggle_feature_flag'),
+    path('admin-v2/page/<int:toggle_id>/toggle/', toggle_page, name='toggle_page'),
+    path('admin-v2/logout/', admin_v2_logout, name='admin_v2_logout'),
 ]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# Custom error handlers
+from src.view.error_handlers import custom_404, custom_500
+
+handler404 = custom_404
+handler500 = custom_500

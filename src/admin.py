@@ -2,6 +2,7 @@ from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
 from .decorators import log_function_call
 from .models import Committee, ParliamentUser, Legislation, Vote, Attendance, AttendanceExcuse, CommitteeDocument, Role, Announcement, ChatChannel, ChatChannelPermission, ChatMessage, ChatReadReceipt, UserAnnouncementView, DocumentTag, DocumentVersion, Event, ActivityLog, LoginHistory, LoginAlert
+from .models_feature_flags import FeatureFlag, PageToggle
 import logging
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
@@ -1085,6 +1086,97 @@ class UserAnnouncementViewAdmin(admin.ModelAdmin):
         return format_html('<span style="color: #3b82f6;">👁️ Viewed</span>')
     dismissed_badge.short_description = 'Status'
     dismissed_badge.admin_order_field = 'dismissed'
+
+
+# === ADMIN V2 MODELS ===
+@admin.register(FeatureFlag, site=admin_site)
+class FeatureFlagAdmin(admin.ModelAdmin):
+    list_display = ('display_name', 'name', 'category', 'enabled_badge', 'last_toggled_by', 'last_toggled_at', 'updated_at')
+    list_filter = ('is_enabled', 'category', 'updated_at')
+    search_fields = ('name', 'display_name', 'description')
+    ordering = ('category', 'display_name')
+    readonly_fields = ('created_at', 'updated_at', 'last_toggled_by', 'last_toggled_at')
+    list_per_page = 50
+
+    fieldsets = (
+        ('Feature Information', {
+            'fields': ('name', 'display_name', 'description', 'category')
+        }),
+        ('Status', {
+            'fields': ('is_enabled',)
+        }),
+        ('Tracking', {
+            'fields': ('created_at', 'updated_at', 'last_toggled_by', 'last_toggled_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def enabled_badge(self, obj):
+        if obj.is_enabled:
+            return format_html('<span style="background-color: #10b981; color: white; padding: 3px 8px; border-radius: 4px; font-weight: 500;">✓ Enabled</span>')
+        return format_html('<span style="background-color: #ef4444; color: white; padding: 3px 8px; border-radius: 4px; font-weight: 500;">✗ Disabled</span>')
+    enabled_badge.short_description = 'Status'
+    enabled_badge.admin_order_field = 'is_enabled'
+
+    def save_model(self, request, obj, form, change):
+        if change and 'is_enabled' in form.changed_data:
+            obj.last_toggled_by = request.user.name
+            obj.last_toggled_at = timezone.now()
+
+            # Log the activity
+            action_type = 'feature_flag_enabled' if obj.is_enabled else 'feature_flag_disabled'
+            ActivityLog.log_activity(
+                action_type=action_type,
+                user=request.user,
+                description=f'{request.user.get_display_name()} {"enabled" if obj.is_enabled else "disabled"} feature flag: {obj.display_name}',
+                request=request
+            )
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(PageToggle, site=admin_site)
+class PageToggleAdmin(admin.ModelAdmin):
+    list_display = ('display_name', 'url_name', 'enabled_badge', 'last_toggled_by', 'last_toggled_at', 'updated_at')
+    list_filter = ('is_enabled', 'updated_at')
+    search_fields = ('url_name', 'display_name', 'description', 'disabled_message')
+    ordering = ('display_name',)
+    readonly_fields = ('created_at', 'updated_at', 'last_toggled_by', 'last_toggled_at')
+    list_per_page = 50
+
+    fieldsets = (
+        ('Page Information', {
+            'fields': ('url_name', 'display_name', 'description')
+        }),
+        ('Status', {
+            'fields': ('is_enabled', 'disabled_message')
+        }),
+        ('Tracking', {
+            'fields': ('created_at', 'updated_at', 'last_toggled_by', 'last_toggled_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def enabled_badge(self, obj):
+        if obj.is_enabled:
+            return format_html('<span style="background-color: #10b981; color: white; padding: 3px 8px; border-radius: 4px; font-weight: 500;">✓ Enabled</span>')
+        return format_html('<span style="background-color: #ef4444; color: white; padding: 3px 8px; border-radius: 4px; font-weight: 500;">✗ Disabled</span>')
+    enabled_badge.short_description = 'Status'
+    enabled_badge.admin_order_field = 'is_enabled'
+
+    def save_model(self, request, obj, form, change):
+        if change and 'is_enabled' in form.changed_data:
+            obj.last_toggled_by = request.user.name
+            obj.last_toggled_at = timezone.now()
+
+            # Log the activity
+            action_type = 'page_toggle_enabled' if obj.is_enabled else 'page_toggle_disabled'
+            ActivityLog.log_activity(
+                action_type=action_type,
+                user=request.user,
+                description=f'{request.user.get_display_name()} {"enabled" if obj.is_enabled else "disabled"} page: {obj.display_name}',
+                request=request
+            )
+        super().save_model(request, obj, form, change)
 
 
 original_get_urls = admin.site.get_urls

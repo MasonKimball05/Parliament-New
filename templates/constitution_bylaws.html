@@ -3,24 +3,24 @@
 {% block title %}Constitution & Bylaws - Parliament{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200">
     <!-- Header -->
-    <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-8 shadow-lg">
+    <div class="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 text-white py-8 shadow-lg">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <h1 class="text-4xl font-bold mb-2">Constitution & Bylaws</h1>
-            <p class="text-blue-100 text-lg">Alpha Mu Chapter of Beta Theta Pi at Samford University</p>
-            <p class="text-blue-200 text-sm mt-2">Last Updated: August 2025</p>
+            <p class="text-blue-100 dark:text-blue-200 text-lg">Alpha Mu Chapter of Beta Theta Pi at Samford University</p>
+            <p class="text-blue-200 dark:text-blue-300 text-sm mt-2">Last Updated: August 2025</p>
 
             <!-- Search Bar -->
             <div class="mt-6 relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="h-5 w-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
                 </div>
                 <input type="text" id="searchInput" placeholder="Search Constitution & Bylaws... (e.g., 'quorum', 'officer', 'voting')"
-                       class="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900">
-                <div id="searchResults" class="mt-2 text-sm text-blue-100"></div>
+                       class="w-full px-4 py-3 pl-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-gray-900">
+                <div id="searchResults" class="mt-2 text-sm text-blue-100 dark:text-blue-200"></div>
             </div>
         </div>
     </div>
@@ -30,21 +30,21 @@
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <!-- Table of Contents Sidebar -->
             <div class="lg:col-span-1">
-                <div class="sticky top-4 bg-white rounded-lg shadow-md p-6 max-h-[calc(100vh-2rem)] overflow-y-auto">
-                    <h2 class="text-lg font-bold text-gray-900 mb-4">Table of Contents</h2>
+                <div class="sticky top-4 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 max-h-[calc(100vh-2rem)] overflow-y-auto transition-colors duration-200">
+                    <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">Table of Contents</h2>
                     <nav class="space-y-2" id="tocNav">
                         <!-- Quick Links -->
-                        <div class="mb-4 pb-4 border-b border-gray-200 space-y-2">
-                            <a href="{% url 'roberts_rules' %}" class="text-blue-600 hover:text-blue-800 text-sm flex items-center">
+                        <div class="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700 space-y-2">
+                            <a href="{% url 'roberts_rules' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm flex items-center">
                                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
                                 </svg>
                                 Robert's Rules →
                             </a>
-                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-3 mb-1">Reference Documents</p>
+                            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-3 mb-1">Reference Documents</p>
                             <a href="/media/legislation_docs/Constitution%20and%20Bylaws%20of%20the%20Samford%20Chapter%20-%20August%202025.pdf"
                                target="_blank"
-                               class="text-green-600 hover:text-green-800 text-sm flex items-center">
+                               class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 text-sm flex items-center">
                                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                 </svg>
@@ -52,7 +52,7 @@
                             </a>
                             <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf"
                                target="_blank"
-                               class="text-purple-600 hover:text-purple-800 text-sm flex items-center">
+                               class="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 text-sm flex items-center">
                                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                 </svg>
@@ -60,7 +60,7 @@
                             </a>
                             <a href="/media/legislation_docs/Kai-Binder.pdf"
                                target="_blank"
-                               class="text-indigo-600 hover:text-indigo-800 text-sm flex items-center">
+                               class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 text-sm flex items-center">
                                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                 </svg>
@@ -68,7 +68,7 @@
                             </a>
                             <a href="/media/legislation_docs/Trial-By-Chapter-Overview.pdf"
                                target="_blank"
-                               class="text-red-600 hover:text-red-800 text-sm flex items-center">
+                               class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm flex items-center">
                                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                 </svg>
@@ -76,28 +76,28 @@
                             </a>
                         </div>
 
-                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Constitution</p>
-                        <a href="#const-name" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">I. Name & Purpose</a>
-                        <a href="#const-membership" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">II. Membership</a>
-                        <a href="#const-leadership" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">III. Leadership</a>
-                        <a href="#const-meetings" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">IV. Meetings</a>
-                        <a href="#const-committees" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">V. Committees</a>
-                        <a href="#const-amendments" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">VI. Amendments</a>
+                        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Constitution</p>
+                        <a href="#const-name" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">I. Name & Purpose</a>
+                        <a href="#const-membership" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">II. Membership</a>
+                        <a href="#const-leadership" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">III. Leadership</a>
+                        <a href="#const-meetings" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">IV. Meetings</a>
+                        <a href="#const-committees" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">V. Committees</a>
+                        <a href="#const-amendments" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">VI. Amendments</a>
 
-                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-4">Bylaws</p>
-                        <a href="#bylaws-membership" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">I. Membership</a>
-                        <a href="#bylaws-officers" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">II. Officers</a>
-                        <a href="#bylaws-governance" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">III. Self-Governance</a>
-                        <a href="#bylaws-financial" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">IV. Financial</a>
-                        <a href="#bylaws-rituals" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">V. Rituals & Ceremonies</a>
-                        <a href="#bylaws-expectations" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">VI. Board Expectations</a>
-                        <a href="#bylaws-committees" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">VII. Committee Details</a>
-                        <a href="#bylaws-chairs" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">VIII. Chair Details</a>
-                        <a href="#bylaws-advisors" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">IX. Advisors</a>
-                        <a href="#bylaws-amendments" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">X. Amendments</a>
+                        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-4">Bylaws</p>
+                        <a href="#bylaws-membership" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">I. Membership</a>
+                        <a href="#bylaws-officers" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">II. Officers</a>
+                        <a href="#bylaws-governance" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">III. Self-Governance</a>
+                        <a href="#bylaws-financial" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">IV. Financial</a>
+                        <a href="#bylaws-rituals" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">V. Rituals & Ceremonies</a>
+                        <a href="#bylaws-expectations" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">VI. Board Expectations</a>
+                        <a href="#bylaws-committees" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">VII. Committee Details</a>
+                        <a href="#bylaws-chairs" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">VIII. Chair Details</a>
+                        <a href="#bylaws-advisors" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">IX. Advisors</a>
+                        <a href="#bylaws-amendments" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">X. Amendments</a>
 
-                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-4">Appendix</p>
-                        <a href="#appendix-forms" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">Executive Forms</a>
+                        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-4">Appendix</p>
+                        <a href="#appendix-forms" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">Executive Forms</a>
                         <a href="#appendix-gpa" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">GPA Levels</a>
                         <a href="#appendix-terms" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 text-sm">Common Terms</a>
 

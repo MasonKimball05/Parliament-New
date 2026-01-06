@@ -2,9 +2,11 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from src.decorators import admin_required
 from src.models import ChatChannel, ChatChannelPermission, ParliamentUser
+from src.feature_flag_decorators import require_feature_flag
 
 
 @admin_required
+@require_feature_flag('chats')
 def create_channel(request):
     """Admin-only: Create custom chat channel"""
     if request.method == 'POST':
@@ -75,6 +77,7 @@ def create_channel(request):
 
 
 @admin_required
+@require_feature_flag('chats')
 def edit_channel(request, channel_id):
     """Admin-only: Edit existing custom channel"""
     channel = get_object_or_404(ChatChannel, id=channel_id)
@@ -152,6 +155,7 @@ def edit_channel(request, channel_id):
 
 
 @admin_required
+@require_feature_flag('chats')
 def delete_channel(request, channel_id):
     """Admin-only: Delete custom channel"""
     channel = get_object_or_404(ChatChannel, id=channel_id)

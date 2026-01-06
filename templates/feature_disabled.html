@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Feature Disabled - Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 transition-colors duration-200">
+    <div class="max-w-md w-full text-center">
+        <div class="mb-8 flex justify-center">
+            <img src="{% static 'images/beta-seal.webp' %}" alt="Beta Theta Pi Seal" class="w-32 h-32 rounded-full object-contain bg-white dark:bg-gray-800 p-4 shadow-lg">
+        </div>
+
+        <div class="mb-8">
+            <svg class="w-24 h-24 mx-auto text-yellow-500 dark:text-yellow-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            <h1 class="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-4">Feature Temporarily Disabled</h1>
+            <p class="text-lg text-gray-600 dark:text-gray-400 mb-6">
+                This feature is currently disabled by administrators.
+            </p>
+            {% if feature_name %}
+            <p class="text-sm text-gray-500 dark:text-gray-500 mb-8">
+                Feature: <code class="bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">{{ feature_name }}</code>
+            </p>
+            {% endif %}
+        </div>
+
+        <div class="space-y-3">
+            <a href="{% url 'home' %}"
+               class="block w-full px-6 py-3 bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 text-white rounded-lg transition-colors font-medium">
+                ← Back to Home
+            </a>
+            <button onclick="window.history.back()"
+                    class="block w-full px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-lg transition-colors font-medium">
+                Go Back
+            </button>
+        </div>
+
+        <p class="mt-8 text-sm text-gray-500 dark:text-gray-500">
+            If you believe this is an error, please contact an administrator.
+        </p>
+    </div>
+</div>
+{% endblock %}

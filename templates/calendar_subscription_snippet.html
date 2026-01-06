@@ -1,0 +1,164 @@
+<!-- Add this to your calendar.html template -->
+
+<!-- Subscribe Button (add near your export button) -->
+<button onclick="openSubscriptionModal()"
+        class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+    </svg>
+    Subscribe to Calendar
+</button>
+
+<!-- Modal (add at the end of your calendar.html before {% endblock %}) -->
+<div id="subscriptionModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-gray-900 dark:bg-opacity-70 hidden items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100">📅 Subscribe to Calendar</h3>
+            <button onclick="closeSubscriptionModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <div class="mb-6">
+            <p class="text-gray-600 dark:text-gray-300 mb-4">
+                Get automatic calendar updates! Subscribe to this calendar in your favorite app and it will stay synced with all chapter events.
+            </p>
+
+            <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-4">
+                <h4 class="font-semibold text-blue-900 dark:text-blue-100 mb-2">✨ Features:</h4>
+                <ul class="space-y-1 text-sm text-blue-800 dark:text-blue-200">
+                    <li>• Automatically updates when events change</li>
+                    <li>• Only shows events you have permission to see</li>
+                    <li>• Works with Google Calendar, Apple Calendar, Outlook, and more</li>
+                    <li>• Includes past 30 days and future 365 days of events</li>
+                </ul>
+            </div>
+        </div>
+
+        <div id="subscriptionContent" class="space-y-4">
+            <div class="text-center py-4">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 dark:border-primary-400 mx-auto"></div>
+                <p class="text-gray-600 dark:text-gray-400 mt-2">Loading subscription link...</p>
+            </div>
+        </div>
+
+        <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <details class="text-sm">
+                <summary class="cursor-pointer text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 font-medium">
+                    📚 How to subscribe
+                </summary>
+                <div class="mt-3 space-y-3 text-gray-600 dark:text-gray-300">
+                    <div>
+                        <p class="font-semibold text-gray-900 dark:text-gray-100">Google Calendar:</p>
+                        <p class="text-sm">Click "Subscribe in Google Calendar" or copy the link → Settings → Add calendar → From URL → Paste link</p>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-900 dark:text-gray-100">Apple Calendar (iPhone/Mac):</p>
+                        <p class="text-sm">Click the webcal:// link → Calendar app will open and ask to subscribe</p>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-900 dark:text-gray-100">Outlook:</p>
+                        <p class="text-sm">Copy the link → Calendar → Add Calendar → Subscribe from web → Paste link</p>
+                    </div>
+                </div>
+            </details>
+        </div>
+    </div>
+</div>
+
+<script>
+let subscriptionData = null;
+
+function openSubscriptionModal() {
+    document.getElementById('subscriptionModal').classList.remove('hidden');
+    document.getElementById('subscriptionModal').classList.add('flex');
+    loadSubscriptionUrl();
+}
+
+function closeSubscriptionModal() {
+    document.getElementById('subscriptionModal').classList.add('hidden');
+    document.getElementById('subscriptionModal').classList.remove('flex');
+}
+
+async function loadSubscriptionUrl() {
+    try {
+        const response = await fetch('{% url "get_calendar_subscription_url" %}');
+        const data = await response.json();
+        subscriptionData = data;
+        displaySubscriptionUrl(data);
+    } catch (error) {
+        document.getElementById('subscriptionContent').innerHTML = '<div class="text-center py-4 text-red-600 dark:text-red-400"><p>Error loading subscription link. Please try again.</p></div>';
+    }
+}
+
+function displaySubscriptionUrl(data) {
+    const googleCalUrl = 'https://calendar.google.com/calendar/r?cid=' + encodeURIComponent(data.http_url);
+
+    const content = `
+        <div class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <a href="${googleCalUrl}" target="_blank" rel="noopener"
+                   class="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.5 3h-17A1.5 1.5 0 002 4.5v15A1.5 1.5 0 003.5 21h17a1.5 1.5 0 001.5-1.5v-15A1.5 1.5 0 0020.5 3z"/></svg>
+                    Google Calendar
+                </a>
+                <a href="${data.webcal_url}"
+                   class="flex items-center justify-center gap-2 px-4 py-3 bg-gray-700 hover:bg-gray-800 text-white rounded-lg transition-colors font-medium">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M7 2h10v2H7V2zm0 4h10v2H7V6zm0 4h10v2H7v-2zm0 4h7v2H7v-2z"/></svg>
+                    Apple/Outlook
+                </a>
+            </div>
+            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Or copy the subscription URL:</label>
+                <div class="flex gap-2">
+                    <input type="text" id="subscriptionUrl" readonly value="${data.webcal_url}"
+                           class="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100">
+                    <button onclick="copySubscriptionUrl()"
+                            class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium">Copy</button>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    Last accessed: ${data.last_accessed ? new Date(data.last_accessed).toLocaleString() : 'Never'}
+                    ${data.access_count > 0 ? ` (${data.access_count} times)` : ''}
+                </p>
+            </div>
+            <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
+                <p class="text-sm text-yellow-800 dark:text-yellow-200 mb-2"><strong>⚠️ Security Note:</strong> This link is personal to you. Don't share it publicly.</p>
+                <button onclick="regenerateToken()" class="text-sm text-yellow-700 dark:text-yellow-300 hover:text-yellow-900 dark:hover:text-yellow-100 underline">Regenerate link if compromised</button>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('subscriptionContent').innerHTML = content;
+}
+
+function copySubscriptionUrl() {
+    const input = document.getElementById('subscriptionUrl');
+    input.select();
+    document.execCommand('copy');
+    const button = event.target;
+    button.textContent = '✓ Copied!';
+    button.classList.add('bg-green-600');
+    setTimeout(() => { button.textContent = 'Copy'; button.classList.remove('bg-green-600'); }, 2000);
+}
+
+async function regenerateToken() {
+    if (!confirm('This will invalidate your old subscription link. Continue?')) return;
+    try {
+        const response = await fetch('{% url "regenerate_calendar_token" %}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        });
+        const data = await response.json();
+        displaySubscriptionUrl(data);
+        alert('✓ New subscription link generated!');
+    } catch (error) {
+        alert('Error regenerating token.');
+    }
+}
+
+document.getElementById('subscriptionModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeSubscriptionModal();
+});
+</script>

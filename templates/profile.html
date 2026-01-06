@@ -19,14 +19,14 @@
                     <p class="text-blue-100 mt-1">Welcome, {{ user.get_display_name }}</p>
                 </div>
             </div>
-            <img src="{% static 'images/beta-seal.webp' %}" alt="Beta Theta Pi Seal" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-contain bg-white p-1 opacity-90">
+            <img src="{% static 'images/beta-seal.webp' %}" alt="The Great Seal of Beta Theta Pi" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-contain bg-white p-1 opacity-90">
         </div>
     </div>
 
     <!-- Profile Information Card -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 class="text-xl font-semibold mb-4 flex items-center">
-            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 transition-colors duration-200">
+        <h2 class="text-xl font-semibold mb-4 flex items-center text-gray-900 dark:text-gray-100">
+            <svg class="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
             Profile Information
@@ -34,31 +34,31 @@
 
         <div class="grid md:grid-cols-2 gap-6">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                <p class="text-gray-900 bg-gray-50 px-4 py-2 rounded border border-gray-200">{{ user.name }}</p>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
+                <p class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 px-4 py-2 rounded border border-gray-200 dark:border-gray-600">{{ user.name }}</p>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">User ID</label>
-                <p class="text-gray-900 bg-gray-50 px-4 py-2 rounded border border-gray-200">{{ user.user_id }}</p>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User ID / Role Number</label>
+                <p class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 px-4 py-2 rounded border border-gray-200 dark:border-gray-600">{{ user.user_id }}</p>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Member Type</label>
-                <p class="text-gray-900 bg-gray-50 px-4 py-2 rounded border border-gray-200">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Member Type</label>
+                <p class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 px-4 py-2 rounded border border-gray-200 dark:border-gray-600">
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                        {% if user.member_type == 'Officer' %}bg-purple-100 text-purple-800
-                        {% elif user.member_type == 'Chair' %}bg-blue-100 text-blue-800
-                        {% else %}bg-green-100 text-green-800{% endif %}">
+                        {% if user.member_type == 'Officer' %}bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200
+                        {% elif user.member_type == 'Chair' %}bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200
+                        {% else %}bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200{% endif %}">
                         {{ user.member_type }}
                     </span>
                 </p>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <p class="text-gray-900 bg-gray-50 px-4 py-2 rounded border border-gray-200">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                <p class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 px-4 py-2 rounded border border-gray-200 dark:border-gray-600">
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                        {% if user.member_status == 'Active' %}bg-green-100 text-green-800
-                        {% elif user.member_status == 'Inactive' %}bg-gray-100 text-gray-800
-                        {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                        {% if user.member_status == 'Active' %}bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200
+                        {% elif user.member_status == 'Inactive' %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300
+                        {% else %}bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200{% endif %}">
                         {{ user.member_status }}
                     </span>
                 </p>
@@ -67,9 +67,9 @@
     </div>
 
     <!-- Account Settings Card -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 class="text-xl font-semibold mb-4 flex items-center">
-            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 transition-colors duration-200">
+        <h2 class="text-xl font-semibold mb-4 flex items-center text-gray-900 dark:text-gray-100">
+            <svg class="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
             </svg>
@@ -77,19 +77,19 @@
         </h2>
 
         <!-- Preferred Name Form -->
-        <form method="POST" class="mb-6 pb-6 border-b border-gray-200">
+        <form method="POST" class="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
             {% csrf_token %}
             <input type="hidden" name="profile_submit" value="1">
 
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Preferred First Name
-                    <span class="text-gray-500 font-normal text-xs">(Optional)</span>
+                    <span class="text-gray-500 dark:text-gray-400 font-normal text-xs">(Optional)</span>
                 </label>
                 <input type="text" name="preferred_name" value="{{ user.preferred_name|default:'' }}"
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                        placeholder="e.g., Mike (for Michael)">
-                <p class="text-sm text-gray-500 mt-1">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     {% if user.preferred_name %}
                         Currently displays as: "{{ user.get_display_name }}"
                     {% else %}
@@ -99,22 +99,22 @@
             </div>
 
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Username</label>
                 <input type="text" name="username" value="{{ user.username }}"
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                        placeholder="Your login username">
-                <p class="text-sm text-gray-500 mt-1">This is what you use to log in</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">This is what you use to log in</p>
             </div>
 
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Email Address
-                    <span class="text-gray-500 font-normal text-xs">(Optional - for password reset)</span>
+                    <span class="text-gray-500 dark:text-gray-400 font-normal text-xs">(Optional - for password reset)</span>
                 </label>
                 <input type="email" name="email" value="{{ user.email|default:'' }}"
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                        placeholder="your.email@example.com">
-                <p class="text-sm text-gray-500 mt-1">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     {% if user.email %}
                         Current email: {{ user.email }}. Used for password reset.
                     {% else %}
@@ -123,7 +123,7 @@
                 </p>
             </div>
 
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2 rounded-lg transition flex items-center">
+            <button type="submit" class="bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium px-6 py-2 rounded-lg transition flex items-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>
@@ -136,8 +136,8 @@
             {% csrf_token %}
             <input type="hidden" name="password_submit" value="1">
 
-            <h3 class="text-lg font-semibold mb-4 flex items-center">
-                <svg class="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <h3 class="text-lg font-semibold mb-4 flex items-center text-gray-900 dark:text-gray-100">
+                <svg class="w-5 h-5 mr-2 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                 </svg>
                 Change Password
@@ -146,21 +146,21 @@
             <div class="space-y-4">
                 {% for field in password_form %}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ field.label }}</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ field.label }}</label>
                         <input type="{{ field.field.widget.input_type }}" name="{{ field.name }}"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                {% if field.field.required %}required{% endif %}>
                         {% if field.errors %}
-                            <p class="text-red-500 text-sm mt-1">{{ field.errors|join:", " }}</p>
+                            <p class="text-red-500 dark:text-red-400 text-sm mt-1">{{ field.errors|join:", " }}</p>
                         {% endif %}
                         {% if field.help_text %}
-                            <p class="text-sm text-gray-500 mt-1">{{ field.help_text }}</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ field.help_text }}</p>
                         {% endif %}
                     </div>
                 {% endfor %}
             </div>
 
-            <button type="submit" class="mt-4 bg-green-600 hover:bg-green-700 text-white font-medium px-6 py-2 rounded-lg transition flex items-center">
+            <button type="submit" class="mt-4 bg-green-600 dark:bg-green-500 hover:bg-green-700 dark:hover:bg-green-600 text-white font-medium px-6 py-2 rounded-lg transition flex items-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                 </svg>
@@ -169,4 +169,79 @@
         </form>
     </div>
 </div>
+
+<style>
+    /* Comprehensive dark mode styling for Django password validation help text */
+
+    /* Target all possible help text elements */
+    .helptext,
+    .helptext ul,
+    .helptext li,
+    ul.helptext,
+    ul.helptext li,
+    .form-text,
+    small,
+    .text-muted {
+        color: rgb(107 114 128) !important; /* gray-500 in light mode */
+    }
+
+    /* Dark mode overrides */
+    .dark .helptext,
+    .dark .helptext ul,
+    .dark .helptext li,
+    .dark ul.helptext,
+    .dark ul.helptext li,
+    .dark .form-text,
+    .dark small,
+    .dark .text-muted {
+        color: rgb(156 163 175) !important; /* gray-400 in dark mode */
+    }
+
+    /* Target Django's default password validator rendering */
+    #id_new_password1 + ul,
+    #id_new_password1 + ul li,
+    #id_new_password2 + ul,
+    #id_new_password2 + ul li,
+    input[name="new_password1"] + ul,
+    input[name="new_password1"] + ul li,
+    input[name="new_password2"] + ul,
+    input[name="new_password2"] + ul li {
+        color: rgb(107 114 128) !important; /* gray-500 in light mode */
+    }
+
+    .dark #id_new_password1 + ul,
+    .dark #id_new_password1 + ul li,
+    .dark #id_new_password2 + ul,
+    .dark #id_new_password2 + ul li,
+    .dark input[name="new_password1"] + ul,
+    .dark input[name="new_password1"] + ul li,
+    .dark input[name="new_password2"] + ul,
+    .dark input[name="new_password2"] + ul li {
+        color: rgb(156 163 175) !important; /* gray-400 in dark mode */
+    }
+
+    /* Error messages */
+    ul.errorlist,
+    ul.errorlist li,
+    .error,
+    .invalid-feedback {
+        color: rgb(239 68 68) !important; /* red-500 in light mode */
+    }
+
+    .dark ul.errorlist,
+    .dark ul.errorlist li,
+    .dark .error,
+    .dark .invalid-feedback {
+        color: rgb(248 113 113) !important; /* red-400 in dark mode */
+    }
+
+    /* Catch-all for any remaining black text in forms */
+    .dark form p,
+    .dark form ul,
+    .dark form li,
+    .dark form span:not(.inline-flex) {
+        color: rgb(156 163 175) !important; /* gray-400 in dark mode */
+    }
+</style>
+
 {% endblock %}

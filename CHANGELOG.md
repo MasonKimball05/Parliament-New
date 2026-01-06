@@ -43,10 +43,26 @@ Complete security rewrite to address fundamental vulnerabilities and prepare for
 - All environment variables must be properly set
 - No backward compatibility with v1.0.0 authentication
 
+### v2.3.0 - Calendar Subscriptions & Admin v2 System (01-06-2026)
+Major feature additions including auto-updating calendar subscriptions, advanced administration panel, and site-wide feature flag system.
+
+**Deployment Status:** ⏳ **Pending deployment** - Ready for production
+
+**Key Features:**
+- 📅 **Calendar Subscriptions**: Auto-updating calendar feeds for Google Calendar, Apple Calendar, Outlook, and more
+- 🔧 **Admin v2**: Advanced administration dashboard with dual authentication and site-wide controls
+- 🎛️ **Feature Flags System**: Granular control over site features without code changes
+- 🔒 **Enhanced Security**: Token-based calendar access, comprehensive audit logging
+- 💬 **Chat Feature Protection**: All chat functionality now respects feature flags
+
+**[📄 View Detailed Changelog](./changelogs/v2.3.0.md)**
+
+---
+
 ### v2.2.0 - Reference Documentation System (12-25-2025)
 Added comprehensive reference pages for Robert's Rules and Constitution & Bylaws with navigation and search.
 
-**Deployment Status:** ⏳ **Pending deployment** - Code mostly complete, awaiting production update
+**Deployment Status:** ✅ **Deployed**
 
 **Key Features:**
 - 📖 **Robert's Rules Reference Page**: Comprehensive parliamentary procedure guide with 10 sections
@@ -94,6 +110,14 @@ Builds on v2.0.0 security foundation with user-facing features and advanced prot
 
 For comprehensive technical details, migration guides, and implementation specifics:
 
+- **[v2.3.0 - Calendar Subscriptions & Admin v2 System](./changelogs/v2.3.0.md)** (January 6, 2026)
+  - Complete feature documentation
+  - Calendar subscription system implementation
+  - Admin v2 dashboard and authentication
+  - Feature flags system architecture
+  - Security considerations and deployment guide
+  - API documentation
+
 - **[v2.2.0 - Robert's Rules Reference System](./changelogs/v2.2.0.md)** (December 26, 2025)
   - Complete feature documentation
   - Technical implementation details
@@ -115,7 +139,15 @@ For comprehensive technical details, migration guides, and implementation specif
 
 ## Version History Summary
 
-- **v2.2.0** (2025-12-26) - Reference Documentation System ⏳
+- **v2.3.0** (2026-01-06) - Calendar Subscriptions & Admin v2 System ⏳
+  - Auto-updating calendar subscription feeds with secure tokens
+  - Admin v2 advanced administration dashboard
+  - Site-wide feature flags system with granular control
+  - Page toggles to enable/disable specific pages
+  - Chat system feature flag protection
+  - Enhanced security and comprehensive audit logging
+
+- **v2.2.0** (2025-12-26) - Reference Documentation System ✅
   - Robert's Rules of Order reference page (10 comprehensive sections)
   - Constitution & Bylaws reference page (complete governing documents)
   - Live search with text highlighting on both pages
@@ -181,5 +213,5 @@ New changes will be documented in:
 
 ---
 
-**Last Updated:** 2025-12-25
-**Next Review:** 2026-01-25
+**Last Updated:** 2026-01-06
+**Next Review:** 2026-02-06

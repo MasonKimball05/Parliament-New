@@ -5,44 +5,51 @@
 {% block admin_content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Header -->
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Activity Logs</h1>
-        <p class="text-gray-600">Comprehensive audit trail of all system activities</p>
+    <div class="mb-8 bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-700 dark:to-primary-800 rounded-lg shadow-md p-6 text-white transition-colors duration-200">
+        <div class="flex items-center space-x-3">
+            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <div>
+                <h1 class="text-3xl font-bold mb-1">Activity Logs</h1>
+                <p class="text-primary-100">Comprehensive audit trail of all system activities</p>
+            </div>
+        </div>
     </div>
 
     <!-- Statistics Cards -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div class="bg-white rounded-lg shadow-md p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition-colors duration-200">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600">Total Events</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ total_logs }}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Total Events</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ total_logs }}</p>
                 </div>
-                <svg class="w-10 h-10 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-10 h-10 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
             </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow-md p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition-colors duration-200">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600">Active Users</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ unique_users }}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Active Users</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ unique_users }}</p>
                 </div>
-                <svg class="w-10 h-10 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-10 h-10 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
                 </svg>
             </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow-md p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition-colors duration-200">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600">Categories</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ category_counts|length }}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Categories</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ category_counts|length }}</p>
                 </div>
-                <svg class="w-10 h-10 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-10 h-10 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
                 </svg>
             </div>
@@ -50,13 +57,19 @@
     </div>
 
     <!-- Filters -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 transition-colors duration-200">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+            </svg>
+            Filters
+        </h2>
         <form method="get" class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <!-- Date Range Filter -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Time Period</label>
-                    <select name="date_range" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Time Period</label>
+                    <select name="date_range" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:ring-primary-500 focus:border-primary-500">
                         <option value="1" {% if date_range == '1' %}selected{% endif %}>Last 24 Hours</option>
                         <option value="7" {% if date_range == '7' %}selected{% endif %}>Last 7 Days</option>
                         <option value="30" {% if date_range == '30' %}selected{% endif %}>Last 30 Days</option>
@@ -67,8 +80,8 @@
 
                 <!-- Category Filter -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                    <select name="category" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
+                    <select name="category" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:ring-primary-500 focus:border-primary-500">
                         <option value="">All Categories</option>
                         {% for code, name in action_categories %}
                         <option value="{{ code }}" {% if selected_category == code %}selected{% endif %}>{{ name }}</option>
@@ -78,8 +91,8 @@
 
                 <!-- Action Type Filter -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Action Type</label>
-                    <select name="type" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Action Type</label>
+                    <select name="type" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:ring-primary-500 focus:border-primary-500">
                         <option value="">All Actions</option>
                         {% for code, name in action_types %}
                         <option value="{{ code }}" {% if selected_type == code %}selected{% endif %}>{{ name }}</option>
@@ -89,8 +102,8 @@
 
                 <!-- User Filter -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">User</label>
-                    <select name="user" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User</label>
+                    <select name="user" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:ring-primary-500 focus:border-primary-500">
                         <option value="">All Users</option>
                         {% for user in active_users %}
                         <option value="{{ user.user_id }}" {% if selected_user == user.user_id %}selected{% endif %}>{{ user.get_display_name }}</option>
@@ -100,19 +113,25 @@
 
                 <!-- Search -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
-                    <input type="text" name="q" value="{{ search_query }}" placeholder="Search description, IP..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search</label>
+                    <input type="text" name="q" value="{{ search_query }}" placeholder="Search description, IP..." class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded-md focus:ring-primary-500 focus:border-primary-500">
                 </div>
             </div>
 
             <div class="flex flex-wrap gap-3">
-                <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition">
+                <button type="submit" class="px-4 py-2 bg-primary-600 dark:bg-primary-500 text-white rounded-md hover:bg-primary-700 dark:hover:bg-primary-600 transition flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                    </svg>
                     Apply Filters
                 </button>
-                <a href="{% url 'activity_logs' %}" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition">
+                <a href="{% url 'activity_logs' %}" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
                     Clear Filters
                 </a>
-                <a href="{% url 'export_activity_logs' %}?category={{ selected_category }}&type={{ selected_type }}&user={{ selected_user }}&q={{ search_query }}&date_range={{ date_range }}" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition flex items-center space-x-2">
+                <a href="{% url 'export_activity_logs' %}?category={{ selected_category }}&type={{ selected_type }}&user={{ selected_user }}&q={{ search_query }}&date_range={{ date_range }}" class="px-4 py-2 bg-green-600 dark:bg-green-500 text-white rounded-md hover:bg-green-700 dark:hover:bg-green-600 transition flex items-center space-x-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                     </svg>
@@ -123,54 +142,54 @@
     </div>
 
     <!-- Activity Logs Table -->
-    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Timestamp</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">User</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Action</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Description</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Details</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {% for log in page_obj %}
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                             {{ log.timestamp|date:"M d, Y H:i" }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                             {% if log.user %}
-                                <span class="font-medium text-gray-900">{{ log.user.get_display_name }}</span>
-                                <span class="text-gray-500 block text-xs">{{ log.user.user_id }}</span>
+                                <span class="font-medium text-gray-900 dark:text-gray-100">{{ log.user.get_display_name }}</span>
+                                <span class="text-gray-500 dark:text-gray-400 block text-xs">{{ log.user.user_id }}</span>
                             {% else %}
-                                <span class="text-gray-500 italic">System</span>
+                                <span class="text-gray-500 dark:text-gray-400 italic">System</span>
                             {% endif %}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 py-1 text-xs font-semibold rounded
-                                {% if log.action_category == 'auth' %}bg-blue-100 text-blue-800
-                                {% elif log.action_category == 'legislation' %}bg-purple-100 text-purple-800
-                                {% elif log.action_category == 'vote' %}bg-green-100 text-green-800
-                                {% elif log.action_category == 'committee' %}bg-yellow-100 text-yellow-800
-                                {% elif log.action_category == 'document' %}bg-indigo-100 text-indigo-800
-                                {% elif log.action_category == 'announcement' %}bg-pink-100 text-pink-800
-                                {% elif log.action_category == 'event' %}bg-orange-100 text-orange-800
-                                {% elif log.action_category == 'user' %}bg-red-100 text-red-800
-                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {% if log.action_category == 'auth' %}bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200
+                                {% elif log.action_category == 'legislation' %}bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200
+                                {% elif log.action_category == 'vote' %}bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200
+                                {% elif log.action_category == 'committee' %}bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200
+                                {% elif log.action_category == 'document' %}bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200
+                                {% elif log.action_category == 'announcement' %}bg-pink-100 dark:bg-pink-900 text-pink-800 dark:text-pink-200
+                                {% elif log.action_category == 'event' %}bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200
+                                {% elif log.action_category == 'user' %}bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200
+                                {% else %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200{% endif %}">
                                 {{ log.get_action_category_display }}
                             </span>
-                            <div class="text-xs text-gray-600 mt-1">{{ log.get_action_type_display }}</div>
+                            <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">{{ log.get_action_type_display }}</div>
                         </td>
-                        <td class="px-6 py-4 text-sm text-gray-900">
+                        <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                             {{ log.description }}
                             {% if log.object_repr %}
-                                <span class="block text-xs text-gray-500 mt-1">Object: {{ log.object_repr }}</span>
+                                <span class="block text-xs text-gray-500 dark:text-gray-400 mt-1">Object: {{ log.object_repr }}</span>
                             {% endif %}
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                             {% if log.ip_address %}
                                 <div class="flex items-center space-x-1 text-xs">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -184,8 +203,8 @@
                     {% empty %}
                     <tr>
                         <td colspan="5" class="px-6 py-12 text-center">
-                            <div class="text-gray-400 text-4xl mb-3">📋</div>
-                            <p class="text-gray-500">No activity logs found</p>
+                            <div class="text-gray-400 dark:text-gray-500 text-4xl mb-3">📋</div>
+                            <p class="text-gray-500 dark:text-gray-400">No activity logs found</p>
                         </td>
                     </tr>
                     {% endfor %}
@@ -195,34 +214,34 @@
 
         <!-- Pagination -->
         {% if page_obj.has_other_pages %}
-        <div class="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+        <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 flex items-center justify-between border-t border-gray-200 dark:border-gray-600 sm:px-6 transition-colors duration-200">
             <div class="flex-1 flex justify-between sm:hidden">
                 {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}&category={{ selected_category }}&type={{ selected_type }}&user={{ selected_user }}&q={{ search_query }}&date_range={{ date_range }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    <a href="?page={{ page_obj.previous_page_number }}&category={{ selected_category }}&type={{ selected_type }}&user={{ selected_user }}&q={{ search_query }}&date_range={{ date_range }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-600 transition">
                         Previous
                     </a>
                 {% endif %}
                 {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}&category={{ selected_category }}&type={{ selected_type }}&user={{ selected_user }}&q={{ search_query }}&date_range={{ date_range }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    <a href="?page={{ page_obj.next_page_number }}&category={{ selected_category }}&type={{ selected_type }}&user={{ selected_user }}&q={{ search_query }}&date_range={{ date_range }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-600 transition">
                         Next
                     </a>
                 {% endif %}
             </div>
             <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                 <div>
-                    <p class="text-sm text-gray-700">
+                    <p class="text-sm text-gray-700 dark:text-gray-300">
                         Showing <span class="font-medium">{{ page_obj.start_index }}</span> to <span class="font-medium">{{ page_obj.end_index }}</span> of <span class="font-medium">{{ page_obj.paginator.count }}</span> results
                     </p>
                 </div>
                 <div>
                     <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
                         {% if page_obj.has_previous %}
-                            <a href="?page={{ page_obj.previous_page_number }}&category={{ selected_category }}&type={{ selected_type }}&user={{ selected_user }}&q={{ search_query }}&date_range={{ date_range }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <a href="?page={{ page_obj.previous_page_number }}&category={{ selected_category }}&type={{ selected_type }}&user={{ selected_user }}&q={{ search_query }}&date_range={{ date_range }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600 transition">
                                 Previous
                             </a>
                         {% endif %}
                         {% if page_obj.has_next %}
-                            <a href="?page={{ page_obj.next_page_number }}&category={{ selected_category }}&type={{ selected_type }}&user={{ selected_user }}&q={{ search_query }}&date_range={{ date_range }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <a href="?page={{ page_obj.next_page_number }}&category={{ selected_category }}&type={{ selected_type }}&user={{ selected_user }}&q={{ search_query }}&date_range={{ date_range }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600 transition">
                                 Next
                             </a>
                         {% endif %}

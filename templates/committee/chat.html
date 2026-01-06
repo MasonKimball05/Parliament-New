@@ -9,11 +9,11 @@
     <div class="mb-4">
         <div class="flex justify-between items-start">
             <div class="flex-1">
-                <a href="{% url 'committee_detail' committee.code %}" class="text-blue-600 hover:text-blue-800">
+                <a href="{% url 'committee_detail' committee.code %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
                     ← Back to {{ committee.code }}
                 </a>
-                <h2 class="text-3xl font-bold mt-2">{{ committee.name }} Chat</h2>
-                <div class="flex items-center gap-4 text-gray-600">
+                <h2 class="text-3xl font-bold mt-2 text-gray-900 dark:text-gray-100">{{ committee.name }} Chat</h2>
+                <div class="flex items-center gap-4 text-gray-600 dark:text-gray-400">
                     <p>{{ committee.members.count }} members</p>
                     <div class="relative inline-block group">
                         <div class="flex items-center gap-1 cursor-pointer">
@@ -21,7 +21,7 @@
                             <span id="active-count">0 active</span>
                         </div>
                         <!-- Tooltip showing active users -->
-                        <div id="active-users-tooltip" class="absolute left-0 top-full mt-2 bg-gray-900 text-white text-xs rounded py-2 px-3 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity z-10 min-w-max">
+                        <div id="active-users-tooltip" class="absolute left-0 top-full mt-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded py-2 px-3 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity z-10 min-w-max">
                             <div id="active-users-list" class="space-y-1">
                                 Loading...
                             </div>
@@ -33,8 +33,7 @@
             <!-- Chat Settings Button (for chairs) -->
             {% if is_chair or is_admin %}
                 <a href="{% url 'edit_committee_chat_settings' committee.code %}"
-                   class="px-4 py-2 rounded-lg border-2 font-medium text-sm hover:bg-gray-50 transition flex items-center gap-2"
-                   style="border-color: #003DA5; color: #003DA5;">
+                   class="px-4 py-2 rounded-lg border-2 border-blue-700 dark:border-blue-500 font-medium text-sm text-blue-700 dark:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -46,15 +45,15 @@
     </div>
 
     <!-- Poll indicator -->
-    <div id="poll-status" class="text-xs mb-2" style="color: #003DA5;">
+    <div id="poll-status" class="text-xs mb-2 text-blue-700 dark:text-blue-400">
         ● Connected - polling every 3 seconds
     </div>
 
     <!-- Chat Messages Container -->
-    <div id="chat-container" class="flex-1 bg-white rounded-lg shadow-md p-4 overflow-y-auto mb-4 border border-gray-200">
+    <div id="chat-container" class="flex-1 rounded-lg shadow-md p-4 overflow-y-auto mb-4 border transition-colors duration-200 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
         <div id="messages-list">
             {% for msg in initial_messages %}
-                <div id="msg-{{ msg.id }}" class="flex gap-3 p-2 rounded hover:bg-gray-50 mb-2 group {% if msg.sender == request.user %}bg-pink-50{% endif %}">
+                <div id="msg-{{ msg.id }}" class="flex gap-3 p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 mb-2 group {% if msg.sender == request.user %}bg-pink-50 dark:bg-pink-900/20{% endif %}">
                     <!-- Avatar with initials -->
                     <div class="w-9 h-9 rounded text-white flex items-center justify-center font-bold text-sm flex-shrink-0"
                          style="background-color: {% if msg.sender == request.user %}#CD8C95{% else %}#003DA5{% endif %}">
@@ -72,16 +71,16 @@
                     <!-- Message content -->
                     <div class="flex-1 min-w-0">
                         <div class="flex items-baseline gap-2 mb-1">
-                            <span class="font-bold text-gray-900">{{ msg.sender.name }}</span>
-                            <span class="text-xs text-gray-500">{{ msg.created_at|date:"g:i A" }}</span>
+                            <span class="font-bold text-gray-900 dark:text-gray-100">{{ msg.sender.name }}</span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">{{ msg.created_at|date:"g:i A" }}</span>
                             {% if is_admin or is_chair or msg.sender == request.user %}
-                                <button class="delete-btn text-xs text-red-600 hover:text-red-800 ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                <button class="delete-btn text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
                                         onclick="deleteMessage({{ msg.id }}, 'msg-{{ msg.id }}')">
                                     Delete
                                 </button>
                             {% endif %}
                         </div>
-                        <div class="text-gray-900">{{ msg.message }}</div>
+                        <div class="text-gray-900 dark:text-gray-100">{{ msg.message }}</div>
                     </div>
                 </div>
             {% endfor %}
@@ -89,7 +88,7 @@
     </div>
 
     <!-- Message Input -->
-    <div class="bg-white rounded-lg shadow-md p-4 border-2 border-gray-300">
+    <div class="rounded-lg shadow-md p-4 border-2 transition-colors duration-200 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
         <form id="message-form" class="flex gap-2">
             {% csrf_token %}
             <input
@@ -98,20 +97,17 @@
                 name="message"
                 placeholder="Type a message..."
                 maxlength="2000"
-                class="flex-1 border border-gray-300 rounded px-4 py-2 focus:outline-none focus:border-blue-500"
+                class="flex-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded px-4 py-2 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 transition-colors"
                 autocomplete="off"
             >
             <button
                 type="submit"
-                class="px-6 py-2 rounded text-white font-semibold"
-                style="background-color: #003DA5;"
-                onmouseover="this.style.backgroundColor='#002d7a'"
-                onmouseout="this.style.backgroundColor='#003DA5'"
+                class="px-6 py-2 rounded text-white font-semibold bg-blue-700 dark:bg-blue-600 hover:bg-blue-800 dark:hover:bg-blue-700 transition-colors"
             >
                 Send
             </button>
         </form>
-        <p class="text-xs text-gray-500 mt-2 text-right">
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 text-right">
             <span id="char-count">0</span>/2000 characters
         </p>
     </div>
@@ -271,7 +267,6 @@
 
         const messageDiv = document.createElement('div');
         messageDiv.id = `msg-${msg.id}`;
-        messageDiv.className = `flex gap-3 p-2 rounded hover:bg-gray-50 mb-2 ${msg.is_own_message ? 'bg-pink-50' : ''}`;
 
         const avatarBg = msg.is_own_message ? '#CD8C95' : '#003DA5';
 
@@ -294,14 +289,14 @@
 
         if (canDelete || isSender) {
             deleteButton = `
-                <button class="delete-btn text-xs text-red-600 hover:text-red-800 ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                <button class="delete-btn text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
                         onclick="deleteMessage(${msg.id}, '${escapeHtml(msg.id)}')">
                     Delete
                 </button>
             `;
         }
 
-        messageDiv.className = `flex gap-3 p-2 rounded hover:bg-gray-50 mb-2 group ${msg.is_own_message ? 'bg-pink-50' : ''}`;
+        messageDiv.className = `flex gap-3 p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 mb-2 group transition-colors ${msg.is_own_message ? 'bg-pink-50 dark:bg-pink-900/20' : ''}`;
 
         messageDiv.innerHTML = `
             <div class="w-9 h-9 rounded text-white flex items-center justify-center font-bold text-sm flex-shrink-0" style="background-color: ${avatarBg}">
@@ -309,12 +304,12 @@
             </div>
             <div class="flex-1 min-w-0">
                 <div class="flex items-baseline gap-2 mb-1">
-                    <span class="font-bold text-gray-900">${escapeHtml(msg.sender_name)}</span>
-                    <span class="text-xs text-gray-500">${timestamp}</span>
+                    <span class="font-bold text-gray-900 dark:text-gray-100">${escapeHtml(msg.sender_name)}</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">${timestamp}</span>
                     ${deliveryIndicator}
                     ${deleteButton}
                 </div>
-                <div class="text-gray-900">${escapeHtml(msg.message)}</div>
+                <div class="text-gray-900 dark:text-gray-100">${escapeHtml(msg.message)}</div>
             </div>
         `;
 
@@ -407,5 +402,102 @@
 
     // Initial scroll
     scrollToBottom();
+</script>
+
+<style>
+    /* Aggressive dark mode styles for chat elements */
+    html.dark #chat-container,
+    .dark #chat-container {
+        background-color: rgb(31, 41, 55) !important; /* gray-800 */
+        border-color: rgb(55, 65, 81) !important; /* gray-700 */
+    }
+
+    html.dark #chat-container > div,
+    .dark #chat-container > div {
+        background-color: transparent !important;
+    }
+
+    /* Target all divs with bg-white in dark mode */
+    html.dark .bg-white,
+    .dark .bg-white {
+        background-color: rgb(31, 41, 55) !important; /* gray-800 */
+    }
+
+    /* Message input container */
+    html.dark #chat-container + div,
+    .dark #chat-container + div {
+        background-color: rgb(31, 41, 55) !important; /* gray-800 */
+        border-color: rgb(75, 85, 99) !important; /* gray-600 */
+    }
+
+    html.dark #message-input,
+    .dark #message-input {
+        background-color: rgb(55, 65, 81) !important; /* gray-700 */
+        border-color: rgb(75, 85, 99) !important; /* gray-600 */
+        color: rgb(243, 244, 246) !important; /* gray-100 */
+    }
+
+    html.dark #message-input::placeholder,
+    .dark #message-input::placeholder {
+        color: rgb(156, 163, 175) !important; /* gray-400 */
+    }
+
+    /* Force all white backgrounds to be dark gray in dark mode */
+    html.dark .container .bg-white,
+    html.dark div[class*="bg-white"] {
+        background-color: rgb(31, 41, 55) !important;
+    }
+
+    /* Force border colors */
+    html.dark .border-gray-200,
+    html.dark .border-gray-300 {
+        border-color: rgb(75, 85, 99) !important;
+    }
+</style>
+
+<script>
+    // Apply dark mode styles immediately using inline styles as fallback
+    (function() {
+        function applyDarkModeInline() {
+            const isDark = document.documentElement.classList.contains('dark');
+
+            if (isDark) {
+                // Force chat container styles
+                const chatContainer = document.getElementById('chat-container');
+                if (chatContainer) {
+                    chatContainer.style.backgroundColor = 'rgb(31, 41, 55)';
+                    chatContainer.style.borderColor = 'rgb(55, 65, 81)';
+                }
+
+                // Force message input container
+                const inputContainer = chatContainer?.nextElementSibling;
+                if (inputContainer) {
+                    inputContainer.style.backgroundColor = 'rgb(31, 41, 55)';
+                    inputContainer.style.borderColor = 'rgb(75, 85, 99)';
+                }
+
+                // Force message input
+                const messageInput = document.getElementById('message-input');
+                if (messageInput) {
+                    messageInput.style.backgroundColor = 'rgb(55, 65, 81)';
+                    messageInput.style.borderColor = 'rgb(75, 85, 99)';
+                    messageInput.style.color = 'rgb(243, 244, 246)';
+                }
+            }
+        }
+
+        // Apply immediately
+        applyDarkModeInline();
+
+        // Re-apply after a short delay to catch any dynamic loading
+        setTimeout(applyDarkModeInline, 100);
+
+        // Listen for theme changes
+        const observer = new MutationObserver(applyDarkModeInline);
+        observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['class']
+        });
+    })();
 </script>
 {% endblock %}

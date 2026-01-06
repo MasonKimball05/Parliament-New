@@ -3,9 +3,11 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseForbidden
 from django.utils import timezone
 from src.models import ChatChannel, ChatMessage, ChatReadReceipt
+from src.feature_flag_decorators import require_feature_flag
 
 
 @login_required
+@require_feature_flag('chats')
 def channel_chat(request, channel_id):
     """Main chat page for a channel (works for all channel types)"""
     channel = get_object_or_404(ChatChannel, id=channel_id)
@@ -49,20 +51,30 @@ def channel_chat(request, channel_id):
     is_chair = False
     admin_preview_mode = has_admin_access and not has_normal_access
 
-    # If it's a committee channel, check if user is chair
+    # If it's a committee channel, check if user is chair or VP
+    is_vp = False
     if channel.channel_type == 'committee' and channel.committee:
         is_chair = channel.committee.is_chair(request.user)
+        is_vp = channel.committee.is_vp(request.user)
+
+    # Check if user can send messages
+    can_send_messages = channel.can_write(request.user)
+    can_delete_own_messages = channel.can_delete_messages(request.user)
 
     return render(request, 'chat/channel.html', {
         'channel': channel,
         'initial_messages': messages,
         'is_chair': is_chair,
+        'is_vp': is_vp,
         'is_admin': is_admin,
         'admin_preview_mode': admin_preview_mode,
+        'can_send_messages': can_send_messages,
+        'can_delete_own_messages': can_delete_own_messages,
     })
 
 
 @login_required
+@require_feature_flag('chats')
 def get_channel_messages(request, channel_id):
     """API endpoint to poll for new messages"""
     channel = get_object_or_404(ChatChannel, id=channel_id)
@@ -110,6 +122,7 @@ def get_channel_messages(request, channel_id):
 
 
 @login_required
+@require_feature_flag('chats')
 def send_channel_message(request, channel_id):
     """API endpoint to send a message"""
     if request.method != 'POST':
@@ -117,8 +130,8 @@ def send_channel_message(request, channel_id):
 
     channel = get_object_or_404(ChatChannel, id=channel_id)
 
-    # Must have normal access, not just admin override
-    if not channel.has_access(request.user, admin_override=False):
+    # Check if user has write permission
+    if not channel.can_write(request.user):
         return JsonResponse({'error': 'You do not have permission to send messages in this channel'}, status=403)
 
     message_text = request.POST.get('message', '').strip()
@@ -158,6 +171,7 @@ def send_channel_message(request, channel_id):
 
 
 @login_required
+@require_feature_flag('chats')
 def edit_channel_message(request, channel_id, message_id):
     """API endpoint to edit a message"""
     if request.method != 'POST':
@@ -200,6 +214,7 @@ def edit_channel_message(request, channel_id, message_id):
 
 
 @login_required
+@require_feature_flag('chats')
 def delete_channel_message(request, channel_id, message_id):
     """API endpoint to delete a message"""
     if request.method != 'POST':
@@ -208,11 +223,16 @@ def delete_channel_message(request, channel_id, message_id):
     channel = get_object_or_404(ChatChannel, id=channel_id)
     message = get_object_or_404(ChatMessage, id=message_id, channel=channel)
 
-    # Check permissions: admin, channel creator, or message sender can delete
+    # Check permissions: admin, chairs can delete any message
+    # Message sender can delete own message if they have delete permission
+    is_sender = message.sender == request.user
+    is_admin = request.user.is_admin
+    is_chair = channel.committee and channel.committee.is_chair(request.user)
+
     can_delete = (
-        request.user.is_admin or
-        message.sender == request.user or
-        (channel.committee and channel.committee.is_chair(request.user))
+        is_admin or
+        is_chair or
+        (is_sender and channel.can_delete_messages(request.user))
     )
 
     if not can_delete:
@@ -226,6 +246,7 @@ def delete_channel_message(request, channel_id, message_id):
 
 
 @login_required
+@require_feature_flag('chats')
 def get_channel_active_users(request, channel_id):
     """API endpoint to get list of users currently active in channel"""
     channel = get_object_or_404(ChatChannel, id=channel_id)

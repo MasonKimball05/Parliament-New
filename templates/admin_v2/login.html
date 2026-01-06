@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Admin v2 Login - Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 transition-colors duration-200">
+    <div class="max-w-md w-full">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <div class="mb-6 flex justify-center">
+                <img src="{% static 'images/beta-seal.webp' %}" alt="Beta Theta Pi Seal"
+                     class="w-24 h-24 rounded-full object-contain bg-white dark:bg-gray-800 p-4 shadow-lg">
+            </div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Admin v2</h1>
+            <p class="text-gray-600 dark:text-gray-400">Advanced Administration Panel</p>
+        </div>
+
+        <!-- Security Notice -->
+        <div class="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 dark:border-yellow-600 rounded-r transition-colors duration-200">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-400 dark:text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-yellow-700 dark:text-yellow-300">
+                        <span class="font-medium">High Security Area</span><br>
+                        Requires dual authentication. All access attempts are logged.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login Form -->
+        <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-8 transition-colors duration-200">
+            <form method="post" class="space-y-6">
+                {% csrf_token %}
+
+                <!-- User Password -->
+                <div>
+                    <label for="user_password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                        </svg>
+                        Your User Password
+                    </label>
+                    <input type="password"
+                           name="user_password"
+                           id="user_password"
+                           required
+                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
+                           placeholder="Enter your Parliament password">
+                </div>
+
+                <!-- Secret Key -->
+                <div>
+                    <label for="secret_key" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                        </svg>
+                        Admin v2 Secret Key
+                    </label>
+                    <input type="password"
+                           name="secret_key"
+                           id="secret_key"
+                           required
+                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
+                           placeholder="Enter Admin v2 secret key">
+                    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        This key is stored securely in the environment configuration
+                    </p>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit"
+                        class="w-full px-6 py-3 bg-red-600 dark:bg-red-700 text-white font-medium rounded-lg hover:bg-red-700 dark:hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors">
+                    <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                    Authenticate & Enter
+                </button>
+            </form>
+        </div>
+
+        <!-- Back Link -->
+        <div class="mt-6 text-center">
+            <a href="{% url 'home' %}" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
+                ← Back to Home
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

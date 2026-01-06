@@ -6,7 +6,7 @@
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Welcome Section -->
-    <div class="bg-gradient-to-r from-red-600 to-red-700 rounded-lg shadow-md p-6 mb-8 text-white">
+    <div class="bg-gradient-to-r from-red-600 to-red-700 dark:from-red-700 dark:to-red-800 rounded-lg shadow-md p-6 mb-8 text-white transition-colors duration-200">
         <div class="flex items-center justify-between">
             <div>
                 <div class="flex items-center space-x-3 mb-2">
@@ -15,7 +15,7 @@
                     </svg>
                     <h1 class="text-3xl font-bold">Officer Portal</h1>
                 </div>
-                <p class="text-red-100">Welcome, {{ user.get_display_name }} - Manage chapter operations and administrative functions</p>
+                <p class="text-red-100 dark:text-red-200">Welcome, {{ user.get_display_name }} - Manage chapter operations and administrative functions</p>
             </div>
             <img src="{% static 'images/beta-seal.webp' %}" alt="Beta Theta Pi Seal" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-contain opacity-90 bg-white p-1">
         </div>
@@ -24,15 +24,15 @@
     <!-- Quick Actions Grid -->
     <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
         <!-- Announcements Management Card -->
-        <a href="{% url 'manage_announcements' %}" class="block bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 group">
+        <a href="{% url 'manage_announcements' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all p-6 group">
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">Announcements</h2>
-                <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">Announcements</h2>
+                <svg class="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/>
                 </svg>
             </div>
-            <p class="text-gray-600 text-sm mb-4">Create and manage chapter announcements</p>
-            <div class="flex items-center text-sm text-primary-600 font-medium">
+            <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">Create and manage chapter announcements</p>
+            <div class="flex items-center text-sm text-primary-600 dark:text-primary-400 font-medium">
                 <span>Manage Announcements</span>
                 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -58,15 +58,15 @@
         </a>
 
         <!-- Calendar Events Card -->
-        <a href="{% url 'manage_events' %}" class="block bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 group">
+        <a href="{% url 'manage_events' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all p-6 group">
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">Calendar Events</h2>
-                <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">Calendar Events</h2>
+                <svg class="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                 </svg>
             </div>
-            <p class="text-gray-600 text-sm mb-4">Manage chapter calendar events</p>
-            <div class="flex items-center text-sm text-primary-600 font-medium">
+            <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">Manage chapter calendar events</p>
+            <div class="flex items-center text-sm text-primary-600 dark:text-primary-400 font-medium">
                 <span>Manage Events</span>
                 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -92,15 +92,15 @@
         </a>
 
         <!-- Event Attendance Card -->
-        <a href="{% url 'event_attendance_list' %}" class="block bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 group">
+        <a href="{% url 'event_attendance_list' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all p-6 group">
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">Event Attendance</h2>
-                <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">Event Attendance</h2>
+                <svg class="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
                 </svg>
             </div>
-            <p class="text-gray-600 text-sm mb-4">Manage attendance and review excuse requests</p>
-            <div class="flex items-center text-sm text-primary-600 font-medium">
+            <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">Manage attendance and review excuse requests</p>
+            <div class="flex items-center text-sm text-primary-600 dark:text-primary-400 font-medium">
                 <span>Manage Attendance</span>
                 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -109,15 +109,15 @@
         </a>
 
         <!-- User Management Card -->
-        <a href="{% url 'user_list' %}" class="block bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 group">
+        <a href="{% url 'user_list' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all p-6 group">
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">Member List</h2>
-                <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">Member List</h2>
+                <svg class="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
                 </svg>
             </div>
-            <p class="text-gray-600 text-sm mb-4">View and manage chapter members</p>
-            <div class="flex items-center text-sm text-primary-600 font-medium">
+            <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">View and manage chapter members</p>
+            <div class="flex items-center text-sm text-primary-600 dark:text-primary-400 font-medium">
                 <span>View Members</span>
                 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -127,15 +127,15 @@
 
         <!-- Resolutions Management Card (Admin Only) -->
         {% if user.is_admin %}
-        <a href="{% url 'manage_resolutions' %}" class="block bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 group">
+        <a href="{% url 'manage_resolutions' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all p-6 group">
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">Passed Resolutions</h2>
-                <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">Passed Resolutions</h2>
+                <svg class="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
             </div>
-            <p class="text-gray-600 text-sm mb-4">Manage passed resolutions and section impacts</p>
-            <div class="flex items-center text-sm text-primary-600 font-medium">
+            <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">Manage passed resolutions and section impacts</p>
+            <div class="flex items-center text-sm text-primary-600 dark:text-primary-400 font-medium">
                 <span>Manage Resolutions</span>
                 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>

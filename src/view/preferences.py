@@ -19,6 +19,7 @@ def preferences_view(request):
     if request.method == 'POST':
         form = UserPreferencesForm(request.POST, instance=preferences)
         if form.is_valid():
+            old_theme = preferences.theme
             form.save()
 
             # Log the activity
@@ -30,6 +31,12 @@ def preferences_view(request):
             )
 
             messages.success(request, 'Your preferences have been updated successfully!')
+
+            # Add a flag to trigger page reload if theme changed
+            new_theme = request.POST.get('theme', 'light')
+            if old_theme != new_theme:
+                return redirect('preferences' + '?theme_changed=1')
+
             return redirect('preferences')
         else:
             messages.error(request, 'There was an error updating your preferences. Please try again.')
@@ -39,6 +46,7 @@ def preferences_view(request):
     context = {
         'form': form,
         'preferences': preferences,
+        'theme_changed': request.GET.get('theme_changed', False),
     }
 
     return render(request, 'preferences.html', context)

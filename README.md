@@ -51,6 +51,13 @@ A comprehensive Django-based management system for student organizations, design
 ### Events & Calendar
 - **Event Management**: Create and manage chapter events with dates, times, and locations
 - **Calendar View**: Visual calendar with all upcoming events
+- **Calendar Subscriptions** ⭐ NEW: Subscribe to auto-updating calendar feeds
+  - Works with Google Calendar, Apple Calendar, Outlook, and more
+  - Automatic sync when events are added/modified/deleted
+  - Permission-based filtering (only see events you're authorized to view)
+  - Secure token system with regeneration capability
+  - Usage tracking and analytics
+- **iCal Export**: One-time export of all events to calendar file
 - **Automatic Archiving**: Events older than 1 year automatically archived
 - **Manual Controls**: Admin ability to archive/unarchive events
 
@@ -67,6 +74,18 @@ A comprehensive Django-based management system for student organizations, design
 
 ### Admin Features
 - **Officer Portal**: Dedicated dashboard for officers and chairs
+- **Admin v2 Dashboard** ⭐ NEW: Advanced administration system
+  - Dual authentication (password + secret key) for enhanced security
+  - Site-wide statistics and metrics
+  - Feature flag management interface
+  - Page toggle controls
+  - Comprehensive audit logging
+- **Feature Flags System** ⭐ NEW: Granular control over site functionality
+  - Enable/disable features without code changes
+  - Organized by category (Core, Voting, Committees, Events, Communications, Documents, Admin)
+  - Page-level toggles with custom disabled messages
+  - Server-side enforcement (cannot be bypassed)
+  - Template integration for conditional UI rendering
 - **Activity Logs**: Track all system actions and changes
 - **Database Backup**: Built-in backup and restore functionality
 - **User Management**: Create, modify, and manage member accounts

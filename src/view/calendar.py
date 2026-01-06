@@ -3,6 +3,7 @@ from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponse
 from src.models import Event, ActivityLog, AttendanceExcuse
+from src.models_calendar_subscription import CalendarSubscription
 from icalendar import Calendar, Event as ICalEvent
 import calendar
 from datetime import datetime, timedelta
@@ -360,3 +361,166 @@ def export_event_ical(request, event_id):
     safe_filename = ''.join(c if c.isalnum() or c in (' ', '-', '_') else '_' for c in event.title)
     response['Content-Disposition'] = f'attachment; filename="{safe_filename}.ics"'
     return response
+
+
+def calendar_subscription_feed(request, token):
+    """
+    Dynamic calendar subscription feed (webcal://)
+    This URL can be subscribed to in calendar apps and will auto-update.
+    No authentication required - uses secure token instead.
+
+    Features:
+    - Shows only events visible to the user
+    - Auto-updates when calendar apps poll the feed
+    - Includes past 30 days and future 365 days of events
+    - Updates automatically when events are added/removed
+    """
+    # Validate token and get subscription
+    try:
+        subscription = CalendarSubscription.objects.get(token=token, is_active=True)
+    except CalendarSubscription.DoesNotExist:
+        return HttpResponse('Invalid or expired calendar subscription link.', status=404)
+
+    # Record access
+    subscription.record_access()
+
+    user = subscription.user
+    now = timezone.now()
+
+    # Get events from past 30 days to future 365 days
+    start_date = now - timedelta(days=30)
+    end_date = now + timedelta(days=365)
+
+    # Get all active events in range
+    all_events = Event.objects.filter(
+        is_active=True,
+        archived=False,
+        date_time__gte=start_date,
+        date_time__lte=end_date
+    ).order_by('date_time')
+
+    # Filter by visibility - only show events this user can see
+    events = [e for e in all_events if e.is_visible_to_user(user)]
+
+    # Create iCal calendar
+    cal = Calendar()
+    cal.add('prodid', '-//Parliament Chapter Calendar//am-parliament.org//')
+    cal.add('version', '2.0')
+    cal.add('x-wr-calname', f'Chapter Events - {user.get_display_name()}')
+    cal.add('x-wr-caldesc', 'Personal chapter events calendar - automatically updated')
+    cal.add('x-wr-timezone', 'America/Chicago')
+    cal.add('refresh-interval', 'PT1H')  # Suggest 1 hour refresh
+    cal.add('x-published-ttl', 'PT1H')
+
+    # Add each event to the calendar
+    for event in events:
+        ical_event = ICalEvent()
+        ical_event.add('summary', event.title)
+        ical_event.add('dtstart', event.date_time)
+
+        # Calculate end time (default 1 hour if not specified)
+        end_time = event.date_time + timedelta(hours=1)
+        ical_event.add('dtend', end_time)
+
+        # Add description and location
+        description = event.description or ''
+        description += f'\n\nCreated by: {event.created_by.get_display_name()}'
+
+        if event.requires_attendance:
+            description += '\n\n⚠️ Attendance Required'
+
+        ical_event.add('description', description)
+
+        if event.location:
+            ical_event.add('location', event.location)
+
+        # Add unique identifier - IMPORTANT: Must be consistent for updates
+        ical_event.add('uid', f'event-{event.id}@am-parliament.org')
+
+        # Use event's updated timestamp if available, otherwise creation time
+        ical_event.add('dtstamp', event.created_at)
+        ical_event.add('last-modified', event.created_at)
+
+        # Add sequence number for updates (calendar apps use this to detect changes)
+        ical_event.add('sequence', 0)
+
+        cal.add_component(ical_event)
+
+    # Create response with proper headers for subscription
+    response = HttpResponse(cal.to_ical(), content_type='text/calendar; charset=utf-8')
+
+    # IMPORTANT: Don't set Content-Disposition to attachment - that forces download
+    # For subscriptions, we want inline display
+    response['Content-Disposition'] = f'inline; filename="chapter_calendar.ics"'
+
+    # Add cache control headers - allow caching for 1 hour
+    response['Cache-Control'] = 'public, max-age=3600'
+    response['Expires'] = (now + timedelta(hours=1)).strftime('%a, %d %b %Y %H:%M:%S GMT')
+
+    return response
+
+
+@login_required
+def get_calendar_subscription_url(request):
+    """
+    Get or create the user's personal calendar subscription URL
+    Returns JSON with subscription URLs
+    """
+    # Get or create subscription for user
+    subscription = CalendarSubscription.get_or_create_for_user(request.user)
+
+    # Build full URL
+    from django.urls import reverse
+    feed_path = reverse('calendar_subscription_feed', kwargs={'token': subscription.token})
+
+    # Get the request host
+    scheme = 'https' if request.is_secure() else 'http'
+    host = request.get_host()
+
+    # Build URLs
+    http_url = f'{scheme}://{host}{feed_path}'
+    webcal_url = f'webcal://{host}{feed_path}'
+
+    return JsonResponse({
+        'http_url': http_url,
+        'webcal_url': webcal_url,
+        'token': subscription.token,
+        'created_at': subscription.created_at.isoformat(),
+        'last_accessed': subscription.last_accessed.isoformat() if subscription.last_accessed else None,
+        'access_count': subscription.access_count,
+    })
+
+
+@login_required
+def regenerate_calendar_token(request):
+    """
+    Regenerate the user's calendar subscription token
+    Use this if the token is compromised
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    subscription = CalendarSubscription.get_or_create_for_user(request.user)
+    new_token = subscription.regenerate_token()
+
+    # Log the regeneration
+    ActivityLog.log_activity(
+        action_type='security',
+        user=request.user,
+        description=f'{request.user.get_display_name()} regenerated their calendar subscription token',
+        request=request
+    )
+
+    # Build new URLs
+    from django.urls import reverse
+    feed_path = reverse('calendar_subscription_feed', kwargs={'token': new_token})
+    scheme = 'https' if request.is_secure() else 'http'
+    host = request.get_host()
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Calendar subscription token regenerated',
+        'http_url': f'{scheme}://{host}{feed_path}',
+        'webcal_url': f'webcal://{host}{feed_path}',
+        'token': new_token,
+    })

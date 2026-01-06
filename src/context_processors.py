@@ -1,21 +1,29 @@
 """
-Context processors for Parliament system
-Makes data available globally across all templates
+Context processors to make data available to all templates
 """
-from src.notifications import get_unread_announcements
+from src.models_feature_flags import FeatureFlag, PageToggle
 
 
-def unread_announcements(request):
+def feature_flags(request):
     """
-    Add unread announcements to template context
+    Makes feature flags available in all templates.
+
+    Usage in templates:
+        {% if feature_flags.announcements %}
+            <!-- Show announcements -->
+        {% endif %}
     """
-    if request.user.is_authenticated:
-        announcements = get_unread_announcements(request.user)
-        return {
-            'unread_announcements': announcements,
-            'unread_count': len(announcements)
-        }
+    # Get all enabled feature flags
+    enabled_features = {}
+    for flag in FeatureFlag.objects.filter(is_enabled=True):
+        enabled_features[flag.name] = True
+
+    # Get all enabled pages
+    enabled_pages = {}
+    for toggle in PageToggle.objects.filter(is_enabled=True):
+        enabled_pages[toggle.url_name] = True
+
     return {
-        'unread_announcements': [],
-        'unread_count': 0
+        'feature_flags': enabled_features,
+        'enabled_pages': enabled_pages,
     }

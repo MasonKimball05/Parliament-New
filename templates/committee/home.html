@@ -1,50 +1,243 @@
 {% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ committee.name }} - Dashboard{% endblock %}
+
 {% block content %}
 <div class="container mx-auto px-4 py-8">
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h1 class="text-3xl font-bold mb-2">{{ committee.name }}</h1>
-        {% if committee.code %}
-            <p class="text-gray-600 mb-2">Code: <span class="font-semibold">{{ committee.code }}</span></p>
-        {% endif %}
-        
-        {% if committee.role %}
-            <p class="text-gray-700 mb-4">
-                <span class="font-medium">Admin:</span> {{ committee.role.name }}{% if committee_vp %} ({{ committee_vp.name }}){% endif %}
-            </p>
+    <!-- Header Section -->
+    <div class="bg-gradient-to-r from-primary-600 to-primary-800 dark:from-primary-700 dark:to-primary-900 rounded-lg shadow-lg p-6 mb-8 transition-colors duration-200">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div class="flex items-start gap-4">
+                <img src="{% static 'images/beta-seal.webp' %}" alt="Beta Theta Pi Seal"
+                     class="w-16 h-16 rounded-full object-contain bg-white p-2 shadow-md flex-shrink-0">
+                <div>
+                    <h1 class="text-3xl font-bold text-white mb-2">{{ committee.name }}</h1>
+                    {% if committee.code %}
+                        <p class="text-primary-100 text-sm">Committee Code: {{ committee.code }}</p>
+                    {% endif %}
+                    {% if committee_vp %}
+                        <p class="text-primary-100 text-sm mt-1">Led by {{ committee_vp.name }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'committee_index' %}"
+                   class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors text-sm">
+                    ← All Committees
+                </a>
+                <a href="{% url 'committee_detail' committee.code %}"
+                   class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors text-sm">
+                    Full Details
+                </a>
+            </div>
+        </div>
+
+        <!-- User Roles -->
+        {% if is_vp or is_chair or is_advisor %}
+        <div class="flex flex-wrap gap-2 mt-4">
+            {% if is_vp %}
+                <span class="bg-red-500/90 text-white px-3 py-1 rounded-full text-xs font-medium">Vice President</span>
+            {% endif %}
+            {% if is_chair %}
+                <span class="bg-blue-500/90 text-white px-3 py-1 rounded-full text-xs font-medium">Committee Chair</span>
+            {% endif %}
+            {% if is_advisor %}
+                <span class="bg-green-500/90 text-white px-3 py-1 rounded-full text-xs font-medium">Advisor</span>
+            {% endif %}
+        </div>
         {% endif %}
     </div>
 
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-semibold mb-4">Quick Links</h2>
-        <ul class="space-y-2">
-            <li>
-                <a href="{% url 'committee_documents' committee.code %}" class="text-blue-600 hover:text-blue-800 hover:underline">
-                    📄 Documents
-                </a>
-            </li>
-            <li>
-                <a href="{% url 'vote' committee.code %}" class="text-blue-600 hover:text-blue-800 hover:underline">
-                    🗳️ Voting
-                </a>
-            </li>
-            <li>
-                <a href="{% url 'committee_chat' committee.code %}" class="text-blue-600 hover:text-blue-800 hover:underline">
-                    💬 Chat
-                </a>
-            </li>
-            <li>
-                <a href="{% url 'committee_attendance' committee.code %}" class="text-blue-600 hover:text-blue-800 hover:underline">
-                    ✅ Mark Attendance
-                </a>
-            </li>
-            {% if perm and perm.can_manage_members %}
-                <li>
-                    <a href="{% url 'manage_members' committee.code %}" class="text-blue-600 hover:text-blue-800 hover:underline">
-                        👥 Manage Members
-                    </a>
-                </li>
+    <!-- Stats Dashboard -->
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+        <!-- Members -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition-colors duration-200">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats.total_members }}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Members</p>
+                </div>
+                <svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                </svg>
+            </div>
+            <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                {{ stats.voting_members }} can vote
+            </div>
+        </div>
+
+        <!-- Documents -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition-colors duration-200">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats.total_documents }}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Documents</p>
+                </div>
+                <svg class="w-8 h-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Active Votes -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition-colors duration-200">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats.active_votes }}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Active Votes</p>
+                </div>
+                <svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8 transition-colors duration-200">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <a href="{% url 'committee_chat' committee.code %}"
+               class="flex flex-col items-center justify-center p-4 border-2 border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group">
+                <svg class="w-12 h-12 text-blue-600 dark:text-blue-400 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                </svg>
+                <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Chat</span>
+            </a>
+
+            <a href="{% url 'committee_documents' committee.code %}"
+               class="flex flex-col items-center justify-center p-4 border-2 border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors group">
+                <svg class="w-12 h-12 text-purple-600 dark:text-purple-400 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Documents</span>
+            </a>
+
+            <a href="{% url 'vote' committee.code %}"
+               class="flex flex-col items-center justify-center p-4 border-2 border-green-200 dark:border-green-800 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors group">
+                <svg class="w-12 h-12 text-green-600 dark:text-green-400 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                </svg>
+                <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Vote</span>
+            </a>
+
+            {% if can_manage %}
+            <a href="{% url 'manage_members' committee.code %}"
+               class="flex flex-col items-center justify-center p-4 border-2 border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors group">
+                <svg class="w-12 h-12 text-red-600 dark:text-red-400 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                </svg>
+                <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Manage</span>
+            </a>
             {% endif %}
-        </ul>
+
+            <a href="{% url 'minutes' committee.code %}"
+               class="flex flex-col items-center justify-center p-4 border-2 border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors group">
+                <svg class="w-12 h-12 text-indigo-600 dark:text-indigo-400 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Minutes</span>
+            </a>
+
+            <a href="{% url 'upload_document' committee.code %}"
+               class="flex flex-col items-center justify-center p-4 border-2 border-pink-200 dark:border-pink-800 rounded-lg hover:bg-pink-50 dark:hover:bg-pink-900/20 transition-colors group">
+                <svg class="w-12 h-12 text-pink-600 dark:text-pink-400 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Upload</span>
+            </a>
+
+            <a href="{% url 'committee_detail' committee.code %}"
+               class="flex flex-col items-center justify-center p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
+                <svg class="w-12 h-12 text-gray-600 dark:text-gray-400 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Full Details</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Two Column Layout -->
+    <div class="grid md:grid-cols-2 gap-6">
+        <!-- Recent Documents -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">Recent Documents</h2>
+                <a href="{% url 'committee_documents' committee.code %}"
+                   class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
+                    View All →
+                </a>
+            </div>
+
+            {% if recent_documents %}
+                <div class="space-y-3">
+                    {% for doc in recent_documents %}
+                    <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium text-gray-900 dark:text-gray-100 truncate">{{ doc.title }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                {{ doc.uploaded_at|date:"M d, Y" }} • {{ doc.uploaded_by.get_display_name }}
+                            </p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <p class="text-sm">No documents yet</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Recent Votes -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">Recent Votes</h2>
+                <a href="{% url 'vote' committee.code %}"
+                   class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
+                    View All →
+                </a>
+            </div>
+
+            {% if recent_votes %}
+                <div class="space-y-3">
+                    {% for vote in recent_votes %}
+                    <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <svg class="w-5 h-5 {% if vote.is_active %}text-green-600 dark:text-green-400{% else %}text-gray-400 dark:text-gray-500{% endif %} flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium text-gray-900 dark:text-gray-100 truncate">{{ vote.title }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                {{ vote.created_at|date:"M d, Y" }}
+                                {% if vote.is_active %}
+                                    <span class="text-green-600 dark:text-green-400 font-medium">• Active</span>
+                                {% else %}
+                                    <span class="text-gray-400">• Closed</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                    </svg>
+                    <p class="text-sm">No recent votes</p>
+                </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 {% endblock %}

@@ -537,8 +537,17 @@ class UserPreferencesForm(forms.ModelForm):
             "email_events",
             "email_committee_updates",
             "show_announcement_popups",
-            "items_per_page",
             "compact_view",
+            "show_vote_menu",
+            "show_committees_menu",
+            "show_chats_menu",
+            "show_documents_menu",
+            "show_announcements_menu",
+            "show_calendar_menu",
+            "show_legislation_menu",
+            "show_excuses_menu",
+            "show_search_menu",
+            "show_roberts_rules_menu",
         ]
         widgets = {
             "theme": forms.Select(attrs={
@@ -559,13 +568,38 @@ class UserPreferencesForm(forms.ModelForm):
             "show_announcement_popups": forms.CheckboxInput(attrs={
                 "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
             }),
-            "items_per_page": forms.NumberInput(attrs={
-                "class": "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500",
-                "min": "10",
-                "max": "100"
-            }),
             "compact_view": forms.CheckboxInput(attrs={
                 "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+            }),
+            "show_vote_menu": forms.CheckboxInput(attrs={
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+            }),
+            "show_committees_menu": forms.CheckboxInput(attrs={
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+            }),
+            "show_chats_menu": forms.CheckboxInput(attrs={
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+            }),
+            "show_documents_menu": forms.CheckboxInput(attrs={
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+            }),
+            "show_announcements_menu": forms.CheckboxInput(attrs={
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+            }),
+            "show_calendar_menu": forms.CheckboxInput(attrs={
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+            }),
+            "show_legislation_menu": forms.CheckboxInput(attrs={
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+            }),
+            "show_excuses_menu": forms.CheckboxInput(attrs={
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+            }),
+            "show_search_menu": forms.CheckboxInput(attrs={
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+            }),
+            "show_roberts_rules_menu": forms.CheckboxInput(attrs={
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
             }),
         }
         labels = {
@@ -575,7 +609,16 @@ class UserPreferencesForm(forms.ModelForm):
             "email_events": "Upcoming Events",
             "email_committee_updates": "Committee Updates",
             "show_announcement_popups": "Show announcement popups",
-            "items_per_page": "Items per page",
             "compact_view": "Compact view mode",
+            "show_vote_menu": "Show Vote",
+            "show_committees_menu": "Show Committees",
+            "show_chats_menu": "Show Chats",
+            "show_documents_menu": "Show Documents",
+            "show_announcements_menu": "Show Announcements",
+            "show_calendar_menu": "Show Calendar",
+            "show_legislation_menu": "Show Legislation",
+            "show_excuses_menu": "Show My Excuses",
+            "show_search_menu": "Show Search",
+            "show_roberts_rules_menu": "Show Robert's Rules",
         }
 

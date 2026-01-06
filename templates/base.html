@@ -5,13 +5,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Parliament{% endblock %}</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/webp" href="{% static 'images/beta-seal.webp' %}">
+    <link rel="apple-touch-icon" href="{% static 'images/beta-seal.webp' %}">
+
+    <!-- Dark Mode Initialization - MUST run BEFORE Tailwind loads -->
+    <script>
+        // Initialize theme before page renders to prevent flash
+        (function() {
+            const theme = '{{ user.preferences.theme|default:"light" }}';
+            if (theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+
+            // Debug: Log dark mode status
+            console.log('Dark mode initialized:', {
+                theme: theme,
+                hasDarkClass: document.documentElement.classList.contains('dark'),
+                htmlClasses: document.documentElement.className
+            });
+        })();
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
+        // Configure Tailwind AFTER it loads
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
-                        // Loosely inspired by Beta colors - more subtle
                         primary: {
                             50: '#eff6ff',
                             100: '#dbeafe',
@@ -27,10 +53,10 @@
                     }
                 }
             }
-        }
+        };
     </script>
 </head>
-<body class="bg-gray-50 min-h-screen flex flex-col">
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col transition-colors duration-200">
     <!-- Navigation -->
     <nav class="bg-primary-700 text-white shadow-lg">
         <div class="max-w-full mx-auto px-3 sm:px-4 lg:px-6">
@@ -44,24 +70,51 @@
                     {% if user.is_authenticated %}
                         <!-- Desktop Navigation - Condensed -->
                         <div class="hidden xl:flex space-x-1">
+                            {% if user.preferences.show_vote_menu %}
                             <a href="{% url 'vote' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Vote
                             </a>
+                            {% endif %}
+                            {% if user.preferences.show_committees_menu %}
                             <a href="{% url 'committee_index' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Committees
                             </a>
+                            {% endif %}
+                            {% if user.preferences.show_chats_menu %}
                             <a href="{% url 'chat_index' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Chats
                             </a>
+                            {% endif %}
+                            {% if user.preferences.show_documents_menu %}
                             <a href="{% url 'chapter_documents' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Documents
                             </a>
+                            {% endif %}
+                            {% if user.preferences.show_announcements_menu %}
                             <a href="{% url 'announcements' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Announcements
                             </a>
+                            {% endif %}
+                            {% if user.preferences.show_calendar_menu %}
                             <a href="{% url 'calendar' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Calendar
                             </a>
+                            {% endif %}
+                            {% if user.preferences.show_legislation_menu %}
+                            <a href="{% url 'passed_legislation' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
+                                Legislation
+                            </a>
+                            {% endif %}
+                            {% if user.preferences.show_excuses_menu %}
+                            <a href="{% url 'my_excuses' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
+                                My Excuses
+                            </a>
+                            {% endif %}
+                            {% if user.preferences.show_roberts_rules_menu %}
+                            <a href="{% url 'roberts_rules' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
+                                Robert's Rules
+                            </a>
+                            {% endif %}
                             {% if user.is_officer %}
                             <a href="{% url 'officer_home' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Officers
@@ -73,6 +126,7 @@
 
                 <div class="flex items-center space-x-1.5">
                     {% if user.is_authenticated %}
+                        {% if user.preferences.show_search_menu %}
                         <!-- Search Bar - More Compact -->
                         <form method="get" action="{% url 'global_search' %}" class="hidden lg:block">
                             <div class="relative">
@@ -80,9 +134,9 @@
                                     type="text"
                                     name="q"
                                     placeholder="Search..."
-                                    class="w-40 px-3 py-1.5 pl-8 text-sm bg-primary-600 border border-primary-500 text-white placeholder-primary-200 rounded-md focus:outline-none focus:ring-2 focus:ring-white focus:bg-primary-500 focus:w-56 transition-all"
+                                    class="w-40 px-3 py-1.5 pl-8 text-sm bg-primary-600 dark:bg-gray-700 border border-primary-500 dark:border-gray-600 text-white dark:text-gray-100 placeholder-primary-200 dark:placeholder-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-white dark:focus:ring-gray-400 focus:bg-primary-500 dark:focus:bg-gray-600 focus:w-56 transition-all caret-white dark:caret-gray-100"
                                 >
-                                <svg class="absolute left-2 top-2 w-4 h-4 text-primary-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-200 dark:text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                                 </svg>
                             </div>
@@ -94,6 +148,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                             </svg>
                         </a>
+                        {% endif %}
 
                         <!-- Desktop User Menu - More Compact -->
                         <div class="hidden lg:flex items-center space-x-1">
@@ -137,36 +192,56 @@
                 <a href="{% url 'home' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     🏠 Home
                 </a>
+                {% if user.preferences.show_search_menu %}
                 <a href="{% url 'global_search' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     🔍 Search
                 </a>
+                {% endif %}
+                {% if user.preferences.show_vote_menu %}
                 <a href="{% url 'vote' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     🗳️ Vote
                 </a>
+                {% endif %}
+                {% if user.preferences.show_committees_menu %}
                 <a href="{% url 'committee_index' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     👥 Committees
                 </a>
+                {% endif %}
+                {% if user.preferences.show_chats_menu %}
                 <a href="{% url 'chat_index' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     💬 Chats
                 </a>
+                {% endif %}
+                {% if user.preferences.show_documents_menu %}
                 <a href="{% url 'chapter_documents' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📄 Documents
                 </a>
+                {% endif %}
+                {% if user.preferences.show_legislation_menu %}
                 <a href="{% url 'passed_legislation' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📜 Legislation
                 </a>
+                {% endif %}
+                {% if user.preferences.show_announcements_menu %}
                 <a href="{% url 'announcements' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📢 Announcements
                 </a>
+                {% endif %}
+                {% if user.preferences.show_calendar_menu %}
                 <a href="{% url 'calendar' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📅 Calendar
                 </a>
+                {% endif %}
+                {% if user.preferences.show_excuses_menu %}
                 <a href="{% url 'my_excuses' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📝 My Excuses
                 </a>
+                {% endif %}
+                {% if user.preferences.show_roberts_rules_menu %}
                 <a href="{% url 'roberts_rules' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📖 Robert's Rules
                 </a>
+                {% endif %}
                 <a href="{% url 'constitution_bylaws' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📜 Constitution
                 </a>
@@ -252,7 +327,7 @@
     {% if messages %}
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
             {% for message in messages %}
-                <div class="rounded-md p-4 mb-4 {% if message.tags == 'success' %}bg-green-50 border border-green-200 text-green-800{% elif message.tags == 'error' %}bg-red-50 border border-red-200 text-red-800{% elif message.tags == 'warning' %}bg-yellow-50 border border-yellow-200 text-yellow-800{% else %}bg-blue-50 border border-blue-200 text-blue-800{% endif %}">
+                <div class="rounded-md p-4 mb-4 {% if message.tags == 'success' %}bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 text-green-800 dark:text-green-100{% elif message.tags == 'error' %}bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-100{% elif message.tags == 'warning' %}bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-100{% else %}bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-100{% endif %}">
                     <div class="flex">
                         <div class="flex-shrink-0">
                             {% if message.tags == 'success' %}
@@ -281,45 +356,45 @@
     <!-- Email Requirement Modal -->
     {% if user.is_authenticated and not user.email %}
     <div id="emailModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: flex;">
-        <div class="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4 p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full mx-4 p-6 transition-colors duration-200">
             <div class="flex items-center justify-center mb-4">
-                <div class="bg-red-100 rounded-full p-3">
-                    <svg class="w-8 h-8 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                <div class="bg-red-100 dark:bg-red-900 rounded-full p-3">
+                    <svg class="w-8 h-8 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
                     </svg>
                 </div>
             </div>
-            <h2 class="text-2xl font-bold text-gray-900 text-center mb-2">Email Required</h2>
-            <p class="text-gray-600 text-center mb-4">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 text-center mb-2">Email Required</h2>
+            <p class="text-gray-600 dark:text-gray-300 text-center mb-4">
                 Please provide an email address to receive important notifications and updates.
             </p>
-            <p class="text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
+            <p class="text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-md p-3 mb-4">
                 <strong>Note:</strong> Please use your Samford email address (@samford.edu)
             </p>
             <form id="emailForm" method="POST" action="{% url 'set_email' %}" class="space-y-4">
                 {% csrf_token %}
                 <div>
-                    <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                    <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
                     <input
                         type="email"
                         id="email"
                         name="email"
                         required
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="your.name@samford.edu"
                     >
                 </div>
                 <div class="flex space-x-3">
                     <button
                         type="submit"
-                        class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium"
+                        class="flex-1 bg-blue-600 dark:bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition font-medium"
                     >
                         Set Email
                     </button>
                     <button
                         type="button"
                         onclick="closeEmailModal()"
-                        class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition font-medium"
+                        class="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition font-medium"
                     >
                         Skip for Now
                     </button>
@@ -394,9 +469,9 @@
     </main>
 
     <!-- Footer -->
-    <footer class="bg-white border-t border-gray-200 mt-auto">
+    <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto transition-colors duration-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <p class="text-center text-gray-500 text-sm">
+            <p class="text-center text-gray-500 dark:text-gray-400 text-sm">
                 &copy; {% now "Y" %} Parliament System. All rights reserved.
             </p>
         </div>

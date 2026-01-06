@@ -3,8 +3,11 @@ from django.contrib.auth.decorators import login_required
 from src.models import Announcement
 from datetime import datetime, timedelta
 from django.utils import timezone
+from src.feature_flag_decorators import require_feature_flag, require_page_enabled
 
 @login_required
+@require_feature_flag('announcements')
+@require_page_enabled('announcements')
 def announcements_view(request):
     """View all announcements from the past year with filtering and search"""
     from django.db.models import Q

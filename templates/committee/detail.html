@@ -7,55 +7,66 @@
 <div class="container mx-auto px-4 py-8">
     <!-- Back to Committees Link -->
     <div class="mb-6">
-        <a href="{% url 'committee_index' %}" class="text-blue-600 hover:text-blue-800">← Back to All Committees</a>
+        <a href="{% url 'committee_index' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">← Back to All Committees</a>
     </div>
 
     <!-- Committee Header -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div class="flex justify-between items-start mb-4">
-            <div class="flex items-start gap-4 flex-1">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 mb-6 transition-colors duration-200">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4">
+            <div class="flex items-start gap-3 sm:gap-4 flex-1">
                 <img src="{% static 'images/beta-seal.webp' %}" alt="Beta Theta Pi Seal" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-1 shadow-md flex-shrink-0">
-                <div>
-                    <h1 class="text-3xl font-bold mb-2">{{ committee.name }}</h1>
+                <div class="flex-1 min-w-0">
+                    <h1 class="text-2xl sm:text-3xl font-bold mb-2 break-words text-gray-900 dark:text-gray-100">{{ committee.name }}</h1>
                     {% if committee.code %}
-                        <p class="text-gray-600 mb-2">Code: <span class="font-semibold">{{ committee.code }}</span></p>
+                        <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-2">Code: <span class="font-semibold">{{ committee.code }}</span></p>
                     {% endif %}
 
                     {% if committee.role %}
-                        <p class="text-gray-700 mb-4">
+                        <p class="text-sm sm:text-base text-gray-700 dark:text-gray-300 mb-4">
                             <span class="font-medium">Admin:</span> {{ committee.role.name }}{% if committee_vp %} ({{ committee_vp.name }}){% endif %}
                         </p>
                     {% endif %}
                 </div>
             </div>
 
-            <!-- Chat Button -->
-            <a href="{% url 'committee_chat' committee.code %}"
-               class="px-6 py-3 rounded-lg text-white font-semibold flex items-center gap-2 hover:opacity-90 transition flex-shrink-0 ml-4"
-               style="background-color: #003DA5;">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                </svg>
-                Chat
-            </a>
+            <!-- Chat Buttons -->
+            <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <a href="{% url 'committee_chat' committee.code %}"
+                   class="px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg bg-blue-700 dark:bg-blue-600 text-white font-semibold flex items-center justify-center gap-2 hover:bg-blue-800 dark:hover:bg-blue-700 transition flex-shrink-0 text-sm sm:text-base">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                    </svg>
+                    Chat
+                </a>
+                {% if is_chair or is_vp or user.is_admin %}
+                    <a href="{% url 'manage_chat_permissions' committee.code %}"
+                       class="px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg bg-blue-600 dark:bg-blue-700 text-white font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 dark:hover:bg-blue-800 transition flex-shrink-0 text-sm sm:text-base">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                        <span class="hidden sm:inline">Chat Guests</span>
+                        <span class="sm:hidden">Guests</span>
+                    </a>
+                {% endif %}
+            </div>
         </div>
 
         <!-- User's Roles -->
-        <div class="flex gap-2 ml-20">
+        <div class="flex flex-wrap gap-2 sm:ml-16 md:ml-20">
             {% if is_vp %}
-                <span class="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">Vice President</span>
+                <span class="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-3 py-1 rounded-full text-xs sm:text-sm font-medium">Vice President</span>
             {% endif %}
             {% if is_chair %}
-                <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">Chair</span>
+                <span class="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-3 py-1 rounded-full text-xs sm:text-sm font-medium">Chair</span>
             {% endif %}
             {% if is_advisor %}
-                <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">Advisor</span>
+                <span class="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-3 py-1 rounded-full text-xs sm:text-sm font-medium">Advisor</span>
             {% endif %}
             {% if is_voting_member %}
-                <span class="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">Voting Member</span>
+                <span class="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 px-3 py-1 rounded-full text-xs sm:text-sm font-medium">Voting Member</span>
             {% endif %}
             {% if is_member and not is_chair and not is_advisor %}
-                <span class="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm font-medium">Member</span>
+                <span class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 px-3 py-1 rounded-full text-xs sm:text-sm font-medium">Member</span>
             {% endif %}
         </div>
     </div>
@@ -63,11 +74,11 @@
     <!-- Committee Information Grid -->
     <div class="grid md:grid-cols-2 gap-6 mb-6">
         <!-- Chairs -->
-        <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold">Chairs</h2>
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Chairs</h2>
                 {% if can_manage %}
-                    <button onclick="openManageModal('chair')" class="text-sm bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
+                    <button onclick="openManageModal('chair')" class="text-sm bg-blue-500 dark:bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-600 dark:hover:bg-blue-700">
                         + Add
                     </button>
                 {% endif %}
@@ -75,9 +86,9 @@
             {% if committee.chairs.all %}
                 <ul class="space-y-2">
                     {% for chair in committee.chairs.all %}
-                        <li class="flex items-center justify-between">
+                        <li class="flex items-center justify-between text-gray-900 dark:text-gray-100">
                             <div class="flex items-center">
-                                <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                                <span class="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full mr-2"></span>
                                 {{ chair.name }}
                             </div>
                             {% if can_manage %}
@@ -85,23 +96,23 @@
                                     {% csrf_token %}
                                     <input type="hidden" name="user_id" value="{{ chair.pk }}">
                                     <input type="hidden" name="role_type" value="chair">
-                                    <button type="submit" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
+                                    <button type="submit" class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm">Remove</button>
                                 </form>
                             {% endif %}
                         </li>
                     {% endfor %}
                 </ul>
             {% else %}
-                <p class="text-gray-500 italic">None</p>
+                <p class="text-gray-500 dark:text-gray-400 italic">None</p>
             {% endif %}
         </div>
 
         <!-- Advisors -->
-        <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold">Advisors</h2>
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Advisors</h2>
                 {% if can_manage %}
-                    <button onclick="openManageModal('advisor')" class="text-sm bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">
+                    <button onclick="openManageModal('advisor')" class="text-sm bg-green-500 dark:bg-green-600 text-white px-3 py-1 rounded hover:bg-green-600 dark:hover:bg-green-700">
                         + Add
                     </button>
                 {% endif %}
@@ -109,9 +120,9 @@
             {% if committee.advisors.all %}
                 <ul class="space-y-2">
                     {% for advisor in committee.advisors.all %}
-                        <li class="flex items-center justify-between">
+                        <li class="flex items-center justify-between text-gray-900 dark:text-gray-100">
                             <div class="flex items-center">
-                                <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                                <span class="w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full mr-2"></span>
                                 {{ advisor.name }}
                             </div>
                             {% if can_manage %}
@@ -119,23 +130,23 @@
                                     {% csrf_token %}
                                     <input type="hidden" name="user_id" value="{{ advisor.pk }}">
                                     <input type="hidden" name="role_type" value="advisor">
-                                    <button type="submit" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
+                                    <button type="submit" class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm">Remove</button>
                                 </form>
                             {% endif %}
                         </li>
                     {% endfor %}
                 </ul>
             {% else %}
-                <p class="text-gray-500 italic">None</p>
+                <p class="text-gray-500 dark:text-gray-400 italic">None</p>
             {% endif %}
         </div>
 
         <!-- Voting Members -->
-        <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold">Voting Members</h2>
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Voting Members</h2>
                 {% if can_manage %}
-                    <button onclick="openManageModal('voter')" class="text-sm bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600">
+                    <button onclick="openManageModal('voter')" class="text-sm bg-purple-500 dark:bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-600 dark:hover:bg-purple-700">
                         + Add
                     </button>
                 {% endif %}
@@ -143,9 +154,9 @@
             {% if committee.voting_members.all %}
                 <ul class="space-y-2">
                     {% for voter in committee.voting_members.all %}
-                        <li class="flex items-center justify-between">
+                        <li class="flex items-center justify-between text-gray-900 dark:text-gray-100">
                             <div class="flex items-center">
-                                <span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                                <span class="w-2 h-2 bg-purple-500 dark:bg-purple-400 rounded-full mr-2"></span>
                                 {{ voter.name }}
                             </div>
                             {% if can_manage %}
@@ -153,23 +164,23 @@
                                     {% csrf_token %}
                                     <input type="hidden" name="user_id" value="{{ voter.pk }}">
                                     <input type="hidden" name="role_type" value="voter">
-                                    <button type="submit" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
+                                    <button type="submit" class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm">Remove</button>
                                 </form>
                             {% endif %}
                         </li>
                     {% endfor %}
                 </ul>
             {% else %}
-                <p class="text-gray-500 italic">None</p>
+                <p class="text-gray-500 dark:text-gray-400 italic">None</p>
             {% endif %}
         </div>
 
         <!-- Members -->
-        <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold">Members ({{ committee.members.count }})</h2>
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Members ({{ committee.members.count }})</h2>
                 {% if can_manage %}
-                    <button onclick="openManageModal('member')" class="text-sm bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600">
+                    <button onclick="openManageModal('member')" class="text-sm bg-gray-500 dark:bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-600 dark:hover:bg-gray-700">
                         + Add
                     </button>
                 {% endif %}
@@ -177,9 +188,9 @@
             {% if committee.members.all %}
                 <div class="space-y-2 max-h-64 overflow-y-auto">
                     {% for member in committee.members.all %}
-                        <div class="flex items-center justify-between">
+                        <div class="flex items-center justify-between text-gray-900 dark:text-gray-100">
                             <div class="flex items-center">
-                                <span class="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
+                                <span class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full mr-2"></span>
                                 {{ member.name }}
                             </div>
                             {% if can_manage %}
@@ -187,27 +198,27 @@
                                     {% csrf_token %}
                                     <input type="hidden" name="user_id" value="{{ member.pk }}">
                                     <input type="hidden" name="role_type" value="member">
-                                    <button type="submit" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
+                                    <button type="submit" class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm">Remove</button>
                                 </form>
                             {% endif %}
                         </div>
                     {% endfor %}
                 </div>
             {% else %}
-                <p class="text-gray-500 italic">No members assigned</p>
+                <p class="text-gray-500 dark:text-gray-400 italic">No members assigned</p>
             {% endif %}
         </div>
     </div>
 
     <!-- Actions Section -->
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h3 class="text-xl font-semibold mb-4">Actions</h3>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+        <h3 class="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Actions</h3>
 
         <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             <!-- Chair Actions -->
             {% if is_chair or can_manage %}
                 <a href="{% url 'upload_document' committee.code %}"
-                   class="flex items-center justify-center bg-blue-500 text-white px-4 py-3 rounded hover:bg-blue-600 transition-colors">
+                   class="flex items-center justify-center bg-blue-500 dark:bg-blue-600 text-white px-4 py-3 rounded hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                     </svg>
@@ -215,7 +226,7 @@
                 </a>
 
                 <a href="{% url 'create_committee_vote' committee.code %}"
-                   class="flex items-center justify-center bg-green-500 text-white px-4 py-3 rounded hover:bg-green-600 transition-colors">
+                   class="flex items-center justify-center bg-green-500 dark:bg-green-600 text-white px-4 py-3 rounded hover:bg-green-600 dark:hover:bg-green-700 transition-colors">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
                     </svg>
@@ -223,7 +234,7 @@
                 </a>
 
                 <a href="{% url 'push_to_chapter' committee.code %}"
-                   class="flex items-center justify-center bg-purple-500 text-white px-4 py-3 rounded hover:bg-purple-600 transition-colors">
+                   class="flex items-center justify-center bg-purple-500 dark:bg-purple-600 text-white px-4 py-3 rounded hover:bg-purple-600 dark:hover:bg-purple-700 transition-colors">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
                     </svg>
@@ -231,18 +242,26 @@
                 </a>
 
                 <a href="{% url 'minutes' committee.code %}"
-                   class="flex items-center justify-center bg-yellow-500 text-white px-4 py-3 rounded hover:bg-yellow-600 transition-colors">
+                   class="flex items-center justify-center bg-yellow-500 dark:bg-yellow-600 text-white px-4 py-3 rounded hover:bg-yellow-600 dark:hover:bg-yellow-700 transition-colors">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                     </svg>
                     Record Minutes
+                </a>
+
+                <a href="{% url 'committee_attendance' committee.code %}"
+                   class="flex items-center justify-center bg-indigo-500 dark:bg-indigo-600 text-white px-4 py-3 rounded hover:bg-indigo-600 dark:hover:bg-indigo-700 transition-colors">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                    </svg>
+                    Take Attendance
                 </a>
             {% endif %}
 
             <!-- Member Actions -->
             {% if permissions.can_view_docs %}
                 <a href="{% url 'committee_documents' committee.code %}"
-                   class="flex items-center justify-center bg-gray-500 text-white px-4 py-3 rounded hover:bg-gray-600 transition-colors">
+                   class="flex items-center justify-center bg-gray-500 dark:bg-gray-600 text-white px-4 py-3 rounded hover:bg-gray-600 dark:hover:bg-gray-700 transition-colors">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
@@ -252,7 +271,7 @@
 
             {% if permissions.can_vote %}
                 <a href="{% url 'vote' committee.code %}"
-                   class="flex items-center justify-center bg-indigo-500 text-white px-4 py-3 rounded hover:bg-indigo-600 transition-colors">
+                   class="flex items-center justify-center bg-indigo-500 dark:bg-indigo-600 text-white px-4 py-3 rounded hover:bg-indigo-600 dark:hover:bg-indigo-700 transition-colors">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
                     </svg>
@@ -262,21 +281,21 @@
         </div>
 
         {% if not is_chair and not can_manage and not permissions.can_view_docs and not permissions.can_vote %}
-            <p class="text-gray-500 italic">No actions available</p>
+            <p class="text-gray-500 dark:text-gray-400 italic">No actions available</p>
         {% endif %}
     </div>
 
     <!-- Kai Reports Section (Only for Kai Committee Chairs) -->
     {% if committee.code == 'KAI' and is_chair or committee.code == 'KAI' and user.is_admin %}
-    <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-6 transition-colors duration-200">
         <div class="flex justify-between items-center mb-4">
             <div>
-                <h3 class="text-xl font-semibold">Recent Kai Reports</h3>
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Recent Kai Reports</h3>
                 {% if kai_report_count > 0 %}
-                <p class="text-sm text-yellow-600 mt-1">{{ kai_report_count }} pending report{{ kai_report_count|pluralize }}</p>
+                <p class="text-sm text-yellow-600 dark:text-yellow-500 mt-1">{{ kai_report_count }} pending report{{ kai_report_count|pluralize }}</p>
                 {% endif %}
             </div>
-            <a href="{% url 'view_kai_reports' %}" class="text-sm bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+            <a href="{% url 'view_kai_reports' %}" class="text-sm bg-blue-500 dark:bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-600 dark:hover:bg-blue-700">
                 View All Reports
             </a>
         </div>
@@ -284,17 +303,17 @@
         {% if kai_reports %}
         <div class="space-y-3">
             {% for report in kai_reports %}
-            <div class="border-l-4 p-4 rounded-r-lg {% if report.status == 'pending' %}border-yellow-500 bg-yellow-50{% else %}border-green-500 bg-green-50{% endif %}">
+            <div class="border-l-4 p-4 rounded-r-lg {% if report.status == 'pending' %}border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20{% else %}border-green-500 bg-green-50 dark:bg-green-900/20{% endif %}">
                 <div class="flex justify-between items-start">
                     <div class="flex-1">
                         <div class="flex items-center space-x-2 mb-1">
-                            <h4 class="font-semibold text-gray-800">{{ report.title }}</h4>
-                            <span class="px-2 py-1 rounded text-xs font-semibold {% if report.status == 'pending' %}bg-yellow-200 text-yellow-800{% else %}bg-green-200 text-green-800{% endif %}">
+                            <h4 class="font-semibold text-gray-800 dark:text-gray-200">{{ report.title }}</h4>
+                            <span class="px-2 py-1 rounded text-xs font-semibold {% if report.status == 'pending' %}bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200{% else %}bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200{% endif %}">
                                 {{ report.get_status_display }}
                             </span>
                         </div>
-                        <p class="text-sm text-gray-600 mb-2">{{ report.description|truncatewords:20 }}</p>
-                        <div class="flex flex-wrap gap-3 text-xs text-gray-500">
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ report.description|truncatewords:20 }}</p>
+                        <div class="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
                             <span>By: {{ report.submitted_by.name }}</span>
                             {% if report.targeted_to %}
                             <span>• To: {{ report.targeted_to.name }}</span>
@@ -305,7 +324,7 @@
                             {% endif %}
                         </div>
                     </div>
-                    <a href="{% url 'manage_kai_report' report.id %}" class="ml-4 text-sm bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700">
+                    <a href="{% url 'manage_kai_report' report.id %}" class="ml-4 text-sm bg-gray-600 dark:bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-700 dark:hover:bg-gray-800">
                         Manage
                     </a>
                 </div>
@@ -313,34 +332,34 @@
             {% endfor %}
         </div>
         {% else %}
-        <p class="text-gray-500 text-center py-8 italic">No recent reports to display</p>
+        <p class="text-gray-500 dark:text-gray-400 text-center py-8 italic">No recent reports to display</p>
         {% endif %}
     </div>
     {% endif %}
 </div>
 
 <!-- Add Member Modal -->
-<div id="manageModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+<div id="manageModal" class="hidden fixed inset-0 bg-gray-600 dark:bg-gray-900 bg-opacity-50 dark:bg-opacity-70 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border border-gray-300 dark:border-gray-600 w-96 shadow-lg rounded-md bg-white dark:bg-gray-800 transition-colors duration-200">
         <div class="mt-3">
-            <h3 class="text-lg font-medium text-gray-900 mb-4" id="modalTitle">Add Member</h3>
+            <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4" id="modalTitle">Add Member</h3>
             <form method="post" action="{% url 'committee_add_member' committee.code %}">
                 {% csrf_token %}
                 <input type="hidden" name="role_type" id="roleType">
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Select User</label>
-                    <select name="user_id" id="userSelect" class="w-full border border-gray-300 rounded-md px-3 py-2" required>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select User</label>
+                    <select name="user_id" id="userSelect" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2" required>
                         <option value="">Choose a user...</option>
                     </select>
-                    <p class="text-xs text-gray-500 mt-1" id="voterNote" style="display: none;">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" id="voterNote" style="display: none;">
                         Only current members and chairs can be added as voting members.
                     </p>
                 </div>
                 <div class="flex justify-end gap-2">
-                    <button type="button" onclick="closeManageModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
+                    <button type="button" onclick="closeManageModal()" class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-400 dark:hover:bg-gray-700">
                         Cancel
                     </button>
-                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    <button type="submit" class="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded hover:bg-blue-600 dark:hover:bg-blue-700">
                         Add
                     </button>
                 </div>

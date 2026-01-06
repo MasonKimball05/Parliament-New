@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Admin v2 Dashboard - Parliament{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-red-600 to-red-800 dark:from-red-700 dark:to-red-900 rounded-lg shadow-lg p-6 mb-8 transition-colors duration-200">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-white mb-2">Admin v2 Control Panel</h1>
+                <p class="text-red-100">Advanced site administration and feature management</p>
+            </div>
+            <div class="flex gap-3">
+                <a href="{% url 'home' %}"
+                   class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors">
+                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                    </svg>
+                    Home
+                </a>
+                <a href="{% url 'admin_v2_logout' %}"
+                   class="px-4 py-2 bg-red-900/50 hover:bg-red-900/70 text-white rounded-lg transition-colors">
+                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                    </svg>
+                    Logout
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Users Stats -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Users</h3>
+                <svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                </svg>
+            </div>
+            <div class="space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Total:</span>
+                    <span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.users.total }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Active:</span>
+                    <span class="font-semibold text-green-600 dark:text-green-400">{{ stats.users.active }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Officers:</span>
+                    <span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.users.officers }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Members:</span>
+                    <span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.users.members }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Legislation Stats -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Legislation</h3>
+                <svg class="w-8 h-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            <div class="space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Total:</span>
+                    <span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.legislation.total }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Draft:</span>
+                    <span class="font-semibold text-yellow-600 dark:text-yellow-400">{{ stats.legislation.draft }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Passed:</span>
+                    <span class="font-semibold text-green-600 dark:text-green-400">{{ stats.legislation.passed }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Events Stats -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Events</h3>
+                <svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            <div class="space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Total:</span>
+                    <span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.events.total }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Upcoming:</span>
+                    <span class="font-semibold text-blue-600 dark:text-blue-400">{{ stats.events.upcoming }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Past:</span>
+                    <span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.events.past }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Committees Stats -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Committees</h3>
+                <svg class="w-8 h-8 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+            </div>
+            <div class="space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Total:</span>
+                    <span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.committees.total }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Active:</span>
+                    <span class="font-semibold text-green-600 dark:text-green-400">{{ stats.committees.active }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Announcements Stats -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Announcements</h3>
+                <svg class="w-8 h-8 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path>
+                </svg>
+            </div>
+            <div class="space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Total:</span>
+                    <span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.announcements.total }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Active:</span>
+                    <span class="font-semibold text-green-600 dark:text-green-400">{{ stats.announcements.active }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Security Stats -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Security</h3>
+                <svg class="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                </svg>
+            </div>
+            <div class="space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Total Logins:</span>
+                    <span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.security.total_logins }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Recent Alerts:</span>
+                    <span class="font-semibold text-red-600 dark:text-red-400">{{ stats.security.recent_alerts }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feature Flags Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8 transition-colors duration-200">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+            </svg>
+            Feature Flags
+        </h2>
+
+        {% if feature_flags %}
+            {% for category_name, flags in feature_flags.items %}
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-3">{{ category_name }}</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {% for flag in flags %}
+                    <div class="border {% if flag.is_enabled %}border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20{% else %}border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20{% endif %} rounded-lg p-4 transition-colors duration-200">
+                        <div class="flex items-start justify-between mb-2">
+                            <div class="flex-1">
+                                <h4 class="font-semibold text-gray-900 dark:text-gray-100">{{ flag.display_name }}</h4>
+                                <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">{{ flag.description }}</p>
+                            </div>
+                            <form method="post" action="{% url 'toggle_feature_flag' flag.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="ml-2 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 {% if flag.is_enabled %}bg-green-600 dark:bg-green-500{% else %}bg-gray-200 dark:bg-gray-700{% endif %}">
+                                    <span class="translate-x-0 inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-300 shadow ring-0 transition duration-200 ease-in-out {% if flag.is_enabled %}translate-x-5{% else %}translate-x-0{% endif %}"></span>
+                                </button>
+                            </form>
+                        </div>
+                        {% if flag.last_toggled_by %}
+                        <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                            Last toggled by {{ flag.last_toggled_by }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-center py-12 text-gray-500 dark:text-gray-400">
+                <p>No feature flags configured yet.</p>
+                <p class="text-sm mt-2">Feature flags will appear here once created in the database.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Page Toggles Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8 transition-colors duration-200">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+            </svg>
+            Page Toggles
+        </h2>
+
+        {% if page_toggles %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% for toggle in page_toggles %}
+                <div class="border {% if toggle.is_enabled %}border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20{% else %}border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20{% endif %} rounded-lg p-4 transition-colors duration-200">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-gray-900 dark:text-gray-100">{{ toggle.display_name }}</h4>
+                            <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">URL: {{ toggle.url_name }}</p>
+                            {% if toggle.description %}
+                            <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">{{ toggle.description }}</p>
+                            {% endif %}
+                        </div>
+                        <form method="post" action="{% url 'toggle_page' toggle.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="ml-2 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 {% if toggle.is_enabled %}bg-green-600 dark:bg-green-500{% else %}bg-gray-200 dark:bg-gray-700{% endif %}">
+                                <span class="translate-x-0 inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-300 shadow ring-0 transition duration-200 ease-in-out {% if toggle.is_enabled %}translate-x-5{% else %}translate-x-0{% endif %}"></span>
+                            </button>
+                        </form>
+                    </div>
+                    {% if toggle.last_toggled_by %}
+                    <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        Last toggled by {{ toggle.last_toggled_by }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-12 text-gray-500 dark:text-gray-400">
+                <p>No page toggles configured yet.</p>
+                <p class="text-sm mt-2">Page toggles will appear here once created in the database.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Recent Activity Logs -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+            </svg>
+            Recent Activity
+        </h2>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-700/50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Time</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">User</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Action</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for log in recent_logs %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {{ log.timestamp|date:"m/d H:i" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                            {{ log.user.get_display_name }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {{ log.action_type }}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                            {{ log.description|truncatewords:15 }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                            No activity logs found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

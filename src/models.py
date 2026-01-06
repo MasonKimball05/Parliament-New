@@ -172,16 +172,19 @@ class UserPreferences(models.Model):
     show_announcement_popups = models.BooleanField(default=True, help_text='Show in-app popups for announcements')
 
     # Display Preferences
-    items_per_page = models.IntegerField(default=20, help_text='Number of items to display per page in lists')
     compact_view = models.BooleanField(default=False, help_text='Use compact view for lists and tables')
 
-    # Menu Customization
+    # Menu Customization (users can select up to 7 items)
     show_vote_menu = models.BooleanField(default=True, help_text='Show Vote link in navigation menu')
     show_committees_menu = models.BooleanField(default=True, help_text='Show Committees link in navigation menu')
-    show_chats_menu = models.BooleanField(default=True, help_text='Show Chats link in navigation menu')
+    show_chats_menu = models.BooleanField(default=False, help_text='Show Chats link in navigation menu')
     show_documents_menu = models.BooleanField(default=True, help_text='Show Documents link in navigation menu')
     show_announcements_menu = models.BooleanField(default=True, help_text='Show Announcements link in navigation menu')
     show_calendar_menu = models.BooleanField(default=True, help_text='Show Calendar link in navigation menu')
+    show_legislation_menu = models.BooleanField(default=True, help_text='Show Legislation link in navigation menu')
+    show_excuses_menu = models.BooleanField(default=False, help_text='Show My Excuses link in navigation menu')
+    show_search_menu = models.BooleanField(default=True, help_text='Show Search link in navigation menu')
+    show_roberts_rules_menu = models.BooleanField(default=False, help_text='Show Robert\'s Rules link in navigation menu')
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -665,6 +668,7 @@ class Committee(models.Model):
     role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True, related_name="committees")
     created_at = models.DateTimeField(auto_now_add=True)
     committee_id = models.IntegerField(unique=True, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -1244,6 +1248,94 @@ class ChatChannel(models.Model):
         except ChatReadReceipt.DoesNotExist:
             return self.messages.filter(is_deleted=False).count()
 
+    def can_read(self, user):
+        """Check if user can read messages in this channel"""
+        if not self.is_active:
+            return False
+
+        # Committee members always have read access
+        if self.committee and self.committee.is_member(user):
+            return True
+
+        # Admins always have access
+        if user.is_admin:
+            return True
+
+        # Check if user has specific permission
+        if self.access_type == 'open':
+            return True
+
+        if self.access_type == 'restricted':
+            # Check for explicit permission with can_read=True
+            perm = ChatChannelPermission.objects.filter(
+                channel=self,
+                user=user,
+                can_read=True
+            ).first()
+            return perm is not None
+
+        return False
+
+    def can_write(self, user):
+        """Check if user can send messages in this channel"""
+        if not self.is_active:
+            return False
+
+        # Committee members always have write access
+        if self.committee and self.committee.is_member(user):
+            return True
+
+        # Admins always have access
+        if user.is_admin:
+            return True
+
+        # Check if user has specific permission
+        if self.access_type == 'open':
+            return True
+
+        if self.access_type == 'restricted':
+            # Check for explicit permission with can_write=True
+            perm = ChatChannelPermission.objects.filter(
+                channel=self,
+                user=user,
+                can_write=True
+            ).first()
+            return perm is not None
+
+        return False
+
+    def can_delete_messages(self, user):
+        """Check if user can delete their own messages in this channel"""
+        if not self.is_active:
+            return False
+
+        # Committee members always have delete access
+        if self.committee and self.committee.is_member(user):
+            return True
+
+        # Admins always have access
+        if user.is_admin:
+            return True
+
+        # Chairs can always delete
+        if self.committee and self.committee.is_chair(user):
+            return True
+
+        # Check if user has specific permission
+        if self.access_type == 'open':
+            return True
+
+        if self.access_type == 'restricted':
+            # Check for explicit permission with can_delete=True
+            perm = ChatChannelPermission.objects.filter(
+                channel=self,
+                user=user,
+                can_delete=True
+            ).first()
+            return perm is not None
+
+        return False
+
 
 class ChatChannelPermission(models.Model):
     """Defines who has access to a restricted channel"""
@@ -1275,6 +1367,11 @@ class ChatChannelPermission(models.Model):
 
     # Officer-only access
     officers_only = models.BooleanField(default=False, help_text='Only officers can access')
+
+    # Read/Write permissions for guest users (non-committee members)
+    can_read = models.BooleanField(default=True, help_text='User can read messages in this channel')
+    can_write = models.BooleanField(default=True, help_text='User can send messages in this channel')
+    can_delete = models.BooleanField(default=False, help_text='User can delete their own messages in this channel')
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -2092,3 +2189,7 @@ class LoginAlert(models.Model):
 
     def __str__(self):
         return f"{self.get_alert_type_display()} - {self.user.name} - {self.get_severity_display()}"
+
+
+# Import feature flags models
+from src.models_feature_flags import FeatureFlag, PageToggle

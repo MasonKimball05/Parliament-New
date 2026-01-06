@@ -3,30 +3,30 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <!-- Header -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 transition-colors duration-200">
         <div class="flex items-center justify-between mb-4">
             <div>
-                <h1 class="text-3xl font-bold">{{ committee.name }}</h1>
-                <p class="text-gray-600 mt-1">Committee Attendance - {{ today|date:"l, F j, Y" }}</p>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ committee.name }}</h1>
+                <p class="text-gray-600 dark:text-gray-400 mt-1">Committee Attendance - {{ today|date:"l, F j, Y" }}</p>
             </div>
-            <a href="{% url 'committee_home' committee.code %}"
-               class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+            <a href="{% url 'committee_detail' committee.code %}"
+               class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                 ← Back to Committee
             </a>
         </div>
 
         <!-- Attendance Statistics -->
-        <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+        <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg transition-colors duration-200">
             <div class="flex items-center gap-6">
                 <div>
-                    <span class="text-2xl font-bold text-blue-600">{{ present_count }}</span>
-                    <span class="text-gray-600"> / {{ total_members }}</span>
-                    <p class="text-sm text-gray-500">Present Today</p>
+                    <span class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ present_count }}</span>
+                    <span class="text-gray-600 dark:text-gray-400"> / {{ total_members }}</span>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Present Today</p>
                 </div>
                 {% if is_officer %}
                 <div class="ml-auto">
                     <a href="{% url 'committee_attendance_history' committee.code %}"
-                       class="text-blue-600 hover:text-blue-800 text-sm hover:underline">
+                       class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm hover:underline transition-colors">
                         View Attendance History →
                     </a>
                 </div>
@@ -36,8 +36,8 @@
     </div>
 
     <!-- Attendance Form -->
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-semibold mb-4">Mark Committee Members Present</h2>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+        <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Mark Committee Members Present</h2>
 
         <form method="post" class="space-y-4">
             {% csrf_token %}
@@ -46,40 +46,40 @@
             <!-- Member List -->
             <div class="space-y-2">
                 {% for data in member_data %}
-                <div class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div class="flex items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                     <label class="flex items-center gap-3 flex-1 cursor-pointer">
                         <input type="checkbox"
                                name="present"
                                value="{{ data.user.user_id }}"
                                {% if data.is_present %}checked{% endif %}
-                               class="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
+                               class="w-5 h-5 text-blue-600 dark:bg-gray-700 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400">
                         <div class="flex-1">
-                            <div class="font-medium text-gray-900">{{ data.user.get_display_name }}</div>
+                            <div class="font-medium text-gray-900 dark:text-gray-100">{{ data.user.get_display_name }}</div>
                             {% if data.attendance_record %}
-                            <div class="text-xs text-gray-500">
+                            <div class="text-xs text-gray-500 dark:text-gray-400">
                                 Marked by {{ data.attendance_record.marked_by.name }} at {{ data.attendance_record.marked_at|date:"g:i A" }}
                             </div>
                             {% endif %}
                         </div>
                         {% if data.is_present %}
-                        <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
+                        <span class="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs font-semibold rounded-full">
                             Present
                         </span>
                         {% endif %}
                     </label>
                 </div>
                 {% empty %}
-                <p class="text-gray-500 text-center py-4">No active members in this committee.</p>
+                <p class="text-gray-500 dark:text-gray-400 text-center py-4">No active members in this committee.</p>
                 {% endfor %}
             </div>
 
             <!-- Submit Button -->
-            <div class="flex items-center justify-between pt-4 border-t">
-                <p class="text-sm text-gray-600">
+            <div class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                <p class="text-sm text-gray-600 dark:text-gray-400">
                     Check the boxes for members who are present. Unchecked members will be removed from today's attendance.
                 </p>
                 <button type="submit"
-                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                        class="px-6 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors font-medium">
                     Update Attendance
                 </button>
             </div>
@@ -87,15 +87,15 @@
     </div>
 
     <!-- Info Box -->
-    <div class="mt-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg">
+    <div class="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 dark:border-yellow-600 rounded-r-lg transition-colors duration-200">
         <div class="flex">
             <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                <svg class="h-5 w-5 text-yellow-400 dark:text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
                 </svg>
             </div>
             <div class="ml-3">
-                <p class="text-sm text-yellow-700">
+                <p class="text-sm text-yellow-700 dark:text-yellow-300">
                     <span class="font-medium">Note:</span> This attendance is for committee meetings only and is separate from chapter event attendance.
                     Marking someone present here does not affect event attendance records.
                 </p>
