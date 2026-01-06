@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Disable Two-Factor Authentication{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-md">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="text-center mb-6">
+            <svg class="w-16 h-16 mx-auto text-yellow-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            <h1 class="text-2xl font-bold">Disable Two-Factor Authentication?</h1>
+        </div>
+
+        <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6">
+            <p class="text-sm text-yellow-700">
+                <strong>Warning:</strong> Disabling two-factor authentication will make your account less secure. You'll only need your password to log in.
+            </p>
+        </div>
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+
+            <div class="flex gap-3">
+                <button
+                    type="submit"
+                    class="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors font-semibold"
+                >
+                    Disable 2FA
+                </button>
+                <a
+                    href="{% url 'profile' %}"
+                    class="flex-1 bg-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-400 transition-colors font-semibold text-center"
+                >
+                    Cancel
+                </a>
+            </div>
+        </form>
+
+        <div class="mt-6 text-center text-sm text-gray-600">
+            <p>You can re-enable two-factor authentication at any time from your profile settings.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Set Up Two-Factor Authentication{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h1 class="text-3xl font-bold mb-4 text-center">Set Up Two-Factor Authentication</h1>
+
+        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+            <p class="text-sm text-blue-700">
+                <strong>Security Enhancement:</strong> Two-Factor Authentication adds an extra layer of security to your account by requiring a verification code from your phone in addition to your password.
+            </p>
+        </div>
+
+        <div class="space-y-6">
+            <!-- Step 1: Download App -->
+            <div class="border-b pb-4">
+                <h2 class="text-xl font-semibold mb-2">Step 1: Download an Authenticator App</h2>
+                <p class="text-gray-700 mb-3">Install one of these apps on your phone:</p>
+                <ul class="list-disc list-inside text-gray-700 space-y-1">
+                    <li><strong>Google Authenticator</strong> (iOS/Android)</li>
+                    <li><strong>Authy</strong> (iOS/Android)</li>
+                    <li><strong>Microsoft Authenticator</strong> (iOS/Android)</li>
+                </ul>
+            </div>
+
+            <!-- Step 2: Scan QR Code -->
+            <div class="border-b pb-4">
+                <h2 class="text-xl font-semibold mb-2">Step 2: Scan the QR Code</h2>
+                <p class="text-gray-700 mb-4">Open your authenticator app and scan this QR code:</p>
+
+                <div class="flex justify-center bg-white p-4 border rounded">
+                    <img src="{{ qr_code_url }}" alt="QR Code for 2FA Setup" class="max-w-xs">
+                </div>
+            </div>
+
+            <!-- Step 3: Manual Entry (Alternative) -->
+            <div class="border-b pb-4">
+                <h2 class="text-xl font-semibold mb-2">Can't Scan the QR Code?</h2>
+                <p class="text-gray-700 mb-2">Enter this key manually in your authenticator app:</p>
+                <div class="bg-gray-100 p-3 rounded font-mono text-sm break-all">
+                    {{ manual_entry_key }}
+                </div>
+                <p class="text-xs text-gray-600 mt-2">Account name: {{ account_name }}</p>
+            </div>
+
+            <!-- Step 4: Enter Verification Code -->
+            <div>
+                <h2 class="text-xl font-semibold mb-2">Step 3: Enter Verification Code</h2>
+                <p class="text-gray-700 mb-4">Enter the 6-digit code from your authenticator app:</p>
+
+                <form method="post" class="space-y-4">
+                    {% csrf_token %}
+
+                    <div>
+                        <input
+                            type="text"
+                            name="token"
+                            maxlength="6"
+                            pattern="[0-9]{6}"
+                            placeholder="000000"
+                            required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg text-center text-2xl font-mono tracking-wider focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            autocomplete="off"
+                        >
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button
+                            type="submit"
+                            class="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                        >
+                            Verify and Enable 2FA
+                        </button>
+                        <a
+                            href="{% url 'home' %}"
+                            class="flex-1 bg-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-400 transition-colors font-semibold text-center"
+                        >
+                            Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Help Section -->
+        <div class="mt-6 bg-gray-50 p-4 rounded">
+            <h3 class="font-semibold text-gray-800 mb-2">Need Help?</h3>
+            <ul class="text-sm text-gray-600 space-y-1">
+                <li>• Make sure your phone's date and time are correct</li>
+                <li>• The verification code changes every 30 seconds</li>
+                <li>• If you lose your phone, contact an administrator to reset 2FA</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
