@@ -81,6 +81,7 @@ urlpatterns = [
     path('users/', user_list, name='user_list'),
     path('profile/', profile_view, name='profile'),
     path('preferences/', preferences_view, name='preferences'),
+    path('set-email/', set_email, name='set_email'),
     path('upload/', upload_legislation, name='upload_legislation'),
     path('change_password/', change_password, name='change_password'),
     path('forced-password-change/', forced_password_change, name='forced_password_change'),

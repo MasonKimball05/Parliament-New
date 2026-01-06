@@ -371,7 +371,7 @@
             <p class="text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-md p-3 mb-4">
                 <strong>Note:</strong> Please use your Samford email address (@samford.edu)
             </p>
-            <form id="emailForm" method="POST" action="{% url 'set_email' %}" class="space-y-4">
+            <form id="emailForm" method="POST" action="{% url 'set_email' %}" class="space-y-4" onsubmit="console.log('Email form submitting with:', document.getElementById('email').value);">
                 {% csrf_token %}
                 <div>
                     <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
@@ -384,9 +384,11 @@
                         placeholder="your.name@samford.edu"
                     >
                 </div>
+                <div id="emailDebug" class="text-xs text-gray-500 dark:text-gray-400 hidden"></div>
                 <div class="flex space-x-3">
                     <button
                         type="submit"
+                        id="emailSubmitBtn"
                         class="flex-1 bg-blue-600 dark:bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition font-medium"
                     >
                         Set Email
