@@ -1,8 +1,10 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from src.models import *
+from src.feature_flag_decorators import require_page_enabled
 
 @login_required
+@require_page_enabled('committee_index')
 def committee_index(request):
     """Display all committees the user is associated with"""
     user = request.user

@@ -4,6 +4,7 @@ from django.utils import timezone
 from django.http import JsonResponse, HttpResponse
 from src.models import Event, ActivityLog, AttendanceExcuse
 from src.models_calendar_subscription import CalendarSubscription
+from src.feature_flag_decorators import require_page_enabled
 from icalendar import Calendar, Event as ICalEvent
 import calendar
 from datetime import datetime, timedelta
@@ -11,6 +12,7 @@ from collections import defaultdict
 import pytz
 
 @login_required
+@require_page_enabled('calendar')
 def calendar_view(request):
     """Display calendar with events marked on specific days"""
     now = timezone.now()

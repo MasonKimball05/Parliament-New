@@ -3,9 +3,11 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from src.models import CommitteeDocument, Event, Legislation, CommitteeLegislation
 from src.decorators import officer_or_advisor_required
+from src.feature_flag_decorators import require_page_enabled
 
 @login_required
 @officer_or_advisor_required
+@require_page_enabled('officer_home')
 def officer_home(request):
     # Get recent reports (last 5)
     recent_reports = CommitteeDocument.objects.filter(

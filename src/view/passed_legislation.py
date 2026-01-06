@@ -3,10 +3,12 @@ from ..decorators import *
 from ..models import *
 from django.shortcuts import render
 from django.views.generic import DetailView
+from src.feature_flag_decorators import require_page_enabled
 import pytz
 from datetime import timedelta
 
 @login_required
+@require_page_enabled('passed_legislation')
 @log_function_call
 def passed_legislation(request):
     closed_legislation = Legislation.objects.filter(voting_closed=True)

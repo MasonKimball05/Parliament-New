@@ -19,13 +19,14 @@ def log_function_call(func):
     return wrapper
 
 def committee_chair_required(view_func):
-    def wrapper(request, id, *args, **kwargs):
-        committee = get_object_or_404(Committee, id=id)
+    def wrapper(request, code, *args, **kwargs):
+        committee = get_object_or_404(Committee, code=code)
 
-        if not committee.is_chair(request.user):
+        # Allow admins to bypass chair requirement
+        if not request.user.is_admin and not committee.is_chair(request.user):
             return HttpResponseForbidden("Chairs only.")
 
-        return view_func(request, id, *args, **kwargs)
+        return view_func(request, code, *args, **kwargs)
 
     return wrapper
 

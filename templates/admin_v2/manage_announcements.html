@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Announcements - Admin v2{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">📢 Manage Announcements</h1>
+                <p class="text-gray-600 dark:text-gray-400">Manage and delete announcements</p>
+            </div>
+            <a href="{% url 'admin_v2_dashboard' %}" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">← Back</a>
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <form method="get" class="flex gap-4">
+            <div class="min-w-[150px]">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Active</label>
+                <select name="active" class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    <option value="">All</option>
+                    <option value="yes" {% if active_filter == 'yes' %}selected{% endif %}>Yes</option>
+                    <option value="no" {% if active_filter == 'no' %}selected{% endif %}>No</option>
+                </select>
+            </div>
+            <div class="flex items-end gap-2">
+                <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Filter</button>
+                <a href="{% url 'admin_v2_manage_announcements' %}" class="px-6 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg">Clear</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <table class="w-full">
+            <thead class="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Title</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Posted By</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Posted At</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for announcement in announcements %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{{ announcement.title }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{{ announcement.posted_by.get_display_name }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{{ announcement.posted_at|date:"M d, Y" }}</td>
+                        <td class="px-6 py-4">
+                            {% if announcement.is_active %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">Active</span>
+                            {% else %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4">
+                            <form method="post" action="{% url 'admin_v2_delete_announcement' announcement.id %}" onsubmit="return confirm('Delete this announcement?');">
+                                {% csrf_token %}
+                                <button type="submit" class="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No announcements found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if announcements.has_other_pages %}
+            <div class="bg-gray-50 dark:bg-gray-700 px-6 py-4 flex justify-between border-t">
+                <div class="text-sm">Showing {{ announcements.start_index }} to {{ announcements.end_index }} of {{ announcements.paginator.count }}</div>
+                <div class="flex gap-2">
+                    {% if announcements.has_previous %}<a href="?page={{ announcements.previous_page_number }}" class="px-3 py-1 bg-white border rounded">Previous</a>{% endif %}
+                    <span class="px-3 py-1 bg-blue-600 text-white rounded">{{ announcements.number }}</span>
+                    {% if announcements.has_next %}<a href="?page={{ announcements.next_page_number }}" class="px-3 py-1 bg-white border rounded">Next</a>{% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

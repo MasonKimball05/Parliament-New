@@ -6,7 +6,9 @@ from src.models import (
     CommitteeVote
 )
 from datetime import timedelta
+from src.feature_flag_decorators import require_page_enabled
 
+@require_page_enabled('committee_home')
 def committee_home(request, code):
     committee = get_object_or_404(Committee.objects.select_related('role'), code=code)
     perm = CommitteePermissions.objects.filter(
@@ -27,13 +29,25 @@ def committee_home(request, code):
     total_members = committee.members.count()
     total_chairs = committee.chairs.count()
     total_advisors = committee.advisors.count()
-    voting_members = (committee.members.all() | committee.chairs.all()).exclude(pk__in=committee.voting_members.all()).distinct().order_by('name')
+
+    # Get voting members count - those who CAN vote (members + chairs who are NOT in voting_members exclusion list)
+    all_potential_voters = (committee.members.all() | committee.chairs.all()).distinct()
+    voting_members_count = all_potential_voters.exclude(pk__in=committee.voting_members.all()).count()
+
+    # Get total people in committee (members + chairs + advisors)
+    total_people = (committee.members.all() | committee.chairs.all() | committee.advisors.all()).distinct().count()
 
     # Get document stats
     total_documents = CommitteeDocument.objects.filter(committee=committee).count()
     recent_documents = CommitteeDocument.objects.filter(
         committee=committee
     ).select_related('uploaded_by').order_by('-uploaded_at')[:5]
+
+    # Get published documents count
+    published_documents = CommitteeDocument.objects.filter(
+        committee=committee,
+        published_to_chapter=True
+    ).count()
 
     # Get recent votes (last 30 days)
     thirty_days_ago = timezone.now() - timedelta(days=30)
@@ -45,6 +59,11 @@ def committee_home(request, code):
         legislation__committee=committee,
         created_at__gte=thirty_days_ago
     ).order_by('-created_at')[:5]
+
+    # Get total votes count
+    total_votes = CommitteeVote.objects.filter(
+        legislation__committee=committee
+    ).count()
 
     context = {
         "committee": committee,
@@ -59,9 +78,12 @@ def committee_home(request, code):
             "total_members": total_members,
             "total_chairs": total_chairs,
             "total_advisors": total_advisors,
-            "voting_members": voting_members,
+            "voting_members_count": voting_members_count,
+            "total_people": total_people,
             "total_documents": total_documents,
+            "published_documents": published_documents,
             "active_votes": active_votes,
+            "total_votes": total_votes,
         },
         # Recent data
         "recent_documents": recent_documents,

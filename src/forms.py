@@ -551,55 +551,55 @@ class UserPreferencesForm(forms.ModelForm):
         ]
         widgets = {
             "theme": forms.Select(attrs={
-                "class": "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                "class": "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500"
             }),
             "email_announcements": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
             }),
             "email_legislation": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
             }),
             "email_events": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
             }),
             "email_committee_updates": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
             }),
             "show_announcement_popups": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
             }),
             "compact_view": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
             }),
             "show_vote_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
             }),
             "show_committees_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
             }),
             "show_chats_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
             }),
             "show_documents_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
             }),
             "show_announcements_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
             }),
             "show_calendar_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
             }),
             "show_legislation_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
             }),
             "show_excuses_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
             }),
             "show_search_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
             }),
             "show_roberts_rules_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded menu-checkbox"
+                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
             }),
         }
         labels = {

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Users - Admin v2{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">👥 Manage Users</h1>
+                <p class="text-gray-600 dark:text-gray-400">Manage users and admin access</p>
+            </div>
+            <a href="{% url 'admin_v2_dashboard' %}" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">← Back</a>
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <form method="get" class="flex flex-wrap gap-4">
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Search</label>
+                <input type="text" name="search" value="{{ search_query }}" placeholder="Name or ID..." class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+            </div>
+            <div class="min-w-[150px]">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
+                <select name="status" class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    <option value="">All</option>
+                    <option value="Active" {% if status_filter == 'Active' %}selected{% endif %}>Active</option>
+                    <option value="Inactive" {% if status_filter == 'Inactive' %}selected{% endif %}>Inactive</option>
+                    <option value="Alumni" {% if status_filter == 'Alumni' %}selected{% endif %}>Alumni</option>
+                </select>
+            </div>
+            <div class="min-w-[150px]">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Type</label>
+                <select name="type" class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    <option value="">All</option>
+                    <option value="Officer" {% if type_filter == 'Officer' %}selected{% endif %}>Officer</option>
+                    <option value="Member" {% if type_filter == 'Member' %}selected{% endif %}>Member</option>
+                    <option value="Pledge" {% if type_filter == 'Pledge' %}selected{% endif %}>Pledge</option>
+                    <option value="Advisor" {% if type_filter == 'Advisor' %}selected{% endif %}>Advisor</option>
+                </select>
+            </div>
+            <div class="min-w-[150px]">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Admin</label>
+                <select name="admin" class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    <option value="">All</option>
+                    <option value="yes" {% if admin_filter == 'yes' %}selected{% endif %}>Yes</option>
+                    <option value="no" {% if admin_filter == 'no' %}selected{% endif %}>No</option>
+                </select>
+            </div>
+            <div class="flex items-end gap-2">
+                <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Filter</button>
+                <a href="{% url 'admin_v2_manage_users' %}" class="px-6 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg">Clear</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <table class="w-full">
+            <thead class="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Name</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Type</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Admin</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for user in users %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{{ user.get_display_name }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{{ user.user_id }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{{ user.member_status }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{{ user.member_type }}</td>
+                        <td class="px-6 py-4">
+                            {% if user.is_admin %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200">Admin</span>
+                            {% else %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">User</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4">
+                            <form method="post" action="{% url 'admin_v2_toggle_user_admin' user.user_id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="px-3 py-1.5 text-sm {% if user.is_admin %}text-red-600 hover:bg-red-50{% else %}text-green-600 hover:bg-green-50{% endif %} rounded">
+                                    {% if user.is_admin %}Revoke Admin{% else %}Grant Admin{% endif %}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="6" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No users found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if users.has_other_pages %}
+            <div class="bg-gray-50 dark:bg-gray-700 px-6 py-4 flex justify-between border-t">
+                <div class="text-sm text-gray-700 dark:text-gray-300">Showing {{ users.start_index }} to {{ users.end_index }} of {{ users.paginator.count }}</div>
+                <div class="flex gap-2">
+                    {% if users.has_previous %}<a href="?page={{ users.previous_page_number }}" class="px-3 py-1 bg-white dark:bg-gray-600 border rounded">Previous</a>{% endif %}
+                    <span class="px-3 py-1 bg-blue-600 text-white rounded">{{ users.number }}</span>
+                    {% if users.has_next %}<a href="?page={{ users.next_page_number }}" class="px-3 py-1 bg-white dark:bg-gray-600 border rounded">Next</a>{% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

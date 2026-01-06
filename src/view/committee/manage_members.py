@@ -13,8 +13,10 @@ def committee_manage_members(request, code):
         committee=committee
     ).first()
 
-    if not perm or not perm.can_manage_members:
-        return HttpResponseForbidden("You cannot manage committee members.")
+    # Allow admins to bypass permission checks
+    if not request.user.is_admin:
+        if not perm or not perm.can_manage_members:
+            return HttpResponseForbidden("You cannot manage committee members.")
 
     all_users = ParliamentUser.active.all()
 

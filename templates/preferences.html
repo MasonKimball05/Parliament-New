@@ -3,6 +3,15 @@
 {% block title %}Preferences - Parliament{% endblock %}
 
 {% block content %}
+<style>
+    /* Disabled checkbox styling for dark mode */
+    .checkbox-disabled {
+        opacity: 0.5;
+    }
+    .dark .checkbox-disabled {
+        opacity: 0.4;
+    }
+</style>
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Header -->
     <div class="mb-8">
@@ -236,10 +245,10 @@
             menuCheckboxes.forEach(checkbox => {
                 if (!checkbox.checked && checkedCount >= maxItems) {
                     checkbox.disabled = true;
-                    checkbox.parentElement.style.opacity = '0.5';
+                    checkbox.parentElement.classList.add('checkbox-disabled');
                 } else if (checkbox.disabled) {
                     checkbox.disabled = false;
-                    checkbox.parentElement.style.opacity = '1';
+                    checkbox.parentElement.classList.remove('checkbox-disabled');
                 }
             });
         }

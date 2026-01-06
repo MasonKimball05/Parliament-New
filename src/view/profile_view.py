@@ -5,11 +5,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.shortcuts import render, redirect
 from django.contrib.auth import update_session_auth_hash
+from src.feature_flag_decorators import require_page_enabled
 import logging
 
 logger = logging.getLogger('function_calls')
 
 @login_required
+@require_page_enabled('profile')
 @log_function_call
 def profile_view(request):
     user = request.user

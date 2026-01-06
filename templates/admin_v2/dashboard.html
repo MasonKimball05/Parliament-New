@@ -4,25 +4,40 @@
 {% block title %}Admin v2 Dashboard - Parliament{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8 max-w-full">
     <!-- Header -->
     <div class="bg-gradient-to-r from-red-600 to-red-800 dark:from-red-700 dark:to-red-900 rounded-lg shadow-lg p-6 mb-8 transition-colors duration-200">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-                <h1 class="text-3xl font-bold text-white mb-2">Admin v2 Control Panel</h1>
-                <p class="text-red-100">Advanced site administration and feature management</p>
+                <h1 class="text-3xl font-bold text-white mb-2">🔧 Admin v2 Control Panel</h1>
+                <p class="text-red-100">Advanced site administration, monitoring, and feature management</p>
+                <div class="flex gap-4 mt-2 text-sm text-red-100">
+                    <span>🐍 Python {{ system_info.python_version }}</span>
+                    <span>🎯 Django {{ system_info.django_version }}</span>
+                    <span>💾 {{ system_info.database_engine|title }}</span>
+                    {% if system_info.debug_mode %}
+                    <span class="text-yellow-300">⚠️ DEBUG MODE</span>
+                    {% endif %}
+                </div>
             </div>
             <div class="flex gap-3">
+                <a href="{% url 'user_list' %}"
+                   class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                    </svg>
+                    Manage Users
+                </a>
                 <a href="{% url 'home' %}"
-                   class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors">
-                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
                     </svg>
                     Home
                 </a>
                 <a href="{% url 'admin_v2_logout' %}"
-                   class="px-4 py-2 bg-red-900/50 hover:bg-red-900/70 text-white rounded-lg transition-colors">
-                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="px-4 py-2 bg-red-900/50 hover:bg-red-900/70 text-white rounded-lg transition-colors flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
                     </svg>
                     Logout
@@ -31,141 +46,258 @@
         </div>
     </div>
 
-    <!-- Statistics Grid -->
+    <!-- Quick Stats Grid -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+        <!-- Total Users -->
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-lg shadow-md p-4 text-white">
+            <div class="text-3xl font-bold">{{ stats.users.total }}</div>
+            <div class="text-sm opacity-90">Total Users</div>
+            <div class="text-xs opacity-75 mt-1">{{ stats.users.active }} active</div>
+        </div>
+
+        <!-- Active Legislation -->
+        <div class="bg-gradient-to-br from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 rounded-lg shadow-md p-4 text-white">
+            <div class="text-3xl font-bold">{{ stats.legislation.total }}</div>
+            <div class="text-sm opacity-90">Legislation</div>
+            <div class="text-xs opacity-75 mt-1">{{ stats.legislation.passed }} passed</div>
+        </div>
+
+        <!-- Events -->
+        <div class="bg-gradient-to-br from-green-500 to-green-600 dark:from-green-600 dark:to-green-700 rounded-lg shadow-md p-4 text-white">
+            <div class="text-3xl font-bold">{{ stats.events.total }}</div>
+            <div class="text-sm opacity-90">Events</div>
+            <div class="text-xs opacity-75 mt-1">{{ stats.events.upcoming }} upcoming</div>
+        </div>
+
+        <!-- Committees -->
+        <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700 rounded-lg shadow-md p-4 text-white">
+            <div class="text-3xl font-bold">{{ stats.committees.total }}</div>
+            <div class="text-sm opacity-90">Committees</div>
+            <div class="text-xs opacity-75 mt-1">{{ stats.committees.active }} active</div>
+        </div>
+
+        <!-- Security Alerts -->
+        <div class="bg-gradient-to-br from-red-500 to-red-600 dark:from-red-600 dark:to-red-700 rounded-lg shadow-md p-4 text-white">
+            <div class="text-3xl font-bold">{{ stats.security.recent_alerts }}</div>
+            <div class="text-sm opacity-90">Alerts</div>
+            <div class="text-xs opacity-75 mt-1">{{ stats.security.logins_24h }} logins/24h</div>
+        </div>
+
+        <!-- Activity -->
+        <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 dark:from-yellow-600 dark:to-yellow-700 rounded-lg shadow-md p-4 text-white">
+            <div class="text-3xl font-bold">{{ stats.communications.logs_last_24h }}</div>
+            <div class="text-sm opacity-90">Activity/24h</div>
+            <div class="text-xs opacity-75 mt-1">{{ stats.communications.total_activity_logs }} total</div>
+        </div>
+    </div>
+
+    <!-- Management Tools -->
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">🛠️ Management Tools</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Legislation Management -->
+            <a href="{% url 'admin_v2_manage_legislation' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all p-6 border-l-4 border-purple-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">📜 Legislation</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">View, edit, and delete legislation</p>
+                        <div class="mt-3 text-purple-600 dark:text-purple-400 font-medium">{{ stats.legislation.total }} items</div>
+                    </div>
+                    <svg class="w-10 h-10 text-purple-500 opacity-20" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+                        <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+            </a>
+
+            <!-- Events Management -->
+            <a href="{% url 'admin_v2_manage_events' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all p-6 border-l-4 border-green-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">📅 Events</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Manage and delete events</p>
+                        <div class="mt-3 text-green-600 dark:text-green-400 font-medium">{{ stats.events.total }} items</div>
+                    </div>
+                    <svg class="w-10 h-10 text-green-500 opacity-20" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+            </a>
+
+            <!-- Committees Management -->
+            <a href="{% url 'admin_v2_manage_committees' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all p-6 border-l-4 border-indigo-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">🏛️ Committees</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Toggle active status</p>
+                        <div class="mt-3 text-indigo-600 dark:text-indigo-400 font-medium">{{ stats.committees.total }} items</div>
+                    </div>
+                    <svg class="w-10 h-10 text-indigo-500 opacity-20" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
+                    </svg>
+                </div>
+            </a>
+
+            <!-- Users Management -->
+            <a href="{% url 'admin_v2_manage_users' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all p-6 border-l-4 border-blue-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">👥 Users</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Manage users and admin access</p>
+                        <div class="mt-3 text-blue-600 dark:text-blue-400 font-medium">{{ stats.users.total }} users</div>
+                    </div>
+                    <svg class="w-10 h-10 text-blue-500 opacity-20" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+                    </svg>
+                </div>
+            </a>
+
+            <!-- Announcements Management -->
+            <a href="{% url 'admin_v2_manage_announcements' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all p-6 border-l-4 border-yellow-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">📢 Announcements</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Manage and delete announcements</p>
+                        <div class="mt-3 text-yellow-600 dark:text-yellow-400 font-medium">{{ stats.announcements.total }} items</div>
+                    </div>
+                    <svg class="w-10 h-10 text-yellow-500 opacity-20" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"/>
+                    </svg>
+                </div>
+            </a>
+
+            <!-- Login History -->
+            <a href="{% url 'admin_v2_login_history' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all p-6 border-l-4 border-red-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">🔐 Login History</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">View security and login logs</p>
+                        <div class="mt-3 text-red-600 dark:text-red-400 font-medium">{{ stats.security.total_logins }} logins</div>
+                    </div>
+                    <svg class="w-10 h-10 text-red-500 opacity-20" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Detailed Statistics Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <!-- Users Stats -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Users</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">👥 Users</h3>
                 <svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
                 </svg>
             </div>
-            <div class="space-y-2">
-                <div class="flex justify-between">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">Total:</span>
-                    <span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.users.total }}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">Active:</span>
-                    <span class="font-semibold text-green-600 dark:text-green-400">{{ stats.users.active }}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">Officers:</span>
-                    <span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.users.officers }}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">Members:</span>
-                    <span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.users.members }}</span>
-                </div>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Total:</span><span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.users.total }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Active:</span><span class="font-semibold text-green-600 dark:text-green-400">{{ stats.users.active }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Inactive:</span><span class="font-semibold text-gray-500 dark:text-gray-500">{{ stats.users.inactive }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Alumni:</span><span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.users.alumni }}</span></div>
+                <hr class="my-2 border-gray-200 dark:border-gray-700">
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Officers:</span><span class="font-semibold text-blue-600 dark:text-blue-400">{{ stats.users.officers }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Members:</span><span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.users.members }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Pledges:</span><span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.users.pledges }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Advisors:</span><span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.users.advisors }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Admins:</span><span class="font-semibold text-red-600 dark:text-red-400">{{ stats.users.admins }}</span></div>
+                <hr class="my-2 border-gray-200 dark:border-gray-700">
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Last 24h:</span><span class="font-semibold text-green-600 dark:text-green-400">{{ stats.users.last_24h }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Never Logged In:</span><span class="font-semibold text-yellow-600 dark:text-yellow-400">{{ stats.users.never_logged_in }}</span></div>
             </div>
         </div>
 
         <!-- Legislation Stats -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Legislation</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">📜 Legislation</h3>
                 <svg class="w-8 h-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
             </div>
-            <div class="space-y-2">
-                <div class="flex justify-between">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">Total:</span>
-                    <span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.legislation.total }}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">Draft:</span>
-                    <span class="font-semibold text-yellow-600 dark:text-yellow-400">{{ stats.legislation.draft }}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">Passed:</span>
-                    <span class="font-semibold text-green-600 dark:text-green-400">{{ stats.legislation.passed }}</span>
-                </div>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Total:</span><span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.legislation.total }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Draft:</span><span class="font-semibold text-yellow-600 dark:text-yellow-400">{{ stats.legislation.draft }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Passed:</span><span class="font-semibold text-green-600 dark:text-green-400">{{ stats.legislation.passed }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Removed:</span><span class="font-semibold text-red-600 dark:text-red-400">{{ stats.legislation.removed }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Voting Closed:</span><span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.legislation.voting_closed }}</span></div>
+                <hr class="my-2 border-gray-200 dark:border-gray-700">
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Total Votes Cast:</span><span class="font-semibold text-blue-600 dark:text-blue-400">{{ stats.legislation.total_votes }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Votes (Last 7d):</span><span class="font-semibold text-green-600 dark:text-green-400">{{ stats.legislation.recent_votes }}</span></div>
             </div>
         </div>
 
         <!-- Events Stats -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Events</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">📅 Events</h3>
                 <svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                 </svg>
             </div>
-            <div class="space-y-2">
-                <div class="flex justify-between">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">Total:</span>
-                    <span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.events.total }}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">Upcoming:</span>
-                    <span class="font-semibold text-blue-600 dark:text-blue-400">{{ stats.events.upcoming }}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">Past:</span>
-                    <span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.events.past }}</span>
-                </div>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Total:</span><span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.events.total }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Upcoming:</span><span class="font-semibold text-blue-600 dark:text-blue-400">{{ stats.events.upcoming }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Past:</span><span class="font-semibold text-gray-500 dark:text-gray-500">{{ stats.events.past }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Archived:</span><span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.events.archived }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">This Month:</span><span class="font-semibold text-green-600 dark:text-green-400">{{ stats.events.this_month }}</span></div>
             </div>
         </div>
 
         <!-- Committees Stats -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Committees</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">🏛️ Committees</h3>
                 <svg class="w-8 h-8 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                 </svg>
             </div>
-            <div class="space-y-2">
-                <div class="flex justify-between">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">Total:</span>
-                    <span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.committees.total }}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">Active:</span>
-                    <span class="font-semibold text-green-600 dark:text-green-400">{{ stats.committees.active }}</span>
-                </div>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Total:</span><span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.committees.total }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Active:</span><span class="font-semibold text-green-600 dark:text-green-400">{{ stats.committees.active }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Inactive:</span><span class="font-semibold text-gray-500 dark:text-gray-500">{{ stats.committees.inactive }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">With Members:</span><span class="font-semibold text-blue-600 dark:text-blue-400">{{ stats.committees.with_members }}</span></div>
+                <hr class="my-2 border-gray-200 dark:border-gray-700">
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Total Documents:</span><span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.committees.total_documents }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Published:</span><span class="font-semibold text-green-600 dark:text-green-400">{{ stats.committees.published_docs }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Votes:</span><span class="font-semibold text-blue-600 dark:text-blue-400">{{ stats.committees.total_committee_votes }}</span></div>
             </div>
         </div>
 
         <!-- Announcements Stats -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Announcements</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">📢 Announcements</h3>
                 <svg class="w-8 h-8 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path>
                 </svg>
             </div>
-            <div class="space-y-2">
-                <div class="flex justify-between">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">Total:</span>
-                    <span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.announcements.total }}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">Active:</span>
-                    <span class="font-semibold text-green-600 dark:text-green-400">{{ stats.announcements.active }}</span>
-                </div>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Total:</span><span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.announcements.total }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Active:</span><span class="font-semibold text-green-600 dark:text-green-400">{{ stats.announcements.active }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Inactive:</span><span class="font-semibold text-gray-500 dark:text-gray-500">{{ stats.announcements.inactive }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Sticky:</span><span class="font-semibold text-yellow-600 dark:text-yellow-400">{{ stats.announcements.sticky }}</span></div>
             </div>
         </div>
 
         <!-- Security Stats -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Security</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">🔒 Security</h3>
                 <svg class="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                 </svg>
             </div>
-            <div class="space-y-2">
-                <div class="flex justify-between">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">Total Logins:</span>
-                    <span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.security.total_logins }}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">Recent Alerts:</span>
-                    <span class="font-semibold text-red-600 dark:text-red-400">{{ stats.security.recent_alerts }}</span>
-                </div>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Total Logins:</span><span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.security.total_logins }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Logins (24h):</span><span class="font-semibold text-green-600 dark:text-green-400">{{ stats.security.logins_24h }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Logins (7d):</span><span class="font-semibold text-blue-600 dark:text-blue-400">{{ stats.security.logins_7d }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Failed (24h):</span><span class="font-semibold text-red-600 dark:text-red-400">{{ stats.security.failed_logins_24h }}</span></div>
+                <hr class="my-2 border-gray-200 dark:border-gray-700">
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">New Alerts:</span><span class="font-semibold text-red-600 dark:text-red-400">{{ stats.security.recent_alerts }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Total Alerts:</span><span class="font-semibold text-gray-900 dark:text-gray-100">{{ stats.security.total_alerts }}</span></div>
             </div>
         </div>
     </div>
@@ -176,7 +308,7 @@
             <svg class="w-6 h-6 mr-2 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
             </svg>
-            Feature Flags
+            ⚙️ Feature Flags
         </h2>
 
         {% if feature_flags %}
@@ -185,11 +317,19 @@
                 <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-3">{{ category_name }}</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {% for flag in flags %}
-                    <div class="border {% if flag.is_enabled %}border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20{% else %}border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20{% endif %} rounded-lg p-4 transition-colors duration-200">
+                    <div class="border {% if flag.is_enabled %}border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20{% else %}border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20{% endif %} rounded-lg p-4 transition-all duration-200 hover:shadow-lg">
                         <div class="flex items-start justify-between mb-2">
                             <div class="flex-1">
-                                <h4 class="font-semibold text-gray-900 dark:text-gray-100">{{ flag.display_name }}</h4>
+                                <div class="flex items-center gap-2">
+                                    <h4 class="font-semibold text-gray-900 dark:text-gray-100">{{ flag.display_name }}</h4>
+                                    {% if flag.is_enabled %}
+                                    <span class="px-2 py-0.5 bg-green-600 text-white text-xs rounded-full">ON</span>
+                                    {% else %}
+                                    <span class="px-2 py-0.5 bg-red-600 text-white text-xs rounded-full">OFF</span>
+                                    {% endif %}
+                                </div>
                                 <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">{{ flag.description }}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">{{ flag.name }}</p>
                             </div>
                             <form method="post" action="{% url 'toggle_feature_flag' flag.id %}">
                                 {% csrf_token %}
@@ -199,8 +339,11 @@
                             </form>
                         </div>
                         {% if flag.last_toggled_by %}
-                        <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                            Last toggled by {{ flag.last_toggled_by }}
+                        <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
+                            Last changed by {{ flag.last_toggled_by }}
+                            {% if flag.last_toggled_at %}
+                            <br>on {{ flag.last_toggled_at|date:"M d, Y H:i" }}
+                            {% endif %}
                         </div>
                         {% endif %}
                     </div>
@@ -209,7 +352,10 @@
             </div>
             {% endfor %}
         {% else %}
-            <div class="text-center py-12 text-gray-500 dark:text-gray-400">
+            <div class="text-center py-12 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                </svg>
                 <p>No feature flags configured yet.</p>
                 <p class="text-sm mt-2">Feature flags will appear here once created in the database.</p>
             </div>
@@ -222,17 +368,24 @@
             <svg class="w-6 h-6 mr-2 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
             </svg>
-            Page Toggles
+            🔐 Page Toggles ({{ page_toggles.count }})
         </h2>
 
         {% if page_toggles %}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {% for toggle in page_toggles %}
-                <div class="border {% if toggle.is_enabled %}border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20{% else %}border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20{% endif %} rounded-lg p-4 transition-colors duration-200">
+                <div class="border {% if toggle.is_enabled %}border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20{% else %}border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20{% endif %} rounded-lg p-4 transition-all duration-200 hover:shadow-lg">
                     <div class="flex items-start justify-between">
                         <div class="flex-1">
-                            <h4 class="font-semibold text-gray-900 dark:text-gray-100">{{ toggle.display_name }}</h4>
-                            <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">URL: {{ toggle.url_name }}</p>
+                            <div class="flex items-center gap-2 mb-1">
+                                <h4 class="font-semibold text-gray-900 dark:text-gray-100">{{ toggle.display_name }}</h4>
+                                {% if toggle.is_enabled %}
+                                <span class="px-2 py-0.5 bg-green-600 text-white text-xs rounded-full">ENABLED</span>
+                                {% else %}
+                                <span class="px-2 py-0.5 bg-red-600 text-white text-xs rounded-full">DISABLED</span>
+                                {% endif %}
+                            </div>
+                            <p class="text-xs text-gray-600 dark:text-gray-400 font-mono">{{ toggle.url_name }}</p>
                             {% if toggle.description %}
                             <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">{{ toggle.description }}</p>
                             {% endif %}
@@ -245,65 +398,119 @@
                         </form>
                     </div>
                     {% if toggle.last_toggled_by %}
-                    <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        Last toggled by {{ toggle.last_toggled_by }}
+                    <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
+                        Last changed by {{ toggle.last_toggled_by }}
+                        {% if toggle.last_toggled_at %}
+                        <br>on {{ toggle.last_toggled_at|date:"M d, Y H:i" }}
+                        {% endif %}
                     </div>
                     {% endif %}
                 </div>
                 {% endfor %}
             </div>
         {% else %}
-            <div class="text-center py-12 text-gray-500 dark:text-gray-400">
+            <div class="text-center py-12 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                </svg>
                 <p>No page toggles configured yet.</p>
                 <p class="text-sm mt-2">Page toggles will appear here once created in the database.</p>
             </div>
         {% endif %}
     </div>
 
-    <!-- Recent Activity Logs -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 flex items-center">
-            <svg class="w-6 h-6 mr-2 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-            </svg>
-            Recent Activity
-        </h2>
+    <!-- Recent Activity & Logins Grid -->
+    <div class="grid md:grid-cols-2 gap-6 mb-8">
+        <!-- Recent Activity Logs -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                </svg>
+                📋 Recent Activity (Last 30)
+            </h2>
 
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead class="bg-gray-50 dark:bg-gray-700/50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Time</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">User</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Action</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {% for log in recent_logs %}
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                            {{ log.timestamp|date:"m/d H:i" }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                            {{ log.user.get_display_name }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                            {{ log.action_type }}
-                        </td>
-                        <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                            {{ log.description|truncatewords:15 }}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="4" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                            No activity logs found.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="overflow-x-auto" style="max-height: 500px; overflow-y: auto;">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                    <thead class="bg-gray-50 dark:bg-gray-700/50 sticky top-0">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Time</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">User</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Description</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for log in recent_logs %}
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+                                {{ log.timestamp|date:"m/d H:i" }}
+                            </td>
+                            <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">
+                                {{ log.user.get_display_name|truncatewords:2 }}
+                            </td>
+                            <td class="px-3 py-2 whitespace-nowrap text-xs">
+                                <span class="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full">
+                                    {{ log.action_type }}
+                                </span>
+                            </td>
+                            <td class="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                                {{ log.description|truncatewords:10 }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="px-3 py-8 text-center text-gray-500 dark:text-gray-400">
+                                No activity logs found.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Recent Logins -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+                </svg>
+                🔑 Recent Logins (Last 20)
+            </h2>
+
+            <div class="overflow-x-auto" style="max-height: 500px; overflow-y: auto;">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                    <thead class="bg-gray-50 dark:bg-gray-700/50 sticky top-0">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Time</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">User</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">IP Address</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for login in recent_logins %}
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+                                {{ login.login_time|date:"m/d H:i" }}
+                            </td>
+                            <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">
+                                {{ login.user.get_display_name }}
+                            </td>
+                            <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400 font-mono">
+                                {{ login.ip_address|default:"N/A" }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="px-3 py-8 text-center text-gray-500 dark:text-gray-400">
+                                No login history found.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

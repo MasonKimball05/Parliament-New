@@ -3,11 +3,13 @@ from src.models import *
 from django.shortcuts import render
 from src.decorators import officer_required
 from src.utils.export_utils import export_to_csv
+from src.feature_flag_decorators import require_page_enabled
 from django.utils import timezone
 from datetime import timedelta
 
 @login_required
 @officer_required
+@require_page_enabled('user_list')
 def user_list(request):
     # Get filter parameters
     member_status_filter = request.GET.get('status', 'active')

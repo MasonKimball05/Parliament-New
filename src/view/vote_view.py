@@ -9,9 +9,11 @@ from django.utils.dateparse import parse_datetime
 from datetime import timedelta
 from ..models import *
 from src.utils.file_validation import validate_uploaded_file
+from src.feature_flag_decorators import require_page_enabled
 import logging
 
 @login_required
+@require_page_enabled('vote')
 def vote_view(request):
     user = request.user
 

@@ -6,8 +6,10 @@ from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
+from src.feature_flag_decorators import require_page_enabled
 
 @login_required
+@require_page_enabled('home')
 @log_function_call
 def home(request):
     print(f"🔐 User: {request.user} | Authenticated: {request.user.is_authenticated}")

@@ -22,8 +22,12 @@ from src.view.calendar import calendar_view, calendar_data_api, export_calendar_
 from src.view.global_search import global_search
 from src.view.admin_v2 import (
     admin_v2_login, admin_v2_dashboard, toggle_feature_flag,
-    toggle_page, admin_v2_logout
+    toggle_page, admin_v2_logout, manage_legislation, delete_legislation,
+    manage_committees, toggle_committee_active,
+    manage_users, toggle_user_admin, manage_login_history, manage_announcements,
+    delete_announcement
 )
+from src.view.admin_v2 import manage_events as admin_v2_manage_events, delete_event as admin_v2_delete_event
 from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event
 from src.view.home import home
 from src.view.vote_view import vote_view
@@ -237,6 +241,19 @@ urlpatterns = [
     path('admin-v2/feature-flag/<int:flag_id>/toggle/', toggle_feature_flag, name='toggle_feature_flag'),
     path('admin-v2/page/<int:toggle_id>/toggle/', toggle_page, name='toggle_page'),
     path('admin-v2/logout/', admin_v2_logout, name='admin_v2_logout'),
+
+    # Admin v2 - Management Pages
+    path('admin-v2/legislation/', manage_legislation, name='admin_v2_manage_legislation'),
+    path('admin-v2/legislation/<int:legislation_id>/delete/', delete_legislation, name='admin_v2_delete_legislation'),
+    path('admin-v2/events/', admin_v2_manage_events, name='admin_v2_manage_events'),
+    path('admin-v2/events/<int:event_id>/delete/', admin_v2_delete_event, name='admin_v2_delete_event'),
+    path('admin-v2/committees/', manage_committees, name='admin_v2_manage_committees'),
+    path('admin-v2/committees/<int:committee_id>/toggle/', toggle_committee_active, name='admin_v2_toggle_committee'),
+    path('admin-v2/users/', manage_users, name='admin_v2_manage_users'),
+    path('admin-v2/users/<str:user_id>/toggle-admin/', toggle_user_admin, name='admin_v2_toggle_user_admin'),
+    path('admin-v2/login-history/', manage_login_history, name='admin_v2_login_history'),
+    path('admin-v2/announcements/', manage_announcements, name='admin_v2_manage_announcements'),
+    path('admin-v2/announcements/<int:announcement_id>/delete/', delete_announcement, name='admin_v2_delete_announcement'),
 ]
 
 if settings.DEBUG:

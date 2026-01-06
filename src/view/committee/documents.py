@@ -2,8 +2,10 @@ from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponseForbidden
 from src.models import Committee, CommitteePermissions, CommitteeDocument
 from django.contrib.auth.decorators import login_required
+from src.feature_flag_decorators import require_page_enabled
 
 @login_required
+@require_page_enabled('committee_documents')
 def committee_documents(request, code):  # Changed from id to code
     committee = get_object_or_404(Committee, code=code)  # Changed to use code
     user = request.user
