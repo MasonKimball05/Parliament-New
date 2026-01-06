@@ -1,11 +1,13 @@
+from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from django.shortcuts import render, redirect, get_object_or_404
 from src.models import Committee, CommitteePermissions, ParliamentUser
 from src.decorators import *
 
 @committee_chair_required
-def committee_manage_members(request, id):
-    committee = get_object_or_404(Committee, id=id)
+@login_required
+def committee_manage_members(request, code):
+    committee = get_object_or_404(Committee, code=code)
     perm = CommitteePermissions.objects.filter(
         user=request.user,
         committee=committee
@@ -34,7 +36,7 @@ def committee_manage_members(request, id):
         elif action == "remove_voter":
             committee.voting_members.remove(target)
 
-        return redirect("committee_manage_members", id=id)
+        return redirect("committee_manage_members", code=code)
 
     return render(request, "committee/manage_members.html", {
         "committee": committee,

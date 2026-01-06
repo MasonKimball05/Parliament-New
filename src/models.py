@@ -240,6 +240,7 @@ class Legislation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     voting_ended_at = models.DateTimeField(null=True, blank=True)
     passed = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
 
     anonymous_vote = models.BooleanField(default=False)
     allow_abstain = models.BooleanField(default=True)
@@ -803,6 +804,7 @@ class CommitteeVote(models.Model):
     legislation = models.ForeignKey(CommitteeLegislation, on_delete=models.CASCADE)
     vote_choice = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ('user', 'legislation')

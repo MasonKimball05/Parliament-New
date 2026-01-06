@@ -27,7 +27,7 @@ def committee_home(request, code):
     total_members = committee.members.count()
     total_chairs = committee.chairs.count()
     total_advisors = committee.advisors.count()
-    voting_members = committee.members.filter(can_vote=True).count()
+    voting_members = (committee.members.all() | committee.chairs.all()).exclude(pk__in=committee.voting_members.all()).distinct().order_by('name')
 
     # Get document stats
     total_documents = CommitteeDocument.objects.filter(committee=committee).count()
@@ -38,11 +38,11 @@ def committee_home(request, code):
     # Get recent votes (last 30 days)
     thirty_days_ago = timezone.now() - timedelta(days=30)
     active_votes = CommitteeVote.objects.filter(
-        committee=committee,
+        legislation__committee=committee,
         is_active=True
     ).count()
     recent_votes = CommitteeVote.objects.filter(
-        committee=committee,
+        legislation__committee=committee,
         created_at__gte=thirty_days_ago
     ).order_by('-created_at')[:5]
 
