@@ -78,7 +78,7 @@ class ParliamentUser(AbstractBaseUser):
     is_active = models.BooleanField(default=True)
     is_admin = models.BooleanField(default=False)
     username = models.CharField(max_length=100, unique=True, help_text='Username for login (not encrypted - needed for authentication lookups)')
-    email = EncryptedEmailField(max_length=254, blank=True, null=True, unique=True, help_text='Encrypted email address for password reset and notifications')
+    email = models.EmailField(max_length=254, blank=True, null=True, unique=True, help_text='Email address for password reset and notifications')
     anonymous_vote = models.BooleanField(default=False)
     allow_abstain = models.BooleanField(default=True)
     roles = models.ManyToManyField(Role, blank=True)
