@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}IP Whitelist - Admin v2{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">✅ IP Whitelist</h1>
+                <p class="text-gray-600 dark:text-gray-400">Trusted IP addresses that bypass security checks</p>
+            </div>
+            <a href="{% url 'admin_v2_dashboard' %}" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">← Back</a>
+        </div>
+    </div>
+
+    <!-- Add New IP Form -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Add New IP to Whitelist</h2>
+        <form method="post" action="{% url 'admin_v2_add_ip_whitelist' %}" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">IP Address / CIDR Range</label>
+                <input type="text" name="ip_address" placeholder="192.168.1.100 or 10.0.0.0/24" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</label>
+                <input type="text" name="description" placeholder="Office Network" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+            </div>
+            <div class="flex items-end">
+                <button type="submit" class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg">
+                    Add to Whitelist
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Whitelist Entries -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="p-6">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Whitelisted IPs ({{ whitelist_entries.count }})</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">IP Address</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Description</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Added By</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Added At</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for entry in whitelist_entries %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td class="px-6 py-4 text-sm font-mono text-gray-900 dark:text-gray-100">{{ entry.ip_address }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{{ entry.description }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                            {% if entry.added_by %}
+                                {{ entry.added_by.get_display_name }}
+                            {% else %}
+                                System
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{{ entry.added_at|date:"M d, Y h:i A" }}</td>
+                        <td class="px-6 py-4">
+                            <form method="post" action="{% url 'admin_v2_remove_ip_whitelist' %}" onsubmit="return confirm('Remove {{ entry.ip_address }} from whitelist?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="ip_address" value="{{ entry.ip_address }}">
+                                <button type="submit" class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200">
+                                    Remove
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                            No whitelisted IPs. Add one above to get started.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,383 @@
+{% extends "base.html" %}
+
+{% block title %}Login Security - {{ target_user.name }} - Admin v2{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">🔒 Login Security</h1>
+                <p class="text-gray-600 dark:text-gray-400">{{ target_user.name }} (ID: {{ target_user.user_id }})</p>
+            </div>
+            <a href="{% url 'admin_v2_manage_users' %}" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">← Back</a>
+        </div>
+    </div>
+
+    <!-- Temporary Password Display (shown once after password reset) -->
+    {% if temp_password_data %}
+    <div class="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-lg shadow-md p-6 mb-6">
+        <div class="flex items-start">
+            <div class="flex-shrink-0">
+                <svg class="h-6 w-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+            </div>
+            <div class="ml-4 flex-1">
+                <h3 class="text-lg font-bold text-yellow-800 dark:text-yellow-200 mb-2">⚠️ Password Reset - Important Information</h3>
+                <p class="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
+                    The password for <strong>{{ temp_password_data.user }}</strong> has been reset.
+                    {% if temp_password_data.email %}
+                        Since email was not sent, you must manually provide this password to the user.
+                    {% else %}
+                        This user has no email on file, so you must manually provide this password to them.
+                    {% endif %}
+                </p>
+                <div class="bg-white dark:bg-gray-800 border border-yellow-300 dark:border-yellow-700 rounded p-4 mb-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">New Password:</div>
+                            <div class="text-xl font-mono font-bold text-gray-900 dark:text-gray-100" id="temp-password">{{ temp_password_data.password }}</div>
+                        </div>
+                        <button onclick="copyPassword()" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">
+                            📋 Copy
+                        </button>
+                    </div>
+                </div>
+                <p class="text-xs text-yellow-600 dark:text-yellow-400">
+                    <strong>Security Note:</strong> This password will only be shown once. It is also saved in the security alert resolution notes below for your records.
+                    Make sure to securely communicate this password to the user.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function copyPassword() {
+        const password = document.getElementById('temp-password').textContent;
+        navigator.clipboard.writeText(password).then(() => {
+            alert('Password copied to clipboard!');
+        }).catch(err => {
+            console.error('Failed to copy password:', err);
+        });
+    }
+    </script>
+    {% endif %}
+
+    <!-- User Information Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">👤 User Information</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Username</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-gray-100 font-mono">{{ target_user.username }}</div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Email</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-gray-100 break-all">
+                    {% if target_user.email %}
+                        {{ target_user.email }}
+                    {% else %}
+                        <span class="text-gray-400 dark:text-gray-500 italic">Not set</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">User ID</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ target_user.user_id }}</div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Full Name</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ target_user.name }}</div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Member Status</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ target_user.member_status }}</div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Member Type</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ target_user.member_type }}</div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Admin Status</div>
+                <div class="text-lg font-semibold">
+                    {% if target_user.is_admin %}
+                        <span class="text-purple-600 dark:text-purple-400">✓ Admin</span>
+                    {% else %}
+                        <span class="text-gray-600 dark:text-gray-400">Regular User</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Last Login</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    {% if target_user.last_login %}
+                        {{ target_user.last_login|date:"M d, Y h:i A" }}
+                    {% else %}
+                        <span class="text-gray-400 dark:text-gray-500 italic">Never</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Password</div>
+                <div class="text-sm text-gray-600 dark:text-gray-400">
+                    <span class="px-2 py-1 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded">
+                        🔒 Hashed (cannot be decrypted)
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-sm text-blue-800 dark:text-blue-200">
+            <strong>Note:</strong> Passwords are securely hashed using one-way encryption and cannot be decrypted. Use "Force Password Reset" below to generate a new temporary password.
+        </div>
+    </div>
+
+    <!-- Statistics Dashboard -->
+    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-500 dark:text-gray-400">Total Logins</div>
+            <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats.total_logins }}</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-500 dark:text-gray-400">Failed Logins</div>
+            <div class="text-2xl font-bold text-yellow-600">{{ stats.failed_logins }}</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-500 dark:text-gray-400">Suspicious</div>
+            <div class="text-2xl font-bold text-red-600">{{ stats.suspicious_logins }}</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-500 dark:text-gray-400">Active Alerts</div>
+            <div class="text-2xl font-bold text-orange-600">{{ stats.active_alerts }}</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-500 dark:text-gray-400">Unique IPs</div>
+            <div class="text-2xl font-bold text-blue-600">{{ stats.unique_ips }}</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-500 dark:text-gray-400">Locations</div>
+            <div class="text-2xl font-bold text-purple-600">{{ stats.unique_locations }}</div>
+        </div>
+    </div>
+
+    <!-- Security Controls -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">⚠️ Security Actions</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Force Password Reset -->
+            <div class="border dark:border-gray-700 rounded-lg p-4">
+                <h3 class="font-bold text-gray-900 dark:text-gray-100 mb-2">Force Password Reset</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Generate a new temporary password for this user</p>
+                <form method="post" action="{% url 'admin_v2_force_password_reset' target_user.user_id %}" onsubmit="return confirm('This will reset the user password. Continue?');">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason</label>
+                        <input type="text" name="reason" placeholder="Security concern flagged by admin" class="w-full px-3 py-2 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Password Type</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="radio" name="password_type" value="random" checked onclick="document.getElementById('custom_password_field').style.display='none';" class="mr-2">
+                                <span class="text-sm text-gray-700 dark:text-gray-300">Generate random password (16 characters)</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="password_type" value="custom" onclick="document.getElementById('custom_password_field').style.display='block';" class="mr-2">
+                                <span class="text-sm text-gray-700 dark:text-gray-300">Set custom password</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="custom_password_field" class="mb-3" style="display: none;">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Custom Password</label>
+                        <input type="text" name="custom_password" placeholder="Enter custom password" class="w-full px-3 py-2 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Minimum 8 characters recommended</p>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="send_email" value="true" checked class="mr-2">
+                            <span class="text-sm text-gray-700 dark:text-gray-300">Send email notification with new password</span>
+                        </label>
+                    </div>
+
+                    <button type="submit" class="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">
+                        Reset Password
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Security Alerts -->
+    {% if alerts %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">🚨 Security Alerts</h2>
+        <div class="space-y-3">
+            {% for alert in alerts %}
+            <div class="border {% if alert.severity == 'critical' %}border-red-500{% elif alert.severity == 'high' %}border-orange-500{% elif alert.severity == 'medium' %}border-yellow-500{% else %}border-gray-300 dark:border-gray-700{% endif %} rounded-lg p-4">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="font-bold text-gray-900 dark:text-gray-100">{{ alert.title }}</span>
+                            <span class="px-2 py-1 text-xs rounded-full {% if alert.severity == 'critical' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200{% elif alert.severity == 'high' %}bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200{% elif alert.severity == 'medium' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200{% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200{% endif %}">
+                                {{ alert.get_severity_display }}
+                            </span>
+                            <span class="px-2 py-1 text-xs rounded-full {% if alert.status == 'new' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200{% elif alert.status == 'investigating' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200{% else %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200{% endif %}">
+                                {{ alert.get_status_display }}
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">{{ alert.description }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-500">{{ alert.created_at|date:"M d, Y h:i A" }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- IP Addresses -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">🌐 IP Addresses & Locations</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">IP Address</th>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Location</th>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Last Used</th>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Risk</th>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Status</th>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for ip_data in ip_info %}
+                    <tr>
+                        <td class="px-4 py-3 text-sm font-mono text-gray-900 dark:text-gray-100">{{ ip_data.ip }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ ip_data.location|default:"Unknown" }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ ip_data.last_used|date:"M d, h:i A" }}</td>
+                        <td class="px-4 py-3 text-sm">
+                            <span class="px-2 py-1 text-xs rounded-full {% if ip_data.risk_level == 'critical' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200{% elif ip_data.risk_level == 'high' %}bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200{% elif ip_data.risk_level == 'medium' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200{% else %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200{% endif %}">
+                                {{ ip_data.risk_level|upper }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm">
+                            {% if ip_data.is_whitelisted %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">✓ Whitelisted</span>
+                            {% elif ip_data.is_blacklisted %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">✗ Blacklisted</span>
+                            {% else %}
+                                <span class="text-gray-500 dark:text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-sm space-x-2">
+                            {% if not ip_data.is_whitelisted %}
+                            <form method="post" action="{% url 'admin_v2_add_ip_whitelist' %}" class="inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="ip_address" value="{{ ip_data.ip }}">
+                                <input type="hidden" name="description" value="User {{ target_user.name }} - Added from login security">
+                                <button type="submit" class="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-200" title="Add to whitelist">
+                                    ✓ Whitelist
+                                </button>
+                            </form>
+                            {% else %}
+                            <form method="post" action="{% url 'admin_v2_remove_ip_whitelist' %}" class="inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="ip_address" value="{{ ip_data.ip }}">
+                                <button type="submit" class="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200" title="Remove from whitelist">
+                                    Remove WL
+                                </button>
+                            </form>
+                            {% endif %}
+
+                            {% if not ip_data.is_blacklisted %}
+                            <form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}" class="inline" onsubmit="return confirm('Blacklist this IP address?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="ip_address" value="{{ ip_data.ip }}">
+                                <input type="hidden" name="reason" value="Suspicious activity for user {{ target_user.name }}">
+                                <button type="submit" class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200" title="Add to blacklist">
+                                    ✗ Blacklist
+                                </button>
+                            </form>
+                            {% else %}
+                            <form method="post" action="{% url 'admin_v2_remove_ip_blacklist' %}" class="inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="ip_address" value="{{ ip_data.ip }}">
+                                <button type="submit" class="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200" title="Remove from blacklist">
+                                    Remove BL
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No IP addresses found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Login History -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">📋 Recent Login History (Last 50)</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Time</th>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Status</th>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">IP Address</th>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Location</th>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Device</th>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Risk</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for login in login_history %}
+                    <tr class="{% if login.is_suspicious %}bg-red-50 dark:bg-red-900/20{% endif %}">
+                        <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                            {{ login.timestamp|date:"M d, Y h:i A" }}
+                        </td>
+                        <td class="px-4 py-3 text-sm">
+                            {% if login.status == 'success' %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">✓ Success</span>
+                            {% elif login.status == 'failed' %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">✗ Failed</span>
+                            {% elif login.status == 'blocked' %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">⊘ Blocked</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-sm font-mono text-gray-700 dark:text-gray-300">{{ login.ip_address }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                            {{ login.location_display }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                            <div>{{ login.browser|default:"Unknown" }}</div>
+                            <div class="text-xs">{{ login.os|default:"-" }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-sm">
+                            <span class="px-2 py-1 text-xs rounded-full {% if login.risk_level == 'critical' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200{% elif login.risk_level == 'high' %}bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200{% elif login.risk_level == 'medium' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200{% else %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200{% endif %}">
+                                {{ login.get_risk_level_display }}
+                            </span>
+                            {% if login.is_suspicious %}
+                                <span class="ml-1 text-red-600" title="Flagged as suspicious">⚠️</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No login history found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

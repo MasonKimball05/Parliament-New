@@ -2150,7 +2150,9 @@ class LoginAlert(models.Model):
         LoginHistory,
         on_delete=models.CASCADE,
         related_name='alerts',
-        help_text='Login attempt that triggered this alert'
+        null=True,
+        blank=True,
+        help_text='Login attempt that triggered this alert (optional for admin-initiated alerts)'
     )
 
     alert_type = models.CharField(max_length=30, choices=ALERT_TYPE_CHOICES)
@@ -2191,6 +2193,86 @@ class LoginAlert(models.Model):
 
     def __str__(self):
         return f"{self.get_alert_type_display()} - {self.user.name} - {self.get_severity_display()}"
+
+
+class IPWhitelist(models.Model):
+    """
+    IP addresses that are explicitly trusted and bypass security checks
+    """
+    ip_address = models.CharField(
+        max_length=45,
+        unique=True,
+        help_text='IP address or CIDR range (e.g., 192.168.1.0/24)'
+    )
+    description = models.CharField(
+        max_length=200,
+        help_text='Description of why this IP is whitelisted (e.g., "Office Network")'
+    )
+    added_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='whitelisted_ips',
+        help_text='Admin who added this IP to whitelist'
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True, help_text='Whether this whitelist entry is currently active')
+
+    class Meta:
+        ordering = ['-added_at']
+        verbose_name = 'IP Whitelist Entry'
+        verbose_name_plural = 'IP Whitelist Entries'
+
+    def __str__(self):
+        return f"{self.ip_address} - {self.description}"
+
+
+class IPBlacklist(models.Model):
+    """
+    IP addresses that are explicitly blocked from accessing the system
+    """
+    ip_address = models.CharField(
+        max_length=45,
+        unique=True,
+        help_text='IP address or CIDR range to block'
+    )
+    reason = models.CharField(
+        max_length=200,
+        help_text='Reason for blocking this IP'
+    )
+    added_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='blacklisted_ips',
+        help_text='Admin who added this IP to blacklist'
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True, help_text='Whether this blacklist entry is currently active')
+    expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When this blacklist entry should automatically expire (optional)'
+    )
+
+    # Track blocks
+    block_count = models.IntegerField(
+        default=0,
+        help_text='Number of times this IP has been blocked'
+    )
+    last_blocked = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Last time this IP was blocked'
+    )
+
+    class Meta:
+        ordering = ['-added_at']
+        verbose_name = 'IP Blacklist Entry'
+        verbose_name_plural = 'IP Blacklist Entries'
+
+    def __str__(self):
+        return f"{self.ip_address} - {self.reason}"
 
 
 # Import feature flags models

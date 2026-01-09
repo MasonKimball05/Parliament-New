@@ -81,12 +81,17 @@
                             {% endif %}
                         </td>
                         <td class="px-6 py-4">
-                            <form method="post" action="{% url 'admin_v2_toggle_user_admin' user.user_id %}">
-                                {% csrf_token %}
-                                <button type="submit" class="px-3 py-1.5 text-sm {% if user.is_admin %}text-red-600 hover:bg-red-50{% else %}text-green-600 hover:bg-green-50{% endif %} rounded">
-                                    {% if user.is_admin %}Revoke Admin{% else %}Grant Admin{% endif %}
-                                </button>
-                            </form>
+                            <div class="flex items-center gap-2">
+                                <a href="{% url 'admin_v2_user_login_security' user.user_id %}" class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded" title="View login security information">
+                                    🔒 Login Info
+                                </a>
+                                <form method="post" action="{% url 'admin_v2_toggle_user_admin' user.user_id %}" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="px-3 py-1.5 text-sm {% if user.is_admin %}text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20{% else %}text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20{% endif %} rounded">
+                                        {% if user.is_admin %}Revoke Admin{% else %}Grant Admin{% endif %}
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 {% empty %}

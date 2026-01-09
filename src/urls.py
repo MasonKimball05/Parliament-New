@@ -25,7 +25,10 @@ from src.view.admin_v2 import (
     toggle_page, admin_v2_logout, manage_legislation, delete_legislation,
     manage_committees, toggle_committee_active,
     manage_users, toggle_user_admin, manage_login_history, manage_announcements,
-    delete_announcement
+    delete_announcement, user_login_security, force_password_reset,
+    add_ip_to_whitelist, add_ip_to_blacklist,
+    remove_ip_from_whitelist, remove_ip_from_blacklist,
+    manage_ip_whitelist, manage_ip_blacklist, manage_security_alerts
 )
 from src.view.admin_v2 import manage_events as admin_v2_manage_events, delete_event as admin_v2_delete_event
 from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event
@@ -255,6 +258,21 @@ urlpatterns = [
     path('admin-v2/login-history/', manage_login_history, name='admin_v2_login_history'),
     path('admin-v2/announcements/', manage_announcements, name='admin_v2_manage_announcements'),
     path('admin-v2/announcements/<int:announcement_id>/delete/', delete_announcement, name='admin_v2_delete_announcement'),
+
+    # Admin v2 - User Login Security
+    path('admin-v2/users/<str:user_id>/login-security/', user_login_security, name='admin_v2_user_login_security'),
+    path('admin-v2/users/<str:user_id>/force-password-reset/', force_password_reset, name='admin_v2_force_password_reset'),
+
+    # Admin v2 - IP Management
+    path('admin-v2/ip/whitelist/', manage_ip_whitelist, name='admin_v2_ip_whitelist'),
+    path('admin-v2/ip/whitelist/add/', add_ip_to_whitelist, name='admin_v2_add_ip_whitelist'),
+    path('admin-v2/ip/whitelist/remove/', remove_ip_from_whitelist, name='admin_v2_remove_ip_whitelist'),
+    path('admin-v2/ip/blacklist/', manage_ip_blacklist, name='admin_v2_ip_blacklist'),
+    path('admin-v2/ip/blacklist/add/', add_ip_to_blacklist, name='admin_v2_add_ip_blacklist'),
+    path('admin-v2/ip/blacklist/remove/', remove_ip_from_blacklist, name='admin_v2_remove_ip_blacklist'),
+
+    # Admin v2 - Security Alerts
+    path('admin-v2/security/alerts/', manage_security_alerts, name='admin_v2_security_alerts'),
 ]
 
 if settings.DEBUG:

@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Security Alerts - Admin v2{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">⚠️ Security Alerts</h1>
+                <p class="text-gray-600 dark:text-gray-400">Monitor and respond to suspicious login activity across all users</p>
+            </div>
+            <a href="{% url 'admin_v2_dashboard' %}" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">← Back</a>
+        </div>
+    </div>
+
+    <!-- Statistics Dashboard -->
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-500 dark:text-gray-400">Total Alerts</div>
+            <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats.total_alerts }}</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-500 dark:text-gray-400">New Alerts</div>
+            <div class="text-2xl font-bold text-blue-600">{{ stats.new_alerts }}</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-500 dark:text-gray-400">Investigating</div>
+            <div class="text-2xl font-bold text-yellow-600">{{ stats.investigating }}</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-500 dark:text-gray-400">Critical</div>
+            <div class="text-2xl font-bold text-red-600">{{ stats.critical_alerts }}</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-500 dark:text-gray-400">High Priority</div>
+            <div class="text-2xl font-bold text-orange-600">{{ stats.high_alerts }}</div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <form method="get" class="flex flex-wrap gap-4">
+            <div class="min-w-[150px]">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
+                <select name="status" class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    <option value="">All</option>
+                    <option value="new" {% if status_filter == 'new' %}selected{% endif %}>New</option>
+                    <option value="investigating" {% if status_filter == 'investigating' %}selected{% endif %}>Investigating</option>
+                    <option value="resolved" {% if status_filter == 'resolved' %}selected{% endif %}>Resolved</option>
+                    <option value="false_positive" {% if status_filter == 'false_positive' %}selected{% endif %}>False Positive</option>
+                </select>
+            </div>
+            <div class="min-w-[150px]">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Severity</label>
+                <select name="severity" class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    <option value="">All</option>
+                    <option value="critical" {% if severity_filter == 'critical' %}selected{% endif %}>Critical</option>
+                    <option value="high" {% if severity_filter == 'high' %}selected{% endif %}>High</option>
+                    <option value="medium" {% if severity_filter == 'medium' %}selected{% endif %}>Medium</option>
+                    <option value="low" {% if severity_filter == 'low' %}selected{% endif %}>Low</option>
+                </select>
+            </div>
+            <div class="flex items-end gap-2">
+                <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Apply Filters</button>
+                <a href="{% url 'admin_v2_security_alerts' %}" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg">Clear</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Alerts List -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Recent Alerts (Last 100)</h2>
+        <div class="space-y-3">
+            {% for alert in alerts %}
+            <div class="border {% if alert.severity == 'critical' %}border-red-500{% elif alert.severity == 'high' %}border-orange-500{% elif alert.severity == 'medium' %}border-yellow-500{% else %}border-gray-300 dark:border-gray-700{% endif %} rounded-lg p-4">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="font-bold text-gray-900 dark:text-gray-100">{{ alert.title }}</span>
+                            <span class="px-2 py-1 text-xs rounded-full {% if alert.severity == 'critical' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200{% elif alert.severity == 'high' %}bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200{% elif alert.severity == 'medium' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200{% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200{% endif %}">
+                                {{ alert.get_severity_display }}
+                            </span>
+                            <span class="px-2 py-1 text-xs rounded-full {% if alert.status == 'new' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200{% elif alert.status == 'investigating' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200{% else %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200{% endif %}">
+                                {{ alert.get_status_display }}
+                            </span>
+                            <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                {{ alert.get_alert_type_display }}
+                            </span>
+                        </div>
+
+                        <div class="mb-2">
+                            <span class="font-semibold text-gray-700 dark:text-gray-300">User:</span>
+                            <a href="{% url 'admin_v2_user_login_security' alert.user.user_id %}" class="text-blue-600 dark:text-blue-400 hover:underline">
+                                {{ alert.user.get_display_name }}
+                            </a>
+                        </div>
+
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">{{ alert.description }}</p>
+
+                        <div class="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-500 mt-2">
+                            <span>Created: {{ alert.created_at|date:"M d, Y h:i A" }}</span>
+                            {% if alert.reviewed_by %}
+                                <span>Reviewed by: {{ alert.reviewed_by.get_display_name }}</span>
+                            {% endif %}
+                        </div>
+
+                        {% if alert.resolution_notes %}
+                        <div class="mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded text-sm text-gray-700 dark:text-gray-300">
+                            <span class="font-semibold">Resolution:</span> {{ alert.resolution_notes }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="ml-4">
+                        <a href="{% url 'admin_v2_user_login_security' alert.user.user_id %}" class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded" title="View user's login security">
+                            Investigate
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+                No security alerts found. The system is secure! 🎉
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -11,12 +11,24 @@ from django.db.models import Count, Q
 from src.models_feature_flags import FeatureFlag, PageToggle
 from src.models import (
     ParliamentUser, Legislation, Event, Committee,
-    Announcement, ActivityLog, LoginHistory, LoginAlert
+    Announcement, ActivityLog, LoginHistory, LoginAlert,
+    IPWhitelist, IPBlacklist
 )
 import os
+import secrets
+import string
+from django.views.decorators.http import require_POST
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 
 
 ALLOWED_USER_ID = '73'  # Your user ID
+
+
+def generate_random_password(length=16):
+    """Generate a secure random password"""
+    alphabet = string.ascii_letters + string.digits + string.punctuation
+    return ''.join(secrets.choice(alphabet) for i in range(length))
 
 
 def admin_v2_login(request):
@@ -443,7 +455,7 @@ def manage_committees(request):
     committees = Committee.objects.annotate(
         member_count=Count('members'),
         chair_count=Count('chairs'),
-        document_count=Count('committeedocument')
+        document_count=Count('documents')
     ).order_by('name')
 
     context = {
@@ -493,7 +505,7 @@ def manage_users(request):
     search_query = request.GET.get('search', '')
 
     # Build query
-    users_list = ParliamentUser.objects.order_by('last_name', 'first_name')
+    users_list = ParliamentUser.objects.order_by('name')
 
     if status_filter:
         users_list = users_list.filter(member_status=status_filter)
@@ -508,8 +520,7 @@ def manage_users(request):
 
     if search_query:
         users_list = users_list.filter(
-            Q(first_name__icontains=search_query) |
-            Q(last_name__icontains=search_query) |
+            Q(name__icontains=search_query) |
             Q(username__icontains=search_query) |
             Q(user_id__icontains=search_query)
         )
@@ -648,3 +659,373 @@ def delete_announcement(request, announcement_id):
             messages.error(request, 'Announcement not found')
 
     return redirect('admin_v2_manage_announcements')
+
+
+@require_admin_v2_auth
+def user_login_security(request, user_id):
+    """
+    Detailed login security view for a specific user
+    Shows login history, alerts, IP addresses, and security controls
+    """
+    user = get_object_or_404(ParliamentUser, user_id=user_id)
+
+    # Get login history
+    login_history = LoginHistory.objects.filter(user=user).order_by('-timestamp')[:50]
+
+    # Get security alerts (limited to last 25)
+    alerts = LoginAlert.objects.filter(user=user).order_by('-created_at')[:25]
+
+    # Get unique IPs from login history
+    unique_ips = set()
+    ip_info = []
+    for login in login_history:
+        ip = login.ip_address
+        if ip and ip not in unique_ips:
+            unique_ips.add(ip)
+            # Check if IP is whitelisted or blacklisted
+            is_whitelisted = IPWhitelist.objects.filter(ip_address=ip, is_active=True).exists()
+            is_blacklisted = IPBlacklist.objects.filter(ip_address=ip, is_active=True).exists()
+
+            ip_info.append({
+                'ip': ip,
+                'location': login.location_display,
+                'last_used': login.timestamp,
+                'is_whitelisted': is_whitelisted,
+                'is_blacklisted': is_blacklisted,
+                'risk_level': login.risk_level,
+            })
+
+    # Statistics (query separately to avoid slicing issues)
+    stats = {
+        'total_logins': LoginHistory.objects.filter(user=user).count(),
+        'failed_logins': LoginHistory.objects.filter(user=user, status='failed').count(),
+        'suspicious_logins': LoginHistory.objects.filter(user=user, is_suspicious=True).count(),
+        'active_alerts': LoginAlert.objects.filter(user=user, status='new').count(),
+        'unique_ips': len(unique_ips),
+        'unique_locations': len(set(login.location_display for login in login_history if login.city)),
+    }
+
+    # Check if there's a temporary password to display from session
+    temp_password_data = request.session.pop('temp_password_display', None)
+
+    context = {
+        'target_user': user,
+        'login_history': login_history,
+        'alerts': alerts,
+        'ip_info': ip_info,
+        'stats': stats,
+        'temp_password_data': temp_password_data,  # Will be None if not present
+    }
+
+    return render(request, 'admin_v2/user_login_security.html', context)
+
+
+@require_admin_v2_auth
+@require_POST
+def force_password_reset(request, user_id):
+    """
+    Force a user to reset their password
+    """
+    from django.core.mail import send_mail
+
+    user = get_object_or_404(ParliamentUser, user_id=user_id)
+    reason = request.POST.get('reason', 'Security concern flagged by admin')
+    password_type = request.POST.get('password_type', 'random')
+    send_email = request.POST.get('send_email') == 'true'
+
+    # Determine the new password
+    if password_type == 'custom':
+        temp_password = request.POST.get('custom_password', '').strip()
+        if not temp_password:
+            messages.error(request, 'Custom password cannot be empty')
+            return redirect('admin_v2_user_login_security', user_id=user_id)
+        if len(temp_password) < 8:
+            messages.error(request, 'Custom password should be at least 8 characters')
+            return redirect('admin_v2_user_login_security', user_id=user_id)
+    else:
+        # Generate a temporary random password
+        temp_password = generate_random_password(length=16)
+
+    # Set the new password
+    user.set_password(temp_password)
+    user.force_password_change = False  # Allow them to use this password
+    user.save()
+
+    # Log the action
+    ActivityLog.log_activity(
+        action_type='forced_password_reset',
+        user=request.user,
+        description=f'{request.user.get_display_name()} forced password reset for {user.get_display_name()}. Reason: {reason}',
+        request=request,
+        object_type='user',
+        object_id=user.user_id,
+        object_repr=user.get_display_name()
+    )
+
+    # Create a security alert for the user
+    alert = LoginAlert.objects.create(
+        user=user,
+        alert_type='other',
+        severity='high',
+        status='resolved',
+        title='Password Reset by Administrator',
+        description=f'Your password was reset by an administrator. Reason: {reason}',
+        reviewed_by=request.user,
+        reviewed_at=timezone.now(),
+        resolution_notes=f'New password: {temp_password}',
+        user_notified=send_email
+    )
+
+    # Send email notification if requested
+    email_sent = False
+    if send_email and user.email:
+        try:
+            email_subject = 'Your Parliament Password Has Been Reset'
+            email_body = f"""Hello {user.get_display_name()},
+
+Your Parliament account password has been reset by an administrator.
+
+Reason: {reason}
+
+Your new password is: {temp_password}
+
+Please log in using this password. For security reasons, you may want to change it after logging in.
+
+If you did not request this password reset or have any concerns, please contact an administrator immediately.
+
+Best regards,
+Parliament Administration Team"""
+
+            send_mail(
+                email_subject,
+                email_body,
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                fail_silently=False,
+            )
+            email_sent = True
+        except Exception as e:
+            messages.warning(
+                request,
+                f'Password was reset but email failed to send to {user.email}. Error: {str(e)}. '
+                f'New password is stored in security alert resolution notes.'
+            )
+
+    # Store the password in request.session to show it only on the next admin panel page
+    # This prevents it from showing on login screen if user gets logged out
+    if email_sent:
+        messages.success(
+            request,
+            f'Password reset for {user.get_display_name()}. Email sent to {user.email}. '
+            f'The new password is also stored in the security alert below for your records.'
+        )
+    else:
+        # Only show password in admin panel context, store it in session temporarily
+        request.session['temp_password_display'] = {
+            'user': user.get_display_name(),
+            'password': temp_password,
+            'email': user.email if user.email else None
+        }
+        if not user.email:
+            messages.warning(
+                request,
+                f'Password reset for {user.get_display_name()}. No email on file - new password will be displayed on next page.'
+            )
+        elif not send_email:
+            messages.info(
+                request,
+                f'Password reset for {user.get_display_name()}. Email not sent as requested - new password will be displayed on next page.'
+            )
+
+    return redirect('admin_v2_user_login_security', user_id=user_id)
+
+
+@require_admin_v2_auth
+@require_POST
+def add_ip_to_whitelist(request):
+    """
+    Add an IP address to the whitelist
+    """
+    ip_address = request.POST.get('ip_address', '').strip()
+    description = request.POST.get('description', '')
+
+    if not ip_address:
+        messages.error(request, 'IP address is required')
+        return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+
+    # Check if already whitelisted
+    if IPWhitelist.objects.filter(ip_address=ip_address, is_active=True).exists():
+        messages.warning(request, f'IP {ip_address} is already whitelisted')
+        return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+
+    # Create whitelist entry
+    IPWhitelist.objects.create(
+        ip_address=ip_address,
+        description=description or f'Added by {request.user.get_display_name()}',
+        added_by=request.user
+    )
+
+    ActivityLog.log_activity(
+        action_type='ip_whitelisted',
+        user=request.user,
+        description=f'{request.user.get_display_name()} added {ip_address} to whitelist: {description}',
+        request=request
+    )
+
+    messages.success(request, f'IP {ip_address} has been added to whitelist')
+    return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+
+
+@require_admin_v2_auth
+@require_POST
+def add_ip_to_blacklist(request):
+    """
+    Add an IP address to the blacklist
+    """
+    ip_address = request.POST.get('ip_address', '').strip()
+    reason = request.POST.get('reason', '')
+
+    if not ip_address:
+        messages.error(request, 'IP address is required')
+        return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+
+    # Check if already blacklisted
+    if IPBlacklist.objects.filter(ip_address=ip_address, is_active=True).exists():
+        messages.warning(request, f'IP {ip_address} is already blacklisted')
+        return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+
+    # Create blacklist entry
+    IPBlacklist.objects.create(
+        ip_address=ip_address,
+        reason=reason or 'Suspicious activity',
+        added_by=request.user
+    )
+
+    ActivityLog.log_activity(
+        action_type='ip_blacklisted',
+        user=request.user,
+        description=f'{request.user.get_display_name()} blacklisted {ip_address}: {reason}',
+        request=request
+    )
+
+    messages.success(request, f'IP {ip_address} has been added to blacklist')
+    return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+
+
+@require_admin_v2_auth
+@require_POST
+def remove_ip_from_whitelist(request):
+    """
+    Remove an IP address from the whitelist
+    """
+    ip_address = request.POST.get('ip_address', '').strip()
+
+    if not ip_address:
+        messages.error(request, 'IP address is required')
+        return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+
+    # Deactivate whitelist entry
+    entries = IPWhitelist.objects.filter(ip_address=ip_address, is_active=True)
+    count = entries.count()
+    entries.update(is_active=False)
+
+    ActivityLog.log_activity(
+        action_type='ip_whitelist_removed',
+        user=request.user,
+        description=f'{request.user.get_display_name()} removed {ip_address} from whitelist',
+        request=request
+    )
+
+    messages.success(request, f'IP {ip_address} has been removed from whitelist ({count} entries deactivated)')
+    return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+
+
+@require_admin_v2_auth
+@require_POST
+def remove_ip_from_blacklist(request):
+    """
+    Remove an IP address from the blacklist
+    """
+    ip_address = request.POST.get('ip_address', '').strip()
+
+    if not ip_address:
+        messages.error(request, 'IP address is required')
+        return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+
+    # Deactivate blacklist entry
+    entries = IPBlacklist.objects.filter(ip_address=ip_address, is_active=True)
+    count = entries.count()
+    entries.update(is_active=False)
+
+    ActivityLog.log_activity(
+        action_type='ip_blacklist_removed',
+        user=request.user,
+        description=f'{request.user.get_display_name()} removed {ip_address} from blacklist',
+        request=request
+    )
+
+    messages.success(request, f'IP {ip_address} has been removed from blacklist ({count} entries deactivated)')
+    return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+
+
+@require_admin_v2_auth
+def manage_ip_whitelist(request):
+    """
+    Manage IP whitelist entries
+    """
+    whitelist_entries = IPWhitelist.objects.filter(is_active=True).order_by('-added_at')
+
+    context = {
+        'whitelist_entries': whitelist_entries,
+    }
+
+    return render(request, 'admin_v2/ip_whitelist.html', context)
+
+
+@require_admin_v2_auth
+def manage_ip_blacklist(request):
+    """
+    Manage IP blacklist entries
+    """
+    blacklist_entries = IPBlacklist.objects.filter(is_active=True).order_by('-added_at')
+
+    context = {
+        'blacklist_entries': blacklist_entries,
+    }
+
+    return render(request, 'admin_v2/ip_blacklist.html', context)
+
+
+@require_admin_v2_auth
+def manage_security_alerts(request):
+    """
+    Manage security alerts across all users
+    """
+    # Filter parameters
+    status_filter = request.GET.get('status', '')
+    severity_filter = request.GET.get('severity', '')
+
+    alerts = LoginAlert.objects.select_related('user', 'login_history').order_by('-created_at')
+
+    if status_filter:
+        alerts = alerts.filter(status=status_filter)
+    if severity_filter:
+        alerts = alerts.filter(severity=severity_filter)
+
+    # Statistics
+    stats = {
+        'total_alerts': LoginAlert.objects.count(),
+        'new_alerts': LoginAlert.objects.filter(status='new').count(),
+        'investigating': LoginAlert.objects.filter(status='investigating').count(),
+        'critical_alerts': LoginAlert.objects.filter(severity='critical', status='new').count(),
+        'high_alerts': LoginAlert.objects.filter(severity='high', status='new').count(),
+    }
+
+    context = {
+        'alerts': alerts[:100],  # Limit to 100 most recent
+        'stats': stats,
+        'status_filter': status_filter,
+        'severity_filter': severity_filter,
+    }
+
+    return render(request, 'admin_v2/security_alerts.html', context)
