@@ -3,6 +3,7 @@ from ..decorators import *
 from ..models import *
 from django.shortcuts import render
 from django.views.generic import DetailView
+from django.urls import reverse
 from src.feature_flag_decorators import require_page_enabled
 import pytz
 from datetime import timedelta
@@ -102,6 +103,7 @@ def passed_legislation(request):
             'vote_passed': vote_passed,
             'present_members': present_members,
             'document_url': leg.document.url if leg.document else None,
+            'document_viewer_url': reverse('view_document', args=[leg.id]) if leg.document else None,
             'vote_breakdown': vote_breakdown,
             'winner': winner,
         })

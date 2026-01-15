@@ -27,7 +27,7 @@
                         <div class="flex justify-between items-start">
                             <div class="flex-1">
                                 <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                                    <a href="{{ doc.document.url }}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
+                                    <a href="{% url 'view_committee_document' committee.code doc.id %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
                                         {{ doc.title }}
                                     </a>
                                 </h3>
@@ -64,6 +64,9 @@
                                 </div>
                             </div>
                             <div class="ml-4 flex flex-col gap-2 items-end">
+                                <a href="{% url 'view_committee_document' committee.code doc.id %}" class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors">
+                                    View
+                                </a>
                                 <a href="{{ doc.document.url }}" download class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
                                     Download
                                 </a>

@@ -35,8 +35,13 @@
             {% for item in channels %}
                 {% with channel=item.channel unread=item.unread_count %}
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow group transition-colors duration-200">
-                        <a href="{% url 'channel_chat' channel.id %}"
-                           class="p-4 sm:p-6 flex items-center justify-between block">
+                        {% if channel.channel_type == 'committee' and channel.committee %}
+                            <a href="{% url 'committee_channel_chat' channel.committee.code %}"
+                               class="p-4 sm:p-6 flex items-center justify-between block">
+                        {% else %}
+                            <a href="{% url 'channel_chat' channel.id %}"
+                               class="p-4 sm:p-6 flex items-center justify-between block">
+                        {% endif %}
                             <div class="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
                                 <!-- Icon with custom color -->
                                 <div class="text-2xl sm:text-4xl flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-lg flex-shrink-0"

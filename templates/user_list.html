@@ -10,9 +10,9 @@
         <div class="flex items-center gap-3 sm:gap-4">
             <img src="{% static 'images/beta-seal.webp' %}" alt="Beta Theta Pi Seal" class="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full object-contain bg-white p-1 shadow-md">
             <div>
-                <h2 class="text-2xl sm:text-3xl font-bold mb-1">Chapter Members</h2>
-                <p class="text-sm sm:text-base text-gray-600">Complete list of all chapter members</p>
-                <p class="text-xs sm:text-sm text-gray-500 mt-1">{{ total_users }} member{{ total_users|pluralize }}</p>
+                <h2 class="text-2xl sm:text-3xl font-bold mb-1 text-gray-900 dark:text-white">Chapter Members</h2>
+                <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">Complete list of all chapter members</p>
+                <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{{ total_users }} member{{ total_users|pluralize }}</p>
             </div>
         </div>
         <a href="{% url 'export_user_list' %}?status={{ selected_status }}" class="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center justify-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
@@ -25,14 +25,14 @@
 
     <!-- Filters and Search -->
     <form method="get" class="mb-6">
-        <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <!-- Search -->
                 <div class="md:col-span-1">
-                    <label for="searchInput" class="block text-sm font-medium text-gray-700 mb-2">Search</label>
+                    <label for="searchInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Search</label>
                     <div class="relative">
                         <input type="text" id="searchInput" name="q" value="{{ search_query }}" placeholder="Name, ID, or email..."
-                               class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                               class="w-full px-4 py-2 pl-10 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         <svg class="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
@@ -41,8 +41,8 @@
 
                 <!-- Status Filter -->
                 <div class="md:col-span-1">
-                    <label for="statusFilter" class="block text-sm font-medium text-gray-700 mb-2">Member Status</label>
-                    <select id="statusFilter" name="status" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <label for="statusFilter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Member Status</label>
+                    <select id="statusFilter" name="status" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active & Advisors</option>
                         <option value="all" {% if selected_status == 'all' %}selected{% endif %}>All Members</option>
                         <option value="inactive" {% if selected_status == 'inactive' %}selected{% endif %}>Inactive</option>
@@ -52,8 +52,8 @@
 
                 <!-- Type Filter -->
                 <div class="md:col-span-1">
-                    <label for="typeFilter" class="block text-sm font-medium text-gray-700 mb-2">Member Type</label>
-                    <select id="typeFilter" name="type" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <label for="typeFilter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Member Type</label>
+                    <select id="typeFilter" name="type" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         <option value="" {% if not selected_type %}selected{% endif %}>All Types</option>
                         {% for value, label in member_types %}
                             <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
@@ -64,7 +64,7 @@
 
             <!-- Filter Buttons -->
             <div class="flex flex-col sm:flex-row justify-end gap-2">
-                <a href="{% url 'user_list' %}" class="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-center font-medium">
+                <a href="{% url 'user_list' %}" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-center font-medium">
                     Clear Filters
                 </a>
                 <button type="submit" class="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
@@ -75,14 +75,14 @@
     </form>
 
     <!-- Members List - Table on Desktop, Cards on Mobile -->
-    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
         <!-- Desktop Table View (hidden on mobile) -->
         <div class="hidden md:block overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <a href="?sort=name&order={% if current_sort == 'name' and current_order == 'asc' %}desc{% else %}asc{% endif %}&status={{ selected_status }}&type={{ selected_type }}&q={{ search_query }}" class="flex items-center gap-1 hover:text-gray-700">
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            <a href="?sort=name&order={% if current_sort == 'name' and current_order == 'asc' %}desc{% else %}asc{% endif %}&status={{ selected_status }}&type={{ selected_type }}&q={{ search_query }}" class="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
                                 Name
                                 {% if current_sort == 'name' %}
                                     {% if current_order == 'asc' %}
@@ -167,9 +167,9 @@
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200" id="memberTableBody">
+                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700" id="memberTableBody">
                     {% for data in user_data %}
-                        <tr class="hover:bg-gray-50 transition-colors">
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
@@ -178,83 +178,83 @@
                                         </span>
                                     </div>
                                     <div class="ml-4">
-                                        <div class="text-sm font-medium text-gray-900">{{ data.username }}</div>
+                                        <div class="text-sm font-medium text-gray-900 dark:text-white">{{ data.username }}</div>
                                     </div>
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-900 font-mono">{{ data.id }}</div>
+                                <div class="text-sm text-gray-900 dark:text-white font-mono">{{ data.id }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-600">{{ data.email }}</div>
+                                <div class="text-sm text-gray-600 dark:text-gray-400">{{ data.email }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 {% if data.role == 'Officer' %}
-                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
                                         Officer
                                     </span>
                                 {% elif data.role == 'Chair' %}
-                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
                                         Chair
                                     </span>
                                 {% elif data.role == 'Advisor' %}
-                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                                         Advisor
                                     </span>
                                 {% else %}
-                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
                                         {{ data.role }}
                                     </span>
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 {% if data.member_status == 'Active' %}
-                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                                         Active
                                     </span>
                                 {% elif data.member_status == 'Inactive' %}
-                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">
                                         Inactive
                                     </span>
                                 {% elif data.member_status == 'Alumni' %}
-                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
                                         Alumni
                                     </span>
                                 {% else %}
-                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
                                         {{ data.member_status }}
                                     </span>
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-1">
-                                    <span class="px-2 py-1 inline-flex text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">
+                                    <span class="px-2 py-1 inline-flex text-xs font-semibold rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200">
                                         {{ data.role_count }}
                                     </span>
                                     {% if data.roles %}
-                                        <div class="text-xs text-gray-500 ml-1">
+                                        <div class="text-xs text-gray-500 dark:text-gray-400 ml-1">
                                             {% for role in data.roles %}
                                                 {{ role.name }}{% if not forloop.last %}, {% endif %}
                                             {% endfor %}
                                             {% if data.has_more_roles %}
-                                                <span class="text-gray-400">...</span>
+                                                <span class="text-gray-400 dark:text-gray-500">...</span>
                                             {% endif %}
                                         </div>
                                     {% endif %}
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-600">{{ data.last_login }}</div>
+                                <div class="text-sm text-gray-600 dark:text-gray-400">{{ data.last_login }}</div>
                             </td>
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="7" class="px-6 py-12 text-center text-gray-500">
-                                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <td colspan="7" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                                 </svg>
                                 <p>No members found matching your filters.</p>
-                                <a href="{% url 'user_list' %}" class="text-blue-600 hover:text-blue-700 text-sm mt-2 inline-block">Clear all filters</a>
+                                <a href="{% url 'user_list' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm mt-2 inline-block">Clear all filters</a>
                             </td>
                         </tr>
                     {% endfor %}
@@ -263,9 +263,9 @@
         </div>
 
         <!-- Mobile Card View (hidden on desktop) -->
-        <div class="md:hidden divide-y divide-gray-200">
+        <div class="md:hidden divide-y divide-gray-200 dark:divide-gray-700">
             {% for data in user_data %}
-            <div class="p-4 hover:bg-gray-50 transition-colors">
+            <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 <div class="flex items-start gap-3">
                     <!-- Avatar -->
                     <div class="flex-shrink-0 h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
@@ -277,66 +277,66 @@
                     <!-- Member Info -->
                     <div class="flex-1 min-w-0">
                         <!-- Name -->
-                        <h3 class="text-base font-semibold text-gray-900 mb-1">{{ data.username }}</h3>
+                        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-1">{{ data.username }}</h3>
 
                         <!-- Badges Row -->
                         <div class="flex flex-wrap gap-1.5 mb-2">
                             <!-- Member Type -->
                             {% if data.role == 'Officer' %}
-                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
                                     Officer
                                 </span>
                             {% elif data.role == 'Chair' %}
-                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
                                     Chair
                                 </span>
                             {% elif data.role == 'Advisor' %}
-                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                                     Advisor
                                 </span>
                             {% else %}
-                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
                                     {{ data.role }}
                                 </span>
                             {% endif %}
 
                             <!-- Status -->
                             {% if data.member_status == 'Active' %}
-                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                                     Active
                                 </span>
                             {% elif data.member_status == 'Inactive' %}
-                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">
                                     Inactive
                                 </span>
                             {% elif data.member_status == 'Alumni' %}
-                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
                                     Alumni
                                 </span>
                             {% else %}
-                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
                                     {{ data.member_status }}
                                 </span>
                             {% endif %}
 
                             <!-- Roles Count -->
                             {% if data.role_count > 0 %}
-                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200">
                                     {{ data.role_count }} role{{ data.role_count|pluralize }}
                                 </span>
                             {% endif %}
                         </div>
 
                         <!-- Details -->
-                        <div class="space-y-1 text-sm text-gray-600">
+                        <div class="space-y-1 text-sm text-gray-600 dark:text-gray-400">
                             <div class="flex items-center gap-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                                 </svg>
                                 <span class="truncate">{{ data.email }}</span>
                             </div>
                             <div class="flex items-center gap-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/>
                                 </svg>
                                 <span class="font-mono text-xs">ID: {{ data.id }}</span>
@@ -370,11 +370,11 @@
             </div>
             {% empty %}
             <div class="p-8 text-center">
-                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                 </svg>
-                <p class="text-gray-600 mb-2">No members found matching your filters.</p>
-                <a href="{% url 'user_list' %}" class="text-blue-600 hover:text-blue-700 text-sm font-medium">Clear all filters</a>
+                <p class="text-gray-600 dark:text-gray-400 mb-2">No members found matching your filters.</p>
+                <a href="{% url 'user_list' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium">Clear all filters</a>
             </div>
             {% endfor %}
         </div>

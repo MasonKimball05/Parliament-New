@@ -5,7 +5,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.shortcuts import render, redirect
 from django.contrib.auth import update_session_auth_hash
+from django.core.exceptions import ValidationError
 from src.feature_flag_decorators import require_page_enabled
+from PIL import Image
+import io
 import logging
 
 logger = logging.getLogger('function_calls')
@@ -16,13 +19,54 @@ logger = logging.getLogger('function_calls')
 def profile_view(request):
     user = request.user
 
+    # Check if profile picture was removed by admin
+    if user.profile_picture_removed_by_admin:
+        messages.warning(
+            request,
+            "Your profile picture was removed by an administrator. "
+            "Please upload a new, appropriate profile picture."
+        )
+        user.profile_picture_removed_by_admin = False
+        user.save()
+
     profile_form_submitted = 'profile_submit' in request.POST
     password_form_submitted = 'password_submit' in request.POST
+    profile_picture_submitted = 'profile_picture_submit' in request.POST
 
     password_form = PasswordChangeForm(user)
 
     if request.method == 'POST':
-        if profile_form_submitted:
+        if profile_picture_submitted:
+            # Handle profile picture removal
+            if 'remove_profile_picture' in request.POST:
+                if user.profile_picture:
+                    user.profile_picture.delete()
+                    user.save()
+                    logger.info(f"{user.username} removed their profile picture")
+                    messages.success(request, "Profile picture removed successfully.")
+                else:
+                    messages.info(request, "No profile picture to remove.")
+                return redirect('profile')
+
+            # Handle profile picture upload
+            elif request.FILES.get('profile_picture'):
+                try:
+                    # Delete old profile picture if exists
+                    if user.profile_picture:
+                        user.profile_picture.delete()
+
+                    user.profile_picture = request.FILES['profile_picture']
+                    user.save()
+                    logger.info(f"{user.username} uploaded a new profile picture")
+                    messages.success(request, "Profile picture uploaded successfully.")
+                except ValidationError as e:
+                    messages.error(request, str(e))
+                return redirect('profile')
+            else:
+                messages.warning(request, "No file selected.")
+                return redirect('profile')
+
+        elif profile_form_submitted:
             new_username = request.POST.get('username')
             new_preferred_name = request.POST.get('preferred_name', '').strip()
             new_email = request.POST.get('email', '').strip()

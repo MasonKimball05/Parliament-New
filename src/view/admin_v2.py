@@ -8,7 +8,8 @@ from django.contrib import messages
 from django.conf import settings
 from django.utils import timezone
 from django.db.models import Count, Q
-from src.models_feature_flags import FeatureFlag, PageToggle
+from datetime import datetime, timedelta
+from src.models_feature_flags import FeatureFlag, PageToggle, SiteSetting
 from src.models import (
     ParliamentUser, Legislation, Event, Committee,
     Announcement, ActivityLog, LoginHistory, LoginAlert,
@@ -206,6 +207,49 @@ def admin_v2_dashboard(request):
     # Get page toggles
     page_toggles = PageToggle.objects.all().order_by('display_name')
 
+    # Ensure chat settings exist
+    chat_settings_defaults = [
+        {
+            'key': 'chat_active_poll_interval',
+            'display_name': 'Chat Active Poll Interval',
+            'description': 'How often (in milliseconds) to poll for new messages when the page is active/visible',
+            'category': 'chat',
+            'setting_type': 'integer',
+            'default_value': '3000',
+        },
+        {
+            'key': 'chat_inactive_poll_interval',
+            'display_name': 'Chat Inactive Poll Interval',
+            'description': 'How often (in milliseconds) to poll for new messages when the page is in the background',
+            'category': 'chat',
+            'setting_type': 'integer',
+            'default_value': '20000',
+        },
+        {
+            'key': 'chat_active_users_poll_interval',
+            'display_name': 'Active Users Poll Interval',
+            'description': 'How often (in milliseconds) to update the active users list when page is active',
+            'category': 'chat',
+            'setting_type': 'integer',
+            'default_value': '5000',
+        },
+    ]
+    for setting_data in chat_settings_defaults:
+        SiteSetting.objects.get_or_create(
+            key=setting_data['key'],
+            defaults={
+                'display_name': setting_data['display_name'],
+                'description': setting_data['description'],
+                'category': setting_data['category'],
+                'setting_type': setting_data['setting_type'],
+                'value': setting_data['default_value'],
+                'default_value': setting_data['default_value'],
+            }
+        )
+
+    # Get chat settings
+    chat_settings = SiteSetting.objects.filter(category='chat').order_by('display_name')
+
     # Recent activity logs (last 30)
     recent_logs = ActivityLog.objects.select_related('user').order_by('-timestamp')[:30]
 
@@ -229,6 +273,7 @@ def admin_v2_dashboard(request):
         'stats': stats,
         'feature_flags': feature_flags,
         'page_toggles': page_toggles,
+        'chat_settings': chat_settings,
         'recent_logs': recent_logs,
         'recent_logins': recent_logins,
         'recent_users': recent_users,
@@ -290,6 +335,45 @@ def toggle_page(request, toggle_id):
             )
         except PageToggle.DoesNotExist:
             messages.error(request, 'Page toggle not found')
+
+    return redirect('admin_v2_dashboard')
+
+
+@require_admin_v2_auth
+def update_site_setting(request, setting_id):
+    """
+    Update a site setting value
+    """
+    if request.method == 'POST':
+        try:
+            setting = SiteSetting.objects.get(id=setting_id)
+            new_value = request.POST.get('value', '').strip()
+
+            # Validate based on setting type
+            if setting.setting_type == 'integer':
+                try:
+                    int(new_value)
+                except ValueError:
+                    messages.error(request, f'Invalid value for {setting.display_name}. Must be a number.')
+                    return redirect('admin_v2_dashboard')
+            elif setting.setting_type == 'boolean':
+                new_value = 'true' if new_value.lower() in ('true', '1', 'yes', 'on') else 'false'
+
+            old_value = setting.value
+            setting.value = new_value
+            setting.last_modified_by = request.user.get_display_name()
+            setting.save()
+
+            messages.success(request, f'Setting "{setting.display_name}" updated to {new_value}')
+
+            ActivityLog.log_activity(
+                action_type='setting_change',
+                user=request.user,
+                description=f'{request.user.get_display_name()} changed {setting.display_name} from {old_value} to {new_value}',
+                request=request
+            )
+        except SiteSetting.DoesNotExist:
+            messages.error(request, 'Setting not found')
 
     return redirect('admin_v2_dashboard')
 
@@ -565,6 +649,40 @@ def toggle_user_admin(request, user_id):
             messages.error(request, 'User not found')
 
     return redirect('admin_v2_manage_users')
+
+
+@require_admin_v2_auth
+@require_POST
+def remove_user_profile_picture(request, user_id):
+    """
+    Remove a user's profile picture (admin-v2 action)
+    """
+    try:
+        user = ParliamentUser.objects.get(user_id=user_id)
+
+        if user.profile_picture:
+            user.profile_picture.delete()
+            user.profile_picture_removed_by_admin = True
+            user.save()
+
+            ActivityLog.log_activity(
+                action_type='profile_picture_removed',
+                user=request.user,
+                description=f'{request.user.get_display_name()} removed profile picture for {user.get_display_name()}',
+                request=request,
+                object_type='user',
+                object_id=user.user_id,
+                object_repr=user.get_display_name()
+            )
+
+            messages.success(request, f'Profile picture removed for {user.get_display_name()}. User will be notified.')
+        else:
+            messages.info(request, f'{user.get_display_name()} does not have a profile picture.')
+
+    except ParliamentUser.DoesNotExist:
+        messages.error(request, 'User not found')
+
+    return redirect(request.META.get('HTTP_REFERER', 'admin_v2_manage_users'))
 
 
 @require_admin_v2_auth

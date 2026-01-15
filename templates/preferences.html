@@ -124,7 +124,7 @@
                 </div>
             </div>
             <div id="menu-limit-warning" class="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-sm text-yellow-800 dark:text-yellow-200 hidden">
-                <strong>Limit reached:</strong> You can select up to 7 menu items. Uncheck an item to select another.
+                <strong>Limit reached:</strong> You can select up to 9 menu items. Uncheck an item to select another.
             </div>
         </div>
 
@@ -225,11 +225,11 @@
 </div>
 
 <script>
-    // Menu checkbox limit validation (max 7 items)
+    // Menu checkbox limit validation (max 9 items)
     document.addEventListener('DOMContentLoaded', function() {
         const menuCheckboxes = document.querySelectorAll('.menu-checkbox');
         const warningDiv = document.getElementById('menu-limit-warning');
-        const maxItems = 7;
+        const maxItems = 9;
 
         function updateCheckboxStates() {
             const checkedCount = Array.from(menuCheckboxes).filter(cb => cb.checked).length;

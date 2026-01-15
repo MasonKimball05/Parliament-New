@@ -4,31 +4,31 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
-    <div class="mb-6 flex justify-between items-start">
+    <div class="mb-6 flex flex-col md:flex-row md:justify-between md:items-start gap-4">
         <div>
-            <h2 class="text-3xl font-bold mb-2">Manage Chapter Documents</h2>
-            <p class="text-gray-600">Manage all chapter documents, including drafts</p>
+            <h2 class="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Manage Chapter Documents</h2>
+            <p class="text-gray-600 dark:text-gray-400">Manage all chapter documents, including drafts</p>
             {% if total_documents %}
-                <p class="text-sm text-gray-500 mt-1">{{ total_documents }} document{{ total_documents|pluralize }} total</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ total_documents }} document{{ total_documents|pluralize }} total</p>
             {% endif %}
         </div>
 
-        <div class="flex gap-2">
-            <a href="{% url 'chapter_documents' %}" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 flex items-center">
+        <div class="flex flex-wrap gap-2">
+            <a href="{% url 'chapter_documents' %}" class="bg-gray-500 dark:bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-600 dark:hover:bg-gray-500 flex items-center transition">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                 </svg>
                 View Public Page
             </a>
-            <a href="{% url 'upload_chapter_document' %}" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center">
+            <a href="{% url 'upload_chapter_document' %}" class="bg-blue-500 dark:bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-600 dark:hover:bg-blue-500 flex items-center transition">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                 </svg>
                 Upload Document
             </a>
             {% if is_admin %}
-                <button onclick="showCreateFolderModal()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center">
+                <button onclick="showCreateFolderModal()" class="bg-green-500 dark:bg-green-600 text-white px-4 py-2 rounded hover:bg-green-600 dark:hover:bg-green-500 flex items-center transition">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                     </svg>
@@ -41,18 +41,18 @@
     <!-- Unpublished Documents Section -->
     {% if unpublished_docs %}
         <div class="mb-6">
-            <div class="bg-yellow-50 border border-yellow-200 rounded-lg shadow-md overflow-hidden">
-                <div class="bg-yellow-100 px-6 py-4 flex items-center justify-between border-b border-yellow-200">
+            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg shadow-md overflow-hidden">
+                <div class="bg-yellow-100 dark:bg-yellow-900/40 px-6 py-4 flex items-center justify-between border-b border-yellow-200 dark:border-yellow-800">
                     <div class="flex items-center space-x-3">
-                        <svg class="w-6 h-6 text-yellow-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-6 h-6 text-yellow-700 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
                         </svg>
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Draft Documents (Not Published)</h3>
-                            <p class="text-sm text-gray-600">These documents are only visible to officers</p>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Draft Documents (Not Published)</h3>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">These documents are only visible to officers</p>
                         </div>
                     </div>
-                    <span class="bg-yellow-200 text-yellow-900 text-xs font-medium px-2.5 py-0.5 rounded">
+                    <span class="bg-yellow-200 dark:bg-yellow-800 text-yellow-900 dark:text-yellow-200 text-xs font-medium px-2.5 py-0.5 rounded">
                         {{ unpublished_docs|length }} draft{{ unpublished_docs|length|pluralize }}
                     </span>
                 </div>
@@ -70,35 +70,35 @@
 
     <!-- Published Documents Section -->
     <div class="mb-4">
-        <h3 class="text-2xl font-bold text-gray-900">Published Documents</h3>
-        <p class="text-sm text-gray-600">These documents are visible to all chapter members</p>
+        <h3 class="text-2xl font-bold text-gray-900 dark:text-white">Published Documents</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400">These documents are visible to all chapter members</p>
     </div>
 
     <div class="space-y-4">
         <!-- Custom Folders -->
         {% if folders_with_published_docs %}
             {% for folder, documents in folders_with_published_docs %}
-                <details class="bg-white rounded-lg shadow-md overflow-hidden" {% if documents %}open{% endif %}>
-                    <summary class="bg-purple-50 px-6 py-4 cursor-pointer hover:bg-purple-100 transition flex items-center justify-between">
+                <details class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" {% if documents %}open{% endif %}>
+                    <summary class="bg-purple-50 dark:bg-purple-900/30 px-6 py-4 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/50 transition flex items-center justify-between">
                         <div class="flex items-center space-x-3">
-                            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
                             </svg>
                             <div>
-                                <span class="text-lg font-semibold text-gray-900">{{ folder.name }}</span>
+                                <span class="text-lg font-semibold text-gray-900 dark:text-white">{{ folder.name }}</span>
                                 {% if folder.description %}
-                                    <p class="text-sm text-gray-600">{{ folder.description }}</p>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ folder.description }}</p>
                                 {% endif %}
                             </div>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <span class="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                            <span class="bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 text-xs font-medium px-2.5 py-0.5 rounded">
                                 {{ documents|length }} document{{ documents|length|pluralize }}
                             </span>
                             {% if is_admin %}
                                 <form method="POST" action="{% url 'delete_folder' folder.id %}" onsubmit="return confirm('Delete this folder? Documents will be moved to Uncategorized.');" class="inline" onclick="event.stopPropagation();">
                                     {% csrf_token %}
-                                    <button type="submit" class="text-red-600 hover:text-red-800 p-1" title="Delete folder">
+                                    <button type="submit" class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" title="Delete folder">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                         </svg>
@@ -116,8 +116,8 @@
                                 {% endfor %}
                             </div>
                         {% else %}
-                            <div class="text-center py-8 text-gray-500">
-                                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+                                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                 </svg>
                                 <p>No published documents in this folder yet.</p>
@@ -130,15 +130,15 @@
 
         <!-- Uncategorized Documents -->
         {% if uncategorized_published_docs %}
-            <details class="bg-white rounded-lg shadow-md overflow-hidden" open>
-                <summary class="bg-gray-50 px-6 py-4 cursor-pointer hover:bg-gray-100 transition flex items-center justify-between">
+            <details class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" open>
+                <summary class="bg-gray-50 dark:bg-gray-700 px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition flex items-center justify-between">
                     <div class="flex items-center space-x-3">
-                        <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
-                        <span class="text-lg font-semibold text-gray-900">Uncategorized</span>
+                        <span class="text-lg font-semibold text-gray-900 dark:text-white">Uncategorized</span>
                     </div>
-                    <span class="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                    <span class="bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 text-xs font-medium px-2.5 py-0.5 rounded">
                         {{ uncategorized_published_docs|length }} document{{ uncategorized_published_docs|length|pluralize }}
                     </span>
                 </summary>
@@ -154,12 +154,12 @@
         {% endif %}
 
         {% if not folders_with_published_docs and not uncategorized_published_docs %}
-            <div class="bg-white rounded-lg shadow-md p-8 text-center">
-                <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center transition-colors duration-200">
+                <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
-                <p class="text-gray-500 text-lg">No published documents yet.</p>
-                <p class="text-gray-400 text-sm mt-2">Upload a document and publish it to make it visible to chapter members.</p>
+                <p class="text-gray-500 dark:text-gray-400 text-lg">No published documents yet.</p>
+                <p class="text-gray-400 dark:text-gray-500 text-sm mt-2">Upload a document and publish it to make it visible to chapter members.</p>
             </div>
         {% endif %}
     </div>
@@ -168,35 +168,35 @@
 <!-- Create Folder Modal -->
 {% if is_admin %}
 <div id="createFolderModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h3 class="text-xl font-bold mb-4">Create New Folder</h3>
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 transition-colors duration-200">
+        <h3 class="text-xl font-bold mb-4 text-gray-900 dark:text-white">Create New Folder</h3>
 
         <form method="POST" action="{% url 'create_folder' %}" class="space-y-4">
             {% csrf_token %}
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Folder Name <span class="text-red-500">*</span>
                 </label>
                 <input type="text" name="folder_name" required
-                       class="w-full border border-gray-300 rounded px-3 py-2"
+                       class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                        placeholder="e.g., Financial Reports, Policies">
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Description (Optional)
                 </label>
                 <textarea name="folder_description" rows="2"
-                          class="w-full border border-gray-300 rounded px-3 py-2"
+                          class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="Brief description of this folder"></textarea>
             </div>
 
             <div class="flex gap-3">
-                <button type="submit" class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
+                <button type="submit" class="bg-green-500 dark:bg-green-600 text-white px-6 py-2 rounded hover:bg-green-600 dark:hover:bg-green-500 transition">
                     Create Folder
                 </button>
-                <button type="button" onclick="hideCreateFolderModal()" class="bg-gray-300 text-gray-700 px-6 py-2 rounded hover:bg-gray-400">
+                <button type="button" onclick="hideCreateFolderModal()" class="bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 px-6 py-2 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition">
                     Cancel
                 </button>
             </div>
@@ -229,6 +229,10 @@
         border-bottom: 1px solid #e5e7eb;
     }
 
+    .dark details[open] summary {
+        border-bottom: 1px solid #374151;
+    }
+
     /* Hide default browser triangle */
     details summary::-webkit-details-marker {
         display: none;
@@ -244,7 +248,7 @@
 
     /* Add custom triangle */
     details summary::before {
-        content: '▶';
+        content: '\25B6';
         display: inline-block;
         margin-right: 0.5rem;
         transition: transform 0.2s;

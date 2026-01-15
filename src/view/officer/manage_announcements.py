@@ -1,11 +1,13 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from src.models import Announcement
+from django.http import HttpResponse
+from src.models import Announcement, UserAnnouncementView, ParliamentUser
 from src.forms import AnnouncementForm
 from src.decorators import log_function_call, officer_required
 from src.notifications import send_announcement_notification
 from django.utils import timezone
+import base64
 
 @login_required
 @officer_required
@@ -96,3 +98,63 @@ def toggle_announcement_status(request, announcement_id):
     status = "activated" if announcement.is_active else "deactivated"
     messages.success(request, f'Announcement "{announcement.title}" has been {status}!')
     return redirect('manage_announcements')
+
+
+def track_email_view(request, announcement_id, user_id):
+    """
+    Track when an announcement is viewed from email.
+    Returns a 1x1 transparent pixel.
+    This view does not require login since it's loaded as an image in emails.
+    """
+    # 1x1 transparent GIF
+    PIXEL_GIF = base64.b64decode(
+        'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+    )
+
+    try:
+        announcement = Announcement.objects.get(id=announcement_id)
+        user = ParliamentUser.objects.get(user_id=user_id)
+
+        # Record or update the view
+        view, created = UserAnnouncementView.objects.get_or_create(
+            user=user,
+            announcement=announcement,
+            defaults={'view_source': 'email'}
+        )
+
+        # If already viewed on site, update to show email view happened
+        if not created and view.view_source == 'site':
+            # Keep as site view but note they also saw email
+            pass
+    except (Announcement.DoesNotExist, ParliamentUser.DoesNotExist):
+        pass
+
+    return HttpResponse(PIXEL_GIF, content_type='image/gif')
+
+
+@login_required
+@officer_required
+def announcement_stats(request, announcement_id):
+    """View detailed statistics for an announcement"""
+    announcement = get_object_or_404(Announcement, id=announcement_id)
+    stats = announcement.get_view_stats()
+    viewers = announcement.get_viewers()
+
+    # Get users who haven't viewed
+    viewed_user_ids = viewers.values_list('user_id', flat=True)
+    target_users = ParliamentUser.objects.filter(member_status='Active')
+    if announcement.visible_to:
+        visible_types = list(announcement.visible_to)
+        if 'Member' in visible_types:
+            visible_types.extend(['Chair', 'Officer'])
+        target_users = target_users.filter(member_type__in=visible_types)
+
+    non_viewers = target_users.exclude(user_id__in=viewed_user_ids)
+
+    context = {
+        'announcement': announcement,
+        'stats': stats,
+        'viewers': viewers,
+        'non_viewers': non_viewers,
+    }
+    return render(request, 'officer/announcement_stats.html', context)

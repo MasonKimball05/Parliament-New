@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from src.models import Announcement
+from src.models import Announcement, UserAnnouncementView
 from datetime import datetime, timedelta
 from django.utils import timezone
 from src.feature_flag_decorators import require_feature_flag, require_page_enabled
@@ -49,6 +49,14 @@ def announcements_view(request):
 
     # Filter by visibility - only show announcements visible to this user
     announcements = [a for a in all_announcements if a.is_visible_to_user(request.user)]
+
+    # Track site views for visible announcements
+    for announcement in announcements:
+        UserAnnouncementView.objects.get_or_create(
+            user=request.user,
+            announcement=announcement,
+            defaults={'view_source': 'site'}
+        )
 
     return render(request, 'announcements.html', {
         'announcements': announcements,

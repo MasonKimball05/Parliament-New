@@ -5,19 +5,19 @@
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Page Header -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8 transition-colors duration-200">
         <div class="flex items-center justify-between">
             <div>
                 <div class="flex items-center space-x-3 mb-2">
-                    <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
                     </svg>
-                    <h1 class="text-3xl font-bold text-gray-900">All Member Activity</h1>
+                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">All Member Activity</h1>
                 </div>
-                <p class="text-gray-600">View all member submissions and chapter activity</p>
+                <p class="text-gray-600 dark:text-gray-400">View all member submissions and chapter activity</p>
             </div>
             <div>
-                <a href="{% url 'officer_home' %}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition">
+                <a href="{% url 'officer_home' %}" class="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg transition">
                     Back to Officer Home
                 </a>
             </div>
@@ -25,15 +25,15 @@
     </div>
 
     <!-- Tab Navigation -->
-    <div class="mb-6 bg-white rounded-lg shadow-md p-2">
+    <div class="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-md p-2 transition-colors duration-200">
         <div class="flex flex-wrap gap-1" role="tablist">
-            <button onclick="showActivityTab('chapter-leg')" id="tab-chapter-leg" class="activity-tab-button flex-1 min-w-fit px-4 py-2 rounded-lg font-medium transition bg-purple-100 text-purple-700">
+            <button onclick="showActivityTab('chapter-leg')" id="tab-chapter-leg" class="activity-tab-button flex-1 min-w-fit px-4 py-2 rounded-lg font-medium transition bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300">
                 Chapter Legislation ({{ all_chapter_legislation|length }})
             </button>
-            <button onclick="showActivityTab('committee-leg')" id="tab-committee-leg" class="activity-tab-button flex-1 min-w-fit px-4 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100">
+            <button onclick="showActivityTab('committee-leg')" id="tab-committee-leg" class="activity-tab-button flex-1 min-w-fit px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                 Committee Legislation ({{ all_committee_legislation|length }})
             </button>
-            <button onclick="showActivityTab('committee-docs')" id="tab-committee-docs" class="activity-tab-button flex-1 min-w-fit px-4 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100">
+            <button onclick="showActivityTab('committee-docs')" id="tab-committee-docs" class="activity-tab-button flex-1 min-w-fit px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                 Committee Documents ({{ all_committee_docs|length }})
             </button>
         </div>
@@ -43,16 +43,16 @@
     <div id="content-chapter-leg" class="activity-tab-content">
         <div class="mb-6">
             <div class="flex space-x-2 mb-4">
-                <button onclick="showSubTab('chapter', 'all')" id="subtab-chapter-all" class="chapter-subtab px-4 py-2 rounded-lg font-medium bg-blue-100 text-blue-700">
+                <button onclick="showSubTab('chapter', 'all')" id="subtab-chapter-all" class="chapter-subtab px-4 py-2 rounded-lg font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
                     All ({{ all_chapter_legislation|length }})
                 </button>
-                <button onclick="showSubTab('chapter', 'draft')" id="subtab-chapter-draft" class="chapter-subtab px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100">
+                <button onclick="showSubTab('chapter', 'draft')" id="subtab-chapter-draft" class="chapter-subtab px-4 py-2 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                     Draft ({{ draft_chapter_leg|length }})
                 </button>
-                <button onclick="showSubTab('chapter', 'passed')" id="subtab-chapter-passed" class="chapter-subtab px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100">
+                <button onclick="showSubTab('chapter', 'passed')" id="subtab-chapter-passed" class="chapter-subtab px-4 py-2 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                     Passed ({{ passed_chapter_leg|length }})
                 </button>
-                <button onclick="showSubTab('chapter', 'removed')" id="subtab-chapter-removed" class="chapter-subtab px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100">
+                <button onclick="showSubTab('chapter', 'removed')" id="subtab-chapter-removed" class="chapter-subtab px-4 py-2 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                     Removed ({{ removed_chapter_leg|length }})
                 </button>
             </div>
@@ -76,16 +76,16 @@
     <div id="content-committee-leg" class="activity-tab-content hidden">
         <div class="mb-6">
             <div class="flex space-x-2 mb-4">
-                <button onclick="showSubTab('committee', 'all')" id="subtab-committee-all" class="committee-subtab px-4 py-2 rounded-lg font-medium bg-blue-100 text-blue-700">
+                <button onclick="showSubTab('committee', 'all')" id="subtab-committee-all" class="committee-subtab px-4 py-2 rounded-lg font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
                     All ({{ all_committee_legislation|length }})
                 </button>
-                <button onclick="showSubTab('committee', 'draft')" id="subtab-committee-draft" class="committee-subtab px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100">
+                <button onclick="showSubTab('committee', 'draft')" id="subtab-committee-draft" class="committee-subtab px-4 py-2 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                     Draft ({{ draft_committee_leg|length }})
                 </button>
-                <button onclick="showSubTab('committee', 'passed')" id="subtab-committee-passed" class="committee-subtab px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100">
+                <button onclick="showSubTab('committee', 'passed')" id="subtab-committee-passed" class="committee-subtab px-4 py-2 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                     Passed ({{ passed_committee_leg|length }})
                 </button>
-                <button onclick="showSubTab('committee', 'removed')" id="subtab-committee-removed" class="committee-subtab px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100">
+                <button onclick="showSubTab('committee', 'removed')" id="subtab-committee-removed" class="committee-subtab px-4 py-2 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                     Removed ({{ removed_committee_leg|length }})
                 </button>
             </div>
@@ -122,8 +122,8 @@ function showActivityTab(tabName) {
     // Reset all main tab buttons
     const buttons = document.querySelectorAll('.activity-tab-button');
     buttons.forEach(button => {
-        button.classList.remove('bg-purple-100', 'text-purple-700', 'bg-orange-100', 'text-orange-700', 'bg-indigo-100', 'text-indigo-700');
-        button.classList.add('text-gray-700', 'hover:bg-gray-100');
+        button.classList.remove('bg-purple-100', 'dark:bg-purple-900', 'text-purple-700', 'dark:text-purple-300', 'bg-orange-100', 'dark:bg-orange-900', 'text-orange-700', 'dark:text-orange-300', 'bg-indigo-100', 'dark:bg-indigo-900', 'text-indigo-700', 'dark:text-indigo-300');
+        button.classList.add('text-gray-700', 'dark:text-gray-300', 'hover:bg-gray-100', 'dark:hover:bg-gray-700');
     });
 
     // Show selected tab content
@@ -135,13 +135,13 @@ function showActivityTab(tabName) {
     // Highlight selected tab button with appropriate color
     const selectedButton = document.getElementById('tab-' + tabName);
     if (selectedButton) {
-        selectedButton.classList.remove('text-gray-700', 'hover:bg-gray-100');
+        selectedButton.classList.remove('text-gray-700', 'dark:text-gray-300', 'hover:bg-gray-100', 'dark:hover:bg-gray-700');
         if (tabName === 'chapter-leg') {
-            selectedButton.classList.add('bg-purple-100', 'text-purple-700');
+            selectedButton.classList.add('bg-purple-100', 'dark:bg-purple-900', 'text-purple-700', 'dark:text-purple-300');
         } else if (tabName === 'committee-leg') {
-            selectedButton.classList.add('bg-orange-100', 'text-orange-700');
+            selectedButton.classList.add('bg-orange-100', 'dark:bg-orange-900', 'text-orange-700', 'dark:text-orange-300');
         } else if (tabName === 'committee-docs') {
-            selectedButton.classList.add('bg-indigo-100', 'text-indigo-700');
+            selectedButton.classList.add('bg-indigo-100', 'dark:bg-indigo-900', 'text-indigo-700', 'dark:text-indigo-300');
         }
     }
 }
@@ -156,8 +156,8 @@ function showSubTab(type, status) {
     // Reset all sub-tab buttons for this type
     const subButtons = document.querySelectorAll('.' + type + '-subtab');
     subButtons.forEach(button => {
-        button.classList.remove('bg-blue-100', 'text-blue-700');
-        button.classList.add('text-gray-700', 'hover:bg-gray-100');
+        button.classList.remove('bg-blue-100', 'dark:bg-blue-900', 'text-blue-700', 'dark:text-blue-300');
+        button.classList.add('text-gray-700', 'dark:text-gray-300', 'hover:bg-gray-100', 'dark:hover:bg-gray-700');
     });
 
     // Show selected sub-content
@@ -169,8 +169,8 @@ function showSubTab(type, status) {
     // Highlight selected sub-tab button
     const selectedSubButton = document.getElementById('subtab-' + type + '-' + status);
     if (selectedSubButton) {
-        selectedSubButton.classList.add('bg-blue-100', 'text-blue-700');
-        selectedSubButton.classList.remove('text-gray-700', 'hover:bg-gray-100');
+        selectedSubButton.classList.add('bg-blue-100', 'dark:bg-blue-900', 'text-blue-700', 'dark:text-blue-300');
+        selectedSubButton.classList.remove('text-gray-700', 'dark:text-gray-300', 'hover:bg-gray-100', 'dark:hover:bg-gray-700');
     }
 }
 </script>

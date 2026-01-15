@@ -42,13 +42,12 @@ def event_attendance_list(request):
 def mark_event_attendance(request, event_id):
     """
     Mark attendance for a specific event
+    Shows read-only view for finalized events
     """
     event = get_object_or_404(Event, id=event_id, requires_attendance=True)
 
-    # Check if attendance is already finalized
-    if event.attendance_finalized:
-        messages.warning(request, f'Attendance for "{event.title}" has already been finalized.')
-        return redirect('event_attendance_list')
+    # Check if attendance is finalized - show read-only view
+    is_read_only = event.attendance_finalized
 
     # Get all active members
     members = ParliamentUser.objects.filter(member_status='Active').order_by('name')
@@ -71,7 +70,7 @@ def mark_event_attendance(request, event_id):
         for exc in AttendanceExcuse.objects.filter(event=event, status='approved').select_related('user')
     }
 
-    if request.method == 'POST':
+    if request.method == 'POST' and not is_read_only:
         action = request.POST.get('action')
 
         if action == 'mark_attendance':
@@ -180,6 +179,7 @@ def mark_event_attendance(request, event_id):
         'member_data': member_data,
         'stats': stats,
         'can_finalize': not event.attendance_finalized,
+        'is_read_only': is_read_only,
     }
 
     return render(request, 'officer/mark_event_attendance.html', context)

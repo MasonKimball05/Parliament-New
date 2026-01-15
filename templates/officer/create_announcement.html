@@ -6,110 +6,119 @@
 <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Header -->
     <div class="mb-6">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Create New Announcement</h1>
-        <p class="text-gray-600">Create an announcement that will appear on the chapter home page</p>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Create New Announcement</h1>
+        <p class="text-gray-600 dark:text-gray-400">Create an announcement that will appear on the chapter home page</p>
     </div>
 
     <!-- Form -->
-    <div class="bg-white rounded-lg shadow-md p-6">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
         <form method="post" class="space-y-6">
             {% csrf_token %}
 
             <!-- Title -->
             <div>
-                <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {{ form.title.label }}
                     <span class="text-red-500">*</span>
                 </label>
-                {{ form.title }}
+                <input type="text" name="{{ form.title.name }}" id="{{ form.title.id_for_label }}"
+                       value="{{ form.title.value|default:'' }}"
+                       class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                       {% if form.title.field.required %}required{% endif %}>
                 {% if form.title.errors %}
-                    <p class="mt-1 text-sm text-red-600">{{ form.title.errors.0 }}</p>
+                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.title.errors.0 }}</p>
                 {% endif %}
             </div>
 
             <!-- Content -->
             <div>
-                <label for="{{ form.content.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                <label for="{{ form.content.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {{ form.content.label }}
                     <span class="text-red-500">*</span>
                 </label>
-                {{ form.content }}
+                <textarea name="{{ form.content.name }}" id="{{ form.content.id_for_label }}" rows="6"
+                          class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          {% if form.content.field.required %}required{% endif %}>{{ form.content.value|default:'' }}</textarea>
                 {% if form.content.errors %}
-                    <p class="mt-1 text-sm text-red-600">{{ form.content.errors.0 }}</p>
+                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.content.errors.0 }}</p>
                 {% endif %}
             </div>
 
             <!-- Publish Date -->
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <label for="{{ form.publish_at.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+                <label for="{{ form.publish_at.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {{ form.publish_at.label }}
                 </label>
-                {{ form.publish_at }}
+                <input type="datetime-local" name="{{ form.publish_at.name }}" id="{{ form.publish_at.id_for_label }}"
+                       value="{{ form.publish_at.value|default:'' }}"
+                       class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500">
                 {% if form.publish_at.help_text %}
-                    <p class="mt-1 text-sm text-gray-600">{{ form.publish_at.help_text }}</p>
+                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">{{ form.publish_at.help_text }}</p>
                 {% endif %}
                 {% if form.publish_at.errors %}
-                    <p class="mt-1 text-sm text-red-600">{{ form.publish_at.errors.0 }}</p>
+                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.publish_at.errors.0 }}</p>
                 {% endif %}
             </div>
 
             <!-- Event Date -->
             <div>
-                <label for="{{ form.event_date.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                <label for="{{ form.event_date.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {{ form.event_date.label }}
                 </label>
-                {{ form.event_date }}
+                <input type="datetime-local" name="{{ form.event_date.name }}" id="{{ form.event_date.id_for_label }}"
+                       value="{{ form.event_date.value|default:'' }}"
+                       class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500">
                 {% if form.event_date.help_text %}
-                    <p class="mt-1 text-sm text-gray-500">{{ form.event_date.help_text }}</p>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.event_date.help_text }}</p>
                 {% endif %}
                 {% if form.event_date.errors %}
-                    <p class="mt-1 text-sm text-red-600">{{ form.event_date.errors.0 }}</p>
+                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.event_date.errors.0 }}</p>
                 {% endif %}
             </div>
 
             <!-- Visibility Controls -->
-            <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <label class="block text-sm font-medium text-gray-700 mb-3">
+            <div class="bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 rounded-lg p-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                     {{ form.visible_to.label }}
                 </label>
                 <div class="space-y-2">
                     {% for choice in form.visible_to %}
                         <div class="flex items-center">
                             {{ choice.tag }}
-                            <label for="{{ choice.id_for_label }}" class="ml-2 text-sm text-gray-700">
+                            <label for="{{ choice.id_for_label }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
                                 {{ choice.choice_label }}
                             </label>
                         </div>
                     {% endfor %}
                 </div>
                 {% if form.visible_to.help_text %}
-                    <p class="mt-2 text-sm text-gray-600">{{ form.visible_to.help_text }}</p>
+                    <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">{{ form.visible_to.help_text }}</p>
                 {% endif %}
                 {% if form.visible_to.errors %}
-                    <p class="mt-2 text-sm text-red-600">{{ form.visible_to.errors.0 }}</p>
+                    <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ form.visible_to.errors.0 }}</p>
                 {% endif %}
             </div>
 
             <!-- Is Active -->
             <div class="flex items-center">
                 {{ form.is_active }}
-                <label for="{{ form.is_active.id_for_label }}" class="ml-2 block text-sm text-gray-700">
+                <label for="{{ form.is_active.id_for_label }}" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
                     {{ form.is_active.label }}
                 </label>
             </div>
             {% if form.is_active.help_text %}
-                <p class="ml-6 text-sm text-gray-500">{{ form.is_active.help_text }}</p>
+                <p class="ml-6 text-sm text-gray-500 dark:text-gray-400">{{ form.is_active.help_text }}</p>
             {% endif %}
             {% if form.is_active.errors %}
-                <p class="ml-6 text-sm text-red-600">{{ form.is_active.errors.0 }}</p>
+                <p class="ml-6 text-sm text-red-600 dark:text-red-400">{{ form.is_active.errors.0 }}</p>
             {% endif %}
 
             <!-- Buttons -->
-            <div class="flex items-center justify-end space-x-4 pt-4 border-t border-gray-200">
-                <a href="{% url 'manage_announcements' %}" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition">
+            <div class="flex items-center justify-end space-x-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <a href="{% url 'manage_announcements' %}" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                     Cancel
                 </a>
-                <button type="submit" class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition">
+                <button type="submit" class="px-6 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white rounded-md transition">
                     Create Announcement
                 </button>
             </div>
@@ -118,7 +127,7 @@
 
     <!-- Back Link -->
     <div class="mt-6">
-        <a href="{% url 'manage_announcements' %}" class="text-blue-600 hover:text-blue-700 font-medium">
+        <a href="{% url 'manage_announcements' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
             ← Back to Announcements
         </a>
     </div>

@@ -2,14 +2,42 @@ from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
 import logging
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.conf import settings
 from src.storage import DualLocationStorage
 from src.encrypted_fields import EncryptedCharField, EncryptedEmailField
+import os
 
 logger = logging.getLogger('function_calls')
+
+def validate_profile_picture(file):
+    """Validate profile picture file type and size"""
+    # Allowed MIME types for profile pictures
+    allowed_types = [
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/webp',
+    ]
+
+    # Max file size: 5 MB
+    max_size = 5 * 1024 * 1024
+
+    if file.size > max_size:
+        raise ValidationError(f'Profile picture file size cannot exceed 5 MB. Current size: {file.size / (1024 * 1024):.2f} MB')
+
+    # Check MIME type
+    file_type = getattr(file, 'content_type', None)
+    if file_type and file_type not in allowed_types:
+        raise ValidationError(f'Invalid file type. Only JPEG, PNG, and WebP images are allowed.')
+
+    # Additional check: verify file extension
+    ext = os.path.splitext(file.name)[1].lower()
+    if ext not in ['.jpg', '.jpeg', '.png', '.webp']:
+        raise ValidationError(f'Invalid file extension. Only .jpg, .jpeg, .png, and .webp are allowed.')
 
 class ParliamentUserManager(BaseUserManager):
     def create_user(self, user_id, name, username, member_type, password=None):
@@ -79,6 +107,17 @@ class ParliamentUser(AbstractBaseUser):
     is_admin = models.BooleanField(default=False)
     username = models.CharField(max_length=100, unique=True, help_text='Username for login (not encrypted - needed for authentication lookups)')
     email = models.EmailField(max_length=254, blank=True, null=True, unique=True, help_text='Email address for password reset and notifications')
+    profile_picture = models.ImageField(
+        upload_to='profile_pictures/',
+        blank=True,
+        null=True,
+        validators=[validate_profile_picture],
+        help_text='Profile picture (JPEG, PNG, or WebP, max 5MB)'
+    )
+    profile_picture_removed_by_admin = models.BooleanField(
+        default=False,
+        help_text='Flag indicating if profile picture was removed by an admin'
+    )
     anonymous_vote = models.BooleanField(default=False)
     allow_abstain = models.BooleanField(default=True)
     roles = models.ManyToManyField(Role, blank=True)
@@ -1017,20 +1056,61 @@ class Announcement(models.Model):
             return True
         return False
 
+    def get_view_stats(self):
+        """Get view statistics for this announcement"""
+        views = self.views.all()
+        site_views = views.filter(view_source='site').count()
+        email_views = views.filter(view_source='email').count()
+        total_views = views.count()
+
+        # Get target audience count
+        target_users = ParliamentUser.objects.filter(member_status='Active')
+        if self.visible_to:
+            # Filter by member type if specified
+            visible_types = list(self.visible_to)
+            # If "Member" is in visible_to, include Chair and Officer
+            if 'Member' in visible_types:
+                visible_types.extend(['Chair', 'Officer'])
+            target_users = target_users.filter(member_type__in=visible_types)
+        target_count = target_users.count()
+
+        return {
+            'site_views': site_views,
+            'email_views': email_views,
+            'total_views': total_views,
+            'target_audience': target_count,
+            'view_rate': (total_views / target_count * 100) if target_count > 0 else 0,
+        }
+
+    def get_viewers(self):
+        """Get list of users who have viewed this announcement with source"""
+        return self.views.select_related('user').order_by('-viewed_at')
+
 
 class UserAnnouncementView(models.Model):
     """Track which announcements users have seen/dismissed"""
+    VIEW_SOURCE_CHOICES = [
+        ('site', 'Website'),
+        ('email', 'Email'),
+    ]
+
     user = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
-    announcement = models.ForeignKey(Announcement, on_delete=models.CASCADE)
+    announcement = models.ForeignKey(Announcement, on_delete=models.CASCADE, related_name='views')
     viewed_at = models.DateTimeField(auto_now_add=True)
     dismissed = models.BooleanField(default=False, help_text='User has dismissed this notification')
+    view_source = models.CharField(
+        max_length=10,
+        choices=VIEW_SOURCE_CHOICES,
+        default='site',
+        help_text='Where the user viewed the announcement'
+    )
 
     class Meta:
         unique_together = ('user', 'announcement')
         ordering = ['-viewed_at']
 
     def __str__(self):
-        return f"{self.user.name} - {self.announcement.title}"
+        return f"{self.user.name} - {self.announcement.title} ({self.view_source})"
 
 
 class Event(models.Model):
@@ -1053,6 +1133,55 @@ class Event(models.Model):
         null=True,
         blank=True,
         help_text='Select which member types can see this event. Leave empty for all members.'
+    )
+
+    # Recurring event fields
+    RECURRENCE_CHOICES = [
+        ('none', 'Does not repeat'),
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+        ('biweekly', 'Every 2 weeks'),
+        ('monthly', 'Monthly'),
+        ('custom', 'Custom'),
+    ]
+
+    is_recurring = models.BooleanField(
+        default=False,
+        help_text='Check if this event repeats'
+    )
+    recurrence_type = models.CharField(
+        max_length=20,
+        choices=RECURRENCE_CHOICES,
+        default='none',
+        help_text='How often the event repeats'
+    )
+    recurrence_interval = models.PositiveIntegerField(
+        default=1,
+        help_text='For custom recurrence: repeat every X days/weeks/months'
+    )
+    recurrence_unit = models.CharField(
+        max_length=10,
+        choices=[('days', 'Day(s)'), ('weeks', 'Week(s)'), ('months', 'Month(s)')],
+        default='weeks',
+        help_text='Unit for custom recurrence interval'
+    )
+    recurrence_days = models.JSONField(
+        null=True,
+        blank=True,
+        help_text='Days of week for weekly recurrence (0=Monday, 6=Sunday)'
+    )
+    recurrence_end_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Date when recurring events stop (leave blank for indefinite)'
+    )
+    parent_event = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='recurring_instances',
+        help_text='Parent event for recurring event instances'
     )
 
     # Attendance tracking fields
@@ -1212,25 +1341,37 @@ class ChatChannel(models.Model):
             return True
 
         if self.access_type == 'committee' and self.committee:
-            return self.committee.is_member(user)
-
-        if self.access_type == 'restricted':
-            # Check custom permissions
+            # Check if user is a committee member first
+            if self.committee.is_member(user):
+                return True
+            # Check if user has guest permission with can_read=True
             return ChatChannelPermission.objects.filter(
                 channel=self,
-                user=user
+                user=user,
+                can_read=True
+            ).exists()
+
+        if self.access_type == 'restricted':
+            # Check custom permissions - must have can_read=True
+            return ChatChannelPermission.objects.filter(
+                channel=self,
+                user=user,
+                can_read=True
             ).exists() or ChatChannelPermission.objects.filter(
                 channel=self,
-                member_type=user.member_type
+                member_type=user.member_type,
+                can_read=True
             ).exists() or (
                 ChatChannelPermission.objects.filter(
                     channel=self,
-                    chairs_only=True
+                    chairs_only=True,
+                    can_read=True
                 ).exists() and user.chair_roles.exists()
             ) or (
                 ChatChannelPermission.objects.filter(
                     channel=self,
-                    officers_only=True
+                    officers_only=True,
+                    can_read=True
                 ).exists() and user.is_officer
             )
 
@@ -1255,19 +1396,20 @@ class ChatChannel(models.Model):
         if not self.is_active:
             return False
 
-        # Committee members always have read access
-        if self.committee and self.committee.is_member(user):
-            return True
-
         # Admins always have access
         if user.is_admin:
+            return True
+
+        # Committee members always have read access
+        if self.committee and self.committee.is_member(user):
             return True
 
         # Check if user has specific permission
         if self.access_type == 'open':
             return True
 
-        if self.access_type == 'restricted':
+        # For committee and restricted channels, check guest permissions
+        if self.access_type in ['committee', 'restricted']:
             # Check for explicit permission with can_read=True
             perm = ChatChannelPermission.objects.filter(
                 channel=self,
@@ -1283,19 +1425,20 @@ class ChatChannel(models.Model):
         if not self.is_active:
             return False
 
-        # Committee members always have write access
-        if self.committee and self.committee.is_member(user):
-            return True
-
         # Admins always have access
         if user.is_admin:
+            return True
+
+        # Committee members always have write access
+        if self.committee and self.committee.is_member(user):
             return True
 
         # Check if user has specific permission
         if self.access_type == 'open':
             return True
 
-        if self.access_type == 'restricted':
+        # For committee and restricted channels, check guest permissions
+        if self.access_type in ['committee', 'restricted']:
             # Check for explicit permission with can_write=True
             perm = ChatChannelPermission.objects.filter(
                 channel=self,
@@ -1311,10 +1454,6 @@ class ChatChannel(models.Model):
         if not self.is_active:
             return False
 
-        # Committee members always have delete access
-        if self.committee and self.committee.is_member(user):
-            return True
-
         # Admins always have access
         if user.is_admin:
             return True
@@ -1323,11 +1462,16 @@ class ChatChannel(models.Model):
         if self.committee and self.committee.is_chair(user):
             return True
 
+        # Committee members always have delete access
+        if self.committee and self.committee.is_member(user):
+            return True
+
         # Check if user has specific permission
         if self.access_type == 'open':
             return True
 
-        if self.access_type == 'restricted':
+        # For committee and restricted channels, check guest permissions
+        if self.access_type in ['committee', 'restricted']:
             # Check for explicit permission with can_delete=True
             perm = ChatChannelPermission.objects.filter(
                 channel=self,

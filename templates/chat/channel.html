@@ -76,7 +76,7 @@
 
     <!-- Poll indicator -->
     <div id="poll-status" class="text-xs mb-1 sm:mb-2 text-blue-700 dark:text-blue-400">
-        ● Connected - polling every 3 seconds
+        ● Connecting...
     </div>
 
     <!-- Chat Messages Container -->
@@ -84,7 +84,11 @@
         <div id="messages-list">
             {% for msg in initial_messages %}
                 <div id="msg-{{ msg.id }}" class="flex gap-2 sm:gap-3 p-1.5 sm:p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 mb-1.5 sm:mb-2 group transition-colors {% if msg.sender == request.user %}bg-pink-50 dark:bg-pink-900/20{% endif %}">
-                    <!-- Avatar with initials -->
+                    <!-- Avatar with profile picture or initials -->
+                    {% if msg.sender.profile_picture %}
+                    <img src="{{ msg.sender.profile_picture.url }}" alt="{{ msg.sender.name }}"
+                         class="w-8 h-8 sm:w-9 sm:h-9 rounded object-cover flex-shrink-0">
+                    {% else %}
                     <div class="w-8 h-8 sm:w-9 sm:h-9 rounded text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0"
                          style="background-color: {% if msg.sender == request.user %}#CD8C95{% else %}#003DA5{% endif %}">
                         {% with first=msg.sender.name|first %}
@@ -97,6 +101,7 @@
                             {% endwith %}
                         {% endwith %}
                     </div>
+                    {% endif %}
 
                     <!-- Message content -->
                     <div class="flex-1 min-w-0">
@@ -183,11 +188,22 @@
 
 <script>
     const channelId = {{ channel.id }};
+    const committeeCode = {% if committee_code %}"{{ committee_code }}"{% else %}null{% endif %};
     const currentUserId = {{ request.user.user_id }};
     const currentUserName = "{{ request.user.name }}";
+    const currentUserProfilePicture = {% if request.user.profile_picture %}"{{ request.user.profile_picture.url }}"{% else %}null{% endif %};
     const canDeleteOwnMessages = {{ can_delete_own_messages|lower }};
     let lastMessageTimestamp = null;
     let isPolling = false;
+
+    // Helper function to build API URLs
+    function getApiUrl(endpoint) {
+        if (committeeCode) {
+            return `/api/channel/committee/${committeeCode}/${endpoint}`;
+        } else {
+            return `/api/channel/${channelId}/${endpoint}`;
+        }
+    }
 
     // Initialize with last message timestamp from initial messages
     {% if initial_messages %}
@@ -204,18 +220,56 @@
         }
     {% endif %}
 
-    // Poll for new messages every 3 seconds
-    setInterval(pollForMessages, 3000);
+    // Configurable polling intervals (from admin settings)
+    const ACTIVE_POLL_INTERVAL = {{ chat_active_poll_interval|default:3000 }};
+    const INACTIVE_POLL_INTERVAL = {{ chat_inactive_poll_interval|default:20000 }};
+    const ACTIVE_USERS_POLL_INTERVAL = {{ chat_active_users_poll_interval|default:5000 }};
 
-    // Poll for active users every 5 seconds
-    setInterval(updateActiveUsers, 5000);
+    // Adaptive polling based on page visibility
+    let messagesPollInterval = null;
+    let activeUsersPollInterval = null;
+    let isPageVisible = !document.hidden;
+
+    function startPolling(isVisible) {
+        // Clear existing intervals
+        if (messagesPollInterval) clearInterval(messagesPollInterval);
+        if (activeUsersPollInterval) clearInterval(activeUsersPollInterval);
+
+        if (isVisible) {
+            // Active: use configured active poll intervals
+            messagesPollInterval = setInterval(pollForMessages, ACTIVE_POLL_INTERVAL);
+            activeUsersPollInterval = setInterval(updateActiveUsers, ACTIVE_USERS_POLL_INTERVAL);
+            document.getElementById('poll-status').textContent = `● Connected - polling every ${ACTIVE_POLL_INTERVAL/1000} seconds`;
+        } else {
+            // Inactive: use configured inactive poll interval
+            const inactiveUsersPoll = INACTIVE_POLL_INTERVAL + 10000; // Active users poll slower when inactive
+            messagesPollInterval = setInterval(pollForMessages, INACTIVE_POLL_INTERVAL);
+            activeUsersPollInterval = setInterval(updateActiveUsers, inactiveUsersPoll);
+            document.getElementById('poll-status').textContent = `○ Background mode - polling every ${INACTIVE_POLL_INTERVAL/1000} seconds`;
+        }
+    }
+
+    // Listen for visibility changes
+    document.addEventListener('visibilitychange', function() {
+        isPageVisible = !document.hidden;
+        startPolling(isPageVisible);
+
+        // If page becomes visible, poll immediately to catch up
+        if (isPageVisible) {
+            pollForMessages();
+            updateActiveUsers();
+        }
+    });
+
+    // Start polling based on initial visibility
+    startPolling(isPageVisible);
     updateActiveUsers(); // Initial call
 
     function pollForMessages() {
         if (isPolling) return;
         isPolling = true;
 
-        let url = `/api/channel/${channelId}/messages/`;
+        let url = getApiUrl('messages/');
         if (lastMessageTimestamp) {
             url += `?since=${encodeURIComponent(lastMessageTimestamp)}`;
         }
@@ -233,7 +287,10 @@
 
                 // Update poll indicator
                 const now = new Date().toLocaleTimeString();
-                document.getElementById('poll-status').textContent = `● Last poll: ${now}`;
+                const indicator = isPageVisible ? '●' : '○';
+                const mode = isPageVisible ? 'Connected' : 'Background mode';
+                const interval = isPageVisible ? (ACTIVE_POLL_INTERVAL/1000) : (INACTIVE_POLL_INTERVAL/1000);
+                document.getElementById('poll-status').textContent = `${indicator} ${mode} - polling every ${interval}s - last: ${now}`;
             })
             .catch(error => console.error('Error polling messages:', error))
             .finally(() => {
@@ -260,6 +317,7 @@
                 id: tempId,
                 sender_name: currentUserName,
                 sender_id: currentUserId,
+                sender_profile_picture: currentUserProfilePicture,
                 message: message,
                 created_at: new Date().toISOString(),
                 is_own_message: true,
@@ -277,7 +335,7 @@
             formData.append('message', message);
             formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
-            fetch(`/api/channel/${channelId}/send/`, {
+            fetch(getApiUrl('send/'), {
                 method: 'POST',
                 body: formData
             })
@@ -331,7 +389,7 @@
             minute: '2-digit'
         });
 
-        // Get initials for avatar
+        // Get initials for avatar (fallback)
         const nameParts = msg.sender_name.split(' ');
         const initials = nameParts.length >= 2
             ? nameParts[0][0] + nameParts[nameParts.length - 1][0]
@@ -342,6 +400,9 @@
         messageDiv.className = `flex gap-2 sm:gap-3 p-1.5 sm:p-2 rounded hover:bg-gray-50 mb-1.5 sm:mb-2 ${msg.is_own_message ? 'bg-pink-50' : ''}`;
 
         const avatarBg = msg.is_own_message ? '#CD8C95' : '#003DA5';
+
+        // Determine profile picture URL
+        const profilePicture = msg.sender_profile_picture || (msg.is_own_message ? currentUserProfilePicture : null);
 
         // Delivery indicator for own messages
         let deliveryIndicator = '';
@@ -358,7 +419,7 @@
         // Edited indicator
         let editedIndicator = '';
         if (msg.edited_at) {
-            editedIndicator = `<span class="text-xs text-gray-400 italic">(edited)</span>`;
+            editedIndicator = `<span class="text-xs text-gray-400 dark:text-gray-500 italic">(edited)</span>`;
         }
 
         // Edit button for sender (only if within 1 hour)
@@ -373,7 +434,7 @@
 
             if (timeSinceMessage < hourInMs) {
                 editButton = `
-                    <button class="edit-btn text-xs text-blue-600 hover:text-blue-800 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                    <button class="edit-btn text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                             onclick="editMessage(${msg.id})">
                         Edit
                     </button>
@@ -387,29 +448,35 @@
 
         if (canDelete || (isSender && canDeleteOwnMessages)) {
             deleteButton = `
-                <button class="delete-btn text-xs text-red-600 hover:text-red-800 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                        onclick="deleteMessage(${msg.id}, '${escapeHtml(msg.id)}')">
+                <button class="delete-btn text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                        onclick="deleteMessage('${msg.id}', 'msg-${msg.id}')">
                     Delete
                 </button>
             `;
         }
 
-        messageDiv.className = `flex gap-2 sm:gap-3 p-1.5 sm:p-2 rounded hover:bg-gray-50 mb-1.5 sm:mb-2 group ${msg.is_own_message ? 'bg-pink-50' : ''}`;
+        messageDiv.className = `flex gap-2 sm:gap-3 p-1.5 sm:p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 mb-1.5 sm:mb-2 group transition-colors ${msg.is_own_message ? 'bg-pink-50 dark:bg-pink-900/20' : ''}`;
+
+        // Generate avatar HTML - profile picture or initials
+        let avatarHtml;
+        if (profilePicture) {
+            avatarHtml = `<img src="${escapeHtml(profilePicture)}" alt="${escapeHtml(msg.sender_name)}" class="w-8 h-8 sm:w-9 sm:h-9 rounded object-cover flex-shrink-0">`;
+        } else {
+            avatarHtml = `<div class="w-8 h-8 sm:w-9 sm:h-9 rounded text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0" style="background-color: ${avatarBg}">${initials.toUpperCase()}</div>`;
+        }
 
         messageDiv.innerHTML = `
-            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0" style="background-color: ${avatarBg}">
-                ${initials.toUpperCase()}
-            </div>
+            ${avatarHtml}
             <div class="flex-1 min-w-0">
                 <div class="flex flex-wrap items-baseline gap-1 sm:gap-2 mb-1">
-                    <span class="font-bold text-gray-900 text-sm sm:text-base">${escapeHtml(msg.sender_name)}</span>
-                    <span class="text-xs text-gray-500">${timestamp}</span>
+                    <span class="font-bold text-gray-900 dark:text-gray-100 text-sm sm:text-base">${escapeHtml(msg.sender_name)}</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">${timestamp}</span>
                     ${editedIndicator}
                     ${deliveryIndicator}
                     ${editButton}
                     ${deleteButton}
                 </div>
-                <div class="message-text text-gray-900 text-sm sm:text-base break-words" data-message-id="${msg.id}">${escapeHtml(msg.message)}</div>
+                <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="${msg.id}">${escapeHtml(msg.message)}</div>
             </div>
         `;
 
@@ -464,7 +531,7 @@
         formData.append('message', newText);
         formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
-        fetch(`/api/channel/${channelId}/edit/${messageId}/`, {
+        fetch(getApiUrl(`edit/${messageId}/`), {
             method: 'POST',
             body: formData
         })
@@ -510,14 +577,14 @@
     }
 
     // Delete message function
-    function deleteMessage(messageId, tempId) {
+    function deleteMessage(messageId, elementId) {
         if (!confirm('Delete this message?')) {
             return;
         }
 
-        // If it's a temp message (not yet sent), just remove it
-        if (tempId.toString().startsWith('temp-')) {
-            const element = document.getElementById(`msg-${tempId}`);
+        // If it's a temp message (not yet sent), just remove it from DOM
+        if (messageId.toString().startsWith('temp-')) {
+            const element = document.getElementById(elementId);
             if (element) element.remove();
             return;
         }
@@ -525,19 +592,19 @@
         const formData = new FormData();
         formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
-        fetch(`/api/channel/${channelId}/delete/${messageId}/`, {
+        fetch(getApiUrl(`delete/${messageId}/`), {
             method: 'POST',
             body: formData
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                const element = document.getElementById(`msg-${messageId}`);
+                const element = document.getElementById(elementId);
                 if (element) {
                     element.remove();
                 }
             } else {
-                alert('Failed to delete message');
+                alert(data.error || 'Failed to delete message');
             }
         })
         .catch(error => {
@@ -574,7 +641,7 @@
 
     // Update active users list
     function updateActiveUsers() {
-        fetch(`/api/channel/${channelId}/active/`)
+        fetch(getApiUrl('active/'))
             .then(response => response.json())
             .then(data => {
                 const count = data.count;

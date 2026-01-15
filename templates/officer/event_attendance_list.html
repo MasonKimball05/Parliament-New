@@ -8,19 +8,19 @@
     <!-- Header -->
     <div class="mb-6 flex flex-col md:flex-row md:justify-between md:items-start gap-4">
         <div>
-            <h2 class="text-2xl sm:text-3xl font-bold mb-2">Event Attendance</h2>
-            <p class="text-sm sm:text-base text-gray-600">Mark and manage attendance for chapter events</p>
+            <h2 class="text-2xl sm:text-3xl font-bold mb-2 text-gray-900 dark:text-white">Event Attendance</h2>
+            <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">Mark and manage attendance for chapter events</p>
         </div>
         <div class="flex w-full md:w-auto">
             {% if pending_excuses_count > 0 %}
-            <a href="{% url 'review_excuses' %}" class="bg-yellow-600 hover:bg-yellow-700 text-white font-medium py-2.5 px-4 rounded-lg transition flex items-center justify-center gap-2 w-full md:w-auto">
+            <a href="{% url 'review_excuses' %}" class="bg-yellow-600 dark:bg-yellow-700 hover:bg-yellow-700 dark:hover:bg-yellow-600 text-white font-medium py-2.5 px-4 rounded-lg transition flex items-center justify-center gap-2 w-full md:w-auto">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>
                 Review Excuses ({{ pending_excuses_count }})
             </a>
             {% else %}
-            <a href="{% url 'review_excuses' %}" class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2.5 px-4 rounded-lg transition flex items-center justify-center gap-2 w-full md:w-auto">
+            <a href="{% url 'review_excuses' %}" class="bg-gray-600 dark:bg-gray-500 hover:bg-gray-700 dark:hover:bg-gray-400 text-white font-medium py-2.5 px-4 rounded-lg transition flex items-center justify-center gap-2 w-full md:w-auto">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>
@@ -33,56 +33,56 @@
     <!-- Upcoming Events -->
     {% if upcoming_events %}
     <div class="mb-8">
-        <h3 class="text-2xl font-bold mb-4 flex items-center">
-            <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm mr-3">Upcoming</span>
+        <h3 class="text-2xl font-bold mb-4 flex items-center text-gray-900 dark:text-white">
+            <span class="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-3 py-1 rounded-full text-sm mr-3">Upcoming</span>
             Events Requiring Attendance
         </h3>
-        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
             <!-- Desktop Table View (hidden on mobile) -->
             <div class="hidden md:block overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Excuse Deadline</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Event</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date & Time</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Excuse Deadline</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                         {% for event in upcoming_events %}
-                        <tr class="hover:bg-gray-50">
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                             <td class="px-6 py-4">
-                                <div class="text-sm font-medium text-gray-900">{{ event.title }}</div>
-                                <div class="text-sm text-gray-500">{{ event.description|truncatewords:10 }}</div>
+                                <div class="text-sm font-medium text-gray-900 dark:text-white">{{ event.title }}</div>
+                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ event.description|truncatewords:10 }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-900">{{ event.date_time|date:"M j, Y" }}</div>
-                                <div class="text-sm text-gray-500">{{ event.date_time|date:"g:i A" }}</div>
+                                <div class="text-sm text-gray-900 dark:text-white">{{ event.date_time|date:"M j, Y" }}</div>
+                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ event.date_time|date:"g:i A" }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 {% if event.excuse_deadline %}
-                                <div class="text-sm text-gray-900">{{ event.excuse_deadline|date:"M j, Y" }}</div>
-                                <div class="text-sm text-gray-500">{{ event.excuse_deadline|date:"g:i A" }}</div>
+                                <div class="text-sm text-gray-900 dark:text-white">{{ event.excuse_deadline|date:"M j, Y" }}</div>
+                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ event.excuse_deadline|date:"g:i A" }}</div>
                                 {% else %}
-                                <span class="text-sm text-gray-500">Event time</span>
+                                <span class="text-sm text-gray-500 dark:text-gray-400">Event time</span>
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 {% if event.attendance_finalized %}
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
                                     Finalized
                                 </span>
                                 {% else %}
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">
                                     Pending
                                 </span>
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <a href="{% url 'mark_event_attendance' event.id %}" class="text-blue-600 hover:text-blue-900 font-medium">
-                                    Mark Attendance →
+                                <a href="{% url 'mark_event_attendance' event.id %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 font-medium">
+                                    Mark Attendance
                                 </a>
                             </td>
                         </tr>
@@ -92,44 +92,44 @@
             </div>
 
             <!-- Mobile Card View (hidden on desktop) -->
-            <div class="md:hidden divide-y divide-gray-200">
+            <div class="md:hidden divide-y divide-gray-200 dark:divide-gray-700">
                 {% for event in upcoming_events %}
-                <div class="p-4 hover:bg-gray-50">
+                <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <div class="flex justify-between items-start mb-3">
                         <div class="flex-1 mr-3">
-                            <h4 class="text-base font-semibold text-gray-900 mb-1">{{ event.title }}</h4>
+                            <h4 class="text-base font-semibold text-gray-900 dark:text-white mb-1">{{ event.title }}</h4>
                             {% if event.description %}
-                            <p class="text-sm text-gray-500 mb-2">{{ event.description|truncatewords:10 }}</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">{{ event.description|truncatewords:10 }}</p>
                             {% endif %}
                         </div>
                         {% if event.attendance_finalized %}
-                        <span class="px-2 py-1 text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 flex-shrink-0">
+                        <span class="px-2 py-1 text-xs leading-5 font-semibold rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 flex-shrink-0">
                             Finalized
                         </span>
                         {% else %}
-                        <span class="px-2 py-1 text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800 flex-shrink-0">
+                        <span class="px-2 py-1 text-xs leading-5 font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 flex-shrink-0">
                             Pending
                         </span>
                         {% endif %}
                     </div>
-                    <div class="space-y-1.5 text-sm text-gray-600 mb-3">
+                    <div class="space-y-1.5 text-sm text-gray-600 dark:text-gray-400 mb-3">
                         <div class="flex items-center gap-2">
-                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                             </svg>
                             <span>{{ event.date_time|date:"M j, Y" }} at {{ event.date_time|date:"g:i A" }}</span>
                         </div>
                         {% if event.excuse_deadline %}
                         <div class="flex items-center gap-2">
-                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                             </svg>
                             <span>Excuse deadline: {{ event.excuse_deadline|date:"M j, g:i A" }}</span>
                         </div>
                         {% endif %}
                     </div>
-                    <a href="{% url 'mark_event_attendance' event.id %}" class="block text-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition">
-                        Mark Attendance →
+                    <a href="{% url 'mark_event_attendance' event.id %}" class="block text-center bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium py-2.5 px-4 rounded-lg transition">
+                        Mark Attendance
                     </a>
                 </div>
                 {% endfor %}
@@ -137,12 +137,12 @@
         </div>
     </div>
     {% else %}
-    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+    <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-6 mb-8 transition-colors duration-200">
         <div class="flex items-center">
-            <svg class="w-6 h-6 text-blue-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            <p class="text-blue-800">No upcoming events require attendance tracking.</p>
+            <p class="text-blue-800 dark:text-blue-300">No upcoming events require attendance tracking.</p>
         </div>
     </div>
     {% endif %}
@@ -150,55 +150,55 @@
     <!-- Past Events -->
     {% if past_events %}
     <div>
-        <h3 class="text-2xl font-bold mb-4 flex items-center">
-            <span class="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm mr-3">Past</span>
+        <h3 class="text-2xl font-bold mb-4 flex items-center text-gray-900 dark:text-white">
+            <span class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-3 py-1 rounded-full text-sm mr-3">Past</span>
             Recent Events
         </h3>
-        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
             <!-- Desktop Table View (hidden on mobile) -->
             <div class="hidden md:block overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Event</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Attendance</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                         {% for event in past_events %}
                         {% with stats=event.get_attendance_stats %}
-                        <tr class="hover:bg-gray-50">
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                             <td class="px-6 py-4">
-                                <div class="text-sm font-medium text-gray-900">{{ event.title }}</div>
+                                <div class="text-sm font-medium text-gray-900 dark:text-white">{{ event.title }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-900">{{ event.date_time|date:"M j, Y" }}</div>
+                                <div class="text-sm text-gray-900 dark:text-white">{{ event.date_time|date:"M j, Y" }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 {% if stats %}
-                                <div class="text-sm text-gray-900">{{ stats.attendance_rate|floatformat:0 }}% present</div>
-                                <div class="text-xs text-gray-500">{{ stats.present }}/{{ stats.total_members }} members</div>
+                                <div class="text-sm text-gray-900 dark:text-white">{{ stats.attendance_rate|floatformat:0 }}% present</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">{{ stats.present }}/{{ stats.total_members }} members</div>
                                 {% else %}
-                                <span class="text-sm text-gray-500">No data</span>
+                                <span class="text-sm text-gray-500 dark:text-gray-400">No data</span>
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 {% if event.attendance_finalized %}
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                                     Finalized
                                 </span>
                                 {% else %}
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200">
                                     Not Finalized
                                 </span>
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <a href="{% url 'mark_event_attendance' event.id %}" class="text-blue-600 hover:text-blue-900">
-                                    {% if event.attendance_finalized %}View{% else %}Edit{% endif %} →
+                                <a href="{% url 'mark_event_attendance' event.id %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
+                                    {% if event.attendance_finalized %}View{% else %}Edit{% endif %}
                                 </a>
                             </td>
                         </tr>
@@ -209,43 +209,43 @@
             </div>
 
             <!-- Mobile Card View (hidden on desktop) -->
-            <div class="md:hidden divide-y divide-gray-200">
+            <div class="md:hidden divide-y divide-gray-200 dark:divide-gray-700">
                 {% for event in past_events %}
                 {% with stats=event.get_attendance_stats %}
-                <div class="p-4 hover:bg-gray-50">
+                <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <div class="flex justify-between items-start mb-3">
                         <div class="flex-1 mr-3">
-                            <h4 class="text-base font-semibold text-gray-900 mb-1">{{ event.title }}</h4>
-                            <div class="text-sm text-gray-600">{{ event.date_time|date:"M j, Y" }}</div>
+                            <h4 class="text-base font-semibold text-gray-900 dark:text-white mb-1">{{ event.title }}</h4>
+                            <div class="text-sm text-gray-600 dark:text-gray-400">{{ event.date_time|date:"M j, Y" }}</div>
                         </div>
                         {% if event.attendance_finalized %}
-                        <span class="px-2 py-1 text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 flex-shrink-0">
+                        <span class="px-2 py-1 text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 flex-shrink-0">
                             Finalized
                         </span>
                         {% else %}
-                        <span class="px-2 py-1 text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800 flex-shrink-0">
+                        <span class="px-2 py-1 text-xs leading-5 font-semibold rounded-full bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200 flex-shrink-0">
                             Not Finalized
                         </span>
                         {% endif %}
                     </div>
                     {% if stats %}
-                    <div class="bg-gray-50 rounded-lg p-3 mb-3">
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-3">
                         <div class="flex items-center justify-between">
                             <div>
-                                <div class="text-2xl font-bold text-gray-900">{{ stats.attendance_rate|floatformat:0 }}%</div>
-                                <div class="text-xs text-gray-600">Attendance Rate</div>
+                                <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ stats.attendance_rate|floatformat:0 }}%</div>
+                                <div class="text-xs text-gray-600 dark:text-gray-400">Attendance Rate</div>
                             </div>
                             <div class="text-right">
-                                <div class="text-lg font-semibold text-gray-900">{{ stats.present }}/{{ stats.total_members }}</div>
-                                <div class="text-xs text-gray-600">Members Present</div>
+                                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ stats.present }}/{{ stats.total_members }}</div>
+                                <div class="text-xs text-gray-600 dark:text-gray-400">Members Present</div>
                             </div>
                         </div>
                     </div>
                     {% else %}
-                    <div class="text-sm text-gray-500 mb-3">No attendance data</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400 mb-3">No attendance data</div>
                     {% endif %}
-                    <a href="{% url 'mark_event_attendance' event.id %}" class="block text-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition">
-                        {% if event.attendance_finalized %}View Details{% else %}Edit Attendance{% endif %} →
+                    <a href="{% url 'mark_event_attendance' event.id %}" class="block text-center bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium py-2.5 px-4 rounded-lg transition">
+                        {% if event.attendance_finalized %}View Details{% else %}Edit Attendance{% endif %}
                     </a>
                 </div>
                 {% endwith %}

@@ -5,6 +5,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from src.view.officer import *
 from src.view.officer.event_attendance import event_attendance_list, mark_event_attendance, review_excuses
+from src.view.officer.manage_announcements import track_email_view, announcement_stats
 from src.view.committee import *
 from src.view.committee.manage_chat_permissions import manage_chat_permissions, add_guest_permission, update_guest_permission, remove_guest_permission
 from src.view.chat import *
@@ -24,11 +25,14 @@ from src.view.admin_v2 import (
     admin_v2_login, admin_v2_dashboard, toggle_feature_flag,
     toggle_page, admin_v2_logout, manage_legislation, delete_legislation,
     manage_committees, toggle_committee_active,
-    manage_users, toggle_user_admin, manage_login_history, manage_announcements,
-    delete_announcement, user_login_security, force_password_reset,
+    manage_users, toggle_user_admin, remove_user_profile_picture, manage_login_history,
+    manage_announcements as admin_v2_manage_announcements_view,
+    delete_announcement as admin_v2_delete_announcement_view,
+    user_login_security, force_password_reset,
     add_ip_to_whitelist, add_ip_to_blacklist,
     remove_ip_from_whitelist, remove_ip_from_blacklist,
-    manage_ip_whitelist, manage_ip_blacklist, manage_security_alerts
+    manage_ip_whitelist, manage_ip_blacklist, manage_security_alerts,
+    update_site_setting
 )
 from src.view.admin_v2 import manage_events as admin_v2_manage_events, delete_event as admin_v2_delete_event
 from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event
@@ -59,6 +63,11 @@ from src.view.kai_procedures_detail import kai_procedures_detail
 from src.view.slating_elections_detail import slating_elections_detail
 from src.view.advisors_detail import advisors_detail
 from src.view.academic_standards_detail import academic_standards_detail
+from src.view.view_document import (
+    view_legislation_document, view_chapter_document,
+    view_committee_document, view_passed_legislation_document,
+    view_reference_document
+)
 
 urlpatterns = [
     # General User Pages
@@ -67,6 +76,7 @@ urlpatterns = [
     path('logout/', logout_view, name='logout'),
     path('roberts-rules/', roberts_rules, name='roberts_rules'),
     path('constitution-bylaws/', constitution_bylaws, name='constitution_bylaws'),
+    path('reference-document/<str:doc_slug>/', view_reference_document, name='view_reference_document'),
     path('constitution-bylaws/passed-resolutions/', passed_resolutions, name='passed_resolutions_detail'),
     path('constitution-bylaws/officer-duties/', officer_duties_detail, name='officer_duties_detail'),
     path('constitution-bylaws/committees/', committee_details, name='committee_details'),
@@ -92,6 +102,7 @@ urlpatterns = [
     path('chapter-documents/manage-all/', manage_chapter_documents, name='manage_chapter_documents'),
     path('chapter-documents/upload/', upload_chapter_document, name='upload_chapter_document'),
     path('chapter-documents/manage/<int:doc_id>/', manage_chapter_document, name='manage_chapter_document'),
+    path('chapter-documents/view/<int:document_id>/', view_chapter_document, name='view_chapter_document'),
     path('chapter-documents/create-folder/', create_folder, name='create_folder'),
     path('chapter-documents/delete-folder/<int:folder_id>/', delete_folder, name='delete_folder'),
     path('announcements/', announcements_view, name='announcements'),
@@ -138,6 +149,10 @@ urlpatterns = [
     path('officers/announcements/<int:announcement_id>/edit/', edit_announcement, name='edit_announcement'),
     path('officers/announcements/<int:announcement_id>/delete/', delete_announcement, name='delete_announcement'),
     path('officers/announcements/<int:announcement_id>/toggle/', toggle_announcement_status, name='toggle_announcement_status'),
+    path('officers/announcements/<int:announcement_id>/stats/', announcement_stats, name='announcement_stats'),
+
+    # Announcement Email Tracking (no login required - used as tracking pixel)
+    path('track/announcement/<int:announcement_id>/user/<str:user_id>/', track_email_view, name='track_email_view'),
 
     # Event Management (Officer)
     path('officers/events/', manage_events, name='manage_events'),
@@ -162,7 +177,9 @@ urlpatterns = [
     path('vote/end/<int:legislation_id>/', end_vote, name='end_vote'),
     path('passed_legislation/', passed_legislation, name='passed_legislation'),
     path('legislation/detail/<int:pk>/', PassedLegislationDetailView.as_view(), name='passed_legislation_detail'),
+    path('legislation/detail/<int:pk>/document/', view_passed_legislation_document, name='view_passed_legislation_document'),
     path('legislation/<int:legislation_id>/', legislation_detail, name='legislation_detail'),
+    path('legislation/<int:legislation_id>/document/', view_legislation_document, name='view_document'),
     path('legislation/history/', view_legislation_history, name='view_legislation_history'),
     path('legislation/<int:legislation_id>/edit/', edit_legislation, name='edit_legislation'),
     path('legislation/<int:legislation_id>/reopen/', reopen_legislation, name='reopen_legislation'),
@@ -188,6 +205,7 @@ urlpatterns = [
     path('committee/<str:code>/create-vote/', committee_create_vote, name='create_committee_vote'),
     path('committee/<str:code>/push-to-chapter/', committee_push_to_chapter, name='push_to_chapter'),
     path('committee/<str:code>/minutes/', committee_minutes, name='minutes'),
+    path('committee/<str:code>/documents/<int:document_id>/view/', view_committee_document, name='view_committee_document'),
     path('committee/<str:code>/documents/<int:document_id>/toggle-publish/', toggle_document_publish, name='toggle_document_publish'),
     path('committee/<str:code>/documents/<int:document_id>/delete/', delete_committee_document, name='delete_committee_document'),
     path('committee/<str:code>/attendance/', committee_attendance, name='committee_attendance'),
@@ -220,7 +238,13 @@ urlpatterns = [
 
     # New Channel-based Chat URLs
     path('chats/', chat_index, name='chat_index'),
-    path('chat/<int:channel_id>/', channel_chat, name='channel_chat'),
+    path('chat/committee/<str:code>/', channel_chat, name='committee_channel_chat'),  # Committee chat by code
+    path('chat/<int:channel_id>/', channel_chat, name='channel_chat'),  # Fallback for non-committee channels
+    path('api/channel/committee/<str:code>/messages/', get_channel_messages, name='committee_get_channel_messages'),
+    path('api/channel/committee/<str:code>/send/', send_channel_message, name='committee_send_channel_message'),
+    path('api/channel/committee/<str:code>/edit/<int:message_id>/', edit_channel_message, name='committee_edit_channel_message'),
+    path('api/channel/committee/<str:code>/delete/<int:message_id>/', delete_channel_message, name='committee_delete_channel_message'),
+    path('api/channel/committee/<str:code>/active/', get_channel_active_users, name='committee_get_channel_active_users'),
     path('api/channel/<int:channel_id>/messages/', get_channel_messages, name='get_channel_messages'),
     path('api/channel/<int:channel_id>/send/', send_channel_message, name='send_channel_message'),
     path('api/channel/<int:channel_id>/edit/<int:message_id>/', edit_channel_message, name='edit_channel_message'),
@@ -244,6 +268,7 @@ urlpatterns = [
     path('admin-v2/dashboard/', admin_v2_dashboard, name='admin_v2_dashboard'),
     path('admin-v2/feature-flag/<int:flag_id>/toggle/', toggle_feature_flag, name='toggle_feature_flag'),
     path('admin-v2/page/<int:toggle_id>/toggle/', toggle_page, name='toggle_page'),
+    path('admin-v2/setting/<int:setting_id>/update/', update_site_setting, name='update_site_setting'),
     path('admin-v2/logout/', admin_v2_logout, name='admin_v2_logout'),
 
     # Admin v2 - Management Pages
@@ -255,9 +280,10 @@ urlpatterns = [
     path('admin-v2/committees/<int:committee_id>/toggle/', toggle_committee_active, name='admin_v2_toggle_committee'),
     path('admin-v2/users/', manage_users, name='admin_v2_manage_users'),
     path('admin-v2/users/<str:user_id>/toggle-admin/', toggle_user_admin, name='admin_v2_toggle_user_admin'),
+    path('admin-v2/users/<str:user_id>/remove-profile-picture/', remove_user_profile_picture, name='admin_v2_remove_user_profile_picture'),
     path('admin-v2/login-history/', manage_login_history, name='admin_v2_login_history'),
-    path('admin-v2/announcements/', manage_announcements, name='admin_v2_manage_announcements'),
-    path('admin-v2/announcements/<int:announcement_id>/delete/', delete_announcement, name='admin_v2_delete_announcement'),
+    path('admin-v2/announcements/', admin_v2_manage_announcements_view, name='admin_v2_manage_announcements'),
+    path('admin-v2/announcements/<int:announcement_id>/delete/', admin_v2_delete_announcement_view, name='admin_v2_delete_announcement'),
 
     # Admin v2 - User Login Security
     path('admin-v2/users/<str:user_id>/login-security/', user_login_security, name='admin_v2_user_login_security'),

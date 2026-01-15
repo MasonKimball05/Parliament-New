@@ -105,26 +105,45 @@ class EventForm(forms.ModelForm):
         help_text='Select which member types can see this event. Leave empty for all members.'
     )
 
+    recurrence_days = forms.MultipleChoiceField(
+        choices=[
+            (0, 'Monday'),
+            (1, 'Tuesday'),
+            (2, 'Wednesday'),
+            (3, 'Thursday'),
+            (4, 'Friday'),
+            (5, 'Saturday'),
+            (6, 'Sunday'),
+        ],
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={
+            'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+        }),
+        help_text='Select which days of the week for weekly recurring events'
+    )
+
     class Meta:
         model = Event
         fields = ['title', 'description', 'date_time', 'location', 'visible_to', 'is_active',
-                  'requires_attendance', 'allow_excuses', 'excuse_deadline']
+                  'requires_attendance', 'allow_excuses', 'excuse_deadline',
+                  'is_recurring', 'recurrence_type', 'recurrence_interval', 'recurrence_unit',
+                  'recurrence_days', 'recurrence_end_date']
         widgets = {
             'title': forms.TextInput(attrs={
-                'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
                 'placeholder': 'Enter event title'
             }),
             'description': forms.Textarea(attrs={
-                'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
                 'placeholder': 'Enter event description',
                 'rows': 5
             }),
             'date_time': forms.DateTimeInput(attrs={
-                'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
                 'type': 'datetime-local'
             }),
             'location': forms.TextInput(attrs={
-                'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
                 'placeholder': 'Enter event location (e.g., Room 123, Zoom link, etc.)'
             }),
             'is_active': forms.CheckboxInput(attrs={
@@ -137,8 +156,28 @@ class EventForm(forms.ModelForm):
                 'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
             }),
             'excuse_deadline': forms.DateTimeInput(attrs={
-                'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
                 'type': 'datetime-local'
+            }),
+            'is_recurring': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded',
+                'id': 'is_recurring'
+            }),
+            'recurrence_type': forms.Select(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'id': 'recurrence_type'
+            }),
+            'recurrence_interval': forms.NumberInput(attrs={
+                'class': 'w-20 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'min': 1,
+                'max': 99
+            }),
+            'recurrence_unit': forms.Select(attrs={
+                'class': 'px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+            }),
+            'recurrence_end_date': forms.DateInput(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'type': 'date'
             })
         }
         labels = {
@@ -150,7 +189,13 @@ class EventForm(forms.ModelForm):
             'is_active': 'Active',
             'requires_attendance': 'Requires Attendance',
             'allow_excuses': 'Allow Excuse Requests',
-            'excuse_deadline': 'Excuse Deadline (Optional)'
+            'excuse_deadline': 'Excuse Deadline (Optional)',
+            'is_recurring': 'Repeating Event',
+            'recurrence_type': 'Repeat Frequency',
+            'recurrence_interval': 'Every',
+            'recurrence_unit': '',
+            'recurrence_days': 'Repeat on Days',
+            'recurrence_end_date': 'End Date (Optional)'
         }
         help_texts = {
             'date_time': 'When the event will occur',
@@ -158,13 +203,30 @@ class EventForm(forms.ModelForm):
             'is_active': 'Uncheck to hide this event from the calendar',
             'requires_attendance': 'Check if this event requires attendance tracking',
             'allow_excuses': 'Allow members to submit excuse requests for this event',
-            'excuse_deadline': 'Deadline for submitting excuses. Leave blank to use event time as deadline.'
+            'excuse_deadline': 'Deadline for submitting excuses. Leave blank to use event time as deadline.',
+            'is_recurring': 'Check if this event repeats',
+            'recurrence_type': 'How often the event repeats',
+            'recurrence_end_date': 'Leave blank for indefinite recurrence'
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Convert JSON field to list for form display
+        if self.instance and self.instance.pk and self.instance.recurrence_days:
+            self.initial['recurrence_days'] = [str(d) for d in self.instance.recurrence_days]
 
     def save(self, commit=True):
         instance = super().save(commit=False)
         # Convert the list from MultipleChoiceField to JSON for storage
         instance.visible_to = self.cleaned_data.get('visible_to') or None
+        # Convert recurrence_days to list of integers
+        recurrence_days = self.cleaned_data.get('recurrence_days')
+        if recurrence_days:
+            instance.recurrence_days = [int(d) for d in recurrence_days]
+        else:
+            instance.recurrence_days = None
+        # Set is_recurring based on recurrence_type
+        instance.is_recurring = instance.recurrence_type != 'none'
         if commit:
             instance.save()
         return instance
@@ -621,4 +683,32 @@ class UserPreferencesForm(forms.ModelForm):
             "show_search_menu": "Show Search",
             "show_roberts_rules_menu": "Show Robert's Rules",
         }
+
+    def clean(self):
+        """Validate that no more than 9 menu items are selected"""
+        cleaned_data = super().clean()
+
+        # Count how many menu items are selected
+        menu_fields = [
+            "show_vote_menu",
+            "show_committees_menu",
+            "show_chats_menu",
+            "show_documents_menu",
+            "show_announcements_menu",
+            "show_calendar_menu",
+            "show_legislation_menu",
+            "show_excuses_menu",
+            "show_search_menu",
+            "show_roberts_rules_menu",
+        ]
+
+        selected_count = sum(1 for field in menu_fields if cleaned_data.get(field))
+
+        if selected_count > 9:
+            raise forms.ValidationError(
+                f"You can select at most 9 menu items to display in the navigation bar. "
+                f"You have selected {selected_count}. Please deselect {selected_count - 9} item(s)."
+            )
+
+        return cleaned_data
 

@@ -5,25 +5,25 @@
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Page Header -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8 transition-colors duration-200">
         <div class="flex items-center justify-between">
             <div>
                 <div class="flex items-center space-x-3 mb-2">
-                    <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
-                    <h1 class="text-3xl font-bold text-gray-900">All Committee Documents</h1>
+                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">All Committee Documents</h1>
                 </div>
-                <p class="text-gray-600">View all committee documents, including unpublished items</p>
+                <p class="text-gray-600 dark:text-gray-400">View all committee documents, including unpublished items</p>
             </div>
             <div class="flex space-x-3">
-                <a href="{% url 'upload_report' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition flex items-center space-x-2">
+                <a href="{% url 'upload_report' %}" class="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition flex items-center space-x-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                     </svg>
                     <span>Upload Document</span>
                 </a>
-                <a href="{% url 'officer_home' %}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition">
+                <a href="{% url 'officer_home' %}" class="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg transition">
                     Back to Officer Home
                 </a>
             </div>
@@ -31,24 +31,24 @@
     </div>
 
     <!-- Tab Navigation -->
-    <div class="mb-6 bg-white rounded-lg shadow-md p-2">
+    <div class="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-md p-2 transition-colors duration-200">
         <div class="flex space-x-1" role="tablist">
-            <button onclick="showTab('all')" id="tab-all" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition bg-blue-100 text-blue-700">
+            <button onclick="showTab('all')" id="tab-all" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
                 All Documents ({{ all_documents|length }})
             </button>
-            <button onclick="showTab('reports')" id="tab-reports" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100">
+            <button onclick="showTab('reports')" id="tab-reports" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                 Reports ({{ reports|length }})
             </button>
-            <button onclick="showTab('minutes')" id="tab-minutes" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100">
+            <button onclick="showTab('minutes')" id="tab-minutes" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                 Minutes ({{ minutes|length }})
             </button>
-            <button onclick="showTab('agendas')" id="tab-agendas" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100">
+            <button onclick="showTab('agendas')" id="tab-agendas" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                 Agendas ({{ agendas|length }})
             </button>
-            <button onclick="showTab('policies')" id="tab-policies" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100">
+            <button onclick="showTab('policies')" id="tab-policies" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                 Policies ({{ policies|length }})
             </button>
-            <button onclick="showTab('general')" id="tab-general" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100">
+            <button onclick="showTab('general')" id="tab-general" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                 General ({{ general_docs|length }})
             </button>
         </div>
@@ -96,8 +96,8 @@ function showTab(tabName) {
     // Reset all tab buttons
     const buttons = document.querySelectorAll('.tab-button');
     buttons.forEach(button => {
-        button.classList.remove('bg-blue-100', 'text-blue-700');
-        button.classList.add('text-gray-700', 'hover:bg-gray-100');
+        button.classList.remove('bg-blue-100', 'dark:bg-blue-900', 'text-blue-700', 'dark:text-blue-300');
+        button.classList.add('text-gray-700', 'dark:text-gray-300', 'hover:bg-gray-100', 'dark:hover:bg-gray-700');
     });
 
     // Show selected tab content
@@ -109,8 +109,8 @@ function showTab(tabName) {
     // Highlight selected tab button
     const selectedButton = document.getElementById('tab-' + tabName);
     if (selectedButton) {
-        selectedButton.classList.add('bg-blue-100', 'text-blue-700');
-        selectedButton.classList.remove('text-gray-700', 'hover:bg-gray-100');
+        selectedButton.classList.add('bg-blue-100', 'dark:bg-blue-900', 'text-blue-700', 'dark:text-blue-300');
+        selectedButton.classList.remove('text-gray-700', 'dark:text-gray-300', 'hover:bg-gray-100', 'dark:hover:bg-gray-700');
     }
 }
 </script>

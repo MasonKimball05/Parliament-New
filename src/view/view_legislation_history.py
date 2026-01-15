@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
+from django.urls import reverse
 from ..models import *
 
 @login_required
@@ -47,6 +48,7 @@ def view_legislation_history(request):
             'description': leg.description,
             'title': leg.title,
             'document_url': leg.document.url if leg.document else None,
+            'document_viewer_url': reverse('view_document', args=[leg.id]) if leg.document else None,
             'legislation_id': leg.id,
             'passed': passed,
         })

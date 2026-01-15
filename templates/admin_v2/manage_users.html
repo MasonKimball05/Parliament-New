@@ -58,6 +58,7 @@
         <table class="w-full">
             <thead class="bg-gray-50 dark:bg-gray-700">
                 <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Picture</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Name</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">ID</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
@@ -91,6 +92,14 @@
                                         {% if user.is_admin %}Revoke Admin{% else %}Grant Admin{% endif %}
                                     </button>
                                 </form>
+                                {% if user.profile_picture %}
+                                <form method="post" action="{% url 'admin_v2_remove_user_profile_picture' user.user_id %}" class="inline" onsubmit="return confirm('Remove profile picture for {{ user.get_display_name }}?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded" title="Remove profile picture">
+                                        🖼️ Remove Picture
+                                    </button>
+                                </form>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>

@@ -5,32 +5,32 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-6">
-        <a href="{% url 'chapter_documents' %}" class="text-blue-600 hover:text-blue-800">← Back to Chapter Documents</a>
+        <a href="{% url 'chapter_documents' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">← Back to Chapter Documents</a>
     </div>
 
-    <h2 class="text-3xl font-bold mb-6">Upload Chapter Document</h2>
-    <p class="text-gray-600 mb-6">Upload a document to be shared with all chapter members</p>
+    <h2 class="text-3xl font-bold mb-6 text-gray-900 dark:text-white">Upload Chapter Document</h2>
+    <p class="text-gray-600 dark:text-gray-400 mb-6">Upload a document to be shared with all chapter members</p>
 
-    <div class="bg-white rounded-lg shadow-md p-6">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
         <form method="POST" enctype="multipart/form-data" class="space-y-4">
             {% csrf_token %}
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Document Title <span class="text-red-500">*</span>
                 </label>
                 <input type="text" name="title" required
-                       class="w-full border border-gray-300 rounded px-3 py-2"
+                       class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                        placeholder="Enter document title">
             </div>
 
             <div class="grid md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Document Type <span class="text-red-500">*</span>
                     </label>
                     <select name="document_type" required
-                            class="w-full border border-gray-300 rounded px-3 py-2">
+                            class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="general">General Document</option>
                         <option value="minutes">Meeting Minutes</option>
                         <option value="report">Report</option>
@@ -39,57 +39,57 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Folder (Optional)
                     </label>
-                    <select name="chapter_folder" class="w-full border border-gray-300 rounded px-3 py-2">
+                    <select name="chapter_folder" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">-- Uncategorized --</option>
                         {% for folder in folders %}
                             <option value="{{ folder.id }}">{{ folder.name }}</option>
                         {% endfor %}
                     </select>
-                    <p class="text-sm text-gray-500 mt-1">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         Choose a folder to organize this document, or leave uncategorized
                     </p>
                 </div>
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Description (Optional)
                 </label>
                 <textarea name="description" rows="3"
-                          class="w-full border border-gray-300 rounded px-3 py-2"
+                          class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="Brief description of the document"></textarea>
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Select File <span class="text-red-500">*</span>
                 </label>
                 <input type="file" name="file" required
-                       class="w-full border border-gray-300 rounded px-3 py-2"
+                       class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 dark:file:bg-blue-900 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-800"
                        accept=".pdf,.docx,.doc,.xls,.xlsx,.ppt,.pptx">
-                <p class="text-sm text-gray-500 mt-1">Accepted formats: PDF, Word, Excel, PowerPoint (max 20 MB)</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Accepted formats: PDF, Word, Excel, PowerPoint (max 20 MB)</p>
             </div>
 
             <div>
                 <label class="flex items-center space-x-2 cursor-pointer">
                     <input type="checkbox" name="publish_now" value="true" checked
-                           class="w-4 h-4 text-blue-600 border-gray-300 rounded">
-                    <span class="text-sm font-medium text-gray-700">Publish immediately to chapter members</span>
+                           class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:bg-gray-700">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Publish immediately to chapter members</span>
                 </label>
-                <p class="text-sm text-gray-500 ml-6 mt-1">
+                <p class="text-sm text-gray-500 dark:text-gray-400 ml-6 mt-1">
                     Uncheck to save as draft. You can publish it later from "Manage Documents"
                 </p>
             </div>
 
-            <div class="bg-blue-50 border border-blue-200 rounded p-4">
+            <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded p-4">
                 <div class="flex items-start">
-                    <svg class="w-5 h-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    <div class="text-sm text-blue-800">
+                    <div class="text-sm text-blue-800 dark:text-blue-300">
                         <p class="font-medium">Published documents will be:</p>
                         <ul class="list-disc list-inside mt-1 space-y-1">
                             <li>Visible to all chapter members in the "Chapter Documents" page</li>
@@ -100,11 +100,11 @@
             </div>
 
             <div class="flex gap-3 pt-4">
-                <button type="submit" class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
+                <button type="submit" class="bg-blue-500 dark:bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-600 dark:hover:bg-blue-500 transition">
                     Save Document
                 </button>
                 <a href="{% url 'chapter_documents' %}"
-                   class="bg-gray-300 text-gray-700 px-6 py-2 rounded hover:bg-gray-400 inline-block text-center">
+                   class="bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 px-6 py-2 rounded hover:bg-gray-400 dark:hover:bg-gray-500 inline-block text-center transition">
                     Cancel
                 </a>
             </div>

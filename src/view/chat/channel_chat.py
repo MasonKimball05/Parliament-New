@@ -2,15 +2,23 @@ from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseForbidden
 from django.utils import timezone
-from src.models import ChatChannel, ChatMessage, ChatReadReceipt
+from src.models import ChatChannel, ChatMessage, ChatReadReceipt, Committee
+from src.models_feature_flags import SiteSetting
 from src.feature_flag_decorators import require_feature_flag
 
 
 @login_required
 @require_feature_flag('chats')
-def channel_chat(request, channel_id):
+def channel_chat(request, channel_id=None, code=None):
     """Main chat page for a channel (works for all channel types)"""
-    channel = get_object_or_404(ChatChannel, id=channel_id)
+    # Look up channel by committee code or channel ID
+    if code:
+        committee = get_object_or_404(Committee, code=code)
+        channel = get_object_or_404(ChatChannel, committee=committee, channel_type='committee')
+    elif channel_id:
+        channel = get_object_or_404(ChatChannel, id=channel_id)
+    else:
+        return HttpResponseForbidden("Invalid channel identifier.")
 
     # Check if user has access to this channel (with admin override)
     has_normal_access = channel.has_access(request.user)
@@ -61,6 +69,16 @@ def channel_chat(request, channel_id):
     can_send_messages = channel.can_write(request.user)
     can_delete_own_messages = channel.can_delete_messages(request.user)
 
+    # Determine committee code if this is a committee channel
+    committee_code = None
+    if channel.channel_type == 'committee' and channel.committee:
+        committee_code = channel.committee.code
+
+    # Get chat polling settings from database (with defaults)
+    chat_active_poll_interval = SiteSetting.get_setting('chat_active_poll_interval', 3000)
+    chat_inactive_poll_interval = SiteSetting.get_setting('chat_inactive_poll_interval', 20000)
+    chat_active_users_poll_interval = SiteSetting.get_setting('chat_active_users_poll_interval', 5000)
+
     return render(request, 'chat/channel.html', {
         'channel': channel,
         'initial_messages': messages,
@@ -70,14 +88,25 @@ def channel_chat(request, channel_id):
         'admin_preview_mode': admin_preview_mode,
         'can_send_messages': can_send_messages,
         'can_delete_own_messages': can_delete_own_messages,
+        'committee_code': committee_code,
+        'chat_active_poll_interval': chat_active_poll_interval,
+        'chat_inactive_poll_interval': chat_inactive_poll_interval,
+        'chat_active_users_poll_interval': chat_active_users_poll_interval,
     })
 
 
 @login_required
 @require_feature_flag('chats')
-def get_channel_messages(request, channel_id):
+def get_channel_messages(request, channel_id=None, code=None):
     """API endpoint to poll for new messages"""
-    channel = get_object_or_404(ChatChannel, id=channel_id)
+    # Look up channel by committee code or channel ID
+    if code:
+        committee = get_object_or_404(Committee, code=code)
+        channel = get_object_or_404(ChatChannel, committee=committee, channel_type='committee')
+    elif channel_id:
+        channel = get_object_or_404(ChatChannel, id=channel_id)
+    else:
+        return JsonResponse({'error': 'Invalid channel identifier'}, status=400)
 
     if not channel.has_access(request.user):
         return JsonResponse({'error': 'Forbidden'}, status=403)
@@ -112,6 +141,7 @@ def get_channel_messages(request, channel_id):
         'id': msg.id,
         'sender_id': msg.sender.user_id,
         'sender_name': msg.sender.name,
+        'sender_profile_picture': msg.sender.profile_picture.url if msg.sender.profile_picture else None,
         'message': msg.message,
         'created_at': msg.created_at.isoformat(),
         'edited_at': msg.edited_at.isoformat() if msg.edited_at else None,
@@ -123,12 +153,19 @@ def get_channel_messages(request, channel_id):
 
 @login_required
 @require_feature_flag('chats')
-def send_channel_message(request, channel_id):
+def send_channel_message(request, channel_id=None, code=None):
     """API endpoint to send a message"""
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
 
-    channel = get_object_or_404(ChatChannel, id=channel_id)
+    # Look up channel by committee code or channel ID
+    if code:
+        committee = get_object_or_404(Committee, code=code)
+        channel = get_object_or_404(ChatChannel, committee=committee, channel_type='committee')
+    elif channel_id:
+        channel = get_object_or_404(ChatChannel, id=channel_id)
+    else:
+        return JsonResponse({'error': 'Invalid channel identifier'}, status=400)
 
     # Check if user has write permission
     if not channel.can_write(request.user):
@@ -163,6 +200,7 @@ def send_channel_message(request, channel_id):
             'id': message.id,
             'sender_id': message.sender.user_id,
             'sender_name': message.sender.name,
+            'sender_profile_picture': message.sender.profile_picture.url if message.sender.profile_picture else None,
             'message': message.message,
             'created_at': message.created_at.isoformat(),
             'is_own_message': True
@@ -172,12 +210,19 @@ def send_channel_message(request, channel_id):
 
 @login_required
 @require_feature_flag('chats')
-def edit_channel_message(request, channel_id, message_id):
+def edit_channel_message(request, message_id, channel_id=None, code=None):
     """API endpoint to edit a message"""
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
 
-    channel = get_object_or_404(ChatChannel, id=channel_id)
+    # Look up channel by committee code or channel ID
+    if code:
+        committee = get_object_or_404(Committee, code=code)
+        channel = get_object_or_404(ChatChannel, committee=committee, channel_type='committee')
+    elif channel_id:
+        channel = get_object_or_404(ChatChannel, id=channel_id)
+    else:
+        return JsonResponse({'error': 'Invalid channel identifier'}, status=400)
     message = get_object_or_404(ChatMessage, id=message_id, channel=channel)
 
     # Only the sender can edit their message
@@ -215,12 +260,19 @@ def edit_channel_message(request, channel_id, message_id):
 
 @login_required
 @require_feature_flag('chats')
-def delete_channel_message(request, channel_id, message_id):
+def delete_channel_message(request, message_id, channel_id=None, code=None):
     """API endpoint to delete a message"""
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
 
-    channel = get_object_or_404(ChatChannel, id=channel_id)
+    # Look up channel by committee code or channel ID
+    if code:
+        committee = get_object_or_404(Committee, code=code)
+        channel = get_object_or_404(ChatChannel, committee=committee, channel_type='committee')
+    elif channel_id:
+        channel = get_object_or_404(ChatChannel, id=channel_id)
+    else:
+        return JsonResponse({'error': 'Invalid channel identifier'}, status=400)
     message = get_object_or_404(ChatMessage, id=message_id, channel=channel)
 
     # Check permissions: admin, chairs can delete any message
@@ -247,9 +299,16 @@ def delete_channel_message(request, channel_id, message_id):
 
 @login_required
 @require_feature_flag('chats')
-def get_channel_active_users(request, channel_id):
+def get_channel_active_users(request, channel_id=None, code=None):
     """API endpoint to get list of users currently active in channel"""
-    channel = get_object_or_404(ChatChannel, id=channel_id)
+    # Look up channel by committee code or channel ID
+    if code:
+        committee = get_object_or_404(Committee, code=code)
+        channel = get_object_or_404(ChatChannel, committee=committee, channel_type='committee')
+    elif channel_id:
+        channel = get_object_or_404(ChatChannel, id=channel_id)
+    else:
+        return JsonResponse({'error': 'Invalid channel identifier'}, status=400)
 
     if not channel.has_access(request.user):
         return JsonResponse({'error': 'Forbidden'}, status=403)

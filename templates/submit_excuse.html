@@ -6,40 +6,40 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-3xl">
     <!-- Breadcrumb -->
-    <div class="flex items-center text-sm text-gray-600 mb-6">
-        <a href="{% url 'my_excuses' %}" class="hover:text-blue-600">My Excuses</a>
+    <div class="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-6">
+        <a href="{% url 'my_excuses' %}" class="hover:text-blue-600 dark:hover:text-blue-400">My Excuses</a>
         <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
         </svg>
-        <span class="text-gray-900">Submit Excuse</span>
+        <span class="text-gray-900 dark:text-white">Submit Excuse</span>
     </div>
 
     <!-- Header -->
     <div class="mb-6">
-        <h2 class="text-3xl font-bold mb-2">Submit Excuse Request</h2>
-        <p class="text-gray-600">Request an excused absence for the event below</p>
+        <h2 class="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Submit Excuse Request</h2>
+        <p class="text-gray-600 dark:text-gray-400">Request an excused absence for the event below</p>
     </div>
 
     <!-- Event Info Card -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h3 class="text-xl font-bold text-gray-900 mb-3">{{ event.title }}</h3>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">{{ event.title }}</h3>
 
         <div class="grid md:grid-cols-2 gap-4 mb-4">
             <div>
-                <div class="flex items-center text-gray-600 mb-2">
+                <div class="flex items-center text-gray-600 dark:text-gray-400 mb-2">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                     </svg>
                     <span>{{ event.date_time|date:"F j, Y" }}</span>
                 </div>
-                <div class="flex items-center text-gray-600 mb-2">
+                <div class="flex items-center text-gray-600 dark:text-gray-400 mb-2">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                     <span>{{ event.date_time|date:"g:i A" }}</span>
                 </div>
                 {% if event.location %}
-                <div class="flex items-center text-gray-600">
+                <div class="flex items-center text-gray-600 dark:text-gray-400">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -51,39 +51,39 @@
 
             <div>
                 {% if event.excuse_deadline %}
-                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                    <p class="text-sm font-semibold text-yellow-800 mb-1">Excuse Deadline</p>
-                    <p class="text-sm text-yellow-700">{{ event.excuse_deadline|date:"M j, Y g:i A" }}</p>
+                <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3">
+                    <p class="text-sm font-semibold text-yellow-800 dark:text-yellow-200 mb-1">Excuse Deadline</p>
+                    <p class="text-sm text-yellow-700 dark:text-yellow-300">{{ event.excuse_deadline|date:"M j, Y g:i A" }}</p>
                 </div>
                 {% else %}
-                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <p class="text-sm font-semibold text-blue-800 mb-1">Excuse Deadline</p>
-                    <p class="text-sm text-blue-700">Same as event time</p>
+                <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
+                    <p class="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-1">Excuse Deadline</p>
+                    <p class="text-sm text-blue-700 dark:text-blue-300">Same as event time</p>
                 </div>
                 {% endif %}
             </div>
         </div>
 
         {% if event.description %}
-        <div class="border-t pt-3">
-            <p class="text-sm text-gray-600">{{ event.description }}</p>
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-3">
+            <p class="text-sm text-gray-600 dark:text-gray-400">{{ event.description }}</p>
         </div>
         {% endif %}
     </div>
 
     <!-- Excuse Request Form -->
-    <form method="post" enctype="multipart/form-data" class="bg-white rounded-lg shadow-md p-6">
+    <form method="post" enctype="multipart/form-data" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
         {% csrf_token %}
 
         <!-- Info Box -->
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
             <div class="flex">
-                <svg class="w-5 h-5 text-blue-600 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
-                <div class="text-sm text-blue-800">
+                <div class="text-sm text-blue-800 dark:text-blue-200">
                     <p class="font-semibold mb-1">Important Information:</p>
-                    <ul class="list-disc list-inside space-y-1">
+                    <ul class="list-disc list-inside space-y-1 text-blue-700 dark:text-blue-300">
                         <li>Your excuse request will be reviewed by an officer</li>
                         <li>Provide a detailed and honest reason for your absence</li>
                         <li>Supporting documentation (if applicable) can strengthen your request</li>
@@ -95,8 +95,8 @@
 
         <!-- Reason Field -->
         <div class="mb-6">
-            <label for="reason" class="block text-sm font-medium text-gray-700 mb-2">
-                Reason for Absence <span class="text-red-600">*</span>
+            <label for="reason" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Reason for Absence <span class="text-red-600 dark:text-red-400">*</span>
             </label>
             <textarea
                 name="reason"
@@ -104,46 +104,46 @@
                 rows="6"
                 required
                 minlength="10"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 placeholder="Please provide a detailed explanation of why you cannot attend this event (minimum 10 characters)..."></textarea>
-            <p class="mt-1 text-sm text-gray-500">Minimum 10 characters required</p>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Minimum 10 characters required</p>
         </div>
 
         <!-- Supporting Document Field -->
         <div class="mb-6">
-            <label for="supporting_document" class="block text-sm font-medium text-gray-700 mb-2">
-                Supporting Document <span class="text-gray-500">(Optional)</span>
+            <label for="supporting_document" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Supporting Document <span class="text-gray-500 dark:text-gray-400">(Optional)</span>
             </label>
             <input
                 type="file"
                 name="supporting_document"
                 id="supporting_document"
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-            <p class="mt-1 text-sm text-gray-500">
+                class="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 dark:file:bg-blue-900/50 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900">
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 Accepted formats: PDF, DOC, DOCX, JPG, PNG (e.g., doctor's note, travel itinerary, etc.)
             </p>
         </div>
 
         <!-- Form Actions -->
-        <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+        <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
                 type="submit"
-                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition">
+                class="flex-1 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium py-3 px-6 rounded-lg transition">
                 Submit Excuse Request
             </button>
             <a
                 href="{% url 'my_excuses' %}"
-                class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-3 px-6 rounded-lg transition text-center">
+                class="flex-1 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 font-medium py-3 px-6 rounded-lg transition text-center">
                 Cancel
             </a>
         </div>
     </form>
 
     <!-- Help Section -->
-    <div class="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <h4 class="font-semibold text-gray-900 mb-2">Need Help?</h4>
-        <p class="text-sm text-gray-600">
+    <div class="mt-6 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+        <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Need Help?</h4>
+        <p class="text-sm text-gray-600 dark:text-gray-400">
             If you have questions about the excuse request process or need assistance,
             please contact an officer. Make sure to submit your request before the deadline shown above.
         </p>
@@ -156,7 +156,6 @@ document.getElementById('reason').addEventListener('input', function() {
     const charCount = this.value.length;
     const minChars = 10;
 
-    // You could add a character counter here if desired
     if (charCount > 0 && charCount < minChars) {
         this.setCustomValidity(`Please enter at least ${minChars - charCount} more character(s).`);
     } else {

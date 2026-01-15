@@ -6,10 +6,16 @@ from django.core.mail import send_mail, EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.conf import settings
 from django.utils.html import strip_tags
+from django.urls import reverse
 from src.models import ParliamentUser, Announcement, UserAnnouncementView
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def get_site_url():
+    """Get the site URL from settings"""
+    return getattr(settings, 'SITE_URL', 'https://am-parliament.org').rstrip('/')
 
 
 def send_announcement_notification(announcement):
@@ -49,22 +55,28 @@ def send_announcement_notification(announcement):
 
     # Prepare email content
     subject = f"New Announcement: {announcement.title}"
+    site_url = get_site_url()
 
-    # Create HTML email
-    html_message = render_to_string('emails/announcement_notification.html', {
-        'announcement': announcement,
-        'site_url': settings.SITE_URL if hasattr(settings, 'SITE_URL') else 'https://am-parliament.org'
-    })
-
-    # Create plain text version
-    plain_message = strip_tags(html_message)
-
-    # Send emails
+    # Send emails - each user gets a unique email with their tracking pixel
     sent_count = 0
     failed_count = 0
 
     for user in users:
         try:
+            # Generate user-specific tracking URL
+            tracking_url = f"{site_url}/track/announcement/{announcement.id}/user/{user.user_id}/"
+
+            # Create HTML email with tracking pixel
+            html_message = render_to_string('emails/announcement_notification.html', {
+                'announcement': announcement,
+                'site_url': site_url,
+                'tracking_url': tracking_url,
+                'user': user,
+            })
+
+            # Create plain text version
+            plain_message = strip_tags(html_message)
+
             msg = EmailMultiAlternatives(
                 subject=subject,
                 body=plain_message,
@@ -73,13 +85,6 @@ def send_announcement_notification(announcement):
             )
             msg.attach_alternative(html_message, "text/html")
             msg.send()
-
-            # Mark as viewed (email sent) for this user
-            UserAnnouncementView.objects.get_or_create(
-                user=user,
-                announcement=announcement,
-                defaults={'dismissed': False}
-            )
 
             sent_count += 1
             logger.info(f"Sent announcement email to {user.email}")

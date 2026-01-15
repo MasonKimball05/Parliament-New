@@ -132,6 +132,23 @@ def update_status(modeladmin, request, queryset):
                 legislation.save()
 update_status.short_description = "Update status for closed voting legislation"
 
+def remove_profile_pictures(modeladmin, request, queryset):
+    """Admin action to remove profile pictures from selected users"""
+    count = 0
+    for user in queryset:
+        if user.profile_picture:
+            user.profile_picture.delete()
+            user.profile_picture_removed_by_admin = True
+            user.save()
+            count += 1
+            logger.info(f"Admin {request.user.username} removed profile picture for {user.username}")
+
+    if count > 0:
+        messages.success(request, f"Successfully removed {count} profile picture(s). Users will be notified.")
+    else:
+        messages.info(request, "No users in the selection had profile pictures to remove.")
+remove_profile_pictures.short_description = "Remove profile pictures (users will be notified)"
+
 
 # === MODEL ADMINS ===
 # === ROLE ADMIN ===
@@ -185,6 +202,10 @@ class ParliamentUserAdmin(admin.ModelAdmin):
         ('Member Information', {
             'fields': ('member_type', 'member_status', 'is_admin', 'is_active')
         }),
+        ('Profile Picture', {
+            'fields': ('profile_picture', 'profile_picture_removed_by_admin'),
+            'description': 'View user profile picture. Use the "Remove profile pictures" action to remove inappropriate images.'
+        }),
         ('Roles & Positions', {
             'fields': ('roles',),
             'description': 'Assign officer roles to this member (e.g., Vice President of Brotherhood)'
@@ -212,7 +233,7 @@ class ParliamentUserAdmin(admin.ModelAdmin):
     last_login_display.short_description = 'Last Login'
     last_login_display.admin_order_field = 'last_login'
 
-    actions = [export_as_csv]
+    actions = [export_as_csv, remove_profile_pictures]
 
     def get_urls(self):
         urls = super().get_urls()
