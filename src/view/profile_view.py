@@ -7,8 +7,6 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import update_session_auth_hash
 from django.core.exceptions import ValidationError
 from src.feature_flag_decorators import require_page_enabled
-from PIL import Image
-import io
 import logging
 
 logger = logging.getLogger('function_calls')
