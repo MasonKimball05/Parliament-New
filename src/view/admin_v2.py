@@ -1147,3 +1147,92 @@ def manage_security_alerts(request):
     }
 
     return render(request, 'admin_v2/security_alerts.html', context)
+
+
+@require_admin_v2_auth
+def send_test_announcement_email(request):
+    """
+    Send a test announcement email to the current user.
+    Uses the same template and formatting as real announcement emails.
+    """
+    from django.core.mail import EmailMultiAlternatives
+    from django.template.loader import render_to_string
+    from django.utils.html import strip_tags
+
+    if request.method != 'POST':
+        messages.error(request, 'Invalid request method')
+        return redirect('admin_v2_dashboard')
+
+    user = request.user
+
+    # Check if user has an email set
+    if not user.email:
+        messages.error(request, 'You do not have an email address set. Please add one in your profile first.')
+        return redirect('admin_v2_dashboard')
+
+    # Create a mock announcement object for testing
+    class MockAnnouncement:
+        def __init__(self):
+            self.id = 0
+            self.title = "Test Announcement - Email System Check"
+            self.content = """This is a TEST email from the Alpha Mu Parliament system.
+
+If you are receiving this email, it means the announcement email system is working correctly!
+
+This email was sent from the Admin-v2 dashboard to verify email delivery and formatting before the demo.
+
+Test details:
+• Email template: announcement_notification.html
+• Tracking pixel: Included (pointing to test endpoint)
+• HTML formatting: Enabled
+• Plain text fallback: Included
+
+-- This is an automated test message --"""
+            self.posted_at = timezone.now()
+            self.posted_by = user
+            self.event_date = None  # No event date for test
+
+    mock_announcement = MockAnnouncement()
+
+    # Get site URL
+    site_url = getattr(settings, 'SITE_URL', 'https://am-parliament.org').rstrip('/')
+
+    # Generate tracking URL (will be a test/invalid one)
+    tracking_url = f"{site_url}/track/announcement/0/user/{user.user_id}/"
+
+    try:
+        # Create HTML email with tracking pixel
+        html_message = render_to_string('emails/announcement_notification.html', {
+            'announcement': mock_announcement,
+            'site_url': site_url,
+            'tracking_url': tracking_url,
+            'user': user,
+        })
+
+        # Create plain text version
+        plain_message = strip_tags(html_message)
+
+        # Send the email
+        msg = EmailMultiAlternatives(
+            subject="[TEST] New Announcement: Test Announcement - Email System Check",
+            body=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[user.email]
+        )
+        msg.attach_alternative(html_message, "text/html")
+        msg.send()
+
+        # Log the activity
+        ActivityLog.objects.create(
+            user=user,
+            action='send_test_email',
+            description=f'Sent test announcement email to {user.email}',
+            ip_address=request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', 'unknown'))
+        )
+
+        messages.success(request, f'Test email sent successfully to {user.email}! Check your inbox (and spam folder).')
+
+    except Exception as e:
+        messages.error(request, f'Failed to send test email: {str(e)}')
+
+    return redirect('admin_v2_dashboard')
