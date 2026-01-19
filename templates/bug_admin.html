@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}Bug Admin - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Bug Report Admin</h1>
+            <p class="text-gray-600 dark:text-gray-400">Manage and update bug report statuses</p>
+        </div>
+        <div class="flex gap-3 mt-4 sm:mt-0">
+            <a href="{% url 'bug_tracker' %}" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                Back to Tracker
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors duration-200">
+            <div class="flex items-center">
+                <div class="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                    <svg class="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Total</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ total_count }}</p>
+                </div>
+            </div>
+        </div>
+        <a href="?status=new" class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors duration-200 hover:shadow-lg {% if current_status == 'new' %}ring-2 ring-red-500{% endif %}">
+            <div class="flex items-center">
+                <div class="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                    <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">New</p>
+                    <p class="text-2xl font-bold text-red-600 dark:text-red-400">{{ new_count }}</p>
+                </div>
+            </div>
+        </a>
+        <a href="?status=in_progress" class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors duration-200 hover:shadow-lg {% if current_status == 'in_progress' %}ring-2 ring-blue-500{% endif %}">
+            <div class="flex items-center">
+                <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">In Progress</p>
+                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ in_progress_count }}</p>
+                </div>
+            </div>
+        </a>
+        <a href="?status=resolved" class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors duration-200 hover:shadow-lg {% if current_status == 'resolved' %}ring-2 ring-green-500{% endif %}">
+            <div class="flex items-center">
+                <div class="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Resolved</p>
+                    <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ resolved_count }}</p>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6 transition-colors duration-200">
+        <form method="get" class="flex flex-col sm:flex-row gap-4">
+            <div class="flex-1">
+                <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                <select name="status" id="status" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-gray-100 transition-colors">
+                    <option value="">All Statuses</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex-1">
+                <label for="type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Issue Type</label>
+                <select name="type" id="type" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-gray-100 transition-colors">
+                    <option value="">All Types</option>
+                    {% for value, label in issue_types %}
+                    <option value="{{ value }}" {% if current_type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex-1">
+                <label for="priority" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
+                <select name="priority" id="priority" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-gray-100 transition-colors">
+                    <option value="">All Priorities</option>
+                    {% for value, label in priority_choices %}
+                    <option value="{{ value }}" {% if current_priority == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex items-end gap-2">
+                <button type="submit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors">
+                    Filter
+                </button>
+                {% if current_status or current_type or current_priority %}
+                <a href="{% url 'bug_admin' %}" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    Clear
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Bug Reports List -->
+    {% if bug_reports %}
+    <div class="space-y-4">
+        {% for report in bug_reports %}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
+            <div class="p-5">
+                <div class="flex flex-col lg:flex-row gap-4">
+                    <!-- Left side: Bug info -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="text-sm font-medium text-gray-500 dark:text-gray-400">#{{ report.id }}</span>
+                            <!-- Current Status Badge -->
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if report.status == 'new' %}
+                                    bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+                                {% elif report.status == 'acknowledged' %}
+                                    bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                                {% elif report.status == 'in_progress' %}
+                                    bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200
+                                {% elif report.status == 'resolved' %}
+                                    bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+                                {% else %}
+                                    bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200
+                                {% endif %}
+                            ">
+                                {{ report.get_status_display }}
+                            </span>
+                            <!-- Issue Type Badge -->
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                                {{ report.get_issue_type_display }}
+                            </span>
+                            <!-- Priority Badge -->
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if report.priority == 'critical' %}
+                                    bg-red-600 text-white
+                                {% elif report.priority == 'high' %}
+                                    bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200
+                                {% elif report.priority == 'medium' %}
+                                    bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                                {% else %}
+                                    bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+                                {% endif %}
+                            ">
+                                {{ report.get_priority_display }}
+                            </span>
+                        </div>
+                        <p class="text-gray-900 dark:text-gray-100 mb-2">{{ report.description|truncatechars:200 }}</p>
+                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
+                            <span>By: {{ report.submitted_by.name|default:"Anonymous" }}</span>
+                            <span>{{ report.submitted_at|date:"M d, Y g:i A" }}</span>
+                            {% if report.page %}
+                            <span>Page: {{ report.get_page_display }}</span>
+                            {% endif %}
+                        </div>
+                        {% if report.admin_notes %}
+                        <div class="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                            <p class="text-sm text-gray-700 dark:text-gray-300"><strong>Admin Notes:</strong> {{ report.admin_notes|truncatechars:100 }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Right side: Actions -->
+                    <div class="lg:w-72 shrink-0">
+                        <form method="post" action="{% url 'bug_admin_update' report.id %}" class="space-y-3">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+
+                            <div>
+                                <label for="status_{{ report.id }}" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Update Status</label>
+                                <select name="status" id="status_{{ report.id }}" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-gray-100">
+                                    {% for value, label in status_choices %}
+                                    <option value="{{ value }}" {% if report.status == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="notes_{{ report.id }}" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Admin Notes</label>
+                                <textarea name="admin_notes" id="notes_{{ report.id }}" rows="2" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-gray-100" placeholder="Add notes...">{{ report.admin_notes }}</textarea>
+                            </div>
+
+                            <div class="flex gap-2">
+                                <button type="submit" class="flex-1 px-3 py-2 text-sm bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors">
+                                    Update
+                                </button>
+                                <a href="{% url 'bug_report_detail' report.id %}" class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                    View
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center transition-colors duration-200">
+        <svg class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-gray-100">No bug reports found</h3>
+        <p class="mt-2 text-gray-500 dark:text-gray-400">
+            {% if current_status or current_type or current_priority %}
+                No bug reports match your current filters.
+            {% else %}
+                No bug reports have been submitted yet.
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,7 +1,7 @@
 from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
 from .decorators import log_function_call
-from .models import Committee, ParliamentUser, Legislation, Vote, Attendance, AttendanceExcuse, CommitteeDocument, Role, Announcement, ChatChannel, ChatChannelPermission, ChatMessage, ChatReadReceipt, UserAnnouncementView, DocumentTag, DocumentVersion, Event, ActivityLog, LoginHistory, LoginAlert
+from .models import Committee, ParliamentUser, Legislation, Vote, Attendance, AttendanceExcuse, CommitteeDocument, Role, Announcement, ChatChannel, ChatChannelPermission, ChatMessage, ChatReadReceipt, UserAnnouncementView, DocumentTag, DocumentVersion, Event, ActivityLog, LoginHistory, LoginAlert, BugReport
 from .models_feature_flags import FeatureFlag, PageToggle
 import logging
 from django.db.models.signals import post_save, pre_delete
@@ -1198,6 +1198,131 @@ class PageToggleAdmin(admin.ModelAdmin):
                 request=request
             )
         super().save_model(request, obj, form, change)
+
+
+@admin.register(BugReport, site=admin_site)
+class BugReportAdmin(admin.ModelAdmin):
+    list_display = ('id', 'issue_type_badge', 'priority_badge', 'status_badge', 'description_short', 'page', 'submitted_by', 'submitted_at')
+    list_filter = ('status', 'issue_type', 'priority', 'page', 'submitted_at')
+    search_fields = ('description', 'feature', 'page_url', 'submitted_by__name')
+    ordering = ('-submitted_at',)
+    readonly_fields = ('submitted_at', 'updated_at', 'browser_info', 'submitted_by')
+    list_per_page = 50
+    date_hierarchy = 'submitted_at'
+    autocomplete_fields = ['resolved_by']
+
+    actions = ['mark_acknowledged', 'mark_in_progress', 'mark_resolved', 'mark_wont_fix']
+
+    fieldsets = (
+        ('Bug Information', {
+            'fields': ('issue_type', 'priority', 'status', 'description')
+        }),
+        ('Location', {
+            'fields': ('page', 'page_url', 'feature')
+        }),
+        ('Reproduction Details', {
+            'fields': ('steps_to_reproduce', 'expected_behavior', 'actual_behavior'),
+            'classes': ('collapse',)
+        }),
+        ('Screenshot', {
+            'fields': ('screenshot',),
+            'classes': ('collapse',)
+        }),
+        ('Technical Info', {
+            'fields': ('browser_info',),
+            'classes': ('collapse',)
+        }),
+        ('Resolution', {
+            'fields': ('admin_notes', 'resolved_at', 'resolved_by')
+        }),
+        ('Metadata', {
+            'fields': ('submitted_by', 'submitted_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def description_short(self, obj):
+        return obj.description[:60] + '...' if len(obj.description) > 60 else obj.description
+    description_short.short_description = 'Description'
+
+    def issue_type_badge(self, obj):
+        colors = {
+            'ui': '#3b82f6',
+            'functionality': '#f59e0b',
+            'error_500': '#dc2626',
+            'error_404': '#ef4444',
+            'error_403': '#f97316',
+            'performance': '#8b5cf6',
+            'mobile': '#06b6d4',
+            'accessibility': '#10b981',
+            'data': '#ec4899',
+            'other': '#6b7280'
+        }
+        color = colors.get(obj.issue_type, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">{}</span>',
+            color,
+            obj.get_issue_type_display()
+        )
+    issue_type_badge.short_description = 'Type'
+    issue_type_badge.admin_order_field = 'issue_type'
+
+    def priority_badge(self, obj):
+        colors = {
+            'low': '#10b981',
+            'medium': '#f59e0b',
+            'high': '#ef4444',
+            'critical': '#dc2626'
+        }
+        color = colors.get(obj.priority, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 4px; font-weight: bold;">{}</span>',
+            color,
+            obj.get_priority_display()
+        )
+    priority_badge.short_description = 'Priority'
+    priority_badge.admin_order_field = 'priority'
+
+    def status_badge(self, obj):
+        colors = {
+            'new': '#ef4444',
+            'acknowledged': '#f59e0b',
+            'in_progress': '#3b82f6',
+            'resolved': '#10b981',
+            'wont_fix': '#6b7280',
+            'duplicate': '#8b5cf6'
+        }
+        color = colors.get(obj.status, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 4px; font-weight: 500;">{}</span>',
+            color,
+            obj.get_status_display()
+        )
+    status_badge.short_description = 'Status'
+    status_badge.admin_order_field = 'status'
+
+    def mark_acknowledged(self, request, queryset):
+        queryset.update(status='acknowledged')
+        self.message_user(request, f"{queryset.count()} bug report(s) marked as acknowledged.")
+    mark_acknowledged.short_description = "Mark as Acknowledged"
+
+    def mark_in_progress(self, request, queryset):
+        queryset.update(status='in_progress')
+        self.message_user(request, f"{queryset.count()} bug report(s) marked as in progress.")
+    mark_in_progress.short_description = "Mark as In Progress"
+
+    def mark_resolved(self, request, queryset):
+        queryset.update(status='resolved', resolved_at=timezone.now(), resolved_by=request.user)
+        self.message_user(request, f"{queryset.count()} bug report(s) marked as resolved.")
+    mark_resolved.short_description = "Mark as Resolved"
+
+    def mark_wont_fix(self, request, queryset):
+        queryset.update(status='wont_fix')
+        self.message_user(request, f"{queryset.count()} bug report(s) marked as won't fix.")
+    mark_wont_fix.short_description = "Mark as Won't Fix"
+
+    def has_add_permission(self, request):
+        return False  # Bug reports are submitted through the form only
 
 
 original_get_urls = admin.site.get_urls

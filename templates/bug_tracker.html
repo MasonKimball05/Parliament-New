@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}Bug Tracker - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Bug Tracker</h1>
+            <p class="text-gray-600 dark:text-gray-400">View all reported issues and their current status</p>
+        </div>
+        <div class="flex gap-3 mt-4 sm:mt-0">
+            {% if can_manage %}
+            <a href="{% url 'bug_admin' %}" class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+                Manage Bugs
+            </a>
+            {% endif %}
+            <a href="{% url 'bug_report' %}" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Report New Bug
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors duration-200">
+            <div class="flex items-center">
+                <div class="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                    <svg class="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Total</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ total_count }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors duration-200">
+            <div class="flex items-center">
+                <div class="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                    <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">New</p>
+                    <p class="text-2xl font-bold text-red-600 dark:text-red-400">{{ new_count }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors duration-200">
+            <div class="flex items-center">
+                <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">In Progress</p>
+                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ in_progress_count }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors duration-200">
+            <div class="flex items-center">
+                <div class="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Resolved</p>
+                    <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ resolved_count }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6 transition-colors duration-200">
+        <form method="get" class="flex flex-col sm:flex-row gap-4">
+            <div class="flex-1">
+                <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                <select name="status" id="status" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-gray-100 transition-colors">
+                    <option value="">All Statuses</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex-1">
+                <label for="type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Issue Type</label>
+                <select name="type" id="type" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-gray-100 transition-colors">
+                    <option value="">All Types</option>
+                    {% for value, label in issue_types %}
+                    <option value="{{ value }}" {% if current_type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex items-end gap-2">
+                <button type="submit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors">
+                    Filter
+                </button>
+                {% if current_status or current_type %}
+                <a href="{% url 'bug_tracker' %}" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    Clear
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Bug Reports List -->
+    {% if bug_reports %}
+    <div class="space-y-4">
+        {% for report in bug_reports %}
+        <a href="{% url 'bug_report_detail' report.id %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 overflow-hidden">
+            <div class="p-5">
+                <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <!-- Left side: Bug info -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="text-sm font-medium text-gray-500 dark:text-gray-400">#{{ report.id }}</span>
+                            <!-- Status Badge -->
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if report.status == 'new' %}
+                                    bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+                                {% elif report.status == 'acknowledged' %}
+                                    bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                                {% elif report.status == 'in_progress' %}
+                                    bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200
+                                {% elif report.status == 'resolved' %}
+                                    bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+                                {% elif report.status == 'wont_fix' %}
+                                    bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200
+                                {% else %}
+                                    bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200
+                                {% endif %}
+                            ">
+                                {% if report.status == 'new' %}
+                                    <span class="w-1.5 h-1.5 bg-red-500 rounded-full mr-1.5 animate-pulse"></span>
+                                {% endif %}
+                                {{ report.get_status_display }}
+                            </span>
+                            <!-- Issue Type Badge -->
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if report.issue_type == 'error_500' or report.issue_type == 'error_404' or report.issue_type == 'error_403' %}
+                                    bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+                                {% elif report.issue_type == 'functionality' %}
+                                    bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200
+                                {% elif report.issue_type == 'ui' %}
+                                    bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200
+                                {% elif report.issue_type == 'performance' %}
+                                    bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200
+                                {% else %}
+                                    bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200
+                                {% endif %}
+                            ">
+                                {{ report.get_issue_type_display }}
+                            </span>
+                            <!-- Priority Badge (if high or critical) -->
+                            {% if report.priority == 'high' or report.priority == 'critical' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if report.priority == 'critical' %}
+                                    bg-red-600 text-white
+                                {% else %}
+                                    bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200
+                                {% endif %}
+                            ">
+                                {{ report.get_priority_display }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1 line-clamp-2">
+                            {{ report.description|truncatechars:120 }}
+                        </h3>
+                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
+                            {% if report.page %}
+                            <span class="flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                {{ report.get_page_display }}
+                            </span>
+                            {% endif %}
+                            {% if report.feature %}
+                            <span class="flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                                </svg>
+                                {{ report.feature }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Right side: Meta info -->
+                    <div class="flex flex-col items-end text-sm text-gray-500 dark:text-gray-400 shrink-0">
+                        <div class="flex items-center mb-1">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                            {{ report.submitted_by.name|default:"Anonymous" }}
+                        </div>
+                        <div class="flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                            {{ report.submitted_at|date:"M d, Y" }}
+                        </div>
+                        {% if report.resolved_at %}
+                        <div class="flex items-center mt-1 text-green-600 dark:text-green-400">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            Resolved {{ report.resolved_at|date:"M d" }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center transition-colors duration-200">
+        <svg class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-gray-100">No bug reports found</h3>
+        <p class="mt-2 text-gray-500 dark:text-gray-400">
+            {% if current_status or current_type %}
+                No bug reports match your current filters.
+            {% else %}
+                No bug reports have been submitted yet. The system is running smoothly!
+            {% endif %}
+        </p>
+        {% if current_status or current_type %}
+        <a href="{% url 'bug_tracker' %}" class="mt-4 inline-flex items-center text-primary-600 hover:text-primary-700 dark:text-primary-400">
+            Clear filters
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

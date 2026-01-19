@@ -2419,5 +2419,190 @@ class IPBlacklist(models.Model):
         return f"{self.ip_address} - {self.reason}"
 
 
+class BugReport(models.Model):
+    """
+    Model for users to report bugs and issues they encounter
+    """
+    # Issue type choices
+    ISSUE_TYPES = (
+        ('ui', 'UI/Visual Issue'),
+        ('functionality', 'Feature Not Working'),
+        ('error_500', 'Server Error (500)'),
+        ('error_404', 'Page Not Found (404)'),
+        ('error_403', 'Permission Denied (403)'),
+        ('performance', 'Slow/Performance Issue'),
+        ('mobile', 'Mobile Display Issue'),
+        ('accessibility', 'Accessibility Issue'),
+        ('data', 'Incorrect Data Displayed'),
+        ('other', 'Other'),
+    )
+
+    # Page choices - main areas of the application
+    PAGE_CHOICES = (
+        ('home', 'Home Page'),
+        ('login', 'Login Page'),
+        ('profile', 'Profile Page'),
+        ('preferences', 'Preferences'),
+        ('legislation', 'Legislation'),
+        ('voting', 'Voting'),
+        ('committees', 'Committees'),
+        ('documents', 'Documents'),
+        ('announcements', 'Announcements'),
+        ('events', 'Events'),
+        ('attendance', 'Attendance'),
+        ('officer_home', 'Officer Dashboard'),
+        ('admin', 'Admin Panel'),
+        ('roberts_rules', "Robert's Rules"),
+        ('constitution', 'Constitution & Bylaws'),
+        ('other', 'Other Page'),
+    )
+
+    # Priority levels
+    PRIORITY_CHOICES = (
+        ('low', 'Low - Minor inconvenience'),
+        ('medium', 'Medium - Affects usability'),
+        ('high', 'High - Blocks functionality'),
+        ('critical', 'Critical - System unusable'),
+    )
+
+    # Status for tracking
+    STATUS_CHOICES = (
+        ('new', 'New'),
+        ('acknowledged', 'Acknowledged'),
+        ('in_progress', 'In Progress'),
+        ('resolved', 'Resolved'),
+        ('wont_fix', "Won't Fix"),
+        ('duplicate', 'Duplicate'),
+    )
+
+    # Required field
+    description = models.TextField(
+        help_text='Describe the issue you encountered in detail'
+    )
+
+    # Optional categorization fields
+    issue_type = models.CharField(
+        max_length=20,
+        choices=ISSUE_TYPES,
+        default='other',
+        blank=True,
+        help_text='What type of issue is this?'
+    )
+
+    page = models.CharField(
+        max_length=50,
+        choices=PAGE_CHOICES,
+        blank=True,
+        help_text='Which page did this occur on?'
+    )
+
+    page_url = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text='The URL where the issue occurred (auto-filled or manual)'
+    )
+
+    feature = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text='Which specific feature or section? (e.g., "Vote button", "Document upload")'
+    )
+
+    priority = models.CharField(
+        max_length=20,
+        choices=PRIORITY_CHOICES,
+        default='medium',
+        blank=True,
+        help_text='How severe is this issue?'
+    )
+
+    # Reproduction info
+    steps_to_reproduce = models.TextField(
+        blank=True,
+        help_text='Steps to reproduce the issue (optional)'
+    )
+
+    expected_behavior = models.TextField(
+        blank=True,
+        help_text='What did you expect to happen?'
+    )
+
+    actual_behavior = models.TextField(
+        blank=True,
+        help_text='What actually happened?'
+    )
+
+    # Technical info (auto-captured)
+    browser_info = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text='Browser and device information'
+    )
+
+    # Screenshot
+    screenshot = models.ImageField(
+        upload_to='bug_reports/%Y/%m/',
+        blank=True,
+        null=True,
+        help_text='Screenshot of the issue (optional)'
+    )
+
+    # Tracking fields
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='new'
+    )
+
+    admin_notes = models.TextField(
+        blank=True,
+        help_text='Internal notes for administrators'
+    )
+
+    # Relationships and timestamps
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='bug_reports',
+        help_text='User who submitted this report'
+    )
+
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    resolved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When the issue was resolved'
+    )
+
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='resolved_bugs',
+        help_text='Admin who resolved this issue'
+    )
+
+    class Meta:
+        ordering = ['-submitted_at']
+        verbose_name = 'Bug Report'
+        verbose_name_plural = 'Bug Reports'
+
+    def __str__(self):
+        return f"Bug #{self.id}: {self.get_issue_type_display()} - {self.description[:50]}"
+
+    def mark_resolved(self, user):
+        """Mark the bug as resolved"""
+        from django.utils import timezone
+        self.status = 'resolved'
+        self.resolved_at = timezone.now()
+        self.resolved_by = user
+        self.save()
+
+
 # Import feature flags models
 from src.models_feature_flags import FeatureFlag, PageToggle

@@ -243,6 +243,25 @@
             <p class="text-gray-600 dark:text-gray-400 text-sm">Parliamentary procedure reference guide</p>
         </a>
 
+        <!-- Bug Tracker Card -->
+        <div class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Bug Tracker</h2>
+                <svg class="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">View reported issues or submit a new bug report</p>
+            <div class="flex gap-2">
+                <a href="{% url 'bug_tracker' %}" class="flex-1 px-3 py-2 text-sm text-center border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    View All
+                </a>
+                <a href="{% url 'bug_report' %}" class="flex-1 px-3 py-2 text-sm text-center bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors">
+                    Report Bug
+                </a>
+            </div>
+        </div>
+
         <!-- Admin Panel Card - Only for Admins -->
         {% if user.is_admin %}
         <a href="/admin/" class="block bg-gradient-to-br from-red-600 to-red-700 rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 group text-white">

@@ -68,6 +68,7 @@ from src.view.view_document import (
     view_committee_document, view_passed_legislation_document,
     view_reference_document
 )
+from src.view.bug_report import submit_bug_report, bug_report_success, my_bug_reports, bug_tracker, bug_report_detail, bug_admin, bug_admin_update
 
 urlpatterns = [
     # General User Pages
@@ -114,6 +115,15 @@ urlpatterns = [
     path('calendar/subscribe/regenerate/', regenerate_calendar_token, name='regenerate_calendar_token'),
     path('calendar/feed/<str:token>/', calendar_subscription_feed, name='calendar_subscription_feed'),
     path('search/', global_search, name='global_search'),
+
+    # Bug Reports
+    path('bug-report/', submit_bug_report, name='bug_report'),
+    path('bug-report/success/<int:bug_id>/', bug_report_success, name='bug_report_success'),
+    path('bug-report/my-reports/', my_bug_reports, name='my_bug_reports'),
+    path('bug-tracker/', bug_tracker, name='bug_tracker'),
+    path('bug-tracker/<int:bug_id>/', bug_report_detail, name='bug_report_detail'),
+    path('bug-tracker/admin/', bug_admin, name='bug_admin'),
+    path('bug-tracker/admin/update/<int:bug_id>/', bug_admin_update, name='bug_admin_update'),
 
     # Member Excuse Requests
     path('excuses/', my_excuses, name='my_excuses'),
