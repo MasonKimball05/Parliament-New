@@ -509,11 +509,7 @@
                 </p>
                 <script>
                     document.getElementById('test-email-form').addEventListener('submit', function(e) {
-                        if (!confirm('Send a test announcement email to {{ request.user.email }}?')) {
-                            e.preventDefault();
-                            return false;
-                        }
-                        // Show loading state
+                        // Show loading state immediately (no confirmation needed for test area)
                         const btn = document.getElementById('test-email-btn');
                         const defaultState = document.getElementById('test-email-default');
                         const loadingState = document.getElementById('test-email-loading');

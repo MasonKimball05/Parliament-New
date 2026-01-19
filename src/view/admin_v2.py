@@ -1225,7 +1225,8 @@ Test details:
         # Log the activity
         ActivityLog.objects.create(
             user=user,
-            action='send_test_email',
+            action_category='settings',
+            action_type='settings_changed',
             description=f'Sent test announcement email to {user.email}',
             ip_address=request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', 'unknown'))
         )
