@@ -42,20 +42,28 @@ def admin_v2_login(request):
         messages.warning(request, 'Please login first to access Admin v2')
         return redirect('login')
 
+    # Check if user is authorized
+    if not hasattr(request.user, 'user_id') or request.user.user_id != ALLOWED_USER_ID:
+        messages.error(request, 'Unauthorized access')
+        return redirect('home')
+
+    # Check if already authenticated with valid session (within 7 days)
+    if request.session.get('admin_v2_authenticated'):
+        auth_time_str = request.session.get('admin_v2_auth_time')
+        if auth_time_str:
+            try:
+                auth_time = datetime.fromisoformat(auth_time_str)
+                if auth_time.tzinfo is None:
+                    auth_time = timezone.make_aware(auth_time)
+                # If within 7 days, redirect to dashboard
+                if timezone.now() - auth_time <= timedelta(days=7):
+                    return redirect('admin_v2_dashboard')
+            except (ValueError, TypeError):
+                pass  # Invalid time, continue to login form
+
     if request.method == 'POST':
         user_password = request.POST.get('user_password', '')
         secret_key = request.POST.get('secret_key', '')
-
-        # Check if user is the authorized user (user_id 73)
-        if not hasattr(request.user, 'user_id') or request.user.user_id != ALLOWED_USER_ID:
-            messages.error(request, 'Unauthorized access attempt. This incident has been logged.')
-            ActivityLog.log_activity(
-                action_type='security_violation',
-                user=request.user,
-                description=f'Unauthorized Admin v2 access attempt by {request.user.get_display_name()}',
-                request=request
-            )
-            return redirect('home')
 
         # Verify user password
         user = authenticate(username=request.user.username, password=user_password)
@@ -82,6 +90,10 @@ def admin_v2_login(request):
         # Both passwords correct - grant access
         request.session['admin_v2_authenticated'] = True
         request.session['admin_v2_auth_time'] = timezone.now().isoformat()
+        # Explicitly mark session as modified to ensure it's saved
+        request.session.modified = True
+        # Set session to expire in 7 days (in seconds)
+        request.session.set_expiry(7 * 24 * 60 * 60)
 
         ActivityLog.log_activity(
             action_type='admin_v2_access',
@@ -99,6 +111,7 @@ def admin_v2_login(request):
 def require_admin_v2_auth(view_func):
     """
     Decorator to require Admin v2 authentication
+    Authentication is valid for 7 days before requiring re-authentication
     """
     def wrapper(request, *args, **kwargs):
         # Check if user is authenticated
@@ -111,8 +124,36 @@ def require_admin_v2_auth(view_func):
             messages.error(request, 'Unauthorized access')
             return redirect('home')
 
-        # Check if Admin v2 session is active
+        # Check if Admin v2 session is active and not expired
         if not request.session.get('admin_v2_authenticated'):
+            messages.warning(request, 'Please authenticate to access Admin v2')
+            return redirect('admin_v2_login')
+
+        # Check if authentication has expired (7 days)
+        auth_time_str = request.session.get('admin_v2_auth_time')
+        if auth_time_str:
+            try:
+                auth_time = datetime.fromisoformat(auth_time_str)
+                # Make auth_time timezone-aware if it isn't
+                if auth_time.tzinfo is None:
+                    auth_time = timezone.make_aware(auth_time)
+
+                # Check if more than 7 days have passed
+                if timezone.now() - auth_time > timedelta(days=7):
+                    # Clear expired authentication
+                    request.session['admin_v2_authenticated'] = False
+                    request.session['admin_v2_auth_time'] = None
+                    messages.warning(request, 'Admin v2 session expired. Please re-authenticate.')
+                    return redirect('admin_v2_login')
+            except (ValueError, TypeError):
+                # Invalid auth time format, require re-authentication
+                request.session['admin_v2_authenticated'] = False
+                request.session['admin_v2_auth_time'] = None
+                messages.warning(request, 'Please authenticate to access Admin v2')
+                return redirect('admin_v2_login')
+        else:
+            # No auth time stored, require re-authentication
+            request.session['admin_v2_authenticated'] = False
             messages.warning(request, 'Please authenticate to access Admin v2')
             return redirect('admin_v2_login')
 
