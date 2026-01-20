@@ -43,10 +43,24 @@ Complete security rewrite to address fundamental vulnerabilities and prepare for
 - All environment variables must be properly set
 - No backward compatibility with v1.0.0 authentication
 
+### v2.4.0 - Bug Report System & Email Service Update (01-19-2026)
+Comprehensive bug reporting system with public tracker and admin management, plus migration to Brevo for reliable email delivery.
+
+**Deployment Status:** ⏳ **Pending deployment** - Ready for production
+
+**Key Features:**
+- 🐛 **Bug Report System**: Full-featured bug tracking with submission form, public tracker, and admin management
+- 📧 **Brevo Email Integration**: API-based email delivery replacing blocked SMTP ports
+- 🔧 **Bug Fixes**: Fixed IP address handling, settings configuration, and ActivityLog field names
+
+**[📄 View Detailed Changelog](./changelogs/v2.4.0.md)**
+
+---
+
 ### v2.3.0 - Calendar Subscriptions & Admin v2 System (01-06-2026)
 Major feature additions including auto-updating calendar subscriptions, advanced administration panel, and site-wide feature flag system.
 
-**Deployment Status:** ⏳ **Pending deployment** - Ready for production
+**Deployment Status:** ✅ **Deployed**
 
 **Key Features:**
 - 📅 **Calendar Subscriptions**: Auto-updating calendar feeds for Google Calendar, Apple Calendar, Outlook, and more
@@ -110,6 +124,13 @@ Builds on v2.0.0 security foundation with user-facing features and advanced prot
 
 For comprehensive technical details, migration guides, and implementation specifics:
 
+- **[v2.4.0 - Bug Report System & Email Service Update](./changelogs/v2.4.0.md)** (January 19, 2026)
+  - Bug report system implementation
+  - Public bug tracker and admin management
+  - Brevo email integration
+  - Bug fixes and infrastructure updates
+  - Deployment guide
+
 - **[v2.3.0 - Calendar Subscriptions & Admin v2 System](./changelogs/v2.3.0.md)** (January 6, 2026)
   - Complete feature documentation
   - Calendar subscription system implementation
@@ -139,7 +160,15 @@ For comprehensive technical details, migration guides, and implementation specif
 
 ## Version History Summary
 
-- **v2.3.0** (2026-01-06) - Calendar Subscriptions & Admin v2 System ⏳
+- **v2.4.0** (2026-01-19) - Bug Report System & Email Service Update ⏳
+  - Comprehensive bug reporting system with user submissions
+  - Public bug tracker with filtering and status tracking
+  - Admin-only bug management dashboard (user_id 73)
+  - Brevo API email integration (replaces blocked SMTP)
+  - Fixed IP address handling for X-Forwarded-For headers
+  - Fixed WSGI/ASGI settings module configuration
+
+- **v2.3.0** (2026-01-06) - Calendar Subscriptions & Admin v2 System ✅
   - Auto-updating calendar subscription feeds with secure tokens
   - Admin v2 advanced administration dashboard
   - Site-wide feature flags system with granular control
@@ -213,5 +242,5 @@ New changes will be documented in:
 
 ---
 
-**Last Updated:** 2026-01-06
-**Next Review:** 2026-02-06
+**Last Updated:** 2026-01-19
+**Next Review:** 2026-02-19

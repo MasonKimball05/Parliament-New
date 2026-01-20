@@ -32,7 +32,7 @@ from src.view.admin_v2 import (
     add_ip_to_whitelist, add_ip_to_blacklist,
     remove_ip_from_whitelist, remove_ip_from_blacklist,
     manage_ip_whitelist, manage_ip_blacklist, manage_security_alerts,
-    update_site_setting, send_test_announcement_email
+    update_site_setting, send_test_announcement_email, preview_test_email
 )
 from src.view.admin_v2 import manage_events as admin_v2_manage_events, delete_event as admin_v2_delete_event
 from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event
@@ -280,6 +280,7 @@ urlpatterns = [
     path('admin-v2/page/<int:toggle_id>/toggle/', toggle_page, name='toggle_page'),
     path('admin-v2/setting/<int:setting_id>/update/', update_site_setting, name='update_site_setting'),
     path('admin-v2/send-test-email/', send_test_announcement_email, name='send_test_announcement_email'),
+    path('admin-v2/preview-test-email/', preview_test_email, name='preview_test_email'),
     path('admin-v2/logout/', admin_v2_logout, name='admin_v2_logout'),
 
     # Admin v2 - Management Pages

@@ -1238,3 +1238,64 @@ Test details:
         messages.error(request, f'Failed to send test email: {str(e)}')
 
     return redirect('admin_v2_dashboard')
+
+
+@require_admin_v2_auth
+def preview_test_email(request):
+    """
+    Render the test announcement email in the browser for preview.
+    This allows testing the tracking pixel and viewing the email design.
+    """
+    from django.template.loader import render_to_string
+    from django.http import HttpResponse
+
+    user = request.user
+
+    # Create a mock announcement object for testing
+    class MockAnnouncement:
+        def __init__(self):
+            self.id = 0
+            self.title = "Test Announcement - Email System Check"
+            self.content = """This is a TEST email from the Alpha Mu Parliament system.
+
+If you are receiving this email, it means the announcement email system is working correctly!
+
+This email was sent from the Admin-v2 dashboard to verify email delivery and formatting before the demo.
+
+Test details:
+• Email template: announcement_notification.html
+• Tracking pixel: Included (pointing to test endpoint)
+• HTML formatting: Enabled
+• Plain text fallback: Included
+
+-- This is an automated test message --"""
+            self.posted_at = timezone.now()
+            self.posted_by = user
+            self.event_date = None  # No event date for test
+
+    mock_announcement = MockAnnouncement()
+
+    # Get site URL
+    site_url = getattr(settings, 'SITE_URL', 'https://am-parliament.org').rstrip('/')
+
+    # Generate tracking URL (will be a test/invalid one)
+    tracking_url = f"{site_url}/track/announcement/0/user/{user.user_id}/"
+
+    # Render the email HTML
+    html_content = render_to_string('emails/announcement_notification.html', {
+        'announcement': mock_announcement,
+        'site_url': site_url,
+        'tracking_url': tracking_url,
+        'user': user,
+    })
+
+    # Log the preview action
+    ActivityLog.objects.create(
+        user=user,
+        action_category='settings',
+        action_type='view',
+        description='Previewed test announcement email in browser',
+        ip_address=get_client_ip(request)
+    )
+
+    return HttpResponse(html_content)
