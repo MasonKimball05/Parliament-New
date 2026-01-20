@@ -2135,7 +2135,13 @@ class ActivityLog(models.Model):
         # Extract IP and user agent from request if provided
         if request:
             if not ip_address:
-                ip_address = request.META.get('REMOTE_ADDR')
+                # Check X-Forwarded-For header first (for requests behind proxy/load balancer)
+                x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+                if x_forwarded_for:
+                    # Take the first IP (client's real IP) from the comma-separated list
+                    ip_address = x_forwarded_for.split(',')[0].strip()
+                else:
+                    ip_address = request.META.get('REMOTE_ADDR')
             if not user_agent:
                 user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
         

@@ -46,7 +46,7 @@ Complete security rewrite to address fundamental vulnerabilities and prepare for
 ### v2.4.0 - Bug Report System & Email Service Update (01-19-2026)
 Comprehensive bug reporting system with public tracker and admin management, plus migration to Brevo for reliable email delivery.
 
-**Deployment Status:** ⏳ **Pending deployment** - Ready for production
+**Deployment Status:** ✅ **Deployed** 
 
 **Key Features:**
 - 🐛 **Bug Report System**: Full-featured bug tracking with submission form, public tracker, and admin management
@@ -73,7 +73,7 @@ Major feature additions including auto-updating calendar subscriptions, advanced
 
 ---
 
-### v2.2.0 - Reference Documentation System (12-25-2025)
+### v2.2.0 - Reference Documentation System (12-29-2025)
 Added comprehensive reference pages for Robert's Rules and Constitution & Bylaws with navigation and search.
 
 **Deployment Status:** ✅ **Deployed**
@@ -139,7 +139,7 @@ For comprehensive technical details, migration guides, and implementation specif
   - Security considerations and deployment guide
   - API documentation
 
-- **[v2.2.0 - Robert's Rules Reference System](./changelogs/v2.2.0.md)** (December 26, 2025)
+- **[v2.2.0 - Robert's Rules Reference System](./changelogs/v2.2.0.md)** (December 29, 2025)
   - Complete feature documentation
   - Technical implementation details
   - Content coverage and organization
@@ -176,7 +176,7 @@ For comprehensive technical details, migration guides, and implementation specif
   - Chat system feature flag protection
   - Enhanced security and comprehensive audit logging
 
-- **v2.2.0** (2025-12-26) - Reference Documentation System ✅
+- **v2.2.0** (2025-12-29) - Reference Documentation System ✅
   - Robert's Rules of Order reference page (10 comprehensive sections)
   - Constitution & Bylaws reference page (complete governing documents)
   - Live search with text highlighting on both pages

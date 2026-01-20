@@ -116,7 +116,7 @@
             </svg>
             Location Details
         </h2>
-        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <dl class="space-y-4">
             {% if bug_report.feature %}
             <div>
                 <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Feature/Section</dt>
@@ -126,7 +126,13 @@
             {% if bug_report.page_url %}
             <div>
                 <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Page URL</dt>
-                <dd class="mt-1 text-gray-900 dark:text-gray-100 font-mono text-sm break-all">{{ bug_report.page_url }}</dd>
+                <dd class="mt-1">
+                    <a href="{{ bug_report.page_url }}" target="_blank" rel="noopener noreferrer"
+                       class="text-primary-600 dark:text-primary-400 hover:underline font-mono text-sm inline-block max-w-full"
+                       style="word-break: break-all; overflow-wrap: anywhere;">
+                        {{ bug_report.page_url }}
+                    </a>
+                </dd>
             </div>
             {% endif %}
         </dl>

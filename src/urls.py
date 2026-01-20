@@ -21,6 +21,7 @@ from src.view.manage_folders import create_folder, delete_folder
 from src.view.announcements import announcements_view
 from src.view.calendar import calendar_view, calendar_data_api, export_calendar_ical, export_event_ical, calendar_subscription_feed, get_calendar_subscription_url, regenerate_calendar_token
 from src.view.global_search import global_search
+from src.view.changelog import changelog, changelog_detail
 from src.view.admin_v2 import (
     admin_v2_login, admin_v2_dashboard, toggle_feature_flag,
     toggle_page, admin_v2_logout, manage_legislation, delete_legislation,
@@ -124,6 +125,10 @@ urlpatterns = [
     path('bug-tracker/<int:bug_id>/', bug_report_detail, name='bug_report_detail'),
     path('bug-tracker/admin/', bug_admin, name='bug_admin'),
     path('bug-tracker/admin/update/<int:bug_id>/', bug_admin_update, name='bug_admin_update'),
+
+    # Changelog / Version History
+    path('changelog/', changelog, name='changelog'),
+    path('changelog/<str:version>/', changelog_detail, name='changelog_detail'),
 
     # Member Excuse Requests
     path('excuses/', my_excuses, name='my_excuses'),

@@ -23,3 +23,6 @@ django-redis==5.4.0
 
 # Field-level encryption for sensitive data (AES encryption via Fernet)
 cryptography==43.0.3
+
+# Markdown rendering for changelog display
+markdown==3.7
