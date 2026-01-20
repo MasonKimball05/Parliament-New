@@ -19,7 +19,8 @@ The original Parliament system with basic functionality but significant security
 \**While there were many versions in between 1.0.0 and 2.0.0, they have been left off, largely because most changes were minor and unimpactful until the 2.0 release changes*
 
 ### v2.0.0 - Critical Security Overhaul & Production Deployment (12-20-2025)
-Complete security rewrite to address fundamental vulnerabilities and prepare for production hosting.
+- Complete security rewrite to address fundamental vulnerabilities and prepare for production hosting.
+- Included first major UI overhaul, Home Page UI inspired by my.beta.org UI
 
 **Deployment Status:** 🚀 **First production deployment** - Uploaded and hosted online at https://am-parliament.org
 
