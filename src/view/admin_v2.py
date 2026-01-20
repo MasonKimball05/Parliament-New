@@ -21,6 +21,7 @@ import string
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+from src.logging_utils import get_client_ip
 
 
 ALLOWED_USER_ID = '73'  # Your user ID
@@ -1228,7 +1229,7 @@ Test details:
             action_category='settings',
             action_type='settings_changed',
             description=f'Sent test announcement email to {user.email}',
-            ip_address=request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', 'unknown'))
+            ip_address=get_client_ip(request)
         )
 
         messages.success(request, f'Test email sent successfully to {user.email}! Check your inbox (and spam folder).')
