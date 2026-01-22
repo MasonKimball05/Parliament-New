@@ -772,6 +772,7 @@ class CommitteeLegislation(models.Model):
                                 blank=True, storage=DualLocationStorage())
     posted_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
     available_at = models.DateTimeField()
+    voting_ends_at = models.DateTimeField(null=True, blank=True, help_text="Optional: When voting should automatically close")
     created_at = models.DateTimeField(auto_now_add=True)
     voting_ended_at = models.DateTimeField(null=True, blank=True)
 

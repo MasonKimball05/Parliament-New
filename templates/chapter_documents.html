@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load committee_filters %}
 
 {% block title %}Chapter Documents{% endblock %}
 
@@ -11,8 +12,10 @@
             <div>
                 <h2 class="text-2xl sm:text-3xl font-bold mb-2 text-gray-900 dark:text-gray-100">Chapter Documents</h2>
                 <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">Documents published by committees for all chapter members</p>
-                {% if total_documents %}
-                    <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{{ total_documents }} document{{ total_documents|pluralize }} available</p>
+                {% if total_content %}
+                    <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        {{ total_documents }} document{{ total_documents|pluralize }}{% if total_votes %}, {{ total_votes }} vote result{{ total_votes|pluralize }}{% endif %} available
+                    </p>
                 {% endif %}
             </div>
         </div>
@@ -36,7 +39,174 @@
         {% endif %}
     </div>
 
-    <div class="space-y-4">
+    <!-- Committee Vote Results (only shown if committees have pushed votes) -->
+    {% if committees_data %}
+    <div class="mb-8">
+        <h3 class="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+            </svg>
+            Committee Vote Results
+        </h3>
+
+        <div class="space-y-4">
+            {% for data in committees_data %}
+            <details class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
+                <summary class="bg-blue-50 dark:bg-blue-900/20 px-6 py-4 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                        <span class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ data.committee.name }}</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-medium px-2.5 py-0.5 rounded">
+                            {{ data.votes|length }} vote{{ data.votes|length|pluralize }}
+                        </span>
+                    </div>
+                </summary>
+
+                <div class="px-6 py-4">
+                    <!-- Committee Vote Results -->
+                    <div class="space-y-3">
+                            {% for vote in data.votes %}
+                            <details class="vote-item-dropdown bg-gray-50 dark:bg-gray-700/50 rounded-lg border-l-4 {% if vote.passed %}border-green-500{% else %}border-gray-400{% endif %} overflow-hidden">
+                                <summary class="p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600/50 transition-colors">
+                                    <div class="flex justify-between items-center">
+                                        <span class="dropdown-arrow text-gray-400 mr-2 text-xs flex-shrink-0">▶</span>
+                                        <div class="flex-1 min-w-0">
+                                            <h5 class="font-medium text-gray-900 dark:text-gray-100 truncate">{{ vote.title }}</h5>
+                                            <p class="text-sm text-gray-600 dark:text-gray-400">
+                                                {{ vote.voting_ended_at|date:"M d, Y" }}
+                                            </p>
+                                        </div>
+                                        {% if vote.passed %}
+                                            <span class="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded text-xs font-medium ml-2 flex-shrink-0">Passed</span>
+                                        {% else %}
+                                            <span class="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-1 rounded text-xs font-medium ml-2 flex-shrink-0">Did Not Pass</span>
+                                        {% endif %}
+                                    </div>
+                                </summary>
+                                <div class="px-4 pb-4">
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Posted by {{ vote.posted_by.name }}</p>
+                                    {% if vote.description %}
+                                    <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">{{ vote.description|truncatewords:30 }}</p>
+                                    {% endif %}
+
+                                <!-- Vote Tally -->
+                                {% with tally=vote_results|get_item:vote.id %}
+                                {% if tally %}
+                                <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                                    {% if vote.vote_mode == 'plurality' %}
+                                        <div class="space-y-1">
+                                            {% for option, count in tally.items %}
+                                                {% if option != 'total' %}
+                                                <div class="flex items-center justify-between text-sm">
+                                                    <span class="text-gray-700 dark:text-gray-300">{{ option }}</span>
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="w-24 bg-gray-200 dark:bg-gray-600 rounded-full h-1.5">
+                                                            {% if tally.total > 0 %}
+                                                            <div class="bg-blue-500 h-1.5 rounded-full" style="width: {% widthratio count tally.total 100 %}%"></div>
+                                                            {% endif %}
+                                                        </div>
+                                                        <span class="font-medium text-gray-900 dark:text-gray-100 w-6 text-right">{{ count }}</span>
+                                                    </div>
+                                                </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <div class="grid grid-cols-3 gap-4 text-center text-sm">
+                                            <div>
+                                                <span class="block text-green-600 dark:text-green-400 font-bold text-lg">{{ tally.yes }}</span>
+                                                <span class="text-gray-500 dark:text-gray-400">Yes</span>
+                                            </div>
+                                            <div>
+                                                <span class="block text-red-600 dark:text-red-400 font-bold text-lg">{{ tally.no }}</span>
+                                                <span class="text-gray-500 dark:text-gray-400">No</span>
+                                            </div>
+                                            <div>
+                                                <span class="block text-gray-600 dark:text-gray-400 font-bold text-lg">{{ tally.abstain }}</span>
+                                                <span class="text-gray-500 dark:text-gray-400">Abstain</span>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">Total votes: {{ tally.total }} • Required: {{ vote.required_percentage }}%</p>
+                                </div>
+                                {% endif %}
+                                {% endwith %}
+
+                                {% if vote.document %}
+                                <div class="mt-3">
+                                    <a href="{{ vote.document.url }}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline text-sm flex items-center">
+                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        View Document
+                                    </a>
+                                </div>
+                                {% endif %}
+
+
+
+                                <!-- Management actions for chairs and admins only -->
+                                {% if data.is_chair or is_admin %}
+                                <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 flex flex-wrap gap-3">
+                                    <!-- View Full Results -->
+                                    <a href="{% url 'committee_vote_result' data.committee.code vote.id %}"
+                                       class="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                                        </svg>
+                                        View Results
+                                    </a>
+
+                                    <!-- Recalculate Result -->
+                                    <a href="{% url 'recalculate_committee_vote' vote.id %}?next={% url 'chapter_documents' %}"
+                                       class="inline-flex items-center gap-1 text-sm text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                        </svg>
+                                        Recalculate
+                                    </a>
+
+                                    <!-- Unpush from Chapter -->
+                                    <form method="POST" action="{% url 'unpush_from_chapter' data.committee.code %}"
+                                          class="inline-flex items-center" onsubmit="return confirm('Are you sure you want to remove this vote from chapter documents?');">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="legislation_id" value="{{ vote.id }}">
+                                        <input type="hidden" name="next" value="{% url 'chapter_documents' %}">
+                                        <button type="submit" class="inline-flex items-center gap-1 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                            </svg>
+                                            Remove
+                                        </button>
+                                    </form>
+                                </div>
+                                {% endif %}
+                                </div>
+                            </details>
+                            {% endfor %}
+                        </div>
+                </div>
+            </details>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Documents Section -->
+    <div class="mb-8">
+        <h3 class="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            Documents
+        </h3>
+
+        <div class="space-y-4">
         <!-- Custom Folders -->
         {% if folders_with_documents %}
             {% for folder, documents in folders_with_documents %}
@@ -72,7 +242,7 @@
 
                     <div class="px-6 py-4">
                         {% if documents %}
-                            <div class="space-y-3">
+                            <div class="space-y-4">
                                 {% for doc in documents %}
                                     {% include 'chapter_documents_item.html' %}
                                 {% endfor %}
@@ -93,32 +263,32 @@
             {% endfor %}
         {% endif %}
 
-        <!-- Uncategorized Documents -->
-        {% if uncategorized_documents %}
+        <!-- Documents by Committee (for docs without a folder) -->
+        {% for group in committee_doc_groups %}
             <details class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200" open>
-                <summary class="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center justify-between">
+                <summary class="bg-blue-50 dark:bg-blue-900/20 px-6 py-4 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition flex items-center justify-between">
                     <div class="flex items-center space-x-3">
-                        <svg class="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                         </svg>
-                        <span class="text-lg font-semibold text-gray-900 dark:text-gray-100">Uncategorized</span>
+                        <span class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ group.committee.name }}</span>
                     </div>
-                    <span class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs font-medium px-2.5 py-0.5 rounded">
-                        {{ uncategorized_documents|length }} document{{ uncategorized_documents|length|pluralize }}
+                    <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-medium px-2.5 py-0.5 rounded">
+                        {{ group.documents|length }} document{{ group.documents|length|pluralize }}
                     </span>
                 </summary>
 
                 <div class="px-6 py-4">
-                    <div class="space-y-3">
-                        {% for doc in uncategorized_documents %}
+                    <div class="space-y-4">
+                        {% for doc in group.documents %}
                             {% include 'chapter_documents_item.html' %}
                         {% endfor %}
                     </div>
                 </div>
             </details>
-        {% endif %}
+        {% endfor %}
 
-        {% if not documents_by_folder and not uncategorized_documents %}
+        {% if not folders_with_documents and not committee_doc_groups %}
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center transition-colors duration-200">
                 <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -127,6 +297,7 @@
                 <p class="text-gray-400 dark:text-gray-500 text-sm mt-2">Committee chairs can publish documents to make them available here.</p>
             </div>
         {% endif %}
+        </div>
     </div>
 </div>
 
@@ -190,32 +361,45 @@
 {% endif %}
 
 <style>
-    details[open] summary {
-        border-bottom: 1px solid #e5e7eb;
-    }
-
     /* Hide default browser triangle */
     details summary::-webkit-details-marker {
         display: none;
     }
-
     details summary::marker {
         display: none;
     }
-
     details summary {
         list-style: none;
     }
-
-    /* Add custom triangle */
     details summary::before {
-        content: '▶';
-        display: inline-block;
-        margin-right: 0.5rem;
-        transition: transform 0.2s;
+        display: none !important;
+        content: none !important;
     }
 
-    details[open] summary::before {
+    /* Folder dropdowns - border when open */
+    details[open] > summary {
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .dark details[open] > summary {
+        border-bottom-color: #374151;
+    }
+
+    /* Vote results dropdown - no border when open */
+    details.vote-results-dropdown[open] > summary {
+        border-bottom: none;
+    }
+
+    /* Vote item dropdown - subtle border when open */
+    details.vote-item-dropdown[open] > summary {
+        border-bottom: 1px solid rgba(156, 163, 175, 0.3);
+    }
+
+    /* Dropdown arrow - rotation on open */
+    .dropdown-arrow {
+        display: inline-block;
+        transition: transform 0.2s ease;
+    }
+    details[open] > summary .dropdown-arrow {
         transform: rotate(90deg);
     }
 </style>

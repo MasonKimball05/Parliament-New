@@ -11,6 +11,7 @@ A comprehensive Django-based management system for student organizations, design
 
 ## 📋 Table of Contents
 
+- [Screenshots](#-screenshots)
 - [Features](#-features)
 - [Quick Start](#-quick-start)
 - [Installation](#-installation)
@@ -20,6 +21,26 @@ A comprehensive Django-based management system for student organizations, design
 - [Deployment](#-deployment)
 - [Contributing](#-contributing)
 - [License](#-license)
+
+---
+
+## 📸 Screenshots
+
+### Home Dashboard (v2.0)
+![Parliament 2.0 UI](exportable_media/2.0.0-UI.png)
+*Modern dark/light mode interface with quick access to all chapter functions*
+
+### Officer Portal
+![Officer Portal](exportable_media/officer-UI.png)
+*Dedicated dashboard for officers to manage attendance, events, and members*
+
+### Admin v2 Dashboard
+![Admin v2 Dashboard](exportable_media/admin-v2-UI.png)
+*Advanced administration with feature flags, page toggles, and site metrics*
+
+### Original UI (v1.0)
+![Parliament 1.0 UI](exportable_media/1.0.0-UI.png)
+*The original interface design*
 
 ---
 
@@ -623,11 +644,9 @@ See also the list of [contributors](https://github.com/MasonKimball05/Parliament
 
 - [ ] Email notifications for new legislation
 - [ ] Mobile app (React Native)
-- [ ] Advanced analytics dashboard
 - [ ] Automated report generation
-- [ ] Calendar integrations (Google Calendar, Outlook)
 - [ ] SMS reminders for events
+- [ ] Editable template support for forms
 
 ---
 
-**Made with ❤️ for student organizations**

@@ -10,8 +10,9 @@ from django.http import HttpResponseForbidden
 def end_vote(request, legislation_id):
     legislation = get_object_or_404(Legislation, id=legislation_id)
 
-    if request.user != legislation.posted_by:
-        return HttpResponseForbidden("Only the uploader can end the vote.")
+    # Allow the uploader OR admins to end the vote
+    if request.user != legislation.posted_by and not request.user.is_admin:
+        return HttpResponseForbidden("Only the uploader or an admin can end the vote.")
 
     # Close voting
     legislation.voting_closed = True

@@ -134,7 +134,7 @@
                 </div>
 
                 <div class="p-6">
-                    <p class="text-gray-700 dark:text-gray-300 mb-4">{{ leg.description }}</p>
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">{{ leg.description|render_description }}</p>
 
                     <div class="flex items-center space-x-4 mb-4">
                         {% if leg.document %}
@@ -247,14 +247,26 @@
                     </form>
                     {% endif %}
 
-                    <!-- End Vote Button (for author) -->
-                    {% if profile == leg.posted_by and not leg.voting_closed %}
-                    <form method="post" action="{% url 'end_vote' leg.id %}" class="mt-4">
-                        {% csrf_token %}
-                        <button type="submit" class="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 text-white font-medium px-6 py-2 rounded-lg transition">
-                            End Vote
-                        </button>
-                    </form>
+                    <!-- End Vote Button (for author or admin) -->
+                    {% if not leg.voting_closed %}
+                        {% if profile == leg.posted_by or profile.is_admin %}
+                        <div class="flex gap-3 mt-4">
+                            <form method="post" action="{% url 'end_vote' leg.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 text-white font-medium px-6 py-2 rounded-lg transition">
+                                    End Vote
+                                </button>
+                            </form>
+                            {% if profile.is_admin %}
+                            <form method="post" action="{% url 'delete_chapter_legislation' leg.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="bg-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 text-white font-medium px-6 py-2 rounded-lg transition">
+                                    Delete
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                        {% endif %}
                     {% endif %}
                 </div>
             </div>

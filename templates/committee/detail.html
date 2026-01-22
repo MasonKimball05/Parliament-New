@@ -269,7 +269,7 @@
                 </a>
             {% endif %}
 
-            {% if permissions.can_vote %}
+            {% if is_voting_member or is_chair or permissions.can_vote %}
                 <a href="{% url 'vote' committee.code %}"
                    class="flex items-center justify-center bg-indigo-500 dark:bg-indigo-600 text-white px-4 py-3 rounded hover:bg-indigo-600 dark:hover:bg-indigo-700 transition-colors">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -280,7 +280,7 @@
             {% endif %}
         </div>
 
-        {% if not is_chair and not can_manage and not permissions.can_view_docs and not permissions.can_vote %}
+        {% if not is_chair and not can_manage and not permissions.can_view_docs and not permissions.can_vote and not is_voting_member %}
             <p class="text-gray-500 dark:text-gray-400 italic">No actions available</p>
         {% endif %}
     </div>

@@ -40,18 +40,33 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Folder (Optional)
+                        Committee <span class="text-red-500">*</span>
                     </label>
-                    <select name="chapter_folder" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="">-- Uncategorized --</option>
-                        {% for folder in folders %}
-                            <option value="{{ folder.id }}">{{ folder.name }}</option>
+                    <select name="committee" required
+                            class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        {% for committee in available_committees %}
+                            <option value="{{ committee.id }}">{{ committee.name }}</option>
                         {% endfor %}
                     </select>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Choose a folder to organize this document, or leave uncategorized
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {% if is_admin %}All committees available (admin){% else %}Committees you chair{% endif %}
                     </p>
                 </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Folder (Optional)
+                </label>
+                <select name="chapter_folder" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">-- No Folder (show under committee) --</option>
+                    {% for folder in folders %}
+                        <option value="{{ folder.id }}">{{ folder.name }}</option>
+                    {% endfor %}
+                </select>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Documents without a folder will appear under their committee name
+                </p>
             </div>
 
             <div>
@@ -93,7 +108,7 @@
                         <p class="font-medium">Published documents will be:</p>
                         <ul class="list-disc list-inside mt-1 space-y-1">
                             <li>Visible to all chapter members in the "Chapter Documents" page</li>
-                            <li>Organized in the folder you select, or shown under "Uncategorized" if no folder is selected</li>
+                            <li>Organized in the folder you select, or shown under the committee name if no folder is selected</li>
                         </ul>
                     </div>
                 </div>

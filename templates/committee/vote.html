@@ -65,78 +65,250 @@
                 </div>
             {% endif %}
 
-            <!-- Voting Form -->
-            {% if can_vote %}
+            <!-- Voting End Time Notice -->
+            {% if leg.voting_ends_at %}
+                <div class="mb-4 flex items-center text-sm {% if leg.voting_ends_at < now %}text-red-600 dark:text-red-400{% else %}text-gray-600 dark:text-gray-400{% endif %}">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Voting ends: {{ leg.voting_ends_at|date:"M d, Y g:i A" }}
+                </div>
+            {% endif %}
+
+            <!-- User Already Voted Notice -->
+            {% if leg.id in user_voted %}
+                <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4 mb-4">
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 text-green-600 dark:text-green-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span class="text-green-800 dark:text-green-200 font-medium">You have already voted on this legislation.</span>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Voting Form - Only show if user hasn't voted yet -->
+            {% if can_vote and leg.id not in user_voted %}
                 <form method="POST" class="space-y-4">
                     {% csrf_token %}
                     <input type="hidden" name="legislation_id" value="{{ leg.id }}">
 
                     {% if leg.vote_mode == 'plurality' %}
                         <!-- Plurality Voting -->
-                        <div class="space-y-2">
-                            <p class="font-medium">Select an option:</p>
-                            {% for option in leg.plurality_options %}
-                                <label class="flex items-center space-x-2">
-                                    <input type="radio" name="vote_choice" value="{{ option }}" required
-                                           class="w-4 h-4 text-blue-600">
-                                    <span>{{ option }}</span>
+                        <div class="space-y-3">
+                            <p class="font-medium text-gray-700 dark:text-gray-300 mb-2">Select an option:</p>
+                            <div class="flex flex-wrap gap-3">
+                                {% for option in leg.plurality_options %}
+                                <label class="vote-option cursor-pointer">
+                                    <input type="radio" name="vote_choice" value="{{ option }}" required class="sr-only peer">
+                                    <div class="flex items-center gap-2 px-5 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700
+                                                peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/30
+                                                peer-checked:ring-2 peer-checked:ring-blue-500 peer-checked:ring-offset-2 dark:peer-checked:ring-offset-gray-800
+                                                hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20
+                                                transition-all duration-200">
+                                        <div class="w-5 h-5 rounded-full border-2 border-gray-400 dark:border-gray-500 peer-checked:border-blue-500 flex items-center justify-center
+                                                    peer-checked:bg-blue-500 transition-all duration-200 vote-radio">
+                                            <svg class="w-3 h-3 text-white hidden check-icon" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                            </svg>
+                                        </div>
+                                        <span class="font-medium text-gray-700 dark:text-gray-200">{{ option }}</span>
+                                    </div>
                                 </label>
-                            {% endfor %}
+                                {% endfor %}
+                            </div>
                         </div>
                     {% else %}
                         <!-- Standard Voting -->
-                        <div class="flex gap-2">
-                            <button type="submit" name="vote_choice" value="yes"
-                                    onclick="return confirmVote(event, 'Yes')"
-                                    class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
-                                Vote Yes
-                            </button>
-                            <button type="submit" name="vote_choice" value="no"
-                                    onclick="return confirmVote(event, 'No')"
-                                    class="bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">
-                                Vote No
-                            </button>
-                            {% if leg.allow_abstain %}
-                                <button type="submit" name="vote_choice" value="abstain"
-                                        onclick="return confirmVote(event, 'Abstain')"
-                                        class="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600">
-                                    Abstain
-                                </button>
-                            {% endif %}
+                        <div class="space-y-3">
+                            <p class="font-medium text-gray-700 dark:text-gray-300 mb-2">Select your vote:</p>
+                            <div class="flex flex-wrap gap-3">
+                                <!-- Yes Option -->
+                                <label class="vote-option cursor-pointer">
+                                    <input type="radio" name="vote_choice" value="yes" required class="sr-only peer">
+                                    <div class="flex items-center gap-2 px-5 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700
+                                                peer-checked:border-green-500 peer-checked:bg-green-50 dark:peer-checked:bg-green-900/30
+                                                peer-checked:ring-2 peer-checked:ring-green-500 peer-checked:ring-offset-2 dark:peer-checked:ring-offset-gray-800
+                                                hover:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/20
+                                                transition-all duration-200">
+                                        <div class="w-5 h-5 rounded-full border-2 border-gray-400 dark:border-gray-500 peer-checked:border-green-500 flex items-center justify-center
+                                                    peer-checked:bg-green-500 transition-all duration-200 vote-radio">
+                                            <svg class="w-3 h-3 text-white hidden check-icon" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                            </svg>
+                                        </div>
+                                        <span class="font-medium text-gray-700 dark:text-gray-200">Yes</span>
+                                    </div>
+                                </label>
+
+                                <!-- No Option -->
+                                <label class="vote-option cursor-pointer">
+                                    <input type="radio" name="vote_choice" value="no" required class="sr-only peer">
+                                    <div class="flex items-center gap-2 px-5 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700
+                                                peer-checked:border-red-500 peer-checked:bg-red-50 dark:peer-checked:bg-red-900/30
+                                                peer-checked:ring-2 peer-checked:ring-red-500 peer-checked:ring-offset-2 dark:peer-checked:ring-offset-gray-800
+                                                hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-900/20
+                                                transition-all duration-200">
+                                        <div class="w-5 h-5 rounded-full border-2 border-gray-400 dark:border-gray-500 peer-checked:border-red-500 flex items-center justify-center
+                                                    peer-checked:bg-red-500 transition-all duration-200 vote-radio">
+                                            <svg class="w-3 h-3 text-white hidden check-icon" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                            </svg>
+                                        </div>
+                                        <span class="font-medium text-gray-700 dark:text-gray-200">No</span>
+                                    </div>
+                                </label>
+
+                                {% if leg.allow_abstain %}
+                                <!-- Abstain Option -->
+                                <label class="vote-option cursor-pointer">
+                                    <input type="radio" name="vote_choice" value="abstain" required class="sr-only peer">
+                                    <div class="flex items-center gap-2 px-5 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700
+                                                peer-checked:border-gray-500 peer-checked:bg-gray-100 dark:peer-checked:bg-gray-600
+                                                peer-checked:ring-2 peer-checked:ring-gray-500 peer-checked:ring-offset-2 dark:peer-checked:ring-offset-gray-800
+                                                hover:border-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600
+                                                transition-all duration-200">
+                                        <div class="w-5 h-5 rounded-full border-2 border-gray-400 dark:border-gray-500 peer-checked:border-gray-500 flex items-center justify-center
+                                                    peer-checked:bg-gray-500 transition-all duration-200 vote-radio">
+                                            <svg class="w-3 h-3 text-white hidden check-icon" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                            </svg>
+                                        </div>
+                                        <span class="font-medium text-gray-700 dark:text-gray-200">Abstain</span>
+                                    </div>
+                                </label>
+                                {% endif %}
+                            </div>
                         </div>
                     {% endif %}
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Confirm with Password
-                        </label>
-                        <input type="password" name="password" required
-                               class="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2 w-full max-w-xs"
-                               placeholder="Enter your password">
+                    <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+                        <div class="flex-1 max-w-xs">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Confirm with Password
+                            </label>
+                            <input type="password" name="password" required
+                                   class="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2 w-full"
+                                   placeholder="Enter your password">
+                        </div>
+                        <button type="submit" onclick="return submitVote(event)"
+                                class="submit-vote-btn bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2.5 rounded-lg
+                                       transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <span class="btn-text">Submit Vote</span>
+                            <svg class="btn-spinner hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <svg class="w-5 h-5 btn-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </button>
                     </div>
                 </form>
             {% endif %}
 
-            <!-- Vote Results (for chairs/uploaders) -->
-            {% if is_chair and leg.id in vote_data %}
+            <!-- Vote Results (shown if user voted, is chair, or is poster) -->
+            {% if leg.id in vote_data %}
+                {% with leg_votes=vote_data|get_item:leg.id %}
                 <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <h4 class="font-semibold mb-2 text-gray-900 dark:text-gray-100">Current Results:</h4>
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="font-semibold text-gray-900 dark:text-gray-100">Current Results:</h4>
+                        <a href="{% url 'committee_vote_result' committee.code leg.id %}"
+                           class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                            </svg>
+                            View Full Results
+                        </a>
+                    </div>
                     {% if leg.vote_mode == 'plurality' %}
-                        <div class="space-y-1">
-                            {% for option, count in vote_data|get_item:leg.id.items %}
+                        <div class="space-y-2">
+                            {% for option, count in leg_votes.items %}
                                 {% if option != 'total' %}
-                                    <p class="text-sm text-gray-700 dark:text-gray-300">{{ option }}: {{ count }}</p>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm text-gray-700 dark:text-gray-300">{{ option }}</span>
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-32 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                                                {% if leg_votes.total > 0 %}
+                                                <div class="bg-blue-500 h-2 rounded-full" style="width: {% widthratio count leg_votes.total 100 %}%"></div>
+                                                {% endif %}
+                                            </div>
+                                            <span class="text-sm font-medium text-gray-900 dark:text-gray-100 w-8 text-right">{{ count }}</span>
+                                        </div>
+                                    </div>
                                 {% endif %}
                             {% endfor %}
-                            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">Total Votes: {{ vote_data|get_item:leg.id.total }}</p>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">Total Votes: {{ leg_votes.total }}</p>
                         </div>
                     {% else %}
-                        <div class="space-y-1">
-                            <p class="text-sm text-gray-700 dark:text-gray-300">Yes: {{ vote_data|get_item:leg.id.yes }}</p>
-                            <p class="text-sm text-gray-700 dark:text-gray-300">No: {{ vote_data|get_item:leg.id.no }}</p>
-                            <p class="text-sm text-gray-700 dark:text-gray-300">Abstain: {{ vote_data|get_item:leg.id.abstain }}</p>
-                            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">Total: {{ vote_data|get_item:leg.id.total }}</p>
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-green-700 dark:text-green-300 font-medium">Yes</span>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-32 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                                        {% if leg_votes.total > 0 %}
+                                        <div class="bg-green-500 h-2 rounded-full" style="width: {% widthratio leg_votes.yes leg_votes.total 100 %}%"></div>
+                                        {% endif %}
+                                    </div>
+                                    <span class="text-sm font-medium text-gray-900 dark:text-gray-100 w-8 text-right">{{ leg_votes.yes }}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-red-700 dark:text-red-300 font-medium">No</span>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-32 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                                        {% if leg_votes.total > 0 %}
+                                        <div class="bg-red-500 h-2 rounded-full" style="width: {% widthratio leg_votes.no leg_votes.total 100 %}%"></div>
+                                        {% endif %}
+                                    </div>
+                                    <span class="text-sm font-medium text-gray-900 dark:text-gray-100 w-8 text-right">{{ leg_votes.no }}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600 dark:text-gray-400 font-medium">Abstain</span>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-32 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                                        {% if leg_votes.total > 0 %}
+                                        <div class="bg-gray-400 h-2 rounded-full" style="width: {% widthratio leg_votes.abstain leg_votes.total 100 %}%"></div>
+                                        {% endif %}
+                                    </div>
+                                    <span class="text-sm font-medium text-gray-900 dark:text-gray-100 w-8 text-right">{{ leg_votes.abstain }}</span>
+                                </div>
+                            </div>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">Total Votes: {{ leg_votes.total }}</p>
                         </div>
+                    {% endif %}
+                </div>
+                {% endwith %}
+            {% endif %}
+
+            <!-- End Vote / Delete Buttons (for chair or poster) -->
+            {% if can_end_vote|get_item:leg.id %}
+                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex gap-3">
+                    <form method="POST" id="end-vote-form-{{ leg.id }}">
+                        {% csrf_token %}
+                        <input type="hidden" name="legislation_id" value="{{ leg.id }}">
+                        <input type="hidden" name="end_vote" value="1">
+                        <button type="button" onclick="confirmEndVote({{ leg.id }})"
+                                class="bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
+                            </svg>
+                            End Voting
+                        </button>
+                    </form>
+                    {% if is_chair or profile.is_admin %}
+                    <form method="POST" action="{% url 'delete_committee_vote' committee.code leg.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="bg-gray-600 hover:bg-gray-700 text-white font-medium px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                            Delete
+                        </button>
+                    </form>
                     {% endif %}
                 </div>
             {% endif %}
@@ -147,17 +319,312 @@
         </div>
         {% endfor %}
     </div>
+
+    <!-- Voting History Section -->
+    {% if closed_legislation %}
+    <div class="space-y-6 mt-10">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            Voting History
+        </h2>
+
+        {% for leg in closed_legislation %}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200 border-l-4
+                    {% if leg.passed %}border-green-500{% else %}border-gray-400{% endif %}">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ leg.title }}</h3>
+                        {% if leg.passed %}
+                            <span class="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded text-xs font-medium">Passed</span>
+                        {% else %}
+                            <span class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded text-xs font-medium">Closed</span>
+                        {% endif %}
+                        {% if leg.pushed_to_chapter %}
+                            <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded text-xs font-medium">Pushed to Chapter</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-gray-600 dark:text-gray-400 text-sm">
+                        Posted by {{ leg.posted_by.name }} on {{ leg.available_at|date:"M d, Y" }}
+                        {% if leg.voting_ended_at %}
+                            • Closed {{ leg.voting_ended_at|date:"M d, Y g:i A" }}
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="text-right text-sm text-gray-600 dark:text-gray-400">
+                    Required: {{ leg.required_percentage }}%
+                </div>
+            </div>
+
+            {% if leg.description %}
+                <p class="text-gray-700 dark:text-gray-300 mb-4">{{ leg.description|truncatewords:30 }}</p>
+            {% endif %}
+
+            {% if leg.document %}
+                <div class="mb-4">
+                    <a href="{{ leg.document.url }}" target="_blank"
+                       class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center text-sm">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        View Document
+                    </a>
+                </div>
+            {% endif %}
+
+            <!-- Vote Results -->
+            {% with leg_votes=history_vote_data|get_item:leg.id %}
+            {% if leg_votes %}
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="font-semibold text-gray-900 dark:text-gray-100">Final Results:</h4>
+                        <a href="{% url 'committee_vote_result' committee.code leg.id %}"
+                           class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                            </svg>
+                            View Full Results
+                        </a>
+                    </div>
+                    {% if leg.vote_mode == 'plurality' %}
+                        <div class="space-y-2">
+                            {% for option, count in leg_votes.items %}
+                                {% if option != 'total' %}
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm text-gray-700 dark:text-gray-300">{{ option }}</span>
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-32 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                                                {% if leg_votes.total > 0 %}
+                                                <div class="bg-blue-500 h-2 rounded-full" style="width: {% widthratio count leg_votes.total 100 %}%"></div>
+                                                {% endif %}
+                                            </div>
+                                            <span class="text-sm font-medium text-gray-900 dark:text-gray-100 w-8 text-right">{{ count }}</span>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">Total Votes: {{ leg_votes.total }}</p>
+                        </div>
+                    {% else %}
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-green-700 dark:text-green-300 font-medium">Yes</span>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-32 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                                        {% if leg_votes.total > 0 %}
+                                        <div class="bg-green-500 h-2 rounded-full" style="width: {% widthratio leg_votes.yes leg_votes.total 100 %}%"></div>
+                                        {% endif %}
+                                    </div>
+                                    <span class="text-sm font-medium text-gray-900 dark:text-gray-100 w-8 text-right">{{ leg_votes.yes }}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-red-700 dark:text-red-300 font-medium">No</span>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-32 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                                        {% if leg_votes.total > 0 %}
+                                        <div class="bg-red-500 h-2 rounded-full" style="width: {% widthratio leg_votes.no leg_votes.total 100 %}%"></div>
+                                        {% endif %}
+                                    </div>
+                                    <span class="text-sm font-medium text-gray-900 dark:text-gray-100 w-8 text-right">{{ leg_votes.no }}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600 dark:text-gray-400 font-medium">Abstain</span>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-32 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                                        {% if leg_votes.total > 0 %}
+                                        <div class="bg-gray-400 h-2 rounded-full" style="width: {% widthratio leg_votes.abstain leg_votes.total 100 %}%"></div>
+                                        {% endif %}
+                                    </div>
+                                    <span class="text-sm font-medium text-gray-900 dark:text-gray-100 w-8 text-right">{{ leg_votes.abstain }}</span>
+                                </div>
+                            </div>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">Total Votes: {{ leg_votes.total }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+            {% endwith %}
+
+            <!-- Chair Actions: Recalculate and Push/Unpush -->
+            {% if is_chair %}
+                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-2">
+                    <!-- Recalculate Result Button -->
+                    <form method="POST" id="recalc-form-{{ leg.id }}" class="inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="legislation_id" value="{{ leg.id }}">
+                        <input type="hidden" name="recalculate_result" value="1">
+                        <button type="submit"
+                                class="bg-yellow-500 hover:bg-yellow-600 text-white font-medium px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            Recalculate Result
+                        </button>
+                    </form>
+
+                    <!-- Publish Results to Chapter Documents -->
+                    {% if leg.pushed_to_chapter %}
+                        <form method="POST" action="{% url 'unpush_from_chapter' committee.code %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="legislation_id" value="{{ leg.id }}">
+                            <input type="hidden" name="next" value="/committee/{{ committee.code }}/vote/">
+                            <button type="submit"
+                                    class="bg-gray-600 hover:bg-gray-700 text-white font-medium px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path>
+                                </svg>
+                                Unpublish Results
+                            </button>
+                        </form>
+                    {% else %}
+                        <form method="POST" action="{% url 'push_to_chapter' committee.code %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="legislation_id" value="{{ leg.id }}">
+                            <input type="hidden" name="next" value="/committee/{{ committee.code }}/vote/">
+                            <button type="submit"
+                                    class="bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                Publish Results
+                            </button>
+                        </form>
+                    {% endif %}
+
+                    <!-- Create/Delete Chapter Vote -->
+                    {% if leg.chapter_legislation %}
+                        <span class="text-sm text-green-600 dark:text-green-400 px-3 py-2 inline-flex items-center gap-1 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            Chapter Vote Active
+                        </span>
+                        <form method="POST" action="{% url 'delete_chapter_vote_link' committee.code %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="legislation_id" value="{{ leg.id }}">
+                            <input type="hidden" name="next" value="/committee/{{ committee.code }}/vote/">
+                            <button type="submit"
+                                    class="bg-orange-600 hover:bg-orange-700 text-white font-medium px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                                Delete Chapter Vote
+                            </button>
+                        </form>
+                    {% else %}
+                        <a href="{% url 'create_chapter_vote' committee.code leg.id %}"
+                           class="bg-purple-600 hover:bg-purple-700 text-white font-medium px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            Create Chapter Vote
+                        </a>
+                    {% endif %}
+
+                    <!-- Delete Vote (chair or admin only) -->
+                    <form method="POST" action="{% url 'delete_committee_vote' committee.code leg.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                            Delete Vote
+                        </button>
+                    </form>
+                </div>
+            {% elif profile.is_admin %}
+                <!-- Admin-only delete for closed votes -->
+                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <form method="POST" action="{% url 'delete_committee_vote' committee.code leg.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                            Delete Vote
+                        </button>
+                    </form>
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 </div>
 
 <script>
-function confirmVote(event, choice) {
-    const password = event.target.form.querySelector('input[name="password"]').value;
+// Handle vote option selection visual feedback
+document.querySelectorAll('.vote-option input[type="radio"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        // Get all vote options in the same form
+        const form = this.closest('form');
+        form.querySelectorAll('.vote-option').forEach(option => {
+            const radioDiv = option.querySelector('.vote-radio');
+            const checkIcon = option.querySelector('.check-icon');
+            const input = option.querySelector('input[type="radio"]');
+
+            if (input.checked) {
+                radioDiv.classList.add('bg-current');
+                checkIcon.classList.remove('hidden');
+            } else {
+                radioDiv.classList.remove('bg-current');
+                checkIcon.classList.add('hidden');
+            }
+        });
+    });
+});
+
+function submitVote(event) {
+    const button = event.target.closest('button');
+    const form = button.closest('form');
+    const password = form.querySelector('input[name="password"]').value;
+    const selectedOption = form.querySelector('input[name="vote_choice"]:checked');
+
+    if (!selectedOption) {
+        alert('Please select a vote option.');
+        event.preventDefault();
+        return false;
+    }
+
     if (!password) {
         alert('Please enter your password to confirm your vote.');
         event.preventDefault();
         return false;
     }
-    return confirm(`Are you sure you want to vote ${choice}?`);
+
+    const choiceLabels = {'yes': 'Yes', 'no': 'No', 'abstain': 'Abstain'};
+    const choiceLabel = choiceLabels[selectedOption.value] || selectedOption.value;
+
+    if (!confirm(`Are you sure you want to vote "${choiceLabel}"?`)) {
+        event.preventDefault();
+        return false;
+    }
+
+    // Show loading state
+    button.querySelectorAll('.btn-text').forEach(el => el.classList.add('hidden'));
+    button.querySelector('.btn-spinner').classList.remove('hidden');
+    button.disabled = true;
+    button.classList.add('ring-2', 'ring-offset-2', 'ring-blue-400');
+
+    // Disable all vote options
+    form.querySelectorAll('.vote-option input').forEach(input => {
+        input.disabled = true;
+    });
+    form.querySelectorAll('.vote-option > div').forEach(div => {
+        div.classList.add('opacity-60', 'cursor-not-allowed');
+    });
+
+    return true;
+}
+
+function confirmEndVote(legislationId) {
+    // Submit the form directly
+    document.getElementById('end-vote-form-' + legislationId).submit();
 }
 </script>
 {% endblock %}

@@ -28,11 +28,12 @@
             <!-- Description -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Description <span class="text-red-500 dark:text-red-400">*</span>
+                    Description
                 </label>
-                <textarea name="description" required rows="4"
+                <textarea name="description" rows="4"
                           class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded px-3 py-2"
                           placeholder="Describe the legislation"></textarea>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Either a description or document is required.</p>
             </div>
 
             <!-- Vote Mode -->
@@ -109,21 +110,31 @@
             <!-- Document Upload -->
             <div id="document_upload">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Document (PDF or DOCX) <span class="text-red-500 dark:text-red-400" id="doc_required">*</span>
+                    Document (PDF or DOCX)
                 </label>
                 <input type="file" name="document" accept=".pdf,.docx"
                        class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2">
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Only PDF and DOCX files are allowed.</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Only PDF and DOCX files are allowed. Either a description or document is required.</p>
             </div>
 
             <!-- Available At -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Available At <span class="text-red-500 dark:text-red-400">*</span>
+                    Voting Opens At <span class="text-red-500 dark:text-red-400">*</span>
                 </label>
                 <input type="datetime-local" name="available_at" required
                        class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2">
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">When should voting open?</p>
+            </div>
+
+            <!-- Voting Ends At (Optional) -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Voting Ends At <span class="text-gray-400 dark:text-gray-500 text-xs font-normal">(Optional)</span>
+                </label>
+                <input type="datetime-local" name="voting_ends_at"
+                       class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Leave blank for no automatic end time. You can always end voting manually.</p>
             </div>
 
             <!-- Anonymous Vote -->
@@ -155,8 +166,6 @@ function toggleVoteMode() {
     const percentageOptions = document.getElementById('percentage_options');
     const piecewiseOptions = document.getElementById('piecewise_options');
     const pluralityOptions = document.getElementById('plurality_options');
-    const documentUpload = document.getElementById('document_upload');
-    const docRequired = document.getElementById('doc_required');
 
     // Hide all first
     percentageOptions.style.display = 'none';
@@ -166,13 +175,10 @@ function toggleVoteMode() {
     // Show relevant options
     if (voteMode === 'percentage') {
         percentageOptions.style.display = 'block';
-        docRequired.style.display = 'inline';
     } else if (voteMode === 'piecewise') {
         piecewiseOptions.style.display = 'block';
-        docRequired.style.display = 'inline';
     } else if (voteMode === 'plurality') {
         pluralityOptions.style.display = 'block';
-        docRequired.style.display = 'none'; // Document optional for plurality
     }
 }
 

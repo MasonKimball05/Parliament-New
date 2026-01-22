@@ -40,6 +40,13 @@ def committee_create_vote(request, code):
         parsed_available_at = parse_datetime(raw_available_at)
         available_at = make_aware(parsed_available_at) if parsed_available_at else None
 
+        # Optional voting end time
+        raw_voting_ends_at = request.POST.get('voting_ends_at')
+        voting_ends_at = None
+        if raw_voting_ends_at:
+            parsed_voting_ends_at = parse_datetime(raw_voting_ends_at)
+            voting_ends_at = make_aware(parsed_voting_ends_at) if parsed_voting_ends_at else None
+
         vote_mode = request.POST.get('vote_mode', 'percentage')
         plurality_options = []
         required_number = None
@@ -60,7 +67,8 @@ def committee_create_vote(request, code):
                 return redirect('create_committee_vote', code=code)
             required_number = int(required_number)
 
-        if title and description and available_at and (document or vote_mode == 'plurality'):
+        # Require title, available_at, and either description OR document
+        if title and available_at and (description or document):
             CommitteeLegislation.objects.create(
                 committee=committee,
                 title=title,
@@ -68,6 +76,7 @@ def committee_create_vote(request, code):
                 document=document if vote_mode != 'plurality' else None,
                 posted_by=request.user,
                 available_at=available_at,
+                voting_ends_at=voting_ends_at,
                 anonymous_vote=anonymous,
                 allow_abstain=allow_abstain,
                 required_percentage=required_percentage,

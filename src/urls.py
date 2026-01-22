@@ -49,6 +49,7 @@ from src.view.preferences import preferences_view
 from src.view.activity_logs import activity_logs_view, export_activity_logs
 from src.view.upload_legislation import upload_legislation
 from src.view.end_vote import end_vote
+from src.view.delete_legislation import delete_chapter_legislation
 from src.view.passed_legislation import passed_legislation, PassedLegislationDetailView
 from src.view.legislation_detail import legislation_detail
 from src.view.edit_legislation import edit_legislation
@@ -190,6 +191,7 @@ urlpatterns = [
     # Legislation / Voting Pages
     path('vote/', vote_view, name='vote'),
     path('vote/end/<int:legislation_id>/', end_vote, name='end_vote'),
+    path('vote/delete/<int:legislation_id>/', delete_chapter_legislation, name='delete_chapter_legislation'),
     path('passed_legislation/', passed_legislation, name='passed_legislation'),
     path('legislation/detail/<int:pk>/', PassedLegislationDetailView.as_view(), name='passed_legislation_detail'),
     path('legislation/detail/<int:pk>/document/', view_passed_legislation_document, name='view_passed_legislation_document'),
@@ -211,6 +213,8 @@ urlpatterns = [
     path('committee/<str:code>/', committee_home, name='committee_home'),
     path('committee/<str:code>/documents/', committee_documents, name='committee_documents'),
     path('committee/<str:code>/vote/', committee_vote, name='vote'),  # Keep as 'vote'
+    path('committee/<str:code>/vote/<int:legislation_id>/result/', committee_vote_result, name='committee_vote_result'),
+    path('committee/<str:code>/vote/<int:legislation_id>/delete/', delete_committee_vote, name='delete_committee_vote'),
     path('committee/<str:code>/manage_members/', committee_manage_members, name='manage_members'),
     path('committee/<str:code>/upload_document/', committee_upload_document, name='upload_document'),
 
@@ -219,6 +223,10 @@ urlpatterns = [
     path('committee/<str:code>/remove-member/', committee_remove_member, name='committee_remove_member'),
     path('committee/<str:code>/create-vote/', committee_create_vote, name='create_committee_vote'),
     path('committee/<str:code>/push-to-chapter/', committee_push_to_chapter, name='push_to_chapter'),
+    path('committee/<str:code>/create-chapter-vote/<int:legislation_id>/', create_chapter_vote_from_committee, name='create_chapter_vote'),
+    path('committee/<str:code>/delete-chapter-vote/', delete_chapter_vote_link, name='delete_chapter_vote_link'),
+    path('committee/<str:code>/unpush-from-chapter/', committee_unpush_from_chapter, name='unpush_from_chapter'),
+    path('committee/vote/<int:legislation_id>/recalculate/', recalculate_committee_vote, name='recalculate_committee_vote'),
     path('committee/<str:code>/minutes/', committee_minutes, name='minutes'),
     path('committee/<str:code>/documents/<int:document_id>/view/', view_committee_document, name='view_committee_document'),
     path('committee/<str:code>/documents/<int:document_id>/toggle-publish/', toggle_document_publish, name='toggle_document_publish'),
