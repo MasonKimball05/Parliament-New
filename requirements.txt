@@ -26,3 +26,6 @@ cryptography==43.0.3
 
 # Markdown rendering for changelog display
 markdown==3.7
+
+# DOCX to HTML conversion for document preview
+mammoth==1.8.0

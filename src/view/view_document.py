@@ -5,6 +5,40 @@ from django.conf import settings
 from src.models import Legislation, CommitteeDocument
 import os
 import urllib.parse
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def convert_docx_to_html(file_path):
+    """Convert a DOCX file to HTML using mammoth and clean up the output"""
+    try:
+        import mammoth
+        import re
+
+        with open(file_path, 'rb') as docx_file:
+            result = mammoth.convert_to_html(docx_file)
+            html = result.value
+
+            # Strip all inline style attributes that might override our CSS
+            html = re.sub(r'\s*style="[^"]*"', '', html)
+
+            # Strip class attributes too since they might have unwanted styles
+            html = re.sub(r'\s*class="[^"]*"', '', html)
+
+            # Preserve tabs by converting them to a span with tab styling
+            html = html.replace('\t', '<span class="docx-tab"></span>')
+
+            # Preserve multiple spaces
+            html = re.sub(r'  +', lambda m: '&nbsp;' * len(m.group()), html)
+
+            return html
+    except ImportError:
+        logger.warning("mammoth library not installed, cannot preview DOCX files")
+        return None
+    except Exception as e:
+        logger.error(f"Error converting DOCX to HTML: {e}")
+        return None
 
 
 def get_file_type_info(file_path):
@@ -14,6 +48,7 @@ def get_file_type_info(file_path):
             'is_pdf': False,
             'is_image': False,
             'is_office_doc': False,
+            'is_docx': False,
             'file_extension': '',
         }
 
@@ -23,6 +58,7 @@ def get_file_type_info(file_path):
         'is_pdf': ext == '.pdf',
         'is_image': ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'],
         'is_office_doc': ext in ['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt', '.ods', '.odp'],
+        'is_docx': ext == '.docx',
         'file_extension': ext.upper().replace('.', '') if ext else 'Unknown',
     }
 
@@ -41,6 +77,11 @@ def view_legislation_document(request, legislation_id):
     # Use relative URL - works on any host without localhost issues
     document_url = legislation.document.url
 
+    # Convert DOCX to HTML if applicable
+    docx_html = None
+    if file_info.get('is_docx'):
+        docx_html = convert_docx_to_html(legislation.document.path)
+
     context = {
         'document_url': document_url,
         'document_title': legislation.title,
@@ -49,6 +90,7 @@ def view_legislation_document(request, legislation_id):
         'document_description': legislation.description,
         'uploaded_by': legislation.posted_by.username if legislation.posted_by else None,
         'uploaded_at': legislation.created_at,
+        'docx_html': docx_html,
         **file_info,
     }
 
@@ -70,6 +112,11 @@ def view_chapter_document(request, document_id):
     # Use relative URL - works on any host without localhost issues
     document_url = document.document.url
 
+    # Convert DOCX to HTML if applicable
+    docx_html = None
+    if file_info.get('is_docx'):
+        docx_html = convert_docx_to_html(document.document.path)
+
     context = {
         'document_url': document_url,
         'document_title': document.title,
@@ -78,6 +125,7 @@ def view_chapter_document(request, document_id):
         'document_description': document.description,
         'uploaded_by': document.uploaded_by.username if document.uploaded_by else None,
         'uploaded_at': document.uploaded_at,
+        'docx_html': docx_html,
         **file_info,
     }
 
@@ -102,6 +150,11 @@ def view_committee_document(request, code, document_id):
     # Use relative URL - works on any host without localhost issues
     document_url = document.document.url
 
+    # Convert DOCX to HTML if applicable
+    docx_html = None
+    if file_info.get('is_docx'):
+        docx_html = convert_docx_to_html(document.document.path)
+
     context = {
         'document_url': document_url,
         'document_title': document.title,
@@ -110,6 +163,7 @@ def view_committee_document(request, code, document_id):
         'document_description': document.description,
         'uploaded_by': document.uploaded_by.username if document.uploaded_by else None,
         'uploaded_at': document.uploaded_at,
+        'docx_html': docx_html,
         **file_info,
     }
 
@@ -130,6 +184,11 @@ def view_passed_legislation_document(request, pk):
     # Use relative URL - works on any host without localhost issues
     document_url = legislation.document.url
 
+    # Convert DOCX to HTML if applicable
+    docx_html = None
+    if file_info.get('is_docx'):
+        docx_html = convert_docx_to_html(legislation.document.path)
+
     context = {
         'document_url': document_url,
         'document_title': legislation.title,
@@ -138,6 +197,7 @@ def view_passed_legislation_document(request, pk):
         'document_description': legislation.description,
         'uploaded_by': legislation.posted_by.username if legislation.posted_by else None,
         'uploaded_at': legislation.created_at,
+        'docx_html': docx_html,
         **file_info,
     }
 
