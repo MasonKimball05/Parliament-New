@@ -44,6 +44,21 @@ The original Parliament system with basic functionality but significant security
 - All environment variables must be properly set
 - No backward compatibility with v1.0.0 authentication
 
+
+### v2.4.1 - Minor UI Improvement Updates
+
+**Deployment Status:** ✅ **Deployed** 
+
+- Added dark mode UI issues with several pages including
+  - Passed Legislation (/constitution-bylaws/passed-resolutions/)
+  - Officer Duties (/constitution-bylaws/officer-duties/)
+  - Committees (/constitution-bylaws/committees/)
+  - Kai Procedures (/constitution-bylaws/kai-procedures/)
+  - Officer Slating & Elections (/constitution-bylaws/slating-elections/)
+  - Advisors (/constitution-bylaws/advisors/)
+  - Academic Standards (/constitution-bylaws/academic-standards/)
+
+
 ### v2.4.0 - Bug Report System & Email Service Update (01-19-2026)
 Comprehensive bug reporting system with public tracker and admin management, plus migration to Brevo for reliable email delivery.
 
