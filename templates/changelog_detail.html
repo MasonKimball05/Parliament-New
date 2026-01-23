@@ -99,19 +99,33 @@
         .changelog-content ul, .changelog-content ol {
             margin-bottom: 1rem;
             padding-left: 1.5rem;
+            list-style-position: outside;
         }
         .changelog-content ul {
-            list-style-type: disc;
+            list-style-type: disc !important;
         }
         .changelog-content ol {
-            list-style-type: decimal;
+            list-style-type: decimal !important;
         }
         .changelog-content li {
             margin-bottom: 0.5rem;
             color: #4b5563;
+            display: list-item !important;
         }
         .dark .changelog-content li {
             color: #d1d5db;
+        }
+        /* Nested lists */
+        .changelog-content li > ul, .changelog-content li > ol {
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+            padding-left: 1.5rem;
+        }
+        .changelog-content li > ul {
+            list-style-type: circle !important;
+        }
+        .changelog-content li > ul > li > ul {
+            list-style-type: square !important;
         }
         .changelog-content a {
             color: #2563eb;
@@ -149,6 +163,9 @@
             border-radius: 0.5rem;
             overflow-x: auto;
             margin-bottom: 1rem;
+            white-space: pre;
+            tab-size: 4;
+            -moz-tab-size: 4;
         }
         .dark .changelog-content pre {
             background-color: #111827;
@@ -157,6 +174,9 @@
             background-color: transparent;
             padding: 0;
             color: inherit;
+            white-space: pre;
+            tab-size: 4;
+            -moz-tab-size: 4;
         }
         .changelog-content hr {
             border: none;

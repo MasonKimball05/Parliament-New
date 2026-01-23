@@ -8,6 +8,7 @@ The original Parliament system with basic functionality but significant security
 **Deployment Status:** Development/Local only - Never deployed to production
 
 **Major Issues:**
+
 - ❌ **Insecure Authentication**: Login used `username + user_id` instead of passwords
 - ❌ **Open Host Headers**: `ALLOWED_HOSTS = ['*']` (vulnerable to host header attacks)
 - ❌ **Weak Secret Key**: Fallback to `'fallback-secret'` (publicly known)
@@ -19,18 +20,21 @@ The original Parliament system with basic functionality but significant security
 \**While there were many versions in between 1.0.0 and 2.0.0, they have been left off, largely because most changes were minor and unimpactful until the 2.0 release changes*
 
 ### v2.0.0 - Critical Security Overhaul & Production Deployment (12-20-2025)
+
 - Complete security rewrite to address fundamental vulnerabilities and prepare for production hosting.
 - Included first major UI overhaul, Home Page UI inspired by my.beta.org UI
 
 **Deployment Status:** 🚀 **First production deployment** - Uploaded and hosted online at https://am-parliament.org
 
 **Breaking Changes:**
+
 - ✅ **Password-Based Authentication**: Users must set passwords (old user_id auth removed)
 - ✅ **Restricted Hosts**: `ALLOWED_HOSTS` must be configured via environment variable
 - ✅ **Enforced Secret Key**: Production raises error if SECRET_KEY not set
 - ✅ **Passwords Required**: All passwords must meet complexity requirements
 
 **Security Features Added:**
+
 - ✅ **MIME Type Validation**: File upload security (prevents extension spoofing)
 - ✅ **Password Complexity**: 9+ chars, uppercase, lowercase, number, symbol
 - ✅ **Admin Action Logging**: All impersonation events logged
@@ -39,6 +43,7 @@ The original Parliament system with basic functionality but significant security
 - ✅ **Database SSL**: Encrypted database connections
 
 **Impact:**
+
 - Users needed to create new passwords
 - Configuration changes required for deployment
 - All environment variables must be properly set
@@ -47,16 +52,21 @@ The original Parliament system with basic functionality but significant security
 
 ### v2.4.1 - Minor UI Improvement Updates (01-22-2026)
 
-**Deployment Status:** ✅ **Deployed** 
+**Deployment Status:** ✅ **Deployed**
 
-- Added dark mode UI issues with several pages including
-  - Passed Legislation (/constitution-bylaws/passed-resolutions/)
-  - Officer Duties (/constitution-bylaws/officer-duties/)
-  - Committees (/constitution-bylaws/committees/)
-  - Kai Procedures (/constitution-bylaws/kai-procedures/)
-  - Officer Slating & Elections (/constitution-bylaws/slating-elections/)
-  - Advisors (/constitution-bylaws/advisors/)
-  - Academic Standards (/constitution-bylaws/academic-standards/)
+<ul>
+<li>Added dark mode fixes to several Constitution & Bylaws pages:
+    <ul>
+    <li>Passed Legislation (/constitution-bylaws/passed-resolutions/)</li>
+    <li>Officer Duties (/constitution-bylaws/officer-duties/)</li>
+    <li>Committees (/constitution-bylaws/committees/)</li>
+    <li>Kai Procedures (/constitution-bylaws/kai-procedures/)</li>
+    <li>Officer Slating & Elections (/constitution-bylaws/slating-elections/)</li>
+    <li>Advisors (/constitution-bylaws/advisors/)</li>
+    <li>Academic Standards (/constitution-bylaws/academic-standards/)</li>
+    </ul>
+</li>
+</ul>
 
 
 ### v2.4.0 - Bug Report System & Email Service Update (01-19-2026)
@@ -65,6 +75,7 @@ Comprehensive bug reporting system with public tracker and admin management, plu
 **Deployment Status:** ✅ **Deployed** 
 
 **Key Features:**
+
 - 🐛 **Bug Report System**: Full-featured bug tracking with submission form, public tracker, and admin management
 - 📧 **Brevo Email Integration**: API-based email delivery replacing blocked SMTP ports
 - 🔧 **Bug Fixes**: Fixed IP address handling, settings configuration, and ActivityLog field names
@@ -79,6 +90,7 @@ Major feature additions including auto-updating calendar subscriptions, advanced
 **Deployment Status:** ✅ **Deployed**
 
 **Key Features:**
+
 - 📅 **Calendar Subscriptions**: Auto-updating calendar feeds for Google Calendar, Apple Calendar, Outlook, and more
 - 🔧 **Admin v2**: Advanced administration dashboard with dual authentication and site-wide controls
 - 🎛️ **Feature Flags System**: Granular control over site features without code changes
@@ -95,6 +107,7 @@ Added comprehensive reference pages for Robert's Rules and Constitution & Bylaws
 **Deployment Status:** ✅ **Deployed**
 
 **Key Features:**
+
 - 📖 **Robert's Rules Reference Page**: Comprehensive parliamentary procedure guide with 10 sections
 - 📜 **Constitution & Bylaws Page**: Complete chapter governing documents with cross-references
 - 🔍 **Live Search**: Real-time text search with highlighting on both pages
@@ -113,6 +126,7 @@ Improved documentation structure with organized changelog archive.
 **Deployment Status:** ✅ **Deployed** - Documentation update only (no code changes)
 
 **Changes:**
+
 - 📁 Created `changelogs/` folder for version-specific details
 - 📄 Extracted v2.1.0 details to dedicated file
 - 🔗 Updated main CHANGELOG.md with summary and links
@@ -126,6 +140,7 @@ Builds on v2.0.0 security foundation with user-facing features and advanced prot
 **Deployment Status:** ✅ **Deployed** 
 
 **Key Features:**
+
 - 🔐 **Password Reset System**: Email-based password reset with cryptographic tokens
 - 📧 **Email Management**: Users and admins can add/edit email addresses
 - 🛡️ **Login Rate Limiting**: IP and username-based brute force protection
@@ -140,35 +155,46 @@ Builds on v2.0.0 security foundation with user-facing features and advanced prot
 
 For comprehensive technical details, migration guides, and implementation specifics:
 
-- **[v2.4.0 - Bug Report System & Email Service Update](./changelogs/v2.4.0.md)** (January 19, 2026)
-  - Bug report system implementation
-  - Public bug tracker and admin management
-  - Brevo email integration
-  - Bug fixes and infrastructure updates
-  - Deployment guide
-
-- **[v2.3.0 - Calendar Subscriptions & Admin v2 System](./changelogs/v2.3.0.md)** (January 6, 2026)
-  - Complete feature documentation
-  - Calendar subscription system implementation
-  - Admin v2 dashboard and authentication
-  - Feature flags system architecture
-  - Security considerations and deployment guide
-  - API documentation
-
-- **[v2.2.0 - Robert's Rules Reference System](./changelogs/v2.2.0.md)** (December 29, 2025)
-  - Complete feature documentation
-  - Technical implementation details
-  - Content coverage and organization
-  - JavaScript functionality
-  - Deployment guide
-  - Browser compatibility
-
-- **[v2.1.0 - Security & Authentication Enhancements](./changelogs/v2.1.0.md)** (December 26, 2025)
-  - Complete feature documentation
-  - Technical implementation details
-  - Deployment guide
-  - Security metrics
-  - Testing documentation
+<ul>
+<li><strong><a href="./changelogs/v2.4.0.md">v2.4.0 - Bug Report System & Email Service Update</a></strong> (January 19, 2026)
+    <ul>
+    <li>Bug report system implementation</li>
+    <li>Public bug tracker and admin management</li>
+    <li>Brevo email integration</li>
+    <li>Bug fixes and infrastructure updates</li>
+    <li>Deployment guide</li>
+    </ul>
+</li>
+<li><strong><a href="./changelogs/v2.3.0.md">v2.3.0 - Calendar Subscriptions & Admin v2 System</a></strong> (January 6, 2026)
+    <ul>
+    <li>Complete feature documentation</li>
+    <li>Calendar subscription system implementation</li>
+    <li>Admin v2 dashboard and authentication</li>
+    <li>Feature flags system architecture</li>
+    <li>Security considerations and deployment guide</li>
+    <li>API documentation</li>
+    </ul>
+</li>
+<li><strong><a href="./changelogs/v2.2.0.md">v2.2.0 - Robert's Rules Reference System</a></strong> (December 29, 2025)
+    <ul>
+    <li>Complete feature documentation</li>
+    <li>Technical implementation details</li>
+    <li>Content coverage and organization</li>
+    <li>JavaScript functionality</li>
+    <li>Deployment guide</li>
+    <li>Browser compatibility</li>
+    </ul>
+</li>
+<li><strong><a href="./changelogs/v2.1.0.md">v2.1.0 - Security & Authentication Enhancements</a></strong> (December 26, 2025)
+    <ul>
+    <li>Complete feature documentation</li>
+    <li>Technical implementation details</li>
+    <li>Deployment guide</li>
+    <li>Security metrics</li>
+    <li>Testing documentation</li>
+    </ul>
+</li>
+</ul>
 
 *Note: Detailed changelogs for v1.0.0 and v2.0.0 were not created as they preceded the structured changelog system.*
 
@@ -176,76 +202,97 @@ For comprehensive technical details, migration guides, and implementation specif
 
 ## Version History Summary
 
-- **v2.4.0** (2026-01-19) - Bug Report System & Email Service Update ⏳
-  - Comprehensive bug reporting system with user submissions
-  - Public bug tracker with filtering and status tracking
-  - Admin-only bug management dashboard (user_id 73)
-  - Brevo API email integration (replaces blocked SMTP)
-  - Fixed IP address handling for X-Forwarded-For headers
-  - Fixed WSGI/ASGI settings module configuration
-
-- **v2.3.0** (2026-01-06) - Calendar Subscriptions & Admin v2 System ✅
-  - Auto-updating calendar subscription feeds with secure tokens
-  - Admin v2 advanced administration dashboard
-  - Site-wide feature flags system with granular control
-  - Page toggles to enable/disable specific pages
-  - Chat system feature flag protection
-  - Enhanced security and comprehensive audit logging
-
-- **v2.2.0** (2025-12-29) - Reference Documentation System ✅
-  - Robert's Rules of Order reference page (10 comprehensive sections)
-  - Constitution & Bylaws reference page (complete governing documents)
-  - Live search with text highlighting on both pages
-  - Table of contents with active section tracking
-  - Cross-references linking related content between documents
-  - Quick reference tables for motions, voting, and GPA levels
-  - Responsive design for all devices
-
-- **v2.1.1** (2025-12-26) - Changelog Organization ✅
-  - Created changelogs archive folder
-  - Reorganized documentation structure
-  - Improved version tracking
-
-- **v2.1.0** (2025-12-26) - Security & Authentication Enhancements ⏳
-  - Password reset system with email verification
-  - Login rate limiting and brute force protection
-  - Admin panel access monitoring
-  - Enhanced audit logging
-  - Email management for users
-
-- **v2.0.0** (2025-12-22) - Critical Security Overhaul & Production Deployment 🚀
-  - **First production deployment to https://am-parliament.org**
-  - Password-based authentication (replaced user_id login)
-  - MIME type file validation
-  - Password complexity requirements
-  - Session and cookie security
-  - HTTPS/SSL configuration
-  - Admin impersonation logging
-
-- **v1.0.0** (2025-09-XX) - Initial Release (Development Only)
-  - Basic Parliament functionality
-  - Insecure authentication (username + user_id)
-  - Limited security measures
-  - Foundation for future improvements
-  - **Never deployed to production**
+<ul>
+<li><strong>v2.4.0</strong> (2026-01-19) - Bug Report System & Email Service Update ⏳
+    <ul>
+    <li>Comprehensive bug reporting system with user submissions</li>
+    <li>Public bug tracker with filtering and status tracking</li>
+    <li>Admin-only bug management dashboard (user_id 73)</li>
+    <li>Brevo API email integration (replaces blocked SMTP)</li>
+    <li>Fixed IP address handling for X-Forwarded-For headers</li>
+    <li>Fixed WSGI/ASGI settings module configuration</li>
+    </ul>
+</li>
+<li><strong>v2.3.0</strong> (2026-01-06) - Calendar Subscriptions & Admin v2 System ✅
+    <ul>
+    <li>Auto-updating calendar subscription feeds with secure tokens</li>
+    <li>Admin v2 advanced administration dashboard</li>
+    <li>Site-wide feature flags system with granular control</li>
+    <li>Page toggles to enable/disable specific pages</li>
+    <li>Chat system feature flag protection</li>
+    <li>Enhanced security and comprehensive audit logging</li>
+    </ul>
+</li>
+<li><strong>v2.2.0</strong> (2025-12-29) - Reference Documentation System ✅
+    <ul>
+    <li>Robert's Rules of Order reference page (10 comprehensive sections)</li>
+    <li>Constitution & Bylaws reference page (complete governing documents)</li>
+    <li>Live search with text highlighting on both pages</li>
+    <li>Table of contents with active section tracking</li>
+    <li>Cross-references linking related content between documents</li>
+    <li>Quick reference tables for motions, voting, and GPA levels</li>
+    <li>Responsive design for all devices</li>
+    </ul>
+</li>
+<li><strong>v2.1.1</strong> (2025-12-26) - Changelog Organization ✅
+    <ul>
+    <li>Created changelogs archive folder</li>
+    <li>Reorganized documentation structure</li>
+    <li>Improved version tracking</li>
+    </ul>
+</li>
+<li><strong>v2.1.0</strong> (2025-12-26) - Security & Authentication Enhancements ⏳
+    <ul>
+    <li>Password reset system with email verification</li>
+    <li>Login rate limiting and brute force protection</li>
+    <li>Admin panel access monitoring</li>
+    <li>Enhanced audit logging</li>
+    <li>Email management for users</li>
+    </ul>
+</li>
+<li><strong>v2.0.0</strong> (2025-12-22) - Critical Security Overhaul & Production Deployment 🚀
+    <ul>
+    <li><strong>First production deployment to https://am-parliament.org</strong></li>
+    <li>Password-based authentication (replaced user_id login)</li>
+    <li>MIME type file validation</li>
+    <li>Password complexity requirements</li>
+    <li>Session and cookie security</li>
+    <li>HTTPS/SSL configuration</li>
+    <li>Admin impersonation logging</li>
+    </ul>
+</li>
+<li><strong>v1.0.0</strong> (2025-09-XX) - Initial Release (Development Only)
+    <ul>
+    <li>Basic Parliament functionality</li>
+    <li>Insecure authentication (username + user_id)</li>
+    <li>Limited security measures</li>
+    <li>Foundation for future improvements</li>
+    <li><strong>Never deployed to production</strong></li>
+    </ul>
+</li>
+</ul>
 
 ---
 
 ## How to Use This Changelog
 
 ### For Quick Updates
+
 - Check this main file for version summaries
 - See deployment status at a glance
 - Review key features and breaking changes
 
 ### For Technical Details
+
 - Click the detailed changelog links above
 - Review implementation specifics
 - Follow deployment guides
 - Understand security implications
 
 ### When Making Changes
+
 New changes will be documented in:
+
 1. Main CHANGELOG.md (summary only)
 2. Detailed version file in `changelogs/` folder
 3. Update version number and deployment status
