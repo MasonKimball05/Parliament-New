@@ -26,19 +26,19 @@ A comprehensive Django-based management system for student organizations, design
 
 ## 📸 Screenshots
 
-### Home Dashboard (v2.0)
+### Home Dashboard (v2.0) (Dark Mode)
 ![Parliament 2.0 UI](exportable_media/2.0.0-UI.png)
 *Modern dark/light mode interface with quick access to all chapter functions*
 
-### Officer Portal
+### Officer Portal (Dark Mode)
 ![Officer Portal](exportable_media/officer-UI.png)
 *Dedicated dashboard for officers to manage attendance, events, and members*
 
-### Admin v2 Dashboard
+### Admin v2 Dashboard (Dark Mode)
 ![Admin v2 Dashboard](exportable_media/admin-v2-UI.png)
 *Advanced administration with feature flags, page toggles, and site metrics*
 
-### Original UI (v1.0)
+### Original UI (v1.0) (Pre-Dark Mode)
 ![Parliament 1.0 UI](exportable_media/1.0.0-UI.png)
 *The original interface design*
 
