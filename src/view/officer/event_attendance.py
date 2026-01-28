@@ -81,10 +81,31 @@ def mark_event_attendance(request, event_id):
 
             updated_count = 0
 
+            # Get manual excuse IDs
+            excuse_manual_ids = request.POST.getlist('excuse_manual')
+
             for member in members:
                 # Skip if already excused via approved excuse
                 if member.user_id in approved_excuses:
                     continue
+
+                # Check if manually excused by officer
+                if member.user_id in excuse_manual_ids:
+                    excuse_reason_text = request.POST.get(f'excuse_reason_{member.user_id}', '').strip()
+                    if excuse_reason_text:
+                        attendance, created = Attendance.objects.update_or_create(
+                            event=event,
+                            user=member,
+                            attendance_type='event',
+                            defaults={
+                                'status': 'excused',
+                                'marked_by': request.user,
+                                'marked_at': timezone.now(),
+                                'notes': f'Officer excused: {excuse_reason_text}'
+                            }
+                        )
+                        updated_count += 1
+                        continue
 
                 # Determine status
                 if member.user_id in present_ids:
@@ -158,9 +179,16 @@ def mark_event_attendance(request, event_id):
         # Prepare excuse information
         excuse_status = None
         excuse_reason = None
+        excuse_full_reason = None
+        excuse_submitted_at = None
+        excuse_document_url = None
         if excuse:
             excuse_status = excuse.status
             excuse_reason = excuse.reason[:50] + '...' if len(excuse.reason) > 50 else excuse.reason
+            excuse_full_reason = excuse.reason
+            excuse_submitted_at = excuse.submitted_at
+            if excuse.supporting_document:
+                excuse_document_url = excuse.supporting_document.url
 
         member_data.append({
             'user': member,
@@ -168,6 +196,9 @@ def mark_event_attendance(request, event_id):
             'has_excuse': has_approved_excuse,
             'excuse_status': excuse_status,  # Will be 'pending', 'approved', 'denied', or None
             'excuse_reason': excuse_reason,
+            'excuse_full_reason': excuse_full_reason,
+            'excuse_submitted_at': excuse_submitted_at,
+            'excuse_document_url': excuse_document_url,
             'attendance_record': attendance
         })
 

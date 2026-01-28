@@ -29,3 +29,6 @@ markdown==3.7
 
 # DOCX to HTML conversion for document preview
 mammoth==1.8.0
+
+# PDF generation for chapter minutes export
+reportlab==4.1.0

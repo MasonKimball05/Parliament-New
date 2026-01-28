@@ -49,6 +49,7 @@ def get_file_type_info(file_path):
             'is_image': False,
             'is_office_doc': False,
             'is_docx': False,
+            'is_text': False,
             'file_extension': '',
         }
 
@@ -59,8 +60,32 @@ def get_file_type_info(file_path):
         'is_image': ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'],
         'is_office_doc': ext in ['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt', '.ods', '.odp'],
         'is_docx': ext == '.docx',
+        'is_text': ext in ['.txt', '.md', '.csv', '.log', '.json', '.xml', '.html', '.css', '.js', '.py'],
         'file_extension': ext.upper().replace('.', '') if ext else 'Unknown',
     }
+
+
+def read_text_file(file_path, max_size=500000):
+    """Read a text file and return its content, truncated if too large"""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read(max_size)
+            if len(content) == max_size:
+                content += '\n\n... [File truncated - download for full content]'
+            return content
+    except UnicodeDecodeError:
+        try:
+            with open(file_path, 'r', encoding='latin-1') as f:
+                content = f.read(max_size)
+                if len(content) == max_size:
+                    content += '\n\n... [File truncated - download for full content]'
+                return content
+        except Exception as e:
+            logger.error(f"Error reading text file: {e}")
+            return None
+    except Exception as e:
+        logger.error(f"Error reading text file: {e}")
+        return None
 
 
 @login_required
@@ -82,6 +107,11 @@ def view_legislation_document(request, legislation_id):
     if file_info.get('is_docx'):
         docx_html = convert_docx_to_html(legislation.document.path)
 
+    # Read text file content if applicable
+    text_content = None
+    if file_info.get('is_text'):
+        text_content = read_text_file(legislation.document.path)
+
     context = {
         'document_url': document_url,
         'document_title': legislation.title,
@@ -91,6 +121,7 @@ def view_legislation_document(request, legislation_id):
         'uploaded_by': legislation.posted_by.username if legislation.posted_by else None,
         'uploaded_at': legislation.created_at,
         'docx_html': docx_html,
+        'text_content': text_content,
         **file_info,
     }
 
@@ -117,6 +148,11 @@ def view_chapter_document(request, document_id):
     if file_info.get('is_docx'):
         docx_html = convert_docx_to_html(document.document.path)
 
+    # Read text file content if applicable
+    text_content = None
+    if file_info.get('is_text'):
+        text_content = read_text_file(document.document.path)
+
     context = {
         'document_url': document_url,
         'document_title': document.title,
@@ -126,6 +162,7 @@ def view_chapter_document(request, document_id):
         'uploaded_by': document.uploaded_by.username if document.uploaded_by else None,
         'uploaded_at': document.uploaded_at,
         'docx_html': docx_html,
+        'text_content': text_content,
         **file_info,
     }
 
@@ -155,6 +192,11 @@ def view_committee_document(request, code, document_id):
     if file_info.get('is_docx'):
         docx_html = convert_docx_to_html(document.document.path)
 
+    # Read text file content if applicable
+    text_content = None
+    if file_info.get('is_text'):
+        text_content = read_text_file(document.document.path)
+
     context = {
         'document_url': document_url,
         'document_title': document.title,
@@ -164,6 +206,7 @@ def view_committee_document(request, code, document_id):
         'uploaded_by': document.uploaded_by.username if document.uploaded_by else None,
         'uploaded_at': document.uploaded_at,
         'docx_html': docx_html,
+        'text_content': text_content,
         **file_info,
     }
 
@@ -189,6 +232,11 @@ def view_passed_legislation_document(request, pk):
     if file_info.get('is_docx'):
         docx_html = convert_docx_to_html(legislation.document.path)
 
+    # Read text file content if applicable
+    text_content = None
+    if file_info.get('is_text'):
+        text_content = read_text_file(legislation.document.path)
+
     context = {
         'document_url': document_url,
         'document_title': legislation.title,
@@ -198,6 +246,7 @@ def view_passed_legislation_document(request, pk):
         'uploaded_by': legislation.posted_by.username if legislation.posted_by else None,
         'uploaded_at': legislation.created_at,
         'docx_html': docx_html,
+        'text_content': text_content,
         **file_info,
     }
 

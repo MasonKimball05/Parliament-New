@@ -210,7 +210,7 @@
         <!-- Custom Folders -->
         {% if folders_with_documents %}
             {% for folder, documents in folders_with_documents %}
-                <details class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200" {% if documents %}open{% endif %}>
+                <details class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
                     <summary class="bg-purple-50 dark:bg-purple-900/20 px-6 py-4 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/30 transition flex items-center justify-between">
                         <div class="flex items-center space-x-3">
                             <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -265,13 +265,13 @@
 
         <!-- Documents by Committee (for docs without a folder) -->
         {% for group in committee_doc_groups %}
-            <details class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200" open>
+            <details class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
                 <summary class="bg-blue-50 dark:bg-blue-900/20 px-6 py-4 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition flex items-center justify-between">
                     <div class="flex items-center space-x-3">
                         <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                         </svg>
-                        <span class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ group.committee.name }}</span>
+                        <span class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ group.committee_name }}</span>
                     </div>
                     <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-medium px-2.5 py-0.5 rounded">
                         {{ group.documents|length }} document{{ group.documents|length|pluralize }}

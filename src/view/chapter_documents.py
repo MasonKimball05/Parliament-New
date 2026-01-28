@@ -27,7 +27,9 @@ def chapter_documents(request):
             docs_by_folder_id[doc.chapter_folder.id].append(doc)
         else:
             # Group by committee if no folder is set
-            docs_by_committee[doc.committee.id].append(doc)
+            # chapter-level docs (committee=None) go under key 'chapter'
+            key = doc.committee.id if doc.committee else 'chapter'
+            docs_by_committee[key].append(doc)
 
     # Now pair each folder with its documents (empty list if no documents)
     for folder in all_folders.order_by('name'):
@@ -36,12 +38,21 @@ def chapter_documents(request):
 
     # Build committee document groups for documents without folders
     committee_doc_groups = []
+    # Separate chapter-level docs from committee docs
+    chapter_level_docs = docs_by_committee.pop('chapter', [])
+    if chapter_level_docs:
+        committee_doc_groups.append({
+            'committee': None,
+            'committee_name': 'Chapter Documents',
+            'documents': chapter_level_docs,
+        })
     committee_ids_with_docs = set(docs_by_committee.keys())
     if committee_ids_with_docs:
         committees_for_docs = Committee.objects.filter(id__in=committee_ids_with_docs).order_by('name')
         for committee in committees_for_docs:
             committee_doc_groups.append({
                 'committee': committee,
+                'committee_name': committee.name,
                 'documents': docs_by_committee[committee.id],
             })
 

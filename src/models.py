@@ -916,7 +916,7 @@ class CommitteeDocument(models.Model):
         ('custom', 'Custom Users'),
     ]
 
-    committee = models.ForeignKey(Committee, on_delete=models.CASCADE, related_name='documents')
+    committee = models.ForeignKey(Committee, on_delete=models.CASCADE, null=True, blank=True, related_name='documents')
     title = models.CharField(max_length=200)
     document = models.FileField(upload_to='committee_documents/', storage=DualLocationStorage())
     uploaded_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
@@ -950,7 +950,9 @@ class CommitteeDocument(models.Model):
         ordering = ['-uploaded_at']
 
     def __str__(self):
-        return f"{self.committee.code} - {self.title}"
+        if self.committee:
+            return f"{self.committee.code} - {self.title}"
+        return f"Chapter - {self.title}"
 
     def get_version_string(self):
         """Return formatted version string like 'v1.0'"""
@@ -966,8 +968,12 @@ class CommitteeDocument(models.Model):
         if self.visibility == 'all_members':
             return True
         elif self.visibility == 'committee_only':
+            if not self.committee:
+                return True  # Chapter-level docs with committee_only treated as all_members
             return user in self.committee.members.all()
         elif self.visibility == 'chairs_only':
+            if not self.committee:
+                return user.is_officer
             return user in self.committee.chairs.all()
         elif self.visibility == 'officers_only':
             return user.member_type == 'Officer' or user.is_officer
@@ -2609,6 +2615,143 @@ class BugReport(models.Model):
         self.resolved_at = timezone.now()
         self.resolved_by = user
         self.save()
+
+
+class ChapterMinutes(models.Model):
+    """
+    Chapter meeting minutes with attendance tracking and embedded motions
+    """
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('finalized', 'Finalized'),
+        ('published', 'Published'),
+    ]
+
+    VISIBILITY_CHOICES = [
+        ('all_members', 'All Chapter Members'),
+        ('officers_only', 'Officers Only'),
+        ('custom', 'Custom Users'),
+    ]
+
+    title = models.CharField(max_length=200)
+    date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField(null=True, blank=True, help_text='Time the meeting was adjourned')
+    event = models.ForeignKey(Event, on_delete=models.SET_NULL, null=True, blank=True, related_name='chapter_minutes')
+    created_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE, related_name='created_minutes')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    attendance_taken = models.BooleanField(default=False)
+    attendance_data = models.JSONField(null=True, blank=True, help_text='Snapshot of attendance: [{user_id, name, status}, ...]')
+    published_document = models.ForeignKey(CommitteeDocument, on_delete=models.SET_NULL, null=True, blank=True, related_name='source_minutes')
+    publish_visibility = models.CharField(max_length=20, choices=VISIBILITY_CHOICES, default='all_members')
+
+    # Edit tracking for published minutes
+    edited_after_publish = models.BooleanField(default=False)
+    last_edit_at = models.DateTimeField(null=True, blank=True)
+    last_edit_by = models.ForeignKey('ParliamentUser', on_delete=models.SET_NULL, null=True, blank=True, related_name='edited_minutes')
+    last_edit_reason = models.TextField(blank=True, help_text='Reason for editing after publication')
+
+    class Meta:
+        ordering = ['-date', '-start_time']
+        verbose_name_plural = 'Chapter Minutes'
+
+    def __str__(self):
+        return f"{self.title} - {self.date}"
+
+
+class MinutesSection(models.Model):
+    """
+    Ordered content blocks within chapter minutes (text, motion, header, or section_end)
+    """
+    SECTION_TYPES = [
+        ('text', 'Text'),
+        ('motion', 'Motion'),
+        ('header', 'Section Header'),
+        ('section_end', 'Section End'),
+    ]
+
+    minutes = models.ForeignKey(ChapterMinutes, on_delete=models.CASCADE, related_name='sections')
+    section_type = models.CharField(max_length=20, choices=SECTION_TYPES)
+    order = models.IntegerField(default=0)
+    content = models.TextField(blank=True, help_text='Text content for text sections')
+    title = models.CharField(max_length=200, blank=True, help_text='Title for section headers')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order']
+
+    def __str__(self):
+        return f"{self.minutes.title} - Section {self.order} ({self.section_type})"
+
+
+class MinutesMotion(models.Model):
+    """
+    A motion or vote recorded within chapter minutes
+    """
+    MOTION_TYPE_CHOICES = [
+        ('custom', 'Custom Motion'),
+        ('approve_prev_minutes', 'Approval of Previous Minutes'),
+        ('approve_prev_minutes_uc', 'Approval of Previous Minutes by Unanimous Consent'),
+        ('table_motion', 'Motion to Table'),
+        ('call_question', 'Call the Question'),
+        ('adjourn', 'Motion to Adjourn'),
+        ('recess', 'Motion to Recess'),
+        ('amend', 'Motion to Amend'),
+        ('reconsider', 'Motion to Reconsider'),
+        ('point_of_order', 'Point of Order'),
+        ('other', 'Other'),
+    ]
+
+    VOTE_METHOD_CHOICES = [
+        ('voice', 'Voice Vote'),
+        ('show_of_hands', 'Show of Hands'),
+        ('roll_call', 'Roll Call'),
+        ('ballot', 'Ballot'),
+        ('unanimous_consent', 'Unanimous Consent'),
+        ('standing', 'Standing Vote'),
+    ]
+
+    RESULT_CHOICES = [
+        ('passed', 'Passed'),
+        ('failed', 'Failed'),
+        ('tabled', 'Tabled'),
+        ('withdrawn', 'Withdrawn'),
+        ('referred', 'Referred to Committee'),
+        ('no_vote', 'No Vote Taken'),
+    ]
+
+    CAUCUS_TYPE_CHOICES = [
+        ('moderated', 'Moderated'),
+        ('unmoderated', 'Unmoderated'),
+    ]
+
+    section = models.OneToOneField(MinutesSection, on_delete=models.CASCADE, related_name='motion')
+    motion_type = models.CharField(max_length=30, choices=MOTION_TYPE_CHOICES, default='custom')
+    motion_text = models.TextField()
+    context_notes = models.TextField(blank=True, help_text='Notes relevant to this motion')
+    author = models.ForeignKey('ParliamentUser', on_delete=models.SET_NULL, null=True, blank=True, related_name='authored_motions')
+    author_text = models.CharField(max_length=200, blank=True, help_text='Typed author name if not selected from dropdown')
+    received_second = models.BooleanField(default=False)
+    seconded_by_text = models.CharField(max_length=200, blank=True)
+    vote_method = models.CharField(max_length=20, choices=VOTE_METHOD_CHOICES, default='voice')
+    result = models.CharField(max_length=20, choices=RESULT_CHOICES, default='passed')
+    votes_for = models.PositiveIntegerField(null=True, blank=True)
+    votes_against = models.PositiveIntegerField(null=True, blank=True)
+    votes_abstain = models.PositiveIntegerField(null=True, blank=True)
+    caucus_held = models.BooleanField(default=False)
+    caucus_duration = models.PositiveIntegerField(null=True, blank=True, help_text='Duration in minutes')
+    caucus_type = models.CharField(max_length=15, choices=CAUCUS_TYPE_CHOICES, blank=True)
+    speaker_time = models.PositiveIntegerField(null=True, blank=True, help_text='Seconds per speaker (moderated caucus)')
+
+    def __str__(self):
+        return f"{self.get_motion_type_display()} - {self.motion_text[:50]}"
+
+    def get_author_display(self):
+        if self.author:
+            return self.author.get_display_name()
+        return self.author_text or 'Unknown'
 
 
 # Import feature flags models

@@ -5,6 +5,11 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from src.view.officer import *
 from src.view.officer.event_attendance import event_attendance_list, mark_event_attendance, review_excuses
+from src.view.officer.chapter_minutes import (
+    chapter_minutes_list, create_chapter_minutes, edit_chapter_minutes,
+    save_minutes_data, save_minutes_attendance, publish_chapter_minutes,
+    download_minutes_pdf, delete_chapter_minutes
+)
 from src.view.officer.manage_announcements import track_email_view, announcement_stats
 from src.view.committee import *
 from src.view.committee.manage_chat_permissions import manage_chat_permissions, add_guest_permission, update_guest_permission, remove_guest_permission
@@ -153,6 +158,16 @@ urlpatterns = [
     path('officers/attendance/event/<int:event_id>/', mark_event_attendance, name='mark_event_attendance'),
     path('officers/excuses/', review_excuses, name='review_excuses'),
     path('officers/excuses/<int:event_id>/', review_excuses, name='review_excuses'),
+
+    # Chapter Minutes (Officer)
+    path('officers/minutes/', chapter_minutes_list, name='chapter_minutes_list'),
+    path('officers/minutes/create/', create_chapter_minutes, name='create_chapter_minutes'),
+    path('officers/minutes/<int:minutes_id>/edit/', edit_chapter_minutes, name='edit_chapter_minutes'),
+    path('officers/minutes/<int:minutes_id>/save/', save_minutes_data, name='save_minutes_data'),
+    path('officers/minutes/<int:minutes_id>/save-attendance/', save_minutes_attendance, name='save_minutes_attendance'),
+    path('officers/minutes/<int:minutes_id>/publish/', publish_chapter_minutes, name='publish_chapter_minutes'),
+    path('officers/minutes/<int:minutes_id>/download-pdf/', download_minutes_pdf, name='download_minutes_pdf'),
+    path('officers/minutes/<int:minutes_id>/delete/', delete_chapter_minutes, name='delete_chapter_minutes'),
 
     path('make_event/', make_event, name='make_event'),
     path('manage_event/', manage_event, name='manage_event'),

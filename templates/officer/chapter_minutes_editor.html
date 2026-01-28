@@ -1,0 +1,1783 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Minutes - {{ minutes.title }} - Parliament{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-5xl">
+    <!-- Header -->
+    <div class="mb-6">
+        <div class="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-4">
+            <a href="{% url 'chapter_minutes_list' %}" class="hover:text-blue-600 dark:hover:text-blue-400">Chapter Minutes</a>
+            <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+            </svg>
+            <span class="text-gray-900 dark:text-white">{{ minutes.title }}</span>
+        </div>
+
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+                <h2 class="text-3xl font-bold text-gray-900 dark:text-white">{{ minutes.title }}</h2>
+                <div class="flex items-center gap-4 mt-1 text-gray-600 dark:text-gray-400 text-sm flex-wrap">
+                    <span>{{ minutes.date|date:"F j, Y" }}</span>
+                    <span>Called to Order: {{ minutes.start_time|time:"g:i A" }}</span>
+                    <span class="flex items-center gap-1.5">
+                        <span>Adjourned:</span>
+                        <input type="time" id="endTimeInput" value="{{ end_time_value }}"
+                               class="px-2 py-0.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               onchange="saveEndTime(this.value)">
+                        <button type="button" onclick="setEndTimeNow()" title="Set to now"
+                                class="p-0.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </button>
+                    </span>
+                    {% if minutes.event %}
+                    <span class="text-blue-600 dark:text-blue-400">Linked: {{ minutes.event.title }}</span>
+                    {% endif %}
+                    {% if minutes.status == 'draft' %}
+                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300">Draft</span>
+                    {% elif minutes.status == 'published' %}
+                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300">Published</span>
+                    {% if minutes.edited_after_publish %}
+                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-300" title="Last edited: {{ minutes.last_edit_at|date:'M d, Y g:i A' }} by {{ minutes.last_edit_by.get_display_name }}{% if minutes.last_edit_reason %} — {{ minutes.last_edit_reason }}{% endif %}">Edited</span>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+                <button type="button" onclick="previewPDF()" id="previewPdfBtn"
+                        class="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-medium py-2 px-3 rounded-lg transition flex items-center gap-1.5 text-sm whitespace-nowrap">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    Preview
+                </button>
+                <button type="button" onclick="downloadPDF()" id="downloadPdfBtn"
+                        class="bg-gray-600 hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600 text-white font-medium py-2 px-3 rounded-lg transition flex items-center gap-1.5 text-sm whitespace-nowrap">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    Download
+                </button>
+                <button type="button" onclick="saveDraft()" id="saveDraftBtn"
+                        class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium py-2 px-3 rounded-lg transition flex items-center gap-1.5 text-sm whitespace-nowrap">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+                    Save
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {% if minutes.status == 'published' %}
+    <!-- Published Warning Banner -->
+    <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-6">
+        <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <div>
+                <h4 class="font-semibold text-orange-800 dark:text-orange-300">These minutes are published</h4>
+                <p class="text-sm text-orange-700 dark:text-orange-400 mt-1">Any changes you make will be tracked and recorded with an edit reason. The published document in Chapter Documents will need to be manually updated if you want it to reflect these changes.</p>
+                {% if minutes.edited_after_publish %}
+                <p class="text-sm text-orange-600 dark:text-orange-500 mt-2">
+                    <strong>Last edited:</strong> {{ minutes.last_edit_at|date:"M d, Y g:i A" }} by {{ minutes.last_edit_by.get_display_name }}
+                    {% if minutes.last_edit_reason %}<br><strong>Reason:</strong> {{ minutes.last_edit_reason }}{% endif %}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ============================== -->
+    <!-- ATTENDANCE SECTION -->
+    <!-- ============================== -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md mb-6 overflow-hidden" id="attendanceSection">
+        <div class="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex justify-between items-center" onclick="toggleAttendance()">
+            <div class="flex items-center gap-3">
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Attendance</h3>
+                {% if minutes.attendance_taken %}
+                <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300">Saved</span>
+                {% endif %}
+            </div>
+            <svg id="attendanceChevron" class="w-5 h-5 text-gray-500 transition-transform {% if minutes.attendance_taken %}rotate-180{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+        </div>
+        <div id="attendanceBody" class="{% if minutes.attendance_taken %}hidden{% endif %}">
+            <div class="p-4 sm:p-6">
+                {% if has_linked_event %}
+                <!-- Linked Event Sync Banner -->
+                <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <div class="flex items-start gap-2">
+                        <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <div class="text-sm text-blue-800 dark:text-blue-300">
+                            <span class="font-semibold">Linked to event: {{ minutes.event.title }}</span><br>
+                            Attendance saved here will sync to the event. Members with approved excuses are pre-marked as excused. Pending excuses are shown for your review.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Excuse Summary (populated by JS) -->
+                <div id="excuseSummary" class="hidden mb-4"></div>
+                {% endif %}
+
+                <!-- Sort Controls -->
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                    <div class="flex items-center gap-3">
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sort by:</label>
+                        <select id="attendanceSortBy" onchange="sortAttendance()" class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="user_id">Member ID</option>
+                            <option value="name">Name</option>
+                            <option value="member_type">Role</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="markAllAttendance('present')" class="text-sm px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition font-medium">All Present</button>
+                        <button type="button" onclick="markAllAttendance('pending')" class="text-sm px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition font-medium">Clear All</button>
+                    </div>
+                </div>
+
+                <!-- Attendance Table -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700" id="attendanceTable">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Member</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Present</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Late</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Absent</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Excused</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendanceTableBody" class="divide-y divide-gray-200 dark:divide-gray-700">
+                            <!-- Filled by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Attendance Stats -->
+                <div id="attendanceStats" class="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-3 text-center text-sm">
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
+                        <div class="font-bold text-gray-900 dark:text-white" id="statTotal">0</div>
+                        <div class="text-gray-500 dark:text-gray-400">Total</div>
+                    </div>
+                    <div class="bg-green-50 dark:bg-green-900/30 rounded-lg p-2">
+                        <div class="font-bold text-green-600 dark:text-green-400" id="statPresent">0</div>
+                        <div class="text-gray-500 dark:text-gray-400">Present</div>
+                    </div>
+                    <div class="bg-yellow-50 dark:bg-yellow-900/30 rounded-lg p-2">
+                        <div class="font-bold text-yellow-600 dark:text-yellow-400" id="statLate">0</div>
+                        <div class="text-gray-500 dark:text-gray-400">Late</div>
+                    </div>
+                    <div class="bg-red-50 dark:bg-red-900/30 rounded-lg p-2">
+                        <div class="font-bold text-red-600 dark:text-red-400" id="statAbsent">0</div>
+                        <div class="text-gray-500 dark:text-gray-400">Absent</div>
+                    </div>
+                    <div class="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-2">
+                        <div class="font-bold text-blue-600 dark:text-blue-400" id="statExcused">0</div>
+                        <div class="text-gray-500 dark:text-gray-400">Excused</div>
+                    </div>
+                </div>
+
+                <!-- Save Attendance Button -->
+                <div class="mt-4 flex justify-end">
+                    <button type="button" onclick="saveAttendance()" id="saveAttendanceBtn"
+                            class="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white font-medium py-2 px-6 rounded-lg transition flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        Save Attendance
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================== -->
+    <!-- MINUTES EDITOR SECTION -->
+    <!-- ============================== -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md mb-6 overflow-hidden">
+        <div class="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Meeting Minutes</h3>
+        </div>
+        <div class="p-4 sm:p-6" id="sectionsContainer">
+            <!-- Sections rendered by JavaScript -->
+        </div>
+    </div>
+
+    <!-- ============================== -->
+    <!-- MOTION FORM (hidden by default) -->
+    <!-- ============================== -->
+    <div id="motionFormContainer" class="hidden bg-white dark:bg-gray-800 rounded-lg shadow-md mb-6 border-2 border-blue-300 dark:border-blue-700 overflow-hidden">
+        <div class="p-4 sm:p-6 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800">
+            <h3 class="text-lg font-bold text-blue-900 dark:text-blue-200 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                Add Motion / Vote
+            </h3>
+        </div>
+        <div class="p-4 sm:p-6">
+            <!-- Quick Presets -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quick Presets</label>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" onclick="applyPreset('approve_prev_minutes_uc')" class="text-sm px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition">Approve Prev. Minutes (UC)</button>
+                    <button type="button" onclick="applyPreset('approve_prev_minutes')" class="text-sm px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition">Approve Prev. Minutes</button>
+                    <button type="button" onclick="applyPreset('adjourn')" class="text-sm px-3 py-1.5 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">Motion to Adjourn</button>
+                    <button type="button" onclick="applyPreset('recess')" class="text-sm px-3 py-1.5 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">Motion to Recess</button>
+                    <button type="button" onclick="applyPreset('table_motion')" class="text-sm px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-900/50 transition">Motion to Table</button>
+                    <button type="button" onclick="applyPreset('call_question')" class="text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition">Call the Question</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Motion Type -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Motion Type</label>
+                    <select id="motionType" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                        {% for value, label in motion_type_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Author -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Author of Motion</label>
+                    <div class="flex gap-2">
+                        <select id="motionAuthorSelect" onchange="syncAuthorField()" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">-- Select member --</option>
+                        </select>
+                        <span class="self-center text-gray-400 text-sm">or</span>
+                        <input type="text" id="motionAuthorText" placeholder="Type name" onchange="clearAuthorSelect()"
+                               class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Motion Text -->
+            <div class="mt-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Motion Text <span class="text-red-500">*</span></label>
+                <textarea id="motionText" rows="2" placeholder="Describe the motion..."
+                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+
+            <!-- Context Notes -->
+            <div class="mt-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Context Notes <span class="text-gray-400 text-xs">(minutes relevant to this motion)</span></label>
+                <textarea id="motionContextNotes" rows="3" placeholder="Any additional context or discussion notes for this motion..."
+                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+                <!-- Received Second -->
+                <div>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="motionSecond" onchange="toggleSecondField()"
+                               class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded">
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Received Second</span>
+                    </label>
+                    <input type="text" id="motionSecondedBy" placeholder="Seconded by" disabled
+                           class="mt-2 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
+                </div>
+
+                <!-- Vote Method -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vote Method</label>
+                    <select id="motionVoteMethod" onchange="toggleVoteCountFields()"
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                        {% for value, label in vote_method_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Result -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Result</label>
+                    <select id="motionResult"
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                        {% for value, label in result_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Vote Counts (shown for roll call / ballot) -->
+            <div id="voteCountFields" class="hidden mt-4 grid grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Votes For</label>
+                    <input type="number" id="motionVotesFor" min="0" placeholder="0"
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Votes Against</label>
+                    <input type="number" id="motionVotesAgainst" min="0" placeholder="0"
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Abstentions</label>
+                    <input type="number" id="motionVotesAbstain" min="0" placeholder="0"
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+
+            <!-- Caucus -->
+            <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <label class="flex items-center gap-2 cursor-pointer mb-3">
+                    <input type="checkbox" id="motionCaucus" onchange="toggleCaucusFields()"
+                           class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Caucus Held</span>
+                </label>
+                <div id="caucusFields" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Duration (minutes)</label>
+                        <input type="number" id="motionCaucusDuration" min="1" placeholder="5"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+                        <select id="motionCaucusType" onchange="toggleSpeakerTime()"
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">-- Select --</option>
+                            {% for value, label in caucus_type_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div id="speakerTimeField" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Seconds per Speaker</label>
+                        <input type="number" id="motionSpeakerTime" min="1" placeholder="60"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" onclick="cancelMotion()"
+                        class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                    Cancel
+                </button>
+                <button type="button" onclick="saveMotion()"
+                        class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    Save Motion
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================== -->
+    <!-- SECTION HEADER FORM (hidden by default) -->
+    <!-- ============================== -->
+    <div id="sectionFormContainer" class="hidden bg-white dark:bg-gray-800 rounded-lg shadow-md mb-6 border-2 border-purple-300 dark:border-purple-700 overflow-hidden">
+        <div class="p-4 sm:p-6 bg-purple-50 dark:bg-purple-900/20 border-b border-purple-200 dark:border-purple-800">
+            <h3 class="text-lg font-bold text-purple-900 dark:text-purple-200 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+                Add Section Header
+            </h3>
+            <p class="text-sm text-purple-700 dark:text-purple-400 mt-1">Use section headers to organize minutes by officer reports, agenda items, etc.</p>
+        </div>
+        <div class="p-4 sm:p-6">
+            <!-- Quick Presets -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quick Presets</label>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" onclick="applySectionPreset('President\'s')" class="text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition">Presidents</button>
+                    <button type="button" onclick="applySectionPreset('Vice President\'s')" class="text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition">VPs</button>
+                    <button type="button" onclick="applySectionPreset('Finance\'s')" class="text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition">Finance</button>
+                    <button type="button" onclick="applySectionPreset('Administration\'s')" class="text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition">Administration</button>
+                    <button type="button" onclick="applySectionPreset('Recruitment')" class="text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition">Recruitment</button>
+                    <button type="button" onclick="applySectionPreset('Risk Management')" class="text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition">Risk Management</button>
+                    <button type="button" onclick="applySectionPreset('Old Business')" class="text-sm px-3 py-1.5 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">Old Business</button>
+                    <button type="button" onclick="applySectionPreset('New Business')" class="text-sm px-3 py-1.5 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">New Business</button>
+                    <button type="button" onclick="applySectionPreset('Announcements')" class="text-sm px-3 py-1.5 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">Announcements</button>
+                </div>
+            </div>
+
+            <!-- Section Title -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Section Title <span class="text-red-500">*</span></label>
+                <input type="text" id="sectionTitle" placeholder="e.g., President's Report, Committee Updates, Old Business..."
+                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" onclick="cancelSection()"
+                        class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                    Cancel
+                </button>
+                <button type="button" onclick="saveSection()"
+                        class="bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white font-medium py-2 px-6 rounded-lg transition flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    Add Section
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================== -->
+    <!-- ADJOURN BUTTON -->
+    <!-- ============================== -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 mb-6">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Adjourn Meeting</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Sets the adjournment time to the current time.</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="adjournedTimeDisplay" class="text-sm text-gray-600 dark:text-gray-400 hidden">
+                    Adjourned at <span id="adjournedTimeValue" class="font-semibold text-gray-900 dark:text-white"></span>
+                </span>
+                <button type="button" onclick="adjournMeeting()"
+                        class="bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white font-medium py-2 px-6 rounded-lg transition flex items-center gap-2 whitespace-nowrap">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Adjourn Meeting
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================== -->
+    <!-- PUBLISH SECTION -->
+    <!-- ============================== -->
+    {% if minutes.status != 'published' %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+        <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Publish to Documents</h3>
+        <form method="post" action="{% url 'publish_chapter_minutes' minutes.id %}" id="publishForm">
+            {% csrf_token %}
+            <div class="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Visibility</label>
+                    <select name="visibility" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="all_members">All Chapter Members</option>
+                        <option value="officers_only">Officers Only</option>
+                    </select>
+                </div>
+                <button type="submit" onclick="return confirm('Publish these minutes to the chapter documents page? This will save the current state.')"
+                        class="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white font-medium py-2 px-6 rounded-lg transition flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                    Publish Minutes
+                </button>
+            </div>
+        </form>
+    </div>
+    {% else %}
+    <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 sm:p-6 text-center">
+        <p class="text-green-800 dark:text-green-300 font-medium">These minutes have been published to the chapter documents page.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ============================== -->
+<!-- JAVASCRIPT -->
+<!-- ============================== -->
+<script>
+const CSRF_TOKEN = '{{ csrf_token }}';
+const MINUTES_ID = {{ minutes.id }};
+const SAVE_URL = '{% url "save_minutes_data" minutes.id %}';
+const ATTENDANCE_URL = '{% url "save_minutes_attendance" minutes.id %}';
+const IS_PUBLISHED = {{ is_published|yesno:"true,false" }};
+
+// Data stores
+let sections = JSON.parse('{{ sections_json|escapejs }}');
+let members = JSON.parse('{{ members_json|escapejs }}');
+const memberChoices = JSON.parse('{{ member_choices_json|escapejs }}');
+let motionsData = []; // Motion objects in order of appearance
+let headersData = []; // Section header titles in order of appearance
+let sectionEndersCount = 0; // Count of section end markers
+let pendingCursorPos = -1; // Cursor position in textarea for new motion/section insertion
+let lastValidText = ''; // Snapshot for protecting markers from accidental edits
+let currentEditReason = ''; // Reason for editing published minutes
+
+// Motion type labels for display
+const MOTION_TYPE_LABELS = {
+    {% for value, label in motion_type_choices %}'{{ value }}': '{{ label }}',{% endfor %}
+};
+const VOTE_METHOD_LABELS = {
+    {% for value, label in vote_method_choices %}'{{ value }}': '{{ label }}',{% endfor %}
+};
+const RESULT_LABELS = {
+    {% for value, label in result_choices %}'{{ value }}': '{{ label }}',{% endfor %}
+};
+
+// ============================
+// ATTENDANCE
+// ============================
+const HAS_LINKED_EVENT = {{ has_linked_event|yesno:"true,false" }};
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function renderExcuseSummary() {
+    const summaryEl = document.getElementById('excuseSummary');
+    if (!summaryEl || !HAS_LINKED_EVENT) return;
+
+    const approved = members.filter(m => m.excuse_status === 'approved');
+    const pending = members.filter(m => m.excuse_status === 'pending');
+
+    if (approved.length === 0 && pending.length === 0) {
+        summaryEl.classList.add('hidden');
+        return;
+    }
+
+    summaryEl.classList.remove('hidden');
+    let html = '';
+
+    if (approved.length > 0) {
+        html += `<div class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-2">
+            <div class="flex items-center gap-2 mb-1">
+                <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span class="text-sm font-semibold text-blue-800 dark:text-blue-300">Approved Excuses (${approved.length})</span>
+            </div>
+            <div class="flex flex-wrap gap-2 mt-1">`;
+        approved.forEach(m => {
+            html += `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 cursor-help" title="${escapeHtml(m.excuse_reason || '')}">${escapeHtml(m.name)}</span>`;
+        });
+        html += `</div></div>`;
+    }
+
+    if (pending.length > 0) {
+        html += `<div class="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="relative flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-500"></span></span>
+                <span class="text-sm font-semibold text-yellow-800 dark:text-yellow-300">Pending Excuses (${pending.length})</span>
+                <span class="text-xs text-yellow-600 dark:text-yellow-400">- Mark as excused to approve</span>
+            </div>
+            <div class="space-y-1 mt-1">`;
+        pending.forEach(m => {
+            html += `<div class="flex items-start gap-2 text-xs text-yellow-800 dark:text-yellow-300">
+                <span class="font-medium whitespace-nowrap">${escapeHtml(m.name)}:</span>
+                <span class="text-yellow-700 dark:text-yellow-400">${escapeHtml(m.excuse_reason || 'No reason given')}</span>
+            </div>`;
+        });
+        html += `</div></div>`;
+    }
+
+    summaryEl.innerHTML = html;
+}
+
+function renderAttendance() {
+    const tbody = document.getElementById('attendanceTableBody');
+    tbody.innerHTML = '';
+    members.forEach((m, idx) => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50 dark:hover:bg-gray-700';
+        row.dataset.idx = idx;
+
+        const statusColors = {
+            present: 'bg-green-50 dark:bg-green-900/20',
+            late: 'bg-yellow-50 dark:bg-yellow-900/20',
+            absent: 'bg-red-50 dark:bg-red-900/20',
+            excused: 'bg-blue-50 dark:bg-blue-900/20',
+        };
+        if (statusColors[m.status]) row.className = statusColors[m.status];
+
+        // Build excuse badge HTML
+        let excuseBadge = '';
+        if (m.excuse_status === 'approved') {
+            excuseBadge = `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 cursor-help" title="${escapeHtml(m.excuse_reason || '')}">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"/></svg>
+                Excused</span>`;
+        } else if (m.excuse_status === 'pending') {
+            excuseBadge = `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 cursor-help" title="${escapeHtml(m.excuse_reason || '')}">
+                <span class="relative flex h-1.5 w-1.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span><span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-500"></span></span>
+                Excuse Pending</span>`;
+        } else if (m.excuse_status === 'denied') {
+            excuseBadge = `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 cursor-help" title="${escapeHtml(m.excuse_reason || '')}">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                Denied</span>`;
+        }
+
+        row.innerHTML = `
+            <td class="px-4 py-3">
+                <div class="flex items-center gap-3">
+                    <div class="flex-shrink-0 h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+                        <span class="text-blue-600 dark:text-blue-400 font-semibold text-xs">${m.name.charAt(0).toUpperCase()}</span>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-medium text-gray-900 dark:text-white">${escapeHtml(m.name)}</span>
+                            ${excuseBadge}
+                        </div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">${escapeHtml(String(m.user_id))} &middot; ${escapeHtml(m.member_type)}</div>
+                    </div>
+                </div>
+            </td>
+            <td class="px-4 py-3 text-center">
+                <input type="radio" name="att_${m.user_id}" value="present" ${m.status === 'present' ? 'checked' : ''}
+                       onchange="setAttendanceStatus(${idx}, 'present')"
+                       class="h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+            </td>
+            <td class="px-4 py-3 text-center">
+                <input type="radio" name="att_${m.user_id}" value="late" ${m.status === 'late' ? 'checked' : ''}
+                       onchange="setAttendanceStatus(${idx}, 'late')"
+                       class="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+            </td>
+            <td class="px-4 py-3 text-center">
+                <input type="radio" name="att_${m.user_id}" value="absent" ${m.status === 'absent' ? 'checked' : ''}
+                       onchange="setAttendanceStatus(${idx}, 'absent')"
+                       class="h-5 w-5 text-red-600 focus:ring-red-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+            </td>
+            <td class="px-4 py-3 text-center">
+                <input type="radio" name="att_${m.user_id}" value="excused" ${m.status === 'excused' ? 'checked' : ''}
+                       onchange="setAttendanceStatus(${idx}, 'excused')"
+                       class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+    updateAttendanceStats();
+}
+
+function setAttendanceStatus(idx, status) {
+    members[idx].status = status;
+    renderAttendance();
+}
+
+function markAllAttendance(status) {
+    members.forEach(m => m.status = status);
+    renderAttendance();
+}
+
+function sortAttendance() {
+    const sortBy = document.getElementById('attendanceSortBy').value;
+    members.sort((a, b) => {
+        if (sortBy === 'name') return a.name.localeCompare(b.name);
+        if (sortBy === 'user_id') return String(a.user_id).localeCompare(String(b.user_id));
+        if (sortBy === 'member_type') return a.member_type.localeCompare(b.member_type) || a.name.localeCompare(b.name);
+        return 0;
+    });
+    renderAttendance();
+}
+
+function updateAttendanceStats() {
+    const total = members.length;
+    const present = members.filter(m => m.status === 'present').length;
+    const late = members.filter(m => m.status === 'late').length;
+    const absent = members.filter(m => m.status === 'absent').length;
+    const excused = members.filter(m => m.status === 'excused').length;
+
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statPresent').textContent = present;
+    document.getElementById('statLate').textContent = late;
+    document.getElementById('statAbsent').textContent = absent;
+    document.getElementById('statExcused').textContent = excused;
+}
+
+function toggleAttendance() {
+    const body = document.getElementById('attendanceBody');
+    const chevron = document.getElementById('attendanceChevron');
+    body.classList.toggle('hidden');
+    chevron.classList.toggle('rotate-180');
+}
+
+async function saveAttendance() {
+    const btn = document.getElementById('saveAttendanceBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    try {
+        const resp = await fetch(ATTENDANCE_URL, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+            body: JSON.stringify({attendance: members}),
+        });
+        const data = await resp.json();
+        if (data.success) {
+            // Collapse attendance
+            document.getElementById('attendanceBody').classList.add('hidden');
+            document.getElementById('attendanceChevron').classList.add('rotate-180');
+            // Show saved badge
+            const header = document.querySelector('#attendanceSection .flex.items-center.gap-3');
+            if (!header.querySelector('.bg-green-100')) {
+                header.insertAdjacentHTML('beforeend', '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300">Saved</span>');
+            }
+        } else {
+            alert(data.error || 'Failed to save attendance.');
+        }
+    } catch (e) {
+        alert('Error saving attendance.');
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Save Attendance';
+}
+
+// ============================
+// SECTIONS — Single Textarea with Inline Motion/Section Markers
+// ============================
+const MOTION_MARKER_RE = /^──── ⚖ .+? ────$/gm;
+const SECTION_MARKER_RE = /^──── § .+? ────$/gm;
+const SECTION_END_MARKER_RE = /^──── §\/ ────$/gm;
+
+function showMarkerWarning() {
+    // Show a brief toast warning when user tries to edit a motion marker
+    let toast = document.getElementById('markerWarningToast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'markerWarningToast';
+        toast.className = 'fixed bottom-4 right-4 bg-yellow-100 dark:bg-yellow-900 border border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200 px-4 py-2 rounded-lg shadow-lg text-sm transition-opacity duration-300 z-50';
+        toast.textContent = 'Motion markers cannot be edited. Use the delete button on the motion card.';
+        document.body.appendChild(toast);
+    }
+    toast.style.opacity = '1';
+    toast.style.display = 'block';
+    clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => { toast.style.display = 'none'; }, 300);
+    }, 2500);
+}
+
+function getMotionMarkerLine(motion) {
+    const label = MOTION_TYPE_LABELS[motion.motion_type] || 'Motion';
+    const result = RESULT_LABELS[motion.result] || '';
+    return '──── ⚖ ' + label + (result ? ' — ' + result : '') + ' ────';
+}
+
+function getSectionMarkerLine(title) {
+    return '──── § ' + title + ' ────';
+}
+
+function getSectionEndMarkerLine() {
+    return '──── §/ ────';
+}
+
+function extractSectionTitle(marker) {
+    const match = marker.match(/^──── § (.+?) ────$/);
+    return match ? match[1] : '';
+}
+
+// Convert sections array → single text string with motion/section markers
+function sectionsToText() {
+    motionsData = [];
+    headersData = [];
+    sectionEndersCount = 0;
+    let text = '';
+    sections.forEach((s) => {
+        if (s.type === 'text') {
+            text += s.content;
+        } else if (s.type === 'motion' && s.motion) {
+            motionsData.push({...s.motion});
+            if (text.length > 0 && !text.endsWith('\n')) text += '\n';
+            text += getMotionMarkerLine(s.motion) + '\n';
+        } else if (s.type === 'header') {
+            headersData.push(s.title || s.content || '');
+            if (text.length > 0 && !text.endsWith('\n')) text += '\n';
+            text += getSectionMarkerLine(s.title || s.content || 'Section') + '\n';
+        } else if (s.type === 'section_end') {
+            sectionEndersCount++;
+            if (text.length > 0 && !text.endsWith('\n')) text += '\n';
+            text += getSectionEndMarkerLine() + '\n';
+        }
+    });
+    return text;
+}
+
+// Parse single text string + motionsData/headersData → sections array (for saving to DB/PDF)
+function textToSections(text) {
+    // Combined regex to find motion, section header, and section end markers
+    const combinedRE = /^──── (⚖|§|§\/) .+? ────$|^──── §\/ ────$/gm;
+    const newSections = [];
+    let lastEnd = 0;
+    let motionIdx = 0;
+    let headerIdx = 0;
+    let match;
+
+    while ((match = combinedRE.exec(text)) !== null) {
+        let before = text.substring(lastEnd, match.index);
+        if (before.endsWith('\n')) before = before.slice(0, -1);
+        newSections.push({type: 'text', content: before, order: newSections.length});
+
+        const fullMatch = match[0];
+        if (fullMatch.includes('⚖') && motionIdx < motionsData.length) {
+            newSections.push({type: 'motion', content: '', order: newSections.length, motion: motionsData[motionIdx]});
+            motionIdx++;
+        } else if (fullMatch === '──── §/ ────') {
+            // Section end marker
+            newSections.push({type: 'section_end', content: '', order: newSections.length});
+        } else if (fullMatch.includes('§') && !fullMatch.includes('§/') && headerIdx < headersData.length) {
+            newSections.push({type: 'header', content: '', title: headersData[headerIdx], order: newSections.length});
+            headerIdx++;
+        }
+
+        lastEnd = match.index + match[0].length;
+        if (text[lastEnd] === '\n') lastEnd++;
+    }
+
+    // Remaining text after last marker
+    newSections.push({type: 'text', content: text.substring(lastEnd), order: newSections.length});
+    return newSections;
+}
+
+function renderSections() {
+    const container = document.getElementById('sectionsContainer');
+    container.innerHTML = '';
+
+    const combinedText = sectionsToText();
+
+    // Single textarea
+    const textarea = document.createElement('textarea');
+    textarea.id = 'mainTextarea';
+    textarea.className = 'w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y';
+    textarea.rows = Math.max(6, (combinedText.match(/\n/g) || []).length + 3);
+    textarea.value = combinedText;
+    textarea.placeholder = 'Start typing your minutes here...';
+    textarea.addEventListener('input', function() {
+        // Auto-resize
+        this.style.height = 'auto';
+        this.style.height = this.scrollHeight + 'px';
+
+        // Protect motion markers from being edited or deleted
+        if (motionsData.length > 0) {
+            const currentMarkers = this.value.match(new RegExp(MOTION_MARKER_RE.source, 'gm')) || [];
+            const expectedMarkers = motionsData.map(m => getMotionMarkerLine(m));
+            let valid = currentMarkers.length === expectedMarkers.length;
+            if (valid) {
+                for (let i = 0; i < expectedMarkers.length; i++) {
+                    if (currentMarkers[i] !== expectedMarkers[i]) { valid = false; break; }
+                }
+            }
+            if (!valid) {
+                const pos = this.selectionStart;
+                this.value = lastValidText;
+                this.selectionStart = this.selectionEnd = Math.min(pos, lastValidText.length);
+                showMarkerWarning();
+                return;
+            }
+        }
+
+        // Protect section markers from being edited or deleted
+        if (headersData.length > 0) {
+            const currentSectionMarkers = this.value.match(new RegExp(SECTION_MARKER_RE.source, 'gm')) || [];
+            const expectedSectionMarkers = headersData.map(h => getSectionMarkerLine(h));
+            let valid = currentSectionMarkers.length === expectedSectionMarkers.length;
+            if (valid) {
+                for (let i = 0; i < expectedSectionMarkers.length; i++) {
+                    if (currentSectionMarkers[i] !== expectedSectionMarkers[i]) { valid = false; break; }
+                }
+            }
+            if (!valid) {
+                const pos = this.selectionStart;
+                this.value = lastValidText;
+                this.selectionStart = this.selectionEnd = Math.min(pos, lastValidText.length);
+                showMarkerWarning();
+                return;
+            }
+        }
+
+        // Protect section end markers from being edited or deleted
+        if (sectionEndersCount > 0) {
+            const currentEndMarkers = this.value.match(new RegExp(SECTION_END_MARKER_RE.source, 'gm')) || [];
+            if (currentEndMarkers.length !== sectionEndersCount) {
+                const pos = this.selectionStart;
+                this.value = lastValidText;
+                this.selectionStart = this.selectionEnd = Math.min(pos, lastValidText.length);
+                showMarkerWarning();
+                return;
+            }
+        }
+
+        lastValidText = this.value;
+    });
+    container.appendChild(textarea);
+
+    // Store valid snapshot
+    lastValidText = combinedText;
+
+    setTimeout(() => {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    }, 0);
+
+    // Buttons row
+    const btnsDiv = document.createElement('div');
+    btnsDiv.className = 'mt-1 mb-3 flex flex-wrap gap-2';
+
+    // "Add Motion at Cursor" button
+    const addMotionBtn = document.createElement('button');
+    addMotionBtn.type = 'button';
+    addMotionBtn.className = 'flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20';
+    addMotionBtn.innerHTML = `
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Add Motion at Cursor
+    `;
+    addMotionBtn.onclick = function() { insertMotionAtCursor(); };
+    btnsDiv.appendChild(addMotionBtn);
+
+    // "Add Section Header at Cursor" button
+    const addSectionBtn = document.createElement('button');
+    addSectionBtn.type = 'button';
+    addSectionBtn.className = 'flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 transition px-2 py-1 rounded hover:bg-purple-50 dark:hover:bg-purple-900/20';
+    addSectionBtn.innerHTML = `
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+        Add Section Header at Cursor
+    `;
+    addSectionBtn.onclick = function() { insertSectionAtCursor(); };
+    btnsDiv.appendChild(addSectionBtn);
+
+    // "End Section at Cursor" button
+    const endSectionBtn = document.createElement('button');
+    endSectionBtn.type = 'button';
+    endSectionBtn.className = 'flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 transition px-2 py-1 rounded hover:bg-purple-50 dark:hover:bg-purple-900/20';
+    endSectionBtn.innerHTML = `
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8"/></svg>
+        End Section at Cursor
+    `;
+    endSectionBtn.onclick = function() { insertSectionEndAtCursor(); };
+    btnsDiv.appendChild(endSectionBtn);
+
+    container.appendChild(btnsDiv);
+
+    // Section header and ender cards below the textarea - in order of appearance
+    if (headersData.length > 0 || sectionEndersCount > 0) {
+        const sectionsDiv = document.createElement('div');
+        sectionsDiv.className = 'space-y-2 mt-2';
+        const sectionTitle = document.createElement('div');
+        sectionTitle.className = 'text-sm font-semibold text-gray-600 dark:text-gray-400';
+        sectionTitle.textContent = 'Sections (' + headersData.length + ' headers, ' + sectionEndersCount + ' enders)';
+        sectionsDiv.appendChild(sectionTitle);
+
+        // Parse the textarea to get markers in order of appearance
+        const text = textarea.value;
+        const orderedMarkers = [];
+
+        // Find all section headers with their positions
+        const headerRE = new RegExp(SECTION_MARKER_RE.source, 'gm');
+        let headerMatch;
+        let headerIdx = 0;
+        while ((headerMatch = headerRE.exec(text)) !== null) {
+            orderedMarkers.push({
+                type: 'header',
+                index: headerIdx,
+                position: headerMatch.index,
+                title: headersData[headerIdx] || ''
+            });
+            headerIdx++;
+        }
+
+        // Find all section enders with their positions
+        const enderRE = new RegExp(SECTION_END_MARKER_RE.source, 'gm');
+        let enderMatch;
+        let enderIdx = 0;
+        while ((enderMatch = enderRE.exec(text)) !== null) {
+            orderedMarkers.push({
+                type: 'ender',
+                index: enderIdx,
+                position: enderMatch.index
+            });
+            enderIdx++;
+        }
+
+        // Sort by position in text
+        orderedMarkers.sort((a, b) => a.position - b.position);
+
+        // Render in order
+        orderedMarkers.forEach(marker => {
+            if (marker.type === 'header') {
+                sectionsDiv.appendChild(createSectionCard(marker.title, marker.index));
+            } else {
+                sectionsDiv.appendChild(createSectionEndCard(marker.index));
+            }
+        });
+
+        container.appendChild(sectionsDiv);
+    }
+
+    // Motion cards below the textarea
+    if (motionsData.length > 0) {
+        const cardsDiv = document.createElement('div');
+        cardsDiv.className = 'space-y-2 mt-2';
+        const header = document.createElement('div');
+        header.className = 'text-sm font-semibold text-gray-600 dark:text-gray-400';
+        header.textContent = 'Motions (' + motionsData.length + ')';
+        cardsDiv.appendChild(header);
+        motionsData.forEach((motion, i) => {
+            cardsDiv.appendChild(createMotionCard(motion, i));
+        });
+        container.appendChild(cardsDiv);
+    }
+}
+
+function createSectionCard(title, sectionIdx) {
+    const div = document.createElement('div');
+    div.className = 'border-l-4 border-purple-500 bg-purple-50 dark:bg-purple-900/20 rounded-r-lg p-3';
+
+    div.innerHTML = `
+        <div class="flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+                <span class="font-semibold text-purple-900 dark:text-purple-200">↓ ${escapeHtml(title)}</span>
+                <span class="text-xs text-purple-500 dark:text-purple-400">(section start)</span>
+            </div>
+            <div class="flex gap-1 ml-3 flex-shrink-0">
+                <button type="button" onclick="editSection(${sectionIdx})" class="p-1 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded" title="Edit">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                </button>
+                <button type="button" onclick="deleteSection(${sectionIdx})" class="p-1 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 rounded" title="Delete">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+            </div>
+        </div>
+    `;
+    return div;
+}
+
+function createSectionEndCard(enderIdx) {
+    const div = document.createElement('div');
+    div.className = 'border-l-4 border-purple-300 bg-purple-50/50 dark:bg-purple-900/10 rounded-r-lg p-2';
+
+    div.innerHTML = `
+        <div class="flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-purple-400 dark:text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8"/></svg>
+                <span class="text-sm text-purple-700 dark:text-purple-300">↑ Section End</span>
+            </div>
+            <button type="button" onclick="deleteSectionEnd(${enderIdx})" class="p-1 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 rounded" title="Delete">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+        </div>
+    `;
+    return div;
+}
+
+function insertMotionAtCursor() {
+    const textarea = document.getElementById('mainTextarea');
+    if (!textarea) return;
+    pendingCursorPos = textarea.selectionStart;
+    showMotionForm();
+}
+
+function createMotionCard(motion, motionIdx) {
+    const m = motion;
+    const div = document.createElement('div');
+    div.className = 'border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20 rounded-r-lg p-4';
+
+    const authorName = m.author_id
+        ? (memberChoices.find(c => String(c.user_id) === String(m.author_id)) || {}).name || m.author_text
+        : m.author_text || 'Unknown';
+
+    let html = `
+        <div class="flex justify-between items-start">
+            <div>
+                <div class="text-sm font-bold text-blue-900 dark:text-blue-200">${MOTION_TYPE_LABELS[m.motion_type] || m.motion_type}</div>
+                <div class="text-sm text-gray-700 dark:text-gray-300 mt-1">${escapeHtml(m.motion_text || '')}</div>
+            </div>
+            <div class="flex gap-1 ml-3 flex-shrink-0">
+                <button type="button" onclick="editMotion(${motionIdx})" class="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded" title="Edit">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                </button>
+                <button type="button" onclick="deleteMotion(${motionIdx})" class="p-1 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 rounded" title="Delete">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="mt-2 flex flex-wrap gap-2 text-xs">
+            <span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">Author: ${escapeHtml(authorName)}</span>`;
+
+    if (m.received_second) {
+        html += `<span class="px-2 py-0.5 bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200 rounded">Seconded${m.seconded_by_text ? ': ' + escapeHtml(m.seconded_by_text) : ''}</span>`;
+    }
+    html += `<span class="px-2 py-0.5 bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 rounded">${VOTE_METHOD_LABELS[m.vote_method] || m.vote_method}</span>`;
+
+    const resultColors = {passed: 'bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200', failed: 'bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200'};
+    const resultClass = resultColors[m.result] || 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300';
+    html += `<span class="px-2 py-0.5 ${resultClass} rounded">${RESULT_LABELS[m.result] || m.result}</span>`;
+
+    if (m.votes_for != null) {
+        html += `<span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">Votes: ${m.votes_for}-${m.votes_against || 0}-${m.votes_abstain || 0}</span>`;
+    }
+    if (m.caucus_held) {
+        html += `<span class="px-2 py-0.5 bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200 rounded">Caucus: ${m.caucus_type || ''}${m.caucus_duration ? ' ' + m.caucus_duration + 'min' : ''}</span>`;
+    }
+    html += '</div>';
+
+    if (m.context_notes) {
+        html += `<div class="mt-2 text-xs text-gray-600 dark:text-gray-400 italic border-t border-blue-200 dark:border-blue-800 pt-2">${escapeHtml(m.context_notes)}</div>`;
+    }
+
+    div.innerHTML = html;
+    return div;
+}
+
+function deleteMotion(motionIdx) {
+    if (!confirm('Delete this motion?')) return;
+
+    // Remove the marker from textarea text
+    const textarea = document.getElementById('mainTextarea');
+    if (textarea) {
+        const text = textarea.value;
+        const re = new RegExp(MOTION_MARKER_RE.source, 'gm');
+        let count = 0;
+        let match;
+        while ((match = re.exec(text)) !== null) {
+            if (count === motionIdx) {
+                let start = match.index;
+                let end = match.index + match[0].length;
+                // Remove marker + one surrounding newline (not both, to avoid merging adjacent lines)
+                if (end < text.length && text[end] === '\n') {
+                    end++;
+                } else if (start > 0 && text[start - 1] === '\n') {
+                    start--;
+                }
+                textarea.value = text.substring(0, start) + text.substring(end);
+                break;
+            }
+            count++;
+        }
+    }
+
+    motionsData.splice(motionIdx, 1);
+    syncTextareasToData();
+    renderSections();
+    quietSave();
+}
+
+// ============================
+// MOTION FORM
+// ============================
+function showMotionForm() {
+    // Reset form fields
+    document.getElementById('motionType').value = 'custom';
+    document.getElementById('motionText').value = '';
+    document.getElementById('motionContextNotes').value = '';
+    document.getElementById('motionAuthorSelect').value = '';
+    document.getElementById('motionAuthorText').value = '';
+    document.getElementById('motionSecond').checked = false;
+    document.getElementById('motionSecondedBy').value = '';
+    document.getElementById('motionSecondedBy').disabled = true;
+    document.getElementById('motionVoteMethod').value = 'voice';
+    document.getElementById('motionResult').value = 'passed';
+    document.getElementById('motionVotesFor').value = '';
+    document.getElementById('motionVotesAgainst').value = '';
+    document.getElementById('motionVotesAbstain').value = '';
+    document.getElementById('motionCaucus').checked = false;
+    document.getElementById('motionCaucusDuration').value = '';
+    document.getElementById('motionCaucusType').value = '';
+    document.getElementById('motionSpeakerTime').value = '';
+    document.getElementById('voteCountFields').classList.add('hidden');
+    document.getElementById('caucusFields').classList.add('hidden');
+    document.getElementById('speakerTimeField').classList.add('hidden');
+
+    // Populate author select
+    const sel = document.getElementById('motionAuthorSelect');
+    sel.innerHTML = '<option value="">-- Select member --</option>';
+    memberChoices.forEach(m => {
+        sel.innerHTML += `<option value="${m.user_id}">${m.name}</option>`;
+    });
+
+    // Show the form
+    document.getElementById('motionFormContainer').classList.remove('hidden');
+    document.getElementById('motionFormContainer').dataset.editIdx = '';
+    document.getElementById('motionFormContainer').scrollIntoView({behavior: 'smooth', block: 'center'});
+}
+
+function applyPreset(type) {
+    const presets = {
+        approve_prev_minutes_uc: {
+            motion_type: 'approve_prev_minutes_uc',
+            motion_text: 'Motion to approve the previous meeting minutes by unanimous consent.',
+            vote_method: 'unanimous_consent',
+            result: 'passed',
+            received_second: false,
+        },
+        approve_prev_minutes: {
+            motion_type: 'approve_prev_minutes',
+            motion_text: 'Motion to approve the previous meeting minutes.',
+            vote_method: 'voice',
+            result: 'passed',
+            received_second: true,
+        },
+        adjourn: {
+            motion_type: 'adjourn',
+            motion_text: 'Motion to adjourn the meeting.',
+            vote_method: 'voice',
+            result: 'passed',
+            received_second: true,
+        },
+        recess: {
+            motion_type: 'recess',
+            motion_text: 'Motion to recess.',
+            vote_method: 'voice',
+            result: 'passed',
+            received_second: true,
+        },
+        table_motion: {
+            motion_type: 'table_motion',
+            motion_text: 'Motion to table.',
+            vote_method: 'voice',
+            result: 'passed',
+            received_second: true,
+        },
+        call_question: {
+            motion_type: 'call_question',
+            motion_text: 'Call the question.',
+            vote_method: 'voice',
+            result: 'passed',
+            received_second: false,
+        },
+    };
+
+    const p = presets[type];
+    if (!p) return;
+
+    document.getElementById('motionType').value = p.motion_type;
+    document.getElementById('motionText').value = p.motion_text;
+    document.getElementById('motionVoteMethod').value = p.vote_method;
+    document.getElementById('motionResult').value = p.result;
+    document.getElementById('motionSecond').checked = p.received_second;
+    document.getElementById('motionSecondedBy').disabled = !p.received_second;
+    toggleVoteCountFields();
+}
+
+function syncAuthorField() {
+    document.getElementById('motionAuthorText').value = '';
+}
+
+function clearAuthorSelect() {
+    document.getElementById('motionAuthorSelect').value = '';
+}
+
+function toggleSecondField() {
+    document.getElementById('motionSecondedBy').disabled = !document.getElementById('motionSecond').checked;
+}
+
+function toggleVoteCountFields() {
+    const method = document.getElementById('motionVoteMethod').value;
+    const show = ['roll_call', 'ballot', 'show_of_hands', 'standing'].includes(method);
+    document.getElementById('voteCountFields').classList.toggle('hidden', !show);
+}
+
+function toggleCaucusFields() {
+    document.getElementById('caucusFields').classList.toggle('hidden', !document.getElementById('motionCaucus').checked);
+}
+
+function toggleSpeakerTime() {
+    const isModerated = document.getElementById('motionCaucusType').value === 'moderated';
+    document.getElementById('speakerTimeField').classList.toggle('hidden', !isModerated);
+}
+
+function cancelMotion() {
+    pendingCursorPos = -1;
+    document.getElementById('motionFormContainer').classList.add('hidden');
+    document.getElementById('motionFormContainer').dataset.editIdx = '';
+}
+
+function saveMotion() {
+    const motionText = document.getElementById('motionText').value.trim();
+    if (!motionText) {
+        alert('Motion text is required.');
+        document.getElementById('motionText').focus();
+        return;
+    }
+
+    const motionData = {
+        motion_type: document.getElementById('motionType').value,
+        motion_text: motionText,
+        context_notes: document.getElementById('motionContextNotes').value,
+        author_id: document.getElementById('motionAuthorSelect').value,
+        author_text: document.getElementById('motionAuthorText').value,
+        received_second: document.getElementById('motionSecond').checked,
+        seconded_by_text: document.getElementById('motionSecondedBy').value,
+        vote_method: document.getElementById('motionVoteMethod').value,
+        result: document.getElementById('motionResult').value,
+        votes_for: parseInt(document.getElementById('motionVotesFor').value) || null,
+        votes_against: parseInt(document.getElementById('motionVotesAgainst').value) || null,
+        votes_abstain: parseInt(document.getElementById('motionVotesAbstain').value) || null,
+        caucus_held: document.getElementById('motionCaucus').checked,
+        caucus_duration: parseInt(document.getElementById('motionCaucusDuration').value) || null,
+        caucus_type: document.getElementById('motionCaucusType').value,
+        speaker_time: parseInt(document.getElementById('motionSpeakerTime').value) || null,
+    };
+
+    const editIdx = document.getElementById('motionFormContainer').dataset.editIdx;
+
+    if (editIdx !== '' && editIdx !== undefined) {
+        // Editing existing motion — update motionsData and replace marker in textarea
+        const idx = parseInt(editIdx);
+        const oldMarker = getMotionMarkerLine(motionsData[idx]);
+        motionsData[idx] = motionData;
+        const newMarker = getMotionMarkerLine(motionData);
+        const textarea = document.getElementById('mainTextarea');
+        if (textarea) {
+            textarea.value = textarea.value.replace(oldMarker, newMarker);
+        }
+    } else {
+        // New motion — insert marker at cursor position in textarea
+        const textarea = document.getElementById('mainTextarea');
+        if (textarea) {
+            const text = textarea.value;
+            const marker = getMotionMarkerLine(motionData);
+            let pos = pendingCursorPos >= 0 ? pendingCursorPos : text.length;
+
+            // Ensure marker is on its own line
+            let before = text.substring(0, pos);
+            let after = text.substring(pos);
+            if (before.length > 0 && !before.endsWith('\n')) before += '\n';
+            if (after.length > 0 && !after.startsWith('\n')) after = '\n' + after;
+
+            textarea.value = before + marker + after;
+            // Insert at correct position: count how many markers appear before cursor
+            const markersBefore = (before.match(new RegExp(MOTION_MARKER_RE.source, 'gm')) || []).length;
+            motionsData.splice(markersBefore, 0, motionData);
+        }
+        pendingCursorPos = -1;
+    }
+
+    // Sync textarea back to sections for saving
+    syncTextareasToData();
+
+    // Hide form and re-render
+    document.getElementById('motionFormContainer').classList.add('hidden');
+    document.getElementById('motionFormContainer').dataset.editIdx = '';
+    renderSections();
+    quietSave();
+}
+
+function editMotion(motionIdx) {
+    if (motionIdx < 0 || motionIdx >= motionsData.length) return;
+
+    const m = motionsData[motionIdx];
+    document.getElementById('motionType').value = m.motion_type || 'custom';
+    document.getElementById('motionText').value = m.motion_text || '';
+    document.getElementById('motionContextNotes').value = m.context_notes || '';
+
+    // Author
+    const sel = document.getElementById('motionAuthorSelect');
+    sel.innerHTML = '<option value="">-- Select member --</option>';
+    memberChoices.forEach(mc => {
+        sel.innerHTML += `<option value="${mc.user_id}" ${String(mc.user_id) === String(m.author_id) ? 'selected' : ''}>${mc.name}</option>`;
+    });
+    document.getElementById('motionAuthorText').value = m.author_text || '';
+
+    document.getElementById('motionSecond').checked = m.received_second;
+    document.getElementById('motionSecondedBy').value = m.seconded_by_text || '';
+    document.getElementById('motionSecondedBy').disabled = !m.received_second;
+    document.getElementById('motionVoteMethod').value = m.vote_method || 'voice';
+    document.getElementById('motionResult').value = m.result || 'passed';
+    document.getElementById('motionVotesFor').value = m.votes_for ?? '';
+    document.getElementById('motionVotesAgainst').value = m.votes_against ?? '';
+    document.getElementById('motionVotesAbstain').value = m.votes_abstain ?? '';
+    document.getElementById('motionCaucus').checked = m.caucus_held;
+    document.getElementById('motionCaucusDuration').value = m.caucus_duration ?? '';
+    document.getElementById('motionCaucusType').value = m.caucus_type || '';
+    document.getElementById('motionSpeakerTime').value = m.speaker_time ?? '';
+
+    toggleVoteCountFields();
+    toggleCaucusFields();
+    toggleSpeakerTime();
+
+    document.getElementById('motionFormContainer').dataset.editIdx = motionIdx;
+    document.getElementById('motionFormContainer').classList.remove('hidden');
+    document.getElementById('motionFormContainer').scrollIntoView({behavior: 'smooth', block: 'center'});
+}
+
+// ============================
+// SECTION HEADER FORM
+// ============================
+function insertSectionAtCursor() {
+    const textarea = document.getElementById('mainTextarea');
+    if (!textarea) return;
+    pendingCursorPos = textarea.selectionStart;
+    showSectionForm();
+}
+
+function showSectionForm() {
+    document.getElementById('sectionTitle').value = '';
+    document.getElementById('sectionFormContainer').classList.remove('hidden');
+    document.getElementById('sectionFormContainer').dataset.editIdx = '';
+    document.getElementById('sectionFormContainer').scrollIntoView({behavior: 'smooth', block: 'center'});
+    document.getElementById('sectionTitle').focus();
+}
+
+function applySectionPreset(title) {
+    document.getElementById('sectionTitle').value = title;
+}
+
+function cancelSection() {
+    pendingCursorPos = -1;
+    document.getElementById('sectionFormContainer').classList.add('hidden');
+    document.getElementById('sectionFormContainer').dataset.editIdx = '';
+}
+
+function saveSection() {
+    const title = document.getElementById('sectionTitle').value.trim();
+    if (!title) {
+        alert('Section title is required.');
+        document.getElementById('sectionTitle').focus();
+        return;
+    }
+
+    const editIdx = document.getElementById('sectionFormContainer').dataset.editIdx;
+
+    if (editIdx !== '' && editIdx !== undefined) {
+        // Editing existing section header — update headersData and replace marker in textarea
+        const idx = parseInt(editIdx);
+        const oldMarker = getSectionMarkerLine(headersData[idx]);
+        headersData[idx] = title;
+        const newMarker = getSectionMarkerLine(title);
+        const textarea = document.getElementById('mainTextarea');
+        if (textarea) {
+            textarea.value = textarea.value.replace(oldMarker, newMarker);
+        }
+    } else {
+        // New section header — insert marker at cursor position in textarea
+        const textarea = document.getElementById('mainTextarea');
+        if (textarea) {
+            const text = textarea.value;
+            const marker = getSectionMarkerLine(title);
+            let pos = pendingCursorPos >= 0 ? pendingCursorPos : text.length;
+
+            // Ensure marker is on its own line
+            let before = text.substring(0, pos);
+            let after = text.substring(pos);
+            if (before.length > 0 && !before.endsWith('\n')) before += '\n';
+            if (after.length > 0 && !after.startsWith('\n')) after = '\n' + after;
+
+            textarea.value = before + marker + after;
+            // Insert at correct position: count how many section markers appear before cursor
+            const markersBefore = (before.match(new RegExp(SECTION_MARKER_RE.source, 'gm')) || []).length;
+            headersData.splice(markersBefore, 0, title);
+        }
+        pendingCursorPos = -1;
+    }
+
+    // Sync textarea back to sections for saving
+    syncTextareasToData();
+
+    // Hide form and re-render
+    document.getElementById('sectionFormContainer').classList.add('hidden');
+    document.getElementById('sectionFormContainer').dataset.editIdx = '';
+    renderSections();
+    quietSave();
+}
+
+function editSection(sectionIdx) {
+    if (sectionIdx < 0 || sectionIdx >= headersData.length) return;
+
+    document.getElementById('sectionTitle').value = headersData[sectionIdx];
+    document.getElementById('sectionFormContainer').dataset.editIdx = sectionIdx;
+    document.getElementById('sectionFormContainer').classList.remove('hidden');
+    document.getElementById('sectionFormContainer').scrollIntoView({behavior: 'smooth', block: 'center'});
+    document.getElementById('sectionTitle').focus();
+}
+
+function deleteSection(sectionIdx) {
+    if (!confirm('Delete this section header?')) return;
+
+    // Remove the marker from textarea text
+    const textarea = document.getElementById('mainTextarea');
+    if (textarea) {
+        const text = textarea.value;
+        const re = new RegExp(SECTION_MARKER_RE.source, 'gm');
+        let count = 0;
+        let match;
+        while ((match = re.exec(text)) !== null) {
+            if (count === sectionIdx) {
+                let start = match.index;
+                let end = match.index + match[0].length;
+                // Remove marker + one surrounding newline (not both, to avoid merging adjacent lines)
+                if (end < text.length && text[end] === '\n') {
+                    end++;
+                } else if (start > 0 && text[start - 1] === '\n') {
+                    start--;
+                }
+                textarea.value = text.substring(0, start) + text.substring(end);
+                break;
+            }
+            count++;
+        }
+    }
+
+    headersData.splice(sectionIdx, 1);
+    syncTextareasToData();
+    renderSections();
+    quietSave();
+}
+
+// ============================
+// SECTION END MARKERS
+// ============================
+function insertSectionEndAtCursor() {
+    const textarea = document.getElementById('mainTextarea');
+    if (!textarea) return;
+
+    const text = textarea.value;
+    const marker = getSectionEndMarkerLine();
+    let pos = textarea.selectionStart;
+
+    // Ensure marker is on its own line
+    let before = text.substring(0, pos);
+    let after = text.substring(pos);
+    if (before.length > 0 && !before.endsWith('\n')) before += '\n';
+    if (after.length > 0 && !after.startsWith('\n')) after = '\n' + after;
+
+    textarea.value = before + marker + after;
+    sectionEndersCount++;
+
+    // Sync and save
+    syncTextareasToData();
+    renderSections();
+    quietSave();
+}
+
+function deleteSectionEnd(enderIdx) {
+    if (!confirm('Delete this section end marker?')) return;
+
+    // Remove the marker from textarea text
+    const textarea = document.getElementById('mainTextarea');
+    if (textarea) {
+        const text = textarea.value;
+        const re = new RegExp(SECTION_END_MARKER_RE.source, 'gm');
+        let count = 0;
+        let match;
+        while ((match = re.exec(text)) !== null) {
+            if (count === enderIdx) {
+                let start = match.index;
+                let end = match.index + match[0].length;
+                // Remove marker + one surrounding newline (not both, to avoid merging adjacent lines)
+                if (end < text.length && text[end] === '\n') {
+                    end++;
+                } else if (start > 0 && text[start - 1] === '\n') {
+                    start--;
+                }
+                textarea.value = text.substring(0, start) + text.substring(end);
+                break;
+            }
+            count++;
+        }
+    }
+
+    sectionEndersCount--;
+    syncTextareasToData();
+    renderSections();
+    quietSave();
+}
+
+// Sync single textarea back to sections array (for DB/PDF saving)
+function syncTextareasToData() {
+    const textarea = document.getElementById('mainTextarea');
+    if (textarea) {
+        sections = textToSections(textarea.value);
+    }
+}
+
+// ============================
+// END TIME (Adjourned)
+// ============================
+function getEndTime() {
+    const input = document.getElementById('endTimeInput');
+    return input ? input.value : '';
+}
+
+function setEndTimeNow() {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const input = document.getElementById('endTimeInput');
+    input.value = hh + ':' + mm;
+    saveEndTime(input.value);
+}
+
+function saveEndTime(val) {
+    // Persist immediately with current sections
+    syncTextareasToData();
+    fetch(SAVE_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+        body: JSON.stringify({sections: sections, end_time: val}),
+    }).catch(() => {});
+}
+
+function adjournMeeting() {
+    setEndTimeNow();
+    // Show confirmation with the time
+    const input = document.getElementById('endTimeInput');
+    const timeVal = input.value;
+    // Format for display (12-hour)
+    const [hh, mm] = timeVal.split(':');
+    const h = parseInt(hh);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    const display = h12 + ':' + mm + ' ' + ampm;
+    // Update bottom display
+    const timeDisplay = document.getElementById('adjournedTimeDisplay');
+    const timeValue = document.getElementById('adjournedTimeValue');
+    if (timeDisplay && timeValue) {
+        timeValue.textContent = display;
+        timeDisplay.classList.remove('hidden');
+    }
+}
+
+// On page load, show adjourned time if already set
+(function initAdjournDisplay() {
+    const input = document.getElementById('endTimeInput');
+    if (input && input.value) {
+        const [hh, mm] = input.value.split(':');
+        const h = parseInt(hh);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const h12 = h % 12 || 12;
+        const display = h12 + ':' + mm + ' ' + ampm;
+        const timeDisplay = document.getElementById('adjournedTimeDisplay');
+        const timeValue = document.getElementById('adjournedTimeValue');
+        if (timeDisplay && timeValue) {
+            timeValue.textContent = display;
+            timeDisplay.classList.remove('hidden');
+        }
+    }
+})();
+
+function getSavePayload() {
+    const payload = {sections: sections, end_time: getEndTime()};
+    if (IS_PUBLISHED && currentEditReason) {
+        payload.edit_reason = currentEditReason;
+    }
+    return payload;
+}
+
+// Quiet save (no UI feedback) — used after motion add/edit/delete
+function quietSave() {
+    syncTextareasToData();
+    fetch(SAVE_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+        body: JSON.stringify(getSavePayload()),
+    }).catch(() => {});
+}
+
+// ============================
+// SAVE DRAFT
+// ============================
+async function saveDraft() {
+    syncTextareasToData();
+
+    // If published, prompt for edit reason
+    if (IS_PUBLISHED) {
+        const reason = prompt('These minutes are published. Please enter a reason for this edit (will be recorded):');
+        if (reason === null) return; // User cancelled
+        currentEditReason = reason || 'Minor correction';
+    }
+
+    const btn = document.getElementById('saveDraftBtn');
+    const origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    try {
+        const resp = await fetch(SAVE_URL, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+            body: JSON.stringify(getSavePayload()),
+        });
+        const data = await resp.json();
+        if (data.success) {
+            btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Saved!';
+            if (data.was_published) {
+                // Reload to show updated "Edited" badge
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                setTimeout(() => { btn.innerHTML = origHtml; }, 2000);
+            }
+        } else {
+            alert(data.error || 'Failed to save.');
+            btn.innerHTML = origHtml;
+        }
+    } catch (e) {
+        alert('Error saving minutes.');
+        btn.innerHTML = origHtml;
+    }
+    btn.disabled = false;
+}
+
+// ============================
+// DOWNLOAD PDF
+// ============================
+async function downloadPDF() {
+    // Save current content first so the PDF reflects latest edits
+    syncTextareasToData();
+
+    const btn = document.getElementById('downloadPdfBtn');
+    const origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.textContent = 'Saving & Generating...';
+
+    try {
+        // Save first
+        await fetch(SAVE_URL, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+            body: JSON.stringify(getSavePayload()),
+        });
+
+        // Trigger PDF download
+        btn.textContent = 'Downloading...';
+        window.location.href = "{% url 'download_minutes_pdf' minutes.id %}";
+
+        setTimeout(() => {
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+        }, 2000);
+    } catch (e) {
+        alert('Error preparing PDF download.');
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+    }
+}
+
+async function previewPDF() {
+    syncTextareasToData();
+
+    const btn = document.getElementById('previewPdfBtn');
+    const origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.textContent = 'Saving & Generating...';
+
+    try {
+        await fetch(SAVE_URL, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+            body: JSON.stringify(getSavePayload()),
+        });
+
+        // Open PDF in new tab with preview mode (inline disposition)
+        window.open("{% url 'download_minutes_pdf' minutes.id %}?preview=1", '_blank');
+
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+    } catch (e) {
+        alert('Error preparing PDF preview.');
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+    }
+}
+
+// Auto-save every 60 seconds
+setInterval(() => {
+    syncTextareasToData();
+    fetch(SAVE_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+        body: JSON.stringify(getSavePayload()),
+    }).catch(() => {});
+}, 60000);
+
+// Save before publish
+document.getElementById('publishForm')?.addEventListener('submit', function(e) {
+    syncTextareasToData();
+    // Synchronous save via a quick fetch - then let the form submit
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', SAVE_URL, false); // synchronous
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('X-CSRFToken', CSRF_TOKEN);
+    xhr.send(JSON.stringify(getSavePayload()));
+});
+
+// ============================
+// INIT
+// ============================
+document.addEventListener('DOMContentLoaded', function() {
+    renderExcuseSummary();
+    renderAttendance();
+    renderSections();
+});
+</script>
+{% endblock %}

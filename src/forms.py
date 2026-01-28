@@ -245,7 +245,7 @@ class CommitteeDocumentForm(forms.ModelForm):
             }),
             'document': forms.FileInput(attrs={
                 'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
-                'accept': '.pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt'
+                'accept': '.pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.txt,.md,.rtf,.csv,.log,.json,.xml'
             }),
             'description': forms.Textarea(attrs={
                 'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
@@ -285,7 +285,10 @@ class CommitteeDocumentForm(forms.ModelForm):
         file = self.cleaned_data.get('document')
         if file:
             # Allowed extensions
-            allowed_extensions = ('.pdf', '.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt')
+            allowed_extensions = (
+                '.pdf', '.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt',
+                '.txt', '.md', '.rtf', '.csv', '.log', '.json', '.xml',
+            )
             if not file.name.lower().endswith(allowed_extensions):
                 raise forms.ValidationError(
                     f'Only these file types are allowed: {", ".join(allowed_extensions)}'
@@ -308,6 +311,16 @@ class CommitteeDocumentForm(forms.ModelForm):
                     'application/vnd.ms-excel',
                     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
                     'application/vnd.ms-powerpoint',
+                    'text/plain',
+                    'text/markdown',
+                    'text/csv',
+                    'application/csv',
+                    'application/rtf',
+                    'text/rtf',
+                    'text/x-log',
+                    'application/json',
+                    'application/xml',
+                    'text/xml',
                 ])
 
                 if mime not in allowed_mimes:

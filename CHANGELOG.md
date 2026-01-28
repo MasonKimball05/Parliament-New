@@ -50,6 +50,51 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.5.1 - Minutes Editor Bug Fixes & UX Improvements (01-28-2026)
+Bug fixes and UX improvements for the Chapter Minutes editor introduced in v2.5.0.
+
+**Deployment Status:** ⏳ **Pending Deployment**
+
+**Bug Fixes:**
+
+- 🔧 **Delete Minutes Permission Error**: Fixed `is_superuser` AttributeError on ParliamentUser — now uses `is_admin`
+- 🔧 **Published PDF Not Updating**: Editing published minutes now regenerates the PDF in Chapter Documents
+- 🔧 **Text File Display**: Document viewer now supports `.txt`, `.md`, `.csv`, `.log`, and other plain text formats
+- 🔧 **Marker Deletion Breaking Sections**: Fixed newline handling that merged adjacent lines when deleting markers
+- 🔧 **Section Cards Wrong Order**: Cards now display in order of appearance instead of grouped by type
+- 🔧 **File Upload Validation Gap**: Extended upload validation to cover `.log`, `.json`, `.xml` and all text/data MIME types across `file_validation.py`, `settings_postgres.py`, and `CommitteeDocumentForm`
+
+**UX Improvements:**
+
+- 📝 **Section Headers**: Organize minutes into named sections (Officer Reports, Old Business, etc.) with quick presets
+- 📝 **Section Enders (Boxed Sections)**: Pair with headers to create boxed sections in PDF with purple styling
+- 📝 **Edit History on PDF**: Published minutes PDF shows edit audit trail with timestamps and reasons
+- 📝 **Adjourn Meeting Button**: Prominent button at bottom of editor near Publish section
+- 📝 **End Time Field**: Record adjournment time separately from start time
+- 📝 **Edit Tracking**: Published minutes edits are tracked with editor name, timestamp, and reason
+
+**[📄 View Detailed Changelog](./changelogs/v2.5.1.md)**
+
+---
+
+### v2.5.0 - Chapter Minutes, Announcements & Document Viewer (01-28-2026)
+Major feature release introducing the Chapter Minutes system, Announcements, and a unified Document Viewer.
+
+**Deployment Status:** ⏳ **Pending Deployment**
+
+**Key Features:**
+
+- 📋 **Chapter Minutes System**: Full meeting minutes editor with inline motions, votes, attendance tracking, PDF generation, and publishing to Chapter Documents
+- 📢 **Announcements System**: Officer-managed announcements with scheduling, member targeting, email tracking, and engagement statistics
+- 📄 **Document Viewer**: Unified in-app viewer for PDF, DOCX (HTML conversion), images, and text files across all document types
+- 👮 **Officer Dashboard**: Event management, resolution management, report uploads, activity logs, archived events
+- 🔒 **IP Address Encryption**: Login history IP addresses stored with EncryptedCharField
+- ⏱️ **Committee Voting Timer**: Optional voting deadline for committee legislation
+
+**[📄 View Detailed Changelog](./changelogs/v2.5.0.md)**
+
+---
+
 ### v2.4.1 - Minor UI Improvement Updates (01-22-2026)
 
 **Deployment Status:** ✅ **Deployed**
@@ -156,6 +201,27 @@ Builds on v2.0.0 security foundation with user-facing features and advanced prot
 For comprehensive technical details, migration guides, and implementation specifics:
 
 <ul>
+<li><strong><a href="./changelogs/v2.5.1.md">v2.5.1 - Minutes Editor Bug Fixes & UX Improvements</a></strong> (January 28, 2026)
+    <ul>
+    <li>Delete minutes permission fix</li>
+    <li>Published PDF regeneration on edit</li>
+    <li>Text file display in document viewer</li>
+    <li>Marker deletion fix</li>
+    <li>File upload validation for text/data file types</li>
+    <li>Section headers, enders, and boxed PDF sections</li>
+    <li>Adjourn button and edit tracking</li>
+    </ul>
+</li>
+<li><strong><a href="./changelogs/v2.5.0.md">v2.5.0 - Chapter Minutes, Announcements & Document Viewer</a></strong> (January 28, 2026)
+    <ul>
+    <li>Chapter Minutes system with motions, attendance, and PDF export</li>
+    <li>Announcements system with scheduling and email tracking</li>
+    <li>Unified document viewer (PDF, DOCX, images, text)</li>
+    <li>Officer dashboard enhancements</li>
+    <li>IP address encryption</li>
+    <li>Deployment guide</li>
+    </ul>
+</li>
 <li><strong><a href="./changelogs/v2.4.0.md">v2.4.0 - Bug Report System & Email Service Update</a></strong> (January 19, 2026)
     <ul>
     <li>Bug report system implementation</li>
@@ -203,7 +269,33 @@ For comprehensive technical details, migration guides, and implementation specif
 ## Version History Summary
 
 <ul>
-<li><strong>v2.4.0</strong> (2026-01-19) - Bug Report System & Email Service Update ⏳
+<li><strong>v2.5.1</strong> (2026-01-28) - Minutes Editor Bug Fixes & UX Improvements ⏳
+    <ul>
+    <li>Fixed delete minutes permission error (is_superuser → is_admin)</li>
+    <li>Published minutes PDF now regenerates on edit</li>
+    <li>Text file display support in document viewer</li>
+    <li>Fixed marker deletion breaking adjacent sections</li>
+    <li>Extended file upload validation for text/data file types</li>
+    <li>Section headers, enders, and boxed PDF sections</li>
+    <li>Adjourn button, end time field, edit tracking</li>
+    </ul>
+</li>
+<li><strong>v2.5.0</strong> (2026-01-28) - Chapter Minutes, Announcements & Document Viewer ⏳
+    <ul>
+    <li>Chapter Minutes system with inline motions, votes, attendance, PDF export</li>
+    <li>Announcements system with scheduling, targeting, email tracking</li>
+    <li>Unified document viewer (PDF, DOCX, images, text files)</li>
+    <li>Officer dashboard: event management, resolutions, reports, activity logs</li>
+    <li>IP address encryption for login history</li>
+    <li>Committee voting timer (voting_ends_at)</li>
+    </ul>
+</li>
+<li><strong>v2.4.1</strong> (2026-01-22) - Minor UI Improvement Updates ✅
+    <ul>
+    <li>Dark mode fixes for Constitution & Bylaws pages</li>
+    </ul>
+</li>
+<li><strong>v2.4.0</strong> (2026-01-19) - Bug Report System & Email Service Update ✅
     <ul>
     <li>Comprehensive bug reporting system with user submissions</li>
     <li>Public bug tracker with filtering and status tracking</li>
@@ -305,5 +397,5 @@ New changes will be documented in:
 
 ---
 
-**Last Updated:** 2026-01-19
-**Next Review:** 2026-02-19
+**Last Updated:** 2026-01-28
+**Next Review:** 2026-02-28

@@ -49,6 +49,9 @@ ALLOWED_FILE_TYPES = {
     '.txt': ['text/plain'],
     '.md': ['text/plain', 'text/markdown'],
     '.rtf': ['application/rtf', 'text/rtf'],
+    '.log': ['text/plain', 'text/x-log'],
+    '.json': ['application/json', 'text/plain'],
+    '.xml': ['application/xml', 'text/xml', 'text/plain'],
 
     # Images (for reports, documents with photos)
     '.jpg': ['image/jpeg'],
