@@ -62,6 +62,7 @@ Extends the Chapter Minutes editor to committees with full editor support, commi
 - Publish Options: Publish to committee documents with optional "Also publish to Chapter Documents"
 - Committee PDF Titles: PDF generation uses "Committee Minutes: {committee name}" heading
 - Data Isolation: Chapter minutes views now filter out committee minutes
+- Dark Mode: Edit Chat Settings page
 
 **Database Changes:**
 
