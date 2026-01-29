@@ -26,8 +26,10 @@ from src.decorators import officer_required
 @login_required
 @officer_required
 def chapter_minutes_list(request):
-    """List all chapter minutes (drafts and published)"""
-    minutes_list = ChapterMinutes.objects.all().order_by('-date', '-start_time')
+    """List all chapter minutes (drafts and published) - excludes committee minutes"""
+    minutes_list = ChapterMinutes.objects.filter(
+        committee__isnull=True
+    ).order_by('-date', '-start_time')
 
     # Get recent events for the create modal
     events = Event.objects.filter(
@@ -107,7 +109,7 @@ def create_chapter_minutes(request):
 @officer_required
 def edit_chapter_minutes(request, minutes_id):
     """Main editor page for chapter minutes"""
-    minutes = get_object_or_404(ChapterMinutes, id=minutes_id)
+    minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee__isnull=True)
 
     # Get all active members for attendance
     members = ParliamentUser.objects.filter(
@@ -236,7 +238,7 @@ def edit_chapter_minutes(request, minutes_id):
 @require_POST
 def save_minutes_data(request, minutes_id):
     """AJAX endpoint to save all sections (text + motions)"""
-    minutes = get_object_or_404(ChapterMinutes, id=minutes_id)
+    minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee__isnull=True)
 
     try:
         data = json.loads(request.body)
@@ -331,7 +333,7 @@ def save_minutes_data(request, minutes_id):
 @require_POST
 def save_minutes_attendance(request, minutes_id):
     """AJAX endpoint to save attendance data"""
-    minutes = get_object_or_404(ChapterMinutes, id=minutes_id)
+    minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee__isnull=True)
 
     try:
         data = json.loads(request.body)
@@ -420,7 +422,7 @@ def save_minutes_attendance(request, minutes_id):
 @require_POST
 def publish_chapter_minutes(request, minutes_id):
     """Publish minutes to the chapter documents page as a PDF"""
-    minutes = get_object_or_404(ChapterMinutes, id=minutes_id)
+    minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee__isnull=True)
 
     if minutes.status == 'published':
         messages.warning(request, 'These minutes are already published.')
@@ -563,11 +565,17 @@ def generate_minutes_pdf_buffer(minutes):
     elements = []
 
     # === TITLE BLOCK ===
-    elements.append(Paragraph(f"Chapter Minutes: {minutes.title}", style_title))
+    if minutes.committee:
+        title_prefix = f"Committee Minutes: {minutes.committee.name}"
+    else:
+        title_prefix = "Chapter Minutes"
+    elements.append(Paragraph(f"{title_prefix}: {minutes.title}", style_title))
     time_line = f"{minutes.date.strftime('%B %d, %Y')} &mdash; Called to Order: {minutes.start_time.strftime('%I:%M %p')}"
     if minutes.end_time:
         time_line += f" &mdash; Adjourned: {minutes.end_time.strftime('%I:%M %p')}"
     elements.append(Paragraph(time_line, style_subtitle))
+    if minutes.committee:
+        elements.append(Paragraph(f"Committee: {minutes.committee.name}", style_subtitle))
     if minutes.event:
         elements.append(Paragraph(f"Event: {minutes.event.title}", style_subtitle))
     elements.append(Spacer(1, 12))
@@ -819,7 +827,7 @@ def generate_minutes_pdf_buffer(minutes):
 @officer_required
 def download_minutes_pdf(request, minutes_id):
     """Generate and download a formatted PDF of chapter minutes"""
-    minutes = get_object_or_404(ChapterMinutes, id=minutes_id)
+    minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee__isnull=True)
     buf = generate_minutes_pdf_buffer(minutes)
 
     file_name = f"Chapter_Minutes_{minutes.date.strftime('%Y-%m-%d')}_{minutes.title.replace(' ', '_')}.pdf"
@@ -834,7 +842,7 @@ def download_minutes_pdf(request, minutes_id):
 @require_POST
 def delete_chapter_minutes(request, minutes_id):
     """Delete chapter minutes (officers can delete drafts, admins can delete any)"""
-    minutes = get_object_or_404(ChapterMinutes, id=minutes_id)
+    minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee__isnull=True)
 
     # Check permissions: officers can only delete drafts, admins can delete any
     is_admin = request.user.is_admin

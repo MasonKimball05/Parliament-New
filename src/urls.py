@@ -12,6 +12,11 @@ from src.view.officer.chapter_minutes import (
 )
 from src.view.officer.manage_announcements import track_email_view, announcement_stats
 from src.view.committee import *
+from src.view.committee.committee_minutes_editor import (
+    committee_minutes_list, create_committee_minutes, edit_committee_minutes,
+    save_committee_minutes_data, save_committee_minutes_attendance,
+    publish_committee_minutes, download_committee_minutes_pdf, delete_committee_minutes
+)
 from src.view.committee.manage_chat_permissions import manage_chat_permissions, add_guest_permission, update_guest_permission, remove_guest_permission
 from src.view.chat import *
 from src.view.submit_excuse import my_excuses, submit_excuse, cancel_excuse
@@ -242,7 +247,16 @@ urlpatterns = [
     path('committee/<str:code>/delete-chapter-vote/', delete_chapter_vote_link, name='delete_chapter_vote_link'),
     path('committee/<str:code>/unpush-from-chapter/', committee_unpush_from_chapter, name='unpush_from_chapter'),
     path('committee/vote/<int:legislation_id>/recalculate/', recalculate_committee_vote, name='recalculate_committee_vote'),
-    path('committee/<str:code>/minutes/', committee_minutes, name='minutes'),
+    # Committee Minutes Editor
+    path('committee/<str:code>/minutes/', committee_minutes_list, name='committee_minutes_list'),
+    path('committee/<str:code>/minutes/create/', create_committee_minutes, name='create_committee_minutes'),
+    path('committee/<str:code>/minutes/<int:minutes_id>/edit/', edit_committee_minutes, name='edit_committee_minutes'),
+    path('committee/<str:code>/minutes/<int:minutes_id>/save/', save_committee_minutes_data, name='save_committee_minutes_data'),
+    path('committee/<str:code>/minutes/<int:minutes_id>/save-attendance/', save_committee_minutes_attendance, name='save_committee_minutes_attendance'),
+    path('committee/<str:code>/minutes/<int:minutes_id>/publish/', publish_committee_minutes, name='publish_committee_minutes'),
+    path('committee/<str:code>/minutes/<int:minutes_id>/pdf/', download_committee_minutes_pdf, name='download_committee_minutes_pdf'),
+    path('committee/<str:code>/minutes/<int:minutes_id>/delete/', delete_committee_minutes, name='delete_committee_minutes'),
+
     path('committee/<str:code>/documents/<int:document_id>/view/', view_committee_document, name='view_committee_document'),
     path('committee/<str:code>/documents/<int:document_id>/toggle-publish/', toggle_document_publish, name='toggle_document_publish'),
     path('committee/<str:code>/documents/<int:document_id>/delete/', delete_committee_document, name='delete_committee_document'),

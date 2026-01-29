@@ -6,6 +6,7 @@ from src.view.committee.create_vote import *
 from src.view.committee.documents import *
 from src.view.committee.manage_members import *
 from src.view.committee.minutes import *
+from src.view.committee.committee_minutes_editor import *
 from src.view.committee.push_to_chapter import *
 from src.view.committee.remove_member import *
 from src.view.committee.upload_document import *

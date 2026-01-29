@@ -115,6 +115,13 @@ def generate_recurring_events(parent_event, max_occurrences=52):
                 # But we need to check other days in this week
                 continue
 
+        # Calculate shifted excuse deadline for this occurrence
+        instance_excuse_deadline = None
+        if parent_event.excuse_deadline:
+            # Shift the excuse deadline by the same offset as the event date
+            time_offset = current_date - parent_event.date_time
+            instance_excuse_deadline = parent_event.excuse_deadline + time_offset
+
         # Create a new event instance
         instance = Event(
             title=parent_event.title,
@@ -125,7 +132,7 @@ def generate_recurring_events(parent_event, max_occurrences=52):
             is_active=parent_event.is_active,
             requires_attendance=parent_event.requires_attendance,
             allow_excuses=parent_event.allow_excuses,
-            excuse_deadline=parent_event.excuse_deadline,
+            excuse_deadline=instance_excuse_deadline,
             created_by=parent_event.created_by,
             parent_event=parent_event,
             is_recurring=False,  # Child events are not recurring themselves

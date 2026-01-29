@@ -50,6 +50,29 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.5.2 - Committee Minutes Editor (01-29-2026)
+Extends the Chapter Minutes editor to committees with full editor support, committee-scoped attendance, and flexible permissions.
+
+**Deployment Status:** Pending Deployment
+
+**Key Features:**
+
+- Committee Minutes System: Full editor (motions, section headers, attendance, PDF) scoped to committee members
+- Flexible Permissions: Any member can create minutes; chairs, admins, and designated secretaries can edit
+- Publish Options: Publish to committee documents with optional "Also publish to Chapter Documents"
+- Committee PDF Titles: PDF generation uses "Committee Minutes: {committee name}" heading
+- Data Isolation: Chapter minutes views now filter out committee minutes
+
+**Database Changes:**
+
+- Added `committee` FK (nullable) to `ChapterMinutes` model
+- Added `can_take_minutes` to `CommitteePermissions` for designated secretary role
+- Migration: `0072_add_committee_to_chapterminutes.py`
+
+**[View Detailed Changelog](./changelogs/v2.5.2.md)**
+
+---
+
 ### v2.5.1 - Minutes Editor Bug Fixes & UX Improvements (01-28-2026)
 Bug fixes and UX improvements for the Chapter Minutes editor introduced in v2.5.0.
 
@@ -201,6 +224,16 @@ Builds on v2.0.0 security foundation with user-facing features and advanced prot
 For comprehensive technical details, migration guides, and implementation specifics:
 
 <ul>
+<li><strong><a href="./changelogs/v2.5.2.md">v2.5.2 - Committee Minutes Editor</a></strong> (January 29, 2026)
+    <ul>
+    <li>Full committee minutes editor with motions, attendance, and PDF export</li>
+    <li>Committee-scoped attendance (members + chairs)</li>
+    <li>Flexible permissions: any member creates, chairs/admins/secretaries edit</li>
+    <li>Publish to committee documents with optional chapter publish</li>
+    <li>Committee-specific PDF titles</li>
+    <li>Data isolation between chapter and committee minutes</li>
+    </ul>
+</li>
 <li><strong><a href="./changelogs/v2.5.1.md">v2.5.1 - Minutes Editor Bug Fixes & UX Improvements</a></strong> (January 28, 2026)
     <ul>
     <li>Delete minutes permission fix</li>
@@ -269,6 +302,17 @@ For comprehensive technical details, migration guides, and implementation specif
 ## Version History Summary
 
 <ul>
+<li><strong>v2.5.2</strong> (2026-01-29) - Committee Minutes Editor
+    <ul>
+    <li>Full committee minutes editor reusing ChapterMinutes infrastructure</li>
+    <li>Committee-scoped attendance (members + chairs, deduplicated)</li>
+    <li>Any member can create; chairs/admins/designated secretaries can edit</li>
+    <li>Publish to committee documents with optional chapter documents publish</li>
+    <li>Committee-specific PDF title and subtitle</li>
+    <li>Data isolation: chapter views filter committee__isnull=True</li>
+    <li>Migration 0072: committee FK on ChapterMinutes, can_take_minutes on CommitteePermissions</li>
+    </ul>
+</li>
 <li><strong>v2.5.1</strong> (2026-01-28) - Minutes Editor Bug Fixes & UX Improvements ⏳
     <ul>
     <li>Fixed delete minutes permission error (is_superuser → is_admin)</li>
@@ -397,5 +441,5 @@ New changes will be documented in:
 
 ---
 
-**Last Updated:** 2026-01-28
+**Last Updated:** 2026-01-29
 **Next Review:** 2026-02-28

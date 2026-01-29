@@ -748,6 +748,7 @@ class CommitteePermissions(models.Model):
     can_vote = models.BooleanField(default=False)
     can_manage_members = models.BooleanField(default=False)
     can_view_results = models.BooleanField(default=True)
+    can_take_minutes = models.BooleanField(default=False, help_text='Designated secretary: can create/edit committee minutes')
 
 
 class CommitteeLegislation(models.Model):
@@ -2637,6 +2638,12 @@ class ChapterMinutes(models.Model):
     date = models.DateField()
     start_time = models.TimeField()
     end_time = models.TimeField(null=True, blank=True, help_text='Time the meeting was adjourned')
+    committee = models.ForeignKey(
+        Committee, on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='committee_minutes_sessions',
+        help_text='If set, these are committee minutes; if null, chapter minutes'
+    )
     event = models.ForeignKey(Event, on_delete=models.SET_NULL, null=True, blank=True, related_name='chapter_minutes')
     created_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE, related_name='created_minutes')
     created_at = models.DateTimeField(auto_now_add=True)
