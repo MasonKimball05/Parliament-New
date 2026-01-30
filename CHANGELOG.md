@@ -53,7 +53,7 @@ The original Parliament system with basic functionality but significant security
 ### v2.5.2 - Committee Minutes Editor (01-29-2026)
 Extends the Chapter Minutes editor to committees with full editor support, committee-scoped attendance, and flexible permissions.
 
-**Deployment Status:** Pending Deployment
+**Deployment Status:** ✅ Deployed
 
 **Key Features:**
 
@@ -77,7 +77,7 @@ Extends the Chapter Minutes editor to committees with full editor support, commi
 ### v2.5.1 - Minutes Editor Bug Fixes & UX Improvements (01-28-2026)
 Bug fixes and UX improvements for the Chapter Minutes editor introduced in v2.5.0.
 
-**Deployment Status:** ⏳ **Pending Deployment**
+**Deployment Status:** ✅ Deployed
 
 **Bug Fixes:**
 
@@ -104,7 +104,7 @@ Bug fixes and UX improvements for the Chapter Minutes editor introduced in v2.5.
 ### v2.5.0 - Chapter Minutes, Announcements & Document Viewer (01-28-2026)
 Major feature release introducing the Chapter Minutes system, Announcements, and a unified Document Viewer.
 
-**Deployment Status:** ⏳ **Pending Deployment**
+**Deployment Status:** ✅ Deployed 
 
 **Key Features:**
 
