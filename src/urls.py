@@ -23,6 +23,7 @@ from src.view.submit_excuse import my_excuses, submit_excuse, cancel_excuse
 from src.view.kai_reports import submit_kai_report, view_kai_reports, manage_kai_report, export_kai_reports_csv, print_kai_report, kai_dashboard, bulk_actions_kai_reports, manage_kai_templates, create_kai_template, edit_kai_template, delete_kai_template
 from src.view.chapter_documents import chapter_documents
 from src.view.api import dismiss_announcement_api
+from src.view.notifications import notifications_page, notifications_dropdown_api, mark_notification_read, mark_all_notifications_read, delete_notification
 from src.view.set_email import set_email
 from src.view.upload_chapter_document import upload_chapter_document
 from src.view.manage_chapter_document import manage_chapter_document
@@ -308,8 +309,15 @@ urlpatterns = [
     path('chats/<int:channel_id>/edit/', edit_channel, name='edit_channel'),
     path('chats/<int:channel_id>/delete/', delete_channel, name='delete_channel'),
 
+    # Notifications
+    path('notifications/', notifications_page, name='notifications'),
+
     # API Endpoints
     path('api/dismiss-announcement/<int:announcement_id>/', dismiss_announcement_api, name='dismiss_announcement_api'),
+    path('api/notifications/', notifications_dropdown_api, name='notifications_api'),
+    path('api/notifications/<int:notification_id>/read/', mark_notification_read, name='mark_notification_read'),
+    path('api/notifications/read-all/', mark_all_notifications_read, name='mark_all_notifications_read'),
+    path('api/notifications/<int:notification_id>/delete/', delete_notification, name='delete_notification'),
 
     # User Settings
     path('set-email/', set_email, name='set_email'),

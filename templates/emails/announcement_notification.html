@@ -1,3 +1,4 @@
+{% load custom_filters %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -90,7 +91,7 @@
         </div>
 
         <div class="announcement-content">
-            {{ announcement.content }}
+            {{ announcement.content|linkify }}
         </div>
 
         {% if announcement.event_date %}

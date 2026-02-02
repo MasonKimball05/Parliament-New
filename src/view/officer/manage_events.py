@@ -7,6 +7,7 @@ from dateutil.relativedelta import relativedelta
 from src.models import Event
 from src.forms import EventForm
 from src.decorators import officer_required
+from src.notification_service import notify_all_active_members
 
 @login_required
 @officer_required
@@ -159,6 +160,22 @@ def create_event(request):
                 recurring_instances = generate_recurring_events(event)
                 for instance in recurring_instances:
                     instance.save()
+
+            # Send in-app notification to all active members
+            try:
+                date_str = event.date_time.strftime('%b %d') if event.date_time else ''
+                location_str = event.location or 'TBD'
+                notify_all_active_members(
+                    'event_new',
+                    f'New Event: {event.title}',
+                    message=f'{date_str} — {location_str}',
+                    link='/calendar/',
+                    source_type='Event',
+                    source_id=event.id,
+                )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Failed to create event notifications: {e}", exc_info=True)
 
             return redirect('manage_events')
     else:

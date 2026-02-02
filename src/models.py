@@ -225,6 +225,11 @@ class UserPreferences(models.Model):
     show_search_menu = models.BooleanField(default=True, help_text='Show Search link in navigation menu')
     show_roberts_rules_menu = models.BooleanField(default=False, help_text='Show Robert\'s Rules link in navigation menu')
 
+    # In-App Notification Preferences
+    notify_announcements = models.BooleanField(default=True, help_text='Receive in-app notifications for announcements')
+    notify_legislation = models.BooleanField(default=True, help_text='Receive in-app notifications for legislation & voting')
+    notify_events = models.BooleanField(default=True, help_text='Receive in-app notifications for new events')
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -961,6 +966,10 @@ class CommitteeDocument(models.Model):
 
     def can_user_view(self, user):
         """Check if a user has permission to view this document"""
+        # Documents published to chapter are visible to all members
+        if self.published_to_chapter:
+            return True
+
         # Admins and the uploader can always view
         if user.is_admin or user == self.uploaded_by:
             return True
@@ -1984,6 +1993,39 @@ class KaiReportTemplate(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.get_category_display()})"
+
+
+class Notification(models.Model):
+    """In-app notifications for users"""
+    NOTIFICATION_TYPES = (
+        ('announcement', 'Announcement'),
+        ('legislation_new', 'New Legislation'),
+        ('vote_ended', 'Vote Ended'),
+        ('event_new', 'New Event'),
+    )
+
+    recipient = models.ForeignKey(ParliamentUser, on_delete=models.CASCADE, related_name='notifications')
+    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
+    title = models.CharField(max_length=255)
+    message = models.TextField(blank=True)
+    link = models.CharField(max_length=500, blank=True, help_text='URL to navigate to when clicked')
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    # Generic reference to the source object
+    source_type = models.CharField(max_length=50, blank=True, help_text='Model name of source object')
+    source_id = models.IntegerField(null=True, blank=True, help_text='PK of source object')
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['recipient', 'is_read', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.notification_type}: {self.title} → {self.recipient.name}"
+
 
 class ActivityLog(models.Model):
     """

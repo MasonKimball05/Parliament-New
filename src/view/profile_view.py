@@ -30,6 +30,7 @@ def profile_view(request):
     profile_form_submitted = 'profile_submit' in request.POST
     password_form_submitted = 'password_submit' in request.POST
     profile_picture_submitted = 'profile_picture_submit' in request.POST
+    notification_prefs_submitted = 'notification_prefs_submit' in request.POST
 
     password_form = PasswordChangeForm(user)
 
@@ -105,6 +106,16 @@ def profile_view(request):
 
             return redirect('profile')
 
+        elif notification_prefs_submitted:
+            prefs, _ = UserPreferences.objects.get_or_create(user=user)
+            prefs.notify_announcements = request.POST.get('notify_announcements') == 'on'
+            prefs.notify_legislation = request.POST.get('notify_legislation') == 'on'
+            prefs.notify_events = request.POST.get('notify_events') == 'on'
+            prefs.save(update_fields=['notify_announcements', 'notify_legislation', 'notify_events'])
+            logger.info(f"{user.username} updated notification preferences")
+            messages.success(request, "Notification preferences updated.")
+            return redirect('profile')
+
         elif password_form_submitted:
             password_form = PasswordChangeForm(user, request.POST)
             if password_form.is_valid():
@@ -118,7 +129,11 @@ def profile_view(request):
             else:
                 messages.error(request, "Please correct the errors below.")
 
+    # Get or create notification preferences
+    notif_prefs, _ = UserPreferences.objects.get_or_create(user=user)
+
     return render(request, 'profile.html', {
         'user': user,
-        'password_form': password_form
+        'password_form': password_form,
+        'notif_prefs': notif_prefs,
     })

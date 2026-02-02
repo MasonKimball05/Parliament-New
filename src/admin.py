@@ -1,7 +1,7 @@
 from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
 from .decorators import log_function_call
-from .models import Committee, ParliamentUser, Legislation, Vote, Attendance, AttendanceExcuse, CommitteeDocument, Role, Announcement, ChatChannel, ChatChannelPermission, ChatMessage, ChatReadReceipt, UserAnnouncementView, DocumentTag, DocumentVersion, Event, ActivityLog, LoginHistory, LoginAlert, BugReport
+from .models import Committee, ParliamentUser, Legislation, Vote, Attendance, AttendanceExcuse, CommitteeDocument, Role, Announcement, ChatChannel, ChatChannelPermission, ChatMessage, ChatReadReceipt, UserAnnouncementView, DocumentTag, DocumentVersion, Event, ActivityLog, LoginHistory, LoginAlert, BugReport, Notification
 from .models_feature_flags import FeatureFlag, PageToggle
 import logging
 from django.db.models.signals import post_save, pre_delete
@@ -1107,6 +1107,57 @@ class UserAnnouncementViewAdmin(admin.ModelAdmin):
         return format_html('<span style="color: #3b82f6;">👁️ Viewed</span>')
     dismissed_badge.short_description = 'Status'
     dismissed_badge.admin_order_field = 'dismissed'
+
+
+@admin.register(Notification, site=admin_site)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ('recipient', 'notification_type_badge', 'title', 'is_read_badge', 'created_at')
+    list_filter = ('notification_type', 'is_read', 'created_at')
+    search_fields = ('title', 'message', 'recipient__name')
+    readonly_fields = ('created_at', 'read_at')
+    ordering = ('-created_at',)
+    list_per_page = 50
+    date_hierarchy = 'created_at'
+    autocomplete_fields = ['recipient']
+
+    fieldsets = (
+        ('Notification', {
+            'fields': ('recipient', 'notification_type', 'title', 'message', 'link')
+        }),
+        ('Status', {
+            'fields': ('is_read', 'created_at', 'read_at')
+        }),
+        ('Source', {
+            'fields': ('source_type', 'source_id'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def notification_type_badge(self, obj):
+        colors = {
+            'announcement': '#3b82f6',
+            'legislation_new': '#8b5cf6',
+            'vote_ended': '#10b981',
+            'event_new': '#f97316',
+        }
+        color = colors.get(obj.notification_type, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;">{}</span>',
+            color,
+            obj.get_notification_type_display()
+        )
+    notification_type_badge.short_description = 'Type'
+    notification_type_badge.admin_order_field = 'notification_type'
+
+    def is_read_badge(self, obj):
+        if obj.is_read:
+            return format_html('<span style="color: #6b7280;">✓ Read</span>')
+        return format_html('<span style="color: #3b82f6; font-weight: bold;">● Unread</span>')
+    is_read_badge.short_description = 'Status'
+    is_read_badge.admin_order_field = 'is_read'
+
+    def has_add_permission(self, request):
+        return False  # Notifications are auto-created only
 
 
 # === ADMIN V2 MODELS ===

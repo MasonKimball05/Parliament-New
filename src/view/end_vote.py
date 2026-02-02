@@ -4,6 +4,7 @@ from django.db.models import Count
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
+from src.notification_service import notify_users
 
 @login_required
 @log_function_call
@@ -65,6 +66,23 @@ def end_vote(request, legislation_id):
     else:
         legislation.status = 'removed'
     legislation.save()
+
+    # Send in-app notification to all users who voted
+    try:
+        voter_user_ids = votes.values_list('user', flat=True)
+        voter_users = ParliamentUser.objects.filter(pk__in=voter_user_ids)
+        result_text = 'Passed' if vote_passed else 'Did Not Pass'
+        notify_users(
+            voter_users,
+            'vote_ended',
+            f'Vote Ended: {legislation.title} — {result_text}',
+            link=f'/legislation/detail/{legislation.pk}/',
+            source_type='Legislation',
+            source_id=legislation.id,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Failed to create vote-ended notifications: {e}", exc_info=True)
 
     context = {
         'legislation': legislation,

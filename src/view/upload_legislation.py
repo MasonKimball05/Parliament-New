@@ -5,6 +5,7 @@ from ..forms import *
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from src.utils.file_validation import validate_uploaded_file
+from src.notification_service import notify_all_active_members
 
 @login_required
 @officer_required
@@ -25,6 +26,20 @@ def upload_legislation(request):
             legislation = form.save(commit=False)
             legislation.posted_by = request.user
             legislation.save()
+
+            # Send in-app notification to all active members
+            try:
+                notify_all_active_members(
+                    'legislation_new',
+                    f'New Legislation: {legislation.title}',
+                    link='/vote/',
+                    source_type='Legislation',
+                    source_id=legislation.id,
+                )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Failed to create legislation notifications: {e}", exc_info=True)
+
             return redirect('vote')
         else:
             messages.error(request, "There was an error with your submission.")

@@ -6,6 +6,7 @@ from src.models import Announcement, UserAnnouncementView, ParliamentUser
 from src.forms import AnnouncementForm
 from src.decorators import log_function_call, officer_required
 from src.notifications import send_announcement_notification
+from src.notification_service import notify_all_active_members
 from django.utils import timezone
 import base64
 
@@ -31,15 +32,32 @@ def create_announcement(request):
             announcement.posted_by = request.user
             announcement.save()
 
-            # Send email notifications if announcement is published now
-            if announcement.is_published():
+            # Send email notifications if announcement is published now and user opted in
+            send_email = request.POST.get('send_email') == 'on'
+            if announcement.is_published() and send_email:
                 try:
                     sent_count = send_announcement_notification(announcement)
                     messages.success(request, f'Announcement created and {sent_count} email notifications sent!')
                 except Exception as e:
                     messages.warning(request, f'Announcement created but email notifications failed: {str(e)}')
+            elif announcement.is_published():
+                messages.success(request, 'Announcement created successfully!')
             else:
                 messages.success(request, 'Announcement created and scheduled for publication!')
+
+            # Send in-app notification to all active members
+            if announcement.is_published():
+                try:
+                    notify_all_active_members(
+                        'announcement',
+                        f'New Announcement: {announcement.title}',
+                        message=announcement.content[:100],
+                        link='/announcements/',
+                        source_type='Announcement',
+                        source_id=announcement.id,
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to create announcement notifications: {e}", exc_info=True)
 
             return redirect('manage_announcements')
     else:

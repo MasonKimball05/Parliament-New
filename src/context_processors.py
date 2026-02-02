@@ -20,6 +20,20 @@ def user_preferences(request):
     return {'user_prefs': None}
 
 
+def notifications(request):
+    """
+    Injects unread notification count into all templates.
+    Used by the navbar bell icon to show the badge count.
+    """
+    if request.user.is_authenticated:
+        from src.models import Notification
+        unread_count = Notification.objects.filter(
+            recipient=request.user, is_read=False
+        ).count()
+        return {'unread_notification_count': unread_count}
+    return {'unread_notification_count': 0}
+
+
 def feature_flags(request):
     """
     Makes feature flags available in all templates.

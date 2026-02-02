@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}Parliament{% endblock %}</title>
 
     <!-- Favicon -->
@@ -150,6 +151,34 @@
                         </a>
                         {% endif %}
 
+                        <!-- Notification Bell (Desktop) -->
+                        <div class="relative" id="notification-bell-container">
+                            <button id="notification-bell" class="p-1.5 rounded-md hover:bg-primary-600 transition-colors relative" aria-label="Notifications">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                                </svg>
+                                {% if unread_notification_count %}
+                                <span id="notif-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[1rem] h-4 flex items-center justify-center font-bold px-0.5">
+                                    {{ unread_notification_count }}
+                                </span>
+                                {% endif %}
+                            </button>
+
+                            <!-- Notification Dropdown -->
+                            <div id="notification-dropdown" class="hidden absolute right-0 mt-2 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50 max-h-[32rem] overflow-hidden">
+                                <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                                    <h3 class="font-semibold text-gray-900 dark:text-white text-sm">Notifications</h3>
+                                    <button id="mark-all-read-btn" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">Mark all read</button>
+                                </div>
+                                <div id="notification-list" class="overflow-y-auto max-h-96">
+                                    <div class="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">Loading...</div>
+                                </div>
+                                <div class="px-4 py-2 border-t border-gray-200 dark:border-gray-700 text-center">
+                                    <a href="{% url 'notifications' %}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">View all notifications</a>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Desktop User Menu - More Compact -->
                         <div class="hidden lg:flex items-center space-x-1">
                             <a href="{% url 'profile' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
@@ -253,6 +282,9 @@
 
                 <!-- Mobile User Section -->
                 <div class="border-t border-primary-600 pt-2 mt-2">
+                    <a href="{% url 'notifications' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
+                        🔔 Notifications{% if unread_notification_count %} <span class="inline-flex items-center justify-center ml-1 px-1.5 py-0.5 text-xs font-bold bg-red-500 rounded-full">{{ unread_notification_count }}</span>{% endif %}
+                    </a>
                     <a href="{% url 'profile' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                         👤 {{ user.get_display_name }}
                     </a>
@@ -532,8 +564,13 @@
             });
         }
 
-        // Helper function to get CSRF token from cookies
+        // Helper function to get CSRF token (meta tag first, then cookie fallback)
         function getCookie(name) {
+            // Prefer meta tag (works even with CSRF_COOKIE_HTTPONLY=True)
+            if (name === 'csrftoken') {
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                if (meta) return meta.getAttribute('content');
+            }
             let cookieValue = null;
             if (document.cookie && document.cookie !== '') {
                 const cookies = document.cookie.split(';');
@@ -558,6 +595,114 @@
 
     <!-- Quick Actions Script -->
     <script src="{% static 'js/quick-actions.js' %}"></script>
+
+    <!-- Notification Dropdown Script -->
+    <script>
+    (function() {
+        const bell = document.getElementById('notification-bell');
+        const dropdown = document.getElementById('notification-dropdown');
+        const listEl = document.getElementById('notification-list');
+        const markAllBtn = document.getElementById('mark-all-read-btn');
+        if (!bell || !dropdown) return;
+
+        let loaded = false;
+
+        // Toggle dropdown
+        bell.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const isHidden = dropdown.classList.contains('hidden');
+            dropdown.classList.toggle('hidden');
+            if (isHidden && !loaded) {
+                loadNotifications();
+                loaded = true;
+            }
+        });
+
+        // Close on outside click
+        document.addEventListener('click', function(e) {
+            if (!dropdown.contains(e.target) && e.target !== bell) {
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        // Type icons
+        const TYPE_ICONS = {
+            'announcement': '<svg class="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/></svg>',
+            'legislation_new': '<svg class="w-5 h-5 text-purple-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>',
+            'vote_ended': '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>',
+            'event_new': '<svg class="w-5 h-5 text-orange-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>',
+        };
+
+        function loadNotifications() {
+            fetch('/api/notifications/')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.notifications.length === 0) {
+                        listEl.innerHTML = '<div class="p-6 text-center text-gray-500 dark:text-gray-400 text-sm">No notifications yet</div>';
+                        return;
+                    }
+                    listEl.innerHTML = data.notifications.map(n => `
+                        <a href="#" data-id="${n.id}" data-link="${n.link}" class="notif-item block px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 transition ${n.is_read ? 'opacity-60' : ''}">
+                            <div class="flex gap-3">
+                                <div class="flex-shrink-0 mt-0.5">${TYPE_ICONS[n.type] || TYPE_ICONS['announcement']}</div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white truncate">${escapeHtml(n.title)}</p>
+                                    ${n.message ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">${escapeHtml(n.message)}</p>` : ''}
+                                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">${n.time_ago}</p>
+                                </div>
+                                ${!n.is_read ? '<div class="flex-shrink-0 mt-2"><span class="w-2 h-2 bg-blue-500 rounded-full block"></span></div>' : ''}
+                            </div>
+                        </a>
+                    `).join('');
+
+                    // Click handler for each notification
+                    listEl.querySelectorAll('.notif-item').forEach(item => {
+                        item.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            const id = this.dataset.id;
+                            const link = this.dataset.link;
+                            fetch(`/api/notifications/${id}/read/`, {
+                                method: 'POST',
+                                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+                            }).finally(() => {
+                                if (link) window.location.href = link;
+                            });
+                        });
+                    });
+                })
+                .catch(() => {
+                    listEl.innerHTML = '<div class="p-4 text-center text-red-500 text-sm">Failed to load notifications</div>';
+                });
+        }
+
+        // Mark all read
+        markAllBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            fetch('/api/notifications/read-all/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            }).then(r => r.json()).then(data => {
+                if (data.success) {
+                    // Remove badge
+                    const badge = document.getElementById('notif-badge');
+                    if (badge) badge.remove();
+                    // Mark all items as read visually
+                    listEl.querySelectorAll('.notif-item').forEach(item => {
+                        item.classList.add('opacity-60');
+                        const dot = item.querySelector('.bg-blue-500');
+                        if (dot) dot.remove();
+                    });
+                }
+            });
+        });
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    })();
+    </script>
     {% endif %}
 </body>
 </html>
