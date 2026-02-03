@@ -219,14 +219,32 @@
     </div>
 
     <!-- Document Viewer - Full Height -->
-    <div class="flex-1 bg-gray-100 dark:bg-gray-900 overflow-auto">
+    <div class="flex-1 bg-gray-100 dark:bg-gray-900 overflow-auto" style="-webkit-overflow-scrolling: touch;">
         {% if is_pdf %}
-        <embed
+        <!-- Desktop: Use iframe for better scrolling -->
+        <iframe
             src="{{ document_url }}"
-            type="application/pdf"
-            class="w-full h-full"
-            title="{{ document_title }}">
-        </embed>
+            class="w-full h-full border-0 hidden md:block"
+            title="{{ document_title }}"
+            style="min-height: 100%;">
+        </iframe>
+        <!-- Mobile: Show PDF with touch-friendly container and download prompt -->
+        <div class="md:hidden flex flex-col h-full">
+            <div class="flex-1 overflow-auto" style="-webkit-overflow-scrolling: touch; touch-action: pan-y pinch-zoom;">
+                <iframe
+                    src="{{ document_url }}#toolbar=0&navpanes=0"
+                    class="w-full border-0"
+                    title="{{ document_title }}"
+                    style="min-height: 200vh;">
+                </iframe>
+            </div>
+            <div class="flex-shrink-0 p-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                <p class="text-xs text-gray-500 dark:text-gray-400 text-center mb-2">Having trouble viewing? Open in your device's PDF viewer:</p>
+                <a href="{{ document_url }}" target="_blank" class="block w-full text-center py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
+                    Open PDF
+                </a>
+            </div>
+        </div>
         {% elif is_image %}
         <div class="w-full h-full flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-800">
             <img src="{{ document_url }}" alt="{{ document_title }}" class="max-w-full max-h-full object-contain rounded-lg shadow-lg">

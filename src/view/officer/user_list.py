@@ -103,6 +103,9 @@ def user_list(request):
     if sort_by == 'role_count':
         user_data.sort(key=lambda x: x['role_count'], reverse=(sort_order == 'desc'))
 
+    # Check if any pledges exist in the current view
+    has_pledges = any(data['role'] == 'Pledge' for data in user_data)
+
     # Get filter options
     member_types = ParliamentUser.MEMBER_TYPES
     member_statuses = ParliamentUser.MEMBER_STATUS
@@ -117,6 +120,7 @@ def user_list(request):
         'total_users': len(user_data),
         'current_sort': sort_by,
         'current_order': sort_order,
+        'has_pledges': has_pledges,
     }
 
     return render(request, 'user_list.html', context)

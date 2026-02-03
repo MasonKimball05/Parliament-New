@@ -98,11 +98,13 @@
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                        <!-- Checkbox column for pledges -->
-                        <th scope="col" class="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-10">
+                        <!-- Checkbox column for pledges - only shown when pledges exist -->
+                        {% if has_pledges %}
+                        <th scope="col" class="px-2 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-8">
                             <input type="checkbox" id="select-all-pledges" onclick="toggleAllPledges()" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer" title="Select all pledges">
                         </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        {% endif %}
+                        <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                             <a href="?sort=name&order={% if current_sort == 'name' and current_order == 'asc' %}desc{% else %}asc{% endif %}&status={{ selected_status }}&type={{ selected_type }}&q={{ search_query }}" class="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
                                 Name
                                 {% if current_sort == 'name' %}
@@ -114,10 +116,10 @@
                                 {% endif %}
                             </a>
                         </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Roll #
                         </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
                             <a href="?sort=email&order={% if current_sort == 'email' and current_order == 'asc' %}desc{% else %}asc{% endif %}&status={{ selected_status }}&type={{ selected_type }}&q={{ search_query }}" class="flex items-center gap-1 hover:text-gray-700">
                                 Email
                                 {% if current_sort == 'email' %}
@@ -129,9 +131,9 @@
                                 {% endif %}
                             </a>
                         </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <a href="?sort=type&order={% if current_sort == 'type' and current_order == 'asc' %}desc{% else %}asc{% endif %}&status={{ selected_status }}&type={{ selected_type }}&q={{ search_query }}" class="flex items-center gap-1 hover:text-gray-700">
-                                Member Type
+                                Type
                                 {% if current_sort == 'type' %}
                                     {% if current_order == 'asc' %}
                                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
@@ -141,7 +143,7 @@
                                 {% endif %}
                             </a>
                         </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">
                             <a href="?sort=status&order={% if current_sort == 'status' and current_order == 'asc' %}desc{% else %}asc{% endif %}&status={{ selected_status }}&type={{ selected_type }}&q={{ search_query }}" class="flex items-center gap-1 hover:text-gray-700">
                                 Status
                                 {% if current_sort == 'status' %}
@@ -153,7 +155,7 @@
                                 {% endif %}
                             </a>
                         </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">
                             <a href="?sort=role_count&order={% if current_sort == 'role_count' and current_order == 'asc' %}desc{% else %}asc{% endif %}&status={{ selected_status }}&type={{ selected_type }}&q={{ search_query }}" class="flex items-center gap-1 hover:text-gray-700">
                                 Roles
                                 {% if current_sort == 'role_count' %}
@@ -165,7 +167,7 @@
                                 {% endif %}
                             </a>
                         </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden 2xl:table-cell">
                             <a href="?sort=last_login&order={% if current_sort == 'last_login' and current_order == 'asc' %}desc{% else %}asc{% endif %}&status={{ selected_status }}&type={{ selected_type }}&q={{ search_query }}" class="flex items-center gap-1 hover:text-gray-700">
                                 Last Login
                                 {% if current_sort == 'last_login' %}
@@ -185,13 +187,15 @@
                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700" id="memberTableBody">
                     {% for data in user_data %}
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                            <!-- Checkbox for pledges -->
-                            <td class="px-3 py-4 text-center">
+                            <!-- Checkbox for pledges - only shown when pledges exist -->
+                            {% if has_pledges %}
+                            <td class="px-2 py-4 text-center w-8">
                                 {% if data.role == 'Pledge' %}
                                 <input type="checkbox" class="pledge-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer" value="{{ data.user.user_id }}" data-name="{{ data.username }}" onchange="updateInitiateButton()">
                                 {% endif %}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            {% endif %}
+                            <td class="px-3 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                                         <span class="text-blue-600 font-semibold text-sm">
@@ -203,42 +207,42 @@
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-3 py-4 whitespace-nowrap">
                                 {% if data.role_number %}
                                 <div class="text-sm text-gray-900 dark:text-white font-mono font-semibold">#{{ data.role_number }}</div>
                                 {% elif data.role == 'Pledge' %}
                                 <span class="text-xs text-gray-400 dark:text-gray-500 italic">Pending</span>
                                 {% else %}
-                                <span class="text-xs text-gray-400 dark:text-gray-500">—</span>
+                                <div class="text-sm text-gray-600 dark:text-gray-400 font-mono">{{ data.id }}</div>
                                 {% endif %}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-3 py-4 whitespace-nowrap hidden lg:table-cell">
                                 <div class="text-sm text-gray-600 dark:text-gray-400">{{ data.email }}</div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-3 py-4 whitespace-nowrap">
                                 {% if data.role == 'Officer' %}
-                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
+                                    <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
                                         Officer
                                     </span>
                                 {% elif data.role == 'Chair' %}
-                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                                    <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
                                         Chair
                                     </span>
                                 {% elif data.role == 'Advisor' %}
-                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+                                    <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                                         Advisor
                                     </span>
                                 {% elif data.role == 'Pledge' %}
-                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">
+                                    <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">
                                         Pledge
                                     </span>
                                 {% else %}
-                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
+                                    <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
                                         {{ data.role }}
                                     </span>
                                 {% endif %}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-3 py-4 whitespace-nowrap hidden xl:table-cell">
                                 {% if data.member_status == 'Active' %}
                                     <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                                         Active
@@ -257,7 +261,7 @@
                                     </span>
                                 {% endif %}
                             </td>
-                            <td class="px-6 py-4">
+                            <td class="px-3 py-4 hidden xl:table-cell">
                                 <div class="flex items-center gap-1">
                                     <span class="px-2 py-1 inline-flex text-xs font-semibold rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200">
                                         {{ data.role_count }}
@@ -274,7 +278,7 @@
                                     {% endif %}
                                 </div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-3 py-4 whitespace-nowrap hidden 2xl:table-cell">
                                 <div class="text-sm text-gray-600 dark:text-gray-400">{{ data.last_login }}</div>
                             </td>
                             <td class="px-4 py-4 text-center">
@@ -404,6 +408,13 @@
                                 </svg>
                                 <span class="text-xs text-gray-400 italic">Roll # pending initiation</span>
                             </div>
+                            {% else %}
+                            <div class="flex items-center gap-1.5">
+                                <svg class="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/>
+                                </svg>
+                                <span class="font-mono text-xs">ID: {{ data.id }}</span>
+                            </div>
                             {% endif %}
                             {% if data.last_login %}
                             <div class="flex items-center gap-1.5">
@@ -475,8 +486,16 @@
                         <!-- User ID -->
                         <div>
                             <label for="add-user-id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Member ID *</label>
-                            <input type="text" id="add-user-id" name="user_id" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Unique identifier">
-                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">This cannot be changed later</p>
+                            <div class="flex gap-2">
+                                <input type="text" id="add-user-id" name="user_id" required class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Unique identifier">
+                                <button type="button" id="generate-id-btn" onclick="generatePledgeId()" class="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500 transition whitespace-nowrap" title="Auto-generate a temporary ID for pledges">
+                                    <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                    </svg>
+                                    Generate
+                                </button>
+                            </div>
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">This cannot be changed later. Use "Generate" for temporary pledge IDs.</p>
                         </div>
 
                         <!-- Email -->
@@ -658,7 +677,7 @@
         <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeInitiateModal()"></div>
 
         <!-- Modal panel -->
-        <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full">
+        <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
             <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="initiate-modal-title">Initiate Pledges</h3>
@@ -670,15 +689,18 @@
                 </div>
 
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    The following pledges will be initiated as full members:
+                    Assign a unique roll number to each pledge being initiated:
                 </p>
 
-                <div id="initiate-pledge-list" class="max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg divide-y divide-gray-200 dark:divide-gray-600 mb-4">
-                    <!-- Pledge names will be inserted here -->
+                <div id="initiate-pledge-list" class="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg divide-y divide-gray-200 dark:divide-gray-600 mb-4">
+                    <!-- Pledge rows with role number inputs will be inserted here -->
                 </div>
 
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                    They will receive a notification welcoming them to the chapter.
+                    <svg class="inline-block w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Roll numbers are permanent and cannot be changed after initiation. Each initiated member will receive a welcome notification.
                 </p>
 
                 <!-- Error display -->
@@ -689,8 +711,11 @@
                     <button type="button" onclick="closeInitiateModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
                         Cancel
                     </button>
-                    <button type="button" onclick="confirmInitiate()" id="confirm-initiate-btn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium">
-                        Initiate
+                    <button type="button" onclick="confirmInitiate()" id="confirm-initiate-btn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Initiate Members
                     </button>
                 </div>
             </div>
@@ -811,6 +836,12 @@ function openAddModal() {
     document.getElementById('add-member-submit').textContent = 'Add Member';
     populateRolesCheckboxes('add-roles-container', []);
     document.getElementById('add-member-modal').classList.remove('hidden');
+
+    // Auto-generate ID if Pledge is the default selection
+    const memberType = document.getElementById('add-member-type').value;
+    if (memberType === 'Pledge') {
+        generatePledgeId();
+    }
 }
 
 function closeAddModal() {
@@ -820,6 +851,42 @@ function closeAddModal() {
         window.location.reload();
     }
 }
+
+function generatePledgeId() {
+    const memberType = document.getElementById('add-member-type').value;
+    const userIdInput = document.getElementById('add-user-id');
+
+    // Generate a temporary ID based on member type and timestamp
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+
+    let prefix;
+    if (memberType === 'Pledge') {
+        prefix = 'P';
+    } else if (memberType === 'Member') {
+        prefix = 'M';
+    } else if (memberType === 'Officer') {
+        prefix = 'O';
+    } else if (memberType === 'Chair') {
+        prefix = 'C';
+    } else if (memberType === 'Advisor') {
+        prefix = 'A';
+    } else {
+        prefix = 'U';
+    }
+
+    // Format: P-XXXXXX (e.g., P-K5R2M1)
+    userIdInput.value = `${prefix}-${random}${timestamp.slice(-2)}`;
+    userIdInput.focus();
+}
+
+// Auto-generate ID when member type changes to Pledge and ID is empty
+document.getElementById('add-member-type').addEventListener('change', function() {
+    const userIdInput = document.getElementById('add-user-id');
+    if (this.value === 'Pledge' && !userIdInput.value.trim()) {
+        generatePledgeId();
+    }
+});
 
 async function submitAddMember(e) {
     e.preventDefault();
@@ -1032,11 +1099,32 @@ function openInitiateModal() {
     const listContainer = document.getElementById('initiate-pledge-list');
     document.getElementById('initiate-error').classList.add('hidden');
 
-    listContainer.innerHTML = Array.from(checkboxes).map(cb => `
-        <div class="px-3 py-2 text-sm text-gray-700 dark:text-gray-300">${cb.dataset.name}</div>
+    // Create list with role number inputs
+    listContainer.innerHTML = Array.from(checkboxes).map((cb, index) => `
+        <div class="px-3 py-3 flex items-center justify-between gap-4">
+            <div class="flex-1 min-w-0">
+                <span class="text-sm font-medium text-gray-900 dark:text-white truncate">${cb.dataset.name}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400 ml-2">(${cb.value})</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Roll #</label>
+                <input type="text"
+                       class="role-number-input w-20 px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                       data-user-id="${cb.value}"
+                       data-name="${cb.dataset.name}"
+                       placeholder="e.g. 123"
+                       required>
+            </div>
+        </div>
     `).join('');
 
     document.getElementById('initiate-modal').classList.remove('hidden');
+
+    // Focus the first input after modal opens
+    setTimeout(() => {
+        const firstInput = listContainer.querySelector('.role-number-input');
+        if (firstInput) firstInput.focus();
+    }, 100);
 }
 
 function closeInitiateModal() {
@@ -1044,14 +1132,48 @@ function closeInitiateModal() {
 }
 
 async function confirmInitiate() {
-    const checkboxes = document.querySelectorAll('.pledge-checkbox:checked');
-    const pledgeIds = Array.from(checkboxes).map(cb => cb.value);
     const errorDiv = document.getElementById('initiate-error');
     const confirmBtn = document.getElementById('confirm-initiate-btn');
+    const roleInputs = document.querySelectorAll('.role-number-input');
+
+    // Collect pledges with role numbers
+    const pledges = [];
+    let hasEmptyRoleNumber = false;
+    const roleNumbers = [];
+
+    roleInputs.forEach(input => {
+        const roleNumber = input.value.trim();
+        if (!roleNumber) {
+            hasEmptyRoleNumber = true;
+            input.classList.add('border-red-500', 'focus:ring-red-500');
+        } else {
+            input.classList.remove('border-red-500', 'focus:ring-red-500');
+            roleNumbers.push(roleNumber);
+            pledges.push({
+                user_id: input.dataset.userId,
+                role_number: roleNumber
+            });
+        }
+    });
+
+    // Validate all have role numbers
+    if (hasEmptyRoleNumber) {
+        errorDiv.textContent = 'Please enter a roll number for all pledges.';
+        errorDiv.classList.remove('hidden');
+        return;
+    }
+
+    // Check for duplicates
+    if (roleNumbers.length !== new Set(roleNumbers).size) {
+        errorDiv.textContent = 'Each pledge must have a unique roll number.';
+        errorDiv.classList.remove('hidden');
+        return;
+    }
 
     errorDiv.classList.add('hidden');
     confirmBtn.disabled = true;
-    confirmBtn.textContent = 'Initiating...';
+    const originalContent = confirmBtn.innerHTML;
+    confirmBtn.innerHTML = '<svg class="animate-spin w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Initiating...';
 
     try {
         const response = await fetch('/officers/members/initiate/', {
@@ -1060,25 +1182,27 @@ async function confirmInitiate() {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCsrf(),
             },
-            body: JSON.stringify({ pledge_ids: pledgeIds }),
+            body: JSON.stringify({ pledges: pledges }),
         });
 
         const result = await response.json();
 
         if (result.success) {
             closeInitiateModal();
+            // Show success message before reload
+            alert(`Successfully initiated ${result.count} member(s):\n${result.role_numbers.join('\n')}`);
             window.location.reload();
         } else {
             errorDiv.textContent = result.error || 'Failed to initiate pledges';
             errorDiv.classList.remove('hidden');
             confirmBtn.disabled = false;
-            confirmBtn.textContent = 'Initiate';
+            confirmBtn.innerHTML = originalContent;
         }
     } catch (error) {
         errorDiv.textContent = 'An error occurred. Please try again.';
         errorDiv.classList.remove('hidden');
         confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Initiate';
+        confirmBtn.innerHTML = originalContent;
     }
 }
 </script>
