@@ -537,13 +537,22 @@
                     <!-- Error display -->
                     <div id="add-member-error" class="hidden mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
 
-                    <!-- Success display with password -->
+                    <!-- Success display with credentials -->
                     <div id="add-member-success" class="hidden mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                        <p class="text-green-700 dark:text-green-400 font-medium mb-2">Member created successfully!</p>
-                        <div class="bg-white dark:bg-gray-800 border border-green-300 dark:border-green-700 rounded p-3">
-                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Temporary Password (share with member):</p>
-                            <code id="temp-password" class="block text-lg font-mono text-gray-900 dark:text-white select-all"></code>
+                        <p class="text-green-700 dark:text-green-400 font-medium mb-3">Member created successfully!</p>
+                        <div class="bg-white dark:bg-gray-800 border border-green-300 dark:border-green-700 rounded p-3 space-y-3">
+                            <div>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Username:</p>
+                                <code id="new-username" class="block text-lg font-mono text-gray-900 dark:text-white select-all"></code>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Temporary Password:</p>
+                                <code id="temp-password" class="block text-lg font-mono text-gray-900 dark:text-white select-all"></code>
+                            </div>
                         </div>
+                        <p id="pledge-password-note" class="hidden text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">
+                            Note: For pledges, username and password are the same.
+                        </p>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">The member will be required to change this password on first login.</p>
                     </div>
 
@@ -925,7 +934,15 @@ async function submitAddMember(e) {
         const result = await response.json();
 
         if (result.success) {
+            document.getElementById('new-username').textContent = result.username;
             document.getElementById('temp-password').textContent = result.temp_password;
+            // Show pledge note if password = username
+            const pledgeNote = document.getElementById('pledge-password-note');
+            if (result.password_is_username) {
+                pledgeNote.classList.remove('hidden');
+            } else {
+                pledgeNote.classList.add('hidden');
+            }
             successDiv.classList.remove('hidden');
             submitBtn.textContent = 'Done';
         } else {
@@ -1081,26 +1098,41 @@ function toggleAllPledges() {
     updateInitiateButton();
 }
 
-function updateInitiateButton() {
+function getUniqueCheckedPledges() {
+    // Get all checked pledge checkboxes and deduplicate by user_id
+    // (needed because both desktop and mobile views have checkboxes)
     const checkboxes = document.querySelectorAll('.pledge-checkbox:checked');
+    const seen = new Set();
+    const unique = [];
+    checkboxes.forEach(cb => {
+        if (!seen.has(cb.value)) {
+            seen.add(cb.value);
+            unique.push(cb);
+        }
+    });
+    return unique;
+}
+
+function updateInitiateButton() {
+    const uniquePledges = getUniqueCheckedPledges();
     const initiateBtn = document.getElementById('initiate-btn');
     const countSpan = document.getElementById('pledge-count');
 
-    if (checkboxes.length > 0) {
+    if (uniquePledges.length > 0) {
         initiateBtn.classList.remove('hidden');
-        countSpan.textContent = checkboxes.length;
+        countSpan.textContent = uniquePledges.length;
     } else {
         initiateBtn.classList.add('hidden');
     }
 }
 
 function openInitiateModal() {
-    const checkboxes = document.querySelectorAll('.pledge-checkbox:checked');
+    const uniquePledges = getUniqueCheckedPledges();
     const listContainer = document.getElementById('initiate-pledge-list');
     document.getElementById('initiate-error').classList.add('hidden');
 
     // Create list with role number inputs
-    listContainer.innerHTML = Array.from(checkboxes).map((cb, index) => `
+    listContainer.innerHTML = uniquePledges.map((cb, index) => `
         <div class="px-3 py-3 flex items-center justify-between gap-4">
             <div class="flex-1 min-w-0">
                 <span class="text-sm font-medium text-gray-900 dark:text-white truncate">${cb.dataset.name}</span>

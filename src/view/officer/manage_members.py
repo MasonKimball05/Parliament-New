@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST, require_http_methods
+from django.db import connection
 
 from src.models import ParliamentUser, Role, ActivityLog
 from src.forms import AddMemberForm, EditMemberForm
@@ -23,6 +24,41 @@ def generate_temp_password(length=12):
     """Generate a random alphanumeric password."""
     alphabet = string.ascii_letters + string.digits
     return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+
+def generate_username(name):
+    """
+    Generate username from name: first letter of first name + last name (lowercase).
+    E.g., "John Smith" -> "jsmith", "Mary Jane Watson" -> "mwatson"
+    """
+    parts = name.strip().split()
+    if len(parts) < 2:
+        # Single name, just use it lowercase
+        return parts[0].lower() if parts else 'user'
+
+    first_initial = parts[0][0].lower()
+    last_name = parts[-1].lower()
+
+    # Remove any non-alphanumeric characters
+    import re
+    username = re.sub(r'[^a-z0-9]', '', first_initial + last_name)
+
+    return username if username else 'user'
+
+
+def ensure_unique_username(base_username):
+    """
+    Ensure the username is unique by appending numbers if needed.
+    E.g., if "jsmith" exists, try "jsmith1", "jsmith2", etc.
+    """
+    username = base_username
+    counter = 1
+
+    while ParliamentUser.objects.filter(username=username).exists():
+        username = f"{base_username}{counter}"
+        counter += 1
+
+    return username
 
 
 @login_required
@@ -41,15 +77,24 @@ def add_member(request):
         errors = {field: error[0] for field, error in form.errors.items()}
         return JsonResponse({'success': False, 'errors': errors}, status=400)
 
-    # Generate a temporary password
-    temp_password = generate_temp_password()
+    # Generate username from name (first initial + last name)
+    base_username = generate_username(form.cleaned_data['name'])
+    username = ensure_unique_username(base_username)
+
+    # For pledges: password = username
+    # For others: random password
+    member_type = form.cleaned_data['member_type']
+    if member_type == 'Pledge':
+        temp_password = username
+    else:
+        temp_password = generate_temp_password()
 
     # Create the user
     user = ParliamentUser.objects.create_user(
         user_id=form.cleaned_data['user_id'],
         name=form.cleaned_data['name'],
-        username=form.cleaned_data['name'],  # Use name as username initially
-        member_type=form.cleaned_data['member_type'],
+        username=username,
+        member_type=member_type,
         password=temp_password,
     )
 
@@ -81,16 +126,22 @@ def add_member(request):
 
     logger.info(f"Officer {request.user.user_id} added new member {user.user_id}")
 
+    # For pledges, indicate password = username
+    is_pledge = user.member_type == 'Pledge'
+
     return JsonResponse({
         'success': True,
         'member': {
             'user_id': user.user_id,
             'name': user.name,
+            'username': user.username,
             'email': user.email or '',
             'member_type': user.member_type,
             'member_status': user.member_status,
         },
+        'username': user.username,
         'temp_password': temp_password,
+        'password_is_username': is_pledge,
         'message': f'Member {user.name} created successfully.',
     })
 
@@ -309,6 +360,20 @@ def initiate_pledges(request):
             'error': f'Role number(s) already in use: {", ".join(existing_role_numbers)}'
         }, status=400)
 
+    # Check for existing user_ids that would conflict with the new role numbers
+    # (since we're changing user_id to match role_number)
+    existing_user_ids = ParliamentUser.objects.filter(
+        user_id__in=role_number_values
+    ).exclude(
+        user_id__in=pledge_ids  # Exclude the pledges being initiated
+    ).values_list('user_id', flat=True)
+
+    if existing_user_ids:
+        return JsonResponse({
+            'success': False,
+            'error': f'Member ID(s) already in use: {", ".join(existing_user_ids)}'
+        }, status=400)
+
     # Get pledges that are actually pledges
     pledges = ParliamentUser.objects.filter(
         user_id__in=pledge_ids,
@@ -323,14 +388,105 @@ def initiate_pledges(request):
     initiated_users = []
     role_number_assignments = []
 
+    # Get the actual database table name
+    table_name = ParliamentUser._meta.db_table
+
+    # All tables with foreign keys to ParliamentUser.user_id
+    # Format: (table_name, column_name)
+    related_tables = [
+        ('calendar_subscriptions', 'user_id'),
+        ('django_admin_log', 'user_id'),
+        ('src_activitylog', 'user_id'),
+        ('src_announcement', 'posted_by_id'),
+        ('src_attendance', 'user_id'),
+        ('src_attendance', 'marked_by_id'),
+        ('src_attendanceexcuse', 'reviewed_by_id'),
+        ('src_attendanceexcuse', 'user_id'),
+        ('src_bugreport', 'resolved_by_id'),
+        ('src_bugreport', 'submitted_by_id'),
+        ('src_chapterfolder', 'created_by_id'),
+        ('src_chapterminutes', 'created_by_id'),
+        ('src_chapterminutes', 'last_edit_by_id'),
+        ('src_chatchannel', 'created_by_id'),
+        ('src_chatchannelpermission', 'user_id'),
+        ('src_chatmessage', 'sender_id'),
+        ('src_chatreadreceipt', 'user_id'),
+        ('src_committee_advisors', 'parliamentuser_id'),
+        ('src_committee_chairs', 'parliamentuser_id'),
+        ('src_committee_members', 'parliamentuser_id'),
+        ('src_committee_voting_members', 'parliamentuser_id'),
+        ('src_committeedocument', 'uploaded_by_id'),
+        ('src_committeedocument_custom_viewers', 'parliamentuser_id'),
+        ('src_committeelegislation', 'posted_by_id'),
+        ('src_committeeminutes', 'posted_by_id'),
+        ('src_committeepermissions', 'user_id'),
+        ('src_committeevote', 'user_id'),
+        ('src_documentversion', 'uploaded_by_id'),
+        ('src_event', 'finalized_by_id'),
+        ('src_event', 'created_by_id'),
+        ('src_ipblacklist', 'added_by_id'),
+        ('src_ipwhitelist', 'added_by_id'),
+        ('src_kaireport', 'reviewed_by_id'),
+        ('src_kaireport', 'submitted_by_id'),
+        ('src_kaireport', 'targeted_to_id'),
+        ('src_kaireportactivity', 'user_id'),
+        ('src_kaireporttemplate', 'created_by_id'),
+        ('src_legislation', 'posted_by_id'),
+        ('src_loginalert', 'user_id'),
+        ('src_loginalert', 'reviewed_by_id'),
+        ('src_loginhistory', 'user_id'),
+        ('src_loginhistory', 'reviewed_by_id'),
+        ('src_minutesmotion', 'author_id'),
+        ('src_notification', 'recipient_id'),
+        ('src_parliamentuser_roles', 'parliamentuser_id'),
+        ('src_passedresolution', 'created_by_id'),
+        ('src_userannouncementview', 'user_id'),
+        ('src_userpreferences', 'user_id'),
+        ('src_vote', 'user_id'),
+    ]
+
     for pledge in pledges:
-        assigned_role_number = role_numbers.get(pledge.user_id)
-        pledge.member_type = 'Member'
-        pledge.role_number = assigned_role_number
-        pledge.save()
-        initiated_names.append(pledge.name)
-        initiated_users.append(pledge)
-        role_number_assignments.append(f"{pledge.name} (#{assigned_role_number})")
+        old_user_id = pledge.user_id
+        assigned_role_number = role_numbers.get(old_user_id)
+        pledge_name = pledge.name
+
+        try:
+            with connection.cursor() as cursor:
+                # Delete all related records first (pledges shouldn't have much data)
+                for rel_table, rel_column in related_tables:
+                    try:
+                        cursor.execute(
+                            f"DELETE FROM {rel_table} WHERE {rel_column} = %s",
+                            [old_user_id]
+                        )
+                    except Exception:
+                        # Table might not exist, that's OK
+                        pass
+
+                # Now update the user_id, member_type, and role_number
+                cursor.execute(
+                    f"UPDATE {table_name} SET user_id = %s, member_type = %s, role_number = %s WHERE user_id = %s",
+                    [assigned_role_number, 'Member', assigned_role_number, old_user_id]
+                )
+                rows_updated = cursor.rowcount
+
+            if rows_updated == 0:
+                logger.warning(f"No rows updated for pledge {old_user_id}")
+                continue
+
+            # Refresh the pledge object with the new user_id
+            pledge = ParliamentUser.objects.get(user_id=assigned_role_number)
+
+            initiated_names.append(pledge_name)
+            initiated_users.append(pledge)
+            role_number_assignments.append(f"{pledge_name} (#{assigned_role_number})")
+
+        except Exception as e:
+            logger.error(f"Error initiating pledge {old_user_id}: {e}", exc_info=True)
+            return JsonResponse({
+                'success': False,
+                'error': f'Error initiating {pledge_name}: {str(e)}'
+            }, status=500)
 
     # Send notifications to initiated members
     try:

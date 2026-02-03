@@ -189,8 +189,8 @@ class RoleAdmin(admin.ModelAdmin):
 @log_function_call
 @admin.register(ParliamentUser, site=admin_site)
 class ParliamentUserAdmin(admin.ModelAdmin):
-    list_display = ('name', 'user_id', 'email', 'member_type', 'is_admin', 'member_status', 'role_list', 'last_login_display', 'login_as_link')
-    search_fields = ('name', 'user_id', 'email', 'username')  # Enable autocomplete
+    list_display = ('name', 'user_id', 'role_number', 'email', 'member_type', 'is_admin', 'member_status', 'role_list', 'last_login_display', 'login_as_link')
+    search_fields = ('name', 'user_id', 'email', 'username', 'role_number')  # Enable autocomplete
     filter_horizontal = ('roles',)
     list_filter = ('member_type', 'member_status', 'is_admin', 'roles')
     list_per_page = 50
@@ -200,7 +200,7 @@ class ParliamentUserAdmin(admin.ModelAdmin):
             'fields': ('username', 'name', 'preferred_name', 'user_id', 'email')
         }),
         ('Member Information', {
-            'fields': ('member_type', 'member_status', 'is_admin', 'is_active')
+            'fields': ('member_type', 'member_status', 'role_number', 'is_admin', 'is_active')
         }),
         ('Profile Picture', {
             'fields': ('profile_picture', 'profile_picture_removed_by_admin'),
@@ -238,7 +238,7 @@ class ParliamentUserAdmin(admin.ModelAdmin):
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
-            path('login-as-<int:user_id>/', self.admin_site.admin_view(self.login_as_user), name='login_as_user'),
+            path('login-as-<str:user_id>/', self.admin_site.admin_view(self.login_as_user), name='login_as_user'),
         ]
         return custom_urls + urls
 
