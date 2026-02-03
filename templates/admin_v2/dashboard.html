@@ -91,6 +91,223 @@
         </div>
     </div>
 
+    <!-- Performance Monitoring -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8 transition-colors duration-200">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+            📊 Performance Monitor
+        </h2>
+
+        <!-- Real-time Status Check -->
+        <div class="mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300">Server Health Check</h3>
+                <button onclick="runHealthCheck()" id="health-check-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    Run Check
+                </button>
+            </div>
+
+            <div id="health-results" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Server Response Time -->
+                <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Server Response</span>
+                        <span id="server-status" class="px-2 py-0.5 text-xs rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400">Pending</span>
+                    </div>
+                    <div id="server-time" class="text-2xl font-bold text-gray-900 dark:text-gray-100">--</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">milliseconds</div>
+                </div>
+
+                <!-- Network Latency -->
+                <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Network Latency</span>
+                        <span id="network-status" class="px-2 py-0.5 text-xs rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400">Pending</span>
+                    </div>
+                    <div id="network-time" class="text-2xl font-bold text-gray-900 dark:text-gray-100">--</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">milliseconds round-trip</div>
+                </div>
+
+                <!-- Diagnosis -->
+                <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Diagnosis</span>
+                    </div>
+                    <div id="diagnosis" class="text-sm text-gray-700 dark:text-gray-300">Click "Run Check" to diagnose</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Metrics -->
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+            <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 text-center">
+                <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ performance.avg_response_time_ms|default:"0" }}</div>
+                <div class="text-xs text-gray-600 dark:text-gray-400">Avg Response (ms)</div>
+            </div>
+            <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 text-center">
+                <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ performance.requests_last_hour|default:"0" }}</div>
+                <div class="text-xs text-gray-600 dark:text-gray-400">Requests/Hour</div>
+            </div>
+            <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 text-center">
+                <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{{ performance.slow_requests|default:"0" }}</div>
+                <div class="text-xs text-gray-600 dark:text-gray-400">Slow Requests (>1s)</div>
+            </div>
+            <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 text-center">
+                <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ performance.avg_db_queries|default:"0" }}</div>
+                <div class="text-xs text-gray-600 dark:text-gray-400">Avg DB Queries</div>
+            </div>
+            <div class="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-4 text-center">
+                <div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{{ performance.avg_db_time_ms|default:"0" }}</div>
+                <div class="text-xs text-gray-600 dark:text-gray-400">Avg DB Time (ms)</div>
+            </div>
+            <div class="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 text-center">
+                <div class="text-2xl font-bold text-red-600 dark:text-red-400">{{ performance.max_response_time_ms|default:"0" }}</div>
+                <div class="text-xs text-gray-600 dark:text-gray-400">Max Response (ms)</div>
+            </div>
+        </div>
+
+        <!-- Slow Requests Table -->
+        {% if slow_requests %}
+        <div class="mt-4">
+            <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-3">Recent Slow Requests (>1s)</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                    <thead class="bg-gray-50 dark:bg-gray-700/50">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Time</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Path</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Duration</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">DB Queries</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for req in slow_requests %}
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">{{ req.0|date:"m/d H:i:s" }}</td>
+                            <td class="px-3 py-2 text-xs text-gray-900 dark:text-gray-100 font-mono">{{ req.2|truncatechars:50 }}</td>
+                            <td class="px-3 py-2 whitespace-nowrap text-xs">
+                                <span class="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-full">{{ req.1|floatformat:0 }}ms</span>
+                            </td>
+                            <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">{{ req.3 }} queries</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Health Check Info -->
+        <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700">
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+                <strong>How this works:</strong> The health check measures server processing time vs network round-trip time.
+                If server time is high but network is fast, the issue is server-side (database, processing).
+                If network time is high, the issue is likely user's internet connection or network infrastructure.
+            </p>
+        </div>
+    </div>
+
+    <script>
+    function runHealthCheck() {
+        const btn = document.getElementById('health-check-btn');
+        const serverStatus = document.getElementById('server-status');
+        const serverTime = document.getElementById('server-time');
+        const networkStatus = document.getElementById('network-status');
+        const networkTime = document.getElementById('network-time');
+        const diagnosis = document.getElementById('diagnosis');
+
+        // Disable button while checking
+        btn.disabled = true;
+        btn.classList.add('opacity-50');
+        serverStatus.textContent = 'Checking...';
+        serverStatus.className = 'px-2 py-0.5 text-xs rounded-full bg-yellow-200 dark:bg-yellow-700 text-yellow-800 dark:text-yellow-200';
+        networkStatus.textContent = 'Checking...';
+        networkStatus.className = 'px-2 py-0.5 text-xs rounded-full bg-yellow-200 dark:bg-yellow-700 text-yellow-800 dark:text-yellow-200';
+
+        const startTime = performance.now();
+
+        fetch('/api/health-check/', {
+            method: 'GET',
+            cache: 'no-store',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(response => {
+            const endTime = performance.now();
+            const totalTime = Math.round(endTime - startTime);
+
+            // Get server timing from header if available
+            const serverTiming = response.headers.get('Server-Timing');
+            let serverProcessTime = 0;
+            if (serverTiming) {
+                const match = serverTiming.match(/total;dur=(\d+\.?\d*)/);
+                if (match) {
+                    serverProcessTime = Math.round(parseFloat(match[1]));
+                }
+            }
+
+            // Calculate network time (total - server processing)
+            const networkRoundTrip = totalTime - serverProcessTime;
+
+            // Update server time
+            serverTime.textContent = serverProcessTime || totalTime;
+            if (serverProcessTime < 200) {
+                serverStatus.textContent = 'Good';
+                serverStatus.className = 'px-2 py-0.5 text-xs rounded-full bg-green-200 dark:bg-green-700 text-green-800 dark:text-green-200';
+            } else if (serverProcessTime < 500) {
+                serverStatus.textContent = 'Slow';
+                serverStatus.className = 'px-2 py-0.5 text-xs rounded-full bg-yellow-200 dark:bg-yellow-700 text-yellow-800 dark:text-yellow-200';
+            } else {
+                serverStatus.textContent = 'Very Slow';
+                serverStatus.className = 'px-2 py-0.5 text-xs rounded-full bg-red-200 dark:bg-red-700 text-red-800 dark:text-red-200';
+            }
+
+            // Update network time
+            networkTime.textContent = networkRoundTrip > 0 ? networkRoundTrip : totalTime;
+            if (networkRoundTrip < 100) {
+                networkStatus.textContent = 'Excellent';
+                networkStatus.className = 'px-2 py-0.5 text-xs rounded-full bg-green-200 dark:bg-green-700 text-green-800 dark:text-green-200';
+            } else if (networkRoundTrip < 300) {
+                networkStatus.textContent = 'Good';
+                networkStatus.className = 'px-2 py-0.5 text-xs rounded-full bg-green-200 dark:bg-green-700 text-green-800 dark:text-green-200';
+            } else if (networkRoundTrip < 500) {
+                networkStatus.textContent = 'Fair';
+                networkStatus.className = 'px-2 py-0.5 text-xs rounded-full bg-yellow-200 dark:bg-yellow-700 text-yellow-800 dark:text-yellow-200';
+            } else {
+                networkStatus.textContent = 'Poor';
+                networkStatus.className = 'px-2 py-0.5 text-xs rounded-full bg-red-200 dark:bg-red-700 text-red-800 dark:text-red-200';
+            }
+
+            // Generate diagnosis
+            if (serverProcessTime > 500 && networkRoundTrip < 200) {
+                diagnosis.innerHTML = '<span class="text-red-600 dark:text-red-400 font-medium">⚠️ Server-side issue detected.</span> Database queries or processing may be slow. Check the slow requests table above.';
+            } else if (networkRoundTrip > 500 && serverProcessTime < 200) {
+                diagnosis.innerHTML = '<span class="text-yellow-600 dark:text-yellow-400 font-medium">⚠️ Network issue detected.</span> User\'s internet connection may be slow. This is not a server problem.';
+            } else if (serverProcessTime > 500 && networkRoundTrip > 500) {
+                diagnosis.innerHTML = '<span class="text-red-600 dark:text-red-400 font-medium">⚠️ Both server and network issues detected.</span> Performance may be affected by multiple factors.';
+            } else {
+                diagnosis.innerHTML = '<span class="text-green-600 dark:text-green-400 font-medium">✓ All systems normal.</span> Server and network are performing well.';
+            }
+
+            btn.disabled = false;
+            btn.classList.remove('opacity-50');
+        })
+        .catch(error => {
+            serverStatus.textContent = 'Error';
+            serverStatus.className = 'px-2 py-0.5 text-xs rounded-full bg-red-200 dark:bg-red-700 text-red-800 dark:text-red-200';
+            networkStatus.textContent = 'Error';
+            networkStatus.className = 'px-2 py-0.5 text-xs rounded-full bg-red-200 dark:bg-red-700 text-red-800 dark:text-red-200';
+            diagnosis.innerHTML = '<span class="text-red-600 dark:text-red-400 font-medium">✗ Failed to connect.</span> Either the server is down or there\'s a network issue.';
+            btn.disabled = false;
+            btn.classList.remove('opacity-50');
+        });
+    }
+    </script>
+
     <!-- Management Tools -->
     <div class="mb-8">
         <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">🛠️ Management Tools</h2>

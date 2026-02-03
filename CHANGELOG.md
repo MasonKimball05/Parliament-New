@@ -61,7 +61,9 @@ Comprehensive officer-level member management system with in-app controls for ad
 - 🎓 **Batch Pledge Initiation**: Select multiple pledges and initiate them as members with role number assignment
 - 🔢 **Role Number System**: Track member roll numbers assigned at initiation (permanent chapter identifier)
 - 🔔 **Initiation Notifications**: Newly initiated members receive in-app welcome notifications
-- 🔒 **Double-Submit Prevention**: Announcement forms now prevent duplicate submissions on slow connections
+- 🔒 **Double-Submit Prevention**: All forms now prevent duplicate submissions on slow connections (global protection)
+- 📊 **Performance Monitoring Dashboard**: Admin-v2 now includes real-time server health checks and performance metrics
+- ⚡ **Performance Optimizations**: Added preconnect hints and optimized resource loading for faster page loads
 - 🌙 **Dark Mode Improvements**: Edit announcement page now supports dark mode
 
 **Member Management Features:**

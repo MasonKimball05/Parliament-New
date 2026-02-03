@@ -7,6 +7,10 @@
     <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}Parliament{% endblock %}</title>
 
+    <!-- Preconnect to external resources for faster loading -->
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
+
     <!-- Favicon -->
     <link rel="icon" type="image/webp" href="{% static 'images/beta-seal.webp' %}">
     <link rel="apple-touch-icon" href="{% static 'images/beta-seal.webp' %}">
@@ -595,6 +599,56 @@
 
     <!-- Quick Actions Script -->
     <script src="{% static 'js/quick-actions.js' %}"></script>
+
+    <!-- Global Form Submit Protection (prevent double-clicks on slow connections) -->
+    <script>
+    (function() {
+        // Track forms that have been submitted
+        const submittedForms = new WeakSet();
+
+        document.addEventListener('submit', function(e) {
+            const form = e.target;
+
+            // Skip forms with data-no-double-submit-protection attribute
+            if (form.hasAttribute('data-no-double-submit-protection')) return;
+
+            // If form was already submitted, prevent duplicate
+            if (submittedForms.has(form)) {
+                e.preventDefault();
+                return false;
+            }
+
+            // Mark form as submitted
+            submittedForms.add(form);
+
+            // Find submit button and disable it
+            const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.classList.add('opacity-60', 'cursor-not-allowed');
+
+                // Add loading indicator if button has text content
+                const originalText = submitBtn.textContent;
+                if (originalText && !submitBtn.querySelector('svg.animate-spin')) {
+                    submitBtn.dataset.originalText = originalText;
+                    submitBtn.innerHTML = '<svg class="animate-spin inline-block w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>' + originalText + '...';
+                }
+            }
+
+            // Re-enable after 10 seconds (in case of error/reload)
+            setTimeout(function() {
+                submittedForms.delete(form);
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+                    if (submitBtn.dataset.originalText) {
+                        submitBtn.textContent = submitBtn.dataset.originalText;
+                    }
+                }
+            }, 10000);
+        });
+    })();
+    </script>
 
     <!-- Notification Dropdown Script -->
     <script>

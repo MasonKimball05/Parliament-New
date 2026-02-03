@@ -44,7 +44,8 @@ from src.view.admin_v2 import (
     add_ip_to_whitelist, add_ip_to_blacklist,
     remove_ip_from_whitelist, remove_ip_from_blacklist,
     manage_ip_whitelist, manage_ip_blacklist, manage_security_alerts,
-    update_site_setting, send_test_announcement_email, preview_test_email
+    update_site_setting, send_test_announcement_email, preview_test_email,
+    health_check
 )
 from src.view.admin_v2 import manage_events as admin_v2_manage_events, delete_event as admin_v2_delete_event
 from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event
@@ -369,6 +370,9 @@ urlpatterns = [
 
     # Admin v2 - Security Alerts
     path('admin-v2/security/alerts/', manage_security_alerts, name='admin_v2_security_alerts'),
+
+    # Health Check API
+    path('api/health-check/', health_check, name='health_check'),
 ]
 
 if settings.DEBUG:

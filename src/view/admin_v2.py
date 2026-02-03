@@ -22,6 +22,7 @@ from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from src.logging_utils import get_client_ip
+from src.middleware.performance import get_performance_summary, get_slow_requests
 
 
 ALLOWED_USER_ID = '73'  # Your user ID
@@ -311,6 +312,10 @@ def admin_v2_dashboard(request):
         'database_engine': settings.DATABASES['default']['ENGINE'].split('.')[-1],
     }
 
+    # Performance metrics
+    performance_summary = get_performance_summary()
+    slow_requests = get_slow_requests(threshold_ms=1000, limit=5)
+
     context = {
         'stats': stats,
         'feature_flags': feature_flags,
@@ -320,6 +325,8 @@ def admin_v2_dashboard(request):
         'recent_logins': recent_logins,
         'recent_users': recent_users,
         'system_info': system_info,
+        'performance': performance_summary,
+        'slow_requests': slow_requests,
     }
 
     return render(request, 'admin_v2/dashboard.html', context)
@@ -1340,3 +1347,16 @@ Test details:
     )
 
     return HttpResponse(html_content)
+
+
+def health_check(request):
+    """
+    Simple health check endpoint for performance monitoring.
+    Returns a minimal JSON response with server timestamp.
+    This is intentionally not protected by authentication to allow
+    accurate latency measurements.
+    """
+    return JsonResponse({
+        'status': 'ok',
+        'timestamp': timezone.now().isoformat(),
+    })
