@@ -21,8 +21,15 @@ Usage:
 """
 import logging
 from django.utils import timezone
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
+
+
+def _invalidate_caches_for_users(user_pks):
+    """Invalidate notification count caches for a list of user PKs."""
+    keys = [f'notif_count_{pk}' for pk in user_pks]
+    cache.delete_many(keys)
 
 # Maps notification_type -> UserPreferences field name
 NOTIFICATION_PREF_MAP = {
@@ -51,7 +58,7 @@ def create_notification(recipient, notification_type, title, message='', link=''
         return None
 
     from src.models import Notification
-    return Notification.objects.create(
+    notification = Notification.objects.create(
         recipient=recipient,
         notification_type=notification_type,
         title=title,
@@ -60,6 +67,8 @@ def create_notification(recipient, notification_type, title, message='', link=''
         source_type=source_type,
         source_id=source_id,
     )
+    cache.delete(f'notif_count_{recipient.pk}')
+    return notification
 
 
 def notify_all_active_members(notification_type, title, message='', link='', source_type='', source_id=None, exclude_user=None):
@@ -91,6 +100,9 @@ def notify_all_active_members(notification_type, title, message='', link='', sou
 
     if notifications:
         Notification.objects.bulk_create(notifications)
+        # Invalidate caches for all recipients
+        recipient_pks = [n.recipient_id for n in notifications]
+        _invalidate_caches_for_users(recipient_pks)
         logger.info(f"Created {len(notifications)} '{notification_type}' notifications: {title}")
 
     return len(notifications)
@@ -122,6 +134,9 @@ def notify_users(users, notification_type, title, message='', link='', source_ty
 
     if notifications:
         Notification.objects.bulk_create(notifications)
+        # Invalidate caches for all recipients
+        recipient_pks = [n.recipient_id for n in notifications]
+        _invalidate_caches_for_users(recipient_pks)
         logger.info(f"Created {len(notifications)} '{notification_type}' notifications for targeted users: {title}")
 
     return len(notifications)

@@ -40,7 +40,8 @@ def user_list(request):
             models.Q(name__icontains=search_query) |
             models.Q(user_id__icontains=search_query) |
             models.Q(email__icontains=search_query) |
-            models.Q(preferred_name__icontains=search_query)
+            models.Q(preferred_name__icontains=search_query) |
+            models.Q(role_number__icontains=search_query)
         )
 
     # Apply sorting (for database fields only, role_count handled below)
@@ -88,6 +89,7 @@ def user_list(request):
             'user': user,
             'username': user.name,
             'id': user.user_id,
+            'role_number': user.role_number,  # Member roll number (assigned at initiation)
             'email': user.email or 'No email',
             'role': user.member_type,
             'member_status': user.member_status,
@@ -144,6 +146,7 @@ def export_user_list(request):
     # Prepare CSV data
     headers = [
         'Name',
+        'Roll Number',
         'User ID',
         'Email',
         'Member Type',
@@ -163,6 +166,7 @@ def export_user_list(request):
 
         rows.append([
             user.name,
+            user.role_number if user.role_number else '',
             user.user_id,
             user.email if user.email else '',
             user.member_type,

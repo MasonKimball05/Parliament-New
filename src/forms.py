@@ -1,6 +1,6 @@
 from django import forms
 from django.conf import settings
-from .models import Legislation, Announcement, Event, CommitteeDocument, Committee, PassedResolution, ResolutionSectionImpact, KaiReport, UserPreferences
+from .models import Legislation, Announcement, Event, CommitteeDocument, Committee, PassedResolution, ResolutionSectionImpact, KaiReport, UserPreferences, ParliamentUser, Role
 import magic  # python-magic for MIME type detection
 
 class LegislationForm(forms.ModelForm):
@@ -724,4 +724,117 @@ class UserPreferencesForm(forms.ModelForm):
             )
 
         return cleaned_data
+
+
+class AddMemberForm(forms.Form):
+    """Form for officers to add new members"""
+    name = forms.CharField(
+        max_length=100,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+            'placeholder': 'Full name (e.g., John Smith)'
+        })
+    )
+    user_id = forms.CharField(
+        max_length=30,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+            'placeholder': 'Unique member ID'
+        }),
+        help_text='Unique identifier for the member (cannot be changed later)'
+    )
+    email = forms.EmailField(
+        required=False,
+        widget=forms.EmailInput(attrs={
+            'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+            'placeholder': 'email@example.com (optional)'
+        })
+    )
+    member_type = forms.ChoiceField(
+        choices=ParliamentUser.MEMBER_TYPES,
+        initial='Pledge',
+        widget=forms.Select(attrs={
+            'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+        })
+    )
+    member_status = forms.ChoiceField(
+        choices=ParliamentUser.MEMBER_STATUS,
+        initial='Active',
+        widget=forms.Select(attrs={
+            'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+        })
+    )
+    roles = forms.ModelMultipleChoiceField(
+        queryset=Role.objects.all(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={
+            'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded'
+        })
+    )
+
+    def clean_user_id(self):
+        user_id = self.cleaned_data.get('user_id')
+        if ParliamentUser.objects.filter(user_id=user_id).exists():
+            raise forms.ValidationError('A member with this ID already exists.')
+        return user_id
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if email and ParliamentUser.objects.filter(email=email).exists():
+            raise forms.ValidationError('A member with this email already exists.')
+        return email
+
+
+class EditMemberForm(forms.ModelForm):
+    """Form for officers to edit existing members"""
+    roles = forms.ModelMultipleChoiceField(
+        queryset=Role.objects.all(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={
+            'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded'
+        })
+    )
+
+    class Meta:
+        model = ParliamentUser
+        fields = ['name', 'preferred_name', 'email', 'member_type', 'member_status', 'roles']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+            }),
+            'preferred_name': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'placeholder': 'Optional preferred first name'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+            }),
+            'member_type': forms.Select(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+            }),
+            'member_status': forms.Select(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.initial['roles'] = self.instance.roles.all()
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if email:
+            existing = ParliamentUser.objects.filter(email=email).exclude(pk=self.instance.pk)
+            if existing.exists():
+                raise forms.ValidationError('A member with this email already exists.')
+        return email
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if commit:
+            instance.save()
+            # Handle roles separately since it's a ManyToMany field
+            instance.roles.set(self.cleaned_data.get('roles', []))
+        return instance
 

@@ -8,9 +8,15 @@ from django.views.decorators.http import require_POST, require_GET
 from django.core.paginator import Paginator
 from django.utils import timezone
 from src.models import Notification, Announcement, UserAnnouncementView
+from django.core.cache import cache
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _invalidate_notification_cache(user):
+    """Clear the cached notification count for a user."""
+    cache.delete(f'notif_count_{user.pk}')
 
 
 @login_required
@@ -83,6 +89,7 @@ def mark_notification_read(request, notification_id):
             notification.read_at = timezone.now()
             notification.save(update_fields=['is_read', 'read_at'])
             _record_announcement_view(notification, request.user)
+            _invalidate_notification_cache(request.user)
         return JsonResponse({'success': True})
     except Notification.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Notification not found'}, status=404)
@@ -99,6 +106,8 @@ def mark_all_notifications_read(request):
     for notification in unread.filter(notification_type='announcement'):
         _record_announcement_view(notification, request.user)
     count = unread.update(is_read=True, read_at=timezone.now())
+    if count > 0:
+        _invalidate_notification_cache(request.user)
     return JsonResponse({'success': True, 'count': count})
 
 
@@ -108,7 +117,10 @@ def delete_notification(request, notification_id):
     """Delete a single notification."""
     try:
         notification = Notification.objects.get(id=notification_id, recipient=request.user)
+        was_unread = not notification.is_read
         notification.delete()
+        if was_unread:
+            _invalidate_notification_cache(request.user)
         return JsonResponse({'success': True})
     except Notification.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Notification not found'}, status=404)

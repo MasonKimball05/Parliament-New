@@ -14,3 +14,4 @@ from .view_archived_events import *
 from .archive_event import *
 from .manage_resolutions import *
 from .chapter_minutes import *
+from .manage_members import *

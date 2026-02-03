@@ -15,12 +15,29 @@
                 <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{{ total_users }} member{{ total_users|pluralize }}</p>
             </div>
         </div>
-        <a href="{% url 'export_user_list' %}?status={{ selected_status }}" class="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center justify-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
-            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-            </svg>
-            <span>Export CSV</span>
-        </a>
+        <div class="flex flex-wrap gap-2">
+            <!-- Initiate Button (hidden by default, shown when pledges selected) -->
+            <button id="initiate-btn" onclick="openInitiateModal()" class="hidden px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>Initiate (<span id="pledge-count">0</span>)</span>
+            </button>
+            <!-- Add Member Button -->
+            <button id="add-member-btn" onclick="openAddModal()" class="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                <span>Add Member</span>
+            </button>
+            <!-- Export Button -->
+            <a href="{% url 'export_user_list' %}?status={{ selected_status }}" class="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center justify-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <span>Export CSV</span>
+            </a>
+        </div>
     </div>
 
     <!-- Filters and Search -->
@@ -81,6 +98,10 @@
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-700">
                     <tr>
+                        <!-- Checkbox column for pledges -->
+                        <th scope="col" class="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-10">
+                            <input type="checkbox" id="select-all-pledges" onclick="toggleAllPledges()" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer" title="Select all pledges">
+                        </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                             <a href="?sort=name&order={% if current_sort == 'name' and current_order == 'asc' %}desc{% else %}asc{% endif %}&status={{ selected_status }}&type={{ selected_type }}&q={{ search_query }}" class="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
                                 Name
@@ -94,16 +115,7 @@
                             </a>
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <a href="?sort=id&order={% if current_sort == 'id' and current_order == 'asc' %}desc{% else %}asc{% endif %}&status={{ selected_status }}&type={{ selected_type }}&q={{ search_query }}" class="flex items-center gap-1 hover:text-gray-700">
-                                Member ID
-                                {% if current_sort == 'id' %}
-                                    {% if current_order == 'asc' %}
-                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
-                                    {% else %}
-                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"/></svg>
-                                    {% endif %}
-                                {% endif %}
-                            </a>
+                            Roll #
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <a href="?sort=email&order={% if current_sort == 'email' and current_order == 'asc' %}desc{% else %}asc{% endif %}&status={{ selected_status }}&type={{ selected_type }}&q={{ search_query }}" class="flex items-center gap-1 hover:text-gray-700">
@@ -165,11 +177,20 @@
                                 {% endif %}
                             </a>
                         </th>
+                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-16">
+                            Actions
+                        </th>
                     </tr>
                 </thead>
                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700" id="memberTableBody">
                     {% for data in user_data %}
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            <!-- Checkbox for pledges -->
+                            <td class="px-3 py-4 text-center">
+                                {% if data.role == 'Pledge' %}
+                                <input type="checkbox" class="pledge-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer" value="{{ data.user.user_id }}" data-name="{{ data.username }}" onchange="updateInitiateButton()">
+                                {% endif %}
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
@@ -183,7 +204,13 @@
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-900 dark:text-white font-mono">{{ data.id }}</div>
+                                {% if data.role_number %}
+                                <div class="text-sm text-gray-900 dark:text-white font-mono font-semibold">#{{ data.role_number }}</div>
+                                {% elif data.role == 'Pledge' %}
+                                <span class="text-xs text-gray-400 dark:text-gray-500 italic">Pending</span>
+                                {% else %}
+                                <span class="text-xs text-gray-400 dark:text-gray-500">—</span>
+                                {% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm text-gray-600 dark:text-gray-400">{{ data.email }}</div>
@@ -200,6 +227,10 @@
                                 {% elif data.role == 'Advisor' %}
                                     <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                                         Advisor
+                                    </span>
+                                {% elif data.role == 'Pledge' %}
+                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">
+                                        Pledge
                                     </span>
                                 {% else %}
                                     <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
@@ -246,10 +277,17 @@
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm text-gray-600 dark:text-gray-400">{{ data.last_login }}</div>
                             </td>
+                            <td class="px-4 py-4 text-center">
+                                <button onclick="openEditModal('{{ data.user.user_id }}')" class="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition" title="Edit member">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                </button>
+                            </td>
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="7" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                            <td colspan="9" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                                 <svg class="w-12 h-12 mx-auto mb-3 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                                 </svg>
@@ -267,6 +305,12 @@
             {% for data in user_data %}
             <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 <div class="flex items-start gap-3">
+                    <!-- Checkbox for pledges (mobile) -->
+                    {% if data.role == 'Pledge' %}
+                    <div class="flex-shrink-0 pt-1">
+                        <input type="checkbox" class="pledge-checkbox h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer" value="{{ data.user.user_id }}" data-name="{{ data.username }}" onchange="updateInitiateButton()">
+                    </div>
+                    {% endif %}
                     <!-- Avatar -->
                     <div class="flex-shrink-0 h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
                         <span class="text-blue-600 font-semibold text-lg">
@@ -276,8 +320,15 @@
 
                     <!-- Member Info -->
                     <div class="flex-1 min-w-0">
-                        <!-- Name -->
-                        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-1">{{ data.username }}</h3>
+                        <!-- Name with edit button -->
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-1">{{ data.username }}</h3>
+                            <button onclick="openEditModal('{{ data.user.user_id }}')" class="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition" title="Edit member">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                </svg>
+                            </button>
+                        </div>
 
                         <!-- Badges Row -->
                         <div class="flex flex-wrap gap-1.5 mb-2">
@@ -293,6 +344,10 @@
                             {% elif data.role == 'Advisor' %}
                                 <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                                     Advisor
+                                </span>
+                            {% elif data.role == 'Pledge' %}
+                                <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">
+                                    Pledge
                                 </span>
                             {% else %}
                                 <span class="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
@@ -335,12 +390,21 @@
                                 </svg>
                                 <span class="truncate">{{ data.email }}</span>
                             </div>
+                            {% if data.role_number %}
                             <div class="flex items-center gap-1.5">
                                 <svg class="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
                                 </svg>
-                                <span class="font-mono text-xs">ID: {{ data.id }}</span>
+                                <span class="font-mono text-xs font-semibold">Roll #{{ data.role_number }}</span>
                             </div>
+                            {% elif data.role == 'Pledge' %}
+                            <div class="flex items-center gap-1.5">
+                                <svg class="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
+                                </svg>
+                                <span class="text-xs text-gray-400 italic">Roll # pending initiation</span>
+                            </div>
+                            {% endif %}
                             {% if data.last_login %}
                             <div class="flex items-center gap-1.5">
                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -381,4 +445,641 @@
     </div>
 
 </div>
+
+<!-- Add Member Modal -->
+<div id="add-member-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <!-- Background overlay -->
+        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeAddModal()"></div>
+
+        <!-- Modal panel -->
+        <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="modal-title">Add New Member</h3>
+                    <button onclick="closeAddModal()" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <form id="add-member-form" onsubmit="submitAddMember(event)">
+                    <div class="space-y-4">
+                        <!-- Name -->
+                        <div>
+                            <label for="add-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
+                            <input type="text" id="add-name" name="name" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="John Smith">
+                        </div>
+
+                        <!-- User ID -->
+                        <div>
+                            <label for="add-user-id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Member ID *</label>
+                            <input type="text" id="add-user-id" name="user_id" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Unique identifier">
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">This cannot be changed later</p>
+                        </div>
+
+                        <!-- Email -->
+                        <div>
+                            <label for="add-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email (Optional)</label>
+                            <input type="email" id="add-email" name="email" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="email@example.com">
+                        </div>
+
+                        <!-- Member Type and Status Row -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="add-member-type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Member Type *</label>
+                                <select id="add-member-type" name="member_type" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    {% for value, label in member_types %}
+                                    <option value="{{ value }}" {% if value == 'Pledge' %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label for="add-member-status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status *</label>
+                                <select id="add-member-status" name="member_status" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    {% for value, label in member_statuses %}
+                                    <option value="{{ value }}" {% if value == 'Active' %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Roles -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Roles (Optional)</label>
+                            <div id="add-roles-container" class="max-h-32 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-3 space-y-2 bg-gray-50 dark:bg-gray-700">
+                                <!-- Roles will be loaded via JS -->
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Loading roles...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Error display -->
+                    <div id="add-member-error" class="hidden mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
+
+                    <!-- Success display with password -->
+                    <div id="add-member-success" class="hidden mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                        <p class="text-green-700 dark:text-green-400 font-medium mb-2">Member created successfully!</p>
+                        <div class="bg-white dark:bg-gray-800 border border-green-300 dark:border-green-700 rounded p-3">
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Temporary Password (share with member):</p>
+                            <code id="temp-password" class="block text-lg font-mono text-gray-900 dark:text-white select-all"></code>
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">The member will be required to change this password on first login.</p>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="mt-6 flex justify-end gap-3">
+                        <button type="button" onclick="closeAddModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
+                            Cancel
+                        </button>
+                        <button type="submit" id="add-member-submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+                            Add Member
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Member Modal -->
+<div id="edit-member-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="edit-modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <!-- Background overlay -->
+        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeEditModal()"></div>
+
+        <!-- Modal panel -->
+        <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="edit-modal-title">Edit Member</h3>
+                    <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <form id="edit-member-form" onsubmit="submitEditMember(event)">
+                    <input type="hidden" id="edit-user-id" name="user_id">
+
+                    <div class="space-y-4">
+                        <!-- User ID (read-only) -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Member ID</label>
+                            <p id="edit-user-id-display" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg font-mono"></p>
+                        </div>
+
+                        <!-- Name -->
+                        <div>
+                            <label for="edit-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
+                            <input type="text" id="edit-name" name="name" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+
+                        <!-- Preferred Name -->
+                        <div>
+                            <label for="edit-preferred-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Preferred Name</label>
+                            <input type="text" id="edit-preferred-name" name="preferred_name" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Optional">
+                        </div>
+
+                        <!-- Email -->
+                        <div>
+                            <label for="edit-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                            <input type="email" id="edit-email" name="email" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+
+                        <!-- Member Type and Status Row -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="edit-member-type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Member Type *</label>
+                                <select id="edit-member-type" name="member_type" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    {% for value, label in member_types %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label for="edit-member-status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status *</label>
+                                <select id="edit-member-status" name="member_status" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    {% for value, label in member_statuses %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Roles -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Roles</label>
+                            <div id="edit-roles-container" class="max-h-32 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-3 space-y-2 bg-gray-50 dark:bg-gray-700">
+                                <!-- Roles will be loaded via JS -->
+                            </div>
+                        </div>
+
+                        <!-- Admin indicator (read-only) -->
+                        <div id="edit-admin-indicator" class="hidden p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+                            <p class="text-sm text-yellow-700 dark:text-yellow-400">
+                                <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                </svg>
+                                This user is an admin. Admin status cannot be changed here.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Error display -->
+                    <div id="edit-member-error" class="hidden mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
+
+                    <!-- Buttons -->
+                    <div class="mt-6 flex justify-between">
+                        <button type="button" onclick="confirmDeleteMember()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium">
+                            Delete
+                        </button>
+                        <div class="flex gap-3">
+                            <button type="button" onclick="closeEditModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
+                                Cancel
+                            </button>
+                            <button type="submit" id="edit-member-submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Initiate Pledges Modal -->
+<div id="initiate-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="initiate-modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <!-- Background overlay -->
+        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeInitiateModal()"></div>
+
+        <!-- Modal panel -->
+        <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full">
+            <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="initiate-modal-title">Initiate Pledges</h3>
+                    <button onclick="closeInitiateModal()" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    The following pledges will be initiated as full members:
+                </p>
+
+                <div id="initiate-pledge-list" class="max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg divide-y divide-gray-200 dark:divide-gray-600 mb-4">
+                    <!-- Pledge names will be inserted here -->
+                </div>
+
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    They will receive a notification welcoming them to the chapter.
+                </p>
+
+                <!-- Error display -->
+                <div id="initiate-error" class="hidden mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
+
+                <!-- Buttons -->
+                <div class="flex justify-end gap-3">
+                    <button type="button" onclick="closeInitiateModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
+                        Cancel
+                    </button>
+                    <button type="button" onclick="confirmInitiate()" id="confirm-initiate-btn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium">
+                        Initiate
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="delete-modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <!-- Background overlay -->
+        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeDeleteModal()"></div>
+
+        <!-- Modal panel -->
+        <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full">
+            <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                    <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 sm:mx-0 sm:h-10 sm:w-10">
+                        <svg class="h-6 w-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white" id="delete-modal-title">
+                            Delete Member
+                        </h3>
+                        <div class="mt-2">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                Are you sure you want to delete <span id="delete-member-name" class="font-semibold"></span>?
+                            </p>
+                            <div class="mt-3 space-y-2">
+                                <label class="flex items-center">
+                                    <input type="radio" name="delete-type" value="soft" checked class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600">
+                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Deactivate (set status to Inactive)</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="delete-type" value="hard" class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 dark:border-gray-600">
+                                    <span class="ml-2 text-sm text-red-600 dark:text-red-400">Permanently delete (cannot be undone)</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error display -->
+                <div id="delete-error" class="hidden mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
+
+                <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
+                    <button type="button" onclick="confirmDelete()" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:w-auto sm:text-sm">
+                        Delete
+                    </button>
+                    <button type="button" onclick="closeDeleteModal()" class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// CSRF token helper
+function getCsrf() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta) return meta.getAttribute('content');
+    let val = null;
+    if (document.cookie) {
+        for (const c of document.cookie.split(';')) {
+            const t = c.trim();
+            if (t.startsWith('csrftoken=')) {
+                val = decodeURIComponent(t.substring(10));
+                break;
+            }
+        }
+    }
+    return val;
+}
+
+let allRoles = [];
+let currentEditUserId = null;
+
+// Load roles on page load
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        const response = await fetch('/api/roles/');
+        const data = await response.json();
+        if (data.success) {
+            allRoles = data.roles;
+            populateRolesCheckboxes('add-roles-container', []);
+        }
+    } catch (error) {
+        console.error('Failed to load roles:', error);
+    }
+});
+
+function populateRolesCheckboxes(containerId, selectedIds) {
+    const container = document.getElementById(containerId);
+    if (!allRoles.length) {
+        container.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No roles available</p>';
+        return;
+    }
+
+    const prefix = containerId.includes('add') ? 'add' : 'edit';
+    container.innerHTML = allRoles.map(role => `
+        <label class="flex items-center">
+            <input type="checkbox" name="${prefix}-roles" value="${role.id}" ${selectedIds.includes(role.id) ? 'checked' : ''} class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">${role.name}</span>
+        </label>
+    `).join('');
+}
+
+// Add Member Modal
+function openAddModal() {
+    document.getElementById('add-member-form').reset();
+    document.getElementById('add-member-error').classList.add('hidden');
+    document.getElementById('add-member-success').classList.add('hidden');
+    document.getElementById('add-member-submit').disabled = false;
+    document.getElementById('add-member-submit').textContent = 'Add Member';
+    populateRolesCheckboxes('add-roles-container', []);
+    document.getElementById('add-member-modal').classList.remove('hidden');
+}
+
+function closeAddModal() {
+    document.getElementById('add-member-modal').classList.add('hidden');
+    // Reload page if member was added
+    if (!document.getElementById('add-member-success').classList.contains('hidden')) {
+        window.location.reload();
+    }
+}
+
+async function submitAddMember(e) {
+    e.preventDefault();
+    const form = document.getElementById('add-member-form');
+    const errorDiv = document.getElementById('add-member-error');
+    const successDiv = document.getElementById('add-member-success');
+    const submitBtn = document.getElementById('add-member-submit');
+
+    errorDiv.classList.add('hidden');
+    successDiv.classList.add('hidden');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Adding...';
+
+    // Gather form data
+    const selectedRoles = Array.from(document.querySelectorAll('input[name="add-roles"]:checked')).map(cb => parseInt(cb.value));
+
+    const data = {
+        name: document.getElementById('add-name').value,
+        user_id: document.getElementById('add-user-id').value,
+        email: document.getElementById('add-email').value || null,
+        member_type: document.getElementById('add-member-type').value,
+        member_status: document.getElementById('add-member-status').value,
+        roles: selectedRoles,
+    };
+
+    try {
+        const response = await fetch('/officers/members/add/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrf(),
+            },
+            body: JSON.stringify(data),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            document.getElementById('temp-password').textContent = result.temp_password;
+            successDiv.classList.remove('hidden');
+            submitBtn.textContent = 'Done';
+        } else {
+            errorDiv.textContent = result.error || Object.values(result.errors || {}).join(', ') || 'Failed to add member';
+            errorDiv.classList.remove('hidden');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Add Member';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'An error occurred. Please try again.';
+        errorDiv.classList.remove('hidden');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Add Member';
+    }
+}
+
+// Edit Member Modal
+async function openEditModal(userId) {
+    currentEditUserId = userId;
+    document.getElementById('edit-member-error').classList.add('hidden');
+    document.getElementById('edit-admin-indicator').classList.add('hidden');
+
+    try {
+        const response = await fetch(`/officers/members/${userId}/edit/`);
+        const data = await response.json();
+
+        if (data.success) {
+            const member = data.member;
+            document.getElementById('edit-user-id').value = member.user_id;
+            document.getElementById('edit-user-id-display').textContent = member.user_id;
+            document.getElementById('edit-name').value = member.name;
+            document.getElementById('edit-preferred-name').value = member.preferred_name;
+            document.getElementById('edit-email').value = member.email;
+            document.getElementById('edit-member-type').value = member.member_type;
+            document.getElementById('edit-member-status').value = member.member_status;
+
+            populateRolesCheckboxes('edit-roles-container', member.roles);
+
+            if (member.is_admin) {
+                document.getElementById('edit-admin-indicator').classList.remove('hidden');
+            }
+
+            document.getElementById('edit-member-modal').classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Failed to load member data:', error);
+        alert('Failed to load member data. Please try again.');
+    }
+}
+
+function closeEditModal() {
+    document.getElementById('edit-member-modal').classList.add('hidden');
+    currentEditUserId = null;
+}
+
+async function submitEditMember(e) {
+    e.preventDefault();
+    const errorDiv = document.getElementById('edit-member-error');
+    const submitBtn = document.getElementById('edit-member-submit');
+
+    errorDiv.classList.add('hidden');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
+
+    const selectedRoles = Array.from(document.querySelectorAll('input[name="edit-roles"]:checked')).map(cb => parseInt(cb.value));
+
+    const data = {
+        name: document.getElementById('edit-name').value,
+        preferred_name: document.getElementById('edit-preferred-name').value,
+        email: document.getElementById('edit-email').value || null,
+        member_type: document.getElementById('edit-member-type').value,
+        member_status: document.getElementById('edit-member-status').value,
+        roles: selectedRoles,
+    };
+
+    try {
+        const response = await fetch(`/officers/members/${currentEditUserId}/edit/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrf(),
+            },
+            body: JSON.stringify(data),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            closeEditModal();
+            window.location.reload();
+        } else {
+            errorDiv.textContent = result.error || 'Failed to update member';
+            errorDiv.classList.remove('hidden');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Save Changes';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'An error occurred. Please try again.';
+        errorDiv.classList.remove('hidden');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save Changes';
+    }
+}
+
+// Delete Member
+function confirmDeleteMember() {
+    closeEditModal();
+    document.getElementById('delete-member-name').textContent = document.getElementById('edit-name').value;
+    document.getElementById('delete-error').classList.add('hidden');
+    document.getElementById('delete-modal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+    document.getElementById('delete-modal').classList.add('hidden');
+}
+
+async function confirmDelete() {
+    const errorDiv = document.getElementById('delete-error');
+    const hardDelete = document.querySelector('input[name="delete-type"]:checked').value === 'hard';
+
+    errorDiv.classList.add('hidden');
+
+    try {
+        const response = await fetch(`/officers/members/${currentEditUserId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrf(),
+            },
+            body: JSON.stringify({ hard_delete: hardDelete }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            closeDeleteModal();
+            window.location.reload();
+        } else {
+            errorDiv.textContent = result.error || 'Failed to delete member';
+            errorDiv.classList.remove('hidden');
+        }
+    } catch (error) {
+        errorDiv.textContent = 'An error occurred. Please try again.';
+        errorDiv.classList.remove('hidden');
+    }
+}
+
+// Pledge Initiation
+function toggleAllPledges() {
+    const selectAll = document.getElementById('select-all-pledges');
+    const checkboxes = document.querySelectorAll('.pledge-checkbox');
+    checkboxes.forEach(cb => cb.checked = selectAll.checked);
+    updateInitiateButton();
+}
+
+function updateInitiateButton() {
+    const checkboxes = document.querySelectorAll('.pledge-checkbox:checked');
+    const initiateBtn = document.getElementById('initiate-btn');
+    const countSpan = document.getElementById('pledge-count');
+
+    if (checkboxes.length > 0) {
+        initiateBtn.classList.remove('hidden');
+        countSpan.textContent = checkboxes.length;
+    } else {
+        initiateBtn.classList.add('hidden');
+    }
+}
+
+function openInitiateModal() {
+    const checkboxes = document.querySelectorAll('.pledge-checkbox:checked');
+    const listContainer = document.getElementById('initiate-pledge-list');
+    document.getElementById('initiate-error').classList.add('hidden');
+
+    listContainer.innerHTML = Array.from(checkboxes).map(cb => `
+        <div class="px-3 py-2 text-sm text-gray-700 dark:text-gray-300">${cb.dataset.name}</div>
+    `).join('');
+
+    document.getElementById('initiate-modal').classList.remove('hidden');
+}
+
+function closeInitiateModal() {
+    document.getElementById('initiate-modal').classList.add('hidden');
+}
+
+async function confirmInitiate() {
+    const checkboxes = document.querySelectorAll('.pledge-checkbox:checked');
+    const pledgeIds = Array.from(checkboxes).map(cb => cb.value);
+    const errorDiv = document.getElementById('initiate-error');
+    const confirmBtn = document.getElementById('confirm-initiate-btn');
+
+    errorDiv.classList.add('hidden');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Initiating...';
+
+    try {
+        const response = await fetch('/officers/members/initiate/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrf(),
+            },
+            body: JSON.stringify({ pledge_ids: pledgeIds }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            closeInitiateModal();
+            window.location.reload();
+        } else {
+            errorDiv.textContent = result.error || 'Failed to initiate pledges';
+            errorDiv.classList.remove('hidden');
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Initiate';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'An error occurred. Please try again.';
+        errorDiv.classList.remove('hidden');
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Initiate';
+    }
+}
+</script>
 {% endblock %}

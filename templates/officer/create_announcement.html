@@ -128,8 +128,12 @@
                 <a href="{% url 'manage_announcements' %}" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                     Cancel
                 </a>
-                <button type="submit" class="px-6 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white rounded-md transition">
-                    Create Announcement
+                <button type="submit" id="submit-btn" class="px-6 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white rounded-md transition flex items-center space-x-2">
+                    <span id="submit-text">Create Announcement</span>
+                    <svg id="submit-spinner" class="hidden animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
                 </button>
             </div>
         </form>
@@ -142,4 +146,25 @@
         </a>
     </div>
 </div>
+
+<script>
+// Prevent double form submission
+document.querySelector('form').addEventListener('submit', function(e) {
+    const submitBtn = document.getElementById('submit-btn');
+    const submitText = document.getElementById('submit-text');
+    const submitSpinner = document.getElementById('submit-spinner');
+
+    // If already submitting, prevent duplicate submission
+    if (submitBtn.disabled) {
+        e.preventDefault();
+        return false;
+    }
+
+    // Disable button and show loading state
+    submitBtn.disabled = true;
+    submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
+    submitText.textContent = 'Creating...';
+    submitSpinner.classList.remove('hidden');
+});
+</script>
 {% endblock %}

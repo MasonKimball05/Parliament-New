@@ -48,6 +48,7 @@ from src.view.admin_v2 import (
 )
 from src.view.admin_v2 import manage_events as admin_v2_manage_events, delete_event as admin_v2_delete_event
 from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event
+from src.view.officer.manage_members import add_member, edit_member, delete_member, initiate_pledges, get_all_roles
 from src.view.home import home
 from src.view.vote_view import vote_view
 from src.view.change_password import change_password
@@ -179,6 +180,13 @@ urlpatterns = [
     path('manage_event/', manage_event, name='manage_event'),
     path('user_list/', user_list, name='user_list'),
     path('user_list/export/', export_user_list, name='export_user_list'),
+
+    # Member Management (Officer)
+    path('officers/members/add/', add_member, name='add_member'),
+    path('officers/members/<str:user_id>/edit/', edit_member, name='edit_member'),
+    path('officers/members/<str:user_id>/delete/', delete_member, name='delete_member'),
+    path('officers/members/initiate/', initiate_pledges, name='initiate_pledges'),
+    path('api/roles/', get_all_roles, name='get_all_roles'),
 
     # Announcement Management (Officer)
     path('officers/announcements/', manage_announcements, name='manage_announcements'),

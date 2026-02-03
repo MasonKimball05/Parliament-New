@@ -24,12 +24,18 @@ def notifications(request):
     """
     Injects unread notification count into all templates.
     Used by the navbar bell icon to show the badge count.
+    Cached for 60 seconds to reduce database queries.
     """
     if request.user.is_authenticated:
-        from src.models import Notification
-        unread_count = Notification.objects.filter(
-            recipient=request.user, is_read=False
-        ).count()
+        from django.core.cache import cache
+        cache_key = f'notif_count_{request.user.pk}'
+        unread_count = cache.get(cache_key)
+        if unread_count is None:
+            from src.models import Notification
+            unread_count = Notification.objects.filter(
+                recipient=request.user, is_read=False
+            ).count()
+            cache.set(cache_key, unread_count, 60)  # Cache for 60 seconds
         return {'unread_notification_count': unread_count}
     return {'unread_notification_count': 0}
 

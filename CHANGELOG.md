@@ -50,6 +50,36 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.6.0 - Officer Member Management & Role Numbers (02-03-2026)
+Comprehensive officer-level member management system with in-app controls for adding, editing, and managing members directly from the user list page.
+
+**Deployment Status:** ✅ Deployed
+
+**Key Features:**
+
+- 👥 **In-App Member Management**: Officers can add, edit, and delete members directly from the user list page
+- 🎓 **Batch Pledge Initiation**: Select multiple pledges and initiate them as members with role number assignment
+- 🔢 **Role Number System**: Track member roll numbers assigned at initiation (permanent chapter identifier)
+- 🔔 **Initiation Notifications**: Newly initiated members receive in-app welcome notifications
+- 🔒 **Double-Submit Prevention**: Announcement forms now prevent duplicate submissions on slow connections
+- 🌙 **Dark Mode Improvements**: Edit announcement page now supports dark mode
+
+**Member Management Features:**
+
+- ➕ **Add Member**: Create new members with auto-generated passwords, set type/status/roles
+- ✏️ **Edit Member**: Update name, email, preferred name, member type, status, roles, and roll number
+- 🗑️ **Delete Member**: Soft delete (deactivate) or hard delete with confirmation
+- 📋 **Role Number Display**: Roll numbers shown in user list table and mobile cards
+
+**Database Changes:**
+
+- Added `role_number` field to `ParliamentUser` model (unique, nullable)
+- Migration required for role_number field
+
+**[📄 View Detailed Changelog](./changelogs/v2.6.0.md)**
+
+---
+
 ### v2.5.2 - Committee Minutes Editor (01-29-2026)
 Extends the Chapter Minutes editor to committees with full editor support, committee-scoped attendance, and flexible permissions.
 
@@ -225,6 +255,16 @@ Builds on v2.0.0 security foundation with user-facing features and advanced prot
 For comprehensive technical details, migration guides, and implementation specifics:
 
 <ul>
+<li><strong><a href="./changelogs/v2.6.0.md">v2.6.0 - Officer Member Management & Role Numbers</a></strong> (February 3, 2026)
+    <ul>
+    <li>In-app member management for officers (add, edit, delete)</li>
+    <li>Batch pledge initiation with role number assignment</li>
+    <li>Role number tracking and display in user list</li>
+    <li>Initiation notifications for new members</li>
+    <li>Double-submit prevention on announcement forms</li>
+    <li>Dark mode improvements for edit announcement page</li>
+    </ul>
+</li>
 <li><strong><a href="./changelogs/v2.5.2.md">v2.5.2 - Committee Minutes Editor</a></strong> (January 29, 2026)
     <ul>
     <li>Full committee minutes editor with motions, attendance, and PDF export</li>
@@ -303,6 +343,16 @@ For comprehensive technical details, migration guides, and implementation specif
 ## Version History Summary
 
 <ul>
+<li><strong>v2.6.0</strong> (2026-02-03) - Officer Member Management & Role Numbers ✅
+    <ul>
+    <li>In-app member management for officers (add, edit, delete members)</li>
+    <li>Batch pledge initiation with role number assignment</li>
+    <li>Role number tracking and display in user list table</li>
+    <li>Initiation notifications for newly initiated members</li>
+    <li>Double-submit prevention on announcement forms</li>
+    <li>Dark mode support for edit announcement page</li>
+    </ul>
+</li>
 <li><strong>v2.5.2</strong> (2026-01-29) - Committee Minutes Editor
     <ul>
     <li>Full committee minutes editor reusing ChapterMinutes infrastructure</li>
@@ -442,5 +492,5 @@ New changes will be documented in:
 
 ---
 
-**Last Updated:** 2026-01-29
-**Next Review:** 2026-02-28
+**Last Updated:** 2026-02-03
+**Next Review:** 2026-03-03
