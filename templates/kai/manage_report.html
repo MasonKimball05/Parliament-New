@@ -3,455 +3,587 @@
 {% block title %}Manage Report - {{ report.title }}{% endblock %}
 
 {% block content %}
-<div class="bg-gradient-to-br from-gray-50 to-gray-100 -m-8 p-8 min-h-screen">
-  <div class="max-w-6xl mx-auto">
-    <!-- Back Button -->
-    <div class="mb-6">
-      <a href="{% url 'view_kai_reports' %}" class="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium">
-        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-        </svg>
-        Back to Reports
-      </a>
-    </div>
+<div class="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 -m-8 p-8 min-h-screen transition-colors duration-200">
+  <div class="max-w-7xl mx-auto">
 
-    <!-- Report Details -->
-    <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
-      <div class="flex justify-between items-start mb-6">
-        <div>
-          <h1 class="text-3xl font-bold text-gray-800 mb-2">{{ report.title }}</h1>
-          <div class="flex items-center space-x-4 text-sm text-gray-600">
-            <span class="flex items-center">
-              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-              </svg>
-              {{ report.submitted_by.name }}
-            </span>
-            <span class="flex items-center">
-              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-              </svg>
-              {{ report.submitted_at|date:"F d, Y \a\t g:i A" }}
-            </span>
+    <!-- Header Bar -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 transition-colors duration-200">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <!-- Left: Back + Title -->
+        <div class="flex items-start space-x-4">
+          <a href="{% url 'view_kai_reports' %}" class="mt-1 p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+          </a>
+          <div>
+            <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ report.title }}</h1>
+            <div class="flex flex-wrap items-center gap-2 mt-2">
+              <!-- Status Badge -->
+              <span class="px-3 py-1 rounded-full text-xs font-semibold
+                {% if report.status == 'pending' %}bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200
+                {% elif report.status == 'reviewed' %}bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200
+                {% else %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200{% endif %}">
+                {{ report.get_status_display }}
+              </span>
+              <!-- Deliberation Badge -->
+              <span class="px-3 py-1 rounded-full text-xs font-semibold
+                {% if report.deliberation_outcome == 'pending' %}bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200
+                {% elif report.deliberation_outcome == 'thrown_out' %}bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200
+                {% elif report.deliberation_outcome == 'heard' %}bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200{% endif %}">
+                {{ report.get_deliberation_outcome_display }}
+              </span>
+              {% if report.closed_by_accused_request %}
+              <span class="px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200">
+                Minutes Closed
+              </span>
+              {% endif %}
+              <!-- Category -->
+              <span class="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200">
+                {{ report.get_category_display }}
+              </span>
+            </div>
           </div>
         </div>
-        <div class="flex items-center space-x-3">
+
+        <!-- Right: Quick Actions -->
+        <div class="flex flex-wrap items-center gap-2">
+          {% if report.status == 'pending' %}
+          <form method="post" class="inline">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="mark_reviewed">
+            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium text-sm flex items-center space-x-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span>Mark Reviewed</span>
+            </button>
+          </form>
+          {% else %}
+          <form method="post" class="inline">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="mark_pending">
+            <button type="submit" class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition font-medium text-sm flex items-center space-x-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <span>Mark Pending</span>
+            </button>
+          </form>
+          {% endif %}
+
+          {% if report.status != 'archived' %}
+          <form method="post" class="inline">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="archive">
+            <button type="submit" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition font-medium text-sm flex items-center space-x-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+              </svg>
+              <span>Archive</span>
+            </button>
+          </form>
+          {% endif %}
+
           <a href="{% url 'print_kai_report' report.id %}" target="_blank"
-             class="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition font-medium text-sm flex items-center space-x-2">
+             class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition font-medium text-sm flex items-center space-x-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
             </svg>
-            <span>Print / Export PDF</span>
+            <span>Print</span>
           </a>
-          <span class="px-4 py-2 rounded-lg text-sm font-semibold
-            {% if report.status == 'pending' %}bg-yellow-100 text-yellow-800
-            {% elif report.status == 'reviewed' %}bg-green-100 text-green-800
-            {% else %}bg-gray-100 text-gray-800{% endif %}">
-            {{ report.get_status_display }}
-          </span>
         </div>
       </div>
-
-      <div class="prose max-w-none mb-6">
-        <h3 class="text-lg font-semibold text-gray-700 mb-2">Description</h3>
-        <p class="text-gray-600 whitespace-pre-wrap">{{ report.description }}</p>
-      </div>
-
-      {% if report.targeted_to %}
-      <div class="mb-6">
-        <h3 class="text-lg font-semibold text-gray-700 mb-2">Directed To</h3>
-        <div class="flex items-center space-x-2 text-gray-600">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-          </svg>
-          <span>{{ report.targeted_to.name }}</span>
-        </div>
-      </div>
-      {% endif %}
-
-      {% if report.attachment %}
-      <div class="mb-6">
-        <h3 class="text-lg font-semibold text-gray-700 mb-2">Attachment</h3>
-        <a href="{{ report.attachment.url }}" target="_blank" class="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition">
-          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
-          </svg>
-          Download Attachment
-        </a>
-      </div>
-      {% endif %}
-
-      {% if report.reviewed_by %}
-      <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded">
-        <p class="text-sm text-green-800">
-          <strong>Reviewed by:</strong> {{ report.reviewed_by.name }} on {{ report.reviewed_at|date:"F d, Y \a\t g:i A" }}
-        </p>
-      </div>
-      {% endif %}
     </div>
 
-    <!-- Tags Management -->
-    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
-      <h2 class="text-xl font-bold text-gray-800 mb-4">Tags</h2>
-      <form method="post" class="flex gap-2">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="update_tags">
-        <input type="text" name="tags" value="{{ report.tags }}" placeholder="urgent, academic, follow-up..."
-          class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-        <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
-          Update Tags
-        </button>
-      </form>
-      {% if report.get_tags_list %}
-      <div class="mt-3 flex flex-wrap gap-2">
-        {% for tag in report.get_tags_list %}
-        <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">{{ tag }}</span>
-        {% endfor %}
-      </div>
-      {% endif %}
-    </div>
+    <!-- Main Content: Two Column Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-    <!-- Chair Notes -->
-    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
-      <h2 class="text-xl font-bold text-gray-800 mb-4">Chair Notes</h2>
-      <form method="post">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="update_notes">
-        <textarea name="chair_notes" rows="4" placeholder="Add notes about this report..."
-          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-3">{{ report.chair_notes }}</textarea>
-        <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
-          Save Notes
-        </button>
-      </form>
-    </div>
+      <!-- Left Column: Report Content (2/3 width) -->
+      <div class="lg:col-span-2 space-y-6">
 
-    <!-- Deliberation Outcome -->
-    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
-      <h2 class="text-xl font-bold text-gray-800 mb-4">Deliberation Outcome</h2>
-
-      <!-- Current Status Badge -->
-      <div class="mb-4">
-        <span class="text-sm text-gray-600 mr-2">Current Status:</span>
-        <span class="px-3 py-1 rounded-full text-sm font-semibold
-          {% if report.deliberation_outcome == 'pending' %}bg-yellow-100 text-yellow-800
-          {% elif report.deliberation_outcome == 'thrown_out' %}bg-red-100 text-red-800
-          {% elif report.deliberation_outcome == 'heard' %}bg-green-100 text-green-800
-          {% endif %}">
-          {{ report.get_deliberation_outcome_display }}
-        </span>
-        {% if report.closed_by_accused_request %}
-        <span class="px-3 py-1 rounded-full text-sm font-semibold bg-purple-100 text-purple-800 ml-2">
-          Minutes Closed
-        </span>
-        {% endif %}
-      </div>
-
-      <!-- Update Form -->
-      <form method="post" id="deliberationForm">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="update_deliberation">
-
-        <div class="mb-4">
-          <label class="block text-sm font-semibold text-gray-700 mb-2">Select Outcome</label>
-          <select name="deliberation_outcome" id="deliberationOutcome"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-            <option value="">-- Select Outcome --</option>
-            <option value="pending" {% if report.deliberation_outcome == 'pending' %}selected{% endif %}>Pending Deliberation</option>
-            <option value="thrown_out" {% if report.deliberation_outcome == 'thrown_out' %}selected{% endif %}>Case Thrown Out</option>
-            <option value="heard" {% if report.deliberation_outcome == 'heard' %}selected{% endif %}>Case Heard</option>
-          </select>
-        </div>
-
-        <!-- Committee Notes (shown for "Case Heard") -->
-        <div id="committeeNotesSection" class="mb-4" style="display: none;">
-          <label class="block text-sm font-semibold text-gray-700 mb-2">
-            Committee Notes <span class="text-gray-500 text-xs">(Sanctions, hearing notes, decisions, etc.)</span>
-          </label>
-          <textarea name="committee_notes" id="committeeNotesField" rows="5"
-                    placeholder="Enter sanctions applied, hearing details, or other committee decisions..."
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">{{ report.committee_notes }}</textarea>
-        </div>
-
-        <!-- Minutes Closed Checkbox (shown for "Case Heard") -->
-        <div id="minutesClosedSection" class="mb-4" style="display: none;">
-          <label class="flex items-center space-x-2 cursor-pointer">
-            <input type="checkbox" name="closed_by_accused_request" id="closedByAccusedCheckbox"
-                   {% if report.closed_by_accused_request %}checked{% endif %}
-                   class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
-            <span class="text-sm font-semibold text-gray-700">
-              Minutes closed at the request of the accused
-              <span class="text-gray-500 text-xs">(Will archive the report)</span>
-            </span>
-          </label>
-        </div>
-
-        <!-- Display existing committee notes if case was heard -->
-        {% if report.deliberation_outcome == 'heard' and report.committee_notes %}
-        <div class="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
-          <p class="text-sm text-green-700"><strong>Current Committee Notes:</strong></p>
-          <p class="text-gray-700 mt-1 whitespace-pre-wrap">{{ report.committee_notes }}</p>
-        </div>
-        {% endif %}
-
-        <button type="submit" class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium">
-          Update Deliberation Outcome
-        </button>
-      </form>
-
-      <!-- Notify Submitter Section (only if minutes not closed) -->
-      {% if not report.closed_by_accused_request %}
-      <div class="mt-6 pt-6 border-t border-gray-200">
-        <h3 class="text-md font-semibold text-gray-800 mb-3">Notify Submitter</h3>
-        <p class="text-sm text-gray-600 mb-3">
-          Send the deliberation outcome and committee notes to the person who submitted this report.
-          <strong class="text-gray-800">Submitter:</strong> {{ report.submitted_by.name }}
-          {% if report.submitted_by.email %}
-          ({{ report.submitted_by.email }})
-          {% else %}
-          <span class="text-red-600">(No email on file)</span>
-          {% endif %}
-        </p>
-
-        <form method="post" class="inline">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="notify_submitter">
-          <button type="submit"
-                  {% if not report.submitted_by.email %}disabled{% endif %}
-                  class="px-6 py-2 {% if report.submitted_by.email %}bg-orange-600 hover:bg-orange-700{% else %}bg-gray-400 cursor-not-allowed{% endif %} text-white rounded-lg transition font-medium flex items-center space-x-2"
-                  onclick="return confirm('This will send an email to {{ report.submitted_by.name }} ({{ report.submitted_by.email }}) with the current deliberation outcome and committee notes. Continue?')">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-            </svg>
-            <span>Send Notification to Submitter</span>
-          </button>
-        </form>
-      </div>
-      {% else %}
-      <div class="mt-6 pt-6 border-t border-gray-200">
-        <p class="text-sm text-gray-500 italic flex items-center space-x-2">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-          </svg>
-          <span>Submitter notification disabled - Minutes are closed at the request of the accused</span>
-        </p>
-      </div>
-      {% endif %}
-    </div>
-
-    <!-- Related Reports -->
-    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
-      <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
-        <svg class="w-6 h-6 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
-        </svg>
-        Related Reports
-      </h2>
-
-      <!-- Currently Linked Reports -->
-      {% if related_reports %}
-      <div class="mb-6">
-        <h3 class="text-md font-semibold text-gray-700 mb-3">Linked Reports</h3>
-        <div class="space-y-2">
-          {% for related in related_reports %}
-          <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-            <div class="flex-1">
-              <a href="{% url 'manage_kai_report' related.id %}" class="text-blue-600 hover:text-blue-700 font-semibold">
-                #{{ related.id }} - {{ related.title }}
-              </a>
-              <p class="text-xs text-gray-600 mt-1">
-                {{ related.submitted_by.name }} • {{ related.submitted_at|date:"M d, Y" }}
-                {% if related.targeted_to %}→ {{ related.targeted_to.name }}{% endif %}
-              </p>
+        <!-- Report Content Card -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors duration-200">
+          <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Report Details</h2>
+          </div>
+          <div class="p-6 space-y-6">
+            <!-- Description -->
+            <div>
+              <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Description</h3>
+              <p class="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{{ report.description }}</p>
             </div>
-            <form method="post" class="inline">
+
+            {% if report.targeted_to %}
+            <div>
+              <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Directed To</h3>
+              <div class="flex items-center space-x-2 text-gray-700 dark:text-gray-300">
+                <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
+                  <span class="text-blue-600 dark:text-blue-400 font-semibold text-sm">{{ report.targeted_to.name|slice:":1"|upper }}</span>
+                </div>
+                <span>{{ report.targeted_to.name }}</span>
+              </div>
+            </div>
+            {% endif %}
+
+            {% if report.attachment %}
+            <div>
+              <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Attachment</h3>
+              <a href="{{ report.attachment.url }}" target="_blank" class="inline-flex items-center px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                </svg>
+                Download Attachment
+              </a>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Deliberation & Notes Card -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors duration-200">
+          <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Deliberation & Notes</h2>
+          </div>
+          <div class="p-6 space-y-6">
+
+            <!-- Deliberation Outcome -->
+            <div class="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <form method="post" id="deliberationForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_deliberation">
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Deliberation Outcome</label>
+                    <select name="deliberation_outcome" id="deliberationOutcome"
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
+                      <option value="pending" {% if report.deliberation_outcome == 'pending' %}selected{% endif %}>Pending Deliberation</option>
+                      <option value="under_investigation" {% if report.deliberation_outcome == 'under_investigation' %}selected{% endif %}>Under Investigation</option>
+                      <option value="scheduled" {% if report.deliberation_outcome == 'scheduled' %}selected{% endif %}>Scheduled for Hearing</option>
+                      <option value="heard" {% if report.deliberation_outcome == 'heard' %}selected{% endif %}>Case Heard</option>
+                      <option value="warning_issued" {% if report.deliberation_outcome == 'warning_issued' %}selected{% endif %}>Warning Issued</option>
+                      <option value="sanctions_applied" {% if report.deliberation_outcome == 'sanctions_applied' %}selected{% endif %}>Sanctions Applied</option>
+                      <option value="mediation" {% if report.deliberation_outcome == 'mediation' %}selected{% endif %}>Informal Resolution / Mediation</option>
+                      <option value="referred" {% if report.deliberation_outcome == 'referred' %}selected{% endif %}>Referred to Standards Board</option>
+                      <option value="dismissed" {% if report.deliberation_outcome == 'dismissed' %}selected{% endif %}>Case Dismissed</option>
+                      <option value="thrown_out" {% if report.deliberation_outcome == 'thrown_out' %}selected{% endif %}>Case Thrown Out</option>
+                    </select>
+                  </div>
+
+                  <div id="minutesClosedSection" class="flex items-end" style="display: none;">
+                    <label class="flex items-center space-x-2 cursor-pointer p-2 bg-purple-50 dark:bg-purple-900/30 rounded-lg w-full">
+                      <input type="checkbox" name="closed_by_accused_request" id="closedByAccusedCheckbox"
+                             {% if report.closed_by_accused_request %}checked{% endif %}
+                             class="w-4 h-4 text-purple-600 border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-purple-500">
+                      <span class="text-sm text-purple-700 dark:text-purple-300">Minutes closed by accused request</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Committee Notes (for outcomes that need notes) -->
+                <div id="committeeNotesSection" style="display: none;" class="mb-4">
+                  <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Committee Notes & Sanctions
+                  </label>
+                  <textarea name="committee_notes" id="committeeNotesField" rows="3"
+                            placeholder="Sanctions applied, hearing details, committee decisions..."
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">{{ report.committee_notes }}</textarea>
+                </div>
+
+                <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium text-sm">
+                  Update Deliberation
+                </button>
+              </form>
+            </div>
+
+            <!-- Chair Notes -->
+            <div>
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_notes">
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Chair Notes</label>
+                <textarea name="chair_notes" rows="3" placeholder="Private notes about this report..."
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm mb-3">{{ report.chair_notes }}</textarea>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
+                  Save Notes
+                </button>
+              </form>
+            </div>
+
+            <!-- Notify Accused -->
+            <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between mb-3">
+                <div>
+                  <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center">
+                    <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                    Notify Accused Person
+                  </h3>
+                </div>
+                {% if report.accused_notified %}
+                <span class="px-3 py-1 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 rounded-full text-xs font-semibold">
+                  Notified {{ report.accused_notified_at|date:"M d, Y" }}
+                </span>
+                {% endif %}
+              </div>
+
+              <!-- Select/Change Accused Person -->
+              <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <form method="post" id="accusedForm">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="update_accused">
+
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Select Accused Person
+                      </label>
+                      <select name="accused_id" id="accusedSelect"
+                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
+                        <option value="">-- Select Member --</option>
+                        {% for member in all_members %}
+                        <option value="{{ member.user_id }}"
+                                data-email="{{ member.email|default:'' }}"
+                                {% if report.targeted_to and report.targeted_to.user_id == member.user_id %}selected{% endif %}>
+                          {{ member.name }} {% if member.email %}({{ member.email }}){% endif %}
+                        </option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Email Address
+                        <span class="text-xs text-gray-500 dark:text-gray-400">(update if needed)</span>
+                      </label>
+                      <input type="email" name="accused_email" id="accusedEmail"
+                             value="{% if report.targeted_to %}{{ report.targeted_to.email|default:'' }}{% endif %}"
+                             placeholder="Enter or update email address..."
+                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
+                    </div>
+                  </div>
+
+                  <div class="mt-3 flex items-center justify-between">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                      {% if report.targeted_to %}
+                      Current: <strong>{{ report.targeted_to.name }}</strong>
+                      {% else %}
+                      No accused person currently set
+                      {% endif %}
+                    </p>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
+                      {% if report.targeted_to %}Update Accused{% else %}Set Accused Person{% endif %}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {% if report.targeted_to %}
+                {% if report.accused_notified and report.accused_notification_message %}
+                <div class="mb-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
+                  <p class="text-xs font-semibold text-green-700 dark:text-green-300 uppercase mb-1">Previous Notification Sent:</p>
+                  <p class="text-sm text-green-800 dark:text-green-200">{{ report.accused_notification_message }}</p>
+                </div>
+                {% endif %}
+
+                <form method="post">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="notify_accused">
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    What is this person being reported for?
+                  </label>
+                  <textarea name="accused_notification_message" rows="3" required
+                            placeholder="Describe what the person is being reported for. This will be included in the email sent to them..."
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm mb-3">{{ report.accused_notification_message }}</textarea>
+                  <button type="submit"
+                          {% if not report.targeted_to.email %}disabled{% endif %}
+                          class="px-4 py-2 {% if report.targeted_to.email %}bg-red-600 hover:bg-red-700{% else %}bg-gray-400 cursor-not-allowed{% endif %} text-white rounded-lg transition font-medium text-sm flex items-center space-x-2"
+                          onclick="return confirm('This will send an official notification email to {{ report.targeted_to.name }} informing them of this case. Are you sure you want to proceed?')">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    </svg>
+                    <span>{% if report.accused_notified %}Send Another Notification{% else %}Send Notification to Accused{% endif %}</span>
+                  </button>
+                  {% if not report.targeted_to.email %}
+                  <p class="mt-2 text-xs text-red-600 dark:text-red-400">
+                    Cannot send email - no email address on file. Please update the email above first.
+                  </p>
+                  {% endif %}
+                </form>
+              {% else %}
+                <div class="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                  <p class="text-sm text-blue-800 dark:text-blue-200">
+                    Select a member above to set them as the accused person, then you can send them a notification.
+                  </p>
+                </div>
+              {% endif %}
+            </div>
+
+            <!-- Notify Submitter -->
+            {% if not report.closed_by_accused_request %}
+            <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Notify Submitter</h3>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Send outcome to {{ report.submitted_by.name }}
+                    {% if report.submitted_by.email %}({{ report.submitted_by.email }}){% endif %}
+                  </p>
+                </div>
+                <form method="post" class="inline">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="notify_submitter">
+                  <button type="submit"
+                          {% if not report.submitted_by.email %}disabled{% endif %}
+                          class="px-4 py-2 {% if report.submitted_by.email %}bg-orange-600 hover:bg-orange-700{% else %}bg-gray-400 cursor-not-allowed{% endif %} text-white rounded-lg transition font-medium text-sm"
+                          onclick="return confirm('Send notification to {{ report.submitted_by.name }}?')">
+                    Send Email
+                  </button>
+                </form>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Related Reports Card -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors duration-200">
+          <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Related Reports</h2>
+            <span class="text-sm text-gray-500 dark:text-gray-400">{{ related_reports|length }} linked</span>
+          </div>
+          <div class="p-6">
+            {% if related_reports %}
+            <div class="space-y-2 mb-4">
+              {% for related in related_reports %}
+              <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <div class="flex-1 min-w-0">
+                  <a href="{% url 'manage_kai_report' related.id %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm truncate block">
+                    #{{ related.id }} - {{ related.title }}
+                  </a>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {{ related.submitted_by.name }} • {{ related.submitted_at|date:"M d, Y" }}
+                  </p>
+                </div>
+                <form method="post" class="ml-2">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="unlink_report">
+                  <input type="hidden" name="related_report_id" value="{{ related.id }}">
+                  <button type="submit" class="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition"
+                          onclick="return confirm('Unlink this report?')" title="Unlink">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </form>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if available_reports %}
+            <form method="post" class="flex gap-2">
               {% csrf_token %}
-              <input type="hidden" name="action" value="unlink_report">
-              <input type="hidden" name="related_report_id" value="{{ related.id }}">
-              <button type="submit" class="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition"
-                      onclick="return confirm('Unlink this report?')">
-                Unlink
+              <input type="hidden" name="action" value="link_report">
+              <select name="related_report_id" required
+                      class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                <option value="">Select a report to link...</option>
+                {% for avail in available_reports %}
+                <option value="{{ avail.id }}">#{{ avail.id }} - {{ avail.title|truncatechars:40 }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm whitespace-nowrap">
+                Link
+              </button>
+            </form>
+            {% elif not related_reports %}
+            <p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No other reports available to link.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Sidebar (1/3 width) -->
+      <div class="space-y-6">
+
+        <!-- Report Info Card -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors duration-200">
+          <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Info</h2>
+          </div>
+          <div class="p-6 space-y-4">
+            <div>
+              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Submitted By</p>
+              <div class="flex items-center space-x-2 mt-1">
+                <div class="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                  <span class="text-gray-600 dark:text-gray-300 font-semibold text-sm">{{ report.submitted_by.name|slice:":1"|upper }}</span>
+                </div>
+                <span class="text-gray-800 dark:text-gray-200 font-medium">{{ report.submitted_by.name }}</span>
+              </div>
+            </div>
+
+            <div>
+              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Submitted</p>
+              <p class="text-gray-800 dark:text-gray-200 mt-1">{{ report.submitted_at|date:"M d, Y" }}</p>
+              <p class="text-gray-500 dark:text-gray-400 text-sm">{{ report.submitted_at|date:"g:i A" }}</p>
+            </div>
+
+            {% if report.reviewed_by %}
+            <div class="pt-3 border-t border-gray-200 dark:border-gray-700">
+              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reviewed By</p>
+              <p class="text-gray-800 dark:text-gray-200 mt-1">{{ report.reviewed_by.name }}</p>
+              <p class="text-gray-500 dark:text-gray-400 text-sm">{{ report.reviewed_at|date:"M d, Y \a\t g:i A" }}</p>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Tags Card -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors duration-200">
+          <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Tags</h2>
+          </div>
+          <div class="p-6">
+            {% if report.get_tags_list %}
+            <div class="flex flex-wrap gap-2 mb-4">
+              {% for tag in report.get_tags_list %}
+              <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-full text-sm">{{ tag }}</span>
+              {% endfor %}
+            </div>
+            {% endif %}
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="update_tags">
+              <input type="text" name="tags" value="{{ report.tags }}" placeholder="urgent, academic, follow-up..."
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm mb-2">
+              <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
+                Update Tags
               </button>
             </form>
           </div>
-          {% endfor %}
         </div>
-      </div>
-      {% else %}
-      <p class="text-gray-500 text-sm mb-4">No related reports linked yet.</p>
-      {% endif %}
 
-      <!-- Link New Report -->
-      <div class="pt-4 border-t border-gray-200">
-        <h3 class="text-md font-semibold text-gray-700 mb-3">Link a Report</h3>
-        {% if available_reports %}
-        <form method="post">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="link_report">
-          <div class="flex gap-3">
-            <select name="related_report_id" required
-                    class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
-              <option value="">-- Select a report to link --</option>
-              {% for avail in available_reports %}
-              <option value="{{ avail.id }}">
-                #{{ avail.id }} - {{ avail.title }} ({{ avail.submitted_by.name }}, {{ avail.submitted_at|date:"M d, Y" }})
-              </option>
-              {% endfor %}
-            </select>
-            <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
-              Link Report
-            </button>
+        <!-- Activity Timeline Card -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors duration-200">
+          <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Activity</h2>
           </div>
-          <p class="text-xs text-gray-500 mt-2">Link reports that are related (e.g., follow-ups, same incident, connected cases)</p>
-        </form>
-        {% else %}
-        <p class="text-sm text-gray-500">No other reports available to link.</p>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- Activity Timeline -->
-    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
-      <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
-        <svg class="w-6 h-6 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-        Activity Timeline
-      </h2>
-
-      {% if activity_log %}
-      <div class="space-y-4">
-        {% for activity in activity_log %}
-        <div class="flex items-start space-x-4 pb-4 {% if not forloop.last %}border-b border-gray-200{% endif %}">
-          <!-- Icon -->
-          <div class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-            {% if activity.action == 'created' %}
-              <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-              </svg>
-            {% elif activity.action == 'status_changed' %}
-              <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-            {% elif activity.action == 'deliberation_updated' %}
-              <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
-              </svg>
-            {% elif activity.action == 'archived' or activity.action == 'minutes_closed' %}
-              <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
-              </svg>
+          <div class="p-6">
+            {% if activity_log %}
+            <div class="space-y-4 max-h-96 overflow-y-auto">
+              {% for activity in activity_log %}
+              <div class="flex items-start space-x-3">
+                <!-- Timeline dot -->
+                <div class="flex-shrink-0 mt-1">
+                  <div class="w-2 h-2 rounded-full
+                    {% if activity.action == 'created' %}bg-blue-500
+                    {% elif activity.action == 'status_changed' %}bg-green-500
+                    {% elif activity.action == 'deliberation_updated' %}bg-purple-500
+                    {% elif activity.action == 'archived' or activity.action == 'minutes_closed' %}bg-gray-500
+                    {% else %}bg-yellow-500{% endif %}"></div>
+                </div>
+                <!-- Content -->
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ activity.get_action_display }}</p>
+                  {% if activity.details %}
+                  <p class="text-xs text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">{{ activity.details }}</p>
+                  {% endif %}
+                  <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    {{ activity.user.name|default:"System" }} • {{ activity.timestamp|date:"M d, g:i A" }}
+                  </p>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
             {% else %}
-              <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-              </svg>
+            <p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No activity recorded yet.</p>
             {% endif %}
           </div>
-
-          <!-- Content -->
-          <div class="flex-1">
-            <div class="flex items-start justify-between">
-              <div>
-                <p class="font-semibold text-gray-900">{{ activity.get_action_display }}</p>
-                <p class="text-sm text-gray-600 mt-1">{{ activity.details }}</p>
-              </div>
-            </div>
-            <div class="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-              <span class="flex items-center">
-                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                </svg>
-                {{ activity.user.name if activity.user else 'System' }}
-              </span>
-              <span class="flex items-center">
-                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                {{ activity.timestamp|date:"M d, Y \a\t g:i A" }}
-              </span>
-            </div>
-          </div>
         </div>
-        {% endfor %}
-      </div>
-      {% else %}
-      <div class="text-center py-8 text-gray-500">
-        <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-        <p>No activity recorded yet.</p>
-      </div>
-      {% endif %}
-    </div>
-
-    <!-- Actions -->
-    <div class="bg-white rounded-lg shadow-lg p-6">
-      <h2 class="text-xl font-bold text-gray-800 mb-4">Actions</h2>
-      <div class="flex flex-wrap gap-3">
-        {% if report.status == 'pending' %}
-        <form method="post" class="inline">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="mark_reviewed">
-          <button type="submit" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium flex items-center space-x-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-            </svg>
-            <span>Mark as Reviewed</span>
-          </button>
-        </form>
-        {% else %}
-        <form method="post" class="inline">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="mark_pending">
-          <button type="submit" class="px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition font-medium flex items-center space-x-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            <span>Mark as Pending</span>
-          </button>
-        </form>
-        {% endif %}
-
-        {% if report.status != 'archived' %}
-        <form method="post" class="inline">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="archive">
-          <button type="submit" class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition font-medium flex items-center space-x-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
-            </svg>
-            <span>Archive Report</span>
-          </button>
-        </form>
-        {% endif %}
       </div>
     </div>
   </div>
 </div>
 
 <script>
-  // Show/hide committee notes and minutes closed checkbox based on deliberation outcome selection
+  // Show/hide committee notes and minutes closed checkbox based on deliberation outcome
   const deliberationOutcome = document.getElementById('deliberationOutcome');
   const committeeNotesSection = document.getElementById('committeeNotesSection');
   const minutesClosedSection = document.getElementById('minutesClosedSection');
 
+  // Outcomes that require committee notes
+  const outcomesWithNotes = ['heard', 'warning_issued', 'sanctions_applied', 'mediation', 'referred'];
+  // Outcomes that allow minutes to be closed
+  const outcomesWithMinutesClosed = ['heard', 'sanctions_applied'];
+
   function updateDeliberationSections() {
     const selectedValue = deliberationOutcome.value;
+    const showNotes = outcomesWithNotes.includes(selectedValue);
+    const showMinutesClosed = outcomesWithMinutesClosed.includes(selectedValue);
 
-    if (selectedValue === 'heard') {
-      // Show both committee notes and minutes closed checkbox for "Case Heard"
-      committeeNotesSection.style.display = 'block';
-      minutesClosedSection.style.display = 'block';
-    } else {
-      // Hide both for other outcomes
-      committeeNotesSection.style.display = 'none';
-      minutesClosedSection.style.display = 'none';
-    }
+    committeeNotesSection.style.display = showNotes ? 'block' : 'none';
+    minutesClosedSection.style.display = showMinutesClosed ? 'flex' : 'none';
   }
 
-  // Initialize on page load
   updateDeliberationSections();
-
-  // Update when selection changes
   deliberationOutcome.addEventListener('change', updateDeliberationSections);
+
+  // Auto-fill email when accused person is selected
+  const accusedSelect = document.getElementById('accusedSelect');
+  const accusedEmail = document.getElementById('accusedEmail');
+
+  if (accusedSelect && accusedEmail) {
+    accusedSelect.addEventListener('change', function() {
+      const selectedOption = this.options[this.selectedIndex];
+      const email = selectedOption.dataset.email || '';
+      accusedEmail.value = email;
+    });
+  }
+
+  // Prevent multiple form submissions for email sending
+  document.querySelectorAll('form').forEach(function(form) {
+    form.addEventListener('submit', function(e) {
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (!submitBtn) return;
+
+      // Check if already submitting
+      if (form.dataset.submitting === 'true') {
+        e.preventDefault();
+        return false;
+      }
+
+      // For email-related actions, show sending state
+      const action = form.querySelector('input[name="action"]');
+      if (action && ['notify_accused', 'notify_submitter'].includes(action.value)) {
+        form.dataset.submitting = 'true';
+
+        // Store original button content
+        const originalContent = submitBtn.innerHTML;
+        submitBtn.dataset.originalContent = originalContent;
+
+        // Update button to show sending state
+        submitBtn.disabled = true;
+        submitBtn.classList.remove('bg-red-600', 'hover:bg-red-700', 'bg-orange-600', 'hover:bg-orange-700');
+        submitBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+        submitBtn.innerHTML = `
+          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span>Sending...</span>
+        `;
+      }
+    });
+  });
 </script>
+
+<style>
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>
 {% endblock %}

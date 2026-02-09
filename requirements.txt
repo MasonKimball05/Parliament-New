@@ -32,3 +32,6 @@ mammoth==1.8.0
 
 # PDF generation for chapter minutes export
 reportlab==4.1.0
+
+# PDF to image conversion for mobile document viewing
+PyMuPDF==1.24.0

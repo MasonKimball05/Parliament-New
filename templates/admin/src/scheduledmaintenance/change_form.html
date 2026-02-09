@@ -1,0 +1,98 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+{{ block.super }}
+
+{% if show_start_button %}
+<li>
+    <a href="../{{ maintenance_obj.pk }}/start/"
+       class="button"
+       style="background: #f59e0b; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold;"
+       onclick="return confirm('Start maintenance now? This will enable maintenance mode and block non-admin users.');">
+        🔧 Start Maintenance Now
+    </a>
+</li>
+{% endif %}
+
+{% if show_complete_button %}
+<li>
+    <a href="../{{ maintenance_obj.pk }}/complete/"
+       class="button"
+       style="background: #22c55e; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold;"
+       onclick="return confirm('Mark maintenance as complete? This will disable maintenance mode and restore normal access.');">
+        ✓ Complete Maintenance
+    </a>
+</li>
+{% endif %}
+{% endblock %}
+
+{% block after_field_sets %}
+{{ block.super }}
+
+{% if show_start_button or show_complete_button %}
+<div style="margin: 20px 0; padding: 20px; background: #fef3c7; border: 2px solid #f59e0b; border-radius: 12px;">
+    <h3 style="margin: 0 0 15px 0; color: #92400e; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 24px;">⚡</span> Quick Actions
+    </h3>
+
+    {% if show_start_button %}
+    <p style="margin: 0 0 15px 0; color: #78350f;">
+        <strong>Status:</strong>
+        {% if maintenance_obj.scheduled_start <= maintenance_obj.created_at|default:maintenance_obj.scheduled_start %}
+        Waiting for scheduled time or manual start
+        {% else %}
+        Ready to start (scheduled time has passed)
+        {% endif %}
+    </p>
+    <a href="../{{ maintenance_obj.pk }}/start/"
+       style="display: inline-block; background: #f59e0b; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;"
+       onclick="return confirm('Start maintenance now? This will:\\n\\n• Enable maintenance mode\\n• Block all non-admin users\\n• Show the maintenance page\\n• Send notification email (if configured)\\n\\nProceed?');">
+        🔧 Start Maintenance Now
+    </a>
+    <p style="margin: 10px 0 0 0; color: #92400e; font-size: 13px;">
+        Click to immediately enable maintenance mode. Non-admin users will see the maintenance page.
+    </p>
+    {% endif %}
+
+    {% if show_complete_button %}
+    <p style="margin: 0 0 15px 0; color: #78350f;">
+        <strong>Status:</strong> Maintenance is currently in progress
+    </p>
+    <a href="../{{ maintenance_obj.pk }}/complete/"
+       style="display: inline-block; background: #22c55e; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;"
+       onclick="return confirm('Complete maintenance?\\n\\nThis will:\\n• Disable maintenance mode\\n• Restore normal access for all users\\n\\nProceed?');">
+        ✓ Complete Maintenance
+    </a>
+    <p style="margin: 10px 0 0 0; color: #166534; font-size: 13px;">
+        Click when maintenance is done to restore normal access for all users.
+    </p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if maintenance_obj.maintenance_started and not maintenance_obj.completed_at %}
+<div style="margin: 20px 0; padding: 20px; background: #fef2f2; border: 2px solid #ef4444; border-radius: 12px;">
+    <h3 style="margin: 0 0 10px 0; color: #991b1b; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 24px;">🔧</span> Maintenance In Progress
+    </h3>
+    <p style="margin: 0; color: #991b1b;">
+        The site is currently in maintenance mode. Non-admin users cannot access the site.
+        Click "Complete Maintenance" above when you're done.
+    </p>
+</div>
+{% endif %}
+
+{% if maintenance_obj.completed_at %}
+<div style="margin: 20px 0; padding: 20px; background: #f0fdf4; border: 2px solid #22c55e; border-radius: 12px;">
+    <h3 style="margin: 0 0 10px 0; color: #166534; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 24px;">✓</span> Maintenance Completed
+    </h3>
+    <p style="margin: 0; color: #166534;">
+        This maintenance was completed on {{ maintenance_obj.completed_at }}.
+        Normal access has been restored.
+    </p>
+</div>
+{% endif %}
+
+{% endblock %}

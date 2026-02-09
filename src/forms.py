@@ -6,7 +6,16 @@ import magic  # python-magic for MIME type detection
 class LegislationForm(forms.ModelForm):
     class Meta:
         model = Legislation
-        fields = ['title', 'description', 'available_at', 'document', 'anonymous_vote', 'allow_abstain', 'required_percentage']
+        fields = ['title', 'description', 'available_at', 'voting_ends_at', 'document', 'anonymous_vote', 'allow_abstain', 'required_percentage']
+        widgets = {
+            'voting_ends_at': forms.DateTimeInput(attrs={
+                'type': 'datetime-local',
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+            }),
+        }
+        help_texts = {
+            'voting_ends_at': 'Optional: Voting will automatically close at this time. Leave blank for manual close only.',
+        }
 
     def clean_document(self):
         file = self.cleaned_data.get('document')

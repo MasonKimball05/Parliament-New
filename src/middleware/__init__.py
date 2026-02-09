@@ -5,6 +5,7 @@ from .performance import (
     get_slow_requests,
     clear_old_metrics,
 )
+from .maintenance import MaintenanceModeMiddleware
 
 __all__ = [
     'PerformanceMiddleware',
@@ -12,4 +13,5 @@ __all__ = [
     'get_performance_summary',
     'get_slow_requests',
     'clear_old_metrics',
+    'MaintenanceModeMiddleware',
 ]

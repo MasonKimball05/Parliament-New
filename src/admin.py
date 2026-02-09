@@ -2,7 +2,7 @@ from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
 from .decorators import log_function_call
 from .models import Committee, ParliamentUser, Legislation, Vote, Attendance, AttendanceExcuse, CommitteeDocument, Role, Announcement, ChatChannel, ChatChannelPermission, ChatMessage, ChatReadReceipt, UserAnnouncementView, DocumentTag, DocumentVersion, Event, ActivityLog, LoginHistory, LoginAlert, BugReport, Notification
-from .models_feature_flags import FeatureFlag, PageToggle
+from .models_feature_flags import FeatureFlag, PageToggle, ScheduledMaintenance
 import logging
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
@@ -1163,25 +1163,188 @@ class NotificationAdmin(admin.ModelAdmin):
 # === ADMIN V2 MODELS ===
 @admin.register(FeatureFlag, site=admin_site)
 class FeatureFlagAdmin(admin.ModelAdmin):
-    list_display = ('display_name', 'name', 'category', 'enabled_badge', 'last_toggled_by', 'last_toggled_at', 'updated_at')
+    list_display = ('display_name', 'name', 'category', 'enabled_badge', 'maintenance_info_badge', 'last_toggled_by', 'last_toggled_at', 'updated_at')
     list_filter = ('is_enabled', 'category', 'updated_at')
     search_fields = ('name', 'display_name', 'description')
     ordering = ('category', 'display_name')
-    readonly_fields = ('created_at', 'updated_at', 'last_toggled_by', 'last_toggled_at')
+    readonly_fields = ('created_at', 'updated_at', 'last_toggled_by', 'last_toggled_at', 'maintenance_stats_display')
     list_per_page = 50
 
-    fieldsets = (
-        ('Feature Information', {
-            'fields': ('name', 'display_name', 'description', 'category')
-        }),
-        ('Status', {
-            'fields': ('is_enabled',)
-        }),
-        ('Tracking', {
-            'fields': ('created_at', 'updated_at', 'last_toggled_by', 'last_toggled_at'),
-            'classes': ('collapse',)
-        }),
-    )
+    def get_fieldsets(self, request, obj=None):
+        """Dynamic fieldsets - show maintenance stats for maintenance_mode flag"""
+        base_fieldsets = [
+            ('Feature Information', {
+                'fields': ('name', 'display_name', 'description', 'category')
+            }),
+            ('Status', {
+                'fields': ('is_enabled',)
+            }),
+            ('Tracking', {
+                'fields': ('created_at', 'updated_at', 'last_toggled_by', 'last_toggled_at'),
+                'classes': ('collapse',)
+            }),
+        ]
+
+        # Add maintenance stats section for maintenance_mode flag
+        if obj and obj.name == 'maintenance_mode':
+            base_fieldsets.insert(2, ('Maintenance Mode Statistics', {
+                'fields': ('maintenance_stats_display',),
+                'description': 'Real-time statistics about maintenance mode activity'
+            }))
+
+        return base_fieldsets
+
+    def maintenance_stats_display(self, obj):
+        """Display detailed maintenance mode statistics"""
+        if obj.name != 'maintenance_mode':
+            return "N/A - Not maintenance mode flag"
+
+        from django.core.cache import cache
+        from django.utils import timezone as tz
+        import sys
+
+        # Get maintenance stats from cache
+        started_at = cache.get('maintenance_mode_started_at')
+        blocked_count = cache.get('maintenance_blocked_count', 0)
+
+        if not obj.is_enabled:
+            return format_html(
+                '<div style="padding: 15px; background: #f3f4f6; border-radius: 8px; border: 1px solid #e5e7eb;">'
+                '<p style="color: #6b7280; margin: 0;"><strong>Maintenance mode is currently disabled.</strong></p>'
+                '<p style="color: #9ca3af; margin: 5px 0 0 0; font-size: 12px;">Enable it above to put the site in maintenance mode. '
+                'Non-admin users will see a maintenance page.</p>'
+                '</div>'
+            )
+
+        # Calculate duration
+        if started_at:
+            duration = tz.now() - started_at
+            hours, remainder = divmod(duration.total_seconds(), 3600)
+            minutes, seconds = divmod(remainder, 60)
+            if hours > 0:
+                duration_str = f"{int(hours)}h {int(minutes)}m {int(seconds)}s"
+            elif minutes > 0:
+                duration_str = f"{int(minutes)}m {int(seconds)}s"
+            else:
+                duration_str = f"{int(seconds)}s"
+            started_str = started_at.strftime('%Y-%m-%d %H:%M:%S %Z')
+        else:
+            duration_str = "Just started"
+            started_str = "Now"
+
+        # Get active user count
+        try:
+            active_users = ParliamentUser.objects.filter(member_status='Active').count()
+            admin_users = ParliamentUser.objects.filter(is_admin=True, member_status='Active').count()
+        except Exception:
+            active_users = "N/A"
+            admin_users = "N/A"
+
+        # Get recent activity log entries during maintenance
+        try:
+            recent_logs = ActivityLog.objects.filter(
+                created_at__gte=started_at if started_at else tz.now()
+            ).order_by('-created_at')[:5]
+            log_html = ""
+            for log in recent_logs:
+                log_html += f'<li style="margin: 3px 0; font-size: 12px;">{log.created_at.strftime("%H:%M:%S")} - {log.action_type}: {log.description[:50]}...</li>'
+            if not log_html:
+                log_html = '<li style="color: #9ca3af;">No activity logged during maintenance</li>'
+        except Exception:
+            log_html = '<li style="color: #9ca3af;">Could not load activity logs</li>'
+
+        return format_html(
+            '<div style="padding: 20px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 12px; border: 2px solid #f59e0b;">'
+            # Status header
+            '<div style="display: flex; align-items: center; margin-bottom: 15px;">'
+            '<span style="background: #f59e0b; color: white; padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 14px;">'
+            '⚠️ MAINTENANCE MODE ACTIVE</span>'
+            '</div>'
+
+            # Stats grid
+            '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">'
+
+            # Duration card
+            '<div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">'
+            '<div style="color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Duration</div>'
+            '<div style="font-size: 24px; font-weight: bold; color: #1f2937;">{}</div>'
+            '<div style="color: #9ca3af; font-size: 11px;">Started: {}</div>'
+            '</div>'
+
+            # Blocked requests card
+            '<div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">'
+            '<div style="color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Blocked Requests</div>'
+            '<div style="font-size: 24px; font-weight: bold; color: #dc2626;">{}</div>'
+            '<div style="color: #9ca3af; font-size: 11px;">Non-admin access attempts</div>'
+            '</div>'
+
+            # Users card
+            '<div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">'
+            '<div style="color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">User Access</div>'
+            '<div style="font-size: 24px; font-weight: bold; color: #059669;">{} <span style="font-size: 14px; color: #6b7280;">admins</span></div>'
+            '<div style="color: #9ca3af; font-size: 11px;">{} total active users blocked</div>'
+            '</div>'
+
+            # Server info card
+            '<div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">'
+            '<div style="color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Server Status</div>'
+            '<div style="font-size: 14px; color: #1f2937;"><strong>Python:</strong> {}</div>'
+            '<div style="font-size: 14px; color: #1f2937;"><strong>Time:</strong> {}</div>'
+            '</div>'
+
+            '</div>'
+
+            # Recent activity section
+            '<div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">'
+            '<div style="color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Recent Admin Activity</div>'
+            '<ul style="margin: 0; padding-left: 20px; color: #4b5563;">{}</ul>'
+            '</div>'
+
+            # Warning note
+            '<div style="margin-top: 15px; padding: 10px; background: #fef2f2; border-radius: 6px; border: 1px solid #fecaca;">'
+            '<p style="margin: 0; color: #991b1b; font-size: 12px;">'
+            '<strong>⚠️ Remember:</strong> Uncheck "Is enabled" above and save to disable maintenance mode and restore normal access for all users.'
+            '</p>'
+            '</div>'
+
+            '</div>',
+            duration_str,
+            started_str,
+            blocked_count,
+            admin_users,
+            active_users - admin_users if isinstance(active_users, int) and isinstance(admin_users, int) else "N/A",
+            sys.version.split()[0],
+            tz.now().strftime('%Y-%m-%d %H:%M:%S'),
+            log_html
+        )
+    maintenance_stats_display.short_description = 'Maintenance Statistics'
+
+    def maintenance_info_badge(self, obj):
+        """Show maintenance info in list view"""
+        if obj.name != 'maintenance_mode' or not obj.is_enabled:
+            return '-'
+
+        from django.core.cache import cache
+        blocked_count = cache.get('maintenance_blocked_count', 0)
+        started_at = cache.get('maintenance_mode_started_at')
+
+        if started_at:
+            from django.utils import timezone as tz
+            duration = tz.now() - started_at
+            minutes = int(duration.total_seconds() / 60)
+            if minutes < 60:
+                time_str = f"{minutes}m"
+            else:
+                time_str = f"{minutes // 60}h {minutes % 60}m"
+        else:
+            time_str = "now"
+
+        return format_html(
+            '<span style="background: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 4px; font-size: 11px;">'
+            '⏱️ {} | 🚫 {} blocked</span>',
+            time_str, blocked_count
+        )
+    maintenance_info_badge.short_description = 'Maintenance Info'
 
     def enabled_badge(self, obj):
         if obj.is_enabled:
@@ -1203,7 +1366,237 @@ class FeatureFlagAdmin(admin.ModelAdmin):
                 description=f'{request.user.get_display_name()} {"enabled" if obj.is_enabled else "disabled"} feature flag: {obj.display_name}',
                 request=request
             )
+
+            # Clear maintenance stats when disabling maintenance mode
+            if obj.name == 'maintenance_mode' and not obj.is_enabled:
+                from django.core.cache import cache
+                cache.delete('maintenance_mode_started_at')
+                cache.delete('maintenance_blocked_count')
+
         super().save_model(request, obj, form, change)
+
+
+@admin.register(ScheduledMaintenance, site=admin_site)
+class ScheduledMaintenanceAdmin(admin.ModelAdmin):
+    list_display = ('title', 'status_badge', 'scheduled_start', 'time_until_display', 'estimated_duration_minutes', 'notify_email', 'created_by')
+    list_filter = ('is_active', 'maintenance_started', 'scheduled_start')
+    search_fields = ('title', 'message', 'notify_email')
+    ordering = ('-scheduled_start',)
+    readonly_fields = ('maintenance_started', 'started_at', 'completed_at', 'email_sent', 'created_at', 'updated_at', 'maintenance_preview', 'current_server_time')
+    date_hierarchy = 'scheduled_start'
+
+    fieldsets = (
+        ('Maintenance Details', {
+            'fields': ('title', 'message', 'maintenance_preview')
+        }),
+        ('Schedule', {
+            'fields': ('current_server_time', 'scheduled_start', 'estimated_duration_minutes'),
+            'description': 'Set when maintenance should automatically start. A warning banner will be shown to users beforehand.'
+        }),
+        ('Notifications', {
+            'fields': ('notify_email',),
+            'description': 'You will receive an email when maintenance automatically starts.'
+        }),
+        ('Status', {
+            'fields': ('is_active', 'maintenance_started', 'started_at', 'completed_at', 'email_sent'),
+            'classes': ('collapse',)
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def current_server_time(self, obj):
+        """Display current server time for reference"""
+        from django.conf import settings
+        now = timezone.now()
+        local_now = timezone.localtime(now)
+        return format_html(
+            '<div style="padding: 12px; background: #f0fdf4; border: 1px solid #22c55e; border-radius: 8px; margin-bottom: 10px;">'
+            '<div style="display: flex; align-items: center; gap: 8px;">'
+            '<span style="font-size: 20px;">🕐</span>'
+            '<div>'
+            '<div style="font-size: 18px; font-weight: bold; color: #166534;">{}</div>'
+            '<div style="font-size: 12px; color: #15803d;">Timezone: {} ({})</div>'
+            '</div>'
+            '</div>'
+            '</div>',
+            local_now.strftime('%B %d, %Y at %I:%M %p'),
+            settings.TIME_ZONE,
+            local_now.strftime('%Z')
+        )
+    current_server_time.short_description = 'Current Server Time'
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('<int:pk>/start/', self.admin_site.admin_view(self.start_maintenance_view), name='scheduledmaintenance_start'),
+            path('<int:pk>/complete/', self.admin_site.admin_view(self.complete_maintenance_view), name='scheduledmaintenance_complete'),
+        ]
+        return custom_urls + urls
+
+    def start_maintenance_view(self, request, pk):
+        """View to start maintenance immediately"""
+        obj = ScheduledMaintenance.objects.get(pk=pk)
+        if not obj.maintenance_started and not obj.completed_at:
+            obj.start_maintenance()
+            self.message_user(request, f"Maintenance started: {obj.title}", messages.SUCCESS)
+            ActivityLog.log_activity(
+                action_type='maintenance_started_manually',
+                user=request.user,
+                description=f'{request.user.get_display_name()} manually started maintenance: {obj.title}',
+                request=request
+            )
+        else:
+            self.message_user(request, "Maintenance already started or completed", messages.WARNING)
+        from django.urls import reverse
+        return redirect(reverse('admin:src_scheduledmaintenance_change', args=[pk]))
+
+    def complete_maintenance_view(self, request, pk):
+        """View to complete maintenance"""
+        obj = ScheduledMaintenance.objects.get(pk=pk)
+        if not obj.completed_at:
+            obj.complete_maintenance()
+            self.message_user(request, f"Maintenance completed: {obj.title}", messages.SUCCESS)
+            ActivityLog.log_activity(
+                action_type='maintenance_completed',
+                user=request.user,
+                description=f'{request.user.get_display_name()} completed maintenance: {obj.title}',
+                request=request
+            )
+        else:
+            self.message_user(request, "Maintenance already completed", messages.WARNING)
+        from django.urls import reverse
+        return redirect(reverse('admin:src_scheduledmaintenance_change', args=[pk]))
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+        obj = ScheduledMaintenance.objects.get(pk=object_id)
+
+        # Add action buttons context
+        extra_context['show_start_button'] = not obj.maintenance_started and not obj.completed_at
+        extra_context['show_complete_button'] = obj.maintenance_started and not obj.completed_at
+        extra_context['maintenance_obj'] = obj
+
+        return super().change_view(request, object_id, form_url, extra_context)
+
+    def maintenance_preview(self, obj):
+        """Preview of the maintenance warning banner"""
+        if not obj.pk:
+            return format_html(
+                '<div style="padding: 15px; background: #dbeafe; border: 1px solid #3b82f6; border-radius: 8px;">'
+                '<p style="margin: 0; color: #1e40af;">Save the scheduled maintenance to see a preview of the warning banner.</p>'
+                '</div>'
+            )
+
+        time_until = obj.time_until_start or "now"
+        return format_html(
+            '<div style="background: #2563eb; color: white; padding: 15px; border-radius: 8px; margin-bottom: 10px;">'
+            '<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">'
+            '<span style="font-size: 20px;">🕐</span>'
+            '<strong style="font-size: 16px;">{}</strong>'
+            '<span style="color: #bfdbfe;">— Starting in {}</span>'
+            '</div>'
+            '<p style="margin: 0; color: #dbeafe; font-size: 14px;">{}</p>'
+            '</div>'
+            '<p style="color: #6b7280; font-size: 12px; margin: 5px 0 0 0;">'
+            '↑ This is how the banner will appear to users before maintenance starts.</p>',
+            obj.title,
+            time_until,
+            obj.message
+        )
+    maintenance_preview.short_description = 'Banner Preview'
+
+    def status_badge(self, obj):
+        """Visual status indicator"""
+        if obj.completed_at:
+            return format_html(
+                '<span style="background: #10b981; color: white; padding: 3px 10px; border-radius: 12px; font-size: 12px;">✓ Completed</span>'
+            )
+        elif obj.maintenance_started:
+            return format_html(
+                '<span style="background: #f59e0b; color: white; padding: 3px 10px; border-radius: 12px; font-size: 12px; animation: pulse 2s infinite;">🔧 In Progress</span>'
+            )
+        elif not obj.is_active:
+            return format_html(
+                '<span style="background: #6b7280; color: white; padding: 3px 10px; border-radius: 12px; font-size: 12px;">✗ Cancelled</span>'
+            )
+        elif obj.scheduled_start <= timezone.now():
+            return format_html(
+                '<span style="background: #ef4444; color: white; padding: 3px 10px; border-radius: 12px; font-size: 12px;">⏰ Pending Start</span>'
+            )
+        else:
+            return format_html(
+                '<span style="background: #3b82f6; color: white; padding: 3px 10px; border-radius: 12px; font-size: 12px;">📅 Scheduled</span>'
+            )
+    status_badge.short_description = 'Status'
+
+    def time_until_display(self, obj):
+        """Display time until maintenance"""
+        if obj.completed_at or obj.maintenance_started:
+            return '-'
+        time_until = obj.time_until_start
+        if time_until:
+            return format_html(
+                '<span style="color: #2563eb; font-weight: 500;">{}</span>',
+                time_until
+            )
+        return '-'
+    time_until_display.short_description = 'Starts In'
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.created_by = request.user
+
+        super().save_model(request, obj, form, change)
+
+        # Log the activity
+        if change:
+            ActivityLog.log_activity(
+                action_type='scheduled_maintenance_updated',
+                user=request.user,
+                description=f'{request.user.get_display_name()} updated scheduled maintenance: {obj.title}',
+                request=request
+            )
+        else:
+            ActivityLog.log_activity(
+                action_type='scheduled_maintenance_created',
+                user=request.user,
+                description=f'{request.user.get_display_name()} scheduled maintenance: {obj.title} for {obj.scheduled_start}',
+                request=request
+            )
+
+    actions = ['start_maintenance_now', 'mark_completed', 'cancel_maintenance']
+
+    @admin.action(description='Start maintenance now')
+    def start_maintenance_now(self, request, queryset):
+        for obj in queryset.filter(maintenance_started=False, completed_at__isnull=True):
+            obj.start_maintenance()
+            self.message_user(request, f"Started maintenance: {obj.title}", messages.SUCCESS)
+            ActivityLog.log_activity(
+                action_type='maintenance_started_manually',
+                user=request.user,
+                description=f'{request.user.get_display_name()} manually started maintenance: {obj.title}',
+                request=request
+            )
+
+    @admin.action(description='Mark as completed')
+    def mark_completed(self, request, queryset):
+        for obj in queryset.filter(completed_at__isnull=True):
+            obj.complete_maintenance()
+            self.message_user(request, f"Completed maintenance: {obj.title}", messages.SUCCESS)
+            ActivityLog.log_activity(
+                action_type='maintenance_completed',
+                user=request.user,
+                description=f'{request.user.get_display_name()} marked maintenance as completed: {obj.title}',
+                request=request
+            )
+
+    @admin.action(description='Cancel scheduled maintenance')
+    def cancel_maintenance(self, request, queryset):
+        count = queryset.filter(maintenance_started=False, completed_at__isnull=True).update(is_active=False)
+        self.message_user(request, f"Cancelled {count} scheduled maintenance(s)", messages.SUCCESS)
 
 
 @admin.register(PageToggle, site=admin_site)

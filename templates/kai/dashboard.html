@@ -3,14 +3,14 @@
 {% block title %}Kai Dashboard{% endblock %}
 
 {% block content %}
-<div class="bg-gradient-to-br from-gray-50 to-gray-100 -m-8 p-8 min-h-screen">
+<div class="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 -m-8 p-8 min-h-screen transition-colors duration-200">
   <div class="max-w-7xl mx-auto">
     <!-- Header -->
-    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 transition-colors duration-200">
       <div class="flex justify-between items-center">
         <div>
-          <h1 class="text-3xl font-bold text-gray-800">Kai Committee Dashboard</h1>
-          <p class="text-gray-600 mt-1">Analytics and insights for Kai reports</p>
+          <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Kai Committee Dashboard</h1>
+          <p class="text-gray-600 dark:text-gray-400 mt-1">Analytics and insights for Kai reports</p>
         </div>
         <div class="flex gap-3">
           <a href="{% url 'manage_kai_templates' %}" class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold shadow">
@@ -29,14 +29,14 @@
     <!-- Stats Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
       <!-- Total Reports -->
-      <div class="bg-white rounded-lg shadow-lg p-6">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm font-medium text-gray-600">Total Reports</p>
-            <p class="text-3xl font-bold text-gray-800 mt-1">{{ total_reports }}</p>
+            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Reports</p>
+            <p class="text-3xl font-bold text-gray-800 dark:text-gray-100 mt-1">{{ total_reports }}</p>
           </div>
-          <div class="bg-blue-100 rounded-full p-3">
-            <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="bg-blue-100 dark:bg-blue-900/50 rounded-full p-3">
+            <svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
             </svg>
           </div>
@@ -44,67 +44,67 @@
       </div>
 
       <!-- Pending Reports -->
-      <div class="bg-white rounded-lg shadow-lg p-6">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm font-medium text-gray-600">Pending</p>
-            <p class="text-3xl font-bold text-yellow-600 mt-1">{{ pending_count }}</p>
+            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Pending</p>
+            <p class="text-3xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">{{ pending_count }}</p>
           </div>
-          <div class="bg-yellow-100 rounded-full p-3">
-            <svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="bg-yellow-100 dark:bg-yellow-900/50 rounded-full p-3">
+            <svg class="w-8 h-8 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
           </div>
         </div>
-        <a href="{% url 'view_kai_reports' %}?status=pending" class="text-sm text-blue-600 hover:text-blue-700 mt-2 inline-block">View pending →</a>
+        <a href="{% url 'view_kai_reports' %}?status=pending" class="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 mt-2 inline-block">View pending →</a>
       </div>
 
       <!-- Reviewed Reports -->
-      <div class="bg-white rounded-lg shadow-lg p-6">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm font-medium text-gray-600">Reviewed</p>
-            <p class="text-3xl font-bold text-green-600 mt-1">{{ reviewed_count }}</p>
+            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Reviewed</p>
+            <p class="text-3xl font-bold text-green-600 dark:text-green-400 mt-1">{{ reviewed_count }}</p>
           </div>
-          <div class="bg-green-100 rounded-full p-3">
-            <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="bg-green-100 dark:bg-green-900/50 rounded-full p-3">
+            <svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
           </div>
         </div>
-        <a href="{% url 'view_kai_reports' %}?status=reviewed" class="text-sm text-blue-600 hover:text-blue-700 mt-2 inline-block">View reviewed →</a>
+        <a href="{% url 'view_kai_reports' %}?status=reviewed" class="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 mt-2 inline-block">View reviewed →</a>
       </div>
 
       <!-- Archived Reports -->
-      <div class="bg-white rounded-lg shadow-lg p-6">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm font-medium text-gray-600">Archived</p>
-            <p class="text-3xl font-bold text-gray-600 mt-1">{{ archived_count }}</p>
+            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Archived</p>
+            <p class="text-3xl font-bold text-gray-600 dark:text-gray-400 mt-1">{{ archived_count }}</p>
           </div>
-          <div class="bg-gray-100 rounded-full p-3">
-            <svg class="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="bg-gray-100 dark:bg-gray-700 rounded-full p-3">
+            <svg class="w-8 h-8 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
             </svg>
           </div>
         </div>
-        <a href="{% url 'view_kai_reports' %}?status=archived" class="text-sm text-blue-600 hover:text-blue-700 mt-2 inline-block">View archived →</a>
+        <a href="{% url 'view_kai_reports' %}?status=archived" class="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 mt-2 inline-block">View archived →</a>
       </div>
     </div>
 
     <!-- Charts Row -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
       <!-- Category Distribution -->
-      <div class="bg-white rounded-lg shadow-lg p-6">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">Reports by Category</h2>
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors duration-200">
+        <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Reports by Category</h2>
         <div style="height: 300px; max-height: 300px;">
           <canvas id="categoryChart"></canvas>
         </div>
       </div>
 
       <!-- Monthly Trends -->
-      <div class="bg-white rounded-lg shadow-lg p-6">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">Submission Trends (Last 6 Months)</h2>
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors duration-200">
+        <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Submission Trends (Last 6 Months)</h2>
         <div style="height: 300px; max-height: 300px;">
           <canvas id="monthlyChart"></canvas>
         </div>
@@ -112,20 +112,20 @@
     </div>
 
     <!-- Deliberation Outcomes -->
-    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
-      <h2 class="text-xl font-bold text-gray-800 mb-4">Deliberation Outcomes</h2>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 transition-colors duration-200">
+      <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Deliberation Outcomes</h2>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-          <p class="text-sm font-medium text-yellow-800">Pending Deliberation</p>
-          <p class="text-2xl font-bold text-yellow-900 mt-1">{{ outcome_pending }}</p>
+        <div class="p-4 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg border border-yellow-200 dark:border-yellow-700">
+          <p class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Pending Deliberation</p>
+          <p class="text-2xl font-bold text-yellow-900 dark:text-yellow-100 mt-1">{{ outcome_pending }}</p>
         </div>
-        <div class="p-4 bg-green-50 rounded-lg border border-green-200">
-          <p class="text-sm font-medium text-green-800">Cases Heard</p>
-          <p class="text-2xl font-bold text-green-900 mt-1">{{ outcome_heard }}</p>
+        <div class="p-4 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-700">
+          <p class="text-sm font-medium text-green-800 dark:text-green-200">Cases Heard</p>
+          <p class="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">{{ outcome_heard }}</p>
         </div>
-        <div class="p-4 bg-red-50 rounded-lg border border-red-200">
-          <p class="text-sm font-medium text-red-800">Cases Thrown Out</p>
-          <p class="text-2xl font-bold text-red-900 mt-1">{{ outcome_thrown_out }}</p>
+        <div class="p-4 bg-red-50 dark:bg-red-900/30 rounded-lg border border-red-200 dark:border-red-700">
+          <p class="text-sm font-medium text-red-800 dark:text-red-200">Cases Thrown Out</p>
+          <p class="text-2xl font-bold text-red-900 dark:text-red-100 mt-1">{{ outcome_thrown_out }}</p>
         </div>
       </div>
     </div>
@@ -133,9 +133,9 @@
     <!-- Bottom Row: Recent Activity and Recent Reports -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- Recent Activity -->
-      <div class="bg-white rounded-lg shadow-lg p-6">
-        <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
-          <svg class="w-6 h-6 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors duration-200">
+        <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center">
+          <svg class="w-6 h-6 mr-2 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
           Recent Activity
@@ -144,17 +144,17 @@
         {% if recent_activities %}
         <div class="space-y-3 max-h-96 overflow-y-auto">
           {% for activity in recent_activities %}
-          <div class="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-            <div class="flex-shrink-0 w-2 h-2 bg-blue-600 rounded-full mt-2"></div>
+          <div class="flex items-start space-x-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+            <div class="flex-shrink-0 w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full mt-2"></div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold text-gray-800">{{ activity.get_action_display }}</p>
-              <p class="text-xs text-gray-600 truncate">
-                <a href="{% url 'manage_kai_report' activity.report.id %}" class="text-blue-600 hover:text-blue-700">{{ activity.report.title }}</a>
+              <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ activity.get_action_display }}</p>
+              <p class="text-xs text-gray-600 dark:text-gray-400 truncate">
+                <a href="{% url 'manage_kai_report' activity.report.id %}" class="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">{{ activity.report.title }}</a>
               </p>
               {% if activity.details %}
-              <p class="text-xs text-gray-500 mt-1">{{ activity.details|truncatewords:15 }}</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ activity.details|truncatewords:15 }}</p>
               {% endif %}
-              <p class="text-xs text-gray-400 mt-1">
+              <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
                 {{ activity.user.name|default:"System" }} • {{ activity.timestamp|date:"M d, g:i A" }}
               </p>
             </div>
@@ -162,14 +162,14 @@
           {% endfor %}
         </div>
         {% else %}
-        <p class="text-gray-500 text-center py-8">No recent activity</p>
+        <p class="text-gray-500 dark:text-gray-400 text-center py-8">No recent activity</p>
         {% endif %}
       </div>
 
       <!-- Recent Reports -->
-      <div class="bg-white rounded-lg shadow-lg p-6">
-        <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
-          <svg class="w-6 h-6 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors duration-200">
+        <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center">
+          <svg class="w-6 h-6 mr-2 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
           </svg>
           Recent Reports
@@ -178,33 +178,33 @@
         {% if recent_reports %}
         <div class="space-y-3 max-h-96 overflow-y-auto">
           {% for report in recent_reports %}
-          <div class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+          <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
             <div class="flex items-start justify-between">
               <div class="flex-1 min-w-0">
-                <a href="{% url 'manage_kai_report' report.id %}" class="text-sm font-semibold text-blue-600 hover:text-blue-700 truncate block">
+                <a href="{% url 'manage_kai_report' report.id %}" class="text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 truncate block">
                   {{ report.title }}
                 </a>
-                <p class="text-xs text-gray-600 mt-1">
+                <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
                   By {{ report.submitted_by.name }}
                   {% if report.targeted_to %}→ {{ report.targeted_to.name }}{% endif %}
                 </p>
-                <p class="text-xs text-gray-400 mt-1">{{ report.submitted_at|date:"M d, Y" }}</p>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ report.submitted_at|date:"M d, Y" }}</p>
               </div>
               <span class="ml-2 px-2 py-1 rounded text-xs font-semibold whitespace-nowrap
-                {% if report.status == 'pending' %}bg-yellow-100 text-yellow-800
-                {% elif report.status == 'reviewed' %}bg-green-100 text-green-800
-                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                {% if report.status == 'pending' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-200
+                {% elif report.status == 'reviewed' %}bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200
+                {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200{% endif %}">
                 {{ report.get_status_display }}
               </span>
             </div>
           </div>
           {% endfor %}
         </div>
-        <a href="{% url 'view_kai_reports' %}" class="block text-center text-sm text-blue-600 hover:text-blue-700 mt-4 font-medium">
+        <a href="{% url 'view_kai_reports' %}" class="block text-center text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 mt-4 font-medium">
           View all reports →
         </a>
         {% else %}
-        <p class="text-gray-500 text-center py-8">No reports yet</p>
+        <p class="text-gray-500 dark:text-gray-400 text-center py-8">No reports yet</p>
         {% endif %}
       </div>
     </div>

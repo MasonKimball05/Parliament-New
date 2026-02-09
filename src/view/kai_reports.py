@@ -692,6 +692,116 @@ Notified at: {timezone.now().strftime('%B %d, %Y at %I:%M %p')}
             else:
                 messages.error(request, 'No report selected.')
 
+        elif action == 'update_accused':
+            # Update or set the accused person
+            accused_id = request.POST.get('accused_id', '').strip()
+            accused_email = request.POST.get('accused_email', '').strip()
+
+            if accused_id:
+                try:
+                    accused_user = ParliamentUser.objects.get(user_id=accused_id)
+                    old_targeted = report.targeted_to
+                    report.targeted_to = accused_user
+
+                    # Update email if provided and different
+                    if accused_email and accused_email != accused_user.email:
+                        accused_user.email = accused_email
+                        accused_user.save()
+
+                    report.save()
+
+                    # Log activity
+                    if old_targeted != accused_user:
+                        KaiReportActivity.objects.create(
+                            report=report,
+                            user=request.user,
+                            action='status_changed',
+                            details=f'Accused person set to: {accused_user.name}'
+                        )
+
+                    messages.success(request, f'Accused person updated to {accused_user.name}.')
+                except ParliamentUser.DoesNotExist:
+                    messages.error(request, 'Selected member not found.')
+            else:
+                # Clear the accused person
+                if report.targeted_to:
+                    old_name = report.targeted_to.name
+                    report.targeted_to = None
+                    report.save()
+
+                    KaiReportActivity.objects.create(
+                        report=report,
+                        user=request.user,
+                        action='status_changed',
+                        details=f'Accused person removed (was: {old_name})'
+                    )
+                    messages.success(request, 'Accused person removed from report.')
+
+        elif action == 'notify_accused':
+            # Notify the accused person of the case
+            notification_message = request.POST.get('accused_notification_message', '').strip()
+
+            if not report.targeted_to:
+                messages.error(request, 'No accused person specified for this report.')
+            elif not report.targeted_to.email:
+                messages.error(request, f'{report.targeted_to.name} does not have an email address on file.')
+            elif not notification_message:
+                messages.error(request, 'Please enter a message explaining what the person is being reported for.')
+            else:
+                try:
+                    subject = 'Kai Committee Notification - Case Filed'
+                    message = f"""
+Dear {report.targeted_to.name},
+
+This is an official notification from the Kai Committee of Beta Theta Pi.
+
+A report has been filed with the Kai Committee that involves you. The details are as follows:
+
+{notification_message}
+
+The Kai Committee will review this matter and may contact you for further information or to schedule a hearing. You have the right to:
+- Present your side of the story
+- Bring witnesses or evidence in your defense
+- Request that the minutes be closed (kept confidential)
+
+If you have any questions or concerns, please contact the Kai Committee chair(s).
+
+This notification was sent on {timezone.now().strftime('%B %d, %Y at %I:%M %p')}.
+
+Kai Committee
+Beta Theta Pi - Samford Chapter
+                    """
+
+                    send_mail(
+                        subject,
+                        message,
+                        settings.DEFAULT_FROM_EMAIL,
+                        [report.targeted_to.email],
+                        fail_silently=False,
+                    )
+
+                    # Update report
+                    report.accused_notified = True
+                    report.accused_notified_at = timezone.now()
+                    report.accused_notification_message = notification_message
+                    report.save()
+
+                    # Log activity
+                    KaiReportActivity.objects.create(
+                        report=report,
+                        user=request.user,
+                        action='status_changed',
+                        details=f'Accused ({report.targeted_to.name}) notified of the case'
+                    )
+
+                    messages.success(request, f'{report.targeted_to.name} has been notified of the case via email.')
+
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger('function_calls')
+                    logger.error(f"Failed to send accused notification: {e}")
+                    messages.error(request, f'Failed to send notification: {str(e)}')
+
         return redirect('manage_kai_report', report_id=report.id)
 
     # Get activity log
@@ -712,12 +822,22 @@ Notified at: {timezone.now().strftime('%B %d, %Y at %I:%M %p')}
     except:
         available_reports = []
 
+    # Get all active members for accused person selection
+    try:
+        all_members = ParliamentUser.objects.filter(member_status='Active').order_by('name')
+    except:
+        try:
+            all_members = ParliamentUser.objects.filter(is_active=True).order_by('name')
+        except:
+            all_members = ParliamentUser.objects.all().order_by('name')
+
     context = {
         'report': report,
         'kai_committee': kai_committee,
         'activity_log': activity_log,
         'related_reports': related_reports,
         'available_reports': available_reports,
+        'all_members': all_members,
     }
 
     return render(request, 'kai/manage_report.html', context)

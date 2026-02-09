@@ -55,33 +55,58 @@
     </div>
 
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="overflow-x-auto">
         <table class="w-full">
             <thead class="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Picture</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Name</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">ID</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Type</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Admin</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Name</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">ID</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Type</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Admin</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Last Login</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Password</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                 {% for user in users %}
                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{{ user.get_display_name }}</td>
-                        <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{{ user.user_id }}</td>
-                        <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{{ user.member_status }}</td>
-                        <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{{ user.member_type }}</td>
-                        <td class="px-6 py-4">
+                        <td class="px-4 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{{ user.get_display_name }}</td>
+                        <td class="px-4 py-4 text-sm text-gray-900 dark:text-gray-100 font-mono">{{ user.user_id }}</td>
+                        <td class="px-4 py-4 text-sm">
+                            {% if user.member_status == 'Active' %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">Active</span>
+                            {% elif user.member_status == 'Inactive' %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">Inactive</span>
+                            {% else %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">{{ user.member_status }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4 text-sm text-gray-900 dark:text-gray-100">{{ user.member_type }}</td>
+                        <td class="px-4 py-4">
                             {% if user.is_admin %}
                                 <span class="px-2 py-1 text-xs rounded-full bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200">Admin</span>
                             {% else %}
                                 <span class="px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">User</span>
                             {% endif %}
                         </td>
-                        <td class="px-6 py-4">
+                        <td class="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">
+                            {% if user.last_login %}
+                                <div class="whitespace-nowrap">{{ user.last_login|date:"M d, Y" }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-500">{{ user.last_login|timesince }} ago</div>
+                            {% else %}
+                                <span class="text-gray-400 dark:text-gray-500 italic">Never</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4">
+                            {% if user.has_default_password %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300" title="Password is still set to username: {{ user.username }}">⚠️ Default</span>
+                            {% else %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300">✓ Changed</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4">
                             <div class="flex items-center gap-2">
                                 <a href="{% url 'admin_v2_user_login_security' user.user_id %}" class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded" title="View login security information">
                                     🔒 Login Info
@@ -104,10 +129,11 @@
                         </td>
                     </tr>
                 {% empty %}
-                    <tr><td colspan="6" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No users found.</td></tr>
+                    <tr><td colspan="8" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No users found.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         {% if users.has_other_pages %}
             <div class="bg-gray-50 dark:bg-gray-700 px-6 py-4 flex justify-between border-t">
                 <div class="text-sm text-gray-700 dark:text-gray-300">Showing {{ users.start_index }} to {{ users.end_index }} of {{ users.paginator.count }}</div>

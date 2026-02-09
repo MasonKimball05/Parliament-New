@@ -6,8 +6,54 @@ from src.models import Legislation, CommitteeDocument
 import os
 import urllib.parse
 import logging
+import base64
 
 logger = logging.getLogger(__name__)
+
+
+def convert_pdf_to_images(file_path, max_pages=50, dpi=150):
+    """
+    Convert PDF pages to base64 images for mobile viewing.
+    Returns a list of base64-encoded PNG images.
+    """
+    try:
+        import fitz  # PyMuPDF
+
+        images = []
+        doc = fitz.open(file_path)
+
+        # Limit pages to prevent memory issues
+        num_pages = min(len(doc), max_pages)
+
+        for page_num in range(num_pages):
+            page = doc[page_num]
+            # Render page to image at specified DPI
+            mat = fitz.Matrix(dpi / 72, dpi / 72)
+            pix = page.get_pixmap(matrix=mat)
+
+            # Convert to base64
+            img_data = pix.tobytes("png")
+            img_base64 = base64.b64encode(img_data).decode('utf-8')
+            images.append({
+                'data': img_base64,
+                'page': page_num + 1,
+                'width': pix.width,
+                'height': pix.height,
+            })
+
+        doc.close()
+
+        return {
+            'images': images,
+            'total_pages': len(doc) if hasattr(doc, '__len__') else num_pages,
+            'truncated': num_pages < len(doc) if hasattr(doc, '__len__') else False,
+        }
+    except ImportError:
+        logger.warning("PyMuPDF (fitz) library not installed, cannot convert PDF to images")
+        return None
+    except Exception as e:
+        logger.error(f"Error converting PDF to images: {e}")
+        return None
 
 
 def convert_docx_to_html(file_path):
@@ -107,6 +153,11 @@ def view_legislation_document(request, legislation_id):
     if file_info.get('is_docx'):
         docx_html = convert_docx_to_html(legislation.document.path)
 
+    # Convert PDF to images for mobile viewing
+    pdf_images = None
+    if file_info.get('is_pdf'):
+        pdf_images = convert_pdf_to_images(legislation.document.path)
+
     # Read text file content if applicable
     text_content = None
     if file_info.get('is_text'):
@@ -121,6 +172,7 @@ def view_legislation_document(request, legislation_id):
         'uploaded_by': legislation.posted_by.username if legislation.posted_by else None,
         'uploaded_at': legislation.created_at,
         'docx_html': docx_html,
+        'pdf_images': pdf_images,
         'text_content': text_content,
         **file_info,
     }
@@ -148,6 +200,11 @@ def view_chapter_document(request, document_id):
     if file_info.get('is_docx'):
         docx_html = convert_docx_to_html(document.document.path)
 
+    # Convert PDF to images for mobile viewing
+    pdf_images = None
+    if file_info.get('is_pdf'):
+        pdf_images = convert_pdf_to_images(document.document.path)
+
     # Read text file content if applicable
     text_content = None
     if file_info.get('is_text'):
@@ -162,6 +219,7 @@ def view_chapter_document(request, document_id):
         'uploaded_by': document.uploaded_by.username if document.uploaded_by else None,
         'uploaded_at': document.uploaded_at,
         'docx_html': docx_html,
+        'pdf_images': pdf_images,
         'text_content': text_content,
         **file_info,
     }
@@ -192,6 +250,11 @@ def view_committee_document(request, code, document_id):
     if file_info.get('is_docx'):
         docx_html = convert_docx_to_html(document.document.path)
 
+    # Convert PDF to images for mobile viewing
+    pdf_images = None
+    if file_info.get('is_pdf'):
+        pdf_images = convert_pdf_to_images(document.document.path)
+
     # Read text file content if applicable
     text_content = None
     if file_info.get('is_text'):
@@ -206,6 +269,7 @@ def view_committee_document(request, code, document_id):
         'uploaded_by': document.uploaded_by.username if document.uploaded_by else None,
         'uploaded_at': document.uploaded_at,
         'docx_html': docx_html,
+        'pdf_images': pdf_images,
         'text_content': text_content,
         **file_info,
     }
@@ -232,6 +296,11 @@ def view_passed_legislation_document(request, pk):
     if file_info.get('is_docx'):
         docx_html = convert_docx_to_html(legislation.document.path)
 
+    # Convert PDF to images for mobile viewing
+    pdf_images = None
+    if file_info.get('is_pdf'):
+        pdf_images = convert_pdf_to_images(legislation.document.path)
+
     # Read text file content if applicable
     text_content = None
     if file_info.get('is_text'):
@@ -246,6 +315,7 @@ def view_passed_legislation_document(request, pk):
         'uploaded_by': legislation.posted_by.username if legislation.posted_by else None,
         'uploaded_at': legislation.created_at,
         'docx_html': docx_html,
+        'pdf_images': pdf_images,
         'text_content': text_content,
         **file_info,
     }
@@ -304,12 +374,20 @@ def view_reference_document(request, doc_slug):
 
     file_info = get_file_type_info(file_path)
 
+    # Convert PDF to images for mobile viewing
+    pdf_images = None
+    if file_info.get('is_pdf'):
+        full_path = os.path.join(settings.MEDIA_ROOT, file_path)
+        if os.path.exists(full_path):
+            pdf_images = convert_pdf_to_images(full_path)
+
     context = {
         'document_url': document_url,
         'document_title': doc_info['title'],
         'document_type': 'Reference Document',
         'back_url': reverse(doc_info['back_url_name']),
         'document_description': doc_info['description'],
+        'pdf_images': pdf_images,
         **file_info,
     }
 

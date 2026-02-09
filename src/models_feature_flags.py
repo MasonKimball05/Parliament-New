@@ -40,6 +40,9 @@ class FeatureFlag(models.Model):
         status = "✓" if self.is_enabled else "✗"
         return f"{status} {self.display_name}"
 
+    # Flags that should default to DISABLED if they don't exist
+    DISABLED_BY_DEFAULT = ['maintenance_mode']
+
     @classmethod
     def is_feature_enabled(cls, feature_name):
         """
@@ -50,6 +53,9 @@ class FeatureFlag(models.Model):
             flag = cls.objects.get(name=feature_name)
             return flag.is_enabled
         except cls.DoesNotExist:
+            # Some flags should default to disabled for safety
+            if feature_name in cls.DISABLED_BY_DEFAULT:
+                return False
             # Default to enabled if flag doesn't exist
             return True
 
@@ -182,3 +188,230 @@ class SiteSetting(models.Model):
             return True
         except cls.DoesNotExist:
             return False
+
+
+class ScheduledMaintenance(models.Model):
+    """
+    Schedule planned maintenance windows with user notifications
+    """
+    title = models.CharField(
+        max_length=200,
+        default='Scheduled Maintenance',
+        help_text='Title shown in the warning banner'
+    )
+    message = models.TextField(
+        default='We will be performing scheduled maintenance. The site may be temporarily unavailable.',
+        help_text='Message shown to users before maintenance starts'
+    )
+    scheduled_start = models.DateTimeField(
+        help_text='When maintenance should automatically begin'
+    )
+    estimated_duration_minutes = models.PositiveIntegerField(
+        default=30,
+        help_text='Estimated duration in minutes (shown to users)'
+    )
+    notify_email = models.EmailField(
+        blank=True,
+        help_text='Email address to notify when maintenance starts (leave blank to skip)'
+    )
+
+    # Status tracking
+    is_active = models.BooleanField(
+        default=True,
+        help_text='Whether this scheduled maintenance is active (uncheck to cancel)'
+    )
+    maintenance_started = models.BooleanField(
+        default=False,
+        help_text='Whether maintenance has been triggered'
+    )
+    started_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When maintenance actually started'
+    )
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When maintenance was completed'
+    )
+    email_sent = models.BooleanField(
+        default=False,
+        help_text='Whether the notification email was sent'
+    )
+
+    # Metadata
+    created_by = models.ForeignKey(
+        'src.ParliamentUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='scheduled_maintenances'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Scheduled Maintenance'
+        verbose_name_plural = 'Scheduled Maintenances'
+        ordering = ['-scheduled_start']
+
+    def __str__(self):
+        from django.utils import timezone
+        status = ""
+        if self.completed_at:
+            status = "✓ Completed"
+        elif self.maintenance_started:
+            status = "🔧 In Progress"
+        elif not self.is_active:
+            status = "✗ Cancelled"
+        elif self.scheduled_start <= timezone.now():
+            status = "⏰ Pending Start"
+        else:
+            status = "📅 Scheduled"
+        return f"{status} - {self.title} ({self.scheduled_start.strftime('%Y-%m-%d %H:%M')})"
+
+    @property
+    def time_until_start(self):
+        """Returns human-readable time until maintenance starts"""
+        from django.utils import timezone
+        if self.maintenance_started or self.completed_at:
+            return None
+        delta = self.scheduled_start - timezone.now()
+        if delta.total_seconds() <= 0:
+            return "Starting soon"
+
+        hours, remainder = divmod(delta.total_seconds(), 3600)
+        minutes, _ = divmod(remainder, 60)
+
+        if hours > 24:
+            days = int(hours // 24)
+            return f"{days} day{'s' if days != 1 else ''}"
+        elif hours > 0:
+            return f"{int(hours)}h {int(minutes)}m"
+        else:
+            return f"{int(minutes)} minute{'s' if minutes != 1 else ''}"
+
+    @property
+    def estimated_end_time(self):
+        """Calculate estimated end time"""
+        from datetime import timedelta
+        return self.scheduled_start + timedelta(minutes=self.estimated_duration_minutes)
+
+    @classmethod
+    def get_upcoming_maintenance(cls):
+        """Get the next active scheduled maintenance that hasn't started yet"""
+        from django.utils import timezone
+        return cls.objects.filter(
+            is_active=True,
+            maintenance_started=False,
+            completed_at__isnull=True,
+            scheduled_start__gt=timezone.now() - timezone.timedelta(hours=1)  # Include recently passed
+        ).order_by('scheduled_start').first()
+
+    @classmethod
+    def get_pending_maintenance(cls):
+        """Get maintenance that should start now"""
+        from django.utils import timezone
+        return cls.objects.filter(
+            is_active=True,
+            maintenance_started=False,
+            completed_at__isnull=True,
+            scheduled_start__lte=timezone.now()
+        ).order_by('scheduled_start').first()
+
+    def start_maintenance(self):
+        """Start the maintenance - enable maintenance mode and send notification"""
+        from django.utils import timezone
+        from django.core.cache import cache
+
+        # Enable maintenance mode flag
+        flag, created = FeatureFlag.objects.get_or_create(
+            name='maintenance_mode',
+            defaults={
+                'display_name': 'Maintenance Mode',
+                'description': 'Put site in maintenance mode - blocks all non-admin users',
+                'category': 'admin',
+                'is_enabled': True,
+            }
+        )
+        if not created:
+            flag.is_enabled = True
+            flag.last_toggled_by = 'Scheduled Maintenance'
+            flag.last_toggled_at = timezone.now()
+            flag.save()
+
+        # Set maintenance start time in cache
+        cache.set('maintenance_mode_started_at', timezone.now(), 86400)
+        cache.set('maintenance_blocked_count', 0, 86400)
+
+        # Update this record
+        self.maintenance_started = True
+        self.started_at = timezone.now()
+        self.save()
+
+        # Send notification email
+        if self.notify_email and not self.email_sent:
+            self._send_start_notification()
+
+        return True
+
+    def _send_start_notification(self):
+        """Send email notification that maintenance has started"""
+        from django.core.mail import send_mail
+        from django.conf import settings
+
+        try:
+            subject = f"[Parliament] Maintenance Started: {self.title}"
+            message = f"""
+Scheduled maintenance has automatically started.
+
+Title: {self.title}
+Started at: {self.started_at.strftime('%Y-%m-%d %H:%M:%S %Z') if self.started_at else 'Now'}
+Estimated duration: {self.estimated_duration_minutes} minutes
+
+Message shown to users:
+{self.message}
+
+---
+To end maintenance mode, go to the Django admin and disable the maintenance_mode feature flag,
+or mark this scheduled maintenance as completed.
+
+This is an automated message from Parliament.
+            """
+
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[self.notify_email],
+                fail_silently=True,
+            )
+            self.email_sent = True
+            self.save(update_fields=['email_sent'])
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send maintenance notification email: {e}")
+
+    def complete_maintenance(self):
+        """Mark maintenance as complete and disable maintenance mode"""
+        from django.utils import timezone
+        from django.core.cache import cache
+
+        # Disable maintenance mode
+        try:
+            flag = FeatureFlag.objects.get(name='maintenance_mode')
+            flag.is_enabled = False
+            flag.last_toggled_by = 'Scheduled Maintenance (Completed)'
+            flag.last_toggled_at = timezone.now()
+            flag.save()
+        except FeatureFlag.DoesNotExist:
+            pass
+
+        # Clear cache
+        cache.delete('maintenance_mode_started_at')
+        cache.delete('maintenance_blocked_count')
+
+        # Update record
+        self.completed_at = timezone.now()
+        self.save()

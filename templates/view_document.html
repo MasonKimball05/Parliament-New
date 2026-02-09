@@ -228,22 +228,80 @@
             title="{{ document_title }}"
             style="min-height: 100%;">
         </iframe>
-        <!-- Mobile: Show PDF with touch-friendly container and download prompt -->
-        <div class="md:hidden flex flex-col h-full">
-            <div class="flex-1 overflow-auto" style="-webkit-overflow-scrolling: touch; touch-action: pan-y pinch-zoom;">
-                <iframe
-                    src="{{ document_url }}#toolbar=0&navpanes=0"
-                    class="w-full border-0"
-                    title="{{ document_title }}"
-                    style="min-height: 200vh;">
-                </iframe>
+        <!-- Mobile: Render PDF as images for native scrolling -->
+        <div class="md:hidden">
+            {% if pdf_images and pdf_images.images %}
+            <div class="p-4 space-y-4">
+                <!-- Page indicator -->
+                <div class="sticky top-0 z-10 bg-gray-100/90 dark:bg-gray-900/90 backdrop-blur-sm py-2 px-3 rounded-lg flex items-center justify-between">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">
+                        {{ pdf_images.images|length }} page{{ pdf_images.images|length|pluralize }}
+                        {% if pdf_images.truncated %} (showing first {{ pdf_images.images|length }} of {{ pdf_images.total_pages }}){% endif %}
+                    </span>
+                    <div class="flex gap-2">
+                        <a href="{{ document_url }}" target="_blank" class="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition">Open</a>
+                        <a href="{{ document_url }}" download class="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition">Download</a>
+                    </div>
+                </div>
+                <!-- PDF pages as images -->
+                <div class="space-y-4">
+                    {% for page in pdf_images.images %}
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+                        <img src="data:image/png;base64,{{ page.data }}"
+                             alt="Page {{ page.page }}"
+                             class="w-full h-auto"
+                             loading="lazy">
+                        <div class="text-center text-xs text-gray-400 dark:text-gray-500 py-1 bg-gray-50 dark:bg-gray-700/50">
+                            Page {{ page.page }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if pdf_images.truncated %}
+                <div class="text-center py-4">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Showing first {{ pdf_images.images|length }} pages. Open the PDF to view all {{ pdf_images.total_pages }} pages.</p>
+                    <a href="{{ document_url }}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                        </svg>
+                        Open Full PDF
+                    </a>
+                </div>
+                {% endif %}
             </div>
-            <div class="flex-shrink-0 p-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-                <p class="text-xs text-gray-500 dark:text-gray-400 text-center mb-2">Having trouble viewing? Open in your device's PDF viewer:</p>
-                <a href="{{ document_url }}" target="_blank" class="block w-full text-center py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
-                    Open PDF
-                </a>
+            {% else %}
+            <!-- Fallback if PDF conversion failed -->
+            <div class="flex flex-col items-center justify-center h-full p-6 text-center">
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 max-w-sm w-full">
+                    <div class="w-20 h-20 mx-auto mb-4 bg-red-100 dark:bg-red-900/30 rounded-2xl flex items-center justify-center">
+                        <svg class="w-10 h-10 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/>
+                            <path d="M8 12h8v2H8zm0 4h8v2H8z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">{{ document_title }}</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Open the PDF in your device's viewer for the best experience.</p>
+                    <div class="space-y-3">
+                        <a href="{{ document_url }}" target="_blank" class="block w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors">
+                            <span class="flex items-center justify-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                </svg>
+                                Open PDF
+                            </span>
+                        </a>
+                        <a href="{{ document_url }}" download class="block w-full py-3 px-4 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-medium transition-colors">
+                            <span class="flex items-center justify-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                                Download PDF
+                            </span>
+                        </a>
+                    </div>
+                </div>
             </div>
+            {% endif %}
         </div>
         {% elif is_image %}
         <div class="w-full h-full flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-800">

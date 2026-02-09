@@ -306,6 +306,674 @@
         {% endif %}
     </nav>
 
+    <!-- Upcoming Maintenance Warning Banner (shown to all users) -->
+    {% if upcoming_maintenance and not maintenance_mode_active %}
+    <div class="bg-blue-600 dark:bg-blue-700 text-white px-4 py-3 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div class="flex items-center space-x-3">
+                <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <div>
+                    <span class="font-semibold">{{ upcoming_maintenance.title }}</span>
+                    <span class="hidden sm:inline text-blue-100 ml-2">
+                        — Starting in {{ upcoming_maintenance.time_until }}
+                        (est. {{ upcoming_maintenance.estimated_duration }} min)
+                    </span>
+                </div>
+            </div>
+            <div class="flex items-center">
+                <span class="sm:hidden text-sm text-blue-100 mr-3">
+                    In {{ upcoming_maintenance.time_until }}
+                </span>
+                <button onclick="this.parentElement.parentElement.parentElement.style.display='none'"
+                        class="text-blue-200 hover:text-white transition-colors p-1"
+                        title="Dismiss">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        {% if upcoming_maintenance.message %}
+        <div class="max-w-7xl mx-auto mt-2 text-sm text-blue-100">
+            {{ upcoming_maintenance.message }}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Maintenance Mode Admin Banner -->
+    {% if maintenance_mode_active and user.is_admin %}
+    <div class="bg-amber-500 dark:bg-amber-600 text-white shadow-md" id="maintenance-banner">
+        <!-- Main Banner -->
+        <div class="px-4 py-3">
+            <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+                <div class="flex items-center space-x-3">
+                    <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                    <div>
+                        <span class="font-semibold">Maintenance Mode Active</span>
+                        {% if maintenance_info %}
+                        <span class="hidden sm:inline text-amber-100 ml-2">
+                            | Duration: {{ maintenance_info.duration }}
+                            | Blocked: {{ maintenance_info.blocked_requests }} request{{ maintenance_info.blocked_requests|pluralize }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    {% if maintenance_info %}
+                    <span class="sm:hidden text-sm text-amber-100">
+                        {{ maintenance_info.duration }} · {{ maintenance_info.blocked_requests }} blocked
+                    </span>
+                    {% endif %}
+                    <button onclick="window.DevTools.toggle()"
+                            class="bg-amber-600 dark:bg-amber-700 hover:bg-amber-700 dark:hover:bg-amber-800 px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap flex items-center space-x-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                        </svg>
+                        <span>Dev Tools</span>
+                    </button>
+                    <a href="/admin/src/featureflag/?q=maintenance"
+                       class="bg-red-600 dark:bg-red-700 hover:bg-red-700 dark:hover:bg-red-800 px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap">
+                        Disable
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Dev Tools Panel -->
+    <div id="devtools-panel" class="hidden fixed bottom-0 left-0 right-0 bg-gray-900 text-gray-100 shadow-2xl z-[9999] font-mono text-sm" style="height: 350px; border-top: 3px solid #f59e0b;">
+        <!-- Dev Tools Header -->
+        <div class="flex items-center justify-between bg-gray-800 px-2 py-1 border-b border-gray-700">
+            <div class="flex items-center space-x-1">
+                <!-- Tabs -->
+                <button data-tab="request" class="devtools-tab px-3 py-1.5 text-xs rounded hover:bg-gray-700 transition bg-gray-700 text-amber-400">Request</button>
+                <button data-tab="server" class="devtools-tab px-3 py-1.5 text-xs rounded hover:bg-gray-700 transition text-gray-400">Server</button>
+                <button data-tab="database" class="devtools-tab px-3 py-1.5 text-xs rounded hover:bg-gray-700 transition text-gray-400">Database</button>
+                <button data-tab="cache" class="devtools-tab px-3 py-1.5 text-xs rounded hover:bg-gray-700 transition text-gray-400">Cache</button>
+                <button data-tab="session" class="devtools-tab px-3 py-1.5 text-xs rounded hover:bg-gray-700 transition text-gray-400">Session</button>
+                <button data-tab="flags" class="devtools-tab px-3 py-1.5 text-xs rounded hover:bg-gray-700 transition text-gray-400">Flags</button>
+                <button data-tab="context" class="devtools-tab px-3 py-1.5 text-xs rounded hover:bg-gray-700 transition text-gray-400">Context</button>
+                <button data-tab="errors" class="devtools-tab px-3 py-1.5 text-xs rounded hover:bg-gray-700 transition text-gray-400">Errors</button>
+                <button data-tab="users" class="devtools-tab px-3 py-1.5 text-xs rounded hover:bg-gray-700 transition text-gray-400">Users</button>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button onclick="window.DevTools.refresh()" class="p-1 hover:bg-gray-700 rounded transition" title="Refresh">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                </button>
+                <button onclick="window.DevTools.toggle()" class="p-1 hover:bg-gray-700 rounded transition" title="Close">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="overflow-auto" style="height: calc(100% - 40px);">
+            <!-- Request Tab -->
+            <div id="devtools-request" class="devtools-content p-4">
+                <div class="text-gray-400">Loading...</div>
+            </div>
+
+            <!-- Server Tab -->
+            <div id="devtools-server" class="devtools-content hidden p-4">
+                <div class="text-gray-400">Loading...</div>
+            </div>
+
+            <!-- Database Tab -->
+            <div id="devtools-database" class="devtools-content hidden p-4">
+                <div class="text-gray-400">Loading...</div>
+            </div>
+
+            <!-- Cache Tab -->
+            <div id="devtools-cache" class="devtools-content hidden p-4">
+                <div class="text-gray-400">Loading...</div>
+            </div>
+
+            <!-- Session Tab -->
+            <div id="devtools-session" class="devtools-content hidden p-4">
+                <div class="text-gray-400">Loading...</div>
+            </div>
+
+            <!-- Flags Tab -->
+            <div id="devtools-flags" class="devtools-content hidden p-4">
+                <div class="text-gray-400">Loading...</div>
+            </div>
+
+            <!-- Context Tab -->
+            <div id="devtools-context" class="devtools-content hidden p-4">
+                <div class="text-gray-400">Loading...</div>
+            </div>
+
+            <!-- Errors Tab -->
+            <div id="devtools-errors" class="devtools-content hidden p-4">
+                <div class="text-gray-400">Loading...</div>
+            </div>
+
+            <!-- Users Tab -->
+            <div id="devtools-users" class="devtools-content hidden p-4">
+                <div class="text-gray-400">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dev Tools JavaScript -->
+    <script>
+    window.DevTools = (function() {
+        const panel = document.getElementById('devtools-panel');
+        const tabs = document.querySelectorAll('.devtools-tab');
+        const contents = document.querySelectorAll('.devtools-content');
+        let currentTab = 'request';
+        let cache = {};
+
+        // Tab switching
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+                switchTab(tabName);
+            });
+        });
+
+        function switchTab(tabName) {
+            currentTab = tabName;
+            tabs.forEach(t => {
+                t.classList.toggle('bg-gray-700', t.dataset.tab === tabName);
+                t.classList.toggle('text-amber-400', t.dataset.tab === tabName);
+                t.classList.toggle('text-gray-400', t.dataset.tab !== tabName);
+            });
+            contents.forEach(c => {
+                c.classList.toggle('hidden', c.id !== `devtools-${tabName}`);
+            });
+            loadTab(tabName);
+        }
+
+        function loadTab(tabName, force = false) {
+            if (cache[tabName] && !force) return;
+
+            const endpoint = `/api/debug/${tabName === 'flags' ? 'flags' : tabName === 'context' ? 'context' : tabName === 'users' ? 'users-online' : tabName}/`;
+            const container = document.getElementById(`devtools-${tabName}`);
+
+            container.innerHTML = '<div class="text-gray-400 animate-pulse">Loading...</div>';
+
+            fetch(endpoint)
+                .then(r => r.json())
+                .then(data => {
+                    cache[tabName] = data;
+                    renderTab(tabName, data);
+                })
+                .catch(err => {
+                    container.innerHTML = `<div class="text-red-400">Error: ${err.message}</div>`;
+                });
+        }
+
+        function renderTab(tabName, data) {
+            const container = document.getElementById(`devtools-${tabName}`);
+            let html = '';
+
+            switch(tabName) {
+                case 'request':
+                    html = renderRequest(data);
+                    break;
+                case 'server':
+                    html = renderServer(data);
+                    break;
+                case 'database':
+                    html = renderDatabase(data);
+                    break;
+                case 'cache':
+                    html = renderCache(data);
+                    break;
+                case 'session':
+                    html = renderSession(data);
+                    break;
+                case 'flags':
+                    html = renderFlags(data);
+                    break;
+                case 'context':
+                    html = renderContext(data);
+                    break;
+                case 'errors':
+                    html = renderErrors(data);
+                    break;
+                case 'users':
+                    html = renderUsers(data);
+                    break;
+            }
+
+            container.innerHTML = html;
+            attachHandlers(tabName);
+        }
+
+        function renderRequest(data) {
+            return `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="space-y-3">
+                        <h3 class="text-amber-400 font-semibold text-xs uppercase tracking-wider">General</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-2">
+                            ${kvRow('Method', data.method, 'text-green-400')}
+                            ${kvRow('Path', data.full_path)}
+                            ${kvRow('Host', data.host)}
+                            ${kvRow('Scheme', data.scheme)}
+                            ${kvRow('Secure', data.is_secure ? 'Yes' : 'No', data.is_secure ? 'text-green-400' : 'text-red-400')}
+                            ${kvRow('AJAX', data.is_ajax ? 'Yes' : 'No')}
+                        </div>
+                    </div>
+                    <div class="space-y-3">
+                        <h3 class="text-amber-400 font-semibold text-xs uppercase tracking-wider">Headers</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-1 max-h-48 overflow-auto">
+                            ${Object.entries(data.headers || {}).map(([k, v]) => kvRow(k, v, 'text-gray-300', 'text-xs')).join('')}
+                        </div>
+                    </div>
+                    <div class="space-y-3">
+                        <h3 class="text-amber-400 font-semibold text-xs uppercase tracking-wider">Cookies</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-1 max-h-32 overflow-auto">
+                            ${Object.entries(data.cookies || {}).length ? Object.entries(data.cookies).map(([k, v]) => kvRow(k, v, 'text-gray-300', 'text-xs')).join('') : '<div class="text-gray-500">No cookies</div>'}
+                        </div>
+                    </div>
+                    <div class="space-y-3">
+                        <h3 class="text-amber-400 font-semibold text-xs uppercase tracking-wider">Query Params</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-1">
+                            ${Object.entries(data.query_params || {}).length ? Object.entries(data.query_params).map(([k, v]) => kvRow(k, v)).join('') : '<div class="text-gray-500">No query params</div>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderServer(data) {
+            return `
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div class="space-y-3">
+                        <h3 class="text-green-400 font-semibold text-xs uppercase tracking-wider">Environment</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-2">
+                            ${kvRow('Python', data.python_version?.split(' ')[0])}
+                            ${kvRow('Django', data.django_version)}
+                            ${kvRow('Platform', data.platform)}
+                            ${kvRow('Debug Mode', data.debug_mode ? 'ON' : 'OFF', data.debug_mode ? 'text-yellow-400' : 'text-green-400')}
+                            ${kvRow('PID', data.pid)}
+                        </div>
+                    </div>
+                    <div class="space-y-3">
+                        <h3 class="text-green-400 font-semibold text-xs uppercase tracking-wider">Time</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-2">
+                            ${kvRow('Server Time', data.server_time)}
+                            ${kvRow('Timezone', data.timezone)}
+                        </div>
+                        ${data.memory ? `
+                        <h3 class="text-green-400 font-semibold text-xs uppercase tracking-wider mt-4">Memory</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-2">
+                            ${kvRow('RSS', data.memory.rss_mb + ' MB')}
+                            ${kvRow('VMS', data.memory.vms_mb + ' MB')}
+                            ${kvRow('Percent', data.memory.percent + '%')}
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="space-y-3">
+                        <h3 class="text-green-400 font-semibold text-xs uppercase tracking-wider">Middleware</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-1 max-h-48 overflow-auto">
+                            ${(data.middleware || []).map((m, i) => `<div class="text-xs"><span class="text-gray-500">${i+1}.</span> ${m}</div>`).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderDatabase(data) {
+            return `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="space-y-3">
+                        <h3 class="text-blue-400 font-semibold text-xs uppercase tracking-wider">Connection</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-2">
+                            ${kvRow('Engine', data.engine)}
+                            ${kvRow('Database', data.name)}
+                            ${kvRow('Host', data.host)}
+                            ${kvRow('Port', data.port)}
+                            ${kvRow('Conn Max Age', data.conn_max_age + 's')}
+                            ${kvRow('Query Count', data.query_count)}
+                        </div>
+                        ${data.stats && Object.keys(data.stats).length ? `
+                        <h3 class="text-blue-400 font-semibold text-xs uppercase tracking-wider mt-4">Stats</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-2">
+                            ${data.stats.db_size_mb ? kvRow('DB Size', data.stats.db_size_mb + ' MB') : ''}
+                            ${data.stats.active_connections ? kvRow('Active Connections', data.stats.active_connections) : ''}
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="space-y-3">
+                        <h3 class="text-blue-400 font-semibold text-xs uppercase tracking-wider">Recent Queries</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-2 max-h-64 overflow-auto">
+                            ${(data.recent_queries || []).length ? data.recent_queries.map(q => `
+                                <div class="border-b border-gray-700 pb-2 mb-2 last:border-0 last:pb-0 last:mb-0">
+                                    <div class="text-xs text-blue-300 font-mono break-all">${escapeHtml(q.sql)}</div>
+                                    <div class="text-xs text-gray-500 mt-1">${q.time}s</div>
+                                </div>
+                            `).join('') : '<div class="text-gray-500">No queries (DEBUG=False or no queries captured)</div>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderCache(data) {
+            return `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="space-y-3">
+                        <h3 class="text-purple-400 font-semibold text-xs uppercase tracking-wider">Backend</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-2">
+                            ${kvRow('Backend', data.backend)}
+                            ${kvRow('Location', data.location)}
+                        </div>
+                        ${data.stats ? `
+                        <h3 class="text-purple-400 font-semibold text-xs uppercase tracking-wider mt-4">Stats</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-2">
+                            ${kvRow('Memory Used', (data.stats.used_memory_mb || 0) + ' MB')}
+                            ${kvRow('Clients', data.stats.connected_clients)}
+                            ${kvRow('Total Keys', data.stats.total_keys)}
+                            ${kvRow('Hits', data.stats.hits)}
+                            ${kvRow('Misses', data.stats.misses)}
+                        </div>
+                        ` : ''}
+                        <div class="mt-4">
+                            <button onclick="window.DevTools.clearCache('__all__')" class="bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded text-xs font-medium transition">
+                                Clear All Cache
+                            </button>
+                        </div>
+                    </div>
+                    <div class="space-y-3">
+                        <h3 class="text-purple-400 font-semibold text-xs uppercase tracking-wider">Known Values</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-2">
+                            ${Object.entries(data.known_values || {}).length ? Object.entries(data.known_values).map(([k, v]) => `
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1">
+                                        ${kvRow(k, v)}
+                                    </div>
+                                    <button onclick="window.DevTools.clearCache('${k}')" class="text-red-400 hover:text-red-300 text-xs ml-2">Clear</button>
+                                </div>
+                            `).join('') : '<div class="text-gray-500">No known cache values</div>'}
+                        </div>
+                        ${data.sample_keys?.length ? `
+                        <h3 class="text-purple-400 font-semibold text-xs uppercase tracking-wider mt-4">Sample Keys</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-1 max-h-32 overflow-auto">
+                            ${data.sample_keys.map(k => `<div class="text-xs text-gray-300 font-mono">${k}</div>`).join('')}
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSession(data) {
+            return `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="space-y-3">
+                        <h3 class="text-cyan-400 font-semibold text-xs uppercase tracking-wider">Session Info</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-2">
+                            ${kvRow('Session Key', data.session_key)}
+                            ${kvRow('Is Empty', data.is_empty ? 'Yes' : 'No')}
+                            ${kvRow('Expiry Age', data.expiry_age + 's')}
+                            ${kvRow('Expiry Date', data.expiry_date)}
+                        </div>
+                        <div class="mt-4">
+                            <button onclick="window.DevTools.clearSession()" class="bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded text-xs font-medium transition">
+                                Clear Session
+                            </button>
+                        </div>
+                    </div>
+                    <div class="space-y-3">
+                        <h3 class="text-cyan-400 font-semibold text-xs uppercase tracking-wider">Session Data</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-2 max-h-64 overflow-auto">
+                            ${Object.entries(data.data || {}).length ? Object.entries(data.data).map(([k, v]) => `
+                                <div class="flex items-start justify-between border-b border-gray-700 pb-2 mb-2 last:border-0">
+                                    <div class="flex-1">
+                                        <div class="text-xs text-cyan-300">${k}</div>
+                                        <div class="text-xs text-gray-400 font-mono mt-1 break-all">${typeof v === 'object' ? JSON.stringify(v) : v}</div>
+                                    </div>
+                                    <button onclick="window.DevTools.deleteSessionKey('${k}')" class="text-red-400 hover:text-red-300 text-xs ml-2">Delete</button>
+                                </div>
+                            `).join('') : '<div class="text-gray-500">No session data</div>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderFlags(data) {
+            return `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="space-y-3">
+                        <h3 class="text-yellow-400 font-semibold text-xs uppercase tracking-wider">Feature Flags</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-2 max-h-64 overflow-auto">
+                            ${(data.feature_flags || []).map(f => `
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <span class="text-sm ${f.is_enabled ? 'text-green-400' : 'text-gray-400'}">${f.name}</span>
+                                        ${f.description ? `<div class="text-xs text-gray-500">${f.description}</div>` : ''}
+                                    </div>
+                                    <button onclick="window.DevTools.toggleFlag(${f.id}, 'feature')"
+                                            class="px-2 py-1 rounded text-xs font-medium transition ${f.is_enabled ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700'}">
+                                        ${f.is_enabled ? 'ON' : 'OFF'}
+                                    </button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="space-y-3">
+                        <h3 class="text-yellow-400 font-semibold text-xs uppercase tracking-wider">Page Toggles</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-2 max-h-64 overflow-auto">
+                            ${(data.page_toggles || []).length ? data.page_toggles.map(p => `
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <span class="text-sm ${p.is_enabled ? 'text-green-400' : 'text-gray-400'}">${p.display_name || p.url_name}</span>
+                                        <div class="text-xs text-gray-500">${p.url_name}</div>
+                                    </div>
+                                    <button onclick="window.DevTools.toggleFlag(${p.id}, 'page')"
+                                            class="px-2 py-1 rounded text-xs font-medium transition ${p.is_enabled ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700'}">
+                                        ${p.is_enabled ? 'ON' : 'OFF'}
+                                    </button>
+                                </div>
+                            `).join('') : '<div class="text-gray-500">No page toggles</div>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderContext(data) {
+            return `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="space-y-3">
+                        <h3 class="text-pink-400 font-semibold text-xs uppercase tracking-wider">Current User</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-2">
+                            ${Object.entries(data.user_info || {}).map(([k, v]) => kvRow(k, Array.isArray(v) ? v.join(', ') : v)).join('')}
+                        </div>
+                    </div>
+                    <div class="space-y-3">
+                        <h3 class="text-pink-400 font-semibold text-xs uppercase tracking-wider">Context Processors</h3>
+                        <div class="bg-gray-800 rounded p-3 space-y-1 max-h-32 overflow-auto">
+                            ${(data.context_processors || []).map(cp => `<div class="text-xs text-gray-300">${cp}</div>`).join('')}
+                        </div>
+                        <h3 class="text-pink-400 font-semibold text-xs uppercase tracking-wider mt-4">Available Context Keys</h3>
+                        <div class="bg-gray-800 rounded p-3">
+                            <div class="flex flex-wrap gap-1">
+                                ${(data.available_context_keys || []).map(k => `<span class="text-xs bg-gray-700 px-2 py-0.5 rounded">${k}</span>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderErrors(data) {
+            return `
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <h3 class="text-red-400 font-semibold text-xs uppercase tracking-wider">Recent Errors/Warnings (${data.total_errors || 0})</h3>
+                            <button onclick="window.DevTools.clearLogs()" class="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs font-medium transition flex items-center space-x-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                                <span>Clear Log</span>
+                            </button>
+                        </div>
+                        <div class="text-xs text-gray-500">${data.log_file}</div>
+                    </div>
+                    <div class="bg-gray-800 rounded p-3 space-y-1 max-h-72 overflow-auto font-mono text-xs">
+                        ${(data.recent_errors || []).length ? data.recent_errors.map(e => {
+                            const isError = e.includes('ERROR');
+                            const isWarning = e.includes('WARNING');
+                            const isCritical = e.includes('CRITICAL');
+                            const colorClass = isCritical ? 'text-red-500' : isError ? 'text-red-400' : isWarning ? 'text-yellow-400' : 'text-gray-300';
+                            return `<div class="${colorClass} break-all">${escapeHtml(e)}</div>`;
+                        }).join('') : '<div class="text-gray-500">No recent errors</div>'}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderUsers(data) {
+            return `
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-emerald-400 font-semibold text-xs uppercase tracking-wider">Active Sessions (${data.total_active_sessions || 0})</h3>
+                    </div>
+                    <div class="bg-gray-800 rounded p-3 overflow-auto max-h-72">
+                        ${(data.online_users || []).length ? `
+                        <table class="w-full text-xs">
+                            <thead class="text-gray-400">
+                                <tr>
+                                    <th class="text-left py-1">User</th>
+                                    <th class="text-left py-1">ID</th>
+                                    <th class="text-left py-1">Admin</th>
+                                    <th class="text-left py-1">Session Expires</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.online_users.map(u => `
+                                    <tr class="border-t border-gray-700">
+                                        <td class="py-2">${u.name}</td>
+                                        <td class="py-2 text-gray-400">${u.user_id}</td>
+                                        <td class="py-2">${u.is_admin ? '<span class="text-amber-400">Yes</span>' : 'No'}</td>
+                                        <td class="py-2 text-gray-400">${u.session_expires}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                        ` : '<div class="text-gray-500">No active sessions found</div>'}
+                    </div>
+                </div>
+            `;
+        }
+
+        function kvRow(key, value, valueColor = 'text-gray-300', size = '') {
+            return `<div class="${size}"><span class="text-gray-500">${key}:</span> <span class="${valueColor}">${value ?? 'N/A'}</span></div>`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function attachHandlers(tabName) {
+            // Add any tab-specific event handlers here
+        }
+
+        // Public API
+        return {
+            toggle: function() {
+                panel.classList.toggle('hidden');
+                if (!panel.classList.contains('hidden')) {
+                    loadTab(currentTab);
+                }
+            },
+            refresh: function() {
+                cache = {};
+                loadTab(currentTab, true);
+            },
+            clearCache: function(key) {
+                if (!confirm(`Clear cache${key === '__all__' ? ' (ALL)' : ': ' + key}?`)) return;
+                fetch('/api/debug/cache/clear/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+                    body: JSON.stringify({ key: key })
+                }).then(r => r.json()).then(data => {
+                    if (data.success) {
+                        cache = {};
+                        loadTab('cache', true);
+                    } else {
+                        alert('Error: ' + (data.error || 'Unknown error'));
+                    }
+                });
+            },
+            clearSession: function() {
+                if (!confirm('Clear entire session? You will be logged out.')) return;
+                fetch('/api/debug/session/edit/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+                    body: JSON.stringify({ action: 'clear' })
+                }).then(() => {
+                    window.location.reload();
+                });
+            },
+            deleteSessionKey: function(key) {
+                if (!confirm(`Delete session key: ${key}?`)) return;
+                fetch('/api/debug/session/edit/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+                    body: JSON.stringify({ action: 'delete', key: key })
+                }).then(r => r.json()).then(data => {
+                    if (data.success) {
+                        cache = {};
+                        loadTab('session', true);
+                    }
+                });
+            },
+            toggleFlag: function(id, type) {
+                fetch('/api/debug/flags/toggle/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+                    body: JSON.stringify({ id: id, type: type })
+                }).then(r => r.json()).then(data => {
+                    if (data.success) {
+                        cache = {};
+                        loadTab('flags', true);
+                    } else {
+                        alert('Error: ' + (data.error || 'Unknown error'));
+                    }
+                });
+            },
+            clearLogs: function() {
+                if (!confirm('Clear all error logs? This cannot be undone.')) return;
+                fetch('/api/debug/errors/clear/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() }
+                }).then(r => r.json()).then(data => {
+                    if (data.success) {
+                        cache = {};
+                        loadTab('errors', true);
+                    } else {
+                        alert('Error: ' + (data.error || 'Unknown error'));
+                    }
+                });
+            }
+        };
+
+        function getCsrfToken() {
+            const meta = document.querySelector('meta[name="csrf-token"]');
+            return meta ? meta.getAttribute('content') : '';
+        }
+    })();
+    </script>
+    {% endif %}
+
     <!-- Mobile Menu Toggle Script -->
     <script>
         const mobileMenuButton = document.getElementById('mobile-menu-button');

@@ -189,6 +189,38 @@ class ParliamentUser(AbstractBaseUser):
                 return self.preferred_name
         return self.name
 
+    def has_default_password(self):
+        """
+        Check if the user's password is still set to a default value.
+        Default password pattern from add_members.sh: first initial + last name (lowercase)
+        e.g., "James W. Smith" -> "jsmith"
+        Also checks username for users created through the officer portal.
+        Returns True if password matches any default pattern, False otherwise.
+        """
+        import re
+
+        # Pattern 1: First initial + last name (lowercase) - from add_members.sh
+        # e.g., "James W. Smith" -> "jsmith", "William H. Boals" -> "wboals"
+        if self.name:
+            parts = self.name.strip().split()
+            if len(parts) >= 1:
+                first_initial = parts[0][0].lower() if parts[0] else ''
+                last_name = parts[-1].lower() if len(parts) > 1 else parts[0].lower()
+                # Remove any non-alphanumeric characters
+                default_password = re.sub(r'[^a-z0-9]', '', first_initial + last_name)
+                if default_password and self.check_password(default_password):
+                    return True
+
+        # Pattern 2: Username (for users created through officer portal where password = username)
+        if self.username and self.check_password(self.username):
+            return True
+
+        # Pattern 3: User ID (in case that was used)
+        if self.user_id and self.check_password(self.user_id):
+            return True
+
+        return False
+
     class Meta:
         ordering = ['user_id']
 
@@ -289,6 +321,7 @@ class Legislation(models.Model):
     posted_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
     available_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
+    voting_ends_at = models.DateTimeField(null=True, blank=True, help_text="Optional: When voting should automatically close")
     voting_ended_at = models.DateTimeField(null=True, blank=True)
     passed = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
@@ -1809,8 +1842,15 @@ class KaiReport(models.Model):
 
     DELIBERATION_CHOICES = [
         ('pending', 'Pending Deliberation'),
-        ('thrown_out', 'Case Thrown Out'),
+        ('under_investigation', 'Under Investigation'),
+        ('scheduled', 'Scheduled for Hearing'),
         ('heard', 'Case Heard'),
+        ('warning_issued', 'Warning Issued'),
+        ('sanctions_applied', 'Sanctions Applied'),
+        ('mediation', 'Informal Resolution / Mediation'),
+        ('referred', 'Referred to Standards Board'),
+        ('dismissed', 'Case Dismissed'),
+        ('thrown_out', 'Case Thrown Out'),
     ]
 
     CATEGORY_CHOICES = [
@@ -1888,6 +1928,21 @@ class KaiReport(models.Model):
     closed_by_accused_request = models.BooleanField(
         default=False,
         help_text="Case closed at the request of the accused (only applicable when case was heard)"
+    )
+
+    # Accused Notification
+    accused_notified = models.BooleanField(
+        default=False,
+        help_text="Whether the accused has been notified of the case"
+    )
+    accused_notified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the accused was notified"
+    )
+    accused_notification_message = models.TextField(
+        blank=True,
+        help_text="Custom message sent to the accused explaining what they are being reported for"
     )
 
     # Related Reports

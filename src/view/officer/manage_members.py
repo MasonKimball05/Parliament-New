@@ -154,6 +154,19 @@ def edit_member(request, user_id):
     member = get_object_or_404(ParliamentUser, user_id=user_id)
 
     if request.method == 'GET':
+        # Calculate last login display
+        from django.utils import timezone
+        if member.last_login:
+            days_ago = (timezone.now() - member.last_login).days
+            if days_ago == 0:
+                last_login_display = member.last_login.strftime('%b %d, %Y at %I:%M %p') + ' (Today)'
+            elif days_ago == 1:
+                last_login_display = member.last_login.strftime('%b %d, %Y at %I:%M %p') + ' (Yesterday)'
+            else:
+                last_login_display = member.last_login.strftime('%b %d, %Y at %I:%M %p') + f' ({days_ago} days ago)'
+        else:
+            last_login_display = 'Never logged in'
+
         # Return current member data for the modal
         return JsonResponse({
             'success': True,
@@ -167,6 +180,8 @@ def edit_member(request, user_id):
                 'roles': list(member.roles.values_list('id', flat=True)),
                 'is_admin': member.is_admin,
                 'role_number': member.role_number or '',
+                'last_login': last_login_display,
+                'has_default_password': member.has_default_password(),
             }
         })
 

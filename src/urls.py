@@ -84,6 +84,12 @@ from src.view.view_document import (
     view_reference_document
 )
 from src.view.bug_report import submit_bug_report, bug_report_success, my_bug_reports, bug_tracker, bug_report_detail, bug_admin, bug_admin_update
+from src.view.debug_panel import (
+    debug_request_info, debug_server_info, debug_database_info,
+    debug_cache_info, debug_cache_clear, debug_session_info, debug_session_edit,
+    debug_feature_flags, debug_toggle_flag, debug_error_logs, debug_clear_logs,
+    debug_template_context, debug_performance_metrics, debug_users_online
+)
 
 urlpatterns = [
     # General User Pages
@@ -373,6 +379,22 @@ urlpatterns = [
 
     # Health Check API
     path('api/health-check/', health_check, name='health_check'),
+
+    # Debug Panel API (Admin + Maintenance Mode only)
+    path('api/debug/request/', debug_request_info, name='debug_request_info'),
+    path('api/debug/server/', debug_server_info, name='debug_server_info'),
+    path('api/debug/database/', debug_database_info, name='debug_database_info'),
+    path('api/debug/cache/', debug_cache_info, name='debug_cache_info'),
+    path('api/debug/cache/clear/', debug_cache_clear, name='debug_cache_clear'),
+    path('api/debug/session/', debug_session_info, name='debug_session_info'),
+    path('api/debug/session/edit/', debug_session_edit, name='debug_session_edit'),
+    path('api/debug/flags/', debug_feature_flags, name='debug_feature_flags'),
+    path('api/debug/flags/toggle/', debug_toggle_flag, name='debug_toggle_flag'),
+    path('api/debug/errors/', debug_error_logs, name='debug_error_logs'),
+    path('api/debug/errors/clear/', debug_clear_logs, name='debug_clear_logs'),
+    path('api/debug/context/', debug_template_context, name='debug_template_context'),
+    path('api/debug/performance/', debug_performance_metrics, name='debug_performance_metrics'),
+    path('api/debug/users-online/', debug_users_online, name='debug_users_online'),
 ]
 
 if settings.DEBUG:

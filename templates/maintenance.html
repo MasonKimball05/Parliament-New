@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Site Maintenance - Parliament</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+        // Check for dark mode preference
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+    <style>
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse-slow {
+            animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+            animation: spin 8s linear infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-800 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 flex items-center justify-center p-4">
+    <div class="max-w-lg w-full text-center">
+        <!-- Animated Icon -->
+        <div class="relative mb-8">
+            <div class="w-32 h-32 mx-auto bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center">
+                <svg class="w-16 h-16 text-white animate-spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+            </div>
+            <!-- Decorative rings -->
+            <div class="absolute inset-0 w-32 h-32 mx-auto border-2 border-white/20 rounded-full animate-pulse-slow"></div>
+            <div class="absolute inset-0 w-40 h-40 mx-auto -mt-4 -ml-4 border border-white/10 rounded-full"></div>
+        </div>
+
+        <!-- Content -->
+        <div class="bg-white/10 backdrop-blur-md rounded-2xl p-8 shadow-2xl border border-white/20">
+            <h1 class="text-3xl sm:text-4xl font-bold text-white mb-4">
+                We'll Be Right Back
+            </h1>
+            <p class="text-white/80 text-lg mb-6 leading-relaxed">
+                We're currently performing scheduled maintenance to improve your experience. This won't take long.
+            </p>
+
+            <!-- Status indicator -->
+            <div class="flex items-center justify-center gap-2 text-white/70 text-sm">
+                <span class="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span>
+                <span>Maintenance in progress</span>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <p class="mt-8 text-white/50 text-sm">
+            If you need immediate assistance, please contact an administrator.
+        </p>
+    </div>
+
+    <!-- Auto-refresh every 30 seconds to check if maintenance is over -->
+    <script>
+        setTimeout(function() {
+            window.location.reload();
+        }, 30000);
+    </script>
+</body>
+</html>
