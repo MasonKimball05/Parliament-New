@@ -1949,6 +1949,11 @@ class KaiReport(models.Model):
         blank=True,
         help_text="Custom message sent to the accused explaining what they are being reported for"
     )
+    accused_email_viewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the accused viewed the notification email (tracked via pixel)"
+    )
 
     # Related Reports
     related_reports = models.ManyToManyField(

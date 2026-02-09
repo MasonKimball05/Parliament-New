@@ -635,6 +635,7 @@ def manage_users(request):
     status_filter = request.GET.get('status', '')
     type_filter = request.GET.get('type', '')
     admin_filter = request.GET.get('admin', '')
+    picture_filter = request.GET.get('picture', '')
     search_query = request.GET.get('search', '')
 
     # Build query
@@ -650,6 +651,11 @@ def manage_users(request):
         users_list = users_list.filter(is_admin=True)
     elif admin_filter == 'no':
         users_list = users_list.filter(is_admin=False)
+
+    if picture_filter == 'yes':
+        users_list = users_list.exclude(profile_picture='').exclude(profile_picture__isnull=True)
+    elif picture_filter == 'no':
+        users_list = users_list.filter(Q(profile_picture='') | Q(profile_picture__isnull=True))
 
     if search_query:
         users_list = users_list.filter(
@@ -668,6 +674,7 @@ def manage_users(request):
         'status_filter': status_filter,
         'type_filter': type_filter,
         'admin_filter': admin_filter,
+        'picture_filter': picture_filter,
         'search_query': search_query,
     }
 

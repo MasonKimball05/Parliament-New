@@ -223,9 +223,27 @@
                   </h3>
                 </div>
                 {% if report.accused_notified %}
-                <span class="px-3 py-1 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 rounded-full text-xs font-semibold">
-                  Notified {{ report.accused_notified_at|date:"M d, Y" }}
-                </span>
+                <div class="flex items-center space-x-2">
+                  <span class="px-3 py-1 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 rounded-full text-xs font-semibold">
+                    Notified {{ report.accused_notified_at|date:"M d, Y" }}
+                  </span>
+                  {% if report.accused_email_viewed_at %}
+                  <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-full text-xs font-semibold flex items-center" title="Email opened on {{ report.accused_email_viewed_at|date:'M d, Y g:i A' }}">
+                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                    Viewed {{ report.accused_email_viewed_at|date:"M d" }}
+                  </span>
+                  {% else %}
+                  <span class="px-3 py-1 bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 rounded-full text-xs font-semibold flex items-center cursor-help" title="Some email clients block tracking. This may not be accurate.">
+                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Not yet viewed*
+                  </span>
+                  {% endif %}
+                </div>
                 {% endif %}
               </div>
 
@@ -282,8 +300,29 @@
               {% if report.targeted_to %}
                 {% if report.accused_notified and report.accused_notification_message %}
                 <div class="mb-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
-                  <p class="text-xs font-semibold text-green-700 dark:text-green-300 uppercase mb-1">Previous Notification Sent:</p>
+                  <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs font-semibold text-green-700 dark:text-green-300 uppercase">Previous Notification Sent:</p>
+                    <div class="flex items-center space-x-2 text-xs">
+                      <span class="text-green-600 dark:text-green-400">{{ report.accused_notified_at|date:"M d, Y g:i A" }}</span>
+                      {% if report.accused_email_viewed_at %}
+                      <span class="flex items-center text-blue-600 dark:text-blue-400">
+                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        Opened {{ report.accused_email_viewed_at|date:"M d" }}
+                      </span>
+                      {% else %}
+                      <span class="flex items-center text-yellow-600 dark:text-yellow-400 cursor-help" title="Some email clients block tracking pixels">
+                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Awaiting read*
+                      </span>
+                      {% endif %}
+                    </div>
+                  </div>
                   <p class="text-sm text-green-800 dark:text-green-200">{{ report.accused_notification_message }}</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">* Email read tracking may not be accurate if the recipient's email client blocks images.</p>
                 </div>
                 {% endif %}
 

@@ -749,8 +749,13 @@ Notified at: {timezone.now().strftime('%B %d, %Y at %I:%M %p')}
                 messages.error(request, 'Please enter a message explaining what the person is being reported for.')
             else:
                 try:
+                    from django.core.mail import EmailMultiAlternatives
+                    from django.urls import reverse
+
                     subject = 'Kai Committee Notification - Case Filed'
-                    message = f"""
+
+                    # Plain text version
+                    text_message = f"""
 Dear {report.targeted_to.name},
 
 This is an official notification from the Kai Committee of Beta Theta Pi.
@@ -772,18 +777,82 @@ Kai Committee
 Beta Theta Pi - Samford Chapter
                     """
 
-                    send_mail(
-                        subject,
-                        message,
-                        settings.DEFAULT_FROM_EMAIL,
-                        [report.targeted_to.email],
-                        fail_silently=False,
+                    # Build tracking pixel URL
+                    tracking_url = request.build_absolute_uri(
+                        reverse('track_kai_accused_email', kwargs={'report_id': report.id})
                     )
 
-                    # Update report
+                    # Escape notification message for HTML
+                    from django.utils.html import escape
+                    escaped_message = escape(notification_message).replace('\n', '<br>')
+
+                    # HTML version with tracking pixel
+                    html_message = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%); padding: 30px; border-radius: 8px 8px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 24px;">Kai Committee Notification</h1>
+        <p style="color: #a0c4e8; margin: 10px 0 0 0; font-size: 14px;">Official Notice - Case Filed</p>
+    </div>
+
+    <div style="background: #ffffff; padding: 30px; border: 1px solid #e2e8f0; border-top: none;">
+        <p style="margin-top: 0;">Dear <strong>{report.targeted_to.name}</strong>,</p>
+
+        <p>This is an official notification from the Kai Committee of Beta Theta Pi.</p>
+
+        <p>A report has been filed with the Kai Committee that involves you. The details are as follows:</p>
+
+        <div style="background: #f7fafc; border-left: 4px solid #4299e1; padding: 15px 20px; margin: 20px 0; border-radius: 0 4px 4px 0;">
+            <p style="margin: 0; white-space: pre-wrap;">{escaped_message}</p>
+        </div>
+
+        <p>The Kai Committee will review this matter and may contact you for further information or to schedule a hearing.</p>
+
+        <div style="background: #ebf8ff; border: 1px solid #90cdf4; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <h3 style="margin: 0 0 10px 0; color: #2b6cb0; font-size: 16px;">Your Rights</h3>
+            <ul style="margin: 0; padding-left: 20px; color: #2c5282;">
+                <li>Present your side of the story</li>
+                <li>Bring witnesses or evidence in your defense</li>
+                <li>Request that the minutes be closed (kept confidential)</li>
+            </ul>
+        </div>
+
+        <p>If you have any questions or concerns, please contact the Kai Committee chair(s).</p>
+
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
+
+        <p style="color: #718096; font-size: 12px; margin-bottom: 0;">
+            This notification was sent on {timezone.now().strftime('%B %d, %Y at %I:%M %p')}.<br>
+            Kai Committee &bull; Beta Theta Pi - Samford Chapter
+        </p>
+    </div>
+
+    <!-- Tracking pixel -->
+    <img src="{tracking_url}" width="1" height="1" alt="" style="display:none;">
+</body>
+</html>
+                    """
+
+                    # Send email with both plain text and HTML
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=text_message,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        to=[report.targeted_to.email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+                    email.send(fail_silently=False)
+
+                    # Update report - reset viewed status since new email sent
                     report.accused_notified = True
                     report.accused_notified_at = timezone.now()
                     report.accused_notification_message = notification_message
+                    report.accused_email_viewed_at = None  # Reset on new notification
                     report.save()
 
                     # Log activity
@@ -1227,3 +1296,50 @@ def delete_kai_template(request, template_id):
 
     messages.success(request, f'Template "{template_name}" deleted successfully.')
     return redirect('manage_kai_templates')
+
+
+def track_kai_accused_email_view(request, report_id):
+    """
+    Track when an accused person views their notification email.
+    Returns a 1x1 transparent pixel.
+    This view does not require login since it's loaded as an image in emails.
+    """
+    import base64
+    import logging
+
+    logger = logging.getLogger('function_calls')
+
+    # 1x1 transparent GIF
+    PIXEL_GIF = base64.b64decode(
+        'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+    )
+
+    try:
+        report = KaiReport.objects.get(id=report_id)
+        logger.info(f"Kai email tracking pixel accessed for report {report_id}")
+
+        # Only update if notified and not already viewed
+        if report.accused_notified:
+            # Check if already viewed
+            current_viewed = getattr(report, 'accused_email_viewed_at', None)
+            if not current_viewed:
+                report.accused_email_viewed_at = timezone.now()
+                report.save()  # Full save to handle migration issues
+                logger.info(f"Marked Kai report {report_id} accused email as viewed")
+
+                # Log the view in activity log
+                try:
+                    KaiReportActivity.objects.create(
+                        report=report,
+                        user=None,  # System action
+                        action='status_changed',
+                        details='Accused person viewed notification email'
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to log activity for report {report_id}: {e}")
+    except KaiReport.DoesNotExist:
+        logger.warning(f"Kai email tracking: Report {report_id} not found")
+    except Exception as e:
+        logger.error(f"Kai email tracking error for report {report_id}: {e}")
+
+    return HttpResponse(PIXEL_GIF, content_type='image/gif')

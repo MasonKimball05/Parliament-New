@@ -47,6 +47,14 @@
                     <option value="no" {% if admin_filter == 'no' %}selected{% endif %}>No</option>
                 </select>
             </div>
+            <div class="min-w-[150px]">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Picture</label>
+                <select name="picture" class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    <option value="">All</option>
+                    <option value="yes" {% if picture_filter == 'yes' %}selected{% endif %}>Has Picture</option>
+                    <option value="no" {% if picture_filter == 'no' %}selected{% endif %}>No Picture</option>
+                </select>
+            </div>
             <div class="flex items-end gap-2">
                 <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Filter</button>
                 <a href="{% url 'admin_v2_manage_users' %}" class="px-6 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg">Clear</a>
@@ -72,7 +80,20 @@
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                 {% for user in users %}
                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td class="px-4 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{{ user.get_display_name }}</td>
+                        <td class="px-4 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
+                            <div class="flex items-center space-x-3">
+                                {% if user.profile_picture %}
+                                <button type="button" onclick="showProfilePicture('{{ user.profile_picture.url }}', '{{ user.get_display_name }}')" class="flex-shrink-0">
+                                    <img src="{{ user.profile_picture.url }}" alt="{{ user.get_display_name }}" class="w-8 h-8 rounded-full object-cover ring-2 ring-blue-400 cursor-pointer hover:ring-blue-600 transition">
+                                </button>
+                                {% else %}
+                                <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                                    <span class="text-gray-500 dark:text-gray-400 text-xs font-medium">{{ user.name|slice:":1"|upper }}</span>
+                                </div>
+                                {% endif %}
+                                <span>{{ user.get_display_name }}</span>
+                            </div>
+                        </td>
                         <td class="px-4 py-4 text-sm text-gray-900 dark:text-gray-100 font-mono">{{ user.user_id }}</td>
                         <td class="px-4 py-4 text-sm">
                             {% if user.member_status == 'Active' %}
@@ -147,7 +168,45 @@
     </div>
 </div>
 
+<!-- Profile Picture Modal -->
+<div id="pictureModal" class="fixed inset-0 bg-black bg-opacity-75 hidden z-50 flex items-center justify-center p-4" onclick="closePictureModal(event)">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full overflow-hidden" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between p-4 border-b dark:border-gray-700">
+            <h3 id="pictureModalName" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Profile Picture</h3>
+            <button onclick="closePictureModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="p-4">
+            <img id="pictureModalImg" src="" alt="" class="w-full h-auto rounded-lg max-h-96 object-contain">
+        </div>
+    </div>
+</div>
+
 <script>
+function showProfilePicture(url, name) {
+    document.getElementById('pictureModalImg').src = url;
+    document.getElementById('pictureModalImg').alt = name;
+    document.getElementById('pictureModalName').textContent = name;
+    document.getElementById('pictureModal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closePictureModal(event) {
+    if (event && event.target !== document.getElementById('pictureModal')) return;
+    document.getElementById('pictureModal').classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && !document.getElementById('pictureModal').classList.contains('hidden')) {
+        closePictureModal();
+    }
+});
+
 function getCsrf() {
     let val = null;
     if (document.cookie) {

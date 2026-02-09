@@ -20,7 +20,7 @@ from src.view.committee.committee_minutes_editor import (
 from src.view.committee.manage_chat_permissions import manage_chat_permissions, add_guest_permission, update_guest_permission, remove_guest_permission
 from src.view.chat import *
 from src.view.submit_excuse import my_excuses, submit_excuse, cancel_excuse
-from src.view.kai_reports import submit_kai_report, view_kai_reports, manage_kai_report, export_kai_reports_csv, print_kai_report, kai_dashboard, bulk_actions_kai_reports, manage_kai_templates, create_kai_template, edit_kai_template, delete_kai_template
+from src.view.kai_reports import submit_kai_report, view_kai_reports, manage_kai_report, export_kai_reports_csv, print_kai_report, kai_dashboard, bulk_actions_kai_reports, manage_kai_templates, create_kai_template, edit_kai_template, delete_kai_template, track_kai_accused_email_view
 from src.view.chapter_documents import chapter_documents
 from src.view.api import dismiss_announcement_api
 from src.view.notifications import notifications_page, notifications_dropdown_api, mark_notification_read, mark_all_notifications_read, delete_notification
@@ -291,6 +291,7 @@ urlpatterns = [
     path('kai/templates/create/', create_kai_template, name='create_kai_template'),
     path('kai/templates/<int:template_id>/edit/', edit_kai_template, name='edit_kai_template'),
     path('kai/templates/<int:template_id>/delete/', delete_kai_template, name='delete_kai_template'),
+    path('kai/track-email/<int:report_id>.gif', track_kai_accused_email_view, name='track_kai_accused_email'),
 
     # Committee Chat URLs (legacy - redirects to channel chat)
     path('committee/<str:code>/chat/', committee_chat, name='committee_chat'),
