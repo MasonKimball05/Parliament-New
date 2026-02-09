@@ -1303,29 +1303,63 @@ def check_default_password(request, user_id):
         return JsonResponse({'success': False, 'error': 'User not found'}, status=404)
 
     matched_pattern = None
+    patterns_checked = []
 
-    # Pattern 1: First initial + last name (lowercase) - from add_members.sh
+    # Build list of patterns to check
+    patterns_to_check = []
+
+    # Pattern from add_members.sh: first initial + last name (lowercase)
     if user.name:
         parts = user.name.strip().split()
         if len(parts) >= 1:
             first_initial = parts[0][0].lower() if parts[0] else ''
             last_name = parts[-1].lower() if len(parts) > 1 else parts[0].lower()
-            default_password = re.sub(r'[^a-z0-9]', '', first_initial + last_name)
-            if default_password and user.check_password(default_password):
-                matched_pattern = default_password
 
-    # Pattern 2: Username
-    if not matched_pattern and user.username and user.check_password(user.username):
-        matched_pattern = user.username
+            # With special chars (as shell script does)
+            base_pattern = first_initial + last_name
+            patterns_to_check.append(base_pattern)
 
-    # Pattern 3: User ID
-    if not matched_pattern and user.user_id and user.check_password(user.user_id):
-        matched_pattern = user.user_id
+            # Without special chars
+            clean_pattern = re.sub(r'[^a-z0-9]', '', base_pattern)
+            if clean_pattern != base_pattern:
+                patterns_to_check.append(clean_pattern)
+
+            # With "1" suffix (user mentioned jsmith1 pattern)
+            patterns_to_check.append(base_pattern + '1')
+            patterns_to_check.append(clean_pattern + '1')
+
+    # Username variations
+    if user.username:
+        patterns_to_check.append(user.username)
+        patterns_to_check.append(user.username.lower())
+        patterns_to_check.append(user.username + '1')
+        patterns_to_check.append(user.username.lower() + '1')
+
+    # User ID
+    if user.user_id:
+        patterns_to_check.append(user.user_id)
+        patterns_to_check.append(user.user_id.lower())
+
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_patterns = []
+    for p in patterns_to_check:
+        if p and p not in seen:
+            seen.add(p)
+            unique_patterns.append(p)
+
+    # Check each pattern
+    for pattern in unique_patterns:
+        patterns_checked.append(pattern)
+        if user.check_password(pattern):
+            matched_pattern = pattern
+            break
 
     return JsonResponse({
         'success': True,
         'has_default_password': matched_pattern is not None,
         'matched_pattern': matched_pattern,
+        'patterns_checked': patterns_checked,  # Debug info
     })
 
 

@@ -193,27 +193,28 @@ class ParliamentUser(AbstractBaseUser):
         """
         Check if the user's password is still set to a default value.
         Default password pattern from add_members.sh: first initial + last name (lowercase)
-        e.g., "James W. Smith" -> "jsmith"
+        e.g., "James W. Smith" -> "jsmith", "Douglas E. Coltharp, Jr." -> "djr."
         Also checks username for users created through the officer portal.
         Returns True if password matches any default pattern, False otherwise.
         """
-        import re
-
         # Pattern 1: First initial + last name (lowercase) - from add_members.sh
-        # e.g., "James W. Smith" -> "jsmith", "William H. Boals" -> "wboals"
+        # The shell script keeps special characters (periods, commas) - only lowercases
         if self.name:
             parts = self.name.strip().split()
             if len(parts) >= 1:
                 first_initial = parts[0][0].lower() if parts[0] else ''
                 last_name = parts[-1].lower() if len(parts) > 1 else parts[0].lower()
-                # Remove any non-alphanumeric characters
-                default_password = re.sub(r'[^a-z0-9]', '', first_initial + last_name)
+                # Don't strip special characters - shell script keeps them
+                default_password = first_initial + last_name
                 if default_password and self.check_password(default_password):
                     return True
 
         # Pattern 2: Username (for users created through officer portal where password = username)
-        if self.username and self.check_password(self.username):
-            return True
+        if self.username:
+            if self.check_password(self.username):
+                return True
+            if self.check_password(self.username.lower()):
+                return True
 
         # Pattern 3: User ID (in case that was used)
         if self.user_id and self.check_password(self.user_id):
