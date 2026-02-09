@@ -20,13 +20,13 @@ def manage_chapter_document(request, doc_id):
     # Admins can assign to any committee, chairs can assign to their committees
     is_admin = request.user.is_admin
     if is_admin:
-        available_committees = Committee.objects.all().order_by('name')
+        available_committees = list(Committee.objects.filter(is_active=True).order_by('name'))
     else:
         # Get committees user is chair of
-        available_committees = Committee.objects.filter(chair=request.user).order_by('name')
+        available_committees = list(Committee.objects.filter(chairs=request.user, is_active=True).order_by('name'))
         # Also include the document's current committee so they can keep it there
-        if document.committee not in available_committees:
-            available_committees = list(available_committees) + [document.committee]
+        if document.committee and document.committee not in available_committees:
+            available_committees = available_committees + [document.committee]
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -45,15 +45,19 @@ def manage_chapter_document(request, doc_id):
             document.document_type = request.POST.get('document_type', document.document_type)
 
             # Update committee (if user has permission)
-            committee_id = request.POST.get('committee', None)
+            # Empty string means chapter-level (no committee)
+            committee_id = request.POST.get('committee', '').strip()
             if committee_id:
                 try:
                     new_committee = Committee.objects.get(id=committee_id)
                     # Verify user can assign to this committee
-                    if is_admin or new_committee.chair == request.user or new_committee == document.committee:
+                    if is_admin or new_committee.is_chair(request.user) or new_committee == document.committee:
                         document.committee = new_committee
                 except Committee.DoesNotExist:
                     pass
+            else:
+                # Set to chapter-level (no committee)
+                document.committee = None
 
             # Update folder
             folder_id = request.POST.get('chapter_folder', None)

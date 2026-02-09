@@ -39,17 +39,18 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Committee <span class="text-red-500 dark:text-red-400">*</span>
+                        Source
                     </label>
-                    <select name="committee" required class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <select name="committee" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="" {% if not document.committee %}selected{% endif %}>Chapter (General)</option>
                         {% for committee in available_committees %}
-                            <option value="{{ committee.id }}" {% if document.committee.id == committee.id %}selected{% endif %}>
+                            <option value="{{ committee.id }}" {% if document.committee and document.committee.id == committee.id %}selected{% endif %}>
                                 {{ committee.name }}
                             </option>
                         {% endfor %}
                     </select>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {% if is_admin %}All committees available (admin){% else %}Committees you chair{% endif %}
+                        "Chapter (General)" for chapter-level docs, or select a committee
                     </p>
                 </div>
             </div>
@@ -59,7 +60,7 @@
                     Folder
                 </label>
                 <select name="chapter_folder" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <option value="">-- No Folder (show under committee) --</option>
+                    <option value="">-- No Folder --</option>
                     {% for folder in folders %}
                         <option value="{{ folder.id }}" {% if document.chapter_folder and document.chapter_folder.id == folder.id %}selected{% endif %}>
                             {{ folder.name }}
@@ -67,7 +68,7 @@
                     {% endfor %}
                 </select>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Documents without a folder will appear under their committee name
+                    Documents without a folder will appear under "Chapter Documents" or their committee name
                 </p>
             </div>
 
