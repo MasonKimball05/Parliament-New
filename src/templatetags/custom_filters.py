@@ -41,16 +41,71 @@ def linkify(value, autoescape=True):
     """Convert URLs in plain text to clickable links that open in new tabs.
 
     Safe against XSS: escapes the text first, then wraps detected URLs in <a> tags.
+    Handles URLs with http://, https://, www., and bare domain URLs.
     """
     if not value:
         return value
-    from django.utils.html import escape, urlize
-    text = escape(str(value)) if autoescape else str(value)
-    # urlize detects URLs and emails and wraps them in <a> tags
-    linked = urlize(text, nofollow=True, autoescape=False)
-    # Add target="_blank" so links open in a new tab, and style them as clickable links
-    linked = linked.replace(
-        '<a ',
-        '<a target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300" '
+    from django.utils.html import escape
+
+    text = str(value)
+
+    # Comprehensive URL regex pattern that catches:
+    # - http:// and https:// URLs
+    # - www. URLs (without protocol)
+    # - Common domain URLs like example.com/path
+    url_pattern = re.compile(
+        r'('
+        # URLs with protocol
+        r'https?://[^\s<>\[\]()"\',;]+(?<![.,;:!?\)\]\'\"])'
+        r'|'
+        # URLs starting with www.
+        r'www\.[^\s<>\[\]()"\',;]+(?<![.,;:!?\)\]\'\"])'
+        r')',
+        re.IGNORECASE
     )
-    return mark_safe(linked)
+
+    # Find all URLs in the original text
+    urls = []
+    for match in url_pattern.finditer(text):
+        urls.append((match.start(), match.end(), match.group(0)))
+
+    if not urls:
+        # No URLs found, just escape and return
+        return mark_safe(escape(text) if autoescape else text)
+
+    # Build the result by escaping non-URL parts and wrapping URLs in links
+    result = []
+    last_end = 0
+
+    for start, end, url in urls:
+        # Escape text before this URL
+        before_text = text[last_end:start]
+        if autoescape:
+            before_text = escape(before_text)
+        result.append(before_text)
+
+        # Create the link - add protocol if missing
+        href = url
+        if not url.lower().startswith(('http://', 'https://')):
+            href = 'https://' + url
+
+        # Escape the display URL for safety
+        display_url = escape(url) if autoescape else url
+
+        # Create the anchor tag
+        link = (
+            f'<a href="{escape(href)}" target="_blank" rel="noopener noreferrer" '
+            f'class="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300">'
+            f'{display_url}</a>'
+        )
+        result.append(link)
+
+        last_end = end
+
+    # Escape remaining text after the last URL
+    remaining_text = text[last_end:]
+    if autoescape:
+        remaining_text = escape(remaining_text)
+    result.append(remaining_text)
+
+    return mark_safe(''.join(result))
