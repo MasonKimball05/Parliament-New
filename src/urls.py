@@ -45,7 +45,7 @@ from src.view.admin_v2 import (
     remove_ip_from_whitelist, remove_ip_from_blacklist,
     manage_ip_whitelist, manage_ip_blacklist, manage_security_alerts,
     update_site_setting, send_test_announcement_email, preview_test_email,
-    health_check
+    health_check, check_default_password
 )
 from src.view.admin_v2 import manage_events as admin_v2_manage_events, delete_event as admin_v2_delete_event
 from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event
@@ -358,6 +358,7 @@ urlpatterns = [
     path('admin-v2/users/', manage_users, name='admin_v2_manage_users'),
     path('admin-v2/users/<str:user_id>/toggle-admin/', toggle_user_admin, name='admin_v2_toggle_user_admin'),
     path('admin-v2/users/<str:user_id>/remove-profile-picture/', remove_user_profile_picture, name='admin_v2_remove_user_profile_picture'),
+    path('api/check-default-password/<str:user_id>/', check_default_password, name='check_default_password'),
     path('admin-v2/login-history/', manage_login_history, name='admin_v2_login_history'),
     path('admin-v2/announcements/', admin_v2_manage_announcements_view, name='admin_v2_manage_announcements'),
     path('admin-v2/announcements/<int:announcement_id>/delete/', admin_v2_delete_announcement_view, name='admin_v2_delete_announcement'),

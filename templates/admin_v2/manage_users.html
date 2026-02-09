@@ -100,11 +100,11 @@
                             {% endif %}
                         </td>
                         <td class="px-4 py-4">
-                            {% if user.has_default_password %}
-                                <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300" title="Password is still set to username: {{ user.username }}">⚠️ Default</span>
-                            {% else %}
-                                <span class="px-2 py-1 text-xs rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300">✓ Changed</span>
-                            {% endif %}
+                            <button type="button"
+                                    onclick="checkPassword('{{ user.user_id }}', this)"
+                                    class="px-2 py-1 text-xs rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
+                                Check
+                            </button>
                         </td>
                         <td class="px-4 py-4">
                             <div class="flex items-center gap-2">
@@ -146,4 +146,51 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+function getCsrf() {
+    let val = null;
+    if (document.cookie) {
+        for (const c of document.cookie.split(';')) {
+            const t = c.trim();
+            if (t.startsWith('csrftoken=')) {
+                val = decodeURIComponent(t.substring(10));
+                break;
+            }
+        }
+    }
+    return val;
+}
+
+async function checkPassword(userId, btn) {
+    // Show loading state
+    const originalText = btn.textContent;
+    btn.textContent = '...';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(`/api/check-default-password/${userId}/`, {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': getCsrf(),
+            }
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            if (data.has_default_password) {
+                btn.outerHTML = `<span class="px-2 py-1 text-xs rounded-full bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300" title="Password matches: ${data.matched_pattern}">⚠️ Default</span>`;
+            } else {
+                btn.outerHTML = `<span class="px-2 py-1 text-xs rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300">✓ Changed</span>`;
+            }
+        } else {
+            btn.textContent = 'Error';
+            btn.classList.add('bg-red-100', 'text-red-600');
+        }
+    } catch (error) {
+        btn.textContent = 'Error';
+        btn.classList.add('bg-red-100', 'text-red-600');
+    }
+}
+</script>
 {% endblock %}

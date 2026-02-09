@@ -1289,6 +1289,47 @@ Test details:
 
 
 @require_admin_v2_auth
+def check_default_password(request, user_id):
+    """
+    API endpoint to check if a user has a default password.
+    Done on-demand to avoid expensive password hashing on every page load.
+    """
+    from django.http import JsonResponse
+    import re
+
+    try:
+        user = ParliamentUser.objects.get(user_id=user_id)
+    except ParliamentUser.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'User not found'}, status=404)
+
+    matched_pattern = None
+
+    # Pattern 1: First initial + last name (lowercase) - from add_members.sh
+    if user.name:
+        parts = user.name.strip().split()
+        if len(parts) >= 1:
+            first_initial = parts[0][0].lower() if parts[0] else ''
+            last_name = parts[-1].lower() if len(parts) > 1 else parts[0].lower()
+            default_password = re.sub(r'[^a-z0-9]', '', first_initial + last_name)
+            if default_password and user.check_password(default_password):
+                matched_pattern = default_password
+
+    # Pattern 2: Username
+    if not matched_pattern and user.username and user.check_password(user.username):
+        matched_pattern = user.username
+
+    # Pattern 3: User ID
+    if not matched_pattern and user.user_id and user.check_password(user.user_id):
+        matched_pattern = user.user_id
+
+    return JsonResponse({
+        'success': True,
+        'has_default_password': matched_pattern is not None,
+        'matched_pattern': matched_pattern,
+    })
+
+
+@require_admin_v2_auth
 def preview_test_email(request):
     """
     Render the test announcement email in the browser for preview.
