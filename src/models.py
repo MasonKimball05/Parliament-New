@@ -192,32 +192,36 @@ class ParliamentUser(AbstractBaseUser):
     def has_default_password(self):
         """
         Check if the user's password is still set to a default value.
-        Default password pattern from add_members.sh: first initial + last name (lowercase)
-        e.g., "James W. Smith" -> "jsmith", "Douglas E. Coltharp, Jr." -> "djr."
-        Also checks username for users created through the officer portal.
+        Default password pattern: first initial + last name + user_id (lowercase)
+        e.g., "Adam C. Boggs" with user_id 69 -> "aboggs69"
         Returns True if password matches any default pattern, False otherwise.
         """
-        # Pattern 1: First initial + last name (lowercase) - from add_members.sh
-        # The shell script keeps special characters (periods, commas) - only lowercases
+        import re
+
+        # Pattern: first initial + last name + user_id
         if self.name:
             parts = self.name.strip().split()
             if len(parts) >= 1:
                 first_initial = parts[0][0].lower() if parts[0] else ''
                 last_name = parts[-1].lower() if len(parts) > 1 else parts[0].lower()
-                # Don't strip special characters - shell script keeps them
-                default_password = first_initial + last_name
-                if default_password and self.check_password(default_password):
+                # Remove special characters (periods, commas, etc.)
+                clean_last = re.sub(r'[^a-z0-9]', '', last_name)
+                base_pattern = first_initial + clean_last
+
+                # Primary pattern: base + user_id (e.g., "aboggs69")
+                if self.check_password(base_pattern + str(self.user_id)):
                     return True
 
-        # Pattern 2: Username (for users created through officer portal where password = username)
-        if self.username:
-            if self.check_password(self.username):
-                return True
-            if self.check_password(self.username.lower()):
-                return True
+                # Also check without user_id
+                if self.check_password(base_pattern):
+                    return True
 
-        # Pattern 3: User ID (in case that was used)
-        if self.user_id and self.check_password(self.user_id):
+                # With "1" suffix
+                if self.check_password(base_pattern + '1'):
+                    return True
+
+        # User ID alone
+        if self.user_id and self.check_password(str(self.user_id)):
             return True
 
         return False
