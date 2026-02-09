@@ -76,34 +76,34 @@
         </div>
 
         <!-- Calendar Table -->
-        <div class="p-4">
-            <div id="calendarGrid" class="grid grid-cols-7 gap-2">
-                <!-- Day headers -->
-                <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2">Sun</div>
-                <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2">Mon</div>
-                <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2">Tue</div>
-                <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2">Wed</div>
-                <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2">Thu</div>
-                <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2">Fri</div>
-                <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2">Sat</div>
+        <div class="p-2 sm:p-4 overflow-x-auto">
+            <div id="calendarGrid" class="grid grid-cols-7 gap-1 sm:gap-2 min-w-[500px]">
+                <!-- Day headers - abbreviated on mobile -->
+                <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2 text-xs sm:text-sm"><span class="sm:hidden">S</span><span class="hidden sm:inline">Sun</span></div>
+                <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2 text-xs sm:text-sm"><span class="sm:hidden">M</span><span class="hidden sm:inline">Mon</span></div>
+                <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2 text-xs sm:text-sm"><span class="sm:hidden">T</span><span class="hidden sm:inline">Tue</span></div>
+                <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2 text-xs sm:text-sm"><span class="sm:hidden">W</span><span class="hidden sm:inline">Wed</span></div>
+                <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2 text-xs sm:text-sm"><span class="sm:hidden">T</span><span class="hidden sm:inline">Thu</span></div>
+                <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2 text-xs sm:text-sm"><span class="sm:hidden">F</span><span class="hidden sm:inline">Fri</span></div>
+                <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2 text-xs sm:text-sm"><span class="sm:hidden">S</span><span class="hidden sm:inline">Sat</span></div>
 
                 <!-- Calendar days -->
                 {% for week in calendar %}
                     {% for day in week %}
-                        <div class="min-h-24 border border-gray-200 dark:border-gray-700 rounded-lg p-2 {% if day == 0 %}bg-gray-50 dark:bg-gray-900{% elif day == today %}bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-500{% else %}bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700{% endif %} transition">
+                        <div class="min-h-24 border border-gray-200 dark:border-gray-700 rounded-lg p-1 sm:p-2 {% if day == 0 %}bg-gray-50 dark:bg-gray-900{% elif day == today %}bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-500{% else %}bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700{% endif %} transition">
                             {% if day != 0 %}
                                 <div class="text-right">
-                                    <span class="{% if day == today %}bg-blue-600 dark:bg-blue-500 text-white rounded-full px-2 py-1 text-sm font-bold{% else %}text-gray-700 dark:text-gray-300 font-medium{% endif %}">
+                                    <span class="{% if day == today %}bg-blue-600 dark:bg-blue-500 text-white rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs sm:text-sm font-bold{% else %}text-gray-700 dark:text-gray-300 font-medium text-xs sm:text-sm{% endif %}">
                                         {{ day }}
                                     </span>
                                 </div>
                                 {% if day in events_by_day %}
                                     <div class="mt-1 space-y-1">
                                         {% for event in events_by_day|get_item:day %}
-                                            <div class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs px-2 py-1 rounded cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800 transition"
+                                            <div class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800 transition"
                                                  onclick="showEventDetails{{ event.id }}()">
-                                                <div class="font-semibold truncate">{{ event.date_time|date:"g:i A" }}</div>
-                                                <div class="truncate">{{ event.title }}</div>
+                                                <div class="font-semibold truncate text-[10px] sm:text-xs">{{ event.date_time|date:"g:i A" }}</div>
+                                                <div class="truncate text-[10px] sm:text-xs">{{ event.title }}</div>
                                             </div>
                                             <!-- Hidden event details modal trigger -->
                                             <script>
@@ -155,7 +155,7 @@
                     </div>
                     <div class="space-y-4">
                         <div class="flex items-center gap-2 mb-2">
-                            <p class="text-gray-700 dark:text-gray-300">{{ event.description }}</p>
+                            <p class="text-gray-700 dark:text-gray-300">{{ event.description|linebreaksbr }}</p>
                             {% if event.allow_excuses and not event.requires_attendance %}
                             <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300" title="Attendance is not marked as required for this event">
                                 Optional Attendance
@@ -292,7 +292,12 @@
 
 <style>
     .min-h-24 {
-        min-height: 6rem;
+        min-height: 5rem;
+    }
+    @media (min-width: 640px) {
+        .min-h-24 {
+            min-height: 6rem;
+        }
     }
 </style>
 
@@ -424,13 +429,13 @@
     function renderCalendar(data) {
         const grid = document.getElementById('calendarGrid');
         let html = `
-            <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2">Sun</div>
-            <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2">Mon</div>
-            <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2">Tue</div>
-            <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2">Wed</div>
-            <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2">Thu</div>
-            <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2">Fri</div>
-            <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2">Sat</div>
+            <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2 text-xs sm:text-sm"><span class="sm:hidden">S</span><span class="hidden sm:inline">Sun</span></div>
+            <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2 text-xs sm:text-sm"><span class="sm:hidden">M</span><span class="hidden sm:inline">Mon</span></div>
+            <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2 text-xs sm:text-sm"><span class="sm:hidden">T</span><span class="hidden sm:inline">Tue</span></div>
+            <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2 text-xs sm:text-sm"><span class="sm:hidden">W</span><span class="hidden sm:inline">Wed</span></div>
+            <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2 text-xs sm:text-sm"><span class="sm:hidden">T</span><span class="hidden sm:inline">Thu</span></div>
+            <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2 text-xs sm:text-sm"><span class="sm:hidden">F</span><span class="hidden sm:inline">Fri</span></div>
+            <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2 text-xs sm:text-sm"><span class="sm:hidden">S</span><span class="hidden sm:inline">Sat</span></div>
         `;
 
         // Render calendar days
@@ -444,12 +449,12 @@
                         ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-500'
                         : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700');
 
-                html += `<div class="min-h-24 border border-gray-200 dark:border-gray-700 rounded-lg p-2 ${bgClass} transition">`;
+                html += `<div class="min-h-24 border border-gray-200 dark:border-gray-700 rounded-lg p-1 sm:p-2 ${bgClass} transition">`;
 
                 if (!isEmpty) {
                     const dayClass = isToday
-                        ? 'bg-blue-600 dark:bg-blue-500 text-white rounded-full px-2 py-1 text-sm font-bold'
-                        : 'text-gray-700 dark:text-gray-300 font-medium';
+                        ? 'bg-blue-600 dark:bg-blue-500 text-white rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs sm:text-sm font-bold'
+                        : 'text-gray-700 dark:text-gray-300 font-medium text-xs sm:text-sm';
                     html += `<div class="text-right"><span class="${dayClass}">${day}</span></div>`;
 
                     // Add events for this day
@@ -457,10 +462,10 @@
                         html += '<div class="mt-1 space-y-1">';
                         data.events[day].forEach(event => {
                             html += `
-                                <div class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs px-2 py-1 rounded cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800 transition"
-                                     onclick="showEventModal(${event.id}, '${escapeHtml(event.title)}', '${escapeHtml(event.description)}', '${event.full_datetime}', '${escapeHtml(event.location)}', '${escapeHtml(event.created_by)}', ${event.requires_attendance}, ${event.allow_excuses}, ${event.can_submit_excuse}, ${event.has_excuse}, '${event.excuse_status}')">
-                                    <div class="font-semibold truncate">${event.time}</div>
-                                    <div class="truncate">${escapeHtml(event.title)}</div>
+                                <div class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800 transition"
+                                     onclick="showEventModal(${event.id}, '${escapeForJs(event.title)}', '${escapeForJs(event.description)}', '${event.full_datetime}', '${escapeForJs(event.location)}', '${escapeForJs(event.created_by)}', ${event.requires_attendance}, ${event.allow_excuses}, ${event.can_submit_excuse}, ${event.has_excuse}, '${event.excuse_status}')">
+                                    <div class="font-semibold truncate text-[10px] sm:text-xs">${event.time}</div>
+                                    <div class="truncate text-[10px] sm:text-xs">${escapeHtml(event.title)}</div>
                                 </div>
                             `;
                         });
@@ -479,6 +484,23 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // Escape for use in JavaScript string literals (handles newlines, quotes, etc.)
+    function escapeForJs(text) {
+        if (!text) return '';
+        return text
+            .replace(/\\/g, '\\\\')
+            .replace(/'/g, "\\'")
+            .replace(/"/g, '\\"')
+            .replace(/\n/g, '\\n')
+            .replace(/\r/g, '\\r');
+    }
+
+    // Convert newlines to <br> tags for HTML display
+    function nl2br(text) {
+        if (!text) return '';
+        return escapeHtml(text).replace(/\\n/g, '<br>').replace(/\n/g, '<br>');
     }
 
     function showEventModal(id, title, description, datetime, location, createdBy, requiresAttendance, allowExcuses, canSubmitExcuse, hasExcuse, excuseStatus) {
@@ -568,7 +590,7 @@
                         </button>
                     </div>
                     <div class="space-y-4">
-                        <p class="text-gray-700 dark:text-gray-300">${description}</p>
+                        <p class="text-gray-700 dark:text-gray-300">${nl2br(description)}</p>
                         <div class="flex items-center text-gray-600 dark:text-gray-400">
                             <svg class="w-5 h-5 mr-2 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
