@@ -14,7 +14,6 @@ def committee_manage_members(request, code):
     ).first()
 
     # Allow site admins, committee admin, or committee chairs to bypass permission checks
-    is_committee_admin = committee.admin == request.user if committee.admin else False
     is_chair = committee.chairs.filter(pk=request.user.pk).exists()
     if not request.user.is_admin and not request.user.is_vp and not is_chair:
         if not perm or not perm.can_manage_members:
