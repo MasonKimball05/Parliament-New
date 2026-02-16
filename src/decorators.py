@@ -75,6 +75,7 @@ def exclude_pledges(view_func):
             return redirect('login')
 
         if request.user.is_pledge:
-            return HttpResponseForbidden("This page is not accessible to pledge members.")
+            from django.shortcuts import render
+            return render(request, 'errors/pledge_restricted.html', status=403)
         return view_func(request, *args, **kwargs)
     return wrapper

@@ -33,7 +33,7 @@
             <div class="member-card bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border-l-4 border-purple-500"
                  data-name="{{ member.name|lower }}"
                  data-email="{{ member.email|lower|default:'' }}"
-                 data-role="{{ member.role_number|default:'' }}">
+                 data-role="{{ member.role_number|default:member.user_id }}">
                 <div class="flex items-start gap-3">
                     {% if member.profile_picture %}
                     <img src="{{ member.profile_picture.url }}" alt="{{ member.name }}"
@@ -48,7 +48,7 @@
                     <div class="flex-1 min-w-0">
                         <h3 class="font-semibold text-gray-900 dark:text-white truncate">{{ member.get_display_name }}</h3>
                         <p class="text-sm text-gray-500 dark:text-gray-400">
-                            {% if member.role_number %}#{{ member.role_number }}{% endif %}
+                            {% if member.role_number %}#{{ member.role_number }}{% else %}{{ member.user_id }}{% endif %}
                         </p>
                         {% if member.email %}
                         <a href="mailto:{{ member.email }}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline truncate block">
@@ -84,7 +84,7 @@
             <div class="member-card bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border-l-4 border-blue-500"
                  data-name="{{ member.name|lower }}"
                  data-email="{{ member.email|lower|default:'' }}"
-                 data-role="{{ member.role_number|default:'' }}">
+                 data-role="{{ member.role_number|default:member.user_id }}">
                 <div class="flex items-start gap-3">
                     {% if member.profile_picture %}
                     <img src="{{ member.profile_picture.url }}" alt="{{ member.name }}"
@@ -99,7 +99,7 @@
                     <div class="flex-1 min-w-0">
                         <h3 class="font-semibold text-gray-900 dark:text-white truncate">{{ member.get_display_name }}</h3>
                         <p class="text-sm text-gray-500 dark:text-gray-400">
-                            {% if member.role_number %}#{{ member.role_number }}{% endif %}
+                            {% if member.role_number %}#{{ member.role_number }}{% else %}{{ member.user_id }}{% endif %}
                         </p>
                         {% if member.email %}
                         <a href="mailto:{{ member.email }}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline truncate block">
@@ -126,7 +126,7 @@
             <div class="member-card bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border-l-4 border-green-500"
                  data-name="{{ member.name|lower }}"
                  data-email="{{ member.email|lower|default:'' }}"
-                 data-role="{{ member.role_number|default:'' }}">
+                 data-role="{{ member.role_number|default:member.user_id }}">
                 <div class="flex items-start gap-3">
                     {% if member.profile_picture %}
                     <img src="{{ member.profile_picture.url }}" alt="{{ member.name }}"
@@ -141,7 +141,7 @@
                     <div class="flex-1 min-w-0">
                         <h3 class="font-semibold text-gray-900 dark:text-white truncate">{{ member.get_display_name }}</h3>
                         <p class="text-sm text-gray-500 dark:text-gray-400">
-                            {% if member.role_number %}#{{ member.role_number }}{% endif %}
+                            {% if member.role_number %}#{{ member.role_number }}{% else %}{{ member.user_id }}{% endif %}
                         </p>
                         {% if member.email %}
                         <a href="mailto:{{ member.email }}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline truncate block">
