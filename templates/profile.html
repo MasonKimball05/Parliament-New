@@ -66,10 +66,12 @@
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
                 <p class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 px-4 py-2 rounded border border-gray-200 dark:border-gray-600">{{ user.name }}</p>
             </div>
+            {% if not user.is_pledge %}
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User ID / Role Number</label>
                 <p class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 px-4 py-2 rounded border border-gray-200 dark:border-gray-600">{{ user.user_id }}</p>
             </div>
+            {% endif %}
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Member Type</label>
                 <p class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 px-4 py-2 rounded border border-gray-200 dark:border-gray-600">

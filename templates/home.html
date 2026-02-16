@@ -11,7 +11,7 @@
         <div class="flex items-center justify-between">
             <div>
                 <h1 class="text-2xl sm:text-3xl font-bold mb-2">Welcome, {{ user.get_display_name }}</h1>
-                <p class="text-sm sm:text-base opacity-90">{{ user.member_type }} • {{ user.user_id }}</p>
+                <p class="text-sm sm:text-base opacity-90">{{ user.member_type }}{% if not user.is_pledge %} • {{ user.user_id }}{% endif %}</p>
             </div>
             <img src="{% static 'images/beta-seal.webp' %}" alt="Beta Theta Pi Seal" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-contain bg-white p-1 shadow-lg">
         </div>
@@ -153,6 +153,17 @@
                 </svg>
             </div>
             <p class="text-gray-600 dark:text-gray-400 text-sm">View upcoming chapter events</p>
+        </a>
+
+        <!-- Directory Card -->
+        <a href="{% url 'member_directory' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 group">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:text-primary-400 transition-colors">Directory</h2>
+                <svg class="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                </svg>
+            </div>
+            <p class="text-gray-600 dark:text-gray-400 text-sm">View member contact information</p>
         </a>
 
         <!-- Excuses Card -->
