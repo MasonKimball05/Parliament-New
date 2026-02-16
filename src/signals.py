@@ -168,3 +168,104 @@ def log_failed_login(sender, credentials, request, **kwargs):
 
     except Exception as e:
         logger.error(f"Error logging failed login: {str(e)}", exc_info=True)
+
+
+# ============================================================================
+# Executive Board Committee Auto-Sync
+# ============================================================================
+
+from django.db.models.signals import m2m_changed
+
+# Executive role codes that grant EXEC committee membership
+EXEC_ROLE_CODES = ['President', 'EVP', 'VPB', 'VPR', 'VPE', 'VPI', 'VPS', 'VPM', 'VPP', 'VPF', 'VPA', 'VPRM']
+
+
+def sync_exec_committee():
+    """
+    Manually sync Executive Board committee membership.
+    Call this function to ensure EXEC committee is in sync with role holders.
+    """
+    from src.models import Committee, Role, ParliamentUser
+
+    try:
+        exec_committee = Committee.objects.get(is_exec_board=True)
+    except Committee.DoesNotExist:
+        logger.warning("No committee with is_exec_board=True found")
+        return
+
+    # Get all executive roles
+    exec_roles = Role.objects.filter(code__in=EXEC_ROLE_CODES)
+
+    # Get all users with any exec role
+    users_with_exec_roles = ParliamentUser.objects.filter(roles__in=exec_roles).distinct()
+
+    # Sync membership
+    exec_committee.members.set(users_with_exec_roles)
+    logger.info(f"Synced EXEC committee membership: {users_with_exec_roles.count()} members")
+
+    # Sync chairs (President and EVP)
+    pres_evp_roles = Role.objects.filter(code__in=['President', 'EVP'])
+    chairs = ParliamentUser.objects.filter(roles__in=pres_evp_roles).distinct()
+    exec_committee.chairs.set(chairs)
+    logger.info(f"Synced EXEC committee chairs: {chairs.count()} chairs")
+
+    # Set EVP as admin
+    evp_role = Role.objects.filter(code='EVP').first()
+    if evp_role:
+        evp_user = ParliamentUser.objects.filter(roles=evp_role).first()
+        if evp_user and exec_committee.admin != evp_user:
+            exec_committee.admin = evp_user
+            exec_committee.save(update_fields=['admin'])
+            logger.info(f"Set EXEC committee admin to EVP: {evp_user.name}")
+
+
+def setup_slating_committee_admin():
+    """
+    Set up the Slating Committee with President as default admin.
+    """
+    from src.models import Committee, Role, ParliamentUser
+
+    try:
+        slating_committee = Committee.objects.get(is_slating_committee=True)
+    except Committee.DoesNotExist:
+        logger.warning("No committee with is_slating_committee=True found")
+        return
+
+    # If no admin set, set President as default admin
+    if not slating_committee.admin:
+        pres_role = Role.objects.filter(code='President').first()
+        if pres_role:
+            president = ParliamentUser.objects.filter(roles=pres_role).first()
+            if president:
+                slating_committee.admin = president
+                slating_committee.save(update_fields=['admin'])
+                logger.info(f"Set Slating Committee admin to President: {president.name}")
+
+
+@receiver(m2m_changed)
+def sync_exec_committee_on_role_change(sender, instance, action, pk_set, model, **kwargs):
+    """
+    When user roles change, sync Executive Board membership.
+    This is connected to ParliamentUser.roles.through via m2m_changed signal.
+    """
+    from src.models import ParliamentUser, Role
+
+    # Check if this is the ParliamentUser.roles.through model
+    if sender != ParliamentUser.roles.through:
+        return
+
+    if action not in ['post_add', 'post_remove', 'post_clear']:
+        return
+
+    # Check if any of the changed roles are exec roles
+    if action in ['post_add', 'post_remove'] and pk_set:
+        changed_roles = Role.objects.filter(pk__in=pk_set)
+        exec_role_codes = set(changed_roles.values_list('code', flat=True))
+        if not exec_role_codes.intersection(set(EXEC_ROLE_CODES)):
+            return  # No exec roles changed
+
+    # Sync the EXEC committee
+    try:
+        sync_exec_committee()
+    except Exception as e:
+        logger.error(f"Error syncing EXEC committee: {e}")

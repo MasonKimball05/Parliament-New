@@ -20,12 +20,19 @@ def committee_manage_members(request, code):
         if not perm or not perm.can_manage_members:
             return HttpResponseForbidden("You cannot manage committee members.")
 
-    all_users = ParliamentUser.active.all()
+    # Exclude pledges from available users for committee membership
+    all_users = ParliamentUser.active.exclude(member_type='Pledge')
 
     if request.method == "POST":
         action = request.POST.get("action")
         user_id = request.POST.get("user_id")
         target = ParliamentUser.objects.get(user_id=user_id)
+
+        # Prevent adding pledges to committees
+        if target.is_pledge and action in ["add_member", "add_advisor", "add_voter"]:
+            from django.contrib import messages
+            messages.error(request, "Pledges cannot be added to committees.")
+            return redirect("committee_manage_members", code=code)
 
         if action == "add_member":
             committee.members.add(target)

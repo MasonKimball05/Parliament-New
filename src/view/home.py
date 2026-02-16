@@ -100,6 +100,12 @@ def home(request):
         created_at__gte=week_ago
     ) if e.is_visible_to_user(request.user)])
 
+    # === ACTIVE SLATING PERIOD ===
+    # Show card if there's an active slating period (nominations or voting open, or results published)
+    active_slating_period = SlatingPeriod.objects.filter(
+        status__in=['nominations_open', 'voting_open', 'results_published']
+    ).first()
+
     context = {
         'user': request.user,
         # Stats
@@ -116,6 +122,8 @@ def home(request):
         # Activity
         'new_announcements_week': new_announcements_week,
         'new_events_week': new_events_week,
+        # Slating
+        'active_slating_period': active_slating_period,
     }
 
     return render(request, 'home.html', context)

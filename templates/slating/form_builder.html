@@ -1,0 +1,406 @@
+{% extends 'slating/base_slating.html' %}
+
+{% block breadcrumbs %}
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <a href="{% url 'slating_period_setup' period_id=period.id %}" class="text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">{{ period.name }}</a>
+</li>
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <span class="text-gray-700 dark:text-gray-300">Form Builder</span>
+</li>
+{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Application Form Builder</h1>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
+    </div>
+    <button type="button" onclick="document.getElementById('addFieldModal').classList.remove('hidden')"
+        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+        <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+        </svg>
+        Add Field
+    </button>
+</div>
+{% endblock %}
+
+{% block slating_content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Form Fields List -->
+    <div class="lg:col-span-2">
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Form Fields</h3>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Drag to reorder fields</p>
+            </div>
+
+            {% if fields %}
+            <ul id="fieldsList" class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for field in fields %}
+                <li class="field-item px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-grab active:cursor-grabbing transition-all duration-150" data-field-id="{{ field.id }}" draggable="true">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <span class="drag-handle p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600" title="Drag to reorder">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                                </svg>
+                            </span>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                    {{ field.label }}
+                                    {% if field.is_required %}
+                                    <span class="text-red-500">*</span>
+                                    {% endif %}
+                                </p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">
+                                    {{ field.get_field_type_display }}
+                                    {% if field.section %} &middot; {{ field.section }}{% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            {% if not field.is_active %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                                Inactive
+                            </span>
+                            {% endif %}
+                            <button type="button" data-field-id="{{ field.id }}" data-field-name="{{ field.field_name }}" data-label="{{ field.label|escapejs }}" data-field-type="{{ field.field_type }}" data-section="{{ field.section|escapejs }}" data-help-text="{{ field.help_text|escapejs }}" data-is-required="{{ field.is_required|yesno:'true,false' }}" data-show-in-review="{{ field.show_in_review|yesno:'true,false' }}" data-options="{% for opt in field.options %}{{ opt|escapejs }}{% if not forloop.last %}&#10;{% endif %}{% endfor %}" onclick="editFieldFromButton(this)"
+                                class="p-1 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                            </button>
+                            <form method="post" class="inline-flex" onsubmit="return confirm('Delete this field?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_field">
+                                <input type="hidden" name="field_id" value="{{ field.id }}">
+                                <button type="submit" class="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="px-4 py-12 text-center">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No form fields</h3>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    Start by adding fields to your application form.
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="space-y-6">
+        <!-- Field Types Reference -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Field Types</h3>
+            </div>
+            <div class="px-4 py-4 space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                <p><span class="font-medium text-gray-900 dark:text-white">Text:</span> Single line input</p>
+                <p><span class="font-medium text-gray-900 dark:text-white">Text Area:</span> Multi-line text</p>
+                <p><span class="font-medium text-gray-900 dark:text-white">Select:</span> Dropdown options</p>
+                <p><span class="font-medium text-gray-900 dark:text-white">Multi-Select:</span> Multiple choices</p>
+                <p><span class="font-medium text-gray-900 dark:text-white">Checkbox:</span> Yes/No toggle</p>
+                <p><span class="font-medium text-gray-900 dark:text-white">Radio:</span> Single choice from options</p>
+                <p><span class="font-medium text-gray-900 dark:text-white">Number/Decimal:</span> Numeric values</p>
+                <p><span class="font-medium text-gray-900 dark:text-white">Date:</span> Date picker</p>
+                <p><span class="font-medium text-gray-900 dark:text-white">Email:</span> Email address</p>
+                <p><span class="font-medium text-gray-900 dark:text-white">File/Image:</span> File upload</p>
+                <p><span class="font-medium text-gray-900 dark:text-white">GPA:</span> GPA with screenshot</p>
+                <p><span class="font-medium text-gray-900 dark:text-white">Position Preference:</span> Ranked position selection</p>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Quick Actions</h3>
+            </div>
+            <div class="px-4 py-4 space-y-2">
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_default_fields">
+                    <button type="submit" class="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
+                        Add Default Fields
+                    </button>
+                </form>
+                <a href="{% url 'slating_period_setup' period_id=period.id %}" class="block px-3 py-2 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
+                    Back to Period Setup
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Field Modal -->
+<div id="addFieldModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeModal()"></div>
+
+        <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <form method="post" id="fieldForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" id="formAction" value="add_field">
+                <input type="hidden" name="field_id" id="editFieldId" value="">
+
+                <div class="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4" id="modalTitle">Add Field</h3>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label for="field_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Field Type</label>
+                            <select name="field_type" id="field_type" required
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+                                <option value="text">Text (Single Line)</option>
+                                <option value="textarea">Text Area (Multi-line)</option>
+                                <option value="number">Number</option>
+                                <option value="decimal">Decimal Number</option>
+                                <option value="email">Email Address</option>
+                                <option value="date">Date</option>
+                                <option value="select">Dropdown Select</option>
+                                <option value="multiselect">Multi-Select</option>
+                                <option value="checkbox">Checkbox</option>
+                                <option value="radio">Radio Buttons</option>
+                                <option value="file">File Upload</option>
+                                <option value="image">Image Upload</option>
+                                <option value="gpa">GPA Entry</option>
+                                <option value="position_preference">Position Preference</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="label" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Label</label>
+                            <input type="text" name="label" id="label" required
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
+                                placeholder="e.g., Why do you want this position?">
+                        </div>
+
+                        <div>
+                            <label for="field_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Field Name (internal)</label>
+                            <input type="text" name="field_name" id="field_name" required
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
+                                placeholder="e.g., position_statement" pattern="[a-z_]+">
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Lowercase letters and underscores only</p>
+                        </div>
+
+                        <div>
+                            <label for="section" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Section</label>
+                            <input type="text" name="section" id="section"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
+                                placeholder="e.g., Personal Information">
+                        </div>
+
+                        <div>
+                            <label for="help_text" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Help Text</label>
+                            <textarea name="help_text" id="help_text" rows="2"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
+                                placeholder="Optional guidance for applicants"></textarea>
+                        </div>
+
+                        <div id="optionsField" class="hidden">
+                            <label for="options" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Options (one per line)</label>
+                            <textarea name="options" id="options" rows="4"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
+                                placeholder="Option 1&#10;Option 2&#10;Option 3"></textarea>
+                        </div>
+
+                        <div class="flex items-center space-x-6">
+                            <div class="flex items-center">
+                                <input type="checkbox" name="is_required" id="is_required"
+                                    class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                                <label for="is_required" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">Required</label>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="checkbox" name="show_in_review" id="show_in_review" checked
+                                    class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                                <label for="show_in_review" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">Show in Review</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        Save Field
+                    </button>
+                    <button type="button" onclick="closeModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block slating_js %}
+<script>
+// Field type change handler
+document.getElementById('field_type').addEventListener('change', function() {
+    const optionsField = document.getElementById('optionsField');
+    const typesWithOptions = ['select', 'multiselect', 'radio'];
+    if (typesWithOptions.includes(this.value)) {
+        optionsField.classList.remove('hidden');
+    } else {
+        optionsField.classList.add('hidden');
+    }
+});
+
+function closeModal() {
+    document.getElementById('addFieldModal').classList.add('hidden');
+    document.getElementById('fieldForm').reset();
+    document.getElementById('formAction').value = 'add_field';
+    document.getElementById('editFieldId').value = '';
+    document.getElementById('modalTitle').textContent = 'Add Field';
+
+    // Reset field_name to editable state
+    const fieldNameInput = document.getElementById('field_name');
+    fieldNameInput.readOnly = false;
+    fieldNameInput.classList.remove('bg-gray-100', 'dark:bg-gray-600');
+
+    // Hide options field
+    document.getElementById('optionsField').classList.add('hidden');
+}
+
+function editFieldFromButton(button) {
+    const fieldId = button.dataset.fieldId;
+    const fieldName = button.dataset.fieldName;
+    const label = button.dataset.label;
+    const fieldType = button.dataset.fieldType;
+    const section = button.dataset.section;
+    const helpText = button.dataset.helpText;
+    const isRequired = button.dataset.isRequired === 'true';
+    const showInReview = button.dataset.showInReview === 'true';
+    const options = button.dataset.options || '';
+
+    // Populate the form with existing field data
+    document.getElementById('formAction').value = 'update_field';
+    document.getElementById('editFieldId').value = fieldId;
+    document.getElementById('modalTitle').textContent = 'Edit Field';
+
+    // Populate form fields
+    document.getElementById('field_name').value = fieldName;
+    document.getElementById('label').value = label;
+    document.getElementById('field_type').value = fieldType;
+    document.getElementById('section').value = section || '';
+    document.getElementById('help_text').value = helpText || '';
+    document.getElementById('is_required').checked = isRequired;
+    document.getElementById('show_in_review').checked = showInReview;
+
+    // Handle options field visibility and content
+    const optionsField = document.getElementById('optionsField');
+    const typesWithOptions = ['select', 'multiselect', 'radio'];
+    if (typesWithOptions.includes(fieldType)) {
+        optionsField.classList.remove('hidden');
+        document.getElementById('options').value = options;
+    } else {
+        optionsField.classList.add('hidden');
+    }
+
+    // Disable field_name for existing fields (can't change internal name)
+    document.getElementById('field_name').readOnly = true;
+    document.getElementById('field_name').classList.add('bg-gray-100', 'dark:bg-gray-600');
+
+    document.getElementById('addFieldModal').classList.remove('hidden');
+}
+
+// Drag-and-drop reordering
+const fieldsList = document.getElementById('fieldsList');
+if (fieldsList) {
+    let draggedItem = null;
+
+    fieldsList.addEventListener('dragstart', (e) => {
+        draggedItem = e.target.closest('.field-item');
+        if (draggedItem) {
+            draggedItem.classList.add('opacity-50', 'bg-blue-50', 'dark:bg-blue-900/20', 'border', 'border-dashed', 'border-blue-400');
+            // Required for Firefox
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', draggedItem.innerHTML);
+        }
+    });
+
+    fieldsList.addEventListener('dragend', (e) => {
+        if (draggedItem) {
+            draggedItem.classList.remove('opacity-50', 'bg-blue-50', 'dark:bg-blue-900/20', 'border', 'border-dashed', 'border-blue-400');
+            // Remove any drag-over indicators
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over', 'border-t-2', 'border-blue-500'));
+            draggedItem = null;
+            saveFieldOrder();
+        }
+    });
+
+    fieldsList.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+
+        const afterElement = getDragAfterElement(fieldsList, e.clientY);
+
+        // Remove previous indicators
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over', 'border-t-2', 'border-blue-500'));
+
+        if (afterElement == null) {
+            fieldsList.appendChild(draggedItem);
+        } else {
+            // Add indicator to show where item will be dropped
+            afterElement.classList.add('drag-over', 'border-t-2', 'border-blue-500');
+            fieldsList.insertBefore(draggedItem, afterElement);
+        }
+    });
+
+    fieldsList.addEventListener('dragleave', (e) => {
+        // Clean up indicators when leaving the list
+        if (e.target === fieldsList) {
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over', 'border-t-2', 'border-blue-500'));
+        }
+    });
+
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.field-item:not(.opacity-50)')];
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    function saveFieldOrder() {
+        const items = document.querySelectorAll('.field-item');
+        const order = Array.from(items).map(item => item.dataset.fieldId);
+
+        fetch('{% url "slating_api_reorder_fields" period_id=period.id %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ field_order: order })
+        }).then(response => {
+            if (response.ok) {
+                // Optional: Show brief success indicator
+                console.log('Field order saved');
+            }
+        }).catch(error => {
+            console.error('Failed to save field order:', error);
+        });
+    }
+}
+</script>
+{% endblock %}

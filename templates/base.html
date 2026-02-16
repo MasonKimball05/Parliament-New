@@ -120,7 +120,7 @@
                                 Robert's Rules
                             </a>
                             {% endif %}
-                            {% if user.is_officer %}
+                            {% if user.can_manage_events %}
                             <a href="{% url 'officer_home' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Officers
                             </a>
@@ -278,7 +278,10 @@
                 <a href="{% url 'constitution_bylaws' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📜 Constitution
                 </a>
-                {% if user.is_officer %}
+                <a href="{% url 'member_directory' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
+                    📇 Directory
+                </a>
+                {% if user.can_manage_events %}
                 <a href="{% url 'officer_home' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     ⚙️ Officers
                 </a>
@@ -1261,7 +1264,7 @@
     <!-- User Context for Quick Actions -->
     {% if user.is_authenticated %}
     <script>
-        window.userIsOfficer = {{ user.is_officer|yesno:"true,false" }};
+        window.userIsOfficer = {{ user.can_manage_events|yesno:"true,false" }};
         window.userIsAdmin = {{ user.is_admin|yesno:"true,false" }};
     </script>
 
@@ -1426,5 +1429,7 @@
     })();
     </script>
     {% endif %}
+
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

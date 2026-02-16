@@ -64,7 +64,7 @@
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                     {{ form.visible_to.label }}
                 </label>
-                <div class="space-y-2">
+                <div class="space-y-2" id="visibility-checkboxes">
                     {% for choice in form.visible_to %}
                         <div class="flex items-center">
                             {{ choice.tag }}
@@ -80,6 +80,21 @@
                 {% if form.visible_to.errors %}
                     <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ form.visible_to.errors.0 }}</p>
                 {% endif %}
+
+                <!-- Pledge Visibility Warning -->
+                <div id="pledge-visibility-warning" class="mt-3 p-3 bg-yellow-100 dark:bg-yellow-900/40 border border-yellow-300 dark:border-yellow-700 rounded-lg">
+                    <div class="flex items-start">
+                        <svg class="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                        <div>
+                            <p class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Pledges can see this event</p>
+                            <p class="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                                This event will be visible to pledge members. Uncheck "Pledges" above if this event should be hidden from pledges.
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="flex items-center">
@@ -227,6 +242,34 @@ document.addEventListener('DOMContentLoaded', function() {
     const customRecurrenceOptions = document.getElementById('custom-recurrence-options');
     const weeklyDaysOptions = document.getElementById('weekly-days-options');
     const recurrenceUnitSelect = document.getElementById('{{ form.recurrence_unit.id_for_label }}');
+
+    // Pledge visibility warning
+    const visibilityCheckboxes = document.getElementById('visibility-checkboxes');
+    const pledgeWarning = document.getElementById('pledge-visibility-warning');
+
+    function updatePledgeWarning() {
+        if (!visibilityCheckboxes || !pledgeWarning) return;
+
+        const checkboxes = visibilityCheckboxes.querySelectorAll('input[type="checkbox"]');
+        const checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked);
+        const pledgeCheckbox = Array.from(checkboxes).find(cb => cb.value === 'Pledge');
+
+        // Show warning if: no checkboxes selected (visible to all) OR pledge checkbox is checked
+        const pledgeCanSee = checkedBoxes.length === 0 || (pledgeCheckbox && pledgeCheckbox.checked);
+
+        if (pledgeCanSee) {
+            pledgeWarning.classList.remove('hidden');
+        } else {
+            pledgeWarning.classList.add('hidden');
+        }
+    }
+
+    // Attach listeners to visibility checkboxes
+    if (visibilityCheckboxes) {
+        const checkboxes = visibilityCheckboxes.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.addEventListener('change', updatePledgeWarning));
+        updatePledgeWarning(); // Initial state
+    }
 
     function updateRecurringVisibility() {
         if (isRecurringCheckbox && isRecurringCheckbox.checked) {

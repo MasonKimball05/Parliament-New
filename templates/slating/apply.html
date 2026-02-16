@@ -1,0 +1,374 @@
+{% extends 'slating/base_slating.html' %}
+{% load custom_filters %}
+
+{% block breadcrumbs %}
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <span class="text-gray-700 dark:text-gray-300">{{ period.name }}</span>
+</li>
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <span class="text-gray-700 dark:text-gray-300">Apply</span>
+</li>
+{% endblock %}
+
+{% block page_header %}
+<div>
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Officer Application</h1>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
+</div>
+{% endblock %}
+
+{% block slating_content %}
+<form method="post" enctype="multipart/form-data" class="space-y-6">
+    {% csrf_token %}
+    <input type="hidden" name="action" id="formAction" value="save_draft">
+
+    {% regroup fields by section as field_sections %}
+
+    {% for section in field_sections %}
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ section.grouper|default:"Application" }}</h3>
+        </div>
+        <div class="px-4 py-5 sm:p-6 space-y-6">
+            {% for field in section.list %}
+            <div>
+                <label for="field_{{ field.id }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ field.label }}
+                    {% if field.is_required %}<span class="text-red-500">*</span>{% endif %}
+                </label>
+
+                {% if field.help_text %}
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ field.help_text }}</p>
+                {% endif %}
+
+                {% with response=responses|dict_get:field.id %}
+                {% if field.field_type == 'text' %}
+                <input type="text" name="field_{{ field.id }}" id="field_{{ field.id }}"
+                    value="{{ response.text_value|default:'' }}"
+                    {% if field.is_required %}required{% endif %}
+                    placeholder="{{ field.placeholder }}"
+                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+
+                {% elif field.field_type == 'textarea' %}
+                <textarea name="field_{{ field.id }}" id="field_{{ field.id }}" rows="4"
+                    {% if field.is_required %}required{% endif %}
+                    placeholder="{{ field.placeholder }}"
+                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">{{ response.text_value|default:'' }}</textarea>
+
+                {% elif field.field_type == 'number' %}
+                <input type="number" name="field_{{ field.id }}" id="field_{{ field.id }}"
+                    value="{{ response.number_value|default:'' }}"
+                    {% if field.is_required %}required{% endif %}
+                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+
+                {% elif field.field_type == 'decimal' %}
+                <input type="number" step="0.01" name="field_{{ field.id }}" id="field_{{ field.id }}"
+                    value="{{ response.number_value|default:'' }}"
+                    {% if field.is_required %}required{% endif %}
+                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+
+                {% elif field.field_type == 'email' %}
+                <input type="email" name="field_{{ field.id }}" id="field_{{ field.id }}"
+                    value="{{ response.text_value|default:'' }}"
+                    {% if field.is_required %}required{% endif %}
+                    placeholder="{{ field.placeholder }}"
+                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+
+                {% elif field.field_type == 'date' %}
+                <input type="date" name="field_{{ field.id }}" id="field_{{ field.id }}"
+                    value="{{ response.text_value|default:'' }}"
+                    {% if field.is_required %}required{% endif %}
+                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+
+                {% elif field.field_type == 'select' %}
+                <select name="field_{{ field.id }}" id="field_{{ field.id }}"
+                    {% if field.is_required %}required{% endif %}
+                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+                    <option value="">-- Select --</option>
+                    {% for option in field.options %}
+                    <option value="{{ option }}" {% if response.text_value == option %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+
+                {% elif field.field_type == 'multiselect' %}
+                <select name="field_{{ field.id }}" id="field_{{ field.id }}" multiple
+                    {% if field.is_required %}required{% endif %}
+                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm" size="4">
+                    {% for option in field.options %}
+                    <option value="{{ option }}" {% if option in response.json_value|default:'' %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Hold Ctrl/Cmd to select multiple</p>
+
+                {% elif field.field_type == 'checkbox' %}
+                <div class="mt-2">
+                    <input type="checkbox" name="field_{{ field.id }}" id="field_{{ field.id }}" value="true"
+                        {% if response.text_value == 'true' %}checked{% endif %}
+                        class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                    <label for="field_{{ field.id }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">Yes</label>
+                </div>
+
+                {% elif field.field_type == 'radio' %}
+                <div class="mt-2 space-y-2">
+                    {% for option in field.options %}
+                    <div class="flex items-center">
+                        <input type="radio" name="field_{{ field.id }}" id="field_{{ field.id }}_{{ forloop.counter }}"
+                            value="{{ option }}" {% if response.text_value == option %}checked{% endif %}
+                            {% if field.is_required %}required{% endif %}
+                            class="h-4 w-4 border-gray-300 text-primary-600 focus:ring-primary-500">
+                        <label for="field_{{ field.id }}_{{ forloop.counter }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">{{ option }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% elif field.field_type == 'file' or field.field_type == 'image' %}
+                <input type="file" name="field_{{ field.id }}" id="field_{{ field.id }}"
+                    {% if field.field_type == 'image' %}accept="image/*"{% endif %}
+                    class="mt-1 block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 dark:file:bg-primary-900 dark:file:text-primary-300 hover:file:bg-primary-100">
+                {% if response.file_value %}
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Current file: {{ response.file_value.name }}</p>
+                {% endif %}
+
+                {% elif field.field_type == 'gpa' %}
+                <div class="space-y-3">
+                    <input type="number" step="0.001" min="0" max="4" name="reported_gpa" id="reported_gpa"
+                        value="{{ application.reported_gpa|default:'' }}"
+                        {% if field.is_required %}required{% endif %}
+                        placeholder="e.g., 3.250"
+                        class="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">GPA Screenshot</label>
+                        <input type="file" name="gpa_screenshot" id="gpa_screenshot" accept="image/*"
+                            class="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 dark:file:bg-primary-900 dark:file:text-primary-300 hover:file:bg-primary-100">
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Upload a screenshot from your transcript or student portal</p>
+                    </div>
+                </div>
+
+                {% elif field.field_type == 'position_preference' %}
+                <div class="space-y-3" id="positionPreferencesContainer">
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Select your preference level for each position. You must indicate interest in at least one position.</p>
+
+                    <!-- Legend -->
+                    <div class="flex flex-wrap gap-2 text-xs pb-2 border-b border-gray-200 dark:border-gray-700">
+                        <span class="inline-flex items-center px-2 py-1 rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">1st = Most Preferred</span>
+                        <span class="inline-flex items-center px-2 py-1 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">2nd = Would Accept</span>
+                        <span class="inline-flex items-center px-2 py-1 rounded bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">3rd = Last Resort</span>
+                        <span class="inline-flex items-center px-2 py-1 rounded bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">No = Do Not Want</span>
+                    </div>
+
+                    <!-- Position List -->
+                    {% for position in positions %}
+                    {% with prefs=application.position_preferences|default:"" %}
+                    {% with current_tier=prefs|dict_get_tier:position.id %}
+                    <div class="position-row flex flex-col sm:flex-row sm:items-center gap-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg" data-position-id="{{ position.id }}">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ position.title }}</p>
+                            {% if position.description %}
+                            <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ position.description }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="flex items-center gap-1 flex-shrink-0">
+                            <button type="button"
+                                class="tier-btn tier-first_choice px-3 py-1.5 text-xs font-medium rounded-md border {% if current_tier == 'first_choice' %}selected{% endif %}"
+                                onclick="selectTier(this, 'first_choice')">
+                                1st
+                            </button>
+                            <button type="button"
+                                class="tier-btn tier-second_choice px-3 py-1.5 text-xs font-medium rounded-md border {% if current_tier == 'second_choice' %}selected{% endif %}"
+                                onclick="selectTier(this, 'second_choice')">
+                                2nd
+                            </button>
+                            <button type="button"
+                                class="tier-btn tier-third_choice px-3 py-1.5 text-xs font-medium rounded-md border {% if current_tier == 'third_choice' %}selected{% endif %}"
+                                onclick="selectTier(this, 'third_choice')">
+                                3rd
+                            </button>
+                            <button type="button"
+                                class="tier-btn tier-do_not_want px-3 py-1.5 text-xs font-medium rounded-md border {% if current_tier == 'do_not_want' %}selected{% endif %}"
+                                onclick="selectTier(this, 'do_not_want')">
+                                No
+                            </button>
+                        </div>
+                        <!-- Hidden inputs for form submission -->
+                        <input type="hidden" class="position-input" name="" value="{{ position.id }}" disabled>
+                    </div>
+                    {% endwith %}
+                    {% endwith %}
+                    {% empty %}
+                    <p class="text-sm text-gray-500 dark:text-gray-400 p-2">No positions available.</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Submit Buttons -->
+    <div class="flex justify-between items-center bg-white dark:bg-gray-800 shadow rounded-lg px-4 py-4 sm:px-6">
+        <div class="text-sm text-gray-500 dark:text-gray-400">
+            {% if application.status == 'draft' %}
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                Draft
+            </span>
+            Last saved: {{ application.updated_at|date:"M j, Y g:i A"|default:"Not saved" }}
+            {% elif application.status == 'submitted' %}
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                Submitted
+            </span>
+            {{ application.submitted_at|date:"M j, Y g:i A" }}
+            {% endif %}
+        </div>
+        <div class="flex space-x-3">
+            <button type="submit" name="action" value="save_draft"
+                class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                Save Draft
+            </button>
+            {% if application.status == 'draft' or not application %}
+            <button type="submit" name="action" value="submit"
+                onclick="return confirm('Are you sure you want to submit your application? You will not be able to edit it after submission.')"
+                class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                Submit Application
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block slating_js %}
+<style>
+/* Position preference button styles - using CSS for reliable styling */
+.tier-btn {
+    transition: all 0.15s ease;
+    cursor: pointer;
+}
+
+/* Default unselected state */
+.tier-btn:not(.selected) {
+    background-color: white;
+    color: #374151;
+    border-color: #d1d5db;
+}
+
+.dark .tier-btn:not(.selected) {
+    background-color: #4b5563;
+    color: #d1d5db;
+    border-color: #6b7280;
+}
+
+/* Hover states for unselected buttons */
+.tier-first_choice:not(.selected):hover { background-color: #dcfce7; }
+.tier-second_choice:not(.selected):hover { background-color: #dbeafe; }
+.tier-third_choice:not(.selected):hover { background-color: #fef9c3; }
+.tier-do_not_want:not(.selected):hover { background-color: #fee2e2; }
+
+/* Selected states */
+.tier-first_choice.selected {
+    background-color: #16a34a !important;
+    color: white !important;
+    border-color: #16a34a !important;
+    box-shadow: 0 0 0 2px white, 0 0 0 4px #4ade80;
+}
+
+.tier-second_choice.selected {
+    background-color: #2563eb !important;
+    color: white !important;
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 2px white, 0 0 0 4px #60a5fa;
+}
+
+.tier-third_choice.selected {
+    background-color: #eab308 !important;
+    color: white !important;
+    border-color: #eab308 !important;
+    box-shadow: 0 0 0 2px white, 0 0 0 4px #facc15;
+}
+
+.tier-do_not_want.selected {
+    background-color: #dc2626 !important;
+    color: white !important;
+    border-color: #dc2626 !important;
+    box-shadow: 0 0 0 2px white, 0 0 0 4px #f87171;
+}
+
+/* Click feedback */
+.tier-btn:active {
+    transform: scale(0.95);
+}
+</style>
+
+<script>
+// Global function for tier selection - called by onclick
+function selectTier(btn, tier) {
+    var tierInputNames = {
+        'first_choice': 'positions_first_choice',
+        'second_choice': 'positions_second_choice',
+        'third_choice': 'positions_third_choice',
+        'do_not_want': 'positions_do_not_want'
+    };
+
+    var row = btn.closest('.position-row');
+    var hiddenInput = row.querySelector('.position-input');
+    var allButtons = row.querySelectorAll('.tier-btn');
+    var wasSelected = btn.classList.contains('selected');
+
+    // Remove selected from all buttons in this row
+    for (var i = 0; i < allButtons.length; i++) {
+        allButtons[i].classList.remove('selected');
+    }
+
+    if (wasSelected) {
+        // Toggle off
+        hiddenInput.name = '';
+        hiddenInput.disabled = true;
+    } else {
+        // Select this one
+        btn.classList.add('selected');
+        hiddenInput.name = tierInputNames[tier];
+        hiddenInput.disabled = false;
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    var container = document.getElementById('positionPreferencesContainer');
+    if (!container) return;
+
+    var tierInputNames = {
+        'first_choice': 'positions_first_choice',
+        'second_choice': 'positions_second_choice',
+        'third_choice': 'positions_third_choice',
+        'do_not_want': 'positions_do_not_want'
+    };
+
+    // Initialize hidden inputs based on pre-selected buttons
+    var rows = container.querySelectorAll('.position-row');
+    for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        var hiddenInput = row.querySelector('.position-input');
+        var selectedBtn = row.querySelector('.tier-btn.selected');
+
+        if (selectedBtn) {
+            var tier = null;
+            if (selectedBtn.classList.contains('tier-first_choice')) tier = 'first_choice';
+            else if (selectedBtn.classList.contains('tier-second_choice')) tier = 'second_choice';
+            else if (selectedBtn.classList.contains('tier-third_choice')) tier = 'third_choice';
+            else if (selectedBtn.classList.contains('tier-do_not_want')) tier = 'do_not_want';
+
+            if (tier) {
+                hiddenInput.name = tierInputNames[tier];
+                hiddenInput.disabled = false;
+            }
+        } else {
+            hiddenInput.name = '';
+            hiddenInput.disabled = true;
+        }
+    }
+});
+</script>
+{% endblock %}

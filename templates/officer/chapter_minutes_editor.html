@@ -632,7 +632,7 @@ function renderAttendance() {
                             <span class="text-sm font-medium text-gray-900 dark:text-white">${escapeHtml(m.name)}</span>
                             ${excuseBadge}
                         </div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">${escapeHtml(String(m.user_id))} &middot; ${escapeHtml(m.member_type)}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">${m.member_type !== 'Pledge' ? escapeHtml(String(m.user_id)) + ' &middot; ' : ''}${escapeHtml(m.member_type)}</div>
                     </div>
                 </div>
             </td>

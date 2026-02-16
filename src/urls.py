@@ -58,6 +58,7 @@ from src.view.view_legislation_history import view_legislation_history
 from src.view.login_view import login_view
 from src.view.logout_view import logout_view
 from src.view.profile_view import profile_view
+from src.view.directory import member_directory
 from src.view.preferences import preferences_view
 from src.view.activity_logs import activity_logs_view, export_activity_logs
 from src.view.upload_legislation import upload_legislation
@@ -90,6 +91,20 @@ from src.view.debug_panel import (
     debug_feature_flags, debug_toggle_flag, debug_error_logs, debug_clear_logs,
     debug_template_context, debug_performance_metrics, debug_users_online
 )
+from src.view.slating import (
+    slating_dashboard, create_period, edit_period, change_period_status,
+    form_builder, manage_positions, add_position, edit_position, delete_position, copy_default_positions,
+    apply_view, my_applications, withdraw_application,
+    applications_list, application_detail, submit_review, bulk_update_status,
+    interview_list, schedule_interview, complete_interview, destroy_interview_notes,
+    build_slate, approve_slate, slate_preview, copy_slate,
+    slating_vote, individual_vote, close_voting,
+    view_results, publish_results, results_summary,
+    transfer_admin, transition_officers,
+    reorder_fields, reorder_positions, period_status,
+    check_eligibility, application_summary, slate_candidates,
+    voting_status, toggle_field_active, toggle_position_active
+)
 
 urlpatterns = [
     # General User Pages
@@ -114,6 +129,7 @@ urlpatterns = [
     path('password-reset-complete/', auth_views.PasswordResetCompleteView.as_view(template_name='registration/password_reset_complete.html'), name='password_reset_complete'),
 
     path('users/', user_list, name='user_list'),
+    path('directory/', member_directory, name='member_directory'),
     path('profile/', profile_view, name='profile'),
     path('preferences/', preferences_view, name='preferences'),
     path('set-email/', set_email, name='set_email'),
@@ -397,6 +413,73 @@ urlpatterns = [
     path('api/debug/context/', debug_template_context, name='debug_template_context'),
     path('api/debug/performance/', debug_performance_metrics, name='debug_performance_metrics'),
     path('api/debug/users-online/', debug_users_online, name='debug_users_online'),
+
+    # Slating System URLs
+    path('slating/', slating_dashboard, name='slating_dashboard'),
+    path('slating/periods/', slating_dashboard, name='slating_periods'),  # Alias
+    path('slating/period/new/', create_period, name='slating_create_period'),
+    path('slating/period/<int:period_id>/', edit_period, name='slating_period_detail'),
+    path('slating/period/<int:period_id>/setup/', edit_period, name='slating_period_setup'),
+    path('slating/period/<int:period_id>/status/', change_period_status, name='slating_change_status'),
+
+    # Slating Form Builder
+    path('slating/period/<int:period_id>/form-builder/', form_builder, name='slating_form_builder'),
+
+    # Slating Position Management
+    path('slating/period/<int:period_id>/positions/', manage_positions, name='slating_positions'),
+    path('slating/period/<int:period_id>/positions/add/', add_position, name='slating_add_position'),
+    path('slating/period/<int:period_id>/positions/<int:position_id>/edit/', edit_position, name='slating_edit_position'),
+    path('slating/period/<int:period_id>/positions/<int:position_id>/delete/', delete_position, name='slating_delete_position'),
+    path('slating/period/<int:period_id>/positions/add-defaults/', copy_default_positions, name='slating_copy_default_positions'),
+
+    # Slating Applications (Candidate)
+    path('slating/period/<int:period_id>/apply/', apply_view, name='slating_apply'),
+    path('slating/my-applications/', my_applications, name='slating_my_applications'),
+    path('slating/application/<int:app_id>/withdraw/', withdraw_application, name='slating_withdraw_application'),
+
+    # Slating Applications Review (Committee)
+    path('slating/period/<int:period_id>/applications/', applications_list, name='slating_applications'),
+    path('slating/period/<int:period_id>/application/<int:app_id>/', application_detail, name='slating_app_detail'),
+    path('slating/period/<int:period_id>/application/<int:app_id>/review/', submit_review, name='slating_submit_review'),
+    path('slating/period/<int:period_id>/applications/bulk-update/', bulk_update_status, name='slating_bulk_update'),
+
+    # Slating Interviews
+    path('slating/period/<int:period_id>/interviews/', interview_list, name='slating_interviews'),
+    path('slating/application/<int:app_id>/schedule-interview/', schedule_interview, name='slating_schedule_interview'),
+    path('slating/interview/<int:interview_id>/complete/', complete_interview, name='slating_complete_interview'),
+    path('slating/period/<int:period_id>/destroy-notes/', destroy_interview_notes, name='slating_destroy_notes'),
+
+    # Slating Slate Building
+    path('slating/period/<int:period_id>/build-slate/', build_slate, name='slating_build_slate'),
+    path('slating/period/<int:period_id>/slate/approve/', approve_slate, name='slating_approve_slate'),
+    path('slating/period/<int:period_id>/slate/<int:slate_id>/approve/', approve_slate, name='slating_approve_slate_id'),
+    path('slating/period/<int:period_id>/slate/<int:slate_id>/preview/', slate_preview, name='slating_slate_preview'),
+    path('slating/period/<int:period_id>/slate/<int:slate_id>/copy/', copy_slate, name='slating_copy_slate'),
+
+    # Slating Voting
+    path('slating/period/<int:period_id>/vote/', slating_vote, name='slating_vote'),
+    path('slating/period/<int:period_id>/vote/individual/', individual_vote, name='slating_vote_individual'),
+    path('slating/period/<int:period_id>/close-voting/', close_voting, name='slating_close_voting'),
+
+    # Slating Results
+    path('slating/period/<int:period_id>/results/', view_results, name='slating_results'),
+    path('slating/period/<int:period_id>/results/publish/', publish_results, name='slating_publish_results'),
+    path('slating/period/<int:period_id>/results/summary/', results_summary, name='slating_results_summary'),
+
+    # Slating Admin & Transition
+    path('slating/period/<int:period_id>/transfer-admin/', transfer_admin, name='slating_transfer_admin'),
+    path('slating/period/<int:period_id>/transition/', transition_officers, name='slating_transition'),
+
+    # Slating API Endpoints
+    path('api/slating/period/<int:period_id>/reorder-fields/', reorder_fields, name='slating_api_reorder_fields'),
+    path('api/slating/period/<int:period_id>/reorder-positions/', reorder_positions, name='slating_api_reorder_positions'),
+    path('api/slating/period/<int:period_id>/status/', period_status, name='slating_api_period_status'),
+    path('api/slating/period/<int:period_id>/eligibility/', check_eligibility, name='slating_api_eligibility'),
+    path('api/slating/period/<int:period_id>/application/<int:app_id>/summary/', application_summary, name='slating_api_app_summary'),
+    path('api/slating/period/<int:period_id>/slate/<int:slate_id>/candidates/', slate_candidates, name='slating_api_slate_candidates'),
+    path('api/slating/period/<int:period_id>/voting-status/', voting_status, name='slating_api_voting_status'),
+    path('api/slating/period/<int:period_id>/field/<int:field_id>/toggle/', toggle_field_active, name='slating_api_toggle_field'),
+    path('api/slating/period/<int:period_id>/position/<int:position_id>/toggle/', toggle_position_active, name='slating_api_toggle_position'),
 ]
 
 if settings.DEBUG:

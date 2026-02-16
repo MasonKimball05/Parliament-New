@@ -1,0 +1,193 @@
+{% extends 'slating/base_slating.html' %}
+
+{% block breadcrumbs %}
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <a href="{% url 'slating_interviews' period_id=period.id %}" class="text-gray-500 dark:text-gray-400 hover:text-primary-600">Interviews</a>
+</li>
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <span class="text-gray-700 dark:text-gray-300">Record Interview</span>
+</li>
+{% endblock %}
+
+{% block page_header %}
+<div>
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Record Interview</h1>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ application.applicant.name }} - {{ period.name }}</p>
+</div>
+{% endblock %}
+
+{% block slating_content %}
+<div class="max-w-3xl">
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white">Interview Notes</h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {% if interview.scheduled_at %}
+                Scheduled: {{ interview.scheduled_at|date:"M j, Y g:i A" }}
+                {% if interview.location %} - {{ interview.location }}{% endif %}
+                {% endif %}
+            </p>
+        </div>
+
+        <form method="post" class="px-4 py-5 sm:p-6 space-y-6">
+            {% csrf_token %}
+
+            <!-- Applicant Info -->
+            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">Applicant</h4>
+                        <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ application.applicant.name }}</p>
+                    </div>
+                    <a href="{% url 'slating_app_detail' period_id=period.id app_id=application.id %}"
+                        class="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400">
+                        View Application
+                    </a>
+                </div>
+
+                <!-- Position Preferences -->
+                {% if application.position_preferences %}
+                <div class="border-t border-gray-200 dark:border-gray-600 pt-3 mt-3">
+                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Position Preferences</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                        {% if application.position_preferences.first_choice %}
+                        <div>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 mb-1">1st Choice</span>
+                            <ul class="ml-1 text-gray-700 dark:text-gray-300">
+                                {% for pos in positions %}
+                                    {% if pos.id in application.position_preferences.first_choice %}
+                                    <li>{{ pos.title }}</li>
+                                    {% endif %}
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+
+                        {% if application.position_preferences.second_choice %}
+                        <div>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 mb-1">2nd Choice</span>
+                            <ul class="ml-1 text-gray-700 dark:text-gray-300">
+                                {% for pos in positions %}
+                                    {% if pos.id in application.position_preferences.second_choice %}
+                                    <li>{{ pos.title }}</li>
+                                    {% endif %}
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+
+                        {% if application.position_preferences.third_choice %}
+                        <div>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 mb-1">3rd Choice</span>
+                            <ul class="ml-1 text-gray-700 dark:text-gray-300">
+                                {% for pos in positions %}
+                                    {% if pos.id in application.position_preferences.third_choice %}
+                                    <li>{{ pos.title }}</li>
+                                    {% endif %}
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+
+                        {% if application.position_preferences.do_not_want %}
+                        <div>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 mb-1">Do Not Want</span>
+                            <ul class="ml-1 text-gray-700 dark:text-gray-300">
+                                {% for pos in positions %}
+                                    {% if pos.id in application.position_preferences.do_not_want %}
+                                    <li>{{ pos.title }}</li>
+                                    {% endif %}
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Notes -->
+            <div>
+                <label for="notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    General Notes
+                </label>
+                <textarea name="notes" id="notes" rows="4"
+                    placeholder="Overall impressions and observations from the interview..."
+                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">{{ interview.notes|default:'' }}</textarea>
+            </div>
+
+            <!-- Strengths -->
+            <div>
+                <label for="strengths" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Strengths
+                </label>
+                <textarea name="strengths" id="strengths" rows="3"
+                    placeholder="What stood out positively about this candidate..."
+                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">{{ interview.strengths|default:'' }}</textarea>
+            </div>
+
+            <!-- Concerns -->
+            <div>
+                <label for="concerns" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Concerns
+                </label>
+                <textarea name="concerns" id="concerns" rows="3"
+                    placeholder="Any concerns or areas for improvement..."
+                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">{{ interview.concerns|default:'' }}</textarea>
+            </div>
+
+            <!-- Recommendation -->
+            <div>
+                <label for="recommendation" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Overall Recommendation
+                </label>
+                <select name="recommendation" id="recommendation"
+                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+                    <option value="">-- Select Recommendation --</option>
+                    {% for value, label in recommendation_choices %}
+                    <option value="{{ value }}" {% if interview.recommendation == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Recommended Positions -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Recommended Positions
+                </label>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    Select positions this candidate would be well-suited for based on the interview.
+                </p>
+                {% if positions %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 border border-gray-200 dark:border-gray-600 rounded-md p-3">
+                    {% for position in positions %}
+                    <label class="flex items-center">
+                        <input type="checkbox" name="recommended_positions" value="{{ position.id }}"
+                            {% if position in interview.recommended_positions.all %}checked{% endif %}
+                            class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                        <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">{{ position.title }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-sm text-gray-500 dark:text-gray-400 italic">No positions defined yet.</p>
+                {% endif %}
+            </div>
+
+            <!-- Actions -->
+            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <a href="{% url 'slating_interviews' period_id=period.id %}"
+                    class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                    Cancel
+                </a>
+                <button type="submit"
+                    class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    Save Interview Notes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

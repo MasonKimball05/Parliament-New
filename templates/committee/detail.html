@@ -25,6 +25,10 @@
                         <p class="text-sm sm:text-base text-gray-700 dark:text-gray-300 mb-4">
                             <span class="font-medium">Admin:</span> {{ committee.role.name }}{% if committee_vp %} ({{ committee_vp.name }}){% endif %}
                         </p>
+                    {% elif committee.admin %}
+                        <p class="text-sm sm:text-base text-gray-700 dark:text-gray-300 mb-4">
+                            <span class="font-medium">Admin:</span> {{ committee.admin.name }}
+                        </p>
                     {% endif %}
                 </div>
             </div>
@@ -256,6 +260,13 @@
                     </svg>
                     Take Attendance
                 </a>
+
+                <a href="{% url 'committee_home' committee.code %}"
+                   class="flex items-center justify-center bg-blue-500 dark:bg-blue-600 text-white px-4 py-3 rounded hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                Committee Home
             {% endif %}
 
             <!-- Member Actions -->
@@ -333,6 +344,121 @@
         </div>
         {% else %}
         <p class="text-gray-500 dark:text-gray-400 text-center py-8 italic">No recent reports to display</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Slating Committee Section -->
+    {% if committee.is_slating_committee %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-6 transition-colors duration-200">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Officer Elections (Slating)</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Manage officer election periods, applications, and voting</p>
+            </div>
+            <a href="{% url 'slating_dashboard' %}" class="text-sm bg-purple-600 dark:bg-purple-700 text-white px-4 py-2 rounded hover:bg-purple-700 dark:hover:bg-purple-800">
+                Open Dashboard
+            </a>
+        </div>
+
+        <!-- Committee Admin Info -->
+        {% if committee.admin %}
+        <div class="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+            <p class="text-sm text-purple-800 dark:text-purple-300">
+                <span class="font-medium">Committee Admin:</span> {{ committee.admin.name }}
+            </p>
+        </div>
+        {% endif %}
+
+        <!-- Quick Actions Grid -->
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <a href="{% url 'slating_dashboard' %}"
+               class="flex items-center justify-center bg-purple-500 dark:bg-purple-600 text-white px-4 py-3 rounded hover:bg-purple-600 dark:hover:bg-purple-700 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+                </svg>
+                Slating Dashboard
+            </a>
+
+            {% if can_manage %}
+            <a href="{% url 'slating_create_period' %}"
+               class="flex items-center justify-center bg-green-500 dark:bg-green-600 text-white px-4 py-3 rounded hover:bg-green-600 dark:hover:bg-green-700 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                Create New Period
+            </a>
+            {% endif %}
+
+            <a href="{% url 'slating_my_applications' %}"
+               class="flex items-center justify-center bg-blue-500 dark:bg-blue-600 text-white px-4 py-3 rounded hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                My Applications
+            </a>
+        </div>
+
+        <!-- Active Periods -->
+        {% if slating_periods %}
+        <h4 class="text-lg font-medium text-gray-800 dark:text-gray-200 mb-3">Election Periods</h4>
+        <div class="space-y-3">
+            {% for period in slating_periods %}
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h5 class="font-semibold text-gray-900 dark:text-gray-100">{{ period.name }}</h5>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">{{ period.term_name }}</p>
+                        <div class="mt-2">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if period.status == 'draft' %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300
+                                {% elif period.status == 'nominations_open' %}bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300
+                                {% elif period.status == 'nominations_closed' %}bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300
+                                {% elif period.status == 'slate_building' %}bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300
+                                {% elif period.status == 'voting_open' %}bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300
+                                {% elif period.status == 'voting_closed' %}bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300
+                                {% elif period.status == 'results_published' %}bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300
+                                {% else %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300{% endif %}">
+                                {{ period.get_status_display }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        {% if period.status == 'nominations_open' %}
+                        <a href="{% url 'slating_apply' period.id %}" class="text-sm bg-green-500 dark:bg-green-600 text-white px-3 py-1 rounded hover:bg-green-600 dark:hover:bg-green-700">
+                            Apply
+                        </a>
+                        {% elif period.status == 'voting_open' %}
+                        <a href="{% url 'slating_vote' period.id %}" class="text-sm bg-purple-500 dark:bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-600 dark:hover:bg-purple-700">
+                            Vote
+                        </a>
+                        {% elif period.status == 'results_published' %}
+                        <a href="{% url 'slating_results' period.id %}" class="text-sm bg-teal-500 dark:bg-teal-600 text-white px-3 py-1 rounded hover:bg-teal-600 dark:hover:bg-teal-700">
+                            Results
+                        </a>
+                        {% endif %}
+                        {% if can_manage %}
+                        <a href="{% url 'slating_period_setup' period.id %}" class="text-sm bg-gray-500 dark:bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-600 dark:hover:bg-gray-700">
+                            Manage
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+            <svg class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            <p>No election periods found.</p>
+            {% if can_manage %}
+            <a href="{% url 'slating_create_period' %}" class="inline-block mt-3 text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300">
+                Create the first election period →
+            </a>
+            {% endif %}
+        </div>
         {% endif %}
     </div>
     {% endif %}

@@ -21,6 +21,11 @@ def committee_add_member(request, code):
     try:
         user = ParliamentUser.objects.get(pk=user_id)
 
+        # Pledges cannot be added to committees
+        if user.is_pledge:
+            messages.error(request, 'Pledges cannot be added to committees.')
+            return redirect('committee_detail', code=code)
+
         if role_type == 'member':
             committee.members.add(user)
             messages.success(request, f'{user.name} has been added as a member.')

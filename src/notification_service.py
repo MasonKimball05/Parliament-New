@@ -37,6 +37,10 @@ NOTIFICATION_PREF_MAP = {
     'legislation_new': 'notify_legislation',
     'vote_ended': 'notify_legislation',
     'event_new': 'notify_events',
+    # Slating notifications
+    'slating_open': 'notify_slating',
+    'slating_voting': 'notify_slating',
+    'slating_results': 'notify_slating',
 }
 
 

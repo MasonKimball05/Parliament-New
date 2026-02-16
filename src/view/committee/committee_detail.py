@@ -2,6 +2,7 @@ from src.models import *
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
+from django.conf import settings
 
 @login_required
 def committee_detail(request, code):
@@ -15,8 +16,23 @@ def committee_detail(request, code):
     is_advisor = committee.advisors.filter(pk=user.pk).exists()
     is_voting_member = committee.voting_members.filter(pk=user.pk).exists()
     is_vp = committee.is_vp(user)
+    is_committee_admin = committee.admin == user if committee.admin else False
 
-    if not (is_member or is_chair or is_advisor or is_vp):
+    # Check access - allow if any of these conditions are met:
+    # 1. Member, chair, advisor, or VP of the committee
+    # 2. Site admin
+    # 3. Committee admin (for slating committee)
+    # 4. Test server access for user 73 to Slating Committee
+    has_access = (is_member or is_chair or is_advisor or is_vp or
+                  user.is_admin or is_committee_admin)
+
+    # Special test server access for Slating Committee
+    is_test_slating_admin = False
+    if committee.is_slating_committee and settings.DEBUG and user.user_id == '73':
+        has_access = True
+        is_test_slating_admin = True
+
+    if not has_access:
         messages.error(request, 'You do not have access to this committee.')
         return redirect('committee_index')
 
@@ -65,7 +81,8 @@ def committee_detail(request, code):
         'is_member': is_member,
         'is_voting_member': is_voting_member,
         'is_vp': is_vp,
-        'can_manage': is_vp or user.is_admin,
+        'is_committee_admin': is_committee_admin,
+        'can_manage': is_vp or user.is_admin or is_committee_admin or is_test_slating_admin,
         'permissions': permissions,
         'eligible_members': eligible_members,
         'eligible_chairs': eligible_chairs,
@@ -94,6 +111,16 @@ def committee_detail(request, code):
         except Exception:
             # KaiReport table may not exist yet if migrations haven't been run
             # Don't add kai_reports to context at all
+            pass
+
+    # If this is the Slating Committee, add slating periods
+    if committee.is_slating_committee:
+        try:
+            from src.models import SlatingPeriod
+            slating_periods = SlatingPeriod.objects.all().order_by('-created_at')[:10]
+            context['slating_periods'] = slating_periods
+        except Exception:
+            # SlatingPeriod table may not exist yet
             pass
 
     return render(request, 'committee/detail.html', context)

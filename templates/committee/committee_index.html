@@ -44,6 +44,11 @@
                                                 {{ item.committee.role.name }}
                                                 {% if item.vp %} ({{ item.vp.name }}){% endif %}
                                             </p>
+                                        {% elif item.committee.admin %}
+                                            <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                                <span class="font-medium">Admin:</span>
+                                                {{ item.committee.admin.name }}
+                                            </p>
                                         {% else %}
                                             <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">No admin assigned</p>
                                         {% endif %}
@@ -75,6 +80,17 @@
                         </a>
                     {% endif %}
                 {% endif %}
+
+                <!-- TEST ONLY: Slating Committee Access (user 73 only) -->
+                {% if user.user_id == '73' and is_test_server %}
+                    <a href="{% url 'committee_detail' 'SLATING' %}" class="bg-purple-600 hover:bg-purple-700 text-white px-3 sm:px-4 py-2 rounded-lg transition flex items-center space-x-2 text-sm sm:text-base whitespace-nowrap border-2 border-dashed border-purple-300">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                        </svg>
+                        <span class="hidden sm:inline">TEST: Slating</span>
+                        <span class="sm:hidden">Slating</span>
+                    </a>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -97,6 +113,11 @@
                         <p class="text-gray-600 dark:text-gray-400 text-sm mb-3">
                             <span class="font-medium">Admin:</span>
                             {{ item.committee.role.name }}{% if item.committee_vp %} ({{ item.committee_vp.name }}){% endif %}
+                        </p>
+                    {% elif item.committee.admin %}
+                        <p class="text-gray-600 dark:text-gray-400 text-sm mb-3">
+                            <span class="font-medium">Admin:</span>
+                            {{ item.committee.admin.name }}
                         </p>
                     {% endif %}
 

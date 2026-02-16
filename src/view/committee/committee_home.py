@@ -90,4 +90,4 @@ def committee_home(request, code):
         "recent_votes": recent_votes,
     }
 
-    return render(request, "committee/home.html", context)
+    return render(request, "committee/committee_home.html", context)

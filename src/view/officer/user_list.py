@@ -87,7 +87,7 @@ def user_list(request):
 
         user_data.append({
             'user': user,
-            'username': user.name,
+            'username': user.username,
             'id': user.user_id,
             'role_number': user.role_number,  # Member roll number (assigned at initiation)
             'email': user.email or 'No email',

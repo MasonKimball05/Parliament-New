@@ -6,6 +6,15 @@ register = template.Library()
 
 @register.filter
 def get_item(dictionary, key):
+    if dictionary is None:
+        return None
+    return dictionary.get(key)
+
+@register.filter
+def dict_get(dictionary, key):
+    """Alias for get_item - get a value from a dictionary by key."""
+    if dictionary is None:
+        return None
     return dictionary.get(key)
 
 @register.filter
@@ -34,6 +43,32 @@ def split(value, arg):
 def filter_by_user(queryset, user):
     """Filter a queryset by user"""
     return queryset.filter(user=user)
+
+
+@register.filter
+def dict_get_tier(prefs, position_id):
+    """
+    Get the preference tier for a position from the tiered preferences dict.
+    Returns 'first_choice', 'second_choice', 'third_choice', 'do_not_want', or ''.
+    """
+    if not prefs or prefs == '':
+        return ''
+
+    # Handle legacy list format
+    if isinstance(prefs, list):
+        return 'first_choice' if position_id in prefs else ''
+
+    # Must be a dict at this point
+    if not isinstance(prefs, dict):
+        return ''
+
+    # Handle tiered dict format
+    for tier in ['first_choice', 'second_choice', 'third_choice', 'do_not_want']:
+        tier_list = prefs.get(tier, [])
+        if tier_list and position_id in tier_list:
+            return tier
+
+    return ''
 
 
 @register.filter(needs_autoescape=True)

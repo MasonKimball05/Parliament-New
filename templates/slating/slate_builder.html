@@ -1,0 +1,221 @@
+{% extends 'slating/base_slating.html' %}
+{% load custom_filters %}
+
+{% block breadcrumbs %}
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <a href="{% url 'slating_period_setup' period_id=period.id %}" class="text-gray-500 dark:text-gray-400 hover:text-primary-600">{{ period.name }}</a>
+</li>
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <span class="text-gray-700 dark:text-gray-300">Build Slate</span>
+</li>
+{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Slate Builder</h1>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
+    </div>
+    <div class="flex space-x-3">
+        {% if slate.candidates.count == positions.count %}
+        <form method="post" action="{% url 'slating_approve_slate' period_id=period.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="slate_type" value="primary">
+            <button type="submit"
+                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                Approve Slate
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block slating_content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Slate Positions -->
+    <div class="lg:col-span-2 space-y-4">
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ slate.name }}</h3>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    {{ slate.candidates.count }} of {{ positions.count }} positions filled
+                </p>
+            </div>
+
+            <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for position in positions %}
+                {% with assignment=assignments|dict_get:position.id %}
+                <li class="px-4 py-4 sm:px-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ position.title }}</p>
+                            {% if assignment %}
+                            <p class="text-sm text-primary-600 dark:text-primary-400">
+                                {{ assignment.application.applicant.name }}
+                            </p>
+                            {% else %}
+                            <p class="text-sm text-gray-400 dark:text-gray-500 italic">Not assigned</p>
+                            {% endif %}
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            {% if assignment %}
+                            <form method="post" class="inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="unassign">
+                                <input type="hidden" name="assignment_id" value="{{ assignment.id }}">
+                                <button type="submit" class="text-sm text-red-600 dark:text-red-400 hover:underline">
+                                    Remove
+                                </button>
+                            </form>
+                            {% else %}
+                            <button type="button" onclick="openAssignModal({{ position.id }}, '{{ position.title }}')"
+                                class="text-sm text-primary-600 dark:text-primary-400 hover:underline">
+                                Assign
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </li>
+                {% endwith %}
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Sidebar - Available Candidates -->
+    <div class="space-y-6">
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Available Candidates</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400">{{ available_apps.count }} candidates</p>
+            </div>
+
+            {% if available_apps %}
+            <ul class="divide-y divide-gray-200 dark:divide-gray-700 max-h-96 overflow-y-auto">
+                {% for app in available_apps %}
+                <li class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <div class="flex items-center justify-between">
+                        <div class="min-w-0 flex-1">
+                            <a href="{% url 'slating_app_detail' period_id=period.id app_id=app.id %}"
+                               class="text-sm font-medium text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400">
+                                {{ app.applicant.name }}
+                            </a>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                {{ app.get_status_display }}
+                                {% if app.gpa_level %} &middot; GPA Level {{ app.gpa_level }}{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                No available candidates
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Existing Slates -->
+        {% if existing_slates %}
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Existing Slates</h3>
+            </div>
+            <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for s in existing_slates %}
+                <li class="px-4 py-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ s.name }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ s.get_slate_type_display }}</p>
+                        </div>
+                        <div class="flex space-x-2">
+                            <a href="{% url 'slating_slate_preview' period_id=period.id slate_id=s.id %}"
+                               class="text-xs text-primary-600 dark:text-primary-400 hover:underline">View</a>
+                            <form method="post" action="{% url 'slating_copy_slate' period_id=period.id slate_id=s.id %}" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">Copy</button>
+                            </form>
+                        </div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg px-4 py-4">
+            <a href="{% url 'slating_period_setup' period_id=period.id %}"
+               class="block w-full text-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                Back to Period Setup
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Candidate Modal -->
+<div id="assignModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeAssignModal()"></div>
+
+        <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="assign">
+                <input type="hidden" name="position_id" id="modalPositionId" value="">
+
+                <div class="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                        Assign to <span id="modalPositionTitle"></span>
+                    </h3>
+
+                    <div>
+                        <label for="application_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Select Candidate</label>
+                        <select name="application_id" id="application_id" required
+                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+                            <option value="">-- Select --</option>
+                            {% for app in available_apps %}
+                            <option value="{{ app.id }}">
+                                {{ app.applicant.name }}
+                                {% if app.gpa_level %} (GPA Level {{ app.gpa_level }}){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        Assign
+                    </button>
+                    <button type="button" onclick="closeAssignModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block slating_js %}
+<script>
+function openAssignModal(positionId, positionTitle) {
+    document.getElementById('modalPositionId').value = positionId;
+    document.getElementById('modalPositionTitle').textContent = positionTitle;
+    document.getElementById('assignModal').classList.remove('hidden');
+}
+
+function closeAssignModal() {
+    document.getElementById('assignModal').classList.add('hidden');
+}
+</script>
+{% endblock %}

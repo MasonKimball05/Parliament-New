@@ -140,12 +140,30 @@ def edit_committee_minutes(request, code, minutes_id):
         return redirect('committee_minutes_list', code=code)
 
     # Get committee members for attendance (members + chairs, deduplicated)
+    # Exclude advisors and sort by last name
     member_ids = set(
-        committee.members.filter(member_status='Active').values_list('pk', flat=True)
+        committee.members.filter(member_status='Active').exclude(member_type='Advisor').values_list('pk', flat=True)
     ) | set(
-        committee.chairs.filter(member_status='Active').values_list('pk', flat=True)
+        committee.chairs.filter(member_status='Active').exclude(member_type='Advisor').values_list('pk', flat=True)
     )
-    members = ParliamentUser.objects.filter(pk__in=member_ids).order_by('user_id')
+
+    def get_last_name(user):
+        """Extract last name from full name for sorting"""
+        parts = user.name.strip().split()
+        return parts[-1].lower() if parts else ''
+
+    all_members = ParliamentUser.objects.filter(pk__in=member_ids)
+
+    # Sort: non-pledges first (by last name), then pledges (by last name)
+    non_pledges = sorted(
+        [m for m in all_members if m.member_type != 'Pledge'],
+        key=get_last_name
+    )
+    pledges = sorted(
+        [m for m in all_members if m.member_type == 'Pledge'],
+        key=get_last_name
+    )
+    members = non_pledges + pledges
 
     # Get existing sections with related motions
     sections = minutes.sections.all().select_related('motion').order_by('order')

@@ -1,0 +1,154 @@
+{% extends 'slating/base_slating.html' %}
+
+{% block breadcrumbs %}
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <a href="{% url 'slating_period_setup' period_id=period.id %}" class="text-gray-500 dark:text-gray-400 hover:text-primary-600">{{ period.name }}</a>
+</li>
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <span class="text-gray-700 dark:text-gray-300">Interviews</span>
+</li>
+{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Interview Management</h1>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block slating_content %}
+<div class="space-y-6">
+    <!-- Filter Tabs -->
+    <div class="border-b border-gray-200 dark:border-gray-700">
+        <nav class="-mb-px flex space-x-8">
+            <a href="{% url 'slating_interviews' period_id=period.id %}"
+                class="{% if not status_filter %}border-primary-500 text-primary-600 dark:text-primary-400{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                All
+            </a>
+            <a href="?status=scheduled"
+                class="{% if status_filter == 'scheduled' %}border-primary-500 text-primary-600 dark:text-primary-400{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                Scheduled
+            </a>
+            <a href="?status=completed"
+                class="{% if status_filter == 'completed' %}border-primary-500 text-primary-600 dark:text-primary-400{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                Completed
+            </a>
+            <a href="?status=pending"
+                class="{% if status_filter == 'pending' %}border-primary-500 text-primary-600 dark:text-primary-400{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                Pending
+            </a>
+        </nav>
+    </div>
+
+    <!-- Applicants Needing Interviews -->
+    {% if apps_without_interview %}
+    <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+            <div class="ml-3 flex-1">
+                <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Applicants Need Interviews</h3>
+                <div class="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+                    <ul class="list-disc list-inside">
+                        {% for app in apps_without_interview %}
+                        <li class="flex items-center justify-between">
+                            <span>{{ app.applicant.name }}</span>
+                            <a href="{% url 'slating_schedule_interview' app_id=app.id %}" class="text-yellow-800 dark:text-yellow-200 underline hover:no-underline ml-2">
+                                Schedule
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Interviews List -->
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        {% if interviews %}
+        <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+            {% for interview in interviews %}
+            <li class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 min-w-0">
+                        <a href="{% url 'slating_app_detail' period_id=period.id app_id=interview.application.id %}" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
+                            {{ interview.application.applicant.name }}
+                        </a>
+                        <div class="mt-1 flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                            {% if interview.scheduled_at %}
+                            <span>
+                                <svg class="inline h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                                {{ interview.scheduled_at|date:"M j, Y g:i A" }}
+                            </span>
+                            {% endif %}
+                            {% if interview.location %}
+                            <span>
+                                <svg class="inline h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                </svg>
+                                {{ interview.location }}
+                            </span>
+                            {% endif %}
+                            {% if interview.interviewers.exists %}
+                            <span>
+                                <svg class="inline h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                                </svg>
+                                {{ interview.interviewers.count }} interviewer{{ interview.interviewers.count|pluralize }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% if interview.recommendation %}
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                            Recommendation: <span class="font-medium">{{ interview.get_recommendation_display }}</span>
+                        </p>
+                        {% endif %}
+                    </div>
+                    <div class="ml-4 flex items-center space-x-3">
+                        {% if interview.completed_at %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                            Completed
+                        </span>
+                        {% elif interview.scheduled_at %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                            Scheduled
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                            Pending
+                        </span>
+                        {% endif %}
+                        <a href="{% url 'slating_complete_interview' interview_id=interview.id %}" class="text-primary-600 dark:text-primary-400 hover:underline text-sm">
+                            {% if interview.completed_at %}Edit{% else %}Record{% endif %}
+                        </a>
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="px-4 py-12 text-center">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No interviews</h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {% if status_filter %}No interviews match this filter.{% else %}No interviews have been scheduled yet.{% endif %}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

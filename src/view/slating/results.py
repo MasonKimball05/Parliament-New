@@ -1,0 +1,227 @@
+"""
+Slating Results Views
+
+View and publish election results.
+"""
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.utils import timezone
+from src.models import (
+    SlatingPeriod, Slate, SlatingBallot, SlatingVote, SlatingActivity
+)
+from .permissions import slating_chair_required
+from src.decorators import exclude_pledges
+
+
+@login_required
+@exclude_pledges
+def view_results(request, period_id):
+    """
+    View election results.
+    """
+    period = get_object_or_404(SlatingPeriod, id=period_id)
+
+    # Check if results are published or user is admin/chair
+    can_view = (
+        period.status == 'results_published' or
+        request.user.is_admin or
+        (period.slating_committee and period.slating_committee.is_chair(request.user))
+    )
+
+    if not can_view:
+        messages.error(request, 'Results are not yet published.')
+        return redirect('slating_dashboard')
+
+    # Get primary slate
+    slate = Slate.objects.filter(
+        period=period,
+        is_approved=True,
+        slate_type='primary'
+    ).first()
+
+    if not slate:
+        messages.error(request, 'No slate found.')
+        return redirect('slating_dashboard')
+
+    # Get candidates
+    candidates = slate.candidates.select_related(
+        'position', 'application__applicant'
+    ).order_by('display_order')
+
+    # Calculate final results
+    total_ballots = SlatingBallot.objects.filter(
+        period=period,
+        voting_attempt=period.current_voting_attempt,
+        vote_type='slate'
+    ).count()
+
+    # Slate vote tally
+    slate_votes = SlatingVote.objects.filter(
+        period=period,
+        slate=slate
+    )
+
+    vote_tally = {
+        'total': slate_votes.count(),
+        'approve': slate_votes.filter(vote_choice='approve').count(),
+        'reject': slate_votes.filter(vote_choice='reject').count(),
+        'abstain': slate_votes.filter(vote_choice='abstain').count(),
+    }
+
+    # Calculate percentage
+    counted_votes = vote_tally['approve'] + vote_tally['reject']
+    if counted_votes > 0:
+        vote_tally['approval_percentage'] = (vote_tally['approve'] / counted_votes) * 100
+    else:
+        vote_tally['approval_percentage'] = 0
+
+    # Individual vote results (if applicable)
+    individual_results = {}
+    if period.current_voting_attempt >= period.max_slate_voting_attempts:
+        for candidate in candidates:
+            ind_votes = SlatingVote.objects.filter(slate_candidate=candidate)
+            individual_results[candidate.id] = {
+                'approve': ind_votes.filter(vote_choice='approve').count(),
+                'reject': ind_votes.filter(vote_choice='reject').count(),
+                'abstain': ind_votes.filter(vote_choice='abstain').count(),
+            }
+
+    # Check if user can publish
+    can_publish = (
+        request.user.is_admin or
+        (period.slating_committee and period.slating_committee.is_chair(request.user))
+    )
+
+    context = {
+        'period': period,
+        'slate': slate,
+        'candidates': candidates,
+        'total_ballots': total_ballots,
+        'vote_tally': vote_tally,
+        'individual_results': individual_results,
+        'can_publish': can_publish,
+        'is_published': period.status == 'results_published',
+    }
+
+    return render(request, 'slating/results.html', context)
+
+
+@login_required
+@slating_chair_required
+def publish_results(request, period_id):
+    """
+    Publish election results.
+    """
+    if request.method != 'POST':
+        return redirect('slating_results', period_id=period_id)
+
+    period = get_object_or_404(SlatingPeriod, id=period_id)
+
+    if period.status not in ['voting_closed', 'voting_open']:
+        messages.error(request, 'Cannot publish results at this time.')
+        return redirect('slating_results', period_id=period_id)
+
+    # Update status
+    period.status = 'results_published'
+    period.results_publish_at = timezone.now()
+    period.save()
+
+    # Log activity
+    SlatingActivity.objects.create(
+        period=period,
+        user=request.user,
+        action='results_published',
+        details='Election results published',
+        ip_address=request.META.get('REMOTE_ADDR')
+    )
+
+    # Send notifications
+    try:
+        from src.notification_service import notify_all_active_members
+        notify_all_active_members(
+            'announcement',
+            f'Election Results: {period.name}',
+            message='The officer election results have been published.',
+            link=f'/slating/period/{period.id}/results/',
+            source_type='SlatingPeriod',
+            source_id=period.id,
+            exclude_user=request.user
+        )
+    except Exception:
+        pass
+
+    messages.success(request, 'Results published successfully!')
+    return redirect('slating_results', period_id=period_id)
+
+
+@login_required
+@slating_chair_required
+def results_summary(request, period_id):
+    """
+    Detailed results summary for committee.
+    """
+    period = get_object_or_404(SlatingPeriod, id=period_id)
+
+    # Get all slates
+    slates = period.slates.filter(is_approved=True).order_by('-created_at')
+
+    # Get voting history by attempt
+    voting_history = []
+    for attempt in range(1, period.current_voting_attempt + 1):
+        votes = SlatingVote.objects.filter(
+            period=period,
+            voting_attempt=attempt,
+            slate__isnull=False
+        )
+
+        approve = votes.filter(vote_choice='approve').count()
+        reject = votes.filter(vote_choice='reject').count()
+        abstain = votes.filter(vote_choice='abstain').count()
+        total = approve + reject + abstain
+        counted = approve + reject
+
+        voting_history.append({
+            'attempt': attempt,
+            'total': total,
+            'approve': approve,
+            'reject': reject,
+            'abstain': abstain,
+            'percentage': (approve / counted * 100) if counted > 0 else 0,
+            'passed': (approve / counted * 100) >= period.required_approval_percentage if counted > 0 else False,
+        })
+
+    # Get participation stats
+    from src.models import ParliamentUser
+    eligible_voters = ParliamentUser.objects.filter(
+        member_status='Active',
+        member_type__in=['Member', 'Chair', 'Officer']
+    ).count()
+
+    total_unique_voters = SlatingBallot.objects.filter(
+        period=period
+    ).values('voter').distinct().count()
+
+    participation_rate = (total_unique_voters / eligible_voters * 100) if eligible_voters > 0 else 0
+
+    # Application stats
+    app_stats = {
+        'total': period.applications.count(),
+        'submitted': period.applications.filter(status='submitted').count(),
+        'interviewed': period.applications.filter(status='interviewed').count(),
+        'slated': period.applications.filter(status='slated').count(),
+        'withdrawn': period.applications.filter(status='withdrawn').count(),
+    }
+
+    context = {
+        'period': period,
+        'slates': slates,
+        'voting_history': voting_history,
+        'eligible_voters': eligible_voters,
+        'total_unique_voters': total_unique_voters,
+        'participation_rate': participation_rate,
+        'app_stats': app_stats,
+    }
+
+    return render(request, 'slating/results_summary.html', context)

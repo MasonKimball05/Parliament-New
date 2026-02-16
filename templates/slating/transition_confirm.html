@@ -1,0 +1,174 @@
+{% extends 'slating/base_slating.html' %}
+
+{% block breadcrumbs %}
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <a href="{% url 'slating_period_setup' period_id=period.id %}" class="text-gray-500 dark:text-gray-400 hover:text-primary-600">{{ period.name }}</a>
+</li>
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <span class="text-gray-700 dark:text-gray-300">Officer Transition</span>
+</li>
+{% endblock %}
+
+{% block page_header %}
+<div>
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Officer Transition</h1>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Transfer roles from outgoing to incoming officers</p>
+</div>
+{% endblock %}
+
+{% block slating_content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <!-- Warning Banner -->
+    <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-800 dark:text-red-200">Important: This action cannot be easily undone</h3>
+                <div class="mt-2 text-sm text-red-700 dark:text-red-300">
+                    <p>This will immediately transfer officer roles based on the election results. Review the changes below carefully before confirming.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if has_changes %}
+    <!-- Incoming Officers -->
+    {% if preview.incoming %}
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 bg-green-50 dark:bg-green-900/20">
+            <div class="flex items-center">
+                <svg class="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+                </svg>
+                <h3 class="text-lg font-medium text-green-800 dark:text-green-200">Incoming Officers ({{ preview.incoming|length }})</h3>
+            </div>
+        </div>
+        <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+            {% for item in preview.incoming %}
+            <li class="px-4 py-4 sm:px-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ item.position }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Role: {{ item.role }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-medium text-green-600 dark:text-green-400">{{ item.new_officer }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ item.new_officer_id }}</p>
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- Outgoing Officers -->
+    {% if preview.outgoing %}
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 bg-red-50 dark:bg-red-900/20">
+            <div class="flex items-center">
+                <svg class="h-5 w-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6"/>
+                </svg>
+                <h3 class="text-lg font-medium text-red-800 dark:text-red-200">Outgoing Officers ({{ preview.outgoing|length }})</h3>
+            </div>
+        </div>
+        <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+            {% for item in preview.outgoing %}
+            <li class="px-4 py-4 sm:px-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ item.position }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Role: {{ item.role }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-medium text-red-600 dark:text-red-400">{{ item.old_officer }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ item.old_officer_id }}</p>
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- Positions without roles -->
+    {% if preview.no_role %}
+    <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Positions Without Linked Roles</h3>
+                <div class="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+                    <p>These positions don't have a linked Role, so no role transfer will occur:</p>
+                    <ul class="list-disc list-inside mt-1">
+                        {% for item in preview.no_role %}
+                        <li>{{ item.position }} - {{ item.new_officer }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Confirmation Form -->
+    <form method="post" class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        {% csrf_token %}
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex items-start">
+                <div class="flex items-center h-5">
+                    <input id="confirm" name="confirm" type="checkbox" value="yes" required
+                        class="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                </div>
+                <div class="ml-3 text-sm">
+                    <label for="confirm" class="font-medium text-gray-700 dark:text-gray-300">I confirm I want to proceed with this officer transition</label>
+                    <p class="text-gray-500 dark:text-gray-400">This will immediately transfer roles as shown above.</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-gray-50 dark:bg-gray-700 px-4 py-4 sm:px-6 flex justify-end space-x-3">
+            <a href="{% url 'slating_results' period_id=period.id %}"
+               class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                Cancel
+            </a>
+            <button type="submit"
+                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                </svg>
+                Confirm Transition
+            </button>
+        </div>
+    </form>
+
+    {% else %}
+    <!-- No changes -->
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg px-6 py-12 text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No Transitions Needed</h3>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            There are no officer role changes to make based on the election results.
+        </p>
+        <div class="mt-6">
+            <a href="{% url 'slating_results' period_id=period.id %}"
+               class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                Back to Results
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

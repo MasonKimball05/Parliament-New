@@ -1,0 +1,264 @@
+{% extends 'slating/base_slating.html' %}
+{% load custom_filters %}
+
+{% block breadcrumbs %}
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <a href="{% url 'slating_my_applications' %}" class="text-gray-500 dark:text-gray-400 hover:text-primary-600">My Applications</a>
+</li>
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <span class="text-gray-700 dark:text-gray-300">{{ period.name }}</span>
+</li>
+{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">My Application</h1>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
+    </div>
+    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+        {% if application.status == 'submitted' %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300
+        {% elif application.status == 'slated' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300
+        {% elif application.status == 'interviewed' %}bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300
+        {% elif application.status == 'withdrawn' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300
+        {% elif application.status == 'draft' %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300
+        {% else %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300{% endif %}">
+        {{ application.get_status_display }}
+    </span>
+</div>
+{% endblock %}
+
+{% block slating_content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Main Content -->
+    <div class="lg:col-span-2 space-y-6">
+        <!-- Position Preferences -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Position Preferences</h3>
+            </div>
+            <div class="px-4 py-5 sm:p-6 space-y-4">
+                {% if tiered_positions %}
+                <!-- First Choice -->
+                {% if tiered_positions.first_choice %}
+                <div>
+                    <h4 class="text-sm font-medium text-green-700 dark:text-green-400 mb-2">First Choice</h4>
+                    <ul class="space-y-1">
+                        {% for position in tiered_positions.first_choice %}
+                        <li class="text-sm text-gray-700 dark:text-gray-300 pl-3 border-l-2 border-green-500">
+                            <span class="font-medium">{{ position.title }}</span>
+                            {% if position.description %}
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ position.description }}</p>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <!-- Second Choice -->
+                {% if tiered_positions.second_choice %}
+                <div>
+                    <h4 class="text-sm font-medium text-blue-700 dark:text-blue-400 mb-2">Second Choice</h4>
+                    <ul class="space-y-1">
+                        {% for position in tiered_positions.second_choice %}
+                        <li class="text-sm text-gray-700 dark:text-gray-300 pl-3 border-l-2 border-blue-500">
+                            <span class="font-medium">{{ position.title }}</span>
+                            {% if position.description %}
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ position.description }}</p>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <!-- Third Choice -->
+                {% if tiered_positions.third_choice %}
+                <div>
+                    <h4 class="text-sm font-medium text-yellow-700 dark:text-yellow-400 mb-2">Third Choice</h4>
+                    <ul class="space-y-1">
+                        {% for position in tiered_positions.third_choice %}
+                        <li class="text-sm text-gray-700 dark:text-gray-300 pl-3 border-l-2 border-yellow-500">
+                            <span class="font-medium">{{ position.title }}</span>
+                            {% if position.description %}
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ position.description }}</p>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <!-- Do Not Want -->
+                {% if tiered_positions.do_not_want %}
+                <div>
+                    <h4 class="text-sm font-medium text-red-700 dark:text-red-400 mb-2">Do Not Want</h4>
+                    <ul class="space-y-1">
+                        {% for position in tiered_positions.do_not_want %}
+                        <li class="text-sm text-gray-500 dark:text-gray-400 pl-3 border-l-2 border-red-500 line-through">
+                            {{ position.title }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                {% if not tiered_positions.first_choice and not tiered_positions.second_choice and not tiered_positions.third_choice %}
+                <p class="text-sm text-gray-500 dark:text-gray-400">No positions selected.</p>
+                {% endif %}
+
+                {% elif selected_positions %}
+                <!-- Fallback for legacy format -->
+                <ol class="list-decimal list-inside space-y-2">
+                    {% for position in selected_positions %}
+                    <li class="text-sm text-gray-700 dark:text-gray-300">
+                        <span class="font-medium">{{ position.title }}</span>
+                        {% if position.description %}
+                        <span class="text-gray-500 dark:text-gray-400">- {{ position.description }}</span>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ol>
+                {% else %}
+                <p class="text-sm text-gray-500 dark:text-gray-400">No positions selected.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Application Responses -->
+        {% regroup fields by section as field_sections %}
+        {% for section in field_sections %}
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ section.grouper|default:"Application" }}</h3>
+            </div>
+            <dl class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for field in section.list %}
+                {% with response=responses|dict_get:field.id %}
+                <div class="px-4 py-4 sm:px-6">
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ field.label }}</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">
+                        {% if response.text_value %}
+                        {{ response.text_value|linebreaks }}
+                        {% elif response.number_value %}
+                        {{ response.number_value }}
+                        {% elif response.json_value %}
+                        {{ response.json_value|join:", " }}
+                        {% elif response.file_value %}
+                        <a href="{{ response.file_value.url }}" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">
+                            View File
+                        </a>
+                        {% else %}
+                        <span class="text-gray-400 dark:text-gray-500">No response</span>
+                        {% endif %}
+                    </dd>
+                </div>
+                {% endwith %}
+                {% endfor %}
+            </dl>
+        </div>
+        {% empty %}
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg px-4 py-12 text-center">
+            <p class="text-sm text-gray-500 dark:text-gray-400">No application responses to display.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="space-y-6">
+        <!-- Application Status -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Application Status</h3>
+            </div>
+            <dl class="px-4 py-5 sm:p-6 space-y-3">
+                <div class="flex justify-between">
+                    <dt class="text-sm text-gray-500 dark:text-gray-400">Status</dt>
+                    <dd class="text-sm font-medium text-gray-900 dark:text-white">{{ application.get_status_display }}</dd>
+                </div>
+                <div class="flex justify-between">
+                    <dt class="text-sm text-gray-500 dark:text-gray-400">Submitted</dt>
+                    <dd class="text-sm font-medium text-gray-900 dark:text-white">{{ application.submitted_at|date:"F j, Y g:i A"|default:"Not submitted" }}</dd>
+                </div>
+                {% if application.reported_gpa %}
+                <div class="flex justify-between">
+                    <dt class="text-sm text-gray-500 dark:text-gray-400">Reported GPA</dt>
+                    <dd class="text-sm font-medium text-gray-900 dark:text-white">
+                        {{ application.reported_gpa }}
+                        {% if application.gpa_verified %}
+                        <svg class="inline h-4 w-4 text-green-500 ml-1" fill="currentColor" viewBox="0 0 20 20" title="Verified">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        {% endif %}
+                    </dd>
+                </div>
+                {% endif %}
+                <div class="flex justify-between">
+                    <dt class="text-sm text-gray-500 dark:text-gray-400">Period Status</dt>
+                    <dd class="text-sm font-medium text-gray-900 dark:text-white">{{ period.get_status_display }}</dd>
+                </div>
+            </dl>
+        </div>
+
+        <!-- Actions -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Actions</h3>
+            </div>
+            <div class="px-4 py-4 space-y-2">
+                {% if application.status == 'draft' %}
+                <a href="{% url 'slating_apply' period_id=period.id %}" class="block w-full text-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700">
+                    Continue Application
+                </a>
+                {% endif %}
+                {% if application.status not in 'withdrawn,slated' and period.status == 'nominations_open' %}
+                <form method="post" action="{% url 'slating_withdraw_application' app_id=application.id %}" class="w-full"
+                    onsubmit="return confirm('Are you sure you want to withdraw your application?');">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full px-4 py-2 border border-red-300 dark:border-red-700 rounded-md shadow-sm text-sm font-medium text-red-700 dark:text-red-300 bg-white dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-red-900/30">
+                        Withdraw Application
+                    </button>
+                </form>
+                {% endif %}
+                <a href="{% url 'slating_my_applications' %}" class="block w-full text-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                    Back to My Applications
+                </a>
+            </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4">
+            <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-3">Election Timeline</h3>
+            <div class="space-y-2 text-sm">
+                {% if period.nominations_open_at %}
+                <div class="flex justify-between text-blue-700 dark:text-blue-300">
+                    <span>Nominations Open</span>
+                    <span>{{ period.nominations_open_at|date:"M j" }}</span>
+                </div>
+                {% endif %}
+                {% if period.nominations_close_at %}
+                <div class="flex justify-between text-blue-700 dark:text-blue-300">
+                    <span>Nominations Close</span>
+                    <span>{{ period.nominations_close_at|date:"M j" }}</span>
+                </div>
+                {% endif %}
+                {% if period.voting_open_at %}
+                <div class="flex justify-between text-blue-700 dark:text-blue-300">
+                    <span>Voting Opens</span>
+                    <span>{{ period.voting_open_at|date:"M j" }}</span>
+                </div>
+                {% endif %}
+                {% if period.voting_close_at %}
+                <div class="flex justify-between text-blue-700 dark:text-blue-300">
+                    <span>Voting Closes</span>
+                    <span>{{ period.voting_close_at|date:"M j" }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

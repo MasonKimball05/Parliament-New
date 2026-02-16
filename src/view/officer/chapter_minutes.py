@@ -6,6 +6,7 @@ with attendance tracking and embedded motion/vote recording.
 import io
 import json
 from datetime import date
+from zoneinfo import ZoneInfo
 
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
@@ -111,10 +112,29 @@ def edit_chapter_minutes(request, minutes_id):
     """Main editor page for chapter minutes"""
     minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee__isnull=True)
 
-    # Get all active members for attendance
-    members = ParliamentUser.objects.filter(
+    # Get all active members for attendance (excluding advisors)
+    # Sort: non-pledges first (by last name), then pledges (by last name)
+    def get_last_name(user):
+        """Extract last name from full name for sorting"""
+        parts = user.name.strip().split()
+        return parts[-1].lower() if parts else ''
+
+    all_members = ParliamentUser.objects.filter(
         member_status='Active'
-    ).order_by('user_id')
+    ).exclude(member_type='Advisor')
+
+    # Separate non-pledges and pledges, sort each by last name
+    non_pledges = sorted(
+        [m for m in all_members if m.member_type != 'Pledge'],
+        key=get_last_name
+    )
+    pledges = sorted(
+        [m for m in all_members if m.member_type == 'Pledge'],
+        key=get_last_name
+    )
+
+    # Combine: non-pledges first, then pledges
+    members = non_pledges + pledges
 
     # Get existing sections with related motions
     sections = minutes.sections.all().select_related('motion').order_by('order')
@@ -812,8 +832,9 @@ def generate_minutes_pdf_buffer(minutes):
         f"Minutes recorded by: {minutes.created_by.get_display_name()}",
         style_footer
     ))
+    central_time = timezone.now().astimezone(ZoneInfo('America/Chicago'))
     elements.append(Paragraph(
-        f"Downloaded: {timezone.now().strftime('%B %d, %Y at %I:%M %p')}",
+        f"Downloaded: {central_time.strftime('%B %d, %Y at %I:%M %p')} CT",
         style_footer
     ))
 

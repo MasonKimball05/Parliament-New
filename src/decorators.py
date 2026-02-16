@@ -37,7 +37,8 @@ def officer_required(view_func):
             from django.shortcuts import redirect
             return redirect('login')
 
-        if not request.user.is_officer:
+        # Allow Officers, Chairs, and Admins
+        if not (request.user.is_officer or request.user.member_type == 'Chair'):
             return HttpResponseForbidden("Officers and chairs only.")
         return view_func(request, *args, **kwargs)
     return wrapper

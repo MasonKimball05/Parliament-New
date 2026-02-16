@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.conf import settings
 from src.models import *
 from src.feature_flag_decorators import require_page_enabled
 
@@ -20,9 +21,15 @@ def committee_index(request):
     user_committees = (member_committees | chair_committees | advisor_committees).distinct()
 
     # Get all committees for dropdown and admin view
-    all_committees_list = Committee.objects.select_related('role').all().order_by('name')
+    all_committees_query = Committee.objects.select_related('role').all().order_by('name')
 
-    # Prepare all committees info for dropdown
+    # Filter by visibility (unless show_all for admin)
+    if show_all:
+        all_committees_list = list(all_committees_query)
+    else:
+        all_committees_list = [c for c in all_committees_query if c.is_visible_to(user)]
+
+    # Prepare all committees info for dropdown (filtered by visibility)
     all_committees_info = []
     for committee in all_committees_list:
         committee_vp = committee.get_vp()
@@ -35,7 +42,8 @@ def committee_index(request):
     if show_all:
         display_committees = all_committees_list
     else:
-        display_committees = user_committees
+        # Filter user's committees by visibility as well
+        display_committees = [c for c in user_committees if c.is_visible_to(user)]
 
     # Add role information to each committee
     committees_with_roles = []
@@ -67,6 +75,7 @@ def committee_index(request):
         'committees': committees_with_roles,
         'all_committees_info': all_committees_info,
         'show_all': show_all,
+        'is_test_server': settings.DEBUG,  # Test server runs with DEBUG=True
     }
 
     return render(request, 'committee/committee_index.html', context)
