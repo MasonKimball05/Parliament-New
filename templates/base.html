@@ -90,7 +90,7 @@
                                 Chats
                             </a>
                             {% endif %}
-                            {% if user.preferences.show_documents_menu %}
+                            {% if user.preferences.show_documents_menu and not user.is_pledge %}
                             <a href="{% url 'chapter_documents' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Documents
                             </a>
@@ -245,7 +245,7 @@
                     💬 Chats
                 </a>
                 {% endif %}
-                {% if user.preferences.show_documents_menu %}
+                {% if user.preferences.show_documents_menu and not user.is_pledge %}
                 <a href="{% url 'chapter_documents' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📄 Documents
                 </a>

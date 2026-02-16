@@ -156,7 +156,8 @@
             <p class="text-white text-sm opacity-90">Access committee and group chats</p>
         </a>
 
-        <!-- Documents Card -->
+        <!-- Documents Card (hidden from pledges) -->
+        {% if not user.is_pledge %}
         <a href="{% url 'chapter_documents' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 group">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:text-primary-400 transition-colors">Documents</h2>
@@ -166,6 +167,7 @@
             </div>
             <p class="text-gray-600 dark:text-gray-400 text-sm">Access chapter documents</p>
         </a>
+        {% endif %}
 
         <!-- Kai Report Card -->
         <a href="{% url 'submit_kai_report' %}" class="block rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 group" style="background: linear-gradient(135deg, #10B981 0%, #059669 100%);">

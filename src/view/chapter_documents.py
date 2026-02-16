@@ -3,9 +3,11 @@ from src.models import CommitteeDocument, Committee, ChapterFolder, CommitteeLeg
 from django.contrib.auth.decorators import login_required
 from collections import defaultdict
 from src.feature_flag_decorators import require_page_enabled
+from src.decorators import exclude_pledges
 
 @login_required
 @require_page_enabled('chapter_documents')
+@exclude_pledges
 def chapter_documents(request):
     """View for displaying all documents published to the chapter, organized by folder and committee"""
     all_documents = CommitteeDocument.objects.filter(published_to_chapter=True).select_related('committee', 'uploaded_by', 'chapter_folder')
