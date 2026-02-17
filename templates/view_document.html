@@ -239,8 +239,8 @@
                         {% if pdf_images.truncated %} (showing first {{ pdf_images.images|length }} of {{ pdf_images.total_pages }}){% endif %}
                     </span>
                     <div class="flex gap-2">
-                        <a href="{{ document_url }}" target="_blank" class="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition">Open</a>
-                        <a href="{{ document_url }}" download class="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition">Download</a>
+                        <a href="{{ document_url }}" target="_blank" class="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition ios-pdf-link">Open</a>
+                        <a href="{{ document_url }}" download class="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ios-download-link">Download</a>
                     </div>
                 </div>
                 <!-- PDF pages as images -->
@@ -260,7 +260,7 @@
                 {% if pdf_images.truncated %}
                 <div class="text-center py-4">
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Showing first {{ pdf_images.images|length }} pages. Open the PDF to view all {{ pdf_images.total_pages }} pages.</p>
-                    <a href="{{ document_url }}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                    <a href="{{ document_url }}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition ios-pdf-link">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                         </svg>
@@ -280,9 +280,13 @@
                         </svg>
                     </div>
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">{{ document_title }}</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Open the PDF in your device's viewer for the best experience.</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Open the PDF in your device's viewer for the best experience.</p>
+                    <!-- iOS PWA notice -->
+                    <p id="iosPwaNotice" class="hidden text-xs text-amber-600 dark:text-amber-400 mb-4 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                        Tip: Tapping "Open PDF" will open this document in Safari.
+                    </p>
                     <div class="space-y-3">
-                        <a href="{{ document_url }}" target="_blank" class="block w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors">
+                        <a href="{{ document_url }}" target="_blank" id="openPdfBtn" class="block w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors">
                             <span class="flex items-center justify-center gap-2">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
@@ -301,6 +305,12 @@
                     </div>
                 </div>
             </div>
+            <script>
+                // Show iOS PWA notice if applicable
+                if (window.navigator.standalone === true) {
+                    document.getElementById('iosPwaNotice').classList.remove('hidden');
+                }
+            </script>
             {% endif %}
         </div>
         {% elif is_image %}
@@ -354,4 +364,45 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+// iOS PWA standalone mode detection and link handling
+(function() {
+    // Detect if running as iOS PWA (standalone mode)
+    const isIOSPWA = window.navigator.standalone === true;
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+    if (isIOSPWA) {
+        // In PWA standalone mode, handle all external links
+        document.querySelectorAll('a[target="_blank"], .ios-pdf-link').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                // Navigate directly - this will open in Safari outside the PWA
+                window.location.href = this.href;
+            });
+        });
+
+        // Handle download links - in PWA mode, just open the file
+        document.querySelectorAll('a[download], .ios-download-link').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                window.location.href = this.href;
+            });
+        });
+    } else if (isIOS) {
+        // On iOS Safari (not PWA), try window.open with fallback
+        document.querySelectorAll('a[target="_blank"]').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const url = this.href;
+                const newWindow = window.open(url, '_blank');
+                if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+                    // Popup blocked or failed, navigate directly
+                    window.location.href = url;
+                }
+            });
+        });
+    }
+})();
+</script>
 {% endblock %}
