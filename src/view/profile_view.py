@@ -69,6 +69,7 @@ def profile_view(request):
             new_username = request.POST.get('username')
             new_preferred_name = request.POST.get('preferred_name', '').strip()
             new_email = request.POST.get('email', '').strip()
+            new_phone = request.POST.get('phone_number', '').strip()
 
             changes_made = False
 
@@ -96,6 +97,13 @@ def profile_view(request):
                 old_email = user.email or "(not set)"
                 logger.info(f"{user.username} changed email from '{old_email}' to '{new_email or '(not set)'}'")
                 user.email = new_email if new_email else None
+                changes_made = True
+
+            # Update phone number if changed (allow empty string to clear it)
+            current_phone = user.phone_number or ''
+            if new_phone != current_phone:
+                logger.info(f"{user.username} updated phone number")
+                user.phone_number = new_phone if new_phone else ''
                 changes_made = True
 
             if changes_made:

@@ -177,7 +177,7 @@ def log_failed_login(sender, credentials, request, **kwargs):
 from django.db.models.signals import m2m_changed
 
 # Executive role codes that grant EXEC committee membership
-EXEC_ROLE_CODES = ['President', 'EVP', 'VPB', 'VPR', 'VPE', 'VPI', 'VPS', 'VPM', 'VPP', 'VPF', 'VPA', 'VPRM']
+EXEC_ROLE_CODES = ['President', 'EVP', 'VPB', 'VPR', 'VPE', 'VPP', 'VPF', 'VPA', 'VPRM']
 
 
 def sync_exec_committee():

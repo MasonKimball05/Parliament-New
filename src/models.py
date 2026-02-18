@@ -107,6 +107,7 @@ class ParliamentUser(AbstractBaseUser):
     is_admin = models.BooleanField(default=False)
     username = models.CharField(max_length=100, unique=True, help_text='Username for login (not encrypted - needed for authentication lookups)')
     email = models.EmailField(max_length=254, blank=True, null=True, unique=True, help_text='Email address for password reset and notifications')
+    phone_number = models.CharField(max_length=20, blank=True, help_text='Optional phone number for directory listing')
     profile_picture = models.ImageField(
         upload_to='profile_pictures/',
         blank=True,
