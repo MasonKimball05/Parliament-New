@@ -57,8 +57,8 @@
                         </a>
                         {% endif %}
                         {% if member.phone_number %}
-                        <a href="tel:{{ member.phone_number }}" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 truncate block">
-                            {{ member.phone_number }}
+                        <a href="tel:{{ member.phone_number|format_phone }}" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 truncate block">
+                            {{ member.phone_number|format_phone }}
                         </a>
                         {% endif %}
                         {% if member.roles.exists %}
@@ -114,8 +114,8 @@
                         </a>
                         {% endif %}
                         {% if member.phone_number %}
-                        <a href="tel:{{ member.phone_number }}" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 truncate block">
-                            {{ member.phone_number }}
+                        <a href="tel:{{ member.phone_number|format_phone }}" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 truncate block">
+                            {{ member.phone_number|format_phone }}
                         </a>
                         {% endif %}
                     </div>
@@ -162,8 +162,8 @@
                         </a>
                         {% endif %}
                         {% if member.phone_number %}
-                        <a href="tel:{{ member.phone_number }}" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 truncate block">
-                            {{ member.phone_number }}
+                        <a href="tel:{{ member.phone_number|format_phone }}" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 truncate block">
+                            {{ member.phone_number|format_phone }}
                         </a>
                         {% endif %}
                     </div>
@@ -208,8 +208,8 @@
                         </a>
                         {% endif %}
                         {% if member.phone_number %}
-                        <a href="tel:{{ member.phone_number }}" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 truncate block">
-                            {{ member.phone_number }}
+                        <a href="tel:{{ member.phone_number|format_phone }}" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 truncate block">
+                            {{ member.phone_number|format_phone }}
                         </a>
                         {% endif %}
                     </div>
@@ -254,8 +254,8 @@
                         </a>
                         {% endif %}
                         {% if member.phone_number %}
-                        <a href="tel:{{ member.phone_number }}" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 truncate block">
-                            {{ member.phone_number }}
+                        <a href="tel:{{ member.phone_number|format_phone }}" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 truncate block">
+                            {{ member.phone_number|format_phone }}
                         </a>
                         {% endif %}
                     </div>

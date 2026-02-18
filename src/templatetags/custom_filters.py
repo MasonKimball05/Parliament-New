@@ -71,6 +71,34 @@ def dict_get_tier(prefs, position_id):
     return ''
 
 
+@register.filter
+def format_phone(value):
+    """Format a phone number as XXX-XXX-XXXX.
+
+    Handles various input formats:
+    - 1234567890 -> 123-456-7890
+    - 123-456-7890 -> 123-456-7890 (unchanged)
+    - (123) 456-7890 -> 123-456-7890
+    - +1 123 456 7890 -> 123-456-7890
+    """
+    if not value:
+        return value
+
+    # Remove all non-digit characters
+    digits = re.sub(r'\D', '', str(value))
+
+    # Remove leading 1 if it's an 11-digit number (US country code)
+    if len(digits) == 11 and digits.startswith('1'):
+        digits = digits[1:]
+
+    # Format as XXX-XXX-XXXX if we have 10 digits
+    if len(digits) == 10:
+        return f"{digits[:3]}-{digits[3:6]}-{digits[6:]}"
+
+    # Return original if not a standard 10-digit number
+    return value
+
+
 @register.filter(needs_autoescape=True)
 def linkify(value, autoescape=True):
     """Convert URLs in plain text to clickable links that open in new tabs.

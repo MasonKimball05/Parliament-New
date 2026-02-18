@@ -314,9 +314,9 @@
                     Phone Number
                     <span class="text-gray-500 dark:text-gray-400 font-normal text-xs">(Optional - shown in member directory)</span>
                 </label>
-                <input type="tel" name="phone_number" value="{{ user.phone_number|default:'' }}"
+                <input type="tel" name="phone_number" id="phone_number_input" value="{{ user.phone_number|format_phone|default:'' }}"
                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                       placeholder="(555) 123-4567">
+                       placeholder="123-456-7890" maxlength="12">
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     This will be visible to other members in the directory.
                 </p>
@@ -669,6 +669,61 @@ document.addEventListener('DOMContentLoaded', function() {
         }, selectedFile.type, 0.95);
     });
 });
+
+// Phone number auto-formatting
+const phoneInput = document.getElementById('phone_number_input');
+if (phoneInput) {
+    phoneInput.addEventListener('input', function(e) {
+        // Get only digits from input
+        let digits = this.value.replace(/\D/g, '');
+
+        // Limit to 10 digits
+        if (digits.length > 10) {
+            digits = digits.substring(0, 10);
+        }
+
+        // Format as XXX-XXX-XXXX
+        let formatted = '';
+        if (digits.length > 0) {
+            formatted = digits.substring(0, 3);
+        }
+        if (digits.length > 3) {
+            formatted += '-' + digits.substring(3, 6);
+        }
+        if (digits.length > 6) {
+            formatted += '-' + digits.substring(6, 10);
+        }
+
+        this.value = formatted;
+    });
+
+    // Also format on paste
+    phoneInput.addEventListener('paste', function(e) {
+        e.preventDefault();
+        const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+        let digits = pastedText.replace(/\D/g, '');
+
+        // Remove leading 1 if 11 digits (country code)
+        if (digits.length === 11 && digits.startsWith('1')) {
+            digits = digits.substring(1);
+        }
+
+        // Limit to 10 digits and format
+        digits = digits.substring(0, 10);
+        let formatted = '';
+        if (digits.length > 0) {
+            formatted = digits.substring(0, 3);
+        }
+        if (digits.length > 3) {
+            formatted += '-' + digits.substring(3, 6);
+        }
+        if (digits.length > 6) {
+            formatted += '-' + digits.substring(6, 10);
+        }
+
+        this.value = formatted;
+    });
+}
 </script>
 
 {% endblock %}
