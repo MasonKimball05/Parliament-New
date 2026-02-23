@@ -101,3 +101,11 @@ pip-delete-this-directory.txt
 local_settings.py
 db_backup/
 fixtures/backup_*.json
+
+# === Test/Local Database Experiments ===
+*.sqlite3
+db.sqlite3
+backup.json
+data_backup.json
+test_settings.py
+settings_sqlite.py
