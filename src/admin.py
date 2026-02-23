@@ -197,7 +197,7 @@ class ParliamentUserAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('Personal Information', {
-            'fields': ('username', 'name', 'preferred_name', 'user_id', 'email')
+            'fields': ('username', 'name', 'preferred_name', 'user_id', 'email', 'phone_number',)
         }),
         ('Member Information', {
             'fields': ('member_type', 'member_status', 'role_number', 'is_admin', 'is_active')
