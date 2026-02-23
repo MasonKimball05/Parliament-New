@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 _metrics_lock = threading.Lock()
 _performance_metrics = {
     'requests': [],  # List of (timestamp, duration_ms, path, db_queries, db_time_ms)
-    'max_stored': 1000,  # Keep last 1000 requests
+    'max_stored': 100,  # Keep last 100 requests (reduced from 1000 to prevent memory growth)
 }
 
 

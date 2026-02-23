@@ -39,6 +39,20 @@ def vote_view(request):
         parsed_available_at = parse_datetime(raw_available_at)
         available_at = make_aware(parsed_available_at) if parsed_available_at else None
 
+        # Parse voting_starts_at (optional - defaults to available_at if not set)
+        raw_voting_starts_at = request.POST.get('voting_starts_at')
+        voting_starts_at = None
+        if raw_voting_starts_at:
+            parsed_voting_starts_at = parse_datetime(raw_voting_starts_at)
+            voting_starts_at = make_aware(parsed_voting_starts_at) if parsed_voting_starts_at else None
+
+        # Parse voting_ends_at (optional)
+        raw_voting_ends_at = request.POST.get('voting_ends_at')
+        voting_ends_at = None
+        if raw_voting_ends_at:
+            parsed_voting_ends_at = parse_datetime(raw_voting_ends_at)
+            voting_ends_at = make_aware(parsed_voting_ends_at) if parsed_voting_ends_at else None
+
         vote_mode = request.POST.get('vote_mode', 'percentage')
         plurality_options = []
         required_number = None
@@ -66,6 +80,8 @@ def vote_view(request):
                 document=document if vote_mode != 'plurality' else None,
                 posted_by=user,
                 available_at=available_at,
+                voting_starts_at=voting_starts_at,
+                voting_ends_at=voting_ends_at,
                 anonymous_vote=anonymous,
                 allow_abstain=allow_abstain,
                 required_percentage=required_percentage,
@@ -105,6 +121,9 @@ def vote_view(request):
             if legislation.voting_closed:
                 messages.error(request, "Voting on this legislation has ended.")
                 return redirect('vote')
+            if not legislation.voting_has_started():
+                messages.error(request, "Voting has not started yet on this legislation.")
+                return redirect('vote')
 
             vote_choice = request.POST.get('vote_choice')
             if legislation.vote_mode == 'plurality' and vote_choice not in legislation.plurality_options:
@@ -123,10 +142,12 @@ def vote_view(request):
             return redirect('vote')
 
     # Gather available legislation
+    # Show legislation that is available OR pending legislation created by the current user
+    from django.db.models import Q
     available_legislation = Legislation.objects.filter(
-        available_at__lte=timezone.now(),
+        Q(available_at__lte=timezone.now()) | Q(posted_by=user),
         voting_closed=False
-    )
+    ).order_by('-available_at')
 
     # Build vote data for uploader
     vote_data = {}

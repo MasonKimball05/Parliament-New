@@ -43,12 +43,21 @@ def notifications(request):
 def feature_flags(request):
     """
     Makes feature flags available in all templates.
+    Cached for 60 seconds to reduce database queries on every request.
 
     Usage in templates:
         {% if feature_flags.announcements %}
             <!-- Show announcements -->
         {% endif %}
     """
+    from django.core.cache import cache
+
+    # Try to get from cache first
+    cache_key = 'context_feature_flags'
+    cached_data = cache.get(cache_key)
+    if cached_data is not None:
+        return cached_data
+
     # Get all enabled feature flags
     enabled_features = {}
     for flag in FeatureFlag.objects.filter(is_enabled=True):
@@ -59,10 +68,14 @@ def feature_flags(request):
     for toggle in PageToggle.objects.filter(is_enabled=True):
         enabled_pages[toggle.url_name] = True
 
-    return {
+    result = {
         'feature_flags': enabled_features,
         'enabled_pages': enabled_pages,
     }
+
+    # Cache for 60 seconds
+    cache.set(cache_key, result, 60)
+    return result
 
 
 def maintenance_mode(request):

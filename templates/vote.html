@@ -52,8 +52,23 @@
 
             <div class="grid md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Available At</label>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Document Available At</label>
                     <input type="datetime-local" name="available_at" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">When members can view the document</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Voting Starts At <span class="text-gray-400">(optional)</span></label>
+                    <input type="datetime-local" name="voting_starts_at" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave blank to start voting immediately when available</p>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Voting Ends At <span class="text-gray-400">(optional)</span></label>
+                    <input type="datetime-local" name="voting_ends_at" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave blank for manual closing</p>
                 </div>
 
                 <div>
@@ -129,8 +144,37 @@
             {% for leg in legislation %}
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
                 <div class="bg-blue-50 dark:bg-blue-900/20 px-6 py-4 border-b border-blue-100 dark:border-blue-800">
-                    <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ leg.title }}</h3>
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Available: {{ leg.available_at|date:"F j, Y, g:i a" }}</p>
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ leg.title }}</h3>
+                            <div class="text-sm text-gray-600 dark:text-gray-400 mt-1 space-y-0.5">
+                                <p>Document Available: {{ leg.available_at|date:"F j, Y, g:i a" }}</p>
+                                {% if leg.voting_starts_at and leg.voting_starts_at != leg.available_at %}
+                                <p>Voting Opens: {{ leg.voting_starts_at|date:"F j, Y, g:i a" }}</p>
+                                {% endif %}
+                                {% if leg.voting_ends_at %}
+                                <p>Voting Closes: {{ leg.voting_ends_at|date:"F j, Y, g:i a" }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if not leg.is_available %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300">
+                            Scheduled
+                        </span>
+                        {% elif not leg.voting_has_started %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">
+                            Voting Not Open
+                        </span>
+                        {% elif leg.voting_closed %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
+                            Voting Closed
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
+                            Voting Open
+                        </span>
+                        {% endif %}
+                    </div>
                 </div>
 
                 <div class="p-6">
@@ -205,8 +249,23 @@
                     </div>
                     {% endif %}
 
+                    <!-- Voting Not Started Yet Message -->
+                    {% if not leg.voting_has_started %}
+                    <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400 dark:border-blue-500 p-4 mb-4 transition-colors duration-200">
+                        <div class="flex">
+                            <svg class="w-5 h-5 text-blue-400 dark:text-blue-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                            </svg>
+                            <div>
+                                <p class="text-sm font-medium text-blue-700 dark:text-blue-300">Voting opens {{ leg.get_voting_start_time|date:"F j, Y" }} at {{ leg.get_voting_start_time|time:"g:i a" }}</p>
+                                <p class="text-sm text-blue-600 dark:text-blue-400 mt-1">You can review the document now, but voting is not yet available.</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <!-- Voting Form -->
-                    {% if can_vote %}
+                    {% if can_vote and leg.voting_has_started %}
                     <form method="post" class="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4 transition-colors duration-200">
                         {% csrf_token %}
                         <input type="hidden" name="legislation_id" value="{{ leg.id }}">
@@ -247,18 +306,44 @@
                     </form>
                     {% endif %}
 
-                    <!-- End Vote Button (for author or admin) -->
+                    <!-- Scheduled Legislation Banner (for author) -->
+                    {% if not leg.is_available and profile == leg.posted_by %}
+                    <div class="bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-400 dark:border-purple-500 p-4 mb-4 transition-colors duration-200">
+                        <div class="flex">
+                            <svg class="w-5 h-5 text-purple-400 dark:text-purple-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                            </svg>
+                            <div>
+                                <p class="text-sm font-medium text-purple-700 dark:text-purple-300">Scheduled for {{ leg.available_at|date:"F j, Y" }} at {{ leg.available_at|time:"g:i a" }}</p>
+                                <p class="text-sm text-purple-600 dark:text-purple-400 mt-1">This legislation is not yet visible to other members. You can edit or delete it before it becomes available.</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Action Buttons (for author or admin) -->
                     {% if not leg.voting_closed %}
                         {% if profile == leg.posted_by or profile.is_admin %}
-                        <div class="flex gap-3 mt-4">
+                        <div class="flex flex-wrap gap-3 mt-4">
+                            {% if not leg.is_available and profile == leg.posted_by %}
+                            <!-- Edit button for scheduled legislation -->
+                            <a href="{% url 'edit_legislation' leg.id %}" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium px-6 py-2 rounded-lg transition">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                </svg>
+                                Edit
+                            </a>
+                            {% endif %}
+                            {% if leg.voting_has_started %}
                             <form method="post" action="{% url 'end_vote' leg.id %}">
                                 {% csrf_token %}
                                 <button type="submit" class="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 text-white font-medium px-6 py-2 rounded-lg transition">
                                     End Vote
                                 </button>
                             </form>
-                            {% if profile.is_admin %}
-                            <form method="post" action="{% url 'delete_chapter_legislation' leg.id %}">
+                            {% endif %}
+                            {% if profile.is_admin or not leg.is_available %}
+                            <form method="post" action="{% url 'delete_chapter_legislation' leg.id %}" onsubmit="return confirm('Are you sure you want to delete this legislation?');">
                                 {% csrf_token %}
                                 <button type="submit" class="bg-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 text-white font-medium px-6 py-2 rounded-lg transition">
                                     Delete

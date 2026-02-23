@@ -1,5 +1,6 @@
 """
 View for admins to delete erroneous legislation from the vote page
+Authors can also delete their own scheduled legislation before it becomes available.
 """
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
@@ -12,12 +13,19 @@ logger = logging.getLogger('function_calls')
 
 @login_required
 def delete_chapter_legislation(request, legislation_id):
-    """Allow admins to delete legislation that shouldn't exist (from vote page)"""
-    if not request.user.is_admin:
-        messages.error(request, "Only admins can delete legislation.")
-        return redirect('vote')
-
+    """Allow admins to delete legislation, or authors to delete their scheduled legislation"""
     legislation = get_object_or_404(Legislation, id=legislation_id)
+
+    # Check permissions:
+    # - Admins can always delete
+    # - Authors can delete their own scheduled (not yet available) legislation
+    is_admin = request.user.is_admin
+    is_author = request.user == legislation.posted_by
+    is_scheduled = not legislation.is_available()
+
+    if not is_admin and not (is_author and is_scheduled):
+        messages.error(request, "You don't have permission to delete this legislation.")
+        return redirect('vote')
 
     if request.method == 'POST':
         title = legislation.title

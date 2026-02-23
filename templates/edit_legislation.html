@@ -1,80 +1,184 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Edit Legislation</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 text-gray-900">
+{% extends 'base.html' %}
 
-    <div class="max-w-4xl mx-auto p-6 bg-white shadow-lg rounded-lg mt-10">
-        <h2 class="text-3xl font-semibold mb-6">Edit Legislation</h2>
+{% block title %}Edit Legislation{% endblock %}
 
-        <form method="POST" enctype="multipart/form-data">
-            {% csrf_token %}
-            
-            <div class="mb-4">
-                <label for="title" class="block text-lg font-medium text-gray-700">Title</label>
-                <input type="text" name="title" id="title" value="{{ form.title.value|default:legislation.title }}" class="w-full p-2 mt-1 border border-gray-300 rounded-lg" required>
-            </div>
-            
-            <div class="mb-4">
-                <label for="description" class="block text-lg font-medium text-gray-700">Description</label>
-                <textarea name="description" id="description" rows="4" class="w-full p-2 mt-1 border border-gray-300 rounded-lg" required>{{ form.description.value|default:legislation.description }}</textarea>
-            </div>
-            
-            <div class="mb-4">
-                <label for="current_document" class="block text-lg font-medium text-gray-700">Current Document</label>
-                <p class="text-sm text-gray-500 mb-2">Currently: {{ legislation.document.name }}</p>
-                <label for="document" class="block text-lg font-medium text-gray-700">Change Document (optional)</label>
-                <input type="file" name="document" id="document" class="w-full p-2 mt-1 border border-gray-300 rounded-lg">
+{% block content %}
+<div class="container mx-auto px-4 py-4 sm:py-8">
+    <div class="max-w-3xl mx-auto">
+        <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
+            <div class="bg-blue-50 dark:bg-blue-900/20 px-6 py-4 border-b border-blue-100 dark:border-blue-800">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Edit Legislation</h2>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ legislation.title }}</p>
             </div>
 
-            <div class="mb-4">
-                <label for="available_at" class="block text-lg font-medium text-gray-700">Available at</label>
-                <input type="datetime-local" name="available_at" id="available_at" value="{{ form.available_at.value|default:legislation.available_at|date:'Y-m-d\TH:i' }}" class="w-full p-2 mt-1 border border-gray-300 rounded-lg" required>
-            </div>
+            <form method="POST" enctype="multipart/form-data" class="p-6 space-y-6">
+                {% csrf_token %}
 
-            <div class="mb-4">
-                <label for="anonymous_vote" class="block text-lg font-medium text-gray-700">Anonymous Vote</label>
-                <input type="checkbox" name="anonymous_vote" id="anonymous_vote" {% if legislation.anonymous_vote %}checked{% endif %} class="mr-2 leading-tight">
-                <span class="text-sm text-gray-700">Enable anonymous voting</span>
-            </div>
+                <div>
+                    <label for="title" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Title</label>
+                    <input type="text" name="title" id="title" value="{{ form.title.value|default:legislation.title }}"
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                </div>
 
-            <div class="mb-4">
-                <label for="allow_abstain" class="block text-lg font-medium text-gray-700">Allow Abstain</label>
-                <input type="checkbox" name="allow_abstain" id="allow_abstain" {% if legislation.allow_abstain %}checked{% endif %} class="mr-2 leading-tight">
-                <span class="text-sm text-gray-700">Allow members to abstain from voting</span>
-            </div>
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</label>
+                    <textarea name="description" id="description" rows="4"
+                              class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>{{ form.description.value|default:legislation.description }}</textarea>
+                </div>
 
-            <div class="mb-6">
-                <label for="required_percentage" class="block text-lg font-medium text-gray-700">Required Vote to Pass</label>
-                <select name="required_percentage" id="required_percentage" class="w-full p-2 mt-1 border border-gray-300 rounded-lg">
-                    <option value="51" {% if legislation.required_percentage == 51 %}selected{% endif %}>51%</option>
-                    <option value="60" {% if legislation.required_percentage == 60 %}selected{% endif %}>60%</option>
-                    <option value="67" {% if legislation.required_percentage == 67 %}selected{% endif %}>67%</option>
-                    <option value="75" {% if legislation.required_percentage == 75 %}selected{% endif %}>75%</option>
-                    <option value="100" {% if legislation.required_percentage == 100 %}selected{% endif %}>Unanimous</option>
-                </select>
-            </div>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="available_at" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Document Available At</label>
+                        <input type="datetime-local" name="available_at" id="available_at"
+                               value="{{ legislation.available_at|date:'Y-m-d\TH:i' }}"
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">When the document becomes visible</p>
+                    </div>
 
-        <div class="mb-4">
-          <label for="vote_mode" class="block text-lg font-medium text-gray-700">Vote Mode</label>
-          <select name="vote_mode" id="vote_mode" class="w-full p-2 mt-1 border border-gray-300 rounded-lg">
-            <option value="percentage" {% if legislation.vote_mode == 'percentage' %}selected{% endif %}>Percentage</option>
-            <option value="piecewise" {% if legislation.vote_mode == 'piecewise' %}selected{% endif %}>Piecewise</option>
-            <option value="plurality" {% if legislation.vote_mode == 'plurality' %}selected{% endif %}>Plurality</option>
-          </select>
+                    <div>
+                        <label for="voting_starts_at" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Voting Starts At <span class="text-gray-400">(optional)</span></label>
+                        <input type="datetime-local" name="voting_starts_at" id="voting_starts_at"
+                               value="{% if legislation.voting_starts_at %}{{ legislation.voting_starts_at|date:'Y-m-d\TH:i' }}{% endif %}"
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave blank to start voting when available</p>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="voting_ends_at" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Voting Ends At <span class="text-gray-400">(optional)</span></label>
+                    <input type="datetime-local" name="voting_ends_at" id="voting_ends_at"
+                           value="{% if legislation.voting_ends_at %}{{ legislation.voting_ends_at|date:'Y-m-d\TH:i' }}{% endif %}"
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave blank for manual close only</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Document</label>
+                    {% if legislation.document %}
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        <a href="{{ legislation.document.url }}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">
+                            {{ legislation.document.name|truncatechars:50 }}
+                        </a>
+                    </p>
+                    {% else %}
+                    <p class="text-sm text-gray-500 dark:text-gray-500 mb-2">No document uploaded</p>
+                    {% endif %}
+                    <label for="document" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Replace Document <span class="text-gray-400">(optional)</span></label>
+                    <input type="file" name="document" id="document" accept=".pdf,.docx"
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="vote_mode" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Vote Mode</label>
+                        <select name="vote_mode" id="vote_mode"
+                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="percentage" {% if legislation.vote_mode == 'percentage' %}selected{% endif %}>Percentage</option>
+                            <option value="piecewise" {% if legislation.vote_mode == 'piecewise' %}selected{% endif %}>Piecewise</option>
+                            <option value="plurality" {% if legislation.vote_mode == 'plurality' %}selected{% endif %}>Plurality</option>
+                        </select>
+                    </div>
+
+                    <div id="percentage-section">
+                        <label for="required_percentage" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Required Vote to Pass</label>
+                        <select name="required_percentage" id="required_percentage"
+                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="51" {% if legislation.required_percentage == 51 %}selected{% endif %}>51%</option>
+                            <option value="60" {% if legislation.required_percentage == 60 %}selected{% endif %}>60%</option>
+                            <option value="67" {% if legislation.required_percentage == 67 %}selected{% endif %}>67%</option>
+                            <option value="75" {% if legislation.required_percentage == 75 %}selected{% endif %}>75%</option>
+                            <option value="100" {% if legislation.required_percentage == 100 %}selected{% endif %}>Unanimous</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="piecewise-section" class="hidden">
+                    <label for="required_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Required Number of Yes Votes</label>
+                    <input type="number" name="required_number" id="required_number" min="1"
+                           value="{{ legislation.required_number|default:'' }}"
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Enter the exact number of "Yes" votes needed</p>
+                </div>
+
+                <div id="plurality-section" class="hidden">
+                    <label for="plurality_options" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Plurality Options (comma separated)</label>
+                    <input type="text" name="plurality_options" id="plurality_options"
+                           value="{{ legislation.plurality_options|join:', ' }}"
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Enter at least 2 options separated by commas</p>
+                </div>
+
+                <div class="flex flex-wrap gap-4">
+                    <label class="flex items-center">
+                        <input type="checkbox" name="anonymous_vote" id="anonymous_vote" {% if legislation.anonymous_vote %}checked{% endif %}
+                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+                        <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Anonymous Voting</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" name="allow_abstain" id="allow_abstain" {% if legislation.allow_abstain %}checked{% endif %}
+                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+                        <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Allow Abstain</span>
+                    </label>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <a href="{% url 'vote' %}"
+                       class="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                        Cancel
+                    </a>
+                    <button type="submit"
+                            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+
+            <!-- Delete Section -->
+            <div class="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-sm font-medium text-red-600 dark:text-red-400">Delete Legislation</h3>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">This action cannot be undone.</p>
+                    </div>
+                    <form method="post" action="{% url 'delete_chapter_legislation' legislation.id %}"
+                          onsubmit="return confirm('Are you sure you want to delete this legislation? This action cannot be undone.');">
+                        {% csrf_token %}
+                        <button type="submit"
+                                class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition">
+                            Delete Legislation
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
-
-        <div class="mb-6">
-          <label for="plurality_options" class="block text-lg font-medium text-gray-700">Plurality Options (comma separated)</label>
-          <input type="text" name="plurality_options" id="plurality_options" value="{{ legislation.plurality_options|join:', ' }}" class="w-full p-2 mt-1 border border-gray-300 rounded-lg">
-        </div>
-
-            <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">Save Changes</button>
-        </form>
     </div>
+</div>
 
-</body>
-</html>
+<script>
+    const modeSelect = document.getElementById("vote_mode");
+    const percentDiv = document.getElementById("percentage-section");
+    const piecewiseDiv = document.getElementById("piecewise-section");
+    const pluralityDiv = document.getElementById("plurality-section");
+
+    function toggleFields(value) {
+        if (value === 'plurality') {
+            pluralityDiv.classList.remove('hidden');
+            percentDiv.classList.add('hidden');
+            piecewiseDiv.classList.add('hidden');
+        } else if (value === 'piecewise') {
+            piecewiseDiv.classList.remove('hidden');
+            percentDiv.classList.add('hidden');
+            pluralityDiv.classList.add('hidden');
+        } else {
+            percentDiv.classList.remove('hidden');
+            piecewiseDiv.classList.add('hidden');
+            pluralityDiv.classList.add('hidden');
+        }
+    }
+
+    if (modeSelect) {
+        modeSelect.addEventListener('change', (e) => toggleFields(e.target.value));
+        toggleFields(modeSelect.value);
+    }
+</script>
+{% endblock %}

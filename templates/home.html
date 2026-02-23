@@ -89,8 +89,8 @@
     </div>
     {% endif %}
 
-    <!-- Slating Period Alert (hidden from pledges) -->
-    {% if active_slating_period and not user.is_pledge %}
+    <!-- Slating Card (shows for committee members OR when nominations/voting is open) -->
+    {% if show_slating_card %}
     <div class="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border-l-4 border-purple-500 dark:border-purple-400 rounded-lg shadow-md p-6 mb-8 transition-colors duration-200">
         <div class="flex items-start">
             <svg class="w-6 h-6 text-purple-500 dark:text-purple-400 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -100,20 +100,48 @@
                 {% if active_slating_period.status == 'nominations_open' %}
                 <h3 class="text-lg font-semibold text-purple-900 dark:text-purple-100 mb-2">Officer Applications Open</h3>
                 <p class="text-sm text-purple-700 dark:text-purple-200 mb-4">{{ active_slating_period.name }} - Apply to run for officer positions!</p>
-                <a href="{% url 'slating_apply' period_id=active_slating_period.id %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 transition">
-                    Apply Now
-                </a>
+                <div class="flex flex-wrap gap-2">
+                    <a href="{% url 'slating_apply' period_id=active_slating_period.id %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 transition">
+                        Apply Now
+                    </a>
+                    {% if has_slating_access %}
+                    <a href="{% url 'slating_dashboard' %}" class="inline-flex items-center px-4 py-2 border border-purple-300 dark:border-purple-600 rounded-md shadow-sm text-sm font-medium text-purple-700 dark:text-purple-300 bg-white dark:bg-gray-800 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition">
+                        Manage Slating
+                    </a>
+                    {% endif %}
+                </div>
                 {% elif active_slating_period.status == 'voting_open' %}
                 <h3 class="text-lg font-semibold text-purple-900 dark:text-purple-100 mb-2">Officer Election Voting Open</h3>
                 <p class="text-sm text-purple-700 dark:text-purple-200 mb-4">{{ active_slating_period.name }} - Cast your vote for officer positions!</p>
-                <a href="{% url 'slating_vote' period_id=active_slating_period.id %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 transition">
-                    Vote Now
-                </a>
+                <div class="flex flex-wrap gap-2">
+                    <a href="{% url 'slating_vote' period_id=active_slating_period.id %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 transition">
+                        Vote Now
+                    </a>
+                    {% if has_slating_access %}
+                    <a href="{% url 'slating_dashboard' %}" class="inline-flex items-center px-4 py-2 border border-purple-300 dark:border-purple-600 rounded-md shadow-sm text-sm font-medium text-purple-700 dark:text-purple-300 bg-white dark:bg-gray-800 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition">
+                        Manage Slating
+                    </a>
+                    {% endif %}
+                </div>
                 {% elif active_slating_period.status == 'results_published' %}
                 <h3 class="text-lg font-semibold text-purple-900 dark:text-purple-100 mb-2">Election Results Available</h3>
                 <p class="text-sm text-purple-700 dark:text-purple-200 mb-4">{{ active_slating_period.name }} - View the election results!</p>
-                <a href="{% url 'slating_results' period_id=active_slating_period.id %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 transition">
-                    View Results
+                <div class="flex flex-wrap gap-2">
+                    <a href="{% url 'slating_results' period_id=active_slating_period.id %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 transition">
+                        View Results
+                    </a>
+                    {% if has_slating_access %}
+                    <a href="{% url 'slating_dashboard' %}" class="inline-flex items-center px-4 py-2 border border-purple-300 dark:border-purple-600 rounded-md shadow-sm text-sm font-medium text-purple-700 dark:text-purple-300 bg-white dark:bg-gray-800 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition">
+                        Manage Slating
+                    </a>
+                    {% endif %}
+                </div>
+                {% elif has_slating_access %}
+                <!-- No active period but user has committee access -->
+                <h3 class="text-lg font-semibold text-purple-900 dark:text-purple-100 mb-2">Officer Slating</h3>
+                <p class="text-sm text-purple-700 dark:text-purple-200 mb-4">Manage officer elections and slating periods</p>
+                <a href="{% url 'slating_dashboard' %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 transition">
+                    Slating Dashboard
                 </a>
                 {% endif %}
             </div>

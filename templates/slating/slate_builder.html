@@ -136,12 +136,12 @@
                             <p class="text-sm font-medium text-gray-900 dark:text-white">{{ s.name }}</p>
                             <p class="text-xs text-gray-500 dark:text-gray-400">{{ s.get_slate_type_display }}</p>
                         </div>
-                        <div class="flex space-x-2">
+                        <div class="flex items-center space-x-3">
                             <a href="{% url 'slating_slate_preview' period_id=period.id slate_id=s.id %}"
-                               class="text-xs text-primary-600 dark:text-primary-400 hover:underline">View</a>
-                            <form method="post" action="{% url 'slating_copy_slate' period_id=period.id slate_id=s.id %}" class="inline">
+                               class="inline-flex items-center justify-center text-xs text-primary-600 dark:text-primary-400 hover:underline">View</a>
+                            <form method="post" action="{% url 'slating_copy_slate' period_id=period.id slate_id=s.id %}" class="inline-flex m-0 p-0">
                                 {% csrf_token %}
-                                <button type="submit" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">Copy</button>
+                                <button type="submit" class="inline-flex items-center justify-center text-xs text-primary-600 dark:text-primary-400 hover:underline">Copy</button>
                             </form>
                         </div>
                     </div>

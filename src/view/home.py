@@ -106,6 +106,20 @@ def home(request):
         status__in=['nominations_open', 'voting_open', 'results_published']
     ).first()
 
+    # Check if user has access to slating committee
+    slating_committee = Committee.objects.filter(is_slating_committee=True).first()
+    has_slating_access = False
+    if slating_committee and not request.user.is_pledge:
+        has_slating_access = (
+            request.user.is_admin or
+            slating_committee.admin == request.user or
+            slating_committee.members.filter(pk=request.user.pk).exists() or
+            slating_committee.chairs.filter(pk=request.user.pk).exists()
+        )
+
+    # Show slating card if user has committee access OR there's an active period
+    show_slating_card = has_slating_access or (active_slating_period and not request.user.is_pledge)
+
     context = {
         'user': request.user,
         # Stats
@@ -124,6 +138,8 @@ def home(request):
         'new_events_week': new_events_week,
         # Slating
         'active_slating_period': active_slating_period,
+        'has_slating_access': has_slating_access,
+        'show_slating_card': show_slating_card,
     }
 
     return render(request, 'home.html', context)

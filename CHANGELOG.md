@@ -50,6 +50,30 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.6.3 - Memory Optimization & Server Stability (02-23-2026)
+Comprehensive memory leak investigation and fixes to address steadily increasing RAM usage over time.
+
+**Deployment Status:** Ready for Deployment
+
+**Key Fixes:**
+
+- 🧠 **PerformanceMiddleware**: Reduced stored requests from 1000 to 100 per worker
+- ⚡ **Feature Flags Caching**: Added 60-second caching to eliminate per-request DB queries
+- 🔄 **Gunicorn Lifecycle**: Reduced max_requests to 500; added cleanup hooks on worker exit
+- 📝 **Log Rotation**: Changed to RotatingFileHandler (10MB max, 3 backups)
+- 🗑️ **LocMemCache**: Reduced to 1000 entries with 5-min timeout and cull frequency
+- 🧹 **Cleanup Command**: New `cleanup_sessions` command for expired data removal
+
+**New Management Commands:**
+
+- `python manage.py cleanup_sessions` - Clean expired sessions, old logs, notifications
+- `python manage.py memory_report` - Comprehensive memory diagnostics
+- `shell/server_maintenance.sh` - Automated daily maintenance script
+
+**[📄 View Detailed Changelog](./changelogs/v2.6.3.md)**
+
+---
+
 ### v2.6.0 - Officer Member Management & Role Numbers (02-03-2026)
 Comprehensive officer-level member management system with in-app controls for adding, editing, and managing members directly from the user list page.
 

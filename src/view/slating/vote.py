@@ -67,9 +67,22 @@ def slating_vote(request, period_id):
             return redirect('slating_vote', period_id=period_id)
 
         vote_choice = request.POST.get('vote_choice')
-        if vote_choice not in ['approve', 'reject', 'abstain']:
+        valid_choices = ['approve', 'reject']
+        if period.allow_abstain:
+            valid_choices.append('abstain')
+        if vote_choice not in valid_choices:
             messages.error(request, 'Invalid vote choice.')
             return redirect('slating_vote', period_id=period_id)
+
+        # Get rejected positions if rejecting
+        rejected_positions = []
+        if vote_choice == 'reject':
+            rejected_positions = request.POST.getlist('rejected_positions')
+            if not rejected_positions:
+                messages.error(request, 'Please select at least one position you are objecting to.')
+                return redirect('slating_vote', period_id=period_id)
+            # Convert to integers
+            rejected_positions = [int(p) for p in rejected_positions]
 
         # Create ballot (tracks who voted - for audit)
         ballot_hash = hashlib.sha256(
@@ -94,6 +107,7 @@ def slating_vote(request, period_id):
             slate=slate,
             voting_attempt=current_attempt,
             vote_choice=vote_choice,
+            rejected_positions=rejected_positions,
             vote_hash=vote_hash
         )
 
@@ -138,6 +152,16 @@ def slating_vote(request, period_id):
         vote_type='slate'
     ).count()
 
+    # Check if user is committee member (can see live tally)
+    is_committee = (
+        user.is_admin or
+        (period.slating_committee and (
+            period.slating_committee.is_chair(user) or
+            period.slating_committee.is_member(user) or
+            period.slating_committee.admin == user
+        ))
+    )
+
     context = {
         'period': period,
         'slate': slate,
@@ -148,6 +172,7 @@ def slating_vote(request, period_id):
         'total_ballots': total_ballots,
         'vote_tally': vote_tally,
         'required_percentage': period.required_approval_percentage,
+        'is_committee': is_committee,
     }
 
     return render(request, 'slating/vote.html', context)
@@ -362,4 +387,4 @@ def close_voting(request, period_id):
             f'Slate did not pass. {period.max_slate_voting_attempts - current_attempt} voting attempts remaining.'
         )
 
-    return redirect('slating_period_setup', period_id=period_id)
+    return redirect('slating_results', period_id=period_id)

@@ -116,21 +116,35 @@
                 <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white">Voting Configuration</h3>
                 </div>
-                <div class="px-4 py-5 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label for="required_approval_percentage" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Required Approval %</label>
-                        <input type="number" name="required_approval_percentage" id="required_approval_percentage"
-                            value="{{ period.required_approval_percentage|default:60 }}" min="1" max="100" required
-                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Per bylaws: 60%</p>
+                <div class="px-4 py-5 sm:p-6 space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="required_approval_percentage" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Required Approval %</label>
+                            <input type="number" name="required_approval_percentage" id="required_approval_percentage"
+                                value="{{ period.required_approval_percentage|default:60 }}" min="1" max="100" required
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Per bylaws: 60%</p>
+                        </div>
+
+                        <div>
+                            <label for="max_slate_voting_attempts" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Max Slate Voting Attempts</label>
+                            <input type="number" name="max_slate_voting_attempts" id="max_slate_voting_attempts"
+                                value="{{ period.max_slate_voting_attempts|default:3 }}" min="1" max="10" required
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Per bylaws: 3 attempts before individual voting</p>
+                        </div>
                     </div>
 
-                    <div>
-                        <label for="max_slate_voting_attempts" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Max Slate Voting Attempts</label>
-                        <input type="number" name="max_slate_voting_attempts" id="max_slate_voting_attempts"
-                            value="{{ period.max_slate_voting_attempts|default:3 }}" min="1" max="10" required
-                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Per bylaws: 3 attempts before individual voting</p>
+                    <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        <div>
+                            <label for="allow_abstain" class="text-sm font-medium text-gray-700 dark:text-gray-300">Allow Abstain Option</label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">When disabled, members must vote Approve or Reject</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="allow_abstain" id="allow_abstain" class="sr-only peer"
+                                {% if period.allow_abstain or period.allow_abstain is None %}checked{% endif %}>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-500 peer-checked:bg-primary-600"></div>
+                        </label>
                     </div>
                 </div>
             </div>
@@ -204,16 +218,26 @@
             </div>
             <div class="px-4 py-5 sm:p-6">
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Current: <span class="font-medium text-gray-900 dark:text-white">{{ period.get_status_display }}</span></p>
-                <form method="post" action="{% url 'slating_change_status' period_id=period.id %}" class="space-y-2">
+                <form method="post" action="{% url 'slating_change_status' period_id=period.id %}" class="space-y-3">
                     {% csrf_token %}
-                    {% for status, label in status_choices %}
-                    {% if status != period.status %}
-                    <button type="submit" name="new_status" value="{{ status }}"
-                        class="block w-full text-left px-3 py-2 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
-                        &rarr; {{ label }}
+                    <div>
+                        <label for="status_select" class="sr-only">Change Status</label>
+                        <select name="status" id="status_select"
+                            class="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm">
+                            <option value="setup" {% if period.status == 'setup' %}selected{% endif %}>Setup</option>
+                            <option value="nominations_open" {% if period.status == 'nominations_open' %}selected{% endif %}>Nominations Open</option>
+                            <option value="nominations_closed" {% if period.status == 'nominations_closed' %}selected{% endif %}>Nominations Closed</option>
+                            <option value="deliberation" {% if period.status == 'deliberation' %}selected{% endif %}>Deliberation</option>
+                            <option value="voting_open" {% if period.status == 'voting_open' %}selected{% endif %}>Voting Open</option>
+                            <option value="voting_closed" {% if period.status == 'voting_closed' %}selected{% endif %}>Voting Closed</option>
+                            <option value="results_published" {% if period.status == 'results_published' %}selected{% endif %}>Results Published</option>
+                            <option value="archived" {% if period.status == 'archived' %}selected{% endif %}>Archived</option>
+                        </select>
+                    </div>
+                    <button type="submit"
+                        class="w-full px-3 py-2 text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                        Change Status
                     </button>
-                    {% endif %}
-                    {% endfor %}
                 </form>
             </div>
         </div>
@@ -231,21 +255,110 @@
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-sm text-gray-500 dark:text-gray-400">Positions</dt>
-                        <dd class="text-sm font-medium text-gray-900 dark:text-white">{{ period.positions.count }}</dd>
+                        <dd class="text-sm font-medium text-gray-900 dark:text-white">{{ position_count }}</dd>
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-sm text-gray-500 dark:text-gray-400">Form Fields</dt>
                         <dd class="text-sm font-medium text-gray-900 dark:text-white">{{ period.form_fields.count }}</dd>
                     </div>
-                    {% if period.current_voting_attempt > 0 %}
-                    <div class="flex justify-between">
-                        <dt class="text-sm text-gray-500 dark:text-gray-400">Voting Attempt</dt>
-                        <dd class="text-sm font-medium text-gray-900 dark:text-white">{{ period.current_voting_attempt }} / {{ period.max_slate_voting_attempts }}</dd>
-                    </div>
-                    {% endif %}
                 </dl>
             </div>
         </div>
+
+        {% if vote_stats %}
+        <!-- Live Voting Status -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">Live Voting Status</h3>
+                    {% if period.status == 'voting_open' %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                        <span class="w-2 h-2 mr-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                        Live
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="px-4 py-5 sm:p-6">
+                <!-- Vote Counts -->
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ vote_stats.total_ballots }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Voters</p>
+                    </div>
+                    <div class="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        <p class="text-2xl font-bold {% if vote_stats.approval_percentage >= period.required_approval_percentage %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
+                            {{ vote_stats.approval_percentage|floatformat:1 }}%
+                        </p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Approval</p>
+                    </div>
+                </div>
+
+                <!-- Vote Breakdown -->
+                <dl class="space-y-2 mb-4">
+                    <div class="flex justify-between items-center">
+                        <dt class="text-sm text-green-600 dark:text-green-400">Approve</dt>
+                        <dd class="text-sm font-medium text-green-600 dark:text-green-400">{{ vote_stats.approve }}</dd>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <dt class="text-sm text-red-600 dark:text-red-400">Reject</dt>
+                        <dd class="text-sm font-medium text-red-600 dark:text-red-400">{{ vote_stats.reject }}</dd>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <dt class="text-sm text-gray-500 dark:text-gray-400">Abstain</dt>
+                        <dd class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ vote_stats.abstain }}</dd>
+                    </div>
+                </dl>
+
+                <!-- Progress Bar -->
+                <div class="mb-4">
+                    <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 relative">
+                        <div class="h-2 rounded-full {% if vote_stats.approval_percentage >= period.required_approval_percentage %}bg-green-500{% else %}bg-red-500{% endif %}"
+                             style="width: {{ vote_stats.approval_percentage|default:0 }}%"></div>
+                        <div class="absolute top-0 h-2 w-0.5 bg-gray-800 dark:bg-white" style="left: {{ period.required_approval_percentage }}%"></div>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Required: {{ period.required_approval_percentage }}%</p>
+                </div>
+
+                {% if vote_stats.rejection_breakdown %}
+                <!-- Rejection Breakdown -->
+                <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Objections by Position</h4>
+                    <div class="space-y-2">
+                        {% for item in vote_stats.rejection_breakdown %}
+                        <div class="flex justify-between items-center text-sm">
+                            <div>
+                                <span class="text-gray-900 dark:text-white font-medium">{{ item.position }}</span>
+                                <span class="text-gray-500 dark:text-gray-400"> - {{ item.candidate_name }}</span>
+                            </div>
+                            <span class="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded text-xs font-medium">
+                                {{ item.count }} objection{{ item.count|pluralize }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Actions -->
+                <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4 space-y-2">
+                    <a href="{% url 'slating_results' period_id=period.id %}"
+                       class="block w-full text-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                        View Full Results
+                    </a>
+                    {% if period.status == 'voting_open' %}
+                    <form method="post" action="{% url 'slating_close_voting' period_id=period.id %}">
+                        {% csrf_token %}
+                        <button type="submit" onclick="return confirm('Are you sure you want to close voting?')"
+                            class="block w-full text-center px-4 py-2 border border-red-300 dark:border-red-600 rounded-md shadow-sm text-sm font-medium text-red-700 dark:text-red-300 bg-white dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-red-900/30">
+                            Close Voting
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
         {% endif %}
 
         <!-- Help -->

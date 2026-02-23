@@ -25,7 +25,7 @@ worker_class = 'sync'
 # threads = 2
 
 # Worker lifecycle management
-max_requests = 1000  # Recycle workers after N requests to prevent memory leaks
+max_requests = 500  # Recycle workers after N requests to prevent memory leaks (reduced from 1000)
 max_requests_jitter = 50  # Add randomness to prevent all workers restarting at once
 worker_tmp_dir = '/dev/shm'  # Use shared memory for worker heartbeat (faster, less I/O)
 
@@ -103,3 +103,55 @@ def worker_int(worker):
 def worker_abort(worker):
     """Called when a worker receives a SIGABRT signal"""
     worker.log.info("Worker received SIGABRT signal")
+
+
+def child_exit(server, worker):
+    """Called when a worker exits - cleanup resources"""
+    try:
+        # Close database connections
+        from django.db import connections
+        connections.close_all()
+    except Exception:
+        pass
+
+    try:
+        # Clear Django cache for this worker
+        from django.core.cache import cache
+        cache.clear()
+    except Exception:
+        pass
+
+
+def worker_exit(server, worker):
+    """Called just after a worker has been exited"""
+    server.log.info(f"Worker exited (pid: {worker.pid})")
+
+    # Force garbage collection on worker exit
+    try:
+        import gc
+        gc.collect()
+    except Exception:
+        pass
+
+
+def post_request(worker, req, environ, resp):
+    """Called after a worker processes a request - periodically cleanup"""
+    # Every 50 requests, run garbage collection to prevent memory growth
+    if hasattr(worker, 'request_count'):
+        worker.request_count += 1
+    else:
+        worker.request_count = 1
+
+    if worker.request_count % 50 == 0:
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass
+
+        # Clear performance metrics that might have accumulated
+        try:
+            from src.middleware.performance import clear_old_metrics
+            clear_old_metrics()
+        except Exception:
+            pass

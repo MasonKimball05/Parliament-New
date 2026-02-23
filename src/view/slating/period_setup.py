@@ -33,10 +33,17 @@ def check_and_auto_transition_status(period):
         if period.nominations_close_at and period.nominations_close_at <= now:
             new_status = 'nominations_closed'
 
-    # deliberation -> voting_open (if voting_open_at has passed)
+    # nominations_closed -> voting_open (if voting_open_at has passed AND slate approved)
+    elif period.status == 'nominations_closed':
+        if period.voting_open_at and period.voting_open_at <= now:
+            if period.slates.filter(is_approved=True, slate_type='primary').exists():
+                new_status = 'voting_open'
+
+    # deliberation -> voting_open (if voting_open_at has passed AND slate approved)
     elif period.status == 'deliberation':
         if period.voting_open_at and period.voting_open_at <= now:
-            new_status = 'voting_open'
+            if period.slates.filter(is_approved=True, slate_type='primary').exists():
+                new_status = 'voting_open'
 
     # voting_open -> voting_closed (if voting_close_at has passed)
     elif period.status == 'voting_open':
@@ -51,7 +58,13 @@ def check_and_auto_transition_status(period):
     if new_status:
         old_status = period.status
         period.status = new_status
-        period.save(update_fields=['status'])
+
+        # Increment voting attempt when transitioning to voting_open
+        if new_status == 'voting_open':
+            period.current_voting_attempt += 1
+            period.save(update_fields=['status', 'current_voting_attempt'])
+        else:
+            period.save(update_fields=['status'])
 
         # Log the auto-transition
         SlatingActivity.objects.create(
@@ -109,6 +122,7 @@ def create_period(request):
             period.gpa_level_2_threshold = float(request.POST.get('gpa_level_2_threshold', 0.20))
             period.required_approval_percentage = int(request.POST.get('required_approval_percentage', 60))
             period.max_slate_voting_attempts = int(request.POST.get('max_slate_voting_attempts', 3))
+            period.allow_abstain = request.POST.get('allow_abstain') == 'on'
             period.save()
         except (ValueError, TypeError):
             pass
@@ -173,6 +187,7 @@ def edit_period(request, period_id):
                 period.gpa_level_2_threshold = float(request.POST.get('gpa_level_2_threshold', period.gpa_level_2_threshold))
                 period.required_approval_percentage = int(request.POST.get('required_approval_percentage', period.required_approval_percentage))
                 period.max_slate_voting_attempts = int(request.POST.get('max_slate_voting_attempts', period.max_slate_voting_attempts))
+                period.allow_abstain = request.POST.get('allow_abstain') == 'on'
             except (ValueError, TypeError):
                 pass
 
@@ -232,6 +247,68 @@ def edit_period(request, period_id):
     field_count = period.form_fields.filter(is_active=True).count()
     application_count = period.applications.exclude(status='draft').count()
 
+    # Get live voting stats if voting is open or closed
+    vote_stats = None
+    if period.status in ['voting_open', 'voting_closed', 'results_published']:
+        from src.models import SlatingBallot, SlatingVote, Slate, SlatingPosition
+        from collections import Counter
+
+        slate = Slate.objects.filter(
+            period=period,
+            is_approved=True,
+            slate_type='primary'
+        ).first()
+
+        if slate:
+            current_attempt = period.current_voting_attempt
+            ballots = SlatingBallot.objects.filter(
+                period=period,
+                voting_attempt=current_attempt,
+                vote_type='slate'
+            )
+            votes = SlatingVote.objects.filter(
+                period=period,
+                slate=slate,
+                voting_attempt=current_attempt
+            )
+
+            approve_count = votes.filter(vote_choice='approve').count()
+            reject_count = votes.filter(vote_choice='reject').count()
+            abstain_count = votes.filter(vote_choice='abstain').count()
+            total_votes = approve_count + reject_count + abstain_count
+            counted_votes = approve_count + reject_count
+
+            # Rejection analysis
+            rejection_votes = votes.filter(vote_choice='reject').exclude(rejected_positions=[])
+            position_counts = Counter()
+            for vote in rejection_votes:
+                for pos_id in vote.rejected_positions:
+                    position_counts[pos_id] += 1
+
+            rejection_breakdown = []
+            if position_counts:
+                positions = {p.id: p for p in SlatingPosition.objects.filter(id__in=position_counts.keys())}
+                candidates = {c.position_id: c for c in slate.candidates.select_related('application__applicant')}
+                for pos_id, count in position_counts.most_common():
+                    pos = positions.get(pos_id)
+                    candidate = candidates.get(pos_id)
+                    if pos:
+                        rejection_breakdown.append({
+                            'position': pos.title,
+                            'candidate_name': candidate.application.applicant.name if candidate else 'Unknown',
+                            'count': count,
+                        })
+
+            vote_stats = {
+                'total_ballots': ballots.count(),
+                'approve': approve_count,
+                'reject': reject_count,
+                'abstain': abstain_count,
+                'total_votes': total_votes,
+                'approval_percentage': (approve_count / counted_votes * 100) if counted_votes > 0 else 0,
+                'rejection_breakdown': rejection_breakdown,
+            }
+
     context = {
         'period': period,
         'committees': committees,
@@ -239,6 +316,7 @@ def edit_period(request, period_id):
         'position_count': position_count,
         'field_count': field_count,
         'application_count': application_count,
+        'vote_stats': vote_stats,
     }
 
     return render(request, 'slating/period_setup.html', context)
@@ -261,24 +339,13 @@ def change_period_status(request, period_id):
         messages.error(request, 'Invalid status.')
         return redirect('slating_period_setup', period_id=period_id)
 
-    # Validate transitions
+    # Track old status for logging
     old_status = period.status
-    allowed_transitions = {
-        'setup': ['nominations_open'],
-        'nominations_open': ['nominations_closed'],
-        'nominations_closed': ['deliberation', 'nominations_open'],  # Can reopen
-        'deliberation': ['voting_open', 'nominations_open'],
-        'voting_open': ['voting_closed'],
-        'voting_closed': ['results_published', 'voting_open'],  # Can reopen
-        'results_published': ['archived'],
-        'archived': [],  # No transitions from archived
-    }
 
-    if new_status not in allowed_transitions.get(old_status, []):
-        # Admins can force any transition
-        if not request.user.is_admin:
-            messages.error(request, f'Cannot transition from {old_status} to {new_status}.')
-            return redirect('slating_period_setup', period_id=period_id)
+    # If same status, no change needed
+    if new_status == old_status:
+        messages.info(request, 'Status unchanged.')
+        return redirect('slating_period_setup', period_id=period_id)
 
     # Validation checks before certain transitions
     if new_status == 'nominations_open':

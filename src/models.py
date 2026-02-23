@@ -331,7 +331,8 @@ class Legislation(models.Model):
     description = models.TextField()
     document = models.FileField(upload_to='legislation_docs/', validators=[validate_legislation_file], storage=DualLocationStorage())
     posted_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
-    available_at = models.DateTimeField()
+    available_at = models.DateTimeField(help_text="When the document becomes visible for review")
+    voting_starts_at = models.DateTimeField(null=True, blank=True, help_text="When voting opens (defaults to available_at if not set)")
     created_at = models.DateTimeField(auto_now_add=True)
     voting_ends_at = models.DateTimeField(null=True, blank=True, help_text="Optional: When voting should automatically close")
     voting_ended_at = models.DateTimeField(null=True, blank=True)
@@ -361,6 +362,17 @@ class Legislation(models.Model):
     def is_available(self):
         from django.utils import timezone
         return timezone.now() >= self.available_at
+
+    def voting_has_started(self):
+        """Check if voting period has begun."""
+        from django.utils import timezone
+        # If voting_starts_at is set, use it; otherwise voting starts when available
+        start_time = self.voting_starts_at or self.available_at
+        return timezone.now() >= start_time
+
+    def get_voting_start_time(self):
+        """Get the effective voting start time."""
+        return self.voting_starts_at or self.available_at
 
     def __str__(self):
         return self.title
@@ -862,7 +874,8 @@ class CommitteeLegislation(models.Model):
     document = models.FileField(upload_to='committee_legislation/', validators=[validate_legislation_file], null=True,
                                 blank=True, storage=DualLocationStorage())
     posted_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
-    available_at = models.DateTimeField()
+    available_at = models.DateTimeField(help_text="When the document becomes visible for review")
+    voting_starts_at = models.DateTimeField(null=True, blank=True, help_text="When voting opens (defaults to available_at if not set)")
     voting_ends_at = models.DateTimeField(null=True, blank=True, help_text="Optional: When voting should automatically close")
     created_at = models.DateTimeField(auto_now_add=True)
     voting_ended_at = models.DateTimeField(null=True, blank=True)
@@ -892,6 +905,16 @@ class CommitteeLegislation(models.Model):
     def is_available(self):
         from django.utils import timezone
         return timezone.now() >= self.available_at
+
+    def voting_has_started(self):
+        """Check if voting period has begun."""
+        from django.utils import timezone
+        start_time = self.voting_starts_at or self.available_at
+        return timezone.now() >= start_time
+
+    def get_voting_start_time(self):
+        """Get the effective voting start time."""
+        return self.voting_starts_at or self.available_at
 
     def __str__(self):
         return f"{self.committee.code} - {self.title}"
@@ -2961,6 +2984,10 @@ class SlatingPeriod(models.Model):
         help_text='Max full slate votes before individual position votes'
     )
     current_voting_attempt = models.IntegerField(default=0)
+    allow_abstain = models.BooleanField(
+        default=True,
+        help_text='Allow members to abstain from voting'
+    )
 
     # GPA configuration
     min_gpa_requirement = models.DecimalField(
@@ -3007,6 +3034,21 @@ class SlatingPeriod(models.Model):
         related_name='transferred_slating_admin_from',
         help_text='Previous admin before transfer'
     )
+
+    # Officer transition scheduling
+    officer_transition_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='When the officer transition should take effect'
+    )
+    officer_transition_data = models.JSONField(
+        default=dict, blank=True,
+        help_text='Pending transition assignments (position_id -> member_id)'
+    )
+    officer_transition_completed = models.BooleanField(
+        default=False,
+        help_text='Whether the officer transition has been executed'
+    )
+    officer_transition_completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-created_at']
@@ -3707,6 +3749,13 @@ class SlatingVote(models.Model):
 
     voting_attempt = models.IntegerField(default=1)
     vote_choice = models.CharField(max_length=10, choices=VOTE_CHOICES)
+
+    # For rejection votes - which positions are being rejected
+    rejected_positions = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of position IDs that the voter objects to (required for reject votes)'
+    )
 
     # Anonymous tracking
     vote_hash = models.CharField(max_length=64, unique=True)

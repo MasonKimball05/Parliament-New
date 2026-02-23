@@ -8,8 +8,10 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
+from django.db.models import Count
+from collections import Counter
 from src.models import (
-    SlatingPeriod, Slate, SlatingBallot, SlatingVote, SlatingActivity
+    SlatingPeriod, Slate, SlatingBallot, SlatingVote, SlatingActivity, SlatingPosition
 )
 from .permissions import slating_chair_required
 from src.decorators import exclude_pledges
@@ -94,6 +96,40 @@ def view_results(request, period_id):
         (period.slating_committee and period.slating_committee.is_chair(request.user))
     )
 
+    # Check if user is committee member (can see rejection details)
+    is_committee = (
+        request.user.is_admin or
+        (period.slating_committee and (
+            period.slating_committee.is_chair(request.user) or
+            period.slating_committee.is_member(request.user) or
+            period.slating_committee.admin == request.user
+        ))
+    )
+
+    # Get rejection analysis for committee members
+    rejection_analysis = None
+    if is_committee:
+        rejection_votes = slate_votes.filter(vote_choice='reject').exclude(rejected_positions=[])
+        position_counts = Counter()
+        for vote in rejection_votes:
+            for pos_id in vote.rejected_positions:
+                position_counts[pos_id] += 1
+
+        # Map position IDs to names
+        if position_counts:
+            positions = {p.id: p for p in SlatingPosition.objects.filter(id__in=position_counts.keys())}
+            rejection_analysis = []
+            for pos_id, count in position_counts.most_common():
+                pos = positions.get(pos_id)
+                if pos:
+                    # Find the candidate for this position
+                    candidate = candidates.filter(position_id=pos_id).first()
+                    rejection_analysis.append({
+                        'position': pos.title,
+                        'candidate_name': candidate.application.applicant.name if candidate else 'Unknown',
+                        'objection_count': count,
+                    })
+
     context = {
         'period': period,
         'slate': slate,
@@ -103,6 +139,8 @@ def view_results(request, period_id):
         'individual_results': individual_results,
         'can_publish': can_publish,
         'is_published': period.status == 'results_published',
+        'is_committee': is_committee,
+        'rejection_analysis': rejection_analysis,
     }
 
     return render(request, 'slating/results.html', context)
@@ -137,11 +175,21 @@ def publish_results(request, period_id):
         ip_address=request.META.get('REMOTE_ADDR')
     )
 
+    # Save to chapter documents if requested
+    if request.POST.get('save_to_documents'):
+        try:
+            _save_results_to_documents(period, request.user)
+            messages.info(request, 'Results saved to Chapter Documents.')
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'Failed to save results to documents: {e}')
+
     # Send notifications
     try:
         from src.notification_service import notify_all_active_members
         notify_all_active_members(
-            'announcement',
+            'slating_results',  # Use correct notification type for slating preferences
             f'Election Results: {period.name}',
             message='The officer election results have been published.',
             link=f'/slating/period/{period.id}/results/',
@@ -149,11 +197,130 @@ def publish_results(request, period_id):
             source_id=period.id,
             exclude_user=request.user
         )
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Failed to send results published notification: {e}')
 
     messages.success(request, 'Results published successfully!')
     return redirect('slating_results', period_id=period_id)
+
+
+def _save_results_to_documents(period, uploaded_by):
+    """
+    Generate and save election results as a document to chapter documents.
+    """
+    from django.core.files.base import ContentFile
+    from src.models import CommitteeDocument, Committee, ChapterFolder
+
+    # Get vote data
+    slate = Slate.objects.filter(
+        period=period,
+        is_approved=True,
+        slate_type='primary'
+    ).first()
+
+    if not slate:
+        return
+
+    # Get candidates
+    candidates = slate.candidates.select_related(
+        'position', 'application__applicant'
+    ).order_by('display_order')
+
+    # Calculate results
+    slate_votes = SlatingVote.objects.filter(
+        period=period,
+        slate=slate
+    )
+
+    approve_count = slate_votes.filter(vote_choice='approve').count()
+    reject_count = slate_votes.filter(vote_choice='reject').count()
+    abstain_count = slate_votes.filter(vote_choice='abstain').count()
+    total_votes = approve_count + reject_count + abstain_count
+    counted_votes = approve_count + reject_count
+    approval_percentage = (approve_count / counted_votes * 100) if counted_votes > 0 else 0
+
+    passed = approval_percentage >= period.required_approval_percentage
+
+    # Generate document content
+    content_lines = [
+        f"OFFICER ELECTION RESULTS",
+        f"========================",
+        f"",
+        f"Election: {period.name}",
+        f"Academic Term: {period.academic_term}",
+        f"Published: {timezone.now().strftime('%B %d, %Y at %I:%M %p')}",
+        f"",
+        f"VOTING SUMMARY",
+        f"--------------",
+        f"Total Votes Cast: {total_votes}",
+        f"Approve: {approve_count}",
+        f"Reject: {reject_count}",
+        f"Abstain: {abstain_count}",
+        f"",
+        f"Approval Rate: {approval_percentage:.1f}%",
+        f"Required for Passage: {period.required_approval_percentage}%",
+        f"",
+        f"RESULT: {'SLATE APPROVED' if passed else 'SLATE DID NOT PASS'}",
+        f"",
+    ]
+
+    if passed:
+        content_lines.extend([
+            f"ELECTED OFFICERS",
+            f"----------------",
+        ])
+    else:
+        content_lines.extend([
+            f"PROPOSED SLATE (Not Approved)",
+            f"-----------------------------",
+        ])
+
+    for candidate in candidates:
+        content_lines.append(
+            f"  {candidate.position.title}: {candidate.application.applicant.name}"
+        )
+
+    content_lines.extend([
+        f"",
+        f"---",
+        f"This document was automatically generated by the Parliament system.",
+    ])
+
+    content = "\n".join(content_lines)
+
+    # Get or create elections folder
+    folder, _ = ChapterFolder.objects.get_or_create(
+        name='Elections',
+        defaults={
+            'description': 'Officer election results and related documents',
+            'created_by': uploaded_by
+        }
+    )
+
+    # Get slating committee if available
+    slating_committee = Committee.objects.filter(is_slating_committee=True).first()
+
+    # Create the document
+    filename = f"election_results_{period.academic_term.replace(' ', '_')}_{period.id}.txt"
+
+    doc = CommitteeDocument(
+        committee=slating_committee,
+        title=f"Election Results - {period.name}",
+        description=f"Official election results for {period.name} ({period.academic_term})",
+        uploaded_by=uploaded_by,
+        published_to_chapter=True,
+        chapter_folder=folder,
+        document_type='report',
+        visibility='all_members',
+    )
+
+    # Save the content as a file
+    doc.document.save(filename, ContentFile(content.encode('utf-8')))
+    doc.save()
+
+    return doc
 
 
 @login_required

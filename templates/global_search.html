@@ -6,7 +6,7 @@
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Search Header -->
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-4">Search Results</h1>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-4">Search</h1>
 
         <!-- Search Form -->
         <form method="get" action="{% url 'global_search' %}" class="mb-6">
@@ -15,8 +15,8 @@
                     type="text"
                     name="q"
                     value="{{ query }}"
-                    placeholder="Search legislation, announcements, events, documents..."
-                    class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg"
+                    placeholder="Search pages, legislation, events, documents, and more..."
+                    class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
                     autofocus
                 >
                 <button type="submit" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium whitespace-nowrap">
@@ -26,7 +26,7 @@
         </form>
 
         {% if query %}
-            <p class="text-gray-600">
+            <p class="text-gray-600 dark:text-gray-400">
                 {% if total_count %}
                     Found <strong>{{ total_count }}</strong> result{{ total_count|pluralize }} for "<strong>{{ query }}</strong>"
                 {% else %}
@@ -38,19 +38,22 @@
 
     <!-- Results -->
     {% if query and results %}
-        <div class="space-y-8">
-            <!-- Quick Suggestions -->
-            {% if results.suggestions %}
-            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-md p-6 border-2 border-blue-200">
-                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                    <span class="text-blue-600 mr-2">🚀</span>
-                    Quick Links
+        <div class="space-y-6">
+            <!-- Pages (Navigation) -->
+            {% if results.pages %}
+            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-lg shadow-md p-6 border border-blue-200 dark:border-blue-800">
+                <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <span class="text-blue-600 dark:text-blue-400 mr-2">🔗</span>
+                    Pages ({{ results.pages|length }})
                 </h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {% for suggestion in results.suggestions %}
-                    <a href="{% url suggestion.url %}" class="flex items-center p-3 bg-white border-2 border-blue-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition shadow-sm">
-                        <span class="text-2xl mr-3">{{ suggestion.icon }}</span>
-                        <span class="font-semibold text-gray-900">{{ suggestion.name }}</span>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {% for page in results.pages %}
+                    <a href="{% url page.url %}" class="flex items-center p-3 bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-400 dark:hover:border-blue-600 transition shadow-sm">
+                        <span class="text-xl mr-3">{{ page.icon }}</span>
+                        <div class="min-w-0">
+                            <span class="font-medium text-gray-900 dark:text-white block truncate">{{ page.name }}</span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400 block truncate">{{ page.description }}</span>
+                        </div>
                     </a>
                     {% endfor %}
                 </div>
@@ -59,28 +62,28 @@
 
             <!-- Chat Channels Results -->
             {% if results.chat_channels %}
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                    <span class="text-blue-600 mr-2">💬</span>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <span class="text-blue-600 dark:text-blue-400 mr-2">💬</span>
                     Chat Channels ({{ results.chat_channels|length }})
                 </h2>
                 <div class="space-y-3">
                     {% for channel in results.chat_channels %}
-                    <a href="{% url 'channel_chat' channel.id %}" class="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                    <a href="{% url 'channel_chat' channel.id %}" class="block p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                         <div class="flex items-center justify-between">
-                            <h3 class="font-semibold text-gray-900">{{ channel.name }}</h3>
+                            <h3 class="font-semibold text-gray-900 dark:text-white">{{ channel.name }}</h3>
                             {% if channel.access_type == 'open' %}
-                                <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">Public</span>
+                                <span class="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs font-medium rounded">Public</span>
                             {% elif channel.access_type == 'committee' %}
-                                <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">Committee</span>
+                                <span class="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-medium rounded">Committee</span>
                             {% else %}
-                                <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">Restricted</span>
+                                <span class="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs font-medium rounded">Restricted</span>
                             {% endif %}
                         </div>
                         {% if channel.description %}
-                            <p class="text-sm text-gray-600 mt-1">{{ channel.description|truncatewords:20 }}</p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ channel.description|truncatewords:20 }}</p>
                         {% endif %}
-                        <p class="text-xs text-gray-500 mt-2">
+                        <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">
                             {% if channel.committee %}
                                 Committee: {{ channel.committee.name }}
                             {% else %}
@@ -95,19 +98,19 @@
 
             <!-- Committees Results -->
             {% if results.committees %}
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                    <span class="text-purple-600 mr-2">👥</span>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <span class="text-purple-600 dark:text-purple-400 mr-2">👥</span>
                     Committees ({{ results.committees.count }})
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {% for committee in results.committees %}
-                    <a href="{% url 'committee_home' committee.code %}" class="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                    <a href="{% url 'committee_home' committee.code %}" class="block p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                         <div class="flex items-center justify-between mb-2">
-                            <h3 class="font-semibold text-gray-900">{{ committee.name }}</h3>
-                            <span class="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded">{{ committee.code }}</span>
+                            <h3 class="font-semibold text-gray-900 dark:text-white">{{ committee.name }}</h3>
+                            <span class="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 text-xs font-medium rounded">{{ committee.code }}</span>
                         </div>
-                        <p class="text-xs text-gray-500">
+                        <p class="text-xs text-gray-500 dark:text-gray-500">
                             {% with committee.members.count as member_count %}
                                 {{ member_count }} member{{ member_count|pluralize }}
                             {% endwith %}
@@ -123,19 +126,40 @@
 
             <!-- Legislation Results -->
             {% if results.legislation %}
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                    <span class="text-blue-600 mr-2">📄</span>
-                    Legislation ({{ results.legislation.count }})
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <span class="text-blue-600 dark:text-blue-400 mr-2">📄</span>
+                    Active Legislation ({{ results.legislation.count }})
                 </h2>
                 <div class="space-y-3">
                     {% for item in results.legislation %}
-                    <a href="{% url 'legislation_detail' item.id %}" class="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-                        <h3 class="font-semibold text-gray-900">{{ item.title }}</h3>
-                        <p class="text-sm text-gray-600 mt-1">{{ item.description|truncatewords:20 }}</p>
-                        <p class="text-xs text-gray-500 mt-2">
+                    <a href="{% url 'legislation_detail' item.id %}" class="block p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                        <h3 class="font-semibold text-gray-900 dark:text-white">{{ item.title }}</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ item.description|truncatewords:20 }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">
                             Status: <span class="font-medium">{{ item.get_status_display }}</span> •
-                            Uploaded: {{ item.uploaded_at|date:"M j, Y" }}
+                            Created: {{ item.created_at|date:"M j, Y" }}
+                        </p>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Passed Resolutions Results -->
+            {% if results.passed_resolutions %}
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <span class="text-green-600 dark:text-green-400 mr-2">📜</span>
+                    Passed Resolutions ({{ results.passed_resolutions.count }})
+                </h2>
+                <div class="space-y-3">
+                    {% for item in results.passed_resolutions %}
+                    <a href="{% url 'passed_legislation' %}" class="block p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                        <h3 class="font-semibold text-gray-900 dark:text-white">{{ item.title }}</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ item.description|truncatewords:20 }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">
+                            Passed: {{ item.date_passed|date:"M j, Y" }}
                         </p>
                     </a>
                     {% endfor %}
@@ -145,17 +169,17 @@
 
             <!-- Announcements Results -->
             {% if results.announcements %}
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                    <span class="text-green-600 mr-2">📢</span>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <span class="text-green-600 dark:text-green-400 mr-2">📢</span>
                     Announcements ({{ results.announcements|length }})
                 </h2>
                 <div class="space-y-3">
                     {% for item in results.announcements %}
-                    <a href="{% url 'announcements' %}" class="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-                        <h3 class="font-semibold text-gray-900">{{ item.title }}</h3>
-                        <p class="text-sm text-gray-600 mt-1">{{ item.content|truncatewords:25 }}</p>
-                        <p class="text-xs text-gray-500 mt-2">
+                    <a href="{% url 'announcements' %}" class="block p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                        <h3 class="font-semibold text-gray-900 dark:text-white">{{ item.title }}</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ item.content|truncatewords:25 }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">
                             Posted by {{ item.posted_by.get_display_name }} • {{ item.posted_at|date:"M j, Y" }}
                         </p>
                     </a>
@@ -166,17 +190,17 @@
 
             <!-- Events Results -->
             {% if results.events %}
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                    <span class="text-purple-600 mr-2">📅</span>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <span class="text-purple-600 dark:text-purple-400 mr-2">📅</span>
                     Events ({{ results.events|length }})
                 </h2>
                 <div class="space-y-3">
                     {% for item in results.events %}
-                    <a href="{% url 'calendar' %}" class="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-                        <h3 class="font-semibold text-gray-900">{{ item.title }}</h3>
-                        <p class="text-sm text-gray-600 mt-1">{{ item.description|truncatewords:20 }}</p>
-                        <p class="text-xs text-gray-500 mt-2">
+                    <a href="{% url 'calendar' %}" class="block p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                        <h3 class="font-semibold text-gray-900 dark:text-white">{{ item.title }}</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ item.description|truncatewords:20 }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">
                             📍 {{ item.location }} • {{ item.date_time|date:"M j, Y g:i A" }}
                         </p>
                     </a>
@@ -187,21 +211,21 @@
 
             <!-- Chapter Documents Results -->
             {% if results.chapter_documents %}
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                    <span class="text-yellow-600 mr-2">📁</span>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <span class="text-yellow-600 dark:text-yellow-400 mr-2">📁</span>
                     Chapter Documents ({{ results.chapter_documents.count }})
                 </h2>
                 <div class="space-y-3">
                     {% for item in results.chapter_documents %}
-                    <a href="{{ item.document.url }}" target="_blank" class="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-                        <h3 class="font-semibold text-gray-900">{{ item.title }}</h3>
+                    <a href="{{ item.document.url }}" target="_blank" class="block p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                        <h3 class="font-semibold text-gray-900 dark:text-white">{{ item.title }}</h3>
                         {% if item.description %}
-                            <p class="text-sm text-gray-600 mt-1">{{ item.description|truncatewords:20 }}</p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ item.description|truncatewords:20 }}</p>
                         {% endif %}
-                        <p class="text-xs text-gray-500 mt-2">
+                        <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">
                             Uploaded: {{ item.uploaded_at|date:"M j, Y" }}
-                            {% if item.chapter_folder %} • Folder: {{ item.chapter_folder.name }}{% endif %}
+                            {% if item.folder %} • Folder: {{ item.folder.name }}{% endif %}
                         </p>
                     </a>
                     {% endfor %}
@@ -211,20 +235,70 @@
 
             <!-- Committee Documents Results -->
             {% if results.committee_documents %}
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                    <span class="text-indigo-600 mr-2">📋</span>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <span class="text-indigo-600 dark:text-indigo-400 mr-2">📋</span>
                     Committee Documents ({{ results.committee_documents.count }})
                 </h2>
                 <div class="space-y-3">
                     {% for item in results.committee_documents %}
-                    <a href="{% url 'committee_documents' item.committee.code %}" class="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-                        <h3 class="font-semibold text-gray-900">{{ item.title }}</h3>
+                    <a href="{% url 'committee_documents' item.committee.code %}" class="block p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                        <h3 class="font-semibold text-gray-900 dark:text-white">{{ item.title }}</h3>
                         {% if item.description %}
-                            <p class="text-sm text-gray-600 mt-1">{{ item.description|truncatewords:20 }}</p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ item.description|truncatewords:20 }}</p>
                         {% endif %}
-                        <p class="text-xs text-gray-500 mt-2">
+                        <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">
                             Committee: {{ item.committee.name }} • Uploaded: {{ item.uploaded_at|date:"M j, Y" }}
+                        </p>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Slating Periods Results (Officers/Admins) -->
+            {% if results.slating_periods %}
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <span class="text-orange-600 dark:text-orange-400 mr-2">🗳️</span>
+                    Election Periods ({{ results.slating_periods.count }})
+                </h2>
+                <div class="space-y-3">
+                    {% for item in results.slating_periods %}
+                    <a href="{% url 'slating_period_setup' period_id=item.id %}" class="block p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-semibold text-gray-900 dark:text-white">{{ item.name }}</h3>
+                            <span class="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 text-xs font-medium rounded">{{ item.get_status_display }}</span>
+                        </div>
+                        {% if item.description %}
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ item.description|truncatewords:20 }}</p>
+                        {% endif %}
+                        <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">
+                            Created: {{ item.created_at|date:"M j, Y" }}
+                        </p>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Kai Reports Results -->
+            {% if results.kai_reports %}
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <span class="text-red-600 dark:text-red-400 mr-2">📊</span>
+                    Kai Reports ({{ results.kai_reports.count }})
+                </h2>
+                <div class="space-y-3">
+                    {% for item in results.kai_reports %}
+                    <a href="{% url 'kai_report_detail' report_id=item.id %}" class="block p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-semibold text-gray-900 dark:text-white">{{ item.title }}</h3>
+                            <span class="px-2 py-1 bg-{{ item.category_color }}-100 dark:bg-{{ item.category_color }}-900/30 text-{{ item.category_color }}-800 dark:text-{{ item.category_color }}-300 text-xs font-medium rounded">{{ item.get_category_display }}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ item.description|truncatewords:20 }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">
+                            Submitted: {{ item.submitted_at|date:"M j, Y" }} • Status: {{ item.get_status_display }}
                         </p>
                     </a>
                     {% endfor %}
@@ -234,22 +308,26 @@
 
             <!-- Users Results (Officers only) -->
             {% if results.users %}
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                    <span class="text-red-600 mr-2">👥</span>
-                    Users ({{ results.users.count }})
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <span class="text-teal-600 dark:text-teal-400 mr-2">👤</span>
+                    Members ({{ results.users.count }})
                 </h2>
-                <div class="space-y-3">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {% for item in results.users %}
-                    <div class="block p-4 border border-gray-200 rounded-lg">
-                        <h3 class="font-semibold text-gray-900">{{ item.get_display_name }}</h3>
-                        <p class="text-sm text-gray-600 mt-1">
-                            Username: {{ item.user_id }} •
-                            Type: {{ item.member_type }} •
-                            Status: {{ item.member_status }}
+                    <div class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-semibold text-gray-900 dark:text-white">{{ item.get_display_name }}</h3>
+                            <span class="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium rounded">{{ item.member_type }}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            {{ item.user_id }}
+                            {% if item.member_status != 'Active' %}
+                                • <span class="text-yellow-600 dark:text-yellow-400">{{ item.member_status }}</span>
+                            {% endif %}
                         </p>
                         {% if item.email %}
-                            <p class="text-xs text-gray-500 mt-2">{{ item.email }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">{{ item.email }}</p>
                         {% endif %}
                     </div>
                     {% endfor %}
@@ -258,16 +336,39 @@
             {% endif %}
         </div>
     {% elif query %}
-        <div class="bg-white rounded-lg shadow-md p-8 text-center">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center">
             <div class="text-6xl mb-4">🔍</div>
-            <h2 class="text-xl font-semibold text-gray-900 mb-2">No results found</h2>
-            <p class="text-gray-600">Try different keywords or check your spelling</p>
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">No results found</h2>
+            <p class="text-gray-600 dark:text-gray-400 mb-4">Try different keywords or check your spelling</p>
+            <div class="text-sm text-gray-500 dark:text-gray-500">
+                <p class="mb-2">Try searching for:</p>
+                <div class="flex flex-wrap justify-center gap-2">
+                    <a href="?q=home" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition">home</a>
+                    <a href="?q=calendar" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition">calendar</a>
+                    <a href="?q=vote" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition">vote</a>
+                    <a href="?q=committee" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition">committee</a>
+                    <a href="?q=documents" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition">documents</a>
+                </div>
+            </div>
         </div>
     {% else %}
-        <div class="bg-white rounded-lg shadow-md p-8 text-center">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center">
             <div class="text-6xl mb-4">🔍</div>
-            <h2 class="text-xl font-semibold text-gray-900 mb-2">Search Parliament</h2>
-            <p class="text-gray-600">Search across legislation, announcements, events, documents, and more</p>
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Search Parliament</h2>
+            <p class="text-gray-600 dark:text-gray-400 mb-6">Search across pages, legislation, events, documents, and more</p>
+            <div class="text-sm text-gray-500 dark:text-gray-500">
+                <p class="mb-3">Quick searches:</p>
+                <div class="flex flex-wrap justify-center gap-2">
+                    <a href="?q=home" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition">🏠 Home</a>
+                    <a href="?q=calendar" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition">📅 Calendar</a>
+                    <a href="?q=vote" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition">🗳️ Vote</a>
+                    <a href="?q=committee" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition">👥 Committees</a>
+                    <a href="?q=documents" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition">📁 Documents</a>
+                    <a href="?q=announcements" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition">📢 Announcements</a>
+                    <a href="?q=settings" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition">⚙️ Settings</a>
+                    <a href="?q=profile" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition">👤 Profile</a>
+                </div>
+            </div>
         </div>
     {% endif %}
 </div>
