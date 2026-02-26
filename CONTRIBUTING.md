@@ -19,11 +19,11 @@ Thank you for your interest in contributing to Parliament! This document provide
 
 ## Code of Conduct
 
-By participating in this project, you agree to maintain a respectful and inclusive environment. We expect all contributors to:
+By participating in this project, you agree to maintain a respectful environment. We expect all contributors to:
 
 - Be respectful and considerate in communication
-- Accept constructive criticism gracefully
-- Focus on what is best for the project and community
+- Accept constructive criticism
+- Focus on what is best for the project 
 - Show empathy towards other contributors
 
 ---
