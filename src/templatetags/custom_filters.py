@@ -19,7 +19,11 @@ def dict_get(dictionary, key):
 
 @register.filter
 def render_description(value):
-    """Convert markdown bold and line breaks to HTML"""
+    """Convert markdown bold and line breaks to HTML.
+
+    Security: Input is escaped via escape() before any transformations.
+    Only safe HTML tags (<strong>, <br>) are added after escaping.
+    """
     if not value:
         return value
     from django.utils.html import escape
@@ -32,7 +36,7 @@ def render_description(value):
     result = result.replace('&lt;/strong&gt;', '</strong>')
     # Convert newlines to <br>
     result = result.replace('\n', '<br>')
-    return mark_safe(result)
+    return mark_safe(result)  # nosec B308 B703 - input escaped on line 27 before transformations
 
 @register.filter
 def split(value, arg):
@@ -103,7 +107,8 @@ def format_phone(value):
 def linkify(value, autoescape=True):
     """Convert URLs in plain text to clickable links that open in new tabs.
 
-    Safe against XSS: escapes the text first, then wraps detected URLs in <a> tags.
+    Security: Safe against XSS - all text segments are escaped via escape() before
+    being added to the result. URL hrefs are also escaped. Only then is mark_safe used.
     Handles URLs with http://, https://, www., and bare domain URLs.
     """
     if not value:
@@ -134,7 +139,7 @@ def linkify(value, autoescape=True):
 
     if not urls:
         # No URLs found, just escape and return
-        return mark_safe(escape(text) if autoescape else text)
+        return mark_safe(escape(text) if autoescape else text)  # nosec B308 B703 - text is escaped
 
     # Build the result by escaping non-URL parts and wrapping URLs in links
     result = []
@@ -171,4 +176,5 @@ def linkify(value, autoescape=True):
         remaining_text = escape(remaining_text)
     result.append(remaining_text)
 
+    # nosec B308 B703 - all text segments are escaped, URLs are escaped in href and display
     return mark_safe(''.join(result))

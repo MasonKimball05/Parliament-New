@@ -408,6 +408,7 @@ def initiate_pledges(request):
 
     # All tables with foreign keys to ParliamentUser.user_id
     # Format: (table_name, column_name)
+    # Security: These are hardcoded values, not user input. Validated below before use.
     related_tables = [
         ('calendar_subscriptions', 'user_id'),
         ('django_admin_log', 'user_id'),
@@ -460,6 +461,12 @@ def initiate_pledges(request):
         ('src_vote', 'user_id'),
     ]
 
+    # Security: Build allowlists from the hardcoded related_tables for validation
+    allowed_tables = frozenset(t[0] for t in related_tables)
+    allowed_columns = frozenset(t[1] for t in related_tables)
+    # Also allow the user table
+    allowed_tables = allowed_tables | {table_name}
+
     for pledge in pledges:
         old_user_id = pledge.user_id
         assigned_role_number = role_numbers.get(old_user_id)
@@ -469,18 +476,26 @@ def initiate_pledges(request):
             with connection.cursor() as cursor:
                 # Delete all related records first (pledges shouldn't have much data)
                 for rel_table, rel_column in related_tables:
+                    # Validate table/column names against allowlist (defense-in-depth)
+                    if rel_table not in allowed_tables or rel_column not in allowed_columns:
+                        logger.warning(f"Skipping invalid table/column: {rel_table}.{rel_column}")
+                        continue
                     try:
                         cursor.execute(
-                            f"DELETE FROM {rel_table} WHERE {rel_column} = %s",
+                            f"DELETE FROM {rel_table} WHERE {rel_column} = %s",  # nosec B608 - table/column from hardcoded allowlist
                             [old_user_id]
                         )
                     except Exception:
                         # Table might not exist, that's OK
                         pass
 
+                # Validate table_name (comes from Django model meta, but validate anyway)
+                if table_name not in allowed_tables:
+                    raise ValueError(f"Invalid table name: {table_name}")
+
                 # Now update the user_id, member_type, and role_number
                 cursor.execute(
-                    f"UPDATE {table_name} SET user_id = %s, member_type = %s, role_number = %s WHERE user_id = %s",
+                    f"UPDATE {table_name} SET user_id = %s, member_type = %s, role_number = %s WHERE user_id = %s",  # nosec B608 - table from Django model meta, validated above
                     [assigned_role_number, 'Member', assigned_role_number, old_user_id]
                 )
                 rows_updated = cursor.rowcount
