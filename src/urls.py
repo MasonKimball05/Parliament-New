@@ -10,7 +10,10 @@ from src.view.officer.chapter_minutes import (
     save_minutes_data, save_minutes_attendance, publish_chapter_minutes,
     download_minutes_pdf, delete_chapter_minutes
 )
-from src.view.officer.manage_announcements import track_email_view, announcement_stats
+from src.view.officer.manage_announcements import (
+    track_email_view, announcement_stats, confirm_announcement_email,
+    send_announcement_emails, skip_announcement_email
+)
 from src.view.committee import *
 from src.view.committee.committee_minutes_editor import (
     committee_minutes_list, create_committee_minutes, edit_committee_minutes,
@@ -265,6 +268,9 @@ urlpatterns = [
     path('officers/announcements/<int:announcement_id>/delete/', delete_announcement, name='delete_announcement'),
     path('officers/announcements/<int:announcement_id>/toggle/', toggle_announcement_status, name='toggle_announcement_status'),
     path('officers/announcements/<int:announcement_id>/stats/', announcement_stats, name='announcement_stats'),
+    path('officers/announcements/<int:announcement_id>/confirm-email/', confirm_announcement_email, name='confirm_announcement_email'),
+    path('officers/announcements/<int:announcement_id>/send-emails/', send_announcement_emails, name='send_announcement_emails'),
+    path('officers/announcements/<int:announcement_id>/skip-email/', skip_announcement_email, name='skip_announcement_email'),
 
     # Announcement Email Tracking (no login required - used as tracking pixel)
     path('track/announcement/<int:announcement_id>/user/<str:user_id>/', track_email_view, name='track_email_view'),

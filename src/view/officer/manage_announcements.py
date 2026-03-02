@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse
+from django.db.models import Q
 from src.models import Announcement, UserAnnouncementView, ParliamentUser
 from src.forms import AnnouncementForm
 from src.decorators import log_function_call, officer_required
@@ -9,6 +10,9 @@ from src.notifications import send_announcement_notification
 from src.notification_service import notify_all_active_members
 from django.utils import timezone
 import base64
+import logging
+
+logger = logging.getLogger('src')
 
 @login_required
 @officer_required
@@ -32,20 +36,10 @@ def create_announcement(request):
             announcement.posted_by = request.user
             announcement.save()
 
-            # Send email notifications if announcement is published now and user opted in
+            # Check if user wants to send email notifications
             send_email = request.POST.get('send_email') == 'on'
-            if announcement.is_published() and send_email:
-                try:
-                    sent_count = send_announcement_notification(announcement)
-                    messages.success(request, f'Announcement created and {sent_count} email notifications sent!')
-                except Exception as e:
-                    messages.warning(request, f'Announcement created but email notifications failed: {str(e)}')
-            elif announcement.is_published():
-                messages.success(request, 'Announcement created successfully!')
-            else:
-                messages.success(request, 'Announcement created and scheduled for publication!')
 
-            # Send in-app notification to all active members
+            # Send in-app notification to all active members (always, if published)
             if announcement.is_published():
                 try:
                     notify_all_active_members(
@@ -59,6 +53,14 @@ def create_announcement(request):
                 except Exception as e:
                     logger.error(f"Failed to create announcement notifications: {e}", exc_info=True)
 
+            # If send_email is checked and announcement is published, redirect to confirmation
+            if announcement.is_published() and send_email:
+                return redirect('confirm_announcement_email', announcement_id=announcement.id)
+            elif announcement.is_published():
+                messages.success(request, 'Announcement created successfully!')
+            else:
+                messages.success(request, 'Announcement created and scheduled for publication!')
+
             return redirect('manage_announcements')
     else:
         form = AnnouncementForm(initial={'is_active': True})
@@ -66,6 +68,101 @@ def create_announcement(request):
     return render(request, 'officer/create_announcement.html', {
         'form': form
     })
+
+
+@login_required
+@officer_required
+@log_function_call
+def confirm_announcement_email(request, announcement_id):
+    """
+    Show confirmation page before sending announcement emails.
+    Displays exactly who will receive the email.
+    """
+    announcement = get_object_or_404(Announcement, id=announcement_id)
+
+    # Calculate who would receive the email (same logic as send_announcement_notification)
+    all_active_users = ParliamentUser.objects.filter(member_status='Active')
+
+    if announcement.visible_to:
+        member_types = list(announcement.visible_to)
+        if 'Member' in member_types:
+            member_types.extend(['Chair', 'Officer'])
+        targeted_users = all_active_users.filter(member_type__in=member_types)
+        excluded_by_visibility = all_active_users.exclude(member_type__in=member_types)
+    else:
+        member_types = None  # All types
+        targeted_users = all_active_users
+        excluded_by_visibility = ParliamentUser.objects.none()
+
+    # Filter to users with valid emails who want notifications
+    users_with_email = targeted_users.filter(
+        email__isnull=False
+    ).filter(
+        Q(preferences__email_announcements=True) | Q(preferences__isnull=True)
+    ).exclude(email='')
+
+    # Users who match visibility but won't receive email
+    users_no_email = targeted_users.exclude(
+        user_id__in=users_with_email.values_list('user_id', flat=True)
+    )
+
+    # Group by member type for display
+    recipients_by_type = {}
+    for user in users_with_email:
+        if user.member_type not in recipients_by_type:
+            recipients_by_type[user.member_type] = []
+        recipients_by_type[user.member_type].append(user)
+
+    excluded_by_type = {}
+    for user in excluded_by_visibility:
+        if user.member_type not in excluded_by_type:
+            excluded_by_type[user.member_type] = []
+        excluded_by_type[user.member_type].append(user)
+
+    context = {
+        'announcement': announcement,
+        'visible_to': announcement.visible_to or ['All Members'],
+        'expanded_types': member_types or ['All Types'],
+        'recipients_count': users_with_email.count(),
+        'recipients_by_type': recipients_by_type,
+        'no_email_count': users_no_email.count(),
+        'excluded_count': excluded_by_visibility.count(),
+        'excluded_by_type': excluded_by_type,
+    }
+
+    return render(request, 'officer/confirm_announcement_email.html', context)
+
+
+@login_required
+@officer_required
+@log_function_call
+def send_announcement_emails(request, announcement_id):
+    """
+    Actually send the announcement emails after confirmation.
+    """
+    if request.method != 'POST':
+        return redirect('manage_announcements')
+
+    announcement = get_object_or_404(Announcement, id=announcement_id)
+
+    try:
+        sent_count = send_announcement_notification(announcement)
+        messages.success(request, f'Announcement created and {sent_count} email notifications sent!')
+    except Exception as e:
+        messages.warning(request, f'Announcement created but email notifications failed: {str(e)}')
+
+    return redirect('manage_announcements')
+
+
+@login_required
+@officer_required
+@log_function_call
+def skip_announcement_email(request, announcement_id):
+    """
+    Skip sending emails for an announcement (user cancelled from confirmation page).
+    """
+    messages.success(request, 'Announcement created successfully! (No emails sent)')
+    return redirect('manage_announcements')
 
 @login_required
 @officer_required
