@@ -119,20 +119,31 @@ Tags: {report.tags if report.tags else 'None'}
 Please log in to the Kai Committee page to review this report.
                         """
 
+                        import logging
+                        kai_logger = logging.getLogger('src')
+                        kai_logger.info(f"[KAI EMAIL] Sending notification to {len(recipient_emails)} recipients: {recipient_emails}")
+
                         send_mail(
                             subject,
                             message,
                             settings.DEFAULT_FROM_EMAIL,
                             recipient_emails,
-                            fail_silently=True,
+                            fail_silently=False,
                         )
+                        kai_logger.info(f"[KAI EMAIL] Email sent successfully for report: {report.title}")
+                    else:
+                        import logging
+                        kai_logger = logging.getLogger('src')
+                        kai_logger.warning(f"[KAI EMAIL] No recipient emails found for Kai report notification")
                 except Committee.DoesNotExist:
-                    pass  # Kai committee doesn't exist yet
+                    import logging
+                    kai_logger = logging.getLogger('src')
+                    kai_logger.warning(f"[KAI EMAIL] KAI committee not found - cannot send notification")
                 except Exception as e:
                     # Log error but don't fail the submission
                     import logging
-                    logger = logging.getLogger('function_calls')
-                    logger.error(f"Failed to send Kai report email: {e}")
+                    logger = logging.getLogger('src')
+                    logger.error(f"[KAI EMAIL] Failed to send Kai report email: {e}")
 
                 messages.success(request, 'Your Kai report has been submitted successfully! The Kai chair(s) have been notified.')
                 return redirect('home')

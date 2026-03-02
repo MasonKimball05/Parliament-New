@@ -292,13 +292,19 @@ def send_bug_report_notification(bug_report, request):
     Send email notification when a bug report is submitted.
     Fails silently if email is not configured.
     """
+    import logging
+    logger = logging.getLogger('src')
+
     try:
         # Check if email is properly configured
         if not getattr(settings, 'EMAIL_HOST_USER', None):
+            logger.warning("[BUG REPORT EMAIL] EMAIL_HOST_USER not configured - skipping email notification")
             return  # Email not configured, skip silently
 
         # Get admin email (you can configure this in settings)
-        admin_email = getattr(settings, 'BUG_REPORT_EMAIL', 'mason.kimball05@gmail.com')
+        admin_email = getattr(settings, 'BUG_REPORT_EMAIL', 'mason.kimball@icloud.com')
+
+        logger.info(f"[BUG REPORT EMAIL] Sending notification for bug #{bug_report.id} to {admin_email}")
 
         # Build the email
         subject = f"[Bug Report #{bug_report.id}] {bug_report.get_issue_type_display()}: {bug_report.description[:50]}"
@@ -323,8 +329,12 @@ def send_bug_report_notification(bug_report, request):
             to=[admin_email]
         )
         msg.attach_alternative(html_message, "text/html")
-        msg.send(fail_silently=True)
+        msg.send(fail_silently=False)
 
-    except Exception:
-        # Fail silently - don't break bug submission if email fails
-        pass
+        logger.info(f"[BUG REPORT EMAIL] Successfully sent notification for bug #{bug_report.id}")
+
+    except Exception as e:
+        # Log the error but don't break bug submission
+        import logging
+        logger = logging.getLogger('src')
+        logger.error(f"[BUG REPORT EMAIL] Failed to send notification for bug #{bug_report.id}: {str(e)}")

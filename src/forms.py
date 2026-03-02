@@ -2,6 +2,9 @@ from django import forms
 from django.conf import settings
 from .models import Legislation, Announcement, Event, CommitteeDocument, Committee, PassedResolution, ResolutionSectionImpact, KaiReport, UserPreferences, ParliamentUser, Role
 import magic  # python-magic for MIME type detection
+import logging
+
+logger = logging.getLogger(__name__)
 
 class LegislationForm(forms.ModelForm):
     class Meta:
@@ -109,9 +112,17 @@ class AnnouncementForm(forms.ModelForm):
     def save(self, commit=True):
         instance = super().save(commit=False)
         # Convert the list from MultipleChoiceField to JSON for storage
-        instance.visible_to = self.cleaned_data.get('visible_to') or None
+        visible_to_raw = self.cleaned_data.get('visible_to')
+        instance.visible_to = visible_to_raw or None
+
+        # Log the visibility settings for debugging
+        logger.info(f"[ANNOUNCEMENT FORM] Saving announcement '{instance.title}'")
+        logger.info(f"[ANNOUNCEMENT FORM] Raw form data visible_to: {visible_to_raw}")
+        logger.info(f"[ANNOUNCEMENT FORM] Stored visible_to: {instance.visible_to}")
+
         if commit:
             instance.save()
+            logger.info(f"[ANNOUNCEMENT FORM] Saved announcement ID: {instance.id}, visible_to: {instance.visible_to}")
         return instance
 
 class EventForm(forms.ModelForm):

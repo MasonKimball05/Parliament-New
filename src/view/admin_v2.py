@@ -1434,3 +1434,119 @@ def health_check(request):
         'status': 'ok',
         'timestamp': timezone.now().isoformat(),
     })
+
+
+@require_admin_v2_auth
+def test_email_targeting(request):
+    """
+    Test announcement email targeting without sending actual emails.
+    Shows exactly who would receive an email based on visibility settings.
+    """
+    results = None
+    selected_visibility = []
+
+    if request.method == 'POST':
+        # Get selected visibility options
+        selected_visibility = request.POST.getlist('visibility')
+
+        # Get ALL active users for comparison
+        all_active_users = ParliamentUser.objects.filter(member_status='Active')
+
+        # Run the same targeting logic as send_announcement_notification
+        if selected_visibility:
+            member_types = list(selected_visibility)
+
+            # Expand "Member" to include Chair and Officer (same as notification code)
+            if 'Member' in member_types:
+                member_types.extend(['Chair', 'Officer'])
+
+            # Get all users that match visibility
+            all_targeted_users = all_active_users.filter(member_type__in=member_types)
+
+            # Get users EXCLUDED by visibility (wrong member type)
+            excluded_by_visibility = all_active_users.exclude(member_type__in=member_types)
+        else:
+            # No visibility restriction - target all active users
+            member_types = ['All Active Users']
+            all_targeted_users = all_active_users
+            excluded_by_visibility = ParliamentUser.objects.none()
+
+        # Filter to users with valid emails who want notifications
+        from django.db.models import Q
+        users_with_email = all_targeted_users.filter(
+            email__isnull=False
+        ).filter(
+            Q(preferences__email_announcements=True) | Q(preferences__isnull=True)
+        ).exclude(email='')
+
+        # Users who match visibility but won't receive email (no email or notifications disabled)
+        users_no_email_or_disabled = all_targeted_users.exclude(
+            user_id__in=users_with_email.values_list('user_id', flat=True)
+        )
+
+        # Group recipients by member type
+        email_recipients_by_type = {}
+        for user in users_with_email:
+            if user.member_type not in email_recipients_by_type:
+                email_recipients_by_type[user.member_type] = []
+            email_recipients_by_type[user.member_type].append({
+                'name': user.get_display_name(),
+                'email': user.email,
+                'user_id': user.user_id,
+            })
+
+        # Group users who match visibility but have no email/disabled notifications
+        no_email_by_type = {}
+        for user in users_no_email_or_disabled:
+            if user.member_type not in no_email_by_type:
+                no_email_by_type[user.member_type] = []
+
+            # Determine reason
+            if not user.email:
+                reason = 'No email address'
+            else:
+                # Check if they have preferences and notifications are disabled
+                has_prefs = hasattr(user, 'preferences')
+                if has_prefs and not user.preferences.email_announcements:
+                    reason = 'Email notifications disabled'
+                else:
+                    reason = 'Unknown'
+
+            no_email_by_type[user.member_type].append({
+                'name': user.get_display_name(),
+                'email': user.email or '(no email)',
+                'user_id': user.user_id,
+                'reason': reason,
+            })
+
+        # Group users excluded by visibility (wrong member type)
+        excluded_by_type = {}
+        for user in excluded_by_visibility:
+            if user.member_type not in excluded_by_type:
+                excluded_by_type[user.member_type] = []
+            excluded_by_type[user.member_type].append({
+                'name': user.get_display_name(),
+                'email': user.email or '(no email)',
+                'user_id': user.user_id,
+            })
+
+        results = {
+            'selected_visibility': selected_visibility or ['All'],
+            'expanded_member_types': member_types,
+            'total_active_users': all_active_users.count(),
+            'total_targeted': all_targeted_users.count(),
+            'would_receive_email': users_with_email.count(),
+            'would_not_receive_email_issues': users_no_email_or_disabled.count(),
+            'excluded_by_visibility': excluded_by_visibility.count(),
+            'email_recipients_by_type': email_recipients_by_type,
+            'no_email_by_type': no_email_by_type,
+            'excluded_by_type': excluded_by_type,
+        }
+
+    context = {
+        'results': results,
+        'selected_visibility': selected_visibility,
+        'visibility_options': ['Member', 'Advisor', 'Pledge'],
+    }
+
+    return render(request, 'admin_v2/test_email_targeting.html', context)
