@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}Resolution Management Guide - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-6" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="{% url 'guide_index' %}" class="inline-flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                    Guide
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <a href="{% url 'guide_officer_hub' %}" class="ml-1 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 md:ml-2">Officer Guides</a>
+                </div>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="ml-1 text-sm font-medium text-gray-700 dark:text-gray-300 md:ml-2">Resolution Management</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center mb-4">
+            <div class="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/50 rounded-lg flex items-center justify-center mr-4">
+                <svg class="w-6 h-6 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Resolution Management</h1>
+                <p class="text-gray-600 dark:text-gray-400">Track and document chapter decisions and their impacts</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="space-y-8">
+        <!-- Info Box -->
+        <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-emerald-800 dark:text-emerald-200 mb-2 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                What are Resolutions?
+            </h3>
+            <p class="text-sm text-emerald-700 dark:text-emerald-300">
+                Resolutions are formal records of legislation that has passed. They document what was decided and which sections of your governing documents were affected.
+            </p>
+        </div>
+
+        <!-- Section: Understanding Resolutions -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-emerald-600 dark:text-emerald-400">1</span>
+                    Understanding Resolutions
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    When legislation passes, it may affect various sections of your chapter's governing documents (constitution, bylaws, standing rules, etc.).
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">A resolution contains:</h4>
+                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Title:</strong> A descriptive name for the resolution</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Description:</strong> Detailed explanation of what was decided</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Passed Date:</strong> When the resolution was approved</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Section Impacts:</strong> Which document sections are affected</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Related Legislation:</strong> Link to the original legislation</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Creating Resolutions -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-emerald-600 dark:text-emerald-400">2</span>
+                    Creating a Resolution
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    After legislation passes, create a resolution to document the change for future reference.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Steps to create:</h4>
+                    <ol class="space-y-3 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0">1</span>
+                            <span>Navigate to <strong class="text-gray-900 dark:text-gray-100">Officers &rarr; Resolutions</strong></span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0">2</span>
+                            <span>Click <strong class="text-gray-900 dark:text-gray-100">"Create Resolution"</strong></span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0">3</span>
+                            <span>Enter the resolution title and description</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0">4</span>
+                            <span>Select the date it was passed</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0">5</span>
+                            <span>Link to the related legislation (if applicable)</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0">6</span>
+                            <span>Click <strong class="text-gray-900 dark:text-gray-100">"Save"</strong></span>
+                        </li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Section Impacts -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-emerald-600 dark:text-emerald-400">3</span>
+                    Documenting Section Impacts
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Section impacts track which parts of your governing documents are affected by a resolution.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                        <h4 class="font-medium text-blue-800 dark:text-blue-200 mb-2">Impact Types</h4>
+                        <ul class="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                            <li><strong>Added:</strong> New section created</li>
+                            <li><strong>Modified:</strong> Existing section changed</li>
+                            <li><strong>Removed:</strong> Section deleted</li>
+                            <li><strong>Replaced:</strong> Section completely rewritten</li>
+                        </ul>
+                    </div>
+                    <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                        <h4 class="font-medium text-purple-800 dark:text-purple-200 mb-2">Document Types</h4>
+                        <ul class="text-sm text-purple-700 dark:text-purple-300 space-y-1">
+                            <li>Constitution</li>
+                            <li>Bylaws</li>
+                            <li>Standing Rules</li>
+                            <li>Policies</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">Adding section impacts:</h4>
+                    <ol class="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
+                        <li>Open the resolution</li>
+                        <li>Click <strong class="text-gray-900 dark:text-gray-100">"Add Section Impact"</strong></li>
+                        <li>Select the document type</li>
+                        <li>Enter the section number/name</li>
+                        <li>Choose the impact type (added, modified, etc.)</li>
+                        <li>Describe the specific changes</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Viewing History -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-emerald-600 dark:text-emerald-400">4</span>
+                    Viewing Resolution History
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    The resolution list shows all documented decisions with filtering and search capabilities.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">You can filter by:</h4>
+                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-center">
+                            <svg class="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                            Date range
+                        </li>
+                        <li class="flex items-center">
+                            <svg class="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            Document type affected
+                        </li>
+                        <li class="flex items-center">
+                            <svg class="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                            Keyword search
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Tip:</strong> Use resolutions to quickly answer questions like "When was the dues amount changed?" or "What happened to Article V, Section 3?"
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-700">
+            <a href="{% url 'guide_officer_hub' %}" class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Back to Officer Guides
+            </a>
+            <a href="{% url 'guide_activity_logs' %}" class="inline-flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
+                Next: Activity Logs
+                <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

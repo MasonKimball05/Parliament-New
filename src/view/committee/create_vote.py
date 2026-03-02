@@ -50,16 +50,40 @@ def committee_create_vote(request, code):
         vote_mode = request.POST.get('vote_mode', 'percentage')
         plurality_options = []
         required_number = None
+        plurality_votes_allowed = 1
+        plurality_runoff_enabled = False
+        plurality_runoff_count = 2
 
         if vote_mode == 'plurality':
-            for i in range(1, 6):
+            # Support up to 10 plurality options
+            for i in range(1, 11):
                 val = request.POST.get(f'plurality_option_{i}')
-                if val:
+                if val and val.strip():
                     plurality_options.append(val.strip())
 
             if len(plurality_options) < 2:
                 messages.error(request, "Plurality voting requires at least two options.")
                 return redirect('create_committee_vote', code=code)
+
+            # Parse multi-select settings
+            votes_allowed_raw = request.POST.get('plurality_votes_allowed', '1')
+            try:
+                plurality_votes_allowed = max(1, min(10, int(votes_allowed_raw)))
+            except (ValueError, TypeError):
+                plurality_votes_allowed = 1
+
+            # Ensure votes_allowed doesn't exceed number of options
+            plurality_votes_allowed = min(plurality_votes_allowed, len(plurality_options))
+
+            # Parse runoff settings
+            plurality_runoff_enabled = request.POST.get('plurality_runoff_enabled') == 'on'
+            if plurality_runoff_enabled:
+                runoff_count_raw = request.POST.get('plurality_runoff_count', '2')
+                try:
+                    plurality_runoff_count = max(2, min(len(plurality_options), int(runoff_count_raw)))
+                except (ValueError, TypeError):
+                    plurality_runoff_count = 2
+
         elif vote_mode == 'piecewise':
             required_number = request.POST.get('required_number')
             if not required_number or int(required_number) < 1:
@@ -82,6 +106,9 @@ def committee_create_vote(request, code):
                 required_percentage=required_percentage,
                 vote_mode=vote_mode,
                 plurality_options=plurality_options if vote_mode == 'plurality' else None,
+                plurality_votes_allowed=plurality_votes_allowed if vote_mode == 'plurality' else 1,
+                plurality_runoff_enabled=plurality_runoff_enabled if vote_mode == 'plurality' else False,
+                plurality_runoff_count=plurality_runoff_count if vote_mode == 'plurality' else 2,
                 required_number=required_number if vote_mode == 'piecewise' else None
             )
 

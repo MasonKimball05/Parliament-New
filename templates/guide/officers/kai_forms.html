@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block title %}Kai Form Customization Guide - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-6" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="{% url 'guide_index' %}" class="inline-flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                    Guide
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <a href="{% url 'guide_officer_hub' %}" class="ml-1 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 md:ml-2">Officer Guides</a>
+                </div>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="ml-1 text-sm font-medium text-gray-700 dark:text-gray-300 md:ml-2">Kai Form Customization</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center mb-4">
+            <div class="w-12 h-12 bg-rose-100 dark:bg-rose-900/50 rounded-lg flex items-center justify-center mr-4">
+                <svg class="w-6 h-6 text-rose-600 dark:text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Kai Form Customization</h1>
+                <p class="text-gray-600 dark:text-gray-400">Build custom forms for Kai report submissions</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="space-y-8">
+        <!-- Access Note -->
+        <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-2 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                </svg>
+                Access Required
+            </h3>
+            <p class="text-sm text-amber-700 dark:text-amber-300">
+                Kai form customization is only available to Kai Committee chairs and designated administrators. Contact your chapter's Kai Chair if you need to make changes.
+            </p>
+        </div>
+
+        <!-- Section: Overview -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-rose-100 dark:bg-rose-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-rose-600 dark:text-rose-400">1</span>
+                    Form Builder Overview
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    The Kai form builder lets you customize what information is collected when members submit reports. This ensures you gather the details needed for fair deliberation.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Form builder features:</h4>
+                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Drag-and-drop field ordering</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Multiple field types (text, dropdown, checkbox, etc.)</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Required vs optional field settings</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Custom help text for each field</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Live preview of your form</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Field Types -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-rose-100 dark:bg-rose-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-rose-600 dark:text-rose-400">2</span>
+                    Available Field Types
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Choose from various field types to collect the information you need.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2 flex items-center">
+                            <svg class="w-5 h-5 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path>
+                            </svg>
+                            Short Text
+                        </h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Single line text input for brief answers</p>
+                    </div>
+
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2 flex items-center">
+                            <svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                            </svg>
+                            Long Text
+                        </h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Multi-line text area for detailed descriptions</p>
+                    </div>
+
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2 flex items-center">
+                            <svg class="w-5 h-5 text-purple-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                            Dropdown
+                        </h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Select one option from a predefined list</p>
+                    </div>
+
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2 flex items-center">
+                            <svg class="w-5 h-5 text-amber-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Checkboxes
+                        </h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Select multiple options from a list</p>
+                    </div>
+
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2 flex items-center">
+                            <svg class="w-5 h-5 text-indigo-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                            Date
+                        </h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Date picker for incident dates</p>
+                    </div>
+
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2 flex items-center">
+                            <svg class="w-5 h-5 text-cyan-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                            Member Select
+                        </h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Select a member from the chapter roster</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Adding Fields -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-rose-100 dark:bg-rose-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-rose-600 dark:text-rose-400">3</span>
+                    Adding and Editing Fields
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">To add a new field:</h4>
+                    <ol class="space-y-2 text-sm text-gray-600 dark:text-gray-400 list-decimal list-inside">
+                        <li>Click <strong class="text-gray-900 dark:text-gray-100">"Add Field"</strong> in the form builder</li>
+                        <li>Select the field type</li>
+                        <li>Enter the field label (question text)</li>
+                        <li>Add optional help text</li>
+                        <li>Set whether the field is required</li>
+                        <li>For dropdowns/checkboxes, add the options</li>
+                        <li>Click <strong class="text-gray-900 dark:text-gray-100">"Save Field"</strong></li>
+                    </ol>
+                </div>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">To reorder fields:</h4>
+                    <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                        <li>Click and drag the handle on the left side of any field</li>
+                        <li>Drop it in the desired position</li>
+                        <li>Changes are saved automatically</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Best Practices -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-rose-100 dark:bg-rose-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-rose-600 dark:text-rose-400">4</span>
+                    Best Practices
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <div class="space-y-3">
+                    <div class="flex items-start p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <svg class="w-5 h-5 text-green-600 dark:text-green-400 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <div>
+                            <h4 class="font-medium text-green-800 dark:text-green-200">Be Clear and Specific</h4>
+                            <p class="text-sm text-green-700 dark:text-green-300">Write questions that are easy to understand. Avoid jargon.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <svg class="w-5 h-5 text-green-600 dark:text-green-400 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <div>
+                            <h4 class="font-medium text-green-800 dark:text-green-200">Use Help Text</h4>
+                            <p class="text-sm text-green-700 dark:text-green-300">Add help text to explain what information you're looking for.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <svg class="w-5 h-5 text-green-600 dark:text-green-400 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <div>
+                            <h4 class="font-medium text-green-800 dark:text-green-200">Only Require Essentials</h4>
+                            <p class="text-sm text-green-700 dark:text-green-300">Only mark fields as required if they're truly necessary.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <svg class="w-5 h-5 text-green-600 dark:text-green-400 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <div>
+                            <h4 class="font-medium text-green-800 dark:text-green-200">Test Your Form</h4>
+                            <p class="text-sm text-green-700 dark:text-green-300">Use the preview feature to test your form before publishing.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Warning -->
+        <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-r-lg">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-red-800 dark:text-red-200">
+                        <strong>Caution:</strong> Changing the form structure may affect how existing reports display. Review the impact before making significant changes.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-700">
+            <a href="{% url 'guide_activity_logs' %}" class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Previous: Activity Logs
+            </a>
+            <a href="{% url 'guide_officer_hub' %}" class="inline-flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
+                Back to Officer Guides
+                <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

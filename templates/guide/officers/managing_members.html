@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block title %}Managing Members Guide - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-6" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="{% url 'guide_index' %}" class="inline-flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                    Guide
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <a href="{% url 'guide_officer_hub' %}" class="ml-1 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 md:ml-2">Officer Guides</a>
+                </div>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="ml-1 text-sm font-medium text-gray-700 dark:text-gray-300 md:ml-2">Managing Members</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center mb-4">
+            <div class="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/50 rounded-lg flex items-center justify-center mr-4">
+                <svg class="w-6 h-6 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Managing Members</h1>
+                <p class="text-gray-600 dark:text-gray-400">Learn how to add, edit, and manage chapter members</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="space-y-8">
+        <!-- Quick Actions -->
+        <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-emerald-800 dark:text-emerald-200 mb-2">Quick Actions</h3>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'user_list' %}" class="inline-flex items-center px-3 py-1.5 bg-emerald-600 text-white text-sm rounded-md hover:bg-emerald-700 transition-colors">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                    </svg>
+                    Member List
+                </a>
+            </div>
+        </div>
+
+        <!-- Section: Adding Members -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-emerald-600 dark:text-emerald-400">1</span>
+                    Adding New Members
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Navigate to <strong class="text-gray-900 dark:text-gray-100">Officers &rarr; Members</strong> and click the <strong class="text-gray-900 dark:text-gray-100">"Add Member"</strong> button in the top right.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Required Information</h4>
+                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Name:</strong> Full legal name of the member</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Member ID:</strong> Unique identifier (e.g., student ID or pledge class number)</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Member Type:</strong> Pledge, Member, or Alumni</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Status:</strong> Active, Inactive, etc.</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span><strong>Email:</strong> Optional but recommended for notifications</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        <strong>Auto-generated credentials:</strong> When you add a member, their username is automatically generated from their name (first initial + last name). For pledges, the password is set to their username. For other members, a random password is generated.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Member Types -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-emerald-600 dark:text-emerald-400">2</span>
+                    Understanding Member Types
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                        <h4 class="font-medium text-amber-800 dark:text-amber-200 mb-2 flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                            </svg>
+                            Pledge
+                        </h4>
+                        <p class="text-sm text-amber-700 dark:text-amber-300">New members in the pledging process. They have limited access and cannot vote on legislation.</p>
+                    </div>
+                    <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                        <h4 class="font-medium text-green-800 dark:text-green-200 mb-2 flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Member
+                        </h4>
+                        <p class="text-sm text-green-700 dark:text-green-300">Full initiated members with voting rights. Can access all member features and participate in chapter governance.</p>
+                    </div>
+                    <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                        <h4 class="font-medium text-purple-800 dark:text-purple-200 mb-2 flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                            </svg>
+                            Alumni
+                        </h4>
+                        <p class="text-sm text-purple-700 dark:text-purple-300">Graduated members. Typically have read-only access but cannot vote or hold officer positions.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Editing Members -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-emerald-600 dark:text-emerald-400">3</span>
+                    Editing Member Information
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Click on any member in the list to open their profile. Click the <strong class="text-gray-900 dark:text-gray-100">"Edit"</strong> button to modify their details.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Editable Fields</h4>
+                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-start">
+                            <span class="w-2 h-2 bg-emerald-500 rounded-full mr-3 mt-1.5"></span>
+                            <span><strong>Name & Preferred Name:</strong> Update the member's display name</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-2 h-2 bg-emerald-500 rounded-full mr-3 mt-1.5"></span>
+                            <span><strong>Email:</strong> Update contact email for notifications</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-2 h-2 bg-emerald-500 rounded-full mr-3 mt-1.5"></span>
+                            <span><strong>Member Type & Status:</strong> Change membership classification</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-2 h-2 bg-emerald-500 rounded-full mr-3 mt-1.5"></span>
+                            <span><strong>Role Number:</strong> Assigned when a pledge is initiated</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-2 h-2 bg-emerald-500 rounded-full mr-3 mt-1.5"></span>
+                            <span><strong>Roles:</strong> Assign officer positions or special roles</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Assigning Roles -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-emerald-600 dark:text-emerald-400">4</span>
+                    Assigning Roles
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Roles grant special permissions and responsibilities. When editing a member, you can assign one or more roles from the available list.
+                </p>
+
+                <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Note:</strong> Common roles include President, Vice President, Secretary, Treasurer, and committee chairs. Some roles grant officer-level access to manage chapter features.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Initiating Pledges -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-emerald-600 dark:text-emerald-400">5</span>
+                    Initiating Pledges
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    When pledges complete their pledging process, use the batch initiation feature to convert them to full members.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">How to Initiate Pledges</h4>
+                    <ol class="space-y-2 text-sm text-gray-600 dark:text-gray-400 list-decimal list-inside">
+                        <li>Go to <strong>Officers &rarr; Members</strong></li>
+                        <li>Click the <strong>"Initiate Pledges"</strong> button</li>
+                        <li>Select the pledges you want to initiate</li>
+                        <li>Assign a unique <strong>role number</strong> to each pledge</li>
+                        <li>Click <strong>"Initiate Selected"</strong></li>
+                    </ol>
+                </div>
+
+                <div class="bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-green-800 dark:text-green-200">
+                        <strong>What happens:</strong> Their member type changes from "Pledge" to "Member", they receive their role number, and they gain full voting rights. A notification is sent welcoming them to the chapter.
+                    </p>
+                </div>
+
+                <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-red-800 dark:text-red-200">
+                        <strong>Important:</strong> Role numbers must be unique. The system will prevent duplicate role numbers and validate all assignments before processing.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Deactivating Members -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-emerald-600 dark:text-emerald-400">6</span>
+                    Deactivating or Removing Members
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Members who leave the chapter or become inactive can be removed from the system.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                        <h4 class="font-medium text-yellow-800 dark:text-yellow-200 mb-2">Soft Delete (Recommended)</h4>
+                        <p class="text-sm text-yellow-700 dark:text-yellow-300">Sets the member to "Inactive" status. Their account is disabled but records are preserved for historical purposes.</p>
+                    </div>
+                    <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                        <h4 class="font-medium text-red-800 dark:text-red-200 mb-2">Hard Delete</h4>
+                        <p class="text-sm text-red-700 dark:text-red-300">Permanently removes the member and all their related records. This action cannot be undone.</p>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Note:</strong> You cannot delete admin accounts or your own account. Contact a system administrator if needed.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-700">
+            <a href="{% url 'guide_officer_hub' %}" class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Back to Officer Guides
+            </a>
+            <a href="{% url 'guide_slating' %}" class="inline-flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
+                Next: Slating & Elections
+                <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

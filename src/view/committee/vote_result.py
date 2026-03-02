@@ -49,6 +49,36 @@ def committee_vote_result(request, code, legislation_id):
 
         total_votes = votes.count()
 
+        # Calculate unique voter count for multi-select votes
+        unique_voter_count = votes.values('user').distinct().count()
+
+        # Determine winner or tie
+        has_tie = legislation.has_plurality_tie() if hasattr(legislation, 'has_plurality_tie') else False
+        top_options = legislation.get_top_options_for_runoff() if hasattr(legislation, 'get_top_options_for_runoff') else []
+
+        # Determine winning option(s)
+        winning_option = None
+        tied_options = []
+        if vote_breakdown:
+            max_votes = max(vote_breakdown.values()) if vote_breakdown.values() else 0
+            if max_votes > 0:
+                winners = [opt for opt, count in vote_breakdown.items() if count == max_votes]
+                if len(winners) == 1:
+                    winning_option = winners[0]
+                else:
+                    tied_options = winners
+                    has_tie = True
+
+        # Check if user can create runoff
+        can_create_runoff = (
+            legislation.voting_closed and
+            legislation.plurality_runoff_enabled and
+            not legislation.plurality_is_runoff and
+            not legislation.runoff_votes.exists() and
+            (is_chair or legislation.posted_by == user) and
+            len(top_options) >= 2
+        )
+
         return render(request, 'committee/vote_result.html', {
             'committee': committee,
             'legislation': legislation,
@@ -56,8 +86,18 @@ def committee_vote_result(request, code, legislation_id):
             'vote_breakdown': vote_breakdown,
             'plurality_results': plurality_results,
             'total_votes': total_votes,
+            'unique_voter_count': unique_voter_count,
+            'plurality_votes_allowed': legislation.plurality_votes_allowed,
             'anonymous': anonymous,
             'is_chair': is_chair,
+            'has_tie': has_tie,
+            'winning_option': winning_option,
+            'tied_options': tied_options,
+            'top_options_for_runoff': top_options,
+            'can_create_runoff': can_create_runoff,
+            'runoff_enabled': legislation.plurality_runoff_enabled,
+            'is_runoff': legislation.plurality_is_runoff,
+            'parent_vote': legislation.plurality_parent,
         })
     else:
         # Percentage or Piecewise voting (Yes/No/Abstain)

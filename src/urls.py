@@ -21,6 +21,8 @@ from src.view.committee.manage_chat_permissions import manage_chat_permissions, 
 from src.view.chat import *
 from src.view.submit_excuse import my_excuses, submit_excuse, cancel_excuse
 from src.view.kai_reports import submit_kai_report, view_kai_reports, manage_kai_report, export_kai_reports_csv, print_kai_report, kai_dashboard, bulk_actions_kai_reports, manage_kai_templates, create_kai_template, edit_kai_template, delete_kai_template, track_kai_accused_email_view
+from src.view.kai_user_dashboard import user_kai_dashboard, user_view_report, request_closure, request_drop_case
+from src.view.kai_form_builder import kai_form_builder, reorder_kai_fields, get_kai_field_details
 from src.view.chapter_documents import chapter_documents
 from src.view.api import dismiss_announcement_api
 from src.view.notifications import notifications_page, notifications_dropdown_api, mark_notification_read, mark_all_notifications_read, delete_notification
@@ -48,6 +50,11 @@ from src.view.admin_v2 import (
     health_check, check_default_password
 )
 from src.view.admin_v2 import manage_events as admin_v2_manage_events, delete_event as admin_v2_delete_event
+from src.view.notification_admin import (
+    notification_dashboard, notification_schedules, notification_logs,
+    create_schedule, update_schedule, toggle_schedule, delete_schedule,
+    notification_log_detail
+)
 from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event
 from src.view.officer.manage_members import add_member, edit_member, delete_member, initiate_pledges, get_all_roles
 from src.view.home import home
@@ -62,7 +69,7 @@ from src.view.directory import member_directory
 from src.view.preferences import preferences_view
 from src.view.activity_logs import activity_logs_view, export_activity_logs
 from src.view.upload_legislation import upload_legislation
-from src.view.end_vote import end_vote
+from src.view.end_vote import end_vote, create_runoff
 from src.view.delete_legislation import delete_chapter_legislation
 from src.view.passed_legislation import passed_legislation, PassedLegislationDetailView
 from src.view.legislation_detail import legislation_detail
@@ -104,6 +111,16 @@ from src.view.slating import (
     reorder_fields, reorder_positions, period_status,
     check_eligibility, application_summary, slate_candidates,
     voting_status, toggle_field_active, toggle_position_active
+)
+from src.view.guide import (
+    guide_index, guide_officer_hub, guide_article,
+    guide_events, guide_announcements, guide_attendance, guide_chapter_minutes,
+    guide_managing_members, guide_slating, guide_kai,
+    guide_legislation, guide_committees,
+    guide_profile, guide_calendar, guide_notifications, guide_excuses,
+    guide_2fa, guide_directory, guide_search,
+    guide_resolutions, guide_activity_logs, guide_kai_forms,
+    tour_start, tour_advance, tour_complete, tour_skip
 )
 
 urlpatterns = [
@@ -166,6 +183,35 @@ urlpatterns = [
     path('changelog/', changelog, name='changelog'),
     path('changelog/<str:version>/', changelog_detail, name='changelog_detail'),
 
+    # Guide System
+    path('guide/', guide_index, name='guide_index'),
+    path('guide/officers/', guide_officer_hub, name='guide_officer_hub'),
+    path('guide/officers/events/', guide_events, name='guide_events'),
+    path('guide/officers/announcements/', guide_announcements, name='guide_announcements'),
+    path('guide/officers/attendance/', guide_attendance, name='guide_attendance'),
+    path('guide/officers/chapter-minutes/', guide_chapter_minutes, name='guide_chapter_minutes'),
+    path('guide/officers/managing-members/', guide_managing_members, name='guide_managing_members'),
+    path('guide/officers/slating/', guide_slating, name='guide_slating'),
+    path('guide/officers/kai/', guide_kai, name='guide_kai'),
+    path('guide/members/legislation/', guide_legislation, name='guide_legislation'),
+    path('guide/members/committees/', guide_committees, name='guide_committees'),
+    path('guide/members/profile/', guide_profile, name='guide_profile'),
+    path('guide/members/calendar/', guide_calendar, name='guide_calendar'),
+    path('guide/members/notifications/', guide_notifications, name='guide_notifications'),
+    path('guide/members/excuses/', guide_excuses, name='guide_excuses'),
+    path('guide/members/2fa/', guide_2fa, name='guide_2fa'),
+    path('guide/members/directory/', guide_directory, name='guide_directory'),
+    path('guide/members/search/', guide_search, name='guide_search'),
+    path('guide/officers/resolutions/', guide_resolutions, name='guide_resolutions'),
+    path('guide/officers/activity-logs/', guide_activity_logs, name='guide_activity_logs'),
+    path('guide/officers/kai-forms/', guide_kai_forms, name='guide_kai_forms'),
+    path('guide/article/<slug:slug>/', guide_article, name='guide_article'),
+    # Tour API endpoints
+    path('guide/tour/<slug:tour_slug>/start/', tour_start, name='tour_start'),
+    path('guide/tour/<slug:tour_slug>/advance/', tour_advance, name='tour_advance'),
+    path('guide/tour/<slug:tour_slug>/complete/', tour_complete, name='tour_complete'),
+    path('guide/tour/<slug:tour_slug>/skip/', tour_skip, name='tour_skip'),
+
     # Member Excuse Requests
     path('excuses/', my_excuses, name='my_excuses'),
     path('excuses/submit/<int:event_id>/', submit_excuse, name='submit_excuse'),
@@ -180,6 +226,7 @@ urlpatterns = [
     path('officers/archived-events/', view_archived_events, name='view_archived_events'),
     path('officers/activity-logs/', activity_logs_view, name='activity_logs'),
     path('officers/activity-logs/export/', export_activity_logs, name='export_activity_logs'),
+    path('officers/system-logs/', view_logs, name='view_logs'),
     # Attendance (Legacy)
     path('attendance/', attendance, name='attendance'),
 
@@ -243,6 +290,7 @@ urlpatterns = [
     # Legislation / Voting Pages
     path('vote/', vote_view, name='vote'),
     path('vote/end/<int:legislation_id>/', end_vote, name='end_vote'),
+    path('vote/runoff/<int:legislation_id>/', create_runoff, name='create_runoff'),
     path('vote/delete/<int:legislation_id>/', delete_chapter_legislation, name='delete_chapter_legislation'),
     path('passed_legislation/', passed_legislation, name='passed_legislation'),
     path('legislation/detail/<int:pk>/', PassedLegislationDetailView.as_view(), name='passed_legislation_detail'),
@@ -266,6 +314,7 @@ urlpatterns = [
     path('committee/<str:code>/documents/', committee_documents, name='committee_documents'),
     path('committee/<str:code>/vote/', committee_vote, name='vote'),  # Keep as 'vote'
     path('committee/<str:code>/vote/<int:legislation_id>/result/', committee_vote_result, name='committee_vote_result'),
+    path('committee/<str:code>/vote/<int:legislation_id>/runoff/', create_committee_runoff, name='create_committee_runoff'),
     path('committee/<str:code>/vote/<int:legislation_id>/delete/', delete_committee_vote, name='delete_committee_vote'),
     path('committee/<str:code>/manage_members/', committee_manage_members, name='manage_members'),
     path('committee/<str:code>/upload_document/', committee_upload_document, name='upload_document'),
@@ -295,7 +344,18 @@ urlpatterns = [
     path('committee/<str:code>/attendance/', committee_attendance, name='committee_attendance'),
     path('committee/<str:code>/attendance/history/', committee_attendance_history, name='committee_attendance_history'),
 
-    # Kai Report URLs
+    # Kai User Dashboard URLs
+    path('kai/', user_kai_dashboard, name='user_kai_dashboard'),
+    path('kai/my-report/<int:report_id>/', user_view_report, name='user_view_kai_report'),
+    path('kai/my-report/<int:report_id>/request-closure/', request_closure, name='kai_request_closure'),
+    path('kai/my-report/<int:report_id>/request-drop/', request_drop_case, name='kai_request_drop'),
+
+    # Kai Form Builder URLs (chair only)
+    path('kai/form-builder/', kai_form_builder, name='kai_form_builder'),
+    path('kai/form-builder/field/<int:field_id>/', get_kai_field_details, name='kai_get_field_details'),
+    path('api/kai/reorder-fields/', reorder_kai_fields, name='kai_api_reorder_fields'),
+
+    # Kai Report URLs (chair management)
     path('kai/dashboard/', kai_dashboard, name='kai_dashboard'),
     path('kai/submit-report/', submit_kai_report, name='submit_kai_report'),
     path('kai/reports/', view_kai_reports, name='view_kai_reports'),
@@ -394,6 +454,16 @@ urlpatterns = [
 
     # Admin v2 - Security Alerts
     path('admin-v2/security/alerts/', manage_security_alerts, name='admin_v2_security_alerts'),
+
+    # Admin v2 - Notifications
+    path('admin-v2/notifications/', notification_dashboard, name='admin_v2_notifications'),
+    path('admin-v2/notifications/schedules/', notification_schedules, name='admin_v2_notification_schedules'),
+    path('admin-v2/notifications/schedules/create/', create_schedule, name='admin_v2_create_notification_schedule'),
+    path('admin-v2/notifications/schedules/<int:schedule_id>/update/', update_schedule, name='admin_v2_update_notification_schedule'),
+    path('admin-v2/notifications/schedules/<int:schedule_id>/toggle/', toggle_schedule, name='admin_v2_toggle_notification_schedule'),
+    path('admin-v2/notifications/schedules/<int:schedule_id>/delete/', delete_schedule, name='admin_v2_delete_notification_schedule'),
+    path('admin-v2/notifications/logs/', notification_logs, name='admin_v2_notification_logs'),
+    path('admin-v2/notifications/logs/<int:log_id>/', notification_log_detail, name='admin_v2_notification_log_detail'),
 
     # Health Check API
     path('api/health-check/', health_check, name='health_check'),

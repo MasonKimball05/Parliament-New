@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Notification Logs - Admin v2{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-full">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-emerald-600 to-emerald-800 dark:from-emerald-700 dark:to-emerald-900 rounded-lg shadow-lg p-6 mb-8">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-white mb-2">Notification Logs</h1>
+                <p class="text-emerald-100">View notification delivery history and status</p>
+            </div>
+            <div class="flex gap-3">
+                <a href="{% url 'admin_v2_notifications' %}"
+                   class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    Back
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+            <div class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ stats.total }}</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">Total Logs</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+            <div class="text-3xl font-bold text-green-600 dark:text-green-400">{{ stats.sent }}</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">Sent</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+            <div class="text-3xl font-bold text-red-600 dark:text-red-400">{{ stats.failed }}</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">Failed</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+            <div class="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{{ stats.pending }}</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">Pending</div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
+        <form method="get" class="flex flex-wrap gap-4 items-end">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                <select name="status" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500">
+                    <option value="">All</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+                <select name="type" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500">
+                    <option value="">All</option>
+                    {% for value, label in type_choices %}
+                    <option value="{{ value }}" {% if filters.type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From</label>
+                <input type="date" name="from" value="{{ filters.from }}"
+                    class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To</label>
+                <input type="date" name="to" value="{{ filters.to }}"
+                    class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500">
+            </div>
+            <button type="submit"
+                class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors">
+                Filter
+            </button>
+            <a href="{% url 'admin_v2_notification_logs' %}"
+                class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
+                Clear
+            </a>
+        </form>
+    </div>
+
+    <!-- Logs Table -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Notification</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Type</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Recipients</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Sent</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {% for log in logs %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td class="px-6 py-4">
+                        <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ log.title }}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">{{ log.message|truncatechars:60 }}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex px-2 py-1 text-xs rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400">
+                            {{ log.notification_type }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                        {{ log.recipient_count }}
+                        {% if log.failed_count > 0 %}
+                        <span class="text-red-500">({{ log.failed_count }} failed)</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center px-2 py-1 text-xs rounded-full
+                            {% if log.status == 'sent' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
+                            {% elif log.status == 'failed' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
+                            {% elif log.status == 'pending' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400
+                            {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                            {{ log.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                        {% if log.sent_at %}
+                        {{ log.sent_at|date:"M d, Y H:i" }}
+                        {% else %}
+                        {{ log.created_at|date:"M d, Y H:i" }}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                        <svg class="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <p class="text-lg font-medium mb-2">No logs found</p>
+                        <p>No notifications have been sent yet or no logs match your filters.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+                Showing page {{ current_page }} of {{ total_pages }} ({{ total_count }} total)
+            </div>
+            <div class="flex gap-2">
+                {% if current_page > 1 %}
+                <a href="?page={{ current_page|add:"-1" }}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.type %}&type={{ filters.type }}{% endif %}"
+                    class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                    Previous
+                </a>
+                {% endif %}
+                {% if current_page < total_pages %}
+                <a href="?page={{ current_page|add:"1" }}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.type %}&type={{ filters.type }}{% endif %}"
+                    class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                    Next
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

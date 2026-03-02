@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}Drop Case - {{ report.title }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Breadcrumb -->
+    <div class="mb-6">
+        <a href="{% url 'user_view_kai_report' report_id=report.id %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center">
+            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+            Back to Report
+        </a>
+    </div>
+
+    <div class="max-w-2xl mx-auto">
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h1 class="text-xl font-bold text-gray-900 dark:text-white">Request to Drop Case</h1>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ report.title }}</p>
+            </div>
+
+            <div class="px-6 py-4">
+                <!-- Report Summary -->
+                <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Report Summary</h3>
+                    <dl class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <dt class="text-gray-500 dark:text-gray-400">Status</dt>
+                            <dd class="text-gray-900 dark:text-white">{{ report.get_status_display }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-gray-500 dark:text-gray-400">Outcome</dt>
+                            <dd class="text-gray-900 dark:text-white">{{ report.get_deliberation_outcome_display }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-gray-500 dark:text-gray-400">Submitted</dt>
+                            <dd class="text-gray-900 dark:text-white">{{ report.submitted_at|date:"M d, Y" }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-gray-500 dark:text-gray-400">Category</dt>
+                            <dd class="text-gray-900 dark:text-white">{{ report.get_category_display }}</dd>
+                        </div>
+                    </dl>
+                </div>
+
+                <!-- Warning Box -->
+                <div class="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <div class="flex">
+                        <svg class="h-5 w-5 text-amber-600 dark:text-amber-400 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                        <div class="text-sm text-amber-800 dark:text-amber-200">
+                            <p class="font-medium mb-1">About Dropping a Case</p>
+                            <p>By requesting to drop this case, you are asking to withdraw your complaint entirely. The Kai Committee will review your request and may approve or deny it based on the circumstances. If approved, the case will be marked as withdrawn.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Drop Case Form -->
+                <form method="POST">
+                    {% csrf_token %}
+
+                    <div class="mb-6">
+                        <label for="reason" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Reason for Dropping Case <span class="text-red-500">*</span>
+                        </label>
+                        <textarea name="reason" id="reason" rows="4" required
+                            class="w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                            placeholder="Please explain why you want to withdraw this complaint..."></textarea>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            Provide a clear reason for wanting to drop this case. This will be reviewed by the Kai Committee.
+                        </p>
+                    </div>
+
+                    <div class="flex items-center justify-end space-x-3">
+                        <a href="{% url 'user_view_kai_report' report_id=report.id %}"
+                           class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            Cancel
+                        </a>
+                        <button type="submit"
+                            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500">
+                            Request to Drop Case
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

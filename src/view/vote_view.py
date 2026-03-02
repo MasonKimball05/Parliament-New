@@ -56,16 +56,40 @@ def vote_view(request):
         vote_mode = request.POST.get('vote_mode', 'percentage')
         plurality_options = []
         required_number = None
+        plurality_votes_allowed = 1
+        plurality_runoff_enabled = False
+        plurality_runoff_count = 2
 
         if vote_mode == 'plurality':
-            for i in range(1, 6):
+            # Support up to 10 plurality options
+            for i in range(1, 11):
                 val = request.POST.get(f'plurality_option_{i}')
-                if val:
+                if val and val.strip():
                     plurality_options.append(val.strip())
 
             if len(plurality_options) < 2:
                 messages.error(request, "Plurality voting requires at least two options.")
                 return redirect('vote')
+
+            # Parse multi-select settings
+            votes_allowed_raw = request.POST.get('plurality_votes_allowed', '1')
+            try:
+                plurality_votes_allowed = max(1, min(10, int(votes_allowed_raw)))
+            except (ValueError, TypeError):
+                plurality_votes_allowed = 1
+
+            # Ensure votes_allowed doesn't exceed number of options
+            plurality_votes_allowed = min(plurality_votes_allowed, len(plurality_options))
+
+            # Parse runoff settings
+            plurality_runoff_enabled = request.POST.get('plurality_runoff_enabled') == 'on'
+            if plurality_runoff_enabled:
+                runoff_count_raw = request.POST.get('plurality_runoff_count', '2')
+                try:
+                    plurality_runoff_count = max(2, min(len(plurality_options), int(runoff_count_raw)))
+                except (ValueError, TypeError):
+                    plurality_runoff_count = 2
+
         elif vote_mode == 'piecewise':
             required_number = request.POST.get('required_number')
             if not required_number or int(required_number) < 1:
@@ -87,6 +111,9 @@ def vote_view(request):
                 required_percentage=required_percentage,
                 vote_mode=vote_mode,
                 plurality_options=plurality_options if vote_mode == 'plurality' else None,
+                plurality_votes_allowed=plurality_votes_allowed if vote_mode == 'plurality' else 1,
+                plurality_runoff_enabled=plurality_runoff_enabled if vote_mode == 'plurality' else False,
+                plurality_runoff_count=plurality_runoff_count if vote_mode == 'plurality' else 2,
                 required_number=required_number if vote_mode == 'piecewise' else None
             )
 
@@ -107,7 +134,7 @@ def vote_view(request):
     can_vote = bool(attendance) and user.can_vote
 
     # Handle voting
-    if request.method == 'POST' and 'vote_choice' in request.POST and can_vote:
+    if request.method == 'POST' and ('vote_choice' in request.POST or 'vote_choices' in request.POST) and can_vote:
         password = request.POST.get('password')
         auth_user = authenticate(request, username=user.username, password=password)
 
@@ -125,17 +152,43 @@ def vote_view(request):
                 messages.error(request, "Voting has not started yet on this legislation.")
                 return redirect('vote')
 
-            vote_choice = request.POST.get('vote_choice')
-            if legislation.vote_mode == 'plurality' and vote_choice not in legislation.plurality_options:
-                messages.error(request, "Invalid vote option.")
-                return redirect('vote')
-
-            Vote.objects.create(user=user, legislation=legislation, vote_choice=vote_choice)
-
             logger = logging.getLogger('function_calls')
-            logger.info(f"{user.username} voted '{vote_choice}' on '{legislation.title}' (ID: {legislation.id}) at {timezone.now()}")
 
-            messages.success(request, "Your vote has been submitted.")
+            # Handle multi-select plurality voting
+            if legislation.vote_mode == 'plurality' and legislation.plurality_votes_allowed > 1:
+                vote_choices = request.POST.getlist('vote_choices')
+
+                # Validate number of selections
+                if len(vote_choices) < 1:
+                    messages.error(request, "Please select at least one option.")
+                    return redirect('vote')
+                if len(vote_choices) > legislation.plurality_votes_allowed:
+                    messages.error(request, f"You can only select up to {legislation.plurality_votes_allowed} options.")
+                    return redirect('vote')
+
+                # Validate each choice
+                for choice in vote_choices:
+                    if choice not in legislation.plurality_options:
+                        messages.error(request, "Invalid vote option.")
+                        return redirect('vote')
+
+                # Create a vote record for each selection
+                for choice in vote_choices:
+                    Vote.objects.create(user=user, legislation=legislation, vote_choice=choice)
+
+                logger.info(f"{user.username} voted for {vote_choices} on '{legislation.title}' (ID: {legislation.id}) at {timezone.now()}")
+                messages.success(request, f"Your {len(vote_choices)} vote(s) have been submitted.")
+            else:
+                # Single-select voting (percentage, piecewise, or plurality with 1 vote)
+                vote_choice = request.POST.get('vote_choice')
+                if legislation.vote_mode == 'plurality' and vote_choice not in legislation.plurality_options:
+                    messages.error(request, "Invalid vote option.")
+                    return redirect('vote')
+
+                Vote.objects.create(user=user, legislation=legislation, vote_choice=vote_choice)
+                logger.info(f"{user.username} voted '{vote_choice}' on '{legislation.title}' (ID: {legislation.id}) at {timezone.now()}")
+                messages.success(request, "Your vote has been submitted.")
+
             return redirect('vote')
         else:
             messages.error(request, "Incorrect password.")

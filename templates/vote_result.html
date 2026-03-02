@@ -49,6 +49,51 @@
         <div class="flex items-center space-x-1"><span class="w-4 h-4 bg-yellow-400 inline-block rounded-sm"></span> <span>Abstain</span></div>
     </div>
     {% endif %}
+    {% if legislation.vote_mode == "plurality" %}
+        <!-- Plurality Results Summary -->
+        {% if winner %}
+            <div class="bg-green-100 text-green-800 p-4 rounded mb-4 font-semibold">
+                ✅ Winner: {{ winner }}
+                {% if votes_allowed > 1 %}
+                <div class="text-sm mt-1">Each voter could select up to {{ votes_allowed }} options. {{ unique_voter_count }} voter(s) participated.</div>
+                {% endif %}
+            </div>
+        {% elif has_tie %}
+            <div class="bg-yellow-100 text-yellow-800 p-4 rounded mb-4 font-semibold">
+                ⚠️ Tie Detected - No Clear Winner
+                {% if runoff_enabled %}
+                <div class="text-sm mt-1">A runoff vote can be created with the top {{ runoff_count }} options.</div>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="bg-red-100 text-red-800 p-4 rounded mb-4 font-semibold">
+                ❌ No Winner Determined
+            </div>
+        {% endif %}
+
+        {% if is_runoff and parent_legislation %}
+            <div class="bg-blue-100 text-blue-800 p-4 rounded mb-4">
+                <span class="font-semibold">ℹ️ This is a runoff vote</span>
+                <div class="text-sm mt-1">Original vote: {{ parent_legislation.title }}</div>
+            </div>
+        {% endif %}
+
+        <!-- Runoff Button -->
+        {% if runoff_enabled and has_tie and not is_runoff %}
+            <div class="mb-6">
+                <form method="post" action="{% url 'create_runoff' legislation.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition">
+                        Create Runoff Vote with Top {{ runoff_count }} Options
+                    </button>
+                </form>
+                <p class="text-sm text-gray-600 mt-2 text-center">
+                    Top options: {{ top_options_for_runoff|join:", " }}
+                </p>
+            </div>
+        {% endif %}
+    {% endif %}
+
     {% if legislation.vote_mode == "plurality" and not anonymous %}
         <div class="mt-6 text-sm">
             <h3 class="font-semibold mb-4 text-center text-lg">Voter Breakdown by Option</h3>

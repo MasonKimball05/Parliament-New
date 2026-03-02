@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+
+{% block title %}My Kai Reports{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">My Kai Reports</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">View and manage your submitted reports</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            {% if is_kai_chair %}
+            <a href="{% url 'kai_dashboard' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                Chair Dashboard
+            </a>
+            {% endif %}
+            <a href="{% url 'submit_kai_report' %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                Submit New Report
+            </a>
+        </div>
+    </div>
+
+    {% if pending_closures %}
+    <!-- Pending Closure Requests -->
+    <div class="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+        <div class="flex items-center">
+            <svg class="h-5 w-5 text-yellow-600 dark:text-yellow-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                You have {{ pending_closures.count }} pending request{{ pending_closures.count|pluralize }}
+            </span>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Reports I Submitted -->
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Reports I Submitted</h2>
+        </div>
+        {% if submitted_reports %}
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Report
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Category
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Status
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Outcome
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Submitted
+                    </th>
+                    <th scope="col" class="relative px-6 py-3">
+                        <span class="sr-only">Actions</span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {% for report in submitted_reports %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td class="px-6 py-4">
+                        <div class="text-sm font-medium text-gray-900 dark:text-white">{{ report.title }}</div>
+                        {% if report.targeted_to %}
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Regarding: {{ report.targeted_to.name }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if report.category == 'academic' %}bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300
+                            {% elif report.category == 'behavioral' %}bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300
+                            {% elif report.category == 'hazing' %}bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300
+                            {% elif report.category == 'social' %}bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300
+                            {% elif report.category == 'financial' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300
+                            {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                            {{ report.get_category_display }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if report.status == 'pending' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300
+                            {% elif report.status == 'reviewed' %}bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300
+                            {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                            {{ report.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {{ report.get_deliberation_outcome_display }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {{ report.submitted_at|date:"M d, Y" }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="{% url 'user_view_kai_report' report_id=report.id %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
+                            View Details
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="px-6 py-12 text-center">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No reports submitted</h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                You haven't submitted any Kai reports yet.
+            </p>
+            <div class="mt-6">
+                <a href="{% url 'submit_kai_report' %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                    <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    Submit Your First Report
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Reports Where I'm Named -->
+    {% if accused_reports %}
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Reports Where I'm Named</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Cases where you are the person named in the report</p>
+        </div>
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Report
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Category
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Status
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Outcome
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Submitted
+                    </th>
+                    <th scope="col" class="relative px-6 py-3">
+                        <span class="sr-only">Actions</span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {% for report in accused_reports %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td class="px-6 py-4">
+                        <div class="text-sm font-medium text-gray-900 dark:text-white">{{ report.title }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if report.category == 'academic' %}bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300
+                            {% elif report.category == 'behavioral' %}bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300
+                            {% elif report.category == 'hazing' %}bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300
+                            {% elif report.category == 'social' %}bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300
+                            {% elif report.category == 'financial' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300
+                            {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                            {{ report.get_category_display }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if report.status == 'pending' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300
+                            {% elif report.status == 'reviewed' %}bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300
+                            {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                            {{ report.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {{ report.get_deliberation_outcome_display }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {{ report.submitted_at|date:"M d, Y" }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="{% url 'user_view_kai_report' report_id=report.id %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
+                            View Details
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Information Box -->
+    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+        <div class="flex">
+            <svg class="h-5 w-5 text-blue-600 dark:text-blue-400 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <div class="text-sm text-blue-800 dark:text-blue-200">
+                <p class="font-medium mb-1">About Kai Reports</p>
+                <p>Your reports are confidential and reviewed by the Kai Committee. You can request closure of your case once it has been heard or resolved. As the submitter, you can also request to drop (withdraw) your complaint. All requests require committee approval.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

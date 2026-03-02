@@ -178,7 +178,7 @@ def committee_vote(request, code):
         return redirect('vote', code=code)
 
     # Handle voting
-    if request.method == 'POST' and 'vote_choice' in request.POST and can_vote:
+    if request.method == 'POST' and ('vote_choice' in request.POST or 'vote_choices' in request.POST) and can_vote:
         password = request.POST.get('password')
         auth_user = authenticate(request, username=user.username, password=password)
 
@@ -188,27 +188,54 @@ def committee_vote(request, code):
 
             if CommitteeVote.objects.filter(user=user, legislation=legislation).exists():
                 messages.error(request, "You have already voted on this legislation.")
-                return redirect('vote', code=code)
+                return redirect('committee_vote', code=code)
 
             if legislation.voting_closed:
                 messages.error(request, "Voting on this legislation has ended.")
-                return redirect('vote', code=code)
+                return redirect('committee_vote', code=code)
 
-            vote_choice = request.POST.get('vote_choice')
-            if legislation.vote_mode == 'plurality' and vote_choice not in legislation.plurality_options:
-                messages.error(request, "Invalid vote option.")
-                return redirect('vote', code=code)
+            # Handle multi-select plurality voting
+            if legislation.vote_mode == 'plurality' and legislation.plurality_votes_allowed > 1:
+                vote_choices = request.POST.getlist('vote_choices')
 
-            CommitteeVote.objects.create(user=user, legislation=legislation, vote_choice=vote_choice)
+                # Validate number of selections
+                if len(vote_choices) < 1:
+                    messages.error(request, "Please select at least one option.")
+                    return redirect('committee_vote', code=code)
+                if len(vote_choices) > legislation.plurality_votes_allowed:
+                    messages.error(request, f"You can only select up to {legislation.plurality_votes_allowed} options.")
+                    return redirect('committee_vote', code=code)
 
-            logger.info(
-                f"{user.username} voted '{vote_choice}' on committee legislation '{legislation.title}' (ID: {legislation.id})")
+                # Validate each choice
+                for choice in vote_choices:
+                    if choice not in legislation.plurality_options:
+                        messages.error(request, "Invalid vote option.")
+                        return redirect('committee_vote', code=code)
 
-            messages.success(request, "Your vote has been submitted.")
-            return redirect('vote', code=code)
+                # Create a vote record for each selection
+                for choice in vote_choices:
+                    CommitteeVote.objects.create(user=user, legislation=legislation, vote_choice=choice)
+
+                logger.info(
+                    f"{user.username} voted for {vote_choices} on committee legislation '{legislation.title}' (ID: {legislation.id})")
+                messages.success(request, f"Your {len(vote_choices)} vote(s) have been submitted.")
+            else:
+                # Single-select voting (percentage, piecewise, or plurality with 1 vote)
+                vote_choice = request.POST.get('vote_choice')
+                if legislation.vote_mode == 'plurality' and vote_choice not in legislation.plurality_options:
+                    messages.error(request, "Invalid vote option.")
+                    return redirect('committee_vote', code=code)
+
+                CommitteeVote.objects.create(user=user, legislation=legislation, vote_choice=vote_choice)
+
+                logger.info(
+                    f"{user.username} voted '{vote_choice}' on committee legislation '{legislation.title}' (ID: {legislation.id})")
+                messages.success(request, "Your vote has been submitted.")
+
+            return redirect('committee_vote', code=code)
         else:
             messages.error(request, "Incorrect password.")
-            return redirect('vote', code=code)
+            return redirect('committee_vote', code=code)
 
     # Get available (active) legislation for this committee
     available_legislation = CommitteeLegislation.objects.filter(
@@ -261,3 +288,64 @@ def committee_vote(request, code):
         'can_end_vote': can_end_vote,
         'now': now,
     })
+
+
+@require_http_methods(["POST"])
+@login_required
+def create_committee_runoff(request, code, legislation_id):
+    """Create a runoff vote from a completed committee plurality vote."""
+    committee = get_object_or_404(Committee, code=code)
+    original = get_object_or_404(CommitteeLegislation, id=legislation_id, committee=committee)
+    user = request.user
+
+    # Verify permissions - must be chair or the person who posted it
+    is_chair = committee.is_chair(user)
+    if not is_chair and original.posted_by != user:
+        messages.error(request, "Only committee chairs or the vote creator can create a runoff.")
+        return redirect('committee_vote', code=code)
+
+    # Verify this is a plurality vote with runoff enabled
+    if original.vote_mode != 'plurality':
+        messages.error(request, "Runoff votes can only be created for plurality votes.")
+        return redirect('committee_vote', code=code)
+
+    if not original.plurality_runoff_enabled:
+        messages.error(request, "Runoff voting is not enabled for this legislation.")
+        return redirect('committee_vote', code=code)
+
+    if not original.voting_closed:
+        messages.error(request, "The original vote must be closed before creating a runoff.")
+        return redirect('committee_vote', code=code)
+
+    # Check if runoff already exists
+    if original.runoff_votes.exists():
+        messages.error(request, "A runoff vote has already been created for this legislation.")
+        return redirect('committee_vote', code=code)
+
+    # Get top options for runoff
+    top_options = original.get_top_options_for_runoff()
+    if len(top_options) < 2:
+        messages.error(request, "Not enough options for a runoff vote.")
+        return redirect('committee_vote', code=code)
+
+    # Create the runoff legislation
+    runoff = CommitteeLegislation.objects.create(
+        committee=committee,
+        title=f"Runoff: {original.title}",
+        description=f"Runoff vote for: {original.description}\n\nTop {len(top_options)} options from original vote.",
+        document=None,
+        posted_by=user,
+        available_at=timezone.now(),
+        anonymous_vote=original.anonymous_vote,
+        allow_abstain=original.allow_abstain,
+        vote_mode='plurality',
+        plurality_options=top_options,
+        plurality_votes_allowed=1,  # Runoff is typically single vote
+        plurality_runoff_enabled=False,  # No nested runoffs
+        plurality_is_runoff=True,
+        plurality_parent=original,
+    )
+
+    logger.info(f"{user.username} created runoff vote for committee legislation '{original.title}' (ID: {original.id})")
+    messages.success(request, f"Runoff vote created with top {len(top_options)} options: {', '.join(top_options)}")
+    return redirect('committee_vote', code=code)

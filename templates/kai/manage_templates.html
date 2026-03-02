@@ -23,6 +23,28 @@
       </div>
     </div>
 
+    <!-- Info Box: Templates vs Form Builder -->
+    <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+      <div class="flex items-start space-x-3">
+        <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div>
+          <h3 class="font-semibold text-blue-800 dark:text-blue-200 mb-1">Templates vs. Form Fields</h3>
+          <p class="text-sm text-blue-700 dark:text-blue-300 mb-2">
+            <strong>Templates</strong> provide pre-filled text and guidelines for common report types.
+            To customize the actual <strong>form fields</strong> (add/remove input boxes, dropdowns, checkboxes, etc.), use the Form Builder.
+          </p>
+          <a href="{% url 'kai_form_builder' %}" class="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200">
+            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+            Open Form Builder
+          </a>
+        </div>
+      </div>
+    </div>
+
     <!-- Templates List -->
     {% if templates %}
     <div class="space-y-4">

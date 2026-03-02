@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block title %}Calendar Guide - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-6" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="{% url 'guide_index' %}" class="inline-flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                    Guide
+                </a>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="ml-1 text-sm font-medium text-gray-700 dark:text-gray-300 md:ml-2">Calendar</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center mb-4">
+            <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 rounded-lg flex items-center justify-center mr-4">
+                <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Calendar & Event Subscription</h1>
+                <p class="text-gray-600 dark:text-gray-400">View events and sync with your calendar app</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="space-y-8">
+        <!-- Quick Actions -->
+        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-2">Quick Actions</h3>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'calendar' %}" class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    View Calendar
+                </a>
+                <a href="{% url 'user_preferences' %}" class="inline-flex items-center px-3 py-1.5 bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 text-sm rounded-md border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                    </svg>
+                    Calendar Subscription
+                </a>
+            </div>
+        </div>
+
+        <!-- Section: Viewing the Calendar -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-blue-600 dark:text-blue-400">1</span>
+                    Viewing the Calendar
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    The calendar shows all upcoming chapter events. Navigate to <strong class="text-gray-900 dark:text-gray-100">Calendar</strong> from the main menu to view it.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Calendar Features</h4>
+                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Month View:</strong> See all events for the current month at a glance</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Navigation:</strong> Use arrows to move between months</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Event Details:</strong> Click any event to see full details</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Color Coding:</strong> Events are colored by type for easy identification</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Calendar Subscription -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-blue-600 dark:text-blue-400">2</span>
+                    Calendar Subscription (iCal)
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Subscribe to the chapter calendar in your favorite calendar app (Google Calendar, Apple Calendar, Outlook, etc.) to automatically see all events.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">How to subscribe:</h4>
+                    <ol class="space-y-3 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-blue-600 dark:text-blue-400 flex-shrink-0">1</span>
+                            <span>Go to your <strong class="text-gray-900 dark:text-gray-100">Preferences</strong> page</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-blue-600 dark:text-blue-400 flex-shrink-0">2</span>
+                            <span>Find the <strong class="text-gray-900 dark:text-gray-100">Calendar Subscription</strong> section</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-blue-600 dark:text-blue-400 flex-shrink-0">3</span>
+                            <span>Copy your personal subscription URL</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-blue-600 dark:text-blue-400 flex-shrink-0">4</span>
+                            <span>Add this URL to your calendar app as a subscription</span>
+                        </li>
+                    </ol>
+                </div>
+
+                <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Important:</strong> Your subscription URL is personal. Don't share it with others as it grants access to your calendar feed.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Adding to Google Calendar -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-blue-600 dark:text-blue-400">3</span>
+                    Adding to Popular Calendar Apps
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <div class="space-y-4">
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2 flex items-center">
+                            <span class="w-6 h-6 bg-red-100 dark:bg-red-900/50 rounded mr-2 flex items-center justify-center">
+                                <span class="text-red-600 dark:text-red-400 text-xs font-bold">G</span>
+                            </span>
+                            Google Calendar
+                        </h4>
+                        <ol class="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
+                            <li>Open Google Calendar settings</li>
+                            <li>Click "Add calendar" &rarr; "From URL"</li>
+                            <li>Paste your subscription URL</li>
+                            <li>Click "Add calendar"</li>
+                        </ol>
+                    </div>
+
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2 flex items-center">
+                            <span class="w-6 h-6 bg-gray-100 dark:bg-gray-700 rounded mr-2 flex items-center justify-center">
+                                <svg class="w-4 h-4 text-gray-600 dark:text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                                </svg>
+                            </span>
+                            Apple Calendar
+                        </h4>
+                        <ol class="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
+                            <li>Open Calendar app</li>
+                            <li>File &rarr; New Calendar Subscription</li>
+                            <li>Paste your subscription URL</li>
+                            <li>Click "Subscribe"</li>
+                        </ol>
+                    </div>
+
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2 flex items-center">
+                            <span class="w-6 h-6 bg-blue-100 dark:bg-blue-900/50 rounded mr-2 flex items-center justify-center">
+                                <span class="text-blue-600 dark:text-blue-400 text-xs font-bold">O</span>
+                            </span>
+                            Outlook
+                        </h4>
+                        <ol class="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
+                            <li>Open Outlook Calendar</li>
+                            <li>Click "Add calendar" &rarr; "Subscribe from web"</li>
+                            <li>Paste your subscription URL</li>
+                            <li>Click "Import"</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Regenerating Token -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-blue-600 dark:text-blue-400">4</span>
+                    Regenerating Your Calendar Token
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    If you accidentally share your calendar URL or want to revoke access, you can regenerate your token.
+                </p>
+
+                <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-red-800 dark:text-red-200">
+                        <strong>Warning:</strong> Regenerating your token will invalidate the old URL. You'll need to update your subscription in all calendar apps.
+                    </p>
+                </div>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">To regenerate:</h4>
+                    <ol class="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
+                        <li>Go to <strong class="text-gray-900 dark:text-gray-100">Preferences</strong></li>
+                        <li>Find the Calendar Subscription section</li>
+                        <li>Click <strong class="text-gray-900 dark:text-gray-100">"Regenerate Token"</strong></li>
+                        <li>Update your calendar app with the new URL</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-700">
+            <a href="{% url 'guide_profile' %}" class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Previous: Profile
+            </a>
+            <a href="{% url 'guide_notifications' %}" class="inline-flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
+                Next: Notifications
+                <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -351,6 +351,32 @@ class Legislation(models.Model):
     required_number = models.PositiveIntegerField(null=True, blank=True)
     plurality_options = ArrayField(models.CharField(max_length=100), blank=True, null=True)  # Only for PostgreSQL
 
+    # Plurality voting enhancements
+    plurality_votes_allowed = models.PositiveIntegerField(
+        default=1,
+        help_text="Number of options each voter can select (1-10)"
+    )
+    plurality_runoff_enabled = models.BooleanField(
+        default=False,
+        help_text="Allow creating a runoff vote with top options"
+    )
+    plurality_runoff_count = models.PositiveIntegerField(
+        default=2,
+        help_text="Number of top options to include in runoff"
+    )
+    plurality_is_runoff = models.BooleanField(
+        default=False,
+        help_text="Whether this legislation is a runoff from another vote"
+    )
+    plurality_parent = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='runoff_votes',
+        help_text="Original legislation if this is a runoff vote"
+    )
+
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
 
     @property
@@ -383,12 +409,15 @@ class Legislation(models.Model):
         total_votes = Vote.objects.filter(legislation=self)
 
         if self.vote_mode == 'plurality':
+            # Count votes for each option (each vote counts as 1, even with multi-select)
             vote_choices = [v.vote_choice for v in total_votes]
             vote_counts = Counter(vote_choices)
             if vote_counts:
                 max_votes = max(vote_counts.values())
                 winners = [option for option, count in vote_counts.items() if count == max_votes]
-                self.passed = len(winners) == 1  # Only passes if there is a single clear winner
+                # Only passes if there is a single clear winner
+                # If runoff is enabled and there's a tie, it can still "pass" to trigger runoff
+                self.passed = len(winners) == 1
             else:
                 self.passed = False
         elif self.vote_mode == 'piecewise':
@@ -405,6 +434,47 @@ class Legislation(models.Model):
                 self.passed = False
 
         self.save()
+
+    def get_plurality_results(self):
+        """Get vote counts for each plurality option, sorted by count descending."""
+        from collections import Counter
+        if self.vote_mode != 'plurality':
+            return []
+
+        votes = Vote.objects.filter(legislation=self)
+        vote_counts = Counter(v.vote_choice for v in votes)
+
+        # Include all options, even those with 0 votes
+        results = []
+        for option in (self.plurality_options or []):
+            results.append({
+                'option': option,
+                'count': vote_counts.get(option, 0)
+            })
+
+        # Sort by count descending
+        results.sort(key=lambda x: x['count'], reverse=True)
+        return results
+
+    def get_top_options_for_runoff(self):
+        """Get the top N options for a runoff vote."""
+        if not self.plurality_runoff_enabled:
+            return []
+
+        results = self.get_plurality_results()
+        return [r['option'] for r in results[:self.plurality_runoff_count]]
+
+    def has_plurality_tie(self):
+        """Check if there's a tie for first place in plurality voting."""
+        results = self.get_plurality_results()
+        if len(results) < 2:
+            return False
+        return results[0]['count'] == results[1]['count'] and results[0]['count'] > 0
+
+    def get_unique_voter_count(self):
+        """Get the number of unique voters (for multi-select plurality)."""
+        return Vote.objects.filter(legislation=self).values('user').distinct().count()
+
 
 class Attendance(models.Model):
     """
@@ -894,6 +964,32 @@ class CommitteeLegislation(models.Model):
     required_number = models.PositiveIntegerField(null=True, blank=True)
     plurality_options = ArrayField(models.CharField(max_length=100), blank=True, null=True)
 
+    # Plurality voting enhancements
+    plurality_votes_allowed = models.PositiveIntegerField(
+        default=1,
+        help_text="Number of options each voter can select (1-10)"
+    )
+    plurality_runoff_enabled = models.BooleanField(
+        default=False,
+        help_text="Allow creating a runoff vote with top options"
+    )
+    plurality_runoff_count = models.PositiveIntegerField(
+        default=2,
+        help_text="Number of top options to include in runoff"
+    )
+    plurality_is_runoff = models.BooleanField(
+        default=False,
+        help_text="Whether this legislation is a runoff from another vote"
+    )
+    plurality_parent = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='runoff_votes',
+        help_text="Original legislation if this is a runoff vote"
+    )
+
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     passed = models.BooleanField(default=False)
 
@@ -952,6 +1048,44 @@ class CommitteeLegislation(models.Model):
             self.status = 'removed'
         self.save()
 
+    def get_plurality_results(self):
+        """Get vote counts for each plurality option, sorted by count descending."""
+        from collections import Counter
+        if self.vote_mode != 'plurality':
+            return []
+
+        votes = CommitteeVote.objects.filter(legislation=self)
+        vote_counts = Counter(v.vote_choice for v in votes)
+
+        results = []
+        for option in (self.plurality_options or []):
+            results.append({
+                'option': option,
+                'count': vote_counts.get(option, 0)
+            })
+
+        results.sort(key=lambda x: x['count'], reverse=True)
+        return results
+
+    def get_top_options_for_runoff(self):
+        """Get the top N options for a runoff vote."""
+        if not self.plurality_runoff_enabled:
+            return []
+
+        results = self.get_plurality_results()
+        return [r['option'] for r in results[:self.plurality_runoff_count]]
+
+    def has_plurality_tie(self):
+        """Check if there's a tie for first place in plurality voting."""
+        results = self.get_plurality_results()
+        if len(results) < 2:
+            return False
+        return results[0]['count'] == results[1]['count'] and results[0]['count'] > 0
+
+    def get_unique_voter_count(self):
+        """Get the number of unique voters (for multi-select plurality)."""
+        return CommitteeVote.objects.filter(legislation=self).values('user').distinct().count()
+
 
 class CommitteeVote(models.Model):
     user = models.ForeignKey(ParliamentUser, on_delete=models.CASCADE, limit_choices_to={'member_status': 'Active'})
@@ -961,7 +1095,9 @@ class CommitteeVote(models.Model):
     is_active = models.BooleanField(default=False)
 
     class Meta:
-        unique_together = ('user', 'legislation')
+        # Allow multiple votes per user for multi-select plurality voting
+        # Uniqueness is enforced per user+legislation+choice to prevent duplicate selections
+        unique_together = ('user', 'legislation', 'vote_choice')
 
 
 class CommitteeMinutes(models.Model):
@@ -2061,6 +2197,9 @@ class KaiReportActivity(models.Model):
         ('committee_notes_updated', 'Committee Notes Updated'),
         ('minutes_closed', 'Minutes Closed'),
         ('archived', 'Report Archived'),
+        ('closure_requested', 'Closure Requested'),
+        ('closure_approved', 'Closure Request Approved'),
+        ('closure_denied', 'Closure Request Denied'),
     ]
 
     report = models.ForeignKey(
@@ -2128,6 +2267,206 @@ class KaiReportTemplate(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.get_category_display()})"
+
+
+class KaiFormField(models.Model):
+    """
+    Dynamic form field definition for Kai report forms.
+    Kai chair can create custom fields without code changes.
+    Similar to SlatingFormField for slating applications.
+    """
+    FIELD_TYPES = [
+        ('text', 'Text (Single Line)'),
+        ('textarea', 'Text Area (Multi-line)'),
+        ('number', 'Number'),
+        ('email', 'Email Address'),
+        ('date', 'Date'),
+        ('select', 'Dropdown Select'),
+        ('multiselect', 'Multi-Select'),
+        ('checkbox', 'Checkbox'),
+        ('radio', 'Radio Buttons'),
+        ('file', 'File Upload'),
+        ('member_select', 'Member Selection'),
+    ]
+
+    # Field Definition
+    field_name = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text='Internal field name (no spaces, used for form processing)'
+    )
+    label = models.CharField(max_length=200, help_text='Display label shown to users')
+    field_type = models.CharField(max_length=30, choices=FIELD_TYPES)
+    placeholder = models.CharField(max_length=200, blank=True)
+    help_text = models.TextField(blank=True, help_text='Help text shown below the field')
+
+    # Options (for select, multiselect, radio)
+    options = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of options for select/radio/multiselect fields'
+    )
+
+    # Validation
+    is_required = models.BooleanField(default=False)
+    validation_rules = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Validation rules (e.g., min_length, max_length)'
+    )
+
+    # File Upload Settings
+    allowed_file_types = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Allowed MIME types for file uploads'
+    )
+    max_file_size_mb = models.IntegerField(default=10)
+
+    # Display Settings
+    display_order = models.IntegerField(default=0)
+    section = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text='Group fields into sections (e.g., "Report Details", "Supporting Information")'
+    )
+    is_active = models.BooleanField(default=True)
+
+    # Built-in flag (cannot be deleted by users)
+    is_builtin = models.BooleanField(
+        default=False,
+        help_text='Built-in fields cannot be removed (title, category, description)'
+    )
+
+    # Audit
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_kai_form_fields'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['section', 'display_order']
+        verbose_name = 'Kai Form Field'
+        verbose_name_plural = 'Kai Form Fields'
+
+    def __str__(self):
+        return f"{self.label} ({self.get_field_type_display()})"
+
+
+class KaiReportFieldResponse(models.Model):
+    """
+    Stores individual custom field responses for a Kai report.
+    Enables fully dynamic forms without schema changes.
+    Built-in fields (title, category, description, etc.) are stored directly on KaiReport model.
+    """
+    report = models.ForeignKey(
+        KaiReport,
+        on_delete=models.CASCADE,
+        related_name='custom_responses'
+    )
+    field = models.ForeignKey(
+        KaiFormField,
+        on_delete=models.CASCADE,
+        related_name='responses'
+    )
+
+    # Multi-type storage for flexibility
+    text_value = models.TextField(blank=True, null=True)
+    number_value = models.DecimalField(max_digits=20, decimal_places=5, null=True, blank=True)
+    json_value = models.JSONField(null=True, blank=True, help_text='For arrays like multiselect')
+    file_value = models.FileField(
+        upload_to='kai_reports/custom_fields/',
+        null=True,
+        blank=True,
+        storage=DualLocationStorage()
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['report', 'field']
+        verbose_name = 'Kai Report Field Response'
+        verbose_name_plural = 'Kai Report Field Responses'
+
+    def __str__(self):
+        return f"{self.report.title} - {self.field.label}"
+
+    def get_display_value(self):
+        """Return appropriate value based on field type"""
+        if self.field.field_type in ['select', 'radio', 'text', 'textarea', 'email', 'date']:
+            return self.text_value or ''
+        elif self.field.field_type in ['multiselect', 'checkbox']:
+            return self.json_value or []
+        elif self.field.field_type == 'number':
+            return self.number_value
+        elif self.field.field_type == 'file':
+            return self.file_value.url if self.file_value else None
+        elif self.field.field_type == 'member_select':
+            return self.text_value or ''
+        else:
+            return self.text_value or ''
+
+
+class KaiClosureRequest(models.Model):
+    """
+    Request from submitter or accused to close/drop the case.
+    Requires Kai committee approval before the case is actually closed.
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending Review'),
+        ('approved', 'Approved'),
+        ('denied', 'Denied'),
+    ]
+
+    REQUEST_TYPE_CHOICES = [
+        ('closure', 'Request Closure'),
+        ('drop', 'Drop/Withdraw Case'),
+    ]
+
+    report = models.ForeignKey(
+        KaiReport,
+        on_delete=models.CASCADE,
+        related_name='closure_requests'
+    )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='kai_closure_requests'
+    )
+    request_type = models.CharField(
+        max_length=20,
+        choices=REQUEST_TYPE_CHOICES,
+        default='closure',
+        help_text="Type of request: closure (archive case) or drop (withdraw complaint)"
+    )
+    reason = models.TextField(help_text="Reason for requesting closure/drop")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+
+    requested_at = models.DateTimeField(auto_now_add=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='kai_closure_reviews'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_notes = models.TextField(blank=True, help_text="Chair's notes on the decision")
+
+    class Meta:
+        ordering = ['-requested_at']
+        verbose_name = 'Kai Closure Request'
+        verbose_name_plural = 'Kai Closure Requests'
+
+    def __str__(self):
+        type_label = 'Drop' if self.request_type == 'drop' else 'Closure'
+        return f"{type_label} request for '{self.report.title}' by {self.requested_by.name}"
 
 
 class Notification(models.Model):
@@ -3813,6 +4152,364 @@ class SlatingActivity(models.Model):
 
     def __str__(self):
         return f"{self.get_action_display()} - {self.period.name}"
+
+
+# =============================================================================
+# GUIDE SYSTEM MODELS
+# =============================================================================
+
+class GuideTour(models.Model):
+    """
+    Represents an interactive guide tour for a specific feature or page.
+    Tours can have multiple steps that guide users through functionality.
+    """
+    CATEGORY_CHOICES = [
+        ('officer', 'Officer Guides'),
+        ('member', 'Member Guides'),
+        ('admin', 'Admin Guides'),
+        ('general', 'General Guides'),
+    ]
+
+    name = models.CharField(max_length=100, help_text="Display name of the tour")
+    slug = models.SlugField(unique=True, help_text="URL-friendly identifier")
+    description = models.TextField(help_text="Brief description of what this tour covers")
+    category = models.CharField(
+        max_length=20,
+        choices=CATEGORY_CHOICES,
+        default='general',
+        help_text="Category for organizing tours"
+    )
+    icon = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Icon class or name (e.g., 'calendar', 'megaphone')"
+    )
+    is_active = models.BooleanField(default=True, help_text="Whether this tour is available")
+    display_order = models.IntegerField(default=0, help_text="Order for displaying in lists")
+    estimated_time = models.PositiveIntegerField(
+        default=5,
+        help_text="Estimated time to complete in minutes"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['category', 'display_order', 'name']
+        verbose_name = 'Guide Tour'
+        verbose_name_plural = 'Guide Tours'
+
+    def __str__(self):
+        return f"{self.name} ({self.get_category_display()})"
+
+    @property
+    def step_count(self):
+        return self.steps.count()
+
+
+class GuideTourStep(models.Model):
+    """
+    Individual step within a guide tour.
+    Each step can target a specific element on a page or provide general information.
+    """
+    POSITION_CHOICES = [
+        ('top', 'Top'),
+        ('bottom', 'Bottom'),
+        ('left', 'Left'),
+        ('right', 'Right'),
+        ('top-left', 'Top Left'),
+        ('top-right', 'Top Right'),
+        ('bottom-left', 'Bottom Left'),
+        ('bottom-right', 'Bottom Right'),
+        ('center', 'Center (Modal)'),
+    ]
+
+    tour = models.ForeignKey(
+        GuideTour,
+        on_delete=models.CASCADE,
+        related_name='steps'
+    )
+    step_number = models.PositiveIntegerField(help_text="Order of this step in the tour")
+    title = models.CharField(max_length=200, help_text="Step title/heading")
+    content = models.TextField(help_text="Step content (supports markdown)")
+
+    # Element targeting for interactive tours
+    target_selector = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="CSS selector of element to highlight (e.g., '#create-event-btn')"
+    )
+    target_page = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="URL path where this step should appear (e.g., '/events/')"
+    )
+    position = models.CharField(
+        max_length=20,
+        choices=POSITION_CHOICES,
+        default='bottom',
+        help_text="Position of tooltip relative to target element"
+    )
+
+    # Optional action requirements
+    wait_for_click = models.BooleanField(
+        default=False,
+        help_text="Wait for user to click target before advancing"
+    )
+    advance_on_event = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="DOM event to listen for to auto-advance (e.g., 'submit', 'change')"
+    )
+
+    class Meta:
+        ordering = ['tour', 'step_number']
+        unique_together = ['tour', 'step_number']
+        verbose_name = 'Guide Tour Step'
+        verbose_name_plural = 'Guide Tour Steps'
+
+    def __str__(self):
+        return f"{self.tour.name} - Step {self.step_number}: {self.title}"
+
+
+class UserTourProgress(models.Model):
+    """
+    Tracks a user's progress through guide tours.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='tour_progress'
+    )
+    tour = models.ForeignKey(
+        GuideTour,
+        on_delete=models.CASCADE,
+        related_name='user_progress'
+    )
+    current_step = models.PositiveIntegerField(
+        default=0,
+        help_text="Current step number (0 = not started)"
+    )
+    completed = models.BooleanField(default=False)
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ['user', 'tour']
+        verbose_name = 'User Tour Progress'
+        verbose_name_plural = 'User Tour Progress'
+
+    def __str__(self):
+        status = "Completed" if self.completed else f"Step {self.current_step}"
+        return f"{self.user.name} - {self.tour.name}: {status}"
+
+    def advance_step(self):
+        """Advance to next step, mark complete if at end."""
+        from django.utils import timezone
+
+        if self.current_step < self.tour.step_count:
+            self.current_step += 1
+            if self.current_step >= self.tour.step_count:
+                self.completed = True
+                self.completed_at = timezone.now()
+            self.save()
+            return True
+        return False
+
+
+class GuideArticle(models.Model):
+    """
+    Static guide article/documentation page.
+    For longer-form documentation that doesn't fit the tour format.
+    """
+    CATEGORY_CHOICES = [
+        ('officer', 'Officer Guides'),
+        ('member', 'Member Guides'),
+        ('admin', 'Admin Guides'),
+        ('general', 'General Guides'),
+    ]
+
+    title = models.CharField(max_length=200)
+    slug = models.SlugField(unique=True)
+    category = models.CharField(
+        max_length=20,
+        choices=CATEGORY_CHOICES,
+        default='general'
+    )
+    summary = models.TextField(
+        blank=True,
+        help_text="Brief summary shown in article lists"
+    )
+    content = models.TextField(help_text="Article content (supports markdown)")
+    icon = models.CharField(max_length=50, blank=True)
+
+    # Related tour (optional)
+    related_tour = models.ForeignKey(
+        GuideTour,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='articles',
+        help_text="Optional interactive tour related to this article"
+    )
+
+    is_published = models.BooleanField(default=True)
+    display_order = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['category', 'display_order', 'title']
+        verbose_name = 'Guide Article'
+        verbose_name_plural = 'Guide Articles'
+
+    def __str__(self):
+        return f"{self.title} ({self.get_category_display()})"
+
+
+# =============================================================================
+# NOTIFICATION SCHEDULING
+# =============================================================================
+
+class NotificationSchedule(models.Model):
+    """
+    Configurable notification schedules for automated reminders.
+    Allows officers to set up recurring notifications for events, votes, etc.
+    """
+    NOTIFICATION_TYPE_CHOICES = (
+        ('event_reminder', 'Event Reminder'),
+        ('vote_reminder', 'Vote Reminder'),
+        ('attendance_reminder', 'Attendance Reminder'),
+        ('dues_reminder', 'Dues Reminder'),
+        ('custom', 'Custom Notification'),
+    )
+
+    TARGET_AUDIENCE_CHOICES = (
+        ('all_active', 'All Active Members'),
+        ('all_members', 'All Members (including Alumni)'),
+        ('officers', 'Officers Only'),
+        ('pledges', 'Pledges Only'),
+        ('committee', 'Specific Committee'),
+        ('custom', 'Custom Selection'),
+    )
+
+    name = models.CharField(max_length=100, help_text="Name for this notification schedule")
+    notification_type = models.CharField(max_length=50, choices=NOTIFICATION_TYPE_CHOICES)
+    description = models.TextField(blank=True, help_text="Description of this notification schedule")
+
+    # Timing
+    hours_before = models.IntegerField(
+        default=24,
+        help_text="Hours before the event/deadline to send notification"
+    )
+    send_at_time = models.TimeField(
+        null=True,
+        blank=True,
+        help_text="Specific time of day to send (optional)"
+    )
+
+    # Delivery channels
+    send_email = models.BooleanField(default=True, help_text="Send via email")
+    send_in_app = models.BooleanField(default=True, help_text="Send as in-app notification")
+
+    # Target audience
+    target_audience = models.CharField(
+        max_length=20,
+        choices=TARGET_AUDIENCE_CHOICES,
+        default='all_active'
+    )
+    target_committee = models.ForeignKey(
+        'Committee',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notification_schedules',
+        help_text="If target is 'committee', which committee"
+    )
+
+    # Message template
+    message_template = models.TextField(
+        help_text="Message template. Use {event_name}, {event_date}, {event_time}, {event_location} as placeholders"
+    )
+    email_subject_template = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Email subject template (if different from name)"
+    )
+
+    # Status
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_notification_schedules'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['notification_type', 'name']
+        verbose_name = 'Notification Schedule'
+        verbose_name_plural = 'Notification Schedules'
+
+    def __str__(self):
+        return f"{self.name} ({self.get_notification_type_display()})"
+
+
+class NotificationLog(models.Model):
+    """
+    Log of sent notifications for tracking and analytics.
+    """
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('sent', 'Sent'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+    )
+
+    schedule = models.ForeignKey(
+        NotificationSchedule,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='logs'
+    )
+    notification_type = models.CharField(max_length=50)
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+
+    # Delivery info
+    sent_via_email = models.BooleanField(default=False)
+    sent_via_in_app = models.BooleanField(default=False)
+    recipient_count = models.IntegerField(default=0)
+    successful_count = models.IntegerField(default=0)
+    failed_count = models.IntegerField(default=0)
+
+    # Status
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    error_message = models.TextField(blank=True)
+
+    # Related object
+    related_object_type = models.CharField(max_length=50, blank=True)
+    related_object_id = models.IntegerField(null=True, blank=True)
+
+    # Timestamps
+    scheduled_for = models.DateTimeField(null=True, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Notification Log'
+        verbose_name_plural = 'Notification Logs'
+        indexes = [
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['status', '-created_at']),
+            models.Index(fields=['notification_type', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.title} - {self.status} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
 
 
 # Import feature flags models

@@ -1,9 +1,11 @@
 from ..decorators import *
 from ..models import *
 from django.db.models import Count
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.http import HttpResponseForbidden
+from django.utils import timezone
 from src.notification_service import notify_users
 
 @login_required
@@ -57,8 +59,19 @@ def end_vote(request, legislation_id):
             for option in legislation.plurality_options
         }
         most_voted = max(plurality_counts, key=plurality_counts.get, default=None)
-        vote_passed = True if most_voted else False
-        winner = most_voted
+
+        # Check for ties - find all options with the max vote count
+        if plurality_counts:
+            max_count = max(plurality_counts.values())
+            tied_options = [opt for opt, cnt in plurality_counts.items() if cnt == max_count]
+            has_tie = len(tied_options) > 1 and max_count > 0
+        else:
+            has_tie = False
+            tied_options = []
+
+        # Only passes if there's a clear winner (no tie)
+        vote_passed = bool(most_voted) and not has_tie
+        winner = most_voted if not has_tie else None
 
     # Update status based on vote outcome
     if vote_passed:
@@ -104,15 +117,84 @@ def end_vote(request, legislation_id):
     #legislation.set_passed()
 
     if legislation.vote_mode == 'plurality':
+        # Get sorted results for display
+        sorted_results = legislation.get_plurality_results()
         context['plurality_results'] = {
             'results': [
                 {
-                    'option': option,
-                    'count': vote_breakdown.get(option, 0),
-                    'voters': [v.user.name for v in votes.filter(vote_choice=option).select_related('user')]
+                    'option': r['option'],
+                    'count': r['count'],
+                    'voters': [v.user.name for v in votes.filter(vote_choice=r['option']).select_related('user')]
                 }
-                for option in legislation.plurality_options
+                for r in sorted_results
             ]
         }
 
+        # Add runoff information
+        context['has_tie'] = legislation.has_plurality_tie()
+        context['runoff_enabled'] = legislation.plurality_runoff_enabled
+        context['runoff_count'] = legislation.plurality_runoff_count
+        context['top_options_for_runoff'] = legislation.get_top_options_for_runoff()
+        context['unique_voter_count'] = legislation.get_unique_voter_count()
+        context['votes_allowed'] = legislation.plurality_votes_allowed
+        context['is_runoff'] = legislation.plurality_is_runoff
+        if legislation.plurality_parent:
+            context['parent_legislation'] = legislation.plurality_parent
+
     return render(request, 'vote_result.html', context)
+
+
+@login_required
+@log_function_call
+def create_runoff(request, legislation_id):
+    """Create a runoff vote from a completed plurality vote."""
+    original = get_object_or_404(Legislation, id=legislation_id)
+
+    # Verify permissions
+    if request.user != original.posted_by and not request.user.is_admin:
+        return HttpResponseForbidden("Only the uploader or an admin can create a runoff.")
+
+    # Verify this is a plurality vote with runoff enabled
+    if original.vote_mode != 'plurality':
+        messages.error(request, "Runoff votes can only be created for plurality votes.")
+        return redirect('vote')
+
+    if not original.plurality_runoff_enabled:
+        messages.error(request, "Runoff voting is not enabled for this legislation.")
+        return redirect('vote')
+
+    if not original.voting_closed:
+        messages.error(request, "The original vote must be closed before creating a runoff.")
+        return redirect('vote')
+
+    # Check if runoff already exists
+    if original.runoff_votes.exists():
+        messages.error(request, "A runoff vote has already been created for this legislation.")
+        return redirect('vote')
+
+    # Get top options for runoff
+    top_options = original.get_top_options_for_runoff()
+    if len(top_options) < 2:
+        messages.error(request, "Not enough options for a runoff vote.")
+        return redirect('vote')
+
+    # Create the runoff legislation
+    runoff = Legislation.objects.create(
+        title=f"Runoff: {original.title}",
+        description=f"Runoff vote for: {original.description}\n\nTop {len(top_options)} options from original vote.",
+        document=None,
+        posted_by=request.user,
+        available_at=timezone.now(),
+        voting_starts_at=timezone.now(),
+        anonymous_vote=original.anonymous_vote,
+        allow_abstain=original.allow_abstain,
+        vote_mode='plurality',
+        plurality_options=top_options,
+        plurality_votes_allowed=1,  # Runoff is typically single vote
+        plurality_runoff_enabled=False,  # No nested runoffs
+        plurality_is_runoff=True,
+        plurality_parent=original,
+    )
+
+    messages.success(request, f"Runoff vote created with top {len(top_options)} options: {', '.join(top_options)}")
+    return redirect('vote')

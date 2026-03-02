@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+
+{% block title %}Chapter Minutes Guide - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-6" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="{% url 'guide_index' %}" class="inline-flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                    Guide
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <a href="{% url 'guide_officer_hub' %}" class="ml-1 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 md:ml-2">Officer Guides</a>
+                </div>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="ml-1 text-sm font-medium text-gray-700 dark:text-gray-300 md:ml-2">Chapter Minutes</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center mb-4">
+            <div class="w-12 h-12 bg-violet-100 dark:bg-violet-900/50 rounded-lg flex items-center justify-center mr-4">
+                <svg class="w-6 h-6 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Chapter Minutes</h1>
+                <p class="text-gray-600 dark:text-gray-400">Record and publish meeting minutes with motions and attendance</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="space-y-8">
+        <!-- Quick Actions -->
+        <div class="bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-violet-800 dark:text-violet-200 mb-2">Quick Actions</h3>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'chapter_minutes_list' %}" class="inline-flex items-center px-3 py-1.5 bg-violet-600 text-white text-sm rounded-md hover:bg-violet-700 transition-colors">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Manage Minutes
+                </a>
+            </div>
+        </div>
+
+        <!-- Section: Creating Minutes -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-violet-100 dark:bg-violet-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-violet-600 dark:text-violet-400">1</span>
+                    Creating Minutes
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    To create new chapter minutes, go to <strong class="text-gray-900 dark:text-gray-100">Officers &rarr; Chapter Minutes</strong> and click <strong class="text-gray-900 dark:text-gray-100">"New Minutes"</strong>.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Required Information</h4>
+                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Title:</strong> A descriptive name (e.g., "Weekly Chapter Meeting")</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Date:</strong> When the meeting took place</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Start Time:</strong> When the meeting was called to order</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span><strong>Linked Event (optional):</strong> Connect to a chapter event to sync attendance</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: The Editor -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-violet-100 dark:bg-violet-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-violet-600 dark:text-violet-400">2</span>
+                    Using the Editor
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    The minutes editor has two main tabs: <strong class="text-gray-900 dark:text-gray-100">Minutes</strong> (for content) and <strong class="text-gray-900 dark:text-gray-100">Attendance</strong> (for tracking who was there).
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Editor Controls</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div class="flex items-center p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600">
+                            <div class="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center mr-3">
+                                <svg class="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">Add Text</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">Regular paragraph content</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600">
+                            <div class="w-8 h-8 bg-violet-100 dark:bg-violet-900/50 rounded flex items-center justify-center mr-3">
+                                <svg class="w-4 h-4 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">Add Section Header</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">Creates a boxed section in the PDF</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600">
+                            <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded flex items-center justify-center mr-3">
+                                <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">Add Motion</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">Record a vote or motion</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600">
+                            <div class="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center mr-3">
+                                <svg class="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">End Section</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">Closes a section header box</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Section Headers -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-violet-100 dark:bg-violet-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-violet-600 dark:text-violet-400">3</span>
+                    Using Section Headers
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Section headers create visually distinct boxes in the PDF output. They're perfect for organizing officer reports, committee updates, and other structured content.
+                </p>
+
+                <div class="bg-violet-50 dark:bg-violet-900/20 border-l-4 border-violet-500 p-4 rounded-r-lg">
+                    <h4 class="font-medium text-violet-800 dark:text-violet-200 mb-2">How Section Headers Work</h4>
+                    <ol class="text-sm text-violet-700 dark:text-violet-300 space-y-2 list-decimal list-inside">
+                        <li>Click <strong>"Add Section Header"</strong> and enter a title (e.g., "President's Report")</li>
+                        <li>Add content below the header using text blocks or motions</li>
+                        <li>Click <strong>"End Section"</strong> to close the boxed area</li>
+                        <li>Everything between the header and end marker appears in a styled box in the PDF</li>
+                    </ol>
+                </div>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Common Section Header Uses</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                        <div class="p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600 text-center text-gray-700 dark:text-gray-300">President's Report</div>
+                        <div class="p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600 text-center text-gray-700 dark:text-gray-300">VP Reports</div>
+                        <div class="p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600 text-center text-gray-700 dark:text-gray-300">Committee Updates</div>
+                        <div class="p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600 text-center text-gray-700 dark:text-gray-300">Old Business</div>
+                        <div class="p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600 text-center text-gray-700 dark:text-gray-300">New Business</div>
+                        <div class="p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600 text-center text-gray-700 dark:text-gray-300">Announcements</div>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Tip:</strong> You can nest content freely within a section. Add text, motions, or even multiple paragraphs before ending the section.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Recording Motions -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-violet-100 dark:bg-violet-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-violet-600 dark:text-violet-400">4</span>
+                    Recording Motions & Votes
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Use the motion block to record formal votes taken during the meeting. Each motion captures comprehensive details about the parliamentary procedure.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Motion Types</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                        <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded text-center text-blue-700 dark:text-blue-300">Main Motion</div>
+                        <div class="p-2 bg-purple-100 dark:bg-purple-900/30 rounded text-center text-purple-700 dark:text-purple-300">Amendment</div>
+                        <div class="p-2 bg-amber-100 dark:bg-amber-900/30 rounded text-center text-amber-700 dark:text-amber-300">Point of Order</div>
+                        <div class="p-2 bg-gray-100 dark:bg-gray-600/30 rounded text-center text-gray-700 dark:text-gray-300">Custom</div>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100">Motion Details</h4>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                            <h5 class="font-medium text-gray-900 dark:text-gray-100 mb-2 flex items-center">
+                                <svg class="w-4 h-4 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                                Author & Second
+                            </h5>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Record who made the motion and who seconded it. You can select from chapter members or enter names manually.</p>
+                        </div>
+                        <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                            <h5 class="font-medium text-gray-900 dark:text-gray-100 mb-2 flex items-center">
+                                <svg class="w-4 h-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                Vote Method
+                            </h5>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Choose how the vote was conducted: voice vote, show of hands, roll call, or secret ballot.</p>
+                        </div>
+                        <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                            <h5 class="font-medium text-gray-900 dark:text-gray-100 mb-2 flex items-center">
+                                <svg class="w-4 h-4 text-purple-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                                </svg>
+                                Vote Counts
+                            </h5>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Record the number of votes for, against, and abstentions if a counted vote was taken.</p>
+                        </div>
+                        <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                            <h5 class="font-medium text-gray-900 dark:text-gray-100 mb-2 flex items-center">
+                                <svg class="w-4 h-4 text-amber-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                                </svg>
+                                Caucus
+                            </h5>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Track if a caucus was held, its duration, and whether it was moderated or unmoderated.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Vote Results</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-center">
+                        <div class="p-2 bg-green-100 dark:bg-green-900/30 rounded text-green-700 dark:text-green-300">Passed</div>
+                        <div class="p-2 bg-red-100 dark:bg-red-900/30 rounded text-red-700 dark:text-red-300">Failed</div>
+                        <div class="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded text-yellow-700 dark:text-yellow-300">Tabled</div>
+                        <div class="p-2 bg-gray-100 dark:bg-gray-600/30 rounded text-gray-700 dark:text-gray-300">Withdrawn</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Attendance -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-violet-100 dark:bg-violet-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-violet-600 dark:text-violet-400">5</span>
+                    Tracking Attendance
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Switch to the <strong class="text-gray-900 dark:text-gray-100">Attendance</strong> tab to mark who attended the meeting. If the minutes are linked to an event, attendance will sync automatically.
+                </p>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div class="text-center p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                        <div class="text-green-600 dark:text-green-400 font-semibold">Present</div>
+                        <div class="text-xs text-green-700 dark:text-green-300">Attended meeting</div>
+                    </div>
+                    <div class="text-center p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+                        <div class="text-yellow-600 dark:text-yellow-400 font-semibold">Late</div>
+                        <div class="text-xs text-yellow-700 dark:text-yellow-300">Arrived late</div>
+                    </div>
+                    <div class="text-center p-3 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                        <div class="text-red-600 dark:text-red-400 font-semibold">Absent</div>
+                        <div class="text-xs text-red-700 dark:text-red-300">Did not attend</div>
+                    </div>
+                    <div class="text-center p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                        <div class="text-blue-600 dark:text-blue-400 font-semibold">Excused</div>
+                        <div class="text-xs text-blue-700 dark:text-blue-300">Approved absence</div>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        <strong>Linked Event:</strong> When minutes are linked to an event, attendance changes sync both ways. Excuse requests submitted for the event will show in the minutes attendance view.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Publishing -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-violet-100 dark:bg-violet-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-violet-600 dark:text-violet-400">6</span>
+                    Publishing Minutes
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    When your minutes are complete, you can publish them to make them available to chapter members. Publishing generates a formatted PDF and adds it to Chapter Documents.
+                </p>
+
+                <div class="space-y-3">
+                    <div class="flex items-start p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <div class="w-10 h-10 bg-violet-100 dark:bg-violet-900/50 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Download PDF</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Preview or download the formatted PDF before publishing</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <div class="w-10 h-10 bg-green-100 dark:bg-green-900/50 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Publish</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Make minutes available in Chapter Documents with visibility controls</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Editing Published Minutes:</strong> You can still edit minutes after publishing. Changes are tracked, and the PDF is automatically regenerated. An edit notice will appear in the document.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-700">
+            <a href="{% url 'guide_attendance' %}" class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Previous: Attendance
+            </a>
+            <a href="{% url 'guide_officer_hub' %}" class="inline-flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
+                Back to Officer Guides
+                <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

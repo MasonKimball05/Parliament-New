@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError
 import csv
-from src.models import KaiReport, Committee, ParliamentUser, KaiReportActivity, KaiReportTemplate
+from src.models import KaiReport, Committee, ParliamentUser, KaiReportActivity, KaiReportTemplate, KaiFormField, KaiReportFieldResponse, KaiClosureRequest
 from src.forms import KaiReportForm
 from src.decorators import log_function_call
 from src.utils.file_validation import validate_uploaded_file
@@ -48,6 +48,37 @@ def submit_kai_report(request):
                 report = form.save(commit=False)
                 report.submitted_by = request.user
                 report.save()
+
+                # Save custom field responses
+                custom_fields = KaiFormField.objects.filter(is_active=True, is_builtin=False)
+                for field in custom_fields:
+                    field_key = f'custom_field_{field.id}'
+                    value = request.POST.get(field_key, '').strip()
+                    file_value = request.FILES.get(field_key)
+
+                    # Only save if there's a value
+                    if value or file_value:
+                        response_data = {
+                            'report': report,
+                            'field': field,
+                        }
+
+                        if field.field_type in ['text', 'textarea', 'email', 'date', 'select', 'radio']:
+                            response_data['text_value'] = value
+                        elif field.field_type == 'number':
+                            try:
+                                response_data['number_value'] = float(value) if value else None
+                            except ValueError:
+                                response_data['text_value'] = value
+                        elif field.field_type in ['multiselect', 'checkbox']:
+                            values = request.POST.getlist(field_key)
+                            response_data['json_value'] = values if values else None
+                        elif field.field_type == 'file' and file_value:
+                            response_data['file_value'] = file_value
+                        elif field.field_type == 'member_select':
+                            response_data['text_value'] = value
+
+                        KaiReportFieldResponse.objects.create(**response_data)
 
                 # Log activity
                 KaiReportActivity.objects.create(
@@ -134,9 +165,26 @@ Please log in to the Kai Committee page to review this report.
         # Get active templates
         templates = KaiReportTemplate.objects.filter(is_active=True)
 
+        # Get custom fields (non-builtin)
+        custom_fields = KaiFormField.objects.filter(is_active=True, is_builtin=False).order_by('section', 'display_order')
+
+        # Group custom fields by section
+        custom_sections = {}
+        for field in custom_fields:
+            section = field.section or 'Additional Information'
+            if section not in custom_sections:
+                custom_sections[section] = []
+            custom_sections[section].append(field)
+
+        # Get all active members for member_select fields
+        all_members = ParliamentUser.objects.filter(member_status='Active').order_by('name')
+
         return render(request, 'kai/submit_report.html', {
             'form': form,
             'templates': templates,
+            'custom_fields': custom_fields,
+            'custom_sections': custom_sections,
+            'all_members': all_members,
         })
     except Exception as e:
         # Table doesn't exist yet
@@ -871,6 +919,115 @@ Beta Theta Pi - Samford Chapter
                     logger.error(f"Failed to send accused notification: {e}")
                     messages.error(request, f'Failed to send notification: {str(e)}')
 
+        elif action == 'approve_closure':
+            # Approve a closure request
+            closure_request_id = request.POST.get('closure_request_id')
+            review_notes = request.POST.get('review_notes', '').strip()
+
+            if closure_request_id:
+                try:
+                    closure_request = KaiClosureRequest.objects.get(id=closure_request_id, report=report)
+                    if closure_request.status == 'pending':
+                        closure_request.status = 'approved'
+                        closure_request.reviewed_by = request.user
+                        closure_request.reviewed_at = timezone.now()
+                        closure_request.review_notes = review_notes
+                        closure_request.save()
+
+                        # Archive the report
+                        report.status = 'archived'
+                        report.save()
+
+                        # Log activity
+                        KaiReportActivity.objects.create(
+                            report=report,
+                            user=request.user,
+                            action='closure_approved',
+                            details=f'Closure request approved. Report archived.'
+                        )
+
+                        # Notify the requester
+                        if closure_request.requested_by.email:
+                            try:
+                                send_mail(
+                                    subject=f'[Kai] Closure Request Approved: {report.title}',
+                                    message=f"""Your closure request has been approved.
+
+Report: {report.title}
+Decision: Approved
+{f"Notes: {review_notes}" if review_notes else ""}
+
+The case has been archived.
+""",
+                                    from_email=settings.DEFAULT_FROM_EMAIL,
+                                    recipient_list=[closure_request.requested_by.email],
+                                    fail_silently=True,
+                                )
+                            except Exception as e:
+                                import logging
+                                logger = logging.getLogger('function_calls')
+                                logger.error(f"Failed to send closure approval notification: {e}")
+
+                        messages.success(request, 'Closure request approved. Report has been archived.')
+                    else:
+                        messages.warning(request, 'This closure request has already been processed.')
+                except KaiClosureRequest.DoesNotExist:
+                    messages.error(request, 'Closure request not found.')
+
+        elif action == 'deny_closure':
+            # Deny a closure request
+            closure_request_id = request.POST.get('closure_request_id')
+            review_notes = request.POST.get('review_notes', '').strip()
+
+            if closure_request_id:
+                try:
+                    closure_request = KaiClosureRequest.objects.get(id=closure_request_id, report=report)
+                    if closure_request.status == 'pending':
+                        if not review_notes:
+                            messages.error(request, 'Please provide a reason for denying the closure request.')
+                        else:
+                            closure_request.status = 'denied'
+                            closure_request.reviewed_by = request.user
+                            closure_request.reviewed_at = timezone.now()
+                            closure_request.review_notes = review_notes
+                            closure_request.save()
+
+                            # Log activity
+                            KaiReportActivity.objects.create(
+                                report=report,
+                                user=request.user,
+                                action='closure_denied',
+                                details=f'Closure request denied. Reason: {review_notes[:100]}...' if len(review_notes) > 100 else f'Closure request denied. Reason: {review_notes}'
+                            )
+
+                            # Notify the requester
+                            if closure_request.requested_by.email:
+                                try:
+                                    send_mail(
+                                        subject=f'[Kai] Closure Request Denied: {report.title}',
+                                        message=f"""Your closure request has been denied.
+
+Report: {report.title}
+Decision: Denied
+Reason: {review_notes}
+
+You may submit another closure request in the future if circumstances change.
+""",
+                                        from_email=settings.DEFAULT_FROM_EMAIL,
+                                        recipient_list=[closure_request.requested_by.email],
+                                        fail_silently=True,
+                                    )
+                                except Exception as e:
+                                    import logging
+                                    logger = logging.getLogger('function_calls')
+                                    logger.error(f"Failed to send closure denial notification: {e}")
+
+                            messages.success(request, 'Closure request denied.')
+                    else:
+                        messages.warning(request, 'This closure request has already been processed.')
+                except KaiClosureRequest.DoesNotExist:
+                    messages.error(request, 'Closure request not found.')
+
         return redirect('manage_kai_report', report_id=report.id)
 
     # Get activity log
@@ -900,6 +1057,18 @@ Beta Theta Pi - Samford Chapter
         except:
             all_members = ParliamentUser.objects.all().order_by('name')
 
+    # Get pending closure requests for this report
+    try:
+        closure_requests = list(report.closure_requests.all().select_related('requested_by', 'reviewed_by').order_by('-requested_at'))
+    except:
+        closure_requests = []
+
+    # Get custom field responses
+    try:
+        custom_responses = list(report.custom_responses.all().select_related('field'))
+    except:
+        custom_responses = []
+
     context = {
         'report': report,
         'kai_committee': kai_committee,
@@ -907,6 +1076,8 @@ Beta Theta Pi - Samford Chapter
         'related_reports': related_reports,
         'available_reports': available_reports,
         'all_members': all_members,
+        'closure_requests': closure_requests,
+        'custom_responses': custom_responses,
     }
 
     return render(request, 'kai/manage_report.html', context)

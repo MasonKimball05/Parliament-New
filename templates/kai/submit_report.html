@@ -150,6 +150,106 @@
           {% endif %}
         </div>
 
+        <!-- Custom Fields (added by Kai chair) -->
+        {% if custom_sections %}
+        {% for section_name, section_fields in custom_sections.items %}
+        <div class="pt-6 border-t border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">{{ section_name }}</h3>
+          {% for field in section_fields %}
+          <div class="mb-4">
+            <label for="custom_field_{{ field.id }}" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              {{ field.label }}
+              {% if field.is_required %}<span class="text-red-500">*</span>{% endif %}
+            </label>
+
+            {% if field.field_type == 'text' %}
+            <input type="text" name="custom_field_{{ field.id }}" id="custom_field_{{ field.id }}"
+                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                   placeholder="{{ field.placeholder }}" {% if field.is_required %}required{% endif %}>
+
+            {% elif field.field_type == 'textarea' %}
+            <textarea name="custom_field_{{ field.id }}" id="custom_field_{{ field.id }}" rows="4"
+                      class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      placeholder="{{ field.placeholder }}" {% if field.is_required %}required{% endif %}></textarea>
+
+            {% elif field.field_type == 'number' %}
+            <input type="number" name="custom_field_{{ field.id }}" id="custom_field_{{ field.id }}"
+                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                   placeholder="{{ field.placeholder }}" {% if field.is_required %}required{% endif %}>
+
+            {% elif field.field_type == 'email' %}
+            <input type="email" name="custom_field_{{ field.id }}" id="custom_field_{{ field.id }}"
+                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                   placeholder="{{ field.placeholder }}" {% if field.is_required %}required{% endif %}>
+
+            {% elif field.field_type == 'date' %}
+            <input type="date" name="custom_field_{{ field.id }}" id="custom_field_{{ field.id }}"
+                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                   {% if field.is_required %}required{% endif %}>
+
+            {% elif field.field_type == 'select' %}
+            <select name="custom_field_{{ field.id }}" id="custom_field_{{ field.id }}"
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    {% if field.is_required %}required{% endif %}>
+              <option value="">-- Select --</option>
+              {% for option in field.options %}
+              <option value="{{ option.value|default:option }}">{{ option.label|default:option }}</option>
+              {% endfor %}
+            </select>
+
+            {% elif field.field_type == 'multiselect' %}
+            <select name="custom_field_{{ field.id }}" id="custom_field_{{ field.id }}" multiple
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    {% if field.is_required %}required{% endif %}>
+              {% for option in field.options %}
+              <option value="{{ option.value|default:option }}">{{ option.label|default:option }}</option>
+              {% endfor %}
+            </select>
+
+            {% elif field.field_type == 'radio' %}
+            <div class="space-y-2">
+              {% for option in field.options %}
+              <label class="flex items-center">
+                <input type="radio" name="custom_field_{{ field.id }}" value="{{ option.value|default:option }}"
+                       class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                       {% if field.is_required %}required{% endif %}>
+                <span class="ml-2 text-gray-700 dark:text-gray-300">{{ option.label|default:option }}</span>
+              </label>
+              {% endfor %}
+            </div>
+
+            {% elif field.field_type == 'checkbox' %}
+            <label class="flex items-center">
+              <input type="checkbox" name="custom_field_{{ field.id }}" value="yes"
+                     class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+              <span class="ml-2 text-gray-700 dark:text-gray-300">Yes</span>
+            </label>
+
+            {% elif field.field_type == 'file' %}
+            <input type="file" name="custom_field_{{ field.id }}" id="custom_field_{{ field.id }}"
+                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                   {% if field.is_required %}required{% endif %}>
+
+            {% elif field.field_type == 'member_select' %}
+            <select name="custom_field_{{ field.id }}" id="custom_field_{{ field.id }}"
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    {% if field.is_required %}required{% endif %}>
+              <option value="">-- Select a member --</option>
+              {% for member in all_members %}
+              <option value="{{ member.id }}">{{ member.name }}</option>
+              {% endfor %}
+            </select>
+            {% endif %}
+
+            {% if field.help_text %}
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ field.help_text }}</p>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+        {% endif %}
+
         <!-- Non-field errors -->
         {% if form.non_field_errors %}
         <div class="bg-red-50 dark:bg-red-900/30 border-l-4 border-red-500 p-4 rounded">

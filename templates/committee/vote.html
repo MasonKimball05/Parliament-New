@@ -96,17 +96,27 @@
                     {% if leg.vote_mode == 'plurality' %}
                         <!-- Plurality Voting -->
                         <div class="space-y-3">
-                            <p class="font-medium text-gray-700 dark:text-gray-300 mb-2">Select an option:</p>
+                            {% if leg.plurality_votes_allowed > 1 %}
+                                <p class="font-medium text-gray-700 dark:text-gray-300 mb-2">Select up to {{ leg.plurality_votes_allowed }} options:</p>
+                            {% else %}
+                                <p class="font-medium text-gray-700 dark:text-gray-300 mb-2">Select an option:</p>
+                            {% endif %}
                             <div class="flex flex-wrap gap-3">
                                 {% for option in leg.plurality_options %}
                                 <label class="vote-option cursor-pointer">
+                                    {% if leg.plurality_votes_allowed > 1 %}
+                                    <!-- Multi-select mode: checkboxes -->
+                                    <input type="checkbox" name="vote_choices" value="{{ option }}" class="sr-only peer plurality-checkbox" data-max-votes="{{ leg.plurality_votes_allowed }}">
+                                    {% else %}
+                                    <!-- Single-select mode: radio buttons -->
                                     <input type="radio" name="vote_choice" value="{{ option }}" required class="sr-only peer">
+                                    {% endif %}
                                     <div class="flex items-center gap-2 px-5 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700
                                                 peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/30
                                                 peer-checked:ring-2 peer-checked:ring-blue-500 peer-checked:ring-offset-2 dark:peer-checked:ring-offset-gray-800
                                                 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20
                                                 transition-all duration-200">
-                                        <div class="w-5 h-5 rounded-full border-2 border-gray-400 dark:border-gray-500 peer-checked:border-blue-500 flex items-center justify-center
+                                        <div class="w-5 h-5 {% if leg.plurality_votes_allowed > 1 %}rounded{% else %}rounded-full{% endif %} border-2 border-gray-400 dark:border-gray-500 peer-checked:border-blue-500 flex items-center justify-center
                                                     peer-checked:bg-blue-500 transition-all duration-200 vote-radio">
                                             <svg class="w-3 h-3 text-white hidden check-icon" fill="currentColor" viewBox="0 0 20 20">
                                                 <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
@@ -558,7 +568,7 @@
 </div>
 
 <script>
-// Handle vote option selection visual feedback
+// Handle vote option selection visual feedback for radio buttons
 document.querySelectorAll('.vote-option input[type="radio"]').forEach(radio => {
     radio.addEventListener('change', function() {
         // Get all vote options in the same form
@@ -568,7 +578,7 @@ document.querySelectorAll('.vote-option input[type="radio"]').forEach(radio => {
             const checkIcon = option.querySelector('.check-icon');
             const input = option.querySelector('input[type="radio"]');
 
-            if (input.checked) {
+            if (input && input.checked) {
                 radioDiv.classList.add('bg-current');
                 checkIcon.classList.remove('hidden');
             } else {
@@ -579,28 +589,84 @@ document.querySelectorAll('.vote-option input[type="radio"]').forEach(radio => {
     });
 });
 
+// Handle checkbox selection visual feedback for multi-select plurality
+document.querySelectorAll('.vote-option input[type="checkbox"]').forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+        const option = this.closest('.vote-option');
+        const radioDiv = option.querySelector('.vote-radio');
+        const checkIcon = option.querySelector('.check-icon');
+
+        if (this.checked) {
+            radioDiv.classList.add('bg-current');
+            checkIcon.classList.remove('hidden');
+        } else {
+            radioDiv.classList.remove('bg-current');
+            checkIcon.classList.add('hidden');
+        }
+    });
+});
+
+// Enforce max selections for multi-select plurality voting
+document.querySelectorAll('.plurality-checkbox').forEach(function(checkbox) {
+    checkbox.addEventListener('change', function() {
+        const maxVotes = parseInt(this.dataset.maxVotes) || 1;
+        const form = this.closest('form');
+        const checkboxes = form.querySelectorAll('.plurality-checkbox');
+        const checkedCount = form.querySelectorAll('.plurality-checkbox:checked').length;
+
+        if (checkedCount > maxVotes) {
+            this.checked = false;
+            // Also update visual state
+            const option = this.closest('.vote-option');
+            const radioDiv = option.querySelector('.vote-radio');
+            const checkIcon = option.querySelector('.check-icon');
+            radioDiv.classList.remove('bg-current');
+            checkIcon.classList.add('hidden');
+            alert(`You can only select up to ${maxVotes} option(s).`);
+        }
+    });
+});
+
 function submitVote(event) {
     const button = event.target.closest('button');
     const form = button.closest('form');
     const password = form.querySelector('input[name="password"]').value;
+
+    // Check for radio buttons (single select) or checkboxes (multi-select)
     const selectedOption = form.querySelector('input[name="vote_choice"]:checked');
+    const selectedCheckboxes = form.querySelectorAll('input[name="vote_choices"]:checked');
 
-    if (!selectedOption) {
+    // Validate selection based on vote type
+    if (selectedCheckboxes.length > 0) {
+        // Multi-select plurality mode
+        if (!password) {
+            alert('Please enter your password to confirm your vote.');
+            event.preventDefault();
+            return false;
+        }
+
+        const choices = Array.from(selectedCheckboxes).map(cb => cb.value);
+        if (!confirm(`Are you sure you want to vote for: ${choices.join(', ')}?`)) {
+            event.preventDefault();
+            return false;
+        }
+    } else if (selectedOption) {
+        // Single-select mode
+        if (!password) {
+            alert('Please enter your password to confirm your vote.');
+            event.preventDefault();
+            return false;
+        }
+
+        const choiceLabels = {'yes': 'Yes', 'no': 'No', 'abstain': 'Abstain'};
+        const choiceLabel = choiceLabels[selectedOption.value] || selectedOption.value;
+
+        if (!confirm(`Are you sure you want to vote "${choiceLabel}"?`)) {
+            event.preventDefault();
+            return false;
+        }
+    } else {
         alert('Please select a vote option.');
-        event.preventDefault();
-        return false;
-    }
-
-    if (!password) {
-        alert('Please enter your password to confirm your vote.');
-        event.preventDefault();
-        return false;
-    }
-
-    const choiceLabels = {'yes': 'Yes', 'no': 'No', 'abstain': 'Abstain'};
-    const choiceLabel = choiceLabels[selectedOption.value] || selectedOption.value;
-
-    if (!confirm(`Are you sure you want to vote "${choiceLabel}"?`)) {
         event.preventDefault();
         return false;
     }

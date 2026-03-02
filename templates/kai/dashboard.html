@@ -13,7 +13,10 @@
           <p class="text-gray-600 dark:text-gray-400 mt-1">Analytics and insights for Kai reports</p>
         </div>
         <div class="flex gap-3">
-          <a href="{% url 'manage_kai_templates' %}" class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold shadow">
+          <a href="{% url 'kai_form_builder' %}" class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold shadow" title="Customize form fields">
+            Form Builder
+          </a>
+          <a href="{% url 'manage_kai_templates' %}" class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold shadow" title="Manage text templates">
             Templates
           </a>
           <a href="{% url 'view_kai_reports' %}" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold shadow">

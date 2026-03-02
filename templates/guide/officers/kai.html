@@ -1,0 +1,387 @@
+{% extends "base.html" %}
+
+{% block title %}Kai Reports Guide - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-6" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="{% url 'guide_index' %}" class="inline-flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                    Guide
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <a href="{% url 'guide_officer_hub' %}" class="ml-1 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 md:ml-2">Officer Guides</a>
+                </div>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="ml-1 text-sm font-medium text-gray-700 dark:text-gray-300 md:ml-2">Kai Reports</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center mb-4">
+            <div class="w-12 h-12 bg-rose-100 dark:bg-rose-900/50 rounded-lg flex items-center justify-center mr-4">
+                <svg class="w-6 h-6 text-rose-600 dark:text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Kai Reports</h1>
+                <p class="text-gray-600 dark:text-gray-400">Understanding the Kai system for conduct reports</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="space-y-8">
+        <!-- Quick Actions -->
+        <div class="bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-rose-800 dark:text-rose-200 mb-2">Quick Actions</h3>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'user_kai_dashboard' %}" class="inline-flex items-center px-3 py-1.5 bg-rose-600 text-white text-sm rounded-md hover:bg-rose-700 transition-colors">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                    My Kai Dashboard
+                </a>
+                <a href="{% url 'submit_kai_report' %}" class="inline-flex items-center px-3 py-1.5 bg-white dark:bg-gray-800 text-rose-600 dark:text-rose-400 text-sm rounded-md border border-rose-300 dark:border-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Submit Report
+                </a>
+            </div>
+        </div>
+
+        <!-- Overview -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">What is Kai?</h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    The Kai system is the chapter's confidential conduct reporting system. It allows members to report concerns about behavior, violations of chapter policies, or other issues that need to be addressed by chapter leadership.
+                </p>
+
+                <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Confidentiality:</strong> All Kai reports are handled confidentially by the Kai Committee. The details of reports are not shared publicly.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Submitting a Report -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-rose-100 dark:bg-rose-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-rose-600 dark:text-rose-400">1</span>
+                    Submitting a Report
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Any member can submit a Kai report. Reports can be directed at a specific member or submitted as a general concern.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Report Information</h4>
+                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Title:</strong> Brief description of the concern</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Category:</strong> Type of concern (conduct, policy violation, etc.)</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Description:</strong> Detailed explanation of the incident or concern</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span><strong>Targeted Member:</strong> Optional - the member the report concerns</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span><strong>Supporting Documents:</strong> Optional - upload evidence if applicable</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        <strong>What happens next:</strong> After you submit a report, the Kai Committee chair(s) are automatically notified by email. They will review the report and begin the deliberation process.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Report Status -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-rose-100 dark:bg-rose-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-rose-600 dark:text-rose-400">2</span>
+                    Understanding Report Status
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    You can track the progress of your submitted reports through the Kai Dashboard.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Report Statuses</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                        <div class="text-center p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded">
+                            <span class="text-yellow-700 dark:text-yellow-300 font-medium">Submitted</span>
+                            <p class="text-xs text-yellow-600 dark:text-yellow-400 mt-1">Awaiting review</p>
+                        </div>
+                        <div class="text-center p-2 bg-blue-100 dark:bg-blue-900/30 rounded">
+                            <span class="text-blue-600 dark:text-blue-400 font-medium">Reviewed</span>
+                            <p class="text-xs text-blue-500 dark:text-blue-300 mt-1">Under deliberation</p>
+                        </div>
+                        <div class="text-center p-2 bg-green-100 dark:bg-green-900/30 rounded">
+                            <span class="text-green-600 dark:text-green-400 font-medium">Closed</span>
+                            <p class="text-xs text-green-500 dark:text-green-300 mt-1">Case resolved</p>
+                        </div>
+                        <div class="text-center p-2 bg-gray-100 dark:bg-gray-600/30 rounded">
+                            <span class="text-gray-600 dark:text-gray-400 font-medium">Archived</span>
+                            <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Long-term storage</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Deliberation Outcomes</h4>
+                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-start">
+                            <span class="w-2 h-2 bg-gray-400 rounded-full mr-3 mt-1.5"></span>
+                            <span><strong>Pending:</strong> Still under review</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-2 h-2 bg-blue-500 rounded-full mr-3 mt-1.5"></span>
+                            <span><strong>Heard:</strong> Matter was discussed, no further action</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-2 h-2 bg-yellow-500 rounded-full mr-3 mt-1.5"></span>
+                            <span><strong>Warning Issued:</strong> Formal warning given</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-2 h-2 bg-purple-500 rounded-full mr-3 mt-1.5"></span>
+                            <span><strong>Mediation:</strong> Parties worked through resolution</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-2 h-2 bg-red-500 rounded-full mr-3 mt-1.5"></span>
+                            <span><strong>Sanctions Applied:</strong> Formal consequences imposed</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-2 h-2 bg-green-500 rounded-full mr-3 mt-1.5"></span>
+                            <span><strong>Dismissed:</strong> Report not substantiated</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Viewing Your Reports -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-rose-100 dark:bg-rose-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-rose-600 dark:text-rose-400">3</span>
+                    Viewing Your Reports
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Your Kai Dashboard shows two types of reports:
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
+                        <h4 class="font-medium text-indigo-800 dark:text-indigo-200 mb-2 flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            Reports You Submitted
+                        </h4>
+                        <p class="text-sm text-indigo-700 dark:text-indigo-300">Track the status of reports you filed against others or general concerns.</p>
+                    </div>
+                    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                        <h4 class="font-medium text-amber-800 dark:text-amber-200 mb-2 flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                            Reports About You
+                        </h4>
+                        <p class="text-sm text-amber-700 dark:text-amber-300">View reports where you are the subject, visible only after deliberation has begun.</p>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Privacy Note:</strong> If someone files a report about you, you will only see it after the committee has reviewed it and made an initial determination. This protects the integrity of the review process.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Requesting Closure -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-rose-100 dark:bg-rose-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-rose-600 dark:text-rose-400">4</span>
+                    Requesting Closure
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    After a report has been addressed by the committee, parties may request to close the case.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Request Types</h4>
+                    <ul class="space-y-3 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-start">
+                            <div class="w-6 h-6 bg-blue-100 dark:bg-blue-900/50 rounded flex items-center justify-center mr-3 flex-shrink-0">
+                                <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <strong class="text-gray-900 dark:text-gray-100">Request Closure:</strong>
+                                <span class="block mt-1">Ask the committee to close the case after it has been addressed. Available to both the reporter and the accused member.</span>
+                            </div>
+                        </li>
+                        <li class="flex items-start">
+                            <div class="w-6 h-6 bg-yellow-100 dark:bg-yellow-900/50 rounded flex items-center justify-center mr-3 flex-shrink-0">
+                                <svg class="w-4 h-4 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414 6.414a2 2 0 001.414.586H19a2 2 0 002-2V7a2 2 0 00-2-2h-8.172a2 2 0 00-1.414.586L3 12z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <strong class="text-gray-900 dark:text-gray-100">Drop Case (Submitter Only):</strong>
+                                <span class="block mt-1">Request to withdraw your complaint entirely. Only available if sanctions haven't been applied.</span>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        <strong>Committee Approval:</strong> All closure and drop requests must be approved by the Kai Committee. They will review the request and make a final decision.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- For Kai Committee -->
+        <div class="bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-700 rounded-lg p-6">
+            <h3 class="text-lg font-semibold text-rose-900 dark:text-rose-100 mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                </svg>
+                For Kai Committee Members
+            </h3>
+            <p class="text-sm text-rose-800 dark:text-rose-200 mb-4">
+                Committee chairs have access to additional management features:
+            </p>
+            <ul class="space-y-2 text-sm text-rose-700 dark:text-rose-300">
+                <li class="flex items-start">
+                    <span class="w-2 h-2 bg-rose-500 rounded-full mr-3 mt-1.5"></span>
+                    <span>View all submitted reports</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="w-2 h-2 bg-rose-500 rounded-full mr-3 mt-1.5"></span>
+                    <span>Update report status and deliberation outcomes</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="w-2 h-2 bg-rose-500 rounded-full mr-3 mt-1.5"></span>
+                    <span>Add committee notes (visible only to committee)</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="w-2 h-2 bg-rose-500 rounded-full mr-3 mt-1.5"></span>
+                    <span>Approve or deny closure requests</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="w-2 h-2 bg-rose-500 rounded-full mr-3 mt-1.5"></span>
+                    <span>Archive resolved cases</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Best Practices -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Best Practices</h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                        <h4 class="font-medium text-green-800 dark:text-green-200 mb-2">When Submitting</h4>
+                        <ul class="text-sm text-green-700 dark:text-green-300 space-y-1">
+                            <li>- Be specific about dates and events</li>
+                            <li>- Include relevant evidence if available</li>
+                            <li>- Focus on facts, not assumptions</li>
+                            <li>- Be honest and complete</li>
+                        </ul>
+                    </div>
+                    <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                        <h4 class="font-medium text-purple-800 dark:text-purple-200 mb-2">During the Process</h4>
+                        <ul class="text-sm text-purple-700 dark:text-purple-300 space-y-1">
+                            <li>- Respect confidentiality</li>
+                            <li>- Cooperate with the committee</li>
+                            <li>- Be patient as cases are reviewed</li>
+                            <li>- Ask questions if unclear</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-700">
+            <a href="{% url 'guide_slating' %}" class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Previous: Slating & Elections
+            </a>
+            <a href="{% url 'guide_officer_hub' %}" class="inline-flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
+                Back to Officer Guides
+                <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

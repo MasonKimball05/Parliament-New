@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+
+{% block title %}Slating & Elections Guide - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-6" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="{% url 'guide_index' %}" class="inline-flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                    Guide
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <a href="{% url 'guide_officer_hub' %}" class="ml-1 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 md:ml-2">Officer Guides</a>
+                </div>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="ml-1 text-sm font-medium text-gray-700 dark:text-gray-300 md:ml-2">Slating & Elections</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center mb-4">
+            <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/50 rounded-lg flex items-center justify-center mr-4">
+                <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Slating & Elections</h1>
+                <p class="text-gray-600 dark:text-gray-400">Learn how to run officer elections and manage the slating process</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="space-y-8">
+        <!-- Quick Actions -->
+        <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-purple-800 dark:text-purple-200 mb-2">Quick Actions</h3>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'slating_dashboard' %}" class="inline-flex items-center px-3 py-1.5 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700 transition-colors">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                    Slating Dashboard
+                </a>
+            </div>
+        </div>
+
+        <!-- Overview -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Overview</h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    The slating process allows chapters to collect officer applications, review candidates, build a slate of officers, and hold elections. The process is managed by the Slating Committee.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Election Phases</h4>
+                    <div class="flex flex-col space-y-3">
+                        <div class="flex items-center">
+                            <span class="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center text-sm font-bold text-blue-600 dark:text-blue-400 mr-3">1</span>
+                            <span class="text-gray-700 dark:text-gray-300"><strong>Nominations Open:</strong> Members apply for positions</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="w-8 h-8 bg-yellow-100 dark:bg-yellow-900/50 rounded-full flex items-center justify-center text-sm font-bold text-yellow-600 dark:text-yellow-400 mr-3">2</span>
+                            <span class="text-gray-700 dark:text-gray-300"><strong>Under Review:</strong> Committee reviews applications and conducts interviews</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center text-sm font-bold text-purple-600 dark:text-purple-400 mr-3">3</span>
+                            <span class="text-gray-700 dark:text-gray-300"><strong>Slate Building:</strong> Committee assigns candidates to positions</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="w-8 h-8 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center text-sm font-bold text-green-600 dark:text-green-400 mr-3">4</span>
+                            <span class="text-gray-700 dark:text-gray-300"><strong>Voting Open:</strong> Chapter votes on the slate</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center text-sm font-bold text-emerald-600 dark:text-emerald-400 mr-3">5</span>
+                            <span class="text-gray-700 dark:text-gray-300"><strong>Results Published:</strong> Election results announced</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Applying for Positions -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-purple-600 dark:text-purple-400">1</span>
+                    Applying for Positions
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    When nominations are open, eligible members can apply for officer positions through the slating dashboard.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Application Requirements</h4>
+                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Position Preferences:</strong> Select positions ranked by preference (1st, 2nd, 3rd choice)</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>GPA:</strong> Report your GPA with verification screenshot</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Application Questions:</strong> Answer required questions about qualifications and goals</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        <strong>Tip:</strong> You can save your application as a draft and return to complete it later. Click "Save Draft" to preserve your progress.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Committee Review -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-purple-600 dark:text-purple-400">2</span>
+                    Committee Review Process
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    The slating committee reviews all applications and conducts interviews with candidates.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                        <h4 class="font-medium text-amber-800 dark:text-amber-200 mb-2 flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            Application Review
+                        </h4>
+                        <p class="text-sm text-amber-700 dark:text-amber-300">Committee members review submitted applications, verify GPA, and assess qualifications.</p>
+                    </div>
+                    <div class="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-4">
+                        <h4 class="font-medium text-teal-800 dark:text-teal-200 mb-2 flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"></path>
+                            </svg>
+                            Interviews
+                        </h4>
+                        <p class="text-sm text-teal-700 dark:text-teal-300">Schedule and conduct interviews with candidates. Record notes and ratings for each interview.</p>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Application Statuses</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                        <div class="text-center p-2 bg-gray-100 dark:bg-gray-600/30 rounded">
+                            <span class="text-gray-600 dark:text-gray-400 font-medium">Draft</span>
+                        </div>
+                        <div class="text-center p-2 bg-blue-100 dark:bg-blue-900/30 rounded">
+                            <span class="text-blue-600 dark:text-blue-400 font-medium">Submitted</span>
+                        </div>
+                        <div class="text-center p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded">
+                            <span class="text-yellow-600 dark:text-yellow-400 font-medium">Under Review</span>
+                        </div>
+                        <div class="text-center p-2 bg-green-100 dark:bg-green-900/30 rounded">
+                            <span class="text-green-600 dark:text-green-400 font-medium">Approved</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Building the Slate -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-purple-600 dark:text-purple-400">3</span>
+                    Building the Slate
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    After reviewing applications and conducting interviews, the committee assigns candidates to positions to create the final slate.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Slate Builder Features</h4>
+                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-start">
+                            <span class="w-2 h-2 bg-purple-500 rounded-full mr-3 mt-1.5"></span>
+                            <span><strong>Drag & Drop:</strong> Assign candidates to positions by dragging</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-2 h-2 bg-purple-500 rounded-full mr-3 mt-1.5"></span>
+                            <span><strong>Position Preferences:</strong> See each candidate's ranked preferences</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-2 h-2 bg-purple-500 rounded-full mr-3 mt-1.5"></span>
+                            <span><strong>GPA Verification:</strong> View verified GPA status for each candidate</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-2 h-2 bg-purple-500 rounded-full mr-3 mt-1.5"></span>
+                            <span><strong>Committee Approval:</strong> Slate must be approved before voting opens</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Voting -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-purple-600 dark:text-purple-400">4</span>
+                    Voting Process
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Members vote on the slate as a whole. Votes are cast anonymously using a secret ballot system.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 text-center">
+                        <svg class="w-8 h-8 mx-auto text-green-600 dark:text-green-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <h4 class="font-medium text-green-800 dark:text-green-200">Approve</h4>
+                        <p class="text-xs text-green-700 dark:text-green-300 mt-1">Accept the entire slate</p>
+                    </div>
+                    <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-center">
+                        <svg class="w-8 h-8 mx-auto text-red-600 dark:text-red-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                        <h4 class="font-medium text-red-800 dark:text-red-200">Reject</h4>
+                        <p class="text-xs text-red-700 dark:text-red-300 mt-1">Object to specific positions</p>
+                    </div>
+                    <div class="bg-gray-100 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-4 text-center">
+                        <svg class="w-8 h-8 mx-auto text-gray-600 dark:text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                        </svg>
+                        <h4 class="font-medium text-gray-700 dark:text-gray-300">Abstain</h4>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Choose not to vote</p>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Password Required:</strong> You must enter your password to verify your identity when casting a vote. This ensures vote authenticity while maintaining ballot secrecy.
+                    </p>
+                </div>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Approval Threshold</h4>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                        The slate must receive the required approval percentage to pass. If the slate fails, the chapter may have additional voting attempts. If all attempts fail, individual position voting may be used.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Results -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-purple-600 dark:text-purple-400">5</span>
+                    Results & Transition
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Once voting concludes and the slate is approved, results are published and the officer transition process begins.
+                </p>
+
+                <div class="bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-green-800 dark:text-green-200">
+                        <strong>After Election:</strong> Newly elected officers will receive notifications about their positions. Current officers should work with incoming officers to ensure a smooth transition of responsibilities.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- For Committee Members -->
+        <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg p-6">
+            <h3 class="text-lg font-semibold text-purple-900 dark:text-purple-100 mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                </svg>
+                For Slating Committee Members
+            </h3>
+            <p class="text-sm text-purple-800 dark:text-purple-200 mb-4">
+                Committee members have additional management capabilities:
+            </p>
+            <ul class="space-y-2 text-sm text-purple-700 dark:text-purple-300">
+                <li class="flex items-start">
+                    <span class="w-2 h-2 bg-purple-500 rounded-full mr-3 mt-1.5"></span>
+                    <span>Review and rate applications</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="w-2 h-2 bg-purple-500 rounded-full mr-3 mt-1.5"></span>
+                    <span>Schedule and manage interviews</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="w-2 h-2 bg-purple-500 rounded-full mr-3 mt-1.5"></span>
+                    <span>Build and edit the slate</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="w-2 h-2 bg-purple-500 rounded-full mr-3 mt-1.5"></span>
+                    <span>Manage voting periods and transitions</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="w-2 h-2 bg-purple-500 rounded-full mr-3 mt-1.5"></span>
+                    <span>View live voting tally</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Navigation -->
+        <div class="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-700">
+            <a href="{% url 'guide_managing_members' %}" class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Previous: Managing Members
+            </a>
+            <a href="{% url 'guide_kai' %}" class="inline-flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
+                Next: Kai Reports
+                <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

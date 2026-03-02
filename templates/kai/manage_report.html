@@ -137,6 +137,40 @@
               </a>
             </div>
             {% endif %}
+
+            {% if custom_responses %}
+            <!-- Custom Field Responses -->
+            <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Additional Information</h3>
+              <div class="space-y-3">
+                {% for response in custom_responses %}
+                <div>
+                  <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ response.field.label }}</p>
+                  <div class="text-gray-700 dark:text-gray-300">
+                    {% if response.field.field_type == 'file' and response.file_value %}
+                      <a href="{{ response.file_value.url }}" target="_blank" class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                        </svg>
+                        Download File
+                      </a>
+                    {% elif response.field.field_type in 'multiselect,checkbox' and response.json_value %}
+                      <div class="flex flex-wrap gap-1">
+                        {% for val in response.json_value %}
+                        <span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-sm">{{ val }}</span>
+                        {% endfor %}
+                      </div>
+                    {% elif response.number_value %}
+                      {{ response.number_value }}
+                    {% else %}
+                      <span class="whitespace-pre-wrap">{{ response.text_value|default:"-" }}</span>
+                    {% endif %}
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
           </div>
         </div>
 
@@ -386,6 +420,110 @@
           </div>
         </div>
 
+        <!-- Closure/Drop Requests Card -->
+        {% if closure_requests %}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors duration-200">
+          <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center">
+              <svg class="w-5 h-5 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+              Requests
+            </h2>
+            {% with pending_count=closure_requests|length %}
+            {% for cr in closure_requests %}{% if cr.status == 'pending' %}{% with pending_count=pending_count|add:0 %}{% endwith %}{% endif %}{% endfor %}
+            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200">
+              {{ closure_requests|length }} total
+            </span>
+            {% endwith %}
+          </div>
+          <div class="p-6 space-y-4">
+            {% for cr in closure_requests %}
+            <div class="p-4 rounded-lg {% if cr.status == 'pending' %}bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800{% elif cr.status == 'approved' %}bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800{% else %}bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800{% endif %}">
+              <div class="flex items-start justify-between mb-2">
+                <div>
+                  <div class="flex items-center space-x-2 mb-1">
+                    <span class="px-2 py-0.5 text-xs font-semibold rounded
+                      {% if cr.request_type == 'drop' %}bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200
+                      {% else %}bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200{% endif %}">
+                      {% if cr.request_type == 'drop' %}Drop Request{% else %}Closure Request{% endif %}
+                    </span>
+                  </div>
+                  <p class="text-sm font-medium text-gray-800 dark:text-gray-200">
+                    Requested by {{ cr.requested_by.name }}
+                  </p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">
+                    {{ cr.requested_at|date:"M d, Y \a\t g:i A" }}
+                  </p>
+                </div>
+                <span class="px-2 py-1 text-xs font-semibold rounded-full
+                  {% if cr.status == 'pending' %}bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200
+                  {% elif cr.status == 'approved' %}bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200
+                  {% else %}bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200{% endif %}">
+                  {{ cr.get_status_display }}
+                </span>
+              </div>
+
+              <div class="mb-3">
+                <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Reason</p>
+                <p class="text-sm text-gray-700 dark:text-gray-300">{{ cr.reason }}</p>
+              </div>
+
+              {% if cr.status == 'pending' %}
+              <!-- Approve/Deny Forms -->
+              <div class="pt-3 border-t border-yellow-200 dark:border-yellow-700">
+                <div class="mb-3">
+                  <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Review Notes (optional for approval, required for denial)</label>
+                  <textarea id="review_notes_{{ cr.id }}" rows="2" placeholder="Add notes about your decision..."
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"></textarea>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <form method="post" class="inline" onsubmit="return submitClosureForm(this, {{ cr.id }}, 'approve');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="approve_closure">
+                    <input type="hidden" name="closure_request_id" value="{{ cr.id }}">
+                    <input type="hidden" name="review_notes" value="">
+                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium text-sm flex items-center space-x-1">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                      </svg>
+                      <span>Approve & Archive</span>
+                    </button>
+                  </form>
+                  <form method="post" class="inline" onsubmit="return submitClosureForm(this, {{ cr.id }}, 'deny');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="deny_closure">
+                    <input type="hidden" name="closure_request_id" value="{{ cr.id }}">
+                    <input type="hidden" name="review_notes" value="">
+                    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium text-sm flex items-center space-x-1">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                      </svg>
+                      <span>Deny</span>
+                    </button>
+                  </form>
+                </div>
+              </div>
+              {% else %}
+              <!-- Already Processed -->
+              {% if cr.review_notes %}
+              <div class="pt-3 border-t {% if cr.status == 'approved' %}border-green-200 dark:border-green-700{% else %}border-red-200 dark:border-red-700{% endif %}">
+                <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Review Notes</p>
+                <p class="text-sm text-gray-700 dark:text-gray-300">{{ cr.review_notes }}</p>
+              </div>
+              {% endif %}
+              {% if cr.reviewed_by %}
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                Reviewed by {{ cr.reviewed_by.name }} on {{ cr.reviewed_at|date:"M d, Y" }}
+              </p>
+              {% endif %}
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
         <!-- Related Reports Card -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors duration-200">
           <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
@@ -546,6 +684,31 @@
 </div>
 
 <script>
+  // Handle closure request form submission
+  function submitClosureForm(form, closureId, action) {
+    const reviewNotes = document.getElementById('review_notes_' + closureId);
+    const notesValue = reviewNotes ? reviewNotes.value.trim() : '';
+
+    // For denial, notes are required
+    if (action === 'deny' && !notesValue) {
+      alert('Please provide a reason for denying the closure request.');
+      reviewNotes.focus();
+      return false;
+    }
+
+    // Copy notes value to the hidden input
+    const hiddenNotes = form.querySelector('input[name="review_notes"]');
+    if (hiddenNotes) {
+      hiddenNotes.value = notesValue;
+    }
+
+    // Confirm action
+    const confirmMsg = action === 'approve'
+      ? 'Approve this closure request and archive the report?'
+      : 'Deny this closure request?';
+    return confirm(confirmMsg);
+  }
+
   // Show/hide committee notes and minutes closed checkbox based on deliberation outcome
   const deliberationOutcome = document.getElementById('deliberationOutcome');
   const committeeNotesSection = document.getElementById('committeeNotesSection');
