@@ -13,7 +13,7 @@ from src.models_feature_flags import FeatureFlag, PageToggle, SiteSetting
 from src.models import (
     ParliamentUser, Legislation, Event, Committee,
     Announcement, ActivityLog, LoginHistory, LoginAlert,
-    IPWhitelist, IPBlacklist
+    IPWhitelist, IPBlacklist, AnnouncementEmailLog, AnnouncementEmailRecipient
 )
 import os
 import secrets
@@ -1550,3 +1550,47 @@ def test_email_targeting(request):
     }
 
     return render(request, 'admin_v2/test_email_targeting.html', context)
+
+
+@require_admin_v2_auth
+def email_logs(request):
+    """
+    View all announcement email logs with detailed send information.
+    """
+    logs = AnnouncementEmailLog.objects.select_related(
+        'announcement', 'initiated_by'
+    ).prefetch_related('recipients').order_by('-created_at')[:50]
+
+    context = {
+        'logs': logs,
+    }
+    return render(request, 'admin_v2/email_logs.html', context)
+
+
+@require_admin_v2_auth
+def email_log_detail(request, log_id):
+    """
+    View detailed information about a specific email send.
+    Shows all recipients and why they did/didn't receive the email.
+    """
+    log = get_object_or_404(AnnouncementEmailLog, id=log_id)
+
+    # Group recipients by status
+    recipients_by_status = {}
+    for recipient in log.recipients.all():
+        status = recipient.get_status_display()
+        if status not in recipients_by_status:
+            recipients_by_status[status] = []
+        recipients_by_status[status].append(recipient)
+
+    # Count by status
+    status_counts = {}
+    for status, recipients in recipients_by_status.items():
+        status_counts[status] = len(recipients)
+
+    context = {
+        'log': log,
+        'recipients_by_status': recipients_by_status,
+        'status_counts': status_counts,
+    }
+    return render(request, 'admin_v2/email_log_detail.html', context)

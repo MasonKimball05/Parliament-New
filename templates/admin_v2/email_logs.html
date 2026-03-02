@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Email Logs - Admin v2{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-6xl">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-700 dark:to-purple-700 rounded-lg shadow-lg p-6 mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-white mb-2">Announcement Email Logs</h1>
+                <p class="text-indigo-100">Detailed logs of all announcement email sends</p>
+            </div>
+            <div class="flex gap-3">
+                <a href="{% url 'admin_v2_test_email_targeting' %}" class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors">
+                    Test Targeting
+                </a>
+                <a href="{% url 'admin_v2_dashboard' %}" class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors">
+                    Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if logs %}
+    <div class="space-y-4">
+        {% for log in logs %}
+        <a href="{% url 'admin_v2_email_log_detail' log.id %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden">
+            <div class="flex items-stretch">
+                <!-- Status indicator -->
+                <div class="w-2 {% if log.status == 'completed' %}bg-green-500{% elif log.status == 'partial' %}bg-yellow-500{% elif log.status == 'failed' %}bg-red-500{% else %}bg-blue-500{% endif %}"></div>
+
+                <div class="flex-1 p-4">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                                {{ log.announcement.title }}
+                            </h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                {{ log.created_at|date:"M d, Y g:i A" }}
+                                {% if log.initiated_by %} by {{ log.initiated_by.name }}{% endif %}
+                            </p>
+                        </div>
+                        <span class="px-3 py-1 text-sm font-medium rounded-full
+                            {% if log.status == 'completed' %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+                            {% elif log.status == 'partial' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                            {% elif log.status == 'failed' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+                            {% else %}bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200{% endif %}">
+                            {{ log.get_status_display }}
+                        </span>
+                    </div>
+
+                    <div class="mt-3 flex flex-wrap gap-4 text-sm">
+                        <div class="flex items-center gap-1">
+                            <span class="text-gray-500 dark:text-gray-400">Visibility:</span>
+                            <span class="font-medium text-gray-700 dark:text-gray-300">
+                                {% if log.visible_to_raw %}{{ log.visible_to_raw|join:", " }}{% else %}All{% endif %}
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <span class="text-gray-500 dark:text-gray-400">Active Users:</span>
+                            <span class="font-medium text-gray-700 dark:text-gray-300">{{ log.total_active_users }}</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <span class="text-gray-500 dark:text-gray-400">Matching:</span>
+                            <span class="font-medium text-gray-700 dark:text-gray-300">{{ log.users_matching_visibility }}</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <span class="text-green-600 dark:text-green-400">Sent:</span>
+                            <span class="font-bold text-green-600 dark:text-green-400">{{ log.emails_sent }}</span>
+                        </div>
+                        {% if log.emails_failed > 0 %}
+                        <div class="flex items-center gap-1">
+                            <span class="text-red-600 dark:text-red-400">Failed:</span>
+                            <span class="font-bold text-red-600 dark:text-red-400">{{ log.emails_failed }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="flex items-center px-4 text-gray-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center">
+        <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+        </svg>
+        <h3 class="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">No Email Logs Yet</h3>
+        <p class="text-gray-500 dark:text-gray-400">Email logs will appear here when announcements are sent with email notifications.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -112,11 +112,18 @@
     {% endif %}
 
     <!-- Action Buttons -->
-    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+    <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+        <!-- Skip button (smaller, less prominent) -->
+        <button type="button" onclick="confirmSkip()"
+           class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors">
+            Skip (Don't Send Emails)
+        </button>
+
+        <!-- Send button (prominent) -->
         <form method="POST" action="{% url 'send_announcement_emails' announcement.id %}">
             {% csrf_token %}
             <button type="submit"
-                    class="w-full sm:w-auto px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                    class="px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-lg"
                     {% if recipients_count == 0 %}disabled title="No recipients to send to"{% endif %}>
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
@@ -124,18 +131,46 @@
                 Send {{ recipients_count }} Email{% if recipients_count != 1 %}s{% endif %}
             </button>
         </form>
-
-        <a href="{% url 'skip_announcement_email' announcement.id %}"
-           class="w-full sm:w-auto px-8 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-            Skip Email (Keep Announcement)
-        </a>
     </div>
 
     <p class="text-center text-sm text-gray-500 dark:text-gray-400 mt-4">
         The announcement has already been created and is visible on the site. This step only controls whether to send email notifications.
     </p>
+
+    <!-- Skip Confirmation Modal -->
+    <div id="skipModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Skip Email Notifications?</h3>
+            <p class="text-gray-600 dark:text-gray-400 mb-4">
+                The announcement will remain visible on the site, but no email notifications will be sent to members.
+            </p>
+            <div class="flex gap-3 justify-end">
+                <button onclick="closeSkipModal()" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
+                    Cancel
+                </button>
+                <a href="{% url 'skip_announcement_email' announcement.id %}"
+                   class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors">
+                    Yes, Skip Emails
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function confirmSkip() {
+            document.getElementById('skipModal').classList.remove('hidden');
+        }
+        function closeSkipModal() {
+            document.getElementById('skipModal').classList.add('hidden');
+        }
+        // Close modal on escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeSkipModal();
+        });
+        // Close modal on backdrop click
+        document.getElementById('skipModal').addEventListener('click', function(e) {
+            if (e.target === this) closeSkipModal();
+        });
+    </script>
 </div>
 {% endblock %}

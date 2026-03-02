@@ -4512,5 +4512,105 @@ class NotificationLog(models.Model):
         return f"{self.title} - {self.status} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
 
 
+class AnnouncementEmailLog(models.Model):
+    """
+    Detailed log of announcement email sends.
+    Tracks the overall send attempt and metadata.
+    """
+    announcement = models.ForeignKey(
+        Announcement,
+        on_delete=models.CASCADE,
+        related_name='email_logs'
+    )
+    initiated_by = models.ForeignKey(
+        ParliamentUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='initiated_email_logs'
+    )
+
+    # Visibility settings at time of send
+    visible_to_raw = models.JSONField(null=True, blank=True, help_text='Original visibility setting')
+    expanded_member_types = models.JSONField(null=True, blank=True, help_text='Expanded member types targeted')
+
+    # Counts
+    total_active_users = models.IntegerField(default=0)
+    users_matching_visibility = models.IntegerField(default=0)
+    users_with_valid_email = models.IntegerField(default=0)
+    emails_sent = models.IntegerField(default=0)
+    emails_failed = models.IntegerField(default=0)
+
+    # Status
+    STATUS_CHOICES = (
+        ('started', 'Started'),
+        ('completed', 'Completed'),
+        ('partial', 'Partial (Some Failed)'),
+        ('failed', 'Failed'),
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='started')
+    error_message = models.TextField(blank=True)
+
+    # Debug console log - captures step-by-step what happened
+    console_log = models.TextField(blank=True, help_text='Detailed debug log of the send process')
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Announcement Email Log'
+        verbose_name_plural = 'Announcement Email Logs'
+
+    def __str__(self):
+        return f"Email Log for '{self.announcement.title}' - {self.status}"
+
+
+class AnnouncementEmailRecipient(models.Model):
+    """
+    Individual recipient record for an announcement email send.
+    Tracks whether each user received the email and why/why not.
+    """
+    email_log = models.ForeignKey(
+        AnnouncementEmailLog,
+        on_delete=models.CASCADE,
+        related_name='recipients'
+    )
+    user = models.ForeignKey(
+        ParliamentUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='announcement_email_receipts'
+    )
+
+    # User info at time of send (in case user is deleted later)
+    user_name = models.CharField(max_length=255)
+    user_email = models.EmailField(blank=True)
+    user_member_type = models.CharField(max_length=50)
+    user_member_status = models.CharField(max_length=50)
+
+    # Result
+    STATUS_CHOICES = (
+        ('sent', 'Sent'),
+        ('skipped_no_email', 'Skipped - No Email Address'),
+        ('skipped_disabled', 'Skipped - Notifications Disabled'),
+        ('skipped_visibility', 'Skipped - Not in Visibility'),
+        ('skipped_inactive', 'Skipped - Inactive Member'),
+        ('failed', 'Failed'),
+    )
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES)
+    error_message = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['status', 'user_name']
+        verbose_name = 'Email Recipient'
+        verbose_name_plural = 'Email Recipients'
+
+    def __str__(self):
+        return f"{self.user_name} - {self.get_status_display()}"
+
+
 # Import feature flags models
 from src.models_feature_flags import FeatureFlag, PageToggle

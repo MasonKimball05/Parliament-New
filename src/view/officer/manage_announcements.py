@@ -146,7 +146,7 @@ def send_announcement_emails(request, announcement_id):
     announcement = get_object_or_404(Announcement, id=announcement_id)
 
     try:
-        sent_count = send_announcement_notification(announcement)
+        sent_count = send_announcement_notification(announcement, initiated_by=request.user)
         messages.success(request, f'Announcement created and {sent_count} email notifications sent!')
     except Exception as e:
         messages.warning(request, f'Announcement created but email notifications failed: {str(e)}')
