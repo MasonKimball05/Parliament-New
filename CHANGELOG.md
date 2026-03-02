@@ -50,6 +50,70 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.8.0 - Officer Guide System, Notifications Dashboard & Expanded Guides (03-02-2026)
+Comprehensive documentation system with 17 in-app guides covering officer and member features, plus a centralized notifications dashboard for scheduling and monitoring.
+
+**Deployment Status:** Ready for Deployment
+
+**Key Features:**
+
+- **Officer Guide System**: Complete guide hub at `/guide/` with static documentation pages
+- **10 Officer Guides**: Events, Announcements, Attendance, Chapter Minutes, Managing Members, Slating, Kai Reports, Resolutions, Activity Logs, Kai Form Customization
+- **7 Member Guides**: Profile Management, Calendar & Subscription, Notifications, Submitting Excuses, Two-Factor Authentication, Member Directory, Global Search
+- **Interactive Tour Framework**: Model support for step-by-step walkthrough tours (GuideTour, GuideTourStep, UserTourProgress)
+- **Notifications Dashboard**: Admin v2 notification management at `/admin-v2/notifications/`
+- **Notification Scheduling**: Create scheduled notification reminders (event, vote, attendance, dues)
+- **Notification Logs**: View delivery history with filtering and detailed log views
+
+**Kai Bug Fixes:**
+
+- Fixed closure request visibility - now shows when outcome is set (not just when archived)
+- Added "Drop Case" option for submitters to withdraw complaints
+- Added accused user view for viewing reports and requesting closure
+- Fixed status display issues in user_view_report.html
+
+**Database Changes:**
+
+- Added `GuideTour`, `GuideTourStep`, `UserTourProgress` models for interactive tours
+- Added `GuideArticle` model for dynamic guide content
+- Added `NotificationSchedule` model for automated notification triggers
+- Added `NotificationLog` model for delivery tracking and analytics
+- Extended `KaiClosureRequest` with request_type choices (closure, drop, accused_closure)
+
+**New Files:**
+
+- `src/view/guide.py` - Guide system views (17 guide pages)
+- `src/view/notification_admin.py` - Notification dashboard views
+- `templates/guide/` - 17 guide templates across officers/ and members/ directories
+- `templates/admin_v2/notifications/` - Dashboard, schedules, and logs templates
+
+---
+
+### v2.6.4 - Kai Dashboard & Plurality Voting Enhancements (02-28-2026)
+Major feature release introducing a user-facing Kai report dashboard with closure request workflow, and enhanced plurality voting with multi-select and runoff capabilities.
+
+**Deployment Status:** Ready for Deployment
+
+**Key Features:**
+
+- **User Kai Dashboard**: Personal dashboard at `/kai/` showing all submitted reports with ability to view details and request closure
+- **Closure Request Workflow**: Users can request case closure; Kai chairs approve or deny with email notifications
+- **Kai Form Builder**: Chairs can customize the report form with additional fields (text, select, file upload, etc.)
+- **Multi-Select Plurality Voting**: Allow voters to select 1-10 options in plurality votes (chapter and committee)
+- **Runoff Voting**: Create runoff votes from top N options of close/tied plurality results
+- **Custom Field Responses**: View custom field data in manage report view
+
+**Database Changes:**
+
+- Added `KaiFormField` model for dynamic form field definitions
+- Added `KaiReportFieldResponse` model for custom field responses
+- Added `KaiClosureRequest` model for closure request workflow
+- Added plurality voting fields to `Legislation` and `CommitteeLegislation` models
+
+**[View Detailed Changelog](./changelogs/v2.6.4.md)**
+
+---
+
 ### v2.6.3 - Memory Optimization & Server Stability (02-23-2026)
 Comprehensive memory leak investigation and fixes to address steadily increasing RAM usage over time.
 
@@ -283,6 +347,25 @@ Builds on v2.0.0 security foundation with user-facing features and advanced prot
 For comprehensive technical details, migration guides, and implementation specifics:
 
 <ul>
+<li><strong><a href="./changelogs/v2.6.4.md">v2.6.4 - Kai Dashboard & Plurality Voting Enhancements</a></strong> (February 28, 2026)
+    <ul>
+    <li>User Kai Dashboard with report listing and details view</li>
+    <li>Closure request workflow with approval/denial</li>
+    <li>Form builder for custom Kai report fields</li>
+    <li>Multi-select plurality voting (1-10 options)</li>
+    <li>Runoff voting creation from top options</li>
+    <li>New models: KaiFormField, KaiReportFieldResponse, KaiClosureRequest</li>
+    </ul>
+</li>
+<li><strong><a href="./changelogs/v2.6.3.md">v2.6.3 - Memory Optimization & Server Stability</a></strong> (February 23, 2026)
+    <ul>
+    <li>PerformanceMiddleware memory optimization</li>
+    <li>Feature flags caching implementation</li>
+    <li>Gunicorn worker lifecycle improvements</li>
+    <li>Log rotation and cache optimization</li>
+    <li>New management commands for cleanup and diagnostics</li>
+    </ul>
+</li>
 <li><strong><a href="./changelogs/v2.6.0.md">v2.6.0 - Officer Member Management & Role Numbers</a></strong> (February 3, 2026)
     <ul>
     <li>In-app member management for officers (add, edit, delete)</li>
@@ -371,6 +454,25 @@ For comprehensive technical details, migration guides, and implementation specif
 ## Version History Summary
 
 <ul>
+<li><strong>v2.6.4</strong> (2026-02-28) - Kai Dashboard & Plurality Voting Enhancements
+    <ul>
+    <li>User Kai Dashboard showing submitted reports at /kai/</li>
+    <li>Closure request workflow (user requests, Kai chair approves/denies)</li>
+    <li>Form builder for Kai chairs to add custom fields</li>
+    <li>Multi-select plurality voting (1-10 selections)</li>
+    <li>Runoff voting for chapter and committee plurality votes</li>
+    <li>Custom field responses displayed in manage report view</li>
+    </ul>
+</li>
+<li><strong>v2.6.3</strong> (2026-02-23) - Memory Optimization & Server Stability
+    <ul>
+    <li>PerformanceMiddleware optimization (reduced stored requests)</li>
+    <li>Feature flags caching (60-second cache)</li>
+    <li>Gunicorn lifecycle improvements with cleanup hooks</li>
+    <li>Rotating log files and LocMemCache optimization</li>
+    <li>New cleanup_sessions and memory_report commands</li>
+    </ul>
+</li>
 <li><strong>v2.6.0</strong> (2026-02-03) - Officer Member Management & Role Numbers ✅
     <ul>
     <li>In-app member management for officers (add, edit, delete members)</li>
@@ -520,5 +622,5 @@ New changes will be documented in:
 
 ---
 
-**Last Updated:** 2026-02-03
-**Next Review:** 2026-03-03
+**Last Updated:** 2026-02-28
+**Next Review:** 2026-03-28
