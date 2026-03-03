@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.conf import settings
 from django.utils import timezone
 from django.db.models import Count, Q
+from django.db import transaction
 from datetime import datetime, timedelta
 from src.models_feature_flags import FeatureFlag, PageToggle, SiteSetting
 from src.models import (
@@ -1614,23 +1615,45 @@ def send_scheduled_announcement_email(request, announcement_id):
     """
     Manually trigger email send for a scheduled announcement.
     This allows admins to send emails immediately instead of waiting for cron.
+    Uses database locking to prevent race conditions with concurrent cron jobs.
     """
     import logging
     logger = logging.getLogger(__name__)
 
-    announcement = get_object_or_404(Announcement, id=announcement_id)
-
-    # Verify it's a pending scheduled announcement
-    if not announcement.send_email_on_publish:
-        messages.error(request, 'This announcement is not scheduled to send emails.')
-        return redirect('admin_v2_email_logs')
-
-    if announcement.email_sent_at:
-        messages.error(request, 'Emails have already been sent for this announcement.')
-        return redirect('admin_v2_email_logs')
-
     try:
-        # Send in-app notifications first (if announcement is now published)
+        with transaction.atomic():
+            # Lock the announcement row and verify it's still pending
+            # nowait=True means if the row is locked, raise an error immediately
+            announcement = Announcement.objects.select_for_update(
+                nowait=True
+            ).filter(
+                id=announcement_id,
+                send_email_on_publish=True,
+                email_sent_at__isnull=True,
+            ).first()
+
+            if not announcement:
+                # Check why it wasn't found
+                try:
+                    ann = Announcement.objects.get(id=announcement_id)
+                    if ann.email_sent_at:
+                        messages.error(request, 'Emails have already been sent for this announcement.')
+                    elif not ann.send_email_on_publish:
+                        messages.error(request, 'This announcement is not scheduled to send emails.')
+                    else:
+                        messages.error(request, 'Announcement not found.')
+                except Announcement.DoesNotExist:
+                    messages.error(request, 'Announcement not found.')
+                return redirect('admin_v2_email_logs')
+
+            # Mark as sent BEFORE sending (claim the announcement)
+            announcement.email_sent_at = timezone.now()
+            announcement.send_email_on_publish = False
+            announcement.save(update_fields=['email_sent_at', 'send_email_on_publish'])
+            announcement_title = announcement.title
+
+        # Now send notifications OUTSIDE the transaction (emails can be slow)
+        # The announcement is already marked as sent, so no other job will pick it up
         if announcement.is_published():
             try:
                 notify_all_active_members(
@@ -1650,16 +1673,14 @@ def send_scheduled_announcement_email(request, announcement_id):
             initiated_by=request.user
         )
 
-        # Mark as sent
-        announcement.email_sent_at = timezone.now()
-        announcement.send_email_on_publish = False
-        announcement.save(update_fields=['email_sent_at', 'send_email_on_publish'])
-
-        messages.success(request, f'Successfully sent {sent_count} email(s) for "{announcement.title}"')
+        messages.success(request, f'Successfully sent {sent_count} email(s) for "{announcement_title}"')
         logger.info(f"Admin manually sent announcement {announcement.id}: {sent_count} emails")
 
+    except transaction.DatabaseError:
+        # Row is locked by another process (cron job)
+        messages.warning(request, 'This announcement is currently being processed by another job. Please wait.')
     except Exception as e:
-        logger.error(f"Failed to send scheduled announcement {announcement.id}: {e}", exc_info=True)
+        logger.error(f"Failed to send scheduled announcement {announcement_id}: {e}", exc_info=True)
         messages.error(request, f'Failed to send emails: {str(e)}')
 
     return redirect('admin_v2_email_logs')

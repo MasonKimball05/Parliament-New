@@ -97,13 +97,16 @@ Feature enhancements and bug fixes for the announcement email system.
 **Key Features:**
 
 - **Email Logs Console Output**: Detailed step-by-step logging showing exactly what happens during email sends
-- **Scheduled Announcement Emails**: Announcements with future `publish_at` dates can now have emails sent automatically via cron job
+- **Scheduled Announcement Emails**: Announcements with future `publish_at` dates can now have emails sent automatically via cron job (every 5 minutes)
+- **Admin-v2 Manual Email Trigger**: Pending scheduled emails shown in Admin v2 → Email Logs with "Send Now" button
+- **Race Condition Protection**: Database row locking prevents duplicate emails when cron jobs overlap or admin triggers manually
 - **Email Confirmation UX**: Improved confirmation page with prominent Send button, smaller Skip link, and confirmation popup
 
 **Bug Fixes:**
 
 - Fixed system logs page (`/admin/view-logs/`) being completely blank due to log parsing format mismatch
 - Fixed email logs not appearing for new announcements by restructuring error handling with try/finally
+- Fixed announcement content cutoff on manage page - now shows "Show more/less" toggle for long content
 
 **Database Changes:**
 
@@ -112,7 +115,7 @@ Feature enhancements and bug fixes for the announcement email system.
 
 **New Files:**
 
-- `src/management/commands/process_scheduled_announcements.py` - Cron-based scheduled email processing
+- `src/management/commands/process_scheduled_announcements.py` - Cron-based scheduled email processing with race condition protection
 
 **[View Detailed Changelog](./changelogs/v2.7.1.md)**
 
@@ -379,10 +382,13 @@ For comprehensive technical details, migration guides, and implementation specif
 <li><strong><a href="./changelogs/v2.7.1.md">v2.7.1 - Announcement Email Improvements</a></strong> (March 2, 2026)
     <ul>
     <li>Email logs console output with detailed step-by-step logging</li>
-    <li>Scheduled announcement emails via cron job</li>
+    <li>Scheduled announcement emails via cron job (every 5 minutes)</li>
+    <li>Admin-v2 manual email trigger with "Send Now" button</li>
+    <li>Race condition protection using database row locking</li>
     <li>Email confirmation UX improvements</li>
     <li>Fixed system logs page blank issue</li>
     <li>Fixed email logs not appearing for new announcements</li>
+    <li>Fixed announcement content cutoff with expand/collapse toggle</li>
     </ul>
 </li>
 <li><strong><a href="./changelogs/v2.6.4.md">v2.6.4 - Kai Dashboard & Plurality Voting Enhancements</a></strong> (February 28, 2026)
@@ -496,9 +502,12 @@ For comprehensive technical details, migration guides, and implementation specif
     <ul>
     <li>Email logs console output with detailed step-by-step logging</li>
     <li>Scheduled announcement emails via cron job (every 5 minutes)</li>
+    <li>Admin-v2 manual email trigger with "Send Now" button for pending scheduled emails</li>
+    <li>Race condition protection using database row locking (prevents duplicate emails)</li>
     <li>Email confirmation UX: prominent Send, smaller Skip with popup</li>
     <li>Fixed system logs page (/admin/view-logs/) being blank</li>
     <li>Fixed email logs not appearing due to error handling issues</li>
+    <li>Fixed announcement content cutoff on manage page with expand/collapse toggle</li>
     <li>New management command: process_scheduled_announcements</li>
     </ul>
 </li>
