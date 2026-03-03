@@ -23,6 +23,8 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from src.logging_utils import get_client_ip
 from src.middleware.performance import get_performance_summary, get_slow_requests
+from src.notifications import send_announcement_notification
+from src.notification_service import notify_all_active_members
 
 
 ALLOWED_USER_ID = '73'  # Your user ID
@@ -1556,13 +1558,23 @@ def test_email_targeting(request):
 def email_logs(request):
     """
     View all announcement email logs with detailed send information.
+    Also shows pending scheduled announcements that haven't sent emails yet.
     """
+    # Get sent email logs
     logs = AnnouncementEmailLog.objects.select_related(
         'announcement', 'initiated_by'
     ).prefetch_related('recipients').order_by('-created_at')[:50]
 
+    # Get pending scheduled announcements (haven't sent emails yet)
+    pending_announcements = Announcement.objects.filter(
+        send_email_on_publish=True,
+        email_sent_at__isnull=True,
+        is_active=True,
+    ).select_related('posted_by').order_by('-posted_at')
+
     context = {
         'logs': logs,
+        'pending_announcements': pending_announcements,
     }
     return render(request, 'admin_v2/email_logs.html', context)
 
@@ -1594,3 +1606,60 @@ def email_log_detail(request, log_id):
         'status_counts': status_counts,
     }
     return render(request, 'admin_v2/email_log_detail.html', context)
+
+
+@require_admin_v2_auth
+@require_POST
+def send_scheduled_announcement_email(request, announcement_id):
+    """
+    Manually trigger email send for a scheduled announcement.
+    This allows admins to send emails immediately instead of waiting for cron.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    announcement = get_object_or_404(Announcement, id=announcement_id)
+
+    # Verify it's a pending scheduled announcement
+    if not announcement.send_email_on_publish:
+        messages.error(request, 'This announcement is not scheduled to send emails.')
+        return redirect('admin_v2_email_logs')
+
+    if announcement.email_sent_at:
+        messages.error(request, 'Emails have already been sent for this announcement.')
+        return redirect('admin_v2_email_logs')
+
+    try:
+        # Send in-app notifications first (if announcement is now published)
+        if announcement.is_published():
+            try:
+                notify_all_active_members(
+                    'announcement',
+                    f'New Announcement: {announcement.title}',
+                    message=announcement.content[:100],
+                    link='/announcements/',
+                    source_type='Announcement',
+                    source_id=announcement.id,
+                )
+            except Exception as e:
+                logger.error(f"Failed to create in-app notifications for announcement {announcement.id}: {e}")
+
+        # Send email notifications
+        sent_count = send_announcement_notification(
+            announcement,
+            initiated_by=request.user
+        )
+
+        # Mark as sent
+        announcement.email_sent_at = timezone.now()
+        announcement.send_email_on_publish = False
+        announcement.save(update_fields=['email_sent_at', 'send_email_on_publish'])
+
+        messages.success(request, f'Successfully sent {sent_count} email(s) for "{announcement.title}"')
+        logger.info(f"Admin manually sent announcement {announcement.id}: {sent_count} emails")
+
+    except Exception as e:
+        logger.error(f"Failed to send scheduled announcement {announcement.id}: {e}", exc_info=True)
+        messages.error(request, f'Failed to send emails: {str(e)}')
+
+    return redirect('admin_v2_email_logs')

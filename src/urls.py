@@ -51,7 +51,7 @@ from src.view.admin_v2 import (
     manage_ip_whitelist, manage_ip_blacklist, manage_security_alerts,
     update_site_setting, send_test_announcement_email, preview_test_email,
     health_check, check_default_password, test_email_targeting,
-    email_logs, email_log_detail
+    email_logs, email_log_detail, send_scheduled_announcement_email
 )
 from src.view.admin_v2 import manage_events as admin_v2_manage_events, delete_event as admin_v2_delete_event
 from src.view.notification_admin import (
@@ -433,6 +433,7 @@ urlpatterns = [
     path('admin-v2/test-email-targeting/', test_email_targeting, name='admin_v2_test_email_targeting'),
     path('admin-v2/email-logs/', email_logs, name='admin_v2_email_logs'),
     path('admin-v2/email-logs/<int:log_id>/', email_log_detail, name='admin_v2_email_log_detail'),
+    path('admin-v2/email-logs/send-scheduled/<int:announcement_id>/', send_scheduled_announcement_email, name='admin_v2_send_scheduled_email'),
     path('admin-v2/logout/', admin_v2_logout, name='admin_v2_logout'),
 
     # Admin v2 - Management Pages
