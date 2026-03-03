@@ -275,6 +275,68 @@ def send_announcement_notification(announcement, initiated_by=None):
     return sent_count
 
 
+def process_pending_scheduled_announcements():
+    """
+    Check for and process any scheduled announcements that are now due.
+    This should be called from frequently-accessed views (home, announcements).
+
+    Returns:
+        int: Number of announcements processed
+    """
+    from src.notification_service import notify_all_active_members
+
+    now = timezone.now()
+
+    # Find announcements that:
+    # 1. Have a publish_at date that has passed
+    # 2. Have send_email_on_publish=True
+    # 3. Haven't had emails sent yet (email_sent_at is null)
+    # 4. Are active
+    pending = Announcement.objects.filter(
+        publish_at__lte=now,
+        send_email_on_publish=True,
+        email_sent_at__isnull=True,
+        is_active=True,
+    )
+
+    processed = 0
+    for announcement in pending:
+        logger.info(f"[SCHEDULED] Processing scheduled announcement: {announcement.title} (ID: {announcement.id})")
+
+        try:
+            # Send in-app notifications
+            try:
+                notify_all_active_members(
+                    'announcement',
+                    f'New Announcement: {announcement.title}',
+                    message=announcement.content[:100],
+                    link='/announcements/',
+                    source_type='Announcement',
+                    source_id=announcement.id,
+                )
+            except Exception as e:
+                logger.error(f"[SCHEDULED] Failed to create in-app notifications: {e}")
+
+            # Send email notifications
+            send_announcement_notification(
+                announcement,
+                initiated_by=announcement.posted_by
+            )
+
+            # Mark as sent
+            announcement.email_sent_at = timezone.now()
+            announcement.send_email_on_publish = False
+            announcement.save(update_fields=['email_sent_at', 'send_email_on_publish'])
+
+            processed += 1
+            logger.info(f"[SCHEDULED] Successfully processed announcement {announcement.id}")
+
+        except Exception as e:
+            logger.error(f"[SCHEDULED] Failed to process announcement {announcement.id}: {e}", exc_info=True)
+
+    return processed
+
+
 def get_unread_announcements(user):
     """
     Get announcements that the user hasn't dismissed yet

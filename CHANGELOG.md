@@ -89,6 +89,35 @@ Comprehensive documentation system with 17 in-app guides covering officer and me
 
 ---
 
+### v2.7.1 - Announcement Email Improvements (03-02-2026)
+Feature enhancements and bug fixes for the announcement email system.
+
+**Deployment Status:** Ready for Deployment
+
+**Key Features:**
+
+- **Email Logs Console Output**: Detailed step-by-step logging showing exactly what happens during email sends
+- **Scheduled Announcement Emails**: Announcements with future `publish_at` dates can now have emails sent automatically via cron job
+- **Email Confirmation UX**: Improved confirmation page with prominent Send button, smaller Skip link, and confirmation popup
+
+**Bug Fixes:**
+
+- Fixed system logs page (`/admin/view-logs/`) being completely blank due to log parsing format mismatch
+- Fixed email logs not appearing for new announcements by restructuring error handling with try/finally
+
+**Database Changes:**
+
+- Added `console_log` field to `AnnouncementEmailLog` model
+- Added `send_email_on_publish` and `email_sent_at` fields to `Announcement` model
+
+**New Files:**
+
+- `src/management/commands/process_scheduled_announcements.py` - Cron-based scheduled email processing
+
+**[View Detailed Changelog](./changelogs/v2.7.1.md)**
+
+---
+
 ### v2.6.4 - Kai Dashboard & Plurality Voting Enhancements (02-28-2026)
 Major feature release introducing a user-facing Kai report dashboard with closure request workflow, and enhanced plurality voting with multi-select and runoff capabilities.
 
@@ -347,6 +376,15 @@ Builds on v2.0.0 security foundation with user-facing features and advanced prot
 For comprehensive technical details, migration guides, and implementation specifics:
 
 <ul>
+<li><strong><a href="./changelogs/v2.7.1.md">v2.7.1 - Announcement Email Improvements</a></strong> (March 2, 2026)
+    <ul>
+    <li>Email logs console output with detailed step-by-step logging</li>
+    <li>Scheduled announcement emails via cron job</li>
+    <li>Email confirmation UX improvements</li>
+    <li>Fixed system logs page blank issue</li>
+    <li>Fixed email logs not appearing for new announcements</li>
+    </ul>
+</li>
 <li><strong><a href="./changelogs/v2.6.4.md">v2.6.4 - Kai Dashboard & Plurality Voting Enhancements</a></strong> (February 28, 2026)
     <ul>
     <li>User Kai Dashboard with report listing and details view</li>
@@ -454,6 +492,16 @@ For comprehensive technical details, migration guides, and implementation specif
 ## Version History Summary
 
 <ul>
+<li><strong>v2.7.1</strong> (2026-03-02) - Announcement Email Improvements
+    <ul>
+    <li>Email logs console output with detailed step-by-step logging</li>
+    <li>Scheduled announcement emails via cron job (every 5 minutes)</li>
+    <li>Email confirmation UX: prominent Send, smaller Skip with popup</li>
+    <li>Fixed system logs page (/admin/view-logs/) being blank</li>
+    <li>Fixed email logs not appearing due to error handling issues</li>
+    <li>New management command: process_scheduled_announcements</li>
+    </ul>
+</li>
 <li><strong>v2.6.4</strong> (2026-02-28) - Kai Dashboard & Plurality Voting Enhancements
     <ul>
     <li>User Kai Dashboard showing submitted reports at /kai/</li>
@@ -622,5 +670,5 @@ New changes will be documented in:
 
 ---
 
-**Last Updated:** 2026-02-28
-**Next Review:** 2026-03-28
+**Last Updated:** 2026-03-02
+**Next Review:** 2026-04-02

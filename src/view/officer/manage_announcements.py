@@ -34,10 +34,15 @@ def create_announcement(request):
         if form.is_valid():
             announcement = form.save(commit=False)
             announcement.posted_by = request.user
-            announcement.save()
 
             # Check if user wants to send email notifications
             send_email = request.POST.get('send_email') == 'on'
+
+            # If scheduled for later and user wants emails, remember that preference
+            if not announcement.is_published() and send_email:
+                announcement.send_email_on_publish = True
+
+            announcement.save()
 
             # Send in-app notification to all active members (always, if published)
             if announcement.is_published():
@@ -58,6 +63,8 @@ def create_announcement(request):
                 return redirect('confirm_announcement_email', announcement_id=announcement.id)
             elif announcement.is_published():
                 messages.success(request, 'Announcement created successfully!')
+            elif send_email:
+                messages.success(request, 'Announcement scheduled! Emails will be sent automatically when published.')
             else:
                 messages.success(request, 'Announcement created and scheduled for publication!')
 

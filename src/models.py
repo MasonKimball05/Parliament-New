@@ -1286,6 +1286,9 @@ class Announcement(models.Model):
         blank=True,
         help_text='Select which member types can see this announcement. Leave empty for all members.'
     )
+    # Email scheduling fields
+    send_email_on_publish = models.BooleanField(default=False, help_text='Send email notifications when this announcement is published')
+    email_sent_at = models.DateTimeField(null=True, blank=True, help_text='When email notifications were sent')
 
     class Meta:
         ordering = ['-posted_at']
