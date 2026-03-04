@@ -100,6 +100,7 @@ Feature enhancements and bug fixes for the announcement email system.
 - **Scheduled Announcement Emails**: Announcements with future `publish_at` dates can now have emails sent automatically via cron job (every 5 minutes)
 - **Admin-v2 Manual Email Trigger**: Pending scheduled emails shown in Admin v2 → Email Logs with "Send Now" button
 - **Race Condition Protection**: Database row locking prevents duplicate emails when cron jobs overlap or admin triggers manually
+- **Clickable Home Page Cards**: Statistics cards (Members, Votes, Events, Committees) now link to their respective pages *(suggested by Calin Cox)*
 - **Email Confirmation UX**: Improved confirmation page with prominent Send button, smaller Skip link, and confirmation popup
 
 **Bug Fixes:**
@@ -385,6 +386,7 @@ For comprehensive technical details, migration guides, and implementation specif
     <li>Scheduled announcement emails via cron job (every 5 minutes)</li>
     <li>Admin-v2 manual email trigger with "Send Now" button</li>
     <li>Race condition protection using database row locking</li>
+    <li>Clickable home page statistics cards</li>
     <li>Email confirmation UX improvements</li>
     <li>Fixed system logs page blank issue</li>
     <li>Fixed email logs not appearing for new announcements</li>
@@ -504,6 +506,7 @@ For comprehensive technical details, migration guides, and implementation specif
     <li>Scheduled announcement emails via cron job (every 5 minutes)</li>
     <li>Admin-v2 manual email trigger with "Send Now" button for pending scheduled emails</li>
     <li>Race condition protection using database row locking (prevents duplicate emails)</li>
+    <li>Clickable home page statistics cards (Members, Votes, Events, Committees)</li>
     <li>Email confirmation UX: prominent Send, smaller Skip with popup</li>
     <li>Fixed system logs page (/admin/view-logs/) being blank</li>
     <li>Fixed email logs not appearing due to error handling issues</li>
