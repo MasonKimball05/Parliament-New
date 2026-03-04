@@ -19,16 +19,16 @@
 
     <!-- Statistics Cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition-colors duration-200">
+        <a href="{% url 'member_directory' %}" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition-all duration-200 hover:shadow-lg hover:scale-[1.02]">
             <div class="flex items-center justify-between mb-2">
                 <span class="text-2xl">👥</span>
                 <span class="text-xs text-gray-500 dark:text-gray-400">Active</span>
             </div>
             <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ total_active_members }}</div>
             <div class="text-xs text-gray-600 dark:text-gray-400">Members</div>
-        </div>
+        </a>
 
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition-colors duration-200">
+        <a href="{% url 'vote' %}" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition-all duration-200 hover:shadow-lg hover:scale-[1.02]">
             <div class="flex items-center justify-between mb-2">
                 <span class="text-2xl">🗳️</span>
                 {% if pending_votes %}
@@ -45,25 +45,25 @@
                     Open Votes
                 {% endif %}
             </div>
-        </div>
+        </a>
 
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition-colors duration-200">
+        <a href="{% url 'calendar' %}" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition-all duration-200 hover:shadow-lg hover:scale-[1.02]">
             <div class="flex items-center justify-between mb-2">
                 <span class="text-2xl">📅</span>
                 <span class="text-xs text-gray-500 dark:text-gray-400">This week</span>
             </div>
             <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ upcoming_events_count }}</div>
             <div class="text-xs text-gray-600 dark:text-gray-400">Events</div>
-        </div>
+        </a>
 
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition-colors duration-200">
+        <a href="{% url 'committee_index' %}" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition-all duration-200 hover:shadow-lg hover:scale-[1.02]">
             <div class="flex items-center justify-between mb-2">
                 <span class="text-2xl">👔</span>
                 <span class="text-xs text-gray-500 dark:text-gray-400">Yours</span>
             </div>
             <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ user_committees_count }}</div>
             <div class="text-xs text-gray-600 dark:text-gray-400">Committee{{ user_committees_count|pluralize }}</div>
-        </div>
+        </a>
     </div>
 
     <!-- Pending Votes Alert -->
