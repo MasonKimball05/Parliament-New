@@ -43,9 +43,9 @@ class Command(BaseCommand):
                 'is_enabled': False,
             },
             {
-                'name': 'chat_system',
+                'name': 'chats',
                 'display_name': 'Chat System',
-                'description': 'Enable channel-based chat system',
+                'description': 'Enable channel-based chat system. When disabled, all chat functionality and polling is stopped.',
                 'category': 'features',
                 'is_enabled': True,
             },

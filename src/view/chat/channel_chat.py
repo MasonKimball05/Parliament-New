@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseForbidden
 from django.utils import timezone
 from src.models import ChatChannel, ChatMessage, ChatReadReceipt, Committee
-from src.models_feature_flags import SiteSetting
+from src.models_feature_flags import SiteSetting, FeatureFlag
 from src.feature_flag_decorators import require_feature_flag
 
 
@@ -79,6 +79,9 @@ def channel_chat(request, channel_id=None, code=None):
     chat_inactive_poll_interval = SiteSetting.get_setting('chat_inactive_poll_interval', 20000)
     chat_active_users_poll_interval = SiteSetting.get_setting('chat_active_users_poll_interval', 5000)
 
+    # Check if chat feature is enabled (for JavaScript polling control)
+    chat_enabled = FeatureFlag.is_feature_enabled('chats')
+
     return render(request, 'chat/channel.html', {
         'channel': channel,
         'initial_messages': messages,
@@ -92,6 +95,7 @@ def channel_chat(request, channel_id=None, code=None):
         'chat_active_poll_interval': chat_active_poll_interval,
         'chat_inactive_poll_interval': chat_inactive_poll_interval,
         'chat_active_users_poll_interval': chat_active_users_poll_interval,
+        'chat_enabled': chat_enabled,
     })
 
 

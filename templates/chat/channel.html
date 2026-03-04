@@ -107,7 +107,7 @@
                     <div class="flex-1 min-w-0">
                         <div class="flex flex-wrap items-baseline gap-1 sm:gap-2 mb-1">
                             <span class="font-bold text-gray-900 dark:text-gray-100 text-sm sm:text-base">{{ msg.sender.name }}</span>
-                            <span class="text-xs text-gray-500 dark:text-gray-400">{{ msg.created_at|date:"g:i A" }}</span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">{{ msg.created_at|date:"M j, g:i A" }}</span>
                             {% if msg.edited_at %}
                                 <span class="text-xs text-gray-400 dark:text-gray-500 italic">(edited)</span>
                             {% endif %}
@@ -220,6 +220,9 @@
         }
     {% endif %}
 
+    // Chat feature flag (controls whether polling is active)
+    const CHAT_ENABLED = {{ chat_enabled|yesno:"true,false" }};
+
     // Configurable polling intervals (from admin settings)
     const ACTIVE_POLL_INTERVAL = {{ chat_active_poll_interval|default:3000 }};
     const INACTIVE_POLL_INTERVAL = {{ chat_inactive_poll_interval|default:20000 }};
@@ -234,6 +237,12 @@
         // Clear existing intervals
         if (messagesPollInterval) clearInterval(messagesPollInterval);
         if (activeUsersPollInterval) clearInterval(activeUsersPollInterval);
+
+        // Don't start polling if chat feature is disabled
+        if (!CHAT_ENABLED) {
+            document.getElementById('poll-status').textContent = `⊘ Chat feature is disabled`;
+            return;
+        }
 
         if (isVisible) {
             // Active: use configured active poll intervals
@@ -267,6 +276,7 @@
 
     function pollForMessages() {
         if (isPolling) return;
+        if (!CHAT_ENABLED) return;  // Don't poll if chat is disabled
         isPolling = true;
 
         let url = getApiUrl('messages/');
@@ -275,7 +285,16 @@
         }
 
         fetch(url)
-            .then(response => response.json())
+            .then(response => {
+                if (response.status === 403) {
+                    // Feature was disabled - stop polling
+                    if (messagesPollInterval) clearInterval(messagesPollInterval);
+                    if (activeUsersPollInterval) clearInterval(activeUsersPollInterval);
+                    document.getElementById('poll-status').textContent = `⊘ Chat feature has been disabled`;
+                    throw new Error('Chat feature disabled');
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.messages && data.messages.length > 0) {
                     data.messages.forEach(msg => {
@@ -292,7 +311,11 @@
                 const interval = isPageVisible ? (ACTIVE_POLL_INTERVAL/1000) : (INACTIVE_POLL_INTERVAL/1000);
                 document.getElementById('poll-status').textContent = `${indicator} ${mode} - polling every ${interval}s - last: ${now}`;
             })
-            .catch(error => console.error('Error polling messages:', error))
+            .catch(error => {
+                if (error.message !== 'Chat feature disabled') {
+                    console.error('Error polling messages:', error);
+                }
+            })
             .finally(() => {
                 isPolling = false;
             });
@@ -384,7 +407,11 @@
             return;
         }
 
-        const timestamp = new Date(msg.created_at).toLocaleTimeString('en-US', {
+        const msgDate = new Date(msg.created_at);
+        const timestamp = msgDate.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric'
+        }) + ', ' + msgDate.toLocaleTimeString('en-US', {
             hour: 'numeric',
             minute: '2-digit'
         });
@@ -641,8 +668,18 @@
 
     // Update active users list
     function updateActiveUsers() {
+        if (!CHAT_ENABLED) return;  // Don't poll if chat is disabled
+
         fetch(getApiUrl('active/'))
-            .then(response => response.json())
+            .then(response => {
+                if (response.status === 403) {
+                    // Feature was disabled - stop polling
+                    if (messagesPollInterval) clearInterval(messagesPollInterval);
+                    if (activeUsersPollInterval) clearInterval(activeUsersPollInterval);
+                    throw new Error('Chat feature disabled');
+                }
+                return response.json();
+            })
             .then(data => {
                 const count = data.count;
                 const users = data.active_users;
@@ -661,7 +698,11 @@
                     }).join('');
                 }
             })
-            .catch(error => console.error('Error fetching active users:', error));
+            .catch(error => {
+                if (error.message !== 'Chat feature disabled') {
+                    console.error('Error fetching active users:', error);
+                }
+            });
     }
 
     // Initial scroll

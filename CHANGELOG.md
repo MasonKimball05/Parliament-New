@@ -89,6 +89,24 @@ Comprehensive documentation system with 17 in-app guides covering officer and me
 
 ---
 
+### v2.7.2 - Chat & Bug Report Improvements (03-03-2026)
+Chat system improvements and bug report email fix.
+
+**Deployment Status:** Ready for Deployment
+
+**Key Features:**
+
+- **Chat Timestamps Include Date**: Messages now display "Mar 3, 4:30 PM" instead of just "4:30 PM"
+- **Chat Feature Flag with Polling Control**: The `chats` feature flag now properly controls all chat functionality including JavaScript polling. When disabled, polling stops gracefully.
+
+**Bug Fixes:**
+
+- Fixed bug report email notifications not sending when using Brevo (Anymail) - was incorrectly checking for `EMAIL_HOST_USER` instead of `BREVO_API_KEY`
+
+**[View Detailed Changelog](./changelogs/v2.7.2.md)**
+
+---
+
 ### v2.7.1 - Announcement Email Improvements (03-02-2026)
 Feature enhancements and bug fixes for the announcement email system.
 
@@ -380,6 +398,13 @@ Builds on v2.0.0 security foundation with user-facing features and advanced prot
 For comprehensive technical details, migration guides, and implementation specifics:
 
 <ul>
+<li><strong><a href="./changelogs/v2.7.2.md">v2.7.2 - Chat & Bug Report Improvements</a></strong> (March 3, 2026)
+    <ul>
+    <li>Chat message timestamps now include date</li>
+    <li>Chat feature flag with polling control</li>
+    <li>Fixed bug report email notifications for Brevo</li>
+    </ul>
+</li>
 <li><strong><a href="./changelogs/v2.7.1.md">v2.7.1 - Announcement Email Improvements</a></strong> (March 2, 2026)
     <ul>
     <li>Email logs console output with detailed step-by-step logging</li>
@@ -500,6 +525,13 @@ For comprehensive technical details, migration guides, and implementation specif
 ## Version History Summary
 
 <ul>
+<li><strong>v2.7.2</strong> (2026-03-03) - Chat & Bug Report Improvements
+    <ul>
+    <li>Chat message timestamps now include date (e.g., "Mar 3, 4:30 PM")</li>
+    <li>Chat feature flag with polling control - disabling stops all polling</li>
+    <li>Fixed bug report email notifications for Brevo (Anymail)</li>
+    </ul>
+</li>
 <li><strong>v2.7.1</strong> (2026-03-02) - Announcement Email Improvements
     <ul>
     <li>Email logs console output with detailed step-by-step logging</li>

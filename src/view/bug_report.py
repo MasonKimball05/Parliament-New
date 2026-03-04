@@ -296,10 +296,17 @@ def send_bug_report_notification(bug_report, request):
     logger = logging.getLogger('src')
 
     try:
-        # Check if email is properly configured
-        if not getattr(settings, 'EMAIL_HOST_USER', None):
-            logger.warning("[BUG REPORT EMAIL] EMAIL_HOST_USER not configured - skipping email notification")
-            return  # Email not configured, skip silently
+        # Check if email backend is the console backend (dev mode)
+        email_backend = getattr(settings, 'EMAIL_BACKEND', '')
+        is_console_backend = 'console' in email_backend.lower()
+
+        # Check if we have valid email credentials (SMTP or Brevo)
+        has_smtp = bool(getattr(settings, 'EMAIL_HOST_USER', ''))
+        has_brevo = bool(getattr(settings, 'ANYMAIL', {}).get('BREVO_API_KEY', ''))
+
+        if not has_smtp and not has_brevo and not is_console_backend:
+            logger.warning("[BUG REPORT EMAIL] No email credentials configured - skipping email notification")
+            return
 
         # Get admin email (you can configure this in settings)
         admin_email = getattr(settings, 'BUG_REPORT_EMAIL', 'mason.kimball@icloud.com')
