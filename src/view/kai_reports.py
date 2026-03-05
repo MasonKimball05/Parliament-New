@@ -333,7 +333,7 @@ def export_kai_reports_csv(request):
     # Check if user is a Kai chair
     try:
         kai_committee = Committee.objects.get(code='KAI')
-        if not kai_committee.is_chair(request.user) and not request.user.is_admin:
+        if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can export reports.')
             return redirect('home')
     except Committee.DoesNotExist:
@@ -454,7 +454,7 @@ def manage_kai_report(request, report_id):
     # Check if user is a Kai chair
     try:
         kai_committee = Committee.objects.get(code='KAI')
-        if not kai_committee.is_chair(request.user) and not request.user.is_admin:
+        if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can manage reports.')
             return redirect('home')
     except Committee.DoesNotExist:
@@ -1108,7 +1108,7 @@ def print_kai_report(request, report_id):
     # Check if user is a Kai chair or admin
     try:
         kai_committee = Committee.objects.get(code='KAI')
-        if not kai_committee.is_chair(request.user) and not request.user.is_admin:
+        if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can view report details.')
             return redirect('home')
     except Committee.DoesNotExist:
@@ -1138,7 +1138,7 @@ def kai_dashboard(request):
     # Check if user is a Kai chair or admin
     try:
         kai_committee = Committee.objects.get(code='KAI')
-        if not kai_committee.is_chair(request.user) and not request.user.is_admin:
+        if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can access the dashboard.')
             return redirect('home')
     except Committee.DoesNotExist:
@@ -1240,7 +1240,7 @@ def bulk_actions_kai_reports(request):
     # Check if user is a Kai chair or admin
     try:
         kai_committee = Committee.objects.get(code='KAI')
-        if not kai_committee.is_chair(request.user) and not request.user.is_admin:
+        if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can perform bulk actions.')
             return redirect('home')
     except Committee.DoesNotExist:
@@ -1357,7 +1357,7 @@ def manage_kai_templates(request):
     # Check if user is a Kai chair or admin
     try:
         kai_committee = Committee.objects.get(code='KAI')
-        if not kai_committee.is_chair(request.user) and not request.user.is_admin:
+        if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can manage templates.')
             return redirect('home')
     except Committee.DoesNotExist:
@@ -1381,7 +1381,7 @@ def create_kai_template(request):
     # Check if user is a Kai chair or admin
     try:
         kai_committee = Committee.objects.get(code='KAI')
-        if not kai_committee.is_chair(request.user) and not request.user.is_admin:
+        if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can create templates.')
             return redirect('home')
     except Committee.DoesNotExist:
@@ -1428,7 +1428,7 @@ def edit_kai_template(request, template_id):
     # Check if user is a Kai chair or admin
     try:
         kai_committee = Committee.objects.get(code='KAI')
-        if not kai_committee.is_chair(request.user) and not request.user.is_admin:
+        if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can edit templates.')
             return redirect('home')
     except Committee.DoesNotExist:
@@ -1465,7 +1465,7 @@ def delete_kai_template(request, template_id):
     # Check if user is a Kai chair or admin
     try:
         kai_committee = Committee.objects.get(code='KAI')
-        if not kai_committee.is_chair(request.user) and not request.user.is_admin:
+        if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can delete templates.')
             return redirect('home')
     except Committee.DoesNotExist:
