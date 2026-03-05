@@ -64,7 +64,7 @@ def user_kai_dashboard(request):
     is_kai_chair = False
     try:
         kai_committee = Committee.objects.get(code='KAI')
-        is_kai_chair = kai_committee.is_chair(user) or user.is_admin
+        is_kai_chair = kai_committee.is_chair(user)
     except Committee.DoesNotExist:
         pass
 
