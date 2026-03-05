@@ -213,7 +213,7 @@ def view_kai_reports(request):
     # Check if user is a Kai chair
     try:
         kai_committee = Committee.objects.get(code='KAI')
-        if not kai_committee.is_chair(request.user) and not request.user.is_admin:
+        if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can access this page.')
             return redirect('home')
     except Committee.DoesNotExist:
