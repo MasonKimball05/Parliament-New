@@ -66,15 +66,18 @@
                         </div>
                         {% endif %}
                     </div>
-                    <form method="post" action="{% url 'admin_v2_send_scheduled_email' announcement.id %}" class="flex-shrink-0">
+                    <form method="post" action="{% url 'admin_v2_send_scheduled_email' announcement.id %}" class="flex-shrink-0 send-now-form">
                         {% csrf_token %}
                         <button type="submit"
-                                onclick="return confirm('Send emails for this announcement now?')"
-                                class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                class="send-now-btn px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+                            <svg class="send-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
                             </svg>
-                            Send Now
+                            <svg class="send-spinner hidden animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span class="send-text">Send Now</span>
                         </button>
                     </form>
                 </div>
@@ -162,4 +165,35 @@
         {% endif %}
     {% endif %}
 </div>
+
+<script>
+// Prevent double form submission for all "Send Now" buttons
+document.querySelectorAll('.send-now-form').forEach(function(form) {
+    form.addEventListener('submit', function(e) {
+        const btn = form.querySelector('.send-now-btn');
+        const icon = form.querySelector('.send-icon');
+        const spinner = form.querySelector('.send-spinner');
+        const text = form.querySelector('.send-text');
+
+        // If already submitting, prevent duplicate submission
+        if (btn.disabled) {
+            e.preventDefault();
+            return false;
+        }
+
+        // Show confirmation dialog
+        if (!confirm('Send emails for this announcement now?')) {
+            e.preventDefault();
+            return false;
+        }
+
+        // Disable button and show loading state
+        btn.disabled = true;
+        btn.classList.add('opacity-75', 'cursor-not-allowed');
+        icon.classList.add('hidden');
+        spinner.classList.remove('hidden');
+        text.textContent = 'Sending...';
+    });
+});
+</script>
 {% endblock %}

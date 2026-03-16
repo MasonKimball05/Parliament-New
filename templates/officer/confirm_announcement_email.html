@@ -120,15 +120,19 @@
         </button>
 
         <!-- Send button (prominent) -->
-        <form method="POST" action="{% url 'send_announcement_emails' announcement.id %}">
+        <form method="POST" action="{% url 'send_announcement_emails' announcement.id %}" id="send-email-form">
             {% csrf_token %}
-            <button type="submit"
+            <button type="submit" id="send-btn"
                     class="px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-lg"
                     {% if recipients_count == 0 %}disabled title="No recipients to send to"{% endif %}>
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg id="send-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                 </svg>
-                Send {{ recipients_count }} Email{% if recipients_count != 1 %}s{% endif %}
+                <svg id="send-spinner" class="hidden animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span id="send-text">Send {{ recipients_count }} Email{% if recipients_count != 1 %}s{% endif %}</span>
             </button>
         </form>
     </div>
@@ -170,6 +174,27 @@
         // Close modal on backdrop click
         document.getElementById('skipModal').addEventListener('click', function(e) {
             if (e.target === this) closeSkipModal();
+        });
+
+        // Prevent double form submission
+        document.getElementById('send-email-form').addEventListener('submit', function(e) {
+            const sendBtn = document.getElementById('send-btn');
+            const sendIcon = document.getElementById('send-icon');
+            const sendSpinner = document.getElementById('send-spinner');
+            const sendText = document.getElementById('send-text');
+
+            // If already submitting, prevent duplicate submission
+            if (sendBtn.disabled) {
+                e.preventDefault();
+                return false;
+            }
+
+            // Disable button and show loading state
+            sendBtn.disabled = true;
+            sendBtn.classList.add('opacity-75', 'cursor-not-allowed');
+            sendIcon.classList.add('hidden');
+            sendSpinner.classList.remove('hidden');
+            sendText.textContent = 'Sending...';
         });
     </script>
 </div>
