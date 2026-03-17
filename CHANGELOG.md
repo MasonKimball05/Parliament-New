@@ -63,7 +63,7 @@ Bug fixes for mobile layout issues and VPP role access control.
 - **VPP Role Check Case-Insensitive**: VPP role check now uses `code__iexact='VPP'` to match regardless of case (VPP, vpp, Vpp, etc.)
 - **VPP Decorator Improvements**: Added `functools.wraps` for proper function metadata preservation; DEBUG mode bypass for dev testing only
 
-**[View Detailed Changelog](./changelogs/v2.8.2.md)**
+**[View Detailed Changelog](changelogs/v2.8.1.md)**
 
 ---
 
@@ -109,7 +109,7 @@ Comprehensive service hours tracking system for members and VPP officers, plus d
 
 - Added `openpyxl==3.1.2` for Excel export functionality
 
-**[View Detailed Changelog](./changelogs/v2.8.1.md)**
+**[View Detailed Changelog](changelogs/v2.8.0.md)**
 
 ---
 
@@ -461,7 +461,7 @@ Builds on v2.0.0 security foundation with user-facing features and advanced prot
 For comprehensive technical details, migration guides, and implementation specifics:
 
 <ul>
-<li><strong><a href="./changelogs/v2.8.2.md">v2.8.2 - Mobile UI Fixes & VPP Access Fix</a></strong> (March 16, 2026)
+<li><strong><a href="changelogs/v2.8.1.md">v2.8.2 - Mobile UI Fixes & VPP Access Fix</a></strong> (March 16, 2026)
     <ul>
     <li>Fixed long URLs overflowing in home page announcements on mobile</li>
     <li>Fixed committee page button labels and dropdown positioning on mobile</li>
@@ -470,7 +470,7 @@ For comprehensive technical details, migration guides, and implementation specif
     <li>Added functools.wraps to vpp_required decorator</li>
     </ul>
 </li>
-<li><strong><a href="./changelogs/v2.8.1.md">v2.8.1 - Service Hours System & Directory Export</a></strong> (March 16, 2026)
+<li><strong><a href="changelogs/v2.8.0.md">v2.8.1 - Service Hours System & Directory Export</a></strong> (March 16, 2026)
     <ul>
     <li>Complete service hours tracking system for members and VPP officers</li>
     <li>Member dashboard with progress tracking and submission history</li>
