@@ -50,7 +50,7 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
-### v2.8.2 - Mobile UI Fixes & VPP Access Fix (03-16-2026)
+### v2.8.1 - Mobile UI Fixes & VPP Access Fix (03-16-2026)
 Bug fixes for mobile layout issues and VPP role access control.
 
 **Deployment Status:** Ready for Deployment
@@ -67,7 +67,7 @@ Bug fixes for mobile layout issues and VPP role access control.
 
 ---
 
-### v2.8.1 - Service Hours System & Directory Export (03-16-2026)
+### v2.8.0 - Service Hours System & Directory Export (03-16-2026)
 Comprehensive service hours tracking system for members and VPP officers, plus directory export functionality and mobile UI improvements.
 
 **Deployment Status:** Ready for Deployment
