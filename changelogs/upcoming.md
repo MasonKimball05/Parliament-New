@@ -1,4 +1,4 @@
-# Parliament v2.8.0 - Upcoming Features
+# Parliament - Upcoming Features
 
 **Status:** Planning / Research Phase
 **Last Updated:** February 28, 2026

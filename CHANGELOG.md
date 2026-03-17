@@ -50,7 +50,7 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
-### v2.9.1 - Mobile UI Fixes & VPP Access Fix (03-16-2026)
+### v2.8.2 - Mobile UI Fixes & VPP Access Fix (03-16-2026)
 Bug fixes for mobile layout issues and VPP role access control.
 
 **Deployment Status:** Ready for Deployment
@@ -63,9 +63,11 @@ Bug fixes for mobile layout issues and VPP role access control.
 - **VPP Role Check Case-Insensitive**: VPP role check now uses `code__iexact='VPP'` to match regardless of case (VPP, vpp, Vpp, etc.)
 - **VPP Decorator Improvements**: Added `functools.wraps` for proper function metadata preservation; DEBUG mode bypass for dev testing only
 
+**[View Detailed Changelog](./changelogs/v2.8.2.md)**
+
 ---
 
-### v2.9.0 - Service Hours System & Directory Export (03-16-2026)
+### v2.8.1 - Service Hours System & Directory Export (03-16-2026)
 Comprehensive service hours tracking system for members and VPP officers, plus directory export functionality and mobile UI improvements.
 
 **Deployment Status:** Ready for Deployment
@@ -106,6 +108,8 @@ Comprehensive service hours tracking system for members and VPP officers, plus d
 **Dependencies:**
 
 - Added `openpyxl==3.1.2` for Excel export functionality
+
+**[View Detailed Changelog](./changelogs/v2.8.1.md)**
 
 ---
 
@@ -457,6 +461,25 @@ Builds on v2.0.0 security foundation with user-facing features and advanced prot
 For comprehensive technical details, migration guides, and implementation specifics:
 
 <ul>
+<li><strong><a href="./changelogs/v2.8.2.md">v2.8.2 - Mobile UI Fixes & VPP Access Fix</a></strong> (March 16, 2026)
+    <ul>
+    <li>Fixed long URLs overflowing in home page announcements on mobile</li>
+    <li>Fixed committee page button labels and dropdown positioning on mobile</li>
+    <li>Fixed footer link stacking on mobile</li>
+    <li>VPP role check now case-insensitive</li>
+    <li>Added functools.wraps to vpp_required decorator</li>
+    </ul>
+</li>
+<li><strong><a href="./changelogs/v2.8.1.md">v2.8.1 - Service Hours System & Directory Export</a></strong> (March 16, 2026)
+    <ul>
+    <li>Complete service hours tracking system for members and VPP officers</li>
+    <li>Member dashboard with progress tracking and submission history</li>
+    <li>Service periods with configurable requirements and approval workflows</li>
+    <li>Form builder for custom fields with built-in field display</li>
+    <li>Directory export to CSV, TXT, and Excel formats</li>
+    <li>6 new database models, vpp_required decorator</li>
+    </ul>
+</li>
 <li><strong><a href="./changelogs/v2.7.2.md">v2.7.2 - Chat & Bug Report Improvements</a></strong> (March 3, 2026)
     <ul>
     <li>Chat message timestamps now include date</li>
@@ -584,7 +607,7 @@ For comprehensive technical details, migration guides, and implementation specif
 ## Version History Summary
 
 <ul>
-<li><strong>v2.9.1</strong> (2026-03-16) - Mobile UI Fixes & VPP Access Fix
+<li><strong>v2.8.2</strong> (2026-03-16) - Mobile UI Fixes & VPP Access Fix
     <ul>
     <li>Fixed long URLs overflowing in home page announcements on mobile</li>
     <li>Fixed committee page button labels showing only "All" on mobile</li>
@@ -593,7 +616,7 @@ For comprehensive technical details, migration guides, and implementation specif
     <li>Improved vpp_required decorator with functools.wraps</li>
     </ul>
 </li>
-<li><strong>v2.9.0</strong> (2026-03-16) - Service Hours System & Directory Export
+<li><strong>v2.8.1</strong> (2026-03-16) - Service Hours System & Directory Export
     <ul>
     <li>Complete service hours tracking system for members and VPP officers</li>
     <li>Member dashboard with progress tracking and submission history</li>
