@@ -16,6 +16,9 @@
                 </div>
             </div>
             <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+                <!-- Mobile overlay for dropdown -->
+                <div id="dropdownOverlay" class="hidden fixed inset-0 bg-black/20 z-40 sm:hidden" onclick="toggleDropdown()"></div>
+
                 <!-- Dropdown showing all committees -->
                 <div class="relative" id="dropdownContainer">
                     <button onclick="toggleDropdown()" class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition flex items-center space-x-2 text-sm sm:text-base whitespace-nowrap">
@@ -28,17 +31,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                         </svg>
                     </button>
-                    <div id="committeeDropdown" class="hidden absolute right-0 sm:right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-10 max-h-96 overflow-y-auto transition-colors duration-200" style="right: auto; left: 50%; transform: translateX(-50%);">
-                        <!-- On larger screens, reset to right-aligned -->
-                        <style>
-                            @media (min-width: 640px) {
-                                #committeeDropdown {
-                                    left: auto !important;
-                                    right: 0 !important;
-                                    transform: none !important;
-                                }
-                            }
-                        </style>
+                    <div id="committeeDropdown" class="hidden fixed sm:absolute inset-x-4 sm:inset-x-auto sm:right-0 sm:left-auto top-auto mt-2 sm:w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50 max-h-[70vh] sm:max-h-96 overflow-y-auto transition-colors duration-200">
                         <div class="p-4">
                             <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 sticky top-0 bg-white dark:bg-gray-800 pb-2 border-b border-gray-200 dark:border-gray-700">Chapter Committees Directory</h3>
                             <div class="space-y-3">
@@ -158,16 +151,33 @@
 <script>
     function toggleDropdown() {
         const dropdown = document.getElementById('committeeDropdown');
-        dropdown.classList.toggle('hidden');
+        const overlay = document.getElementById('dropdownOverlay');
+        const isHidden = dropdown.classList.contains('hidden');
+
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+            overlay.classList.remove('hidden');
+            // On mobile, position below the button
+            if (window.innerWidth < 640) {
+                const button = document.querySelector('button[onclick="toggleDropdown()"]');
+                const rect = button.getBoundingClientRect();
+                dropdown.style.top = (rect.bottom + 8) + 'px';
+            }
+        } else {
+            dropdown.classList.add('hidden');
+            overlay.classList.add('hidden');
+        }
     }
 
     // Close dropdown when clicking outside
     document.addEventListener('click', function(event) {
         const dropdown = document.getElementById('committeeDropdown');
+        const overlay = document.getElementById('dropdownOverlay');
         const button = event.target.closest('button[onclick="toggleDropdown()"]');
 
         if (!button && !dropdown.contains(event.target)) {
             dropdown.classList.add('hidden');
+            overlay.classList.add('hidden');
         }
     });
 
