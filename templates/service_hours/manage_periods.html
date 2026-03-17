@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Service Periods{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Manage Service Periods</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Create and manage service hour periods</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="{% url 'service_form_builder' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                Form Builder
+            </a>
+            <a href="{% url 'service_dashboard' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Create Period Form -->
+        <div class="lg:col-span-1">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden sticky top-4">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Create New Period</h2>
+                </div>
+                <form method="post" class="px-6 py-4 space-y-4" id="create-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="create">
+
+                    <div>
+                        <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Period Name <span class="text-red-500">*</span>
+                        </label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                        <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.name.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="{{ form.start_date.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Start Date <span class="text-red-500">*</span>
+                            </label>
+                            {{ form.start_date }}
+                            {% if form.start_date.errors %}
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.start_date.errors.0 }}</p>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <label for="{{ form.end_date.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                End Date <span class="text-red-500">*</span>
+                            </label>
+                            {{ form.end_date }}
+                            {% if form.end_date.errors %}
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.end_date.errors.0 }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="{{ form.default_hours_required.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Default Hours Required <span class="text-red-500">*</span>
+                        </label>
+                        {{ form.default_hours_required }}
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Hours required for all members by default</p>
+                        {% if form.default_hours_required.errors %}
+                        <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.default_hours_required.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="flex items-center">
+                        {{ form.requires_approval }}
+                        <label for="{{ form.requires_approval.id_for_label }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            Require approval for submissions
+                        </label>
+                    </div>
+
+                    <div class="flex items-center">
+                        {{ form.is_active }}
+                        <label for="{{ form.is_active.id_for_label }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            Active (allows new submissions)
+                        </label>
+                    </div>
+
+                    <button type="submit" id="create-btn" class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium transition flex items-center justify-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        <span id="create-text">Create Period</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Periods List -->
+        <div class="lg:col-span-2">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Service Periods</h2>
+                </div>
+                <div class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for period in periods %}
+                    <div class="px-6 py-4 {% if period.is_active %}bg-green-50 dark:bg-green-900/10{% endif %}">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center">
+                                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ period.name }}</h3>
+                                    {% if period.is_active %}
+                                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
+                                        Active
+                                    </span>
+                                    {% endif %}
+                                    {% if not period.requires_approval %}
+                                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                                        Auto-Approve
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                    {{ period.start_date|date:"M d, Y" }} - {{ period.end_date|date:"M d, Y" }}
+                                </p>
+                                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                                    Default: <span class="font-medium">{{ period.default_hours_required }}</span> hours required
+                                </p>
+                            </div>
+                            <div class="flex items-center space-x-2 ml-4">
+                                <a href="{% url 'manage_member_expectations' period.id %}" class="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
+                                    Expectations
+                                </a>
+                                <a href="{% url 'edit_service_period' period.id %}" class="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300 font-medium">
+                                    Edit
+                                </a>
+                                <form method="post" class="inline toggle-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="toggle_active">
+                                    <input type="hidden" name="period_id" value="{{ period.id }}">
+                                    <button type="submit" class="px-3 py-1.5 text-sm font-medium {% if period.is_active %}text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300{% else %}text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300{% endif %}">
+                                        {% if period.is_active %}Deactivate{% else %}Activate{% endif %}
+                                    </button>
+                                </form>
+                                <form method="post" class="inline delete-form" data-period-name="{{ period.name }}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="period_id" value="{{ period.id }}">
+                                    <button type="submit" class="px-3 py-1.5 text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium">
+                                        Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        <p class="mt-4">No service periods created yet.</p>
+                        <p class="mt-1 text-sm">Create your first period using the form on the left.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back Link -->
+    <div class="mt-6">
+        <a href="{% url 'service_dashboard' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
+            &larr; Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<script>
+// Delete confirmation
+document.querySelectorAll('.delete-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+        const periodName = this.dataset.periodName;
+        if (!confirm('Are you sure you want to delete "' + periodName + '"? This will also delete all submissions for this period.')) {
+            e.preventDefault();
+            return false;
+        }
+    });
+});
+
+// Prevent double submit on create
+document.getElementById('create-form').addEventListener('submit', function(e) {
+    const createBtn = document.getElementById('create-btn');
+    if (createBtn.disabled) {
+        e.preventDefault();
+        return false;
+    }
+    createBtn.disabled = true;
+    createBtn.classList.add('opacity-75', 'cursor-not-allowed');
+    document.getElementById('create-text').textContent = 'Creating...';
+});
+</script>
+{% endblock %}

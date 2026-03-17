@@ -1,0 +1,219 @@
+{% extends 'base.html' %}
+
+{% block title %}Member Expectations - {{ period.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Member Expectations</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {{ period.name }} &bull; Default: {{ period.default_hours_required }} hours
+            </p>
+        </div>
+        <a href="{% url 'manage_service_periods' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+            <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            Manage Periods
+        </a>
+    </div>
+
+    <!-- Info Banner -->
+    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+        <div class="flex items-start">
+            <svg class="h-5 w-5 text-blue-600 dark:text-blue-400 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <div>
+                <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">About Member Expectations</h3>
+                <p class="mt-1 text-sm text-blue-700 dark:text-blue-300">
+                    By default, all members are required to complete <strong>{{ period.default_hours_required }} hours</strong> for this period.
+                    Use this page to set custom hour requirements for individual members (e.g., reduced hours for new members or increased hours for leadership).
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Add Custom Expectation -->
+        <div class="lg:col-span-1">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden sticky top-4">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Add Custom Expectation</h2>
+                </div>
+                {% if available_members %}
+                <form method="post" class="px-6 py-4 space-y-4" id="add-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add">
+
+                    <div>
+                        <label for="member" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Member <span class="text-red-500">*</span>
+                        </label>
+                        <select name="member" id="member" required
+                                class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500">
+                            <option value="">Select a member</option>
+                            {% for member in available_members %}
+                            <option value="{{ member.user_id }}">{{ member.name }} ({{ member.member_type }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="expected_hours" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Expected Hours <span class="text-red-500">*</span>
+                        </label>
+                        <input type="number" name="expected_hours" id="expected_hours" step="0.25" min="0" required
+                               placeholder="{{ period.default_hours_required }}"
+                               class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500">
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Default is {{ period.default_hours_required }} hours
+                        </p>
+                    </div>
+
+                    <div>
+                        <label for="reason" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Reason (Optional)
+                        </label>
+                        <textarea name="reason" id="reason" rows="2"
+                                  placeholder="Why is this member's requirement different?"
+                                  class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500"></textarea>
+                    </div>
+
+                    <button type="submit" id="add-btn" class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium transition flex items-center justify-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        <span id="add-text">Add Expectation</span>
+                    </button>
+                </form>
+                {% else %}
+                <div class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                    <p>All active members already have custom expectations.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Current Expectations -->
+        <div class="lg:col-span-2">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Custom Expectations</h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Member</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Expected Hours</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Reason</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                            {% for expectation in expectations %}
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                <td class="px-6 py-4">
+                                    <div class="text-sm font-medium text-gray-900 dark:text-white">{{ expectation.member.name }}</div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">{{ expectation.member.member_type }}</div>
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span class="text-lg font-bold {% if expectation.expected_hours < period.default_hours_required %}text-blue-600 dark:text-blue-400{% elif expectation.expected_hours > period.default_hours_required %}text-purple-600 dark:text-purple-400{% else %}text-gray-900 dark:text-white{% endif %}">
+                                        {{ expectation.expected_hours }}
+                                    </span>
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">hours</span>
+                                    {% if expectation.expected_hours != period.default_hours_required %}
+                                    <div class="text-xs {% if expectation.expected_hours < period.default_hours_required %}text-blue-500{% else %}text-purple-500{% endif %}">
+                                        {% if expectation.expected_hours < period.default_hours_required %}
+                                        {{ period.default_hours_required|add:expectation.expected_hours|add:"-"|add:period.default_hours_required }} fewer than default
+                                        {% else %}
+                                        +{{ expectation.expected_hours|add:"-"|add:period.default_hours_required }} more than default
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">
+                                        {{ expectation.reason|default:"-" }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <form method="post" class="inline delete-form" data-member="{{ expectation.member.name }}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="delete">
+                                        <input type="hidden" name="expectation_id" value="{{ expectation.id }}">
+                                        <button type="submit" class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium">
+                                            Remove
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                                    <p>No custom expectations set.</p>
+                                    <p class="mt-1 text-sm">All members will use the default of {{ period.default_hours_required }} hours.</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Members Using Default -->
+            {% if available_members %}
+            <div class="mt-6 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+                <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Members Using Default ({{ period.default_hours_required }} hours)
+                </h3>
+                <div class="flex flex-wrap gap-2">
+                    {% for member in available_members %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                        {{ member.name }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Back Link -->
+    <div class="mt-6">
+        <a href="{% url 'manage_service_periods' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
+            &larr; Back to Periods
+        </a>
+    </div>
+</div>
+
+<script>
+// Delete confirmation
+document.querySelectorAll('.delete-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+        const memberName = this.dataset.member;
+        if (!confirm('Remove custom expectation for ' + memberName + '? They will use the default hours.')) {
+            e.preventDefault();
+            return false;
+        }
+    });
+});
+
+// Prevent double submit on add
+{% if available_members %}
+document.getElementById('add-form').addEventListener('submit', function(e) {
+    const addBtn = document.getElementById('add-btn');
+    if (addBtn.disabled) {
+        e.preventDefault();
+        return false;
+    }
+    addBtn.disabled = true;
+    addBtn.classList.add('opacity-75', 'cursor-not-allowed');
+    document.getElementById('add-text').textContent = 'Adding...';
+});
+{% endif %}
+</script>
+{% endblock %}

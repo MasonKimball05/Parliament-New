@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+
+{% block title %}View Submission - {{ submission.organization }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-3xl">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Submission Details</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ submission.organization }}</p>
+        </div>
+        {% if can_edit %}
+        <a href="{% url 'edit_service_submission' submission.id %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+            <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+            Edit
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Status Banner -->
+    {% if submission.status == 'rejected' %}
+    <div class="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <div class="flex items-start">
+            <svg class="h-5 w-5 text-red-600 dark:text-red-400 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <div>
+                <h3 class="text-sm font-medium text-red-800 dark:text-red-200">Submission Rejected</h3>
+                {% if submission.reviewer_notes %}
+                <p class="mt-1 text-sm text-red-700 dark:text-red-300">{{ submission.reviewer_notes }}</p>
+                {% endif %}
+                <p class="mt-2 text-sm text-red-600 dark:text-red-400">You can edit and resubmit this entry.</p>
+            </div>
+        </div>
+    </div>
+    {% elif submission.status == 'approved' %}
+    <div class="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+        <div class="flex items-center">
+            <svg class="h-5 w-5 text-green-600 dark:text-green-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="text-sm font-medium text-green-800 dark:text-green-200">Submission Approved</span>
+        </div>
+    </div>
+    {% elif submission.status == 'pending' %}
+    <div class="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+        <div class="flex items-center">
+            <svg class="h-5 w-5 text-yellow-600 dark:text-yellow-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Pending Approval</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Main Details Card -->
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Service Details</h2>
+        </div>
+        <div class="px-6 py-4 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Hours</label>
+                    <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ submission.hours }}</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Service Date</label>
+                    <p class="mt-1 text-lg text-gray-900 dark:text-white">{{ submission.service_date|date:"F j, Y" }}</p>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Organization/Event</label>
+                <p class="mt-1 text-gray-900 dark:text-white">{{ submission.organization }}</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Description</label>
+                <p class="mt-1 text-gray-900 dark:text-white whitespace-pre-wrap">{{ submission.description }}</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Period</label>
+                <p class="mt-1 text-gray-900 dark:text-white">{{ submission.period.name }}</p>
+            </div>
+
+            {% if submission.attachment %}
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Attachment</label>
+                <a href="{{ submission.attachment.url }}" target="_blank" class="mt-1 inline-flex items-center text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                    </svg>
+                    View Attachment
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Custom Field Responses -->
+    {% if custom_responses %}
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Additional Information</h2>
+        </div>
+        <div class="px-6 py-4 space-y-4">
+            {% for response in custom_responses %}
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">{{ response.field.label }}</label>
+                <p class="mt-1 text-gray-900 dark:text-white">
+                    {% if response.field.field_type == 'file' and response.file_value %}
+                        <a href="{{ response.file_value.url }}" target="_blank" class="text-blue-600 hover:text-blue-800 dark:text-blue-400">View File</a>
+                    {% elif response.field.field_type in 'multiselect,checkbox' %}
+                        {{ response.json_value|join:", " }}
+                    {% elif response.number_value %}
+                        {{ response.number_value }}
+                    {% else %}
+                        {{ response.text_value|default:"-" }}
+                    {% endif %}
+                </p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Review Info -->
+    {% if submission.reviewed_by %}
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Review Information</h2>
+        </div>
+        <div class="px-6 py-4 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Reviewed By</label>
+                    <p class="mt-1 text-gray-900 dark:text-white">{{ submission.reviewed_by.name }}</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Reviewed At</label>
+                    <p class="mt-1 text-gray-900 dark:text-white">{{ submission.reviewed_at|date:"F j, Y g:i A" }}</p>
+                </div>
+            </div>
+            {% if submission.reviewer_notes %}
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Notes</label>
+                <p class="mt-1 text-gray-900 dark:text-white">{{ submission.reviewer_notes }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Activity Log -->
+    {% if activity_log %}
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Activity Log</h2>
+        </div>
+        <div class="px-6 py-4">
+            <ul class="space-y-3">
+                {% for activity in activity_log %}
+                <li class="flex items-start space-x-3">
+                    <div class="flex-shrink-0">
+                        <div class="w-2 h-2 mt-2 rounded-full
+                            {% if activity.action == 'approved' %}bg-green-500
+                            {% elif activity.action == 'rejected' %}bg-red-500
+                            {% elif activity.action == 'created' %}bg-blue-500
+                            {% else %}bg-gray-400{% endif %}"></div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm text-gray-900 dark:text-white">
+                            {{ activity.get_action_display }}
+                            {% if activity.user %} by {{ activity.user.name }}{% endif %}
+                        </p>
+                        {% if activity.details %}
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ activity.details }}</p>
+                        {% endif %}
+                        <p class="text-xs text-gray-400 dark:text-gray-500">{{ activity.timestamp|date:"M d, Y g:i A" }}</p>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Back Link -->
+    <div class="mt-6">
+        <a href="{% url 'user_service_dashboard' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
+            &larr; Back to Service Hours
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -50,6 +50,50 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.9.0 - Service Hours System & Directory Export (03-16-2026)
+Comprehensive service hours tracking system for members and VPP officers, plus directory export functionality and mobile UI improvements.
+
+**Deployment Status:** Ready for Deployment
+
+**Key Features:**
+
+- **Service Hours Dashboard**: Member-facing dashboard showing progress toward service hour requirements with submission history
+- **Service Hours Submission**: Members can submit service hours with date, organization, description, hours, and optional proof/documentation
+- **Service Periods**: VPP can create and manage service periods with configurable hour requirements and approval settings
+- **Member Expectations**: Set default hours per period with individual member overrides (exemptions, increased requirements)
+- **Submission Management**: VPP can approve, reject, or request changes on submissions with reviewer notes
+- **Service Form Builder**: Customize the submission form with additional fields (like Kai form builder)
+- **Built-in Fields Display**: Form builder shows all fields including built-in ones with edit capability
+- **Directory Export**: Export member directory to CSV, TXT, or Excel (.xlsx) formats with names, emails, phones, and roles
+- **Mobile Footer Fix**: Footer links now wrap properly on mobile without awkward pipe separator stacking
+
+**Database Changes:**
+
+- Added `ServicePeriod` model for service hour periods
+- Added `ServiceMemberExpectation` model for individual member hour requirements
+- Added `ServiceHoursSubmission` model for hour submissions with approval workflow
+- Added `ServiceFormField` model for custom form fields (with `is_builtin` flag)
+- Added `ServiceFieldResponse` model for custom field responses
+- Added `ServiceActivity` model for audit logging
+
+**New Files:**
+
+- `src/view/service_user_dashboard.py` - Member service hours views
+- `src/view/service_hours.py` - VPP officer management views
+- `src/view/service_form_builder.py` - Form customization views
+- `templates/service_hours/` - 10 template files for member and officer interfaces
+
+**Access Control:**
+
+- Added `vpp_required` decorator restricting officer pages to VPP role holders and admins
+- DEBUG mode bypass for development testing
+
+**Dependencies:**
+
+- Added `openpyxl==3.1.2` for Excel export functionality
+
+---
+
 ### v2.8.0 - Officer Guide System, Notifications Dashboard & Expanded Guides (03-02-2026)
 Comprehensive documentation system with 17 in-app guides covering officer and member features, plus a centralized notifications dashboard for scheduling and monitoring.
 
@@ -525,6 +569,18 @@ For comprehensive technical details, migration guides, and implementation specif
 ## Version History Summary
 
 <ul>
+<li><strong>v2.9.0</strong> (2026-03-16) - Service Hours System & Directory Export
+    <ul>
+    <li>Complete service hours tracking system for members and VPP officers</li>
+    <li>Member dashboard with progress tracking and submission history</li>
+    <li>Service periods with configurable requirements and approval workflows</li>
+    <li>Individual member hour expectations (overrides/exemptions)</li>
+    <li>Form builder for custom fields with built-in field display</li>
+    <li>Directory export to CSV, TXT, and Excel formats</li>
+    <li>Mobile footer layout fix</li>
+    <li>6 new database models, vpp_required decorator</li>
+    </ul>
+</li>
 <li><strong>v2.7.2</strong> (2026-03-03) - Chat & Bug Report Improvements
     <ul>
     <li>Chat message timestamps now include date (e.g., "Mar 3, 4:30 PM")</li>
@@ -714,5 +770,5 @@ New changes will be documented in:
 
 ---
 
-**Last Updated:** 2026-03-02
-**Next Review:** 2026-04-02
+**Last Updated:** 2026-03-16
+**Next Review:** 2026-04-16

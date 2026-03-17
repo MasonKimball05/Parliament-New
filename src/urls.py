@@ -26,6 +26,18 @@ from src.view.submit_excuse import my_excuses, submit_excuse, cancel_excuse
 from src.view.kai_reports import submit_kai_report, view_kai_reports, manage_kai_report, export_kai_reports_csv, print_kai_report, kai_dashboard, bulk_actions_kai_reports, manage_kai_templates, create_kai_template, edit_kai_template, delete_kai_template, track_kai_accused_email_view
 from src.view.kai_user_dashboard import user_kai_dashboard, user_view_report, request_closure, request_drop_case
 from src.view.kai_form_builder import kai_form_builder, reorder_kai_fields, get_kai_field_details
+from src.view.service_user_dashboard import (
+    user_service_dashboard, user_view_submission,
+    submit_service_hours, edit_service_submission
+)
+from src.view.service_hours import (
+    service_dashboard, view_service_submissions, manage_service_submission,
+    bulk_actions_service, export_service_csv, manage_service_periods,
+    edit_service_period, manage_member_expectations
+)
+from src.view.service_form_builder import (
+    service_form_builder, reorder_service_fields, get_service_field_details
+)
 from src.view.chapter_documents import chapter_documents
 from src.view.api import dismiss_announcement_api
 from src.view.notifications import notifications_page, notifications_dropdown_api, mark_notification_read, mark_all_notifications_read, delete_notification
@@ -69,7 +81,7 @@ from src.view.view_legislation_history import view_legislation_history
 from src.view.login_view import login_view
 from src.view.logout_view import logout_view
 from src.view.profile_view import profile_view
-from src.view.directory import member_directory
+from src.view.directory import member_directory, export_directory
 from src.view.preferences import preferences_view
 from src.view.activity_logs import activity_logs_view, export_activity_logs
 from src.view.upload_legislation import upload_legislation
@@ -151,6 +163,7 @@ urlpatterns = [
 
     path('users/', user_list, name='user_list'),
     path('directory/', member_directory, name='member_directory'),
+    path('directory/export/', export_directory, name='export_directory'),
     path('profile/', profile_view, name='profile'),
     path('preferences/', preferences_view, name='preferences'),
     path('set-email/', set_email, name='set_email'),
@@ -375,6 +388,27 @@ urlpatterns = [
     path('kai/templates/<int:template_id>/edit/', edit_kai_template, name='edit_kai_template'),
     path('kai/templates/<int:template_id>/delete/', delete_kai_template, name='delete_kai_template'),
     path('kai/track-email/<int:report_id>.gif', track_kai_accused_email_view, name='track_kai_accused_email'),
+
+    # Service Hours Member URLs
+    path('service-hours/', user_service_dashboard, name='user_service_dashboard'),
+    path('service-hours/submit/', submit_service_hours, name='submit_service_hours'),
+    path('service-hours/my-submission/<int:submission_id>/', user_view_submission, name='user_view_service_submission'),
+    path('service-hours/edit/<int:submission_id>/', edit_service_submission, name='edit_service_submission'),
+
+    # Service Hours Officer URLs (VPP only)
+    path('service-hours/dashboard/', service_dashboard, name='service_dashboard'),
+    path('service-hours/submissions/', view_service_submissions, name='view_service_submissions'),
+    path('service-hours/submissions/<int:submission_id>/', manage_service_submission, name='manage_service_submission'),
+    path('service-hours/submissions/bulk-actions/', bulk_actions_service, name='bulk_actions_service'),
+    path('service-hours/submissions/export/', export_service_csv, name='export_service_csv'),
+    path('service-hours/periods/', manage_service_periods, name='manage_service_periods'),
+    path('service-hours/periods/<int:period_id>/edit/', edit_service_period, name='edit_service_period'),
+    path('service-hours/periods/<int:period_id>/expectations/', manage_member_expectations, name='manage_member_expectations'),
+
+    # Service Hours Form Builder URLs (VPP only)
+    path('service-hours/form-builder/', service_form_builder, name='service_form_builder'),
+    path('service-hours/form-builder/field/<int:field_id>/', get_service_field_details, name='service_get_field_details'),
+    path('api/service-hours/reorder-fields/', reorder_service_fields, name='service_api_reorder_fields'),
 
     # Committee Chat URLs (legacy - redirects to channel chat)
     path('committee/<str:code>/chat/', committee_chat, name='committee_chat'),

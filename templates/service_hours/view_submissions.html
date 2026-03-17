@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+
+{% block title %}Service Hours Submissions{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Service Hours Submissions</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Review and manage member submissions</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="{% url 'export_service_csv' %}{% if selected_period %}?period={{ selected_period }}{% endif %}" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Export CSV
+            </a>
+            <a href="{% url 'service_dashboard' %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">
+                <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-6">
+        <form method="get" class="flex flex-wrap items-center gap-4">
+            <div class="flex-1 min-w-[200px]">
+                <label for="period" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Period</label>
+                <select name="period" id="period" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm">
+                    <option value="">All Periods</option>
+                    {% for period in all_periods %}
+                    <option value="{{ period.id }}" {% if selected_period == period.id|stringformat:"s" %}selected{% endif %}>
+                        {{ period.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex-1 min-w-[150px]">
+                <label for="status" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
+                <select name="status" id="status" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm">
+                    <option value="">All Statuses</option>
+                    <option value="pending" {% if selected_status == 'pending' %}selected{% endif %}>Pending</option>
+                    <option value="approved" {% if selected_status == 'approved' %}selected{% endif %}>Approved</option>
+                    <option value="rejected" {% if selected_status == 'rejected' %}selected{% endif %}>Rejected</option>
+                </select>
+            </div>
+            <div class="flex-1 min-w-[200px]">
+                <label for="member" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Member</label>
+                <select name="member" id="member" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm">
+                    <option value="">All Members</option>
+                    {% for member in all_members %}
+                    <option value="{{ member.user_id }}" {% if selected_member == member.user_id|stringformat:"s" %}selected{% endif %}>
+                        {{ member.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex items-end space-x-2">
+                <button type="submit" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-medium">
+                    Filter
+                </button>
+                <a href="{% url 'view_service_submissions' %}" class="px-4 py-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm">
+                    Clear
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Bulk Actions Form -->
+    <form method="post" action="{% url 'bulk_actions_service' %}" id="bulk-form">
+        {% csrf_token %}
+
+        <!-- Bulk Action Bar -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-4 flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <label class="flex items-center">
+                    <input type="checkbox" id="select-all" class="rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500">
+                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Select All Pending</span>
+                </label>
+                <span id="selected-count" class="text-sm text-gray-500 dark:text-gray-400"></span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <select name="bulk_action" id="bulk-action" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm">
+                    <option value="">Bulk Actions</option>
+                    <option value="approve">Approve Selected</option>
+                    <option value="reject">Reject Selected</option>
+                </select>
+                <button type="submit" id="bulk-submit" disabled class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 rounded-md text-sm font-medium cursor-not-allowed">
+                    Apply
+                </button>
+            </div>
+        </div>
+
+        <!-- Submissions Table -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase w-10"></th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Member</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Organization</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Hours</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Date</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Period</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for submission in submissions %}
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <td class="px-4 py-3">
+                                {% if submission.status == 'pending' %}
+                                <input type="checkbox" name="submission_ids" value="{{ submission.id }}" class="submission-checkbox rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500">
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="text-sm font-medium text-gray-900 dark:text-white">{{ submission.submitted_by.name }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">{{ submission.submitted_at|date:"M d, Y g:i A" }}</div>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="text-sm text-gray-900 dark:text-white">{{ submission.organization }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">{{ submission.description|truncatewords:10 }}</div>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <span class="text-lg font-bold text-gray-900 dark:text-white">{{ submission.hours }}</span>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                {{ submission.service_date|date:"M d, Y" }}
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                {{ submission.period.name }}
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ submission.get_status_badge_class }}">
+                                    {{ submission.get_status_display }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                <a href="{% url 'manage_service_submission' submission.id %}" class="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 text-sm font-medium">
+                                    {% if submission.status == 'pending' %}Review{% else %}View{% endif %}
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                                No submissions found matching your filters.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </form>
+
+    <!-- Back Link -->
+    <div class="mt-6">
+        <a href="{% url 'service_dashboard' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
+            &larr; Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAll = document.getElementById('select-all');
+    const checkboxes = document.querySelectorAll('.submission-checkbox');
+    const bulkAction = document.getElementById('bulk-action');
+    const bulkSubmit = document.getElementById('bulk-submit');
+    const selectedCount = document.getElementById('selected-count');
+    const bulkForm = document.getElementById('bulk-form');
+
+    function updateUI() {
+        const checked = document.querySelectorAll('.submission-checkbox:checked');
+        const count = checked.length;
+
+        if (count > 0) {
+            selectedCount.textContent = count + ' selected';
+            if (bulkAction.value) {
+                bulkSubmit.disabled = false;
+                bulkSubmit.classList.remove('bg-gray-300', 'dark:bg-gray-600', 'text-gray-500', 'dark:text-gray-400', 'cursor-not-allowed');
+                bulkSubmit.classList.add('bg-green-600', 'hover:bg-green-700', 'text-white', 'cursor-pointer');
+            }
+        } else {
+            selectedCount.textContent = '';
+            bulkSubmit.disabled = true;
+            bulkSubmit.classList.add('bg-gray-300', 'dark:bg-gray-600', 'text-gray-500', 'dark:text-gray-400', 'cursor-not-allowed');
+            bulkSubmit.classList.remove('bg-green-600', 'hover:bg-green-700', 'text-white', 'cursor-pointer');
+        }
+
+        selectAll.checked = checkboxes.length > 0 && checked.length === checkboxes.length;
+        selectAll.indeterminate = checked.length > 0 && checked.length < checkboxes.length;
+    }
+
+    selectAll.addEventListener('change', function() {
+        checkboxes.forEach(cb => cb.checked = this.checked);
+        updateUI();
+    });
+
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', updateUI);
+    });
+
+    bulkAction.addEventListener('change', updateUI);
+
+    bulkForm.addEventListener('submit', function(e) {
+        const checked = document.querySelectorAll('.submission-checkbox:checked');
+        if (checked.length === 0) {
+            e.preventDefault();
+            alert('Please select at least one submission.');
+            return false;
+        }
+        if (!bulkAction.value) {
+            e.preventDefault();
+            alert('Please select an action.');
+            return false;
+        }
+        if (bulkAction.value === 'reject') {
+            if (!confirm('Are you sure you want to reject ' + checked.length + ' submission(s)?')) {
+                e.preventDefault();
+                return false;
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

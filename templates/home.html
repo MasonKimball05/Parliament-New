@@ -206,6 +206,17 @@
             <p class="text-white text-sm opacity-90">View your reports or submit a new one</p>
         </a>
 
+        <!-- Service Hours Card -->
+        <a href="{% url 'user_service_dashboard' %}" class="block rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 group" style="background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%);">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold text-white group-hover:opacity-90 transition-opacity">Service Hours</h2>
+                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                </svg>
+            </div>
+            <p class="text-white text-sm opacity-90">Track and submit your service hours</p>
+        </a>
+
         <!-- Calendar Card -->
         <a href="{% url 'calendar' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 group">
             <div class="flex items-center justify-between mb-4">

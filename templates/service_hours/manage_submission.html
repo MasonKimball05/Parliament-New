@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+
+{% block title %}Review Submission - {{ submission.organization }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Review Submission</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ submission.submitted_by.name }} - {{ submission.organization }}</p>
+        </div>
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {{ submission.get_status_badge_class }}">
+            {{ submission.get_status_display }}
+        </span>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main Details -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Submission Details Card -->
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Service Details</h2>
+                </div>
+                <div class="px-6 py-4 space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Hours</label>
+                            <p class="mt-1 text-3xl font-bold text-gray-900 dark:text-white">{{ submission.hours }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Service Date</label>
+                            <p class="mt-1 text-lg text-gray-900 dark:text-white">{{ submission.service_date|date:"F j, Y" }}</p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Organization/Event</label>
+                        <p class="mt-1 text-gray-900 dark:text-white">{{ submission.organization }}</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Description</label>
+                        <p class="mt-1 text-gray-900 dark:text-white whitespace-pre-wrap">{{ submission.description }}</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Period</label>
+                            <p class="mt-1 text-gray-900 dark:text-white">{{ submission.period.name }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Submitted</label>
+                            <p class="mt-1 text-gray-900 dark:text-white">{{ submission.submitted_at|date:"M d, Y g:i A" }}</p>
+                        </div>
+                    </div>
+
+                    {% if submission.attachment %}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Attachment</label>
+                        <a href="{{ submission.attachment.url }}" target="_blank" class="mt-1 inline-flex items-center text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                            </svg>
+                            View Attachment
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Activity Log -->
+            {% if activity_log %}
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Activity Log</h2>
+                </div>
+                <div class="px-6 py-4">
+                    <ul class="space-y-3">
+                        {% for activity in activity_log %}
+                        <li class="flex items-start space-x-3">
+                            <div class="flex-shrink-0">
+                                <div class="w-2 h-2 mt-2 rounded-full
+                                    {% if activity.action == 'approved' %}bg-green-500
+                                    {% elif activity.action == 'rejected' %}bg-red-500
+                                    {% elif activity.action == 'created' %}bg-blue-500
+                                    {% elif activity.action == 'edited' %}bg-yellow-500
+                                    {% else %}bg-gray-400{% endif %}"></div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm text-gray-900 dark:text-white">
+                                    {{ activity.get_action_display }}
+                                    {% if activity.user %} by {{ activity.user.name }}{% endif %}
+                                </p>
+                                {% if activity.details %}
+                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ activity.details }}</p>
+                                {% endif %}
+                                <p class="text-xs text-gray-400 dark:text-gray-500">{{ activity.timestamp|date:"M d, Y g:i A" }}</p>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            <!-- Member Info Card -->
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Member</h2>
+                </div>
+                <div class="px-6 py-4">
+                    <div class="flex items-center">
+                        <div class="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
+                            <span class="text-lg font-bold text-green-600 dark:text-green-400">
+                                {{ submission.submitted_by.name|slice:":1" }}
+                            </span>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ submission.submitted_by.name }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ submission.submitted_by.member_type }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Card -->
+            {% if submission.status == 'pending' %}
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Actions</h2>
+                </div>
+                <form method="post" class="px-6 py-4 space-y-4" id="review-form">
+                    {% csrf_token %}
+                    <div>
+                        <label for="reviewer_notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Notes (required for rejection)
+                        </label>
+                        <textarea name="reviewer_notes" id="reviewer_notes" rows="3"
+                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                                  placeholder="Add notes about this submission..."></textarea>
+                    </div>
+                    <div class="flex space-x-3">
+                        <button type="submit" name="action" value="approve" id="approve-btn"
+                                class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium transition flex items-center justify-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            <span id="approve-text">Approve</span>
+                        </button>
+                        <button type="submit" name="action" value="reject" id="reject-btn"
+                                class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-medium transition flex items-center justify-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                            <span id="reject-text">Reject</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {% else %}
+            <!-- Review Info -->
+            {% if submission.reviewed_by %}
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Review Info</h2>
+                </div>
+                <div class="px-6 py-4 space-y-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400">Reviewed By</label>
+                        <p class="text-sm text-gray-900 dark:text-white">{{ submission.reviewed_by.name }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400">Reviewed At</label>
+                        <p class="text-sm text-gray-900 dark:text-white">{{ submission.reviewed_at|date:"M d, Y g:i A" }}</p>
+                    </div>
+                    {% if submission.reviewer_notes %}
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400">Notes</label>
+                        <p class="text-sm text-gray-900 dark:text-white">{{ submission.reviewer_notes }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Back Link -->
+    <div class="mt-6">
+        <a href="{% url 'view_service_submissions' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
+            &larr; Back to Submissions
+        </a>
+    </div>
+</div>
+
+{% if submission.status == 'pending' %}
+<script>
+document.getElementById('review-form').addEventListener('submit', function(e) {
+    const action = e.submitter.value;
+    const notes = document.getElementById('reviewer_notes').value.trim();
+
+    if (action === 'reject' && !notes) {
+        e.preventDefault();
+        alert('Please provide a reason for rejection.');
+        document.getElementById('reviewer_notes').focus();
+        return false;
+    }
+
+    // Disable buttons to prevent double submit
+    const approveBtn = document.getElementById('approve-btn');
+    const rejectBtn = document.getElementById('reject-btn');
+
+    approveBtn.disabled = true;
+    rejectBtn.disabled = true;
+    approveBtn.classList.add('opacity-75', 'cursor-not-allowed');
+    rejectBtn.classList.add('opacity-75', 'cursor-not-allowed');
+
+    if (action === 'approve') {
+        document.getElementById('approve-text').textContent = 'Approving...';
+    } else {
+        document.getElementById('reject-text').textContent = 'Rejecting...';
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

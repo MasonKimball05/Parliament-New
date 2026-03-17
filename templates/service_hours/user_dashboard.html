@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+
+{% block title %}My Service Hours{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">My Service Hours</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Track and submit your community service hours</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            {% if is_vpp %}
+            <a href="{% url 'service_dashboard' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                VPP Dashboard
+            </a>
+            {% endif %}
+            <a href="{% url 'submit_service_hours' %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">
+                <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                Submit Hours
+            </a>
+        </div>
+    </div>
+
+    {% if current_period and stats %}
+    <!-- Progress Card -->
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ current_period.name }}</h2>
+                <span class="text-sm text-gray-500 dark:text-gray-400">
+                    {{ current_period.start_date|date:"M d" }} - {{ current_period.end_date|date:"M d, Y" }}
+                </span>
+            </div>
+        </div>
+        <div class="px-6 py-4">
+            <!-- Progress Bar -->
+            <div class="mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {{ stats.approved_hours }} of {{ stats.expected_hours }} hours completed
+                    </span>
+                    <span class="text-sm font-medium {% if stats.progress_percent >= 100 %}text-green-600 dark:text-green-400{% else %}text-gray-600 dark:text-gray-400{% endif %}">
+                        {{ stats.progress_percent }}%
+                    </span>
+                </div>
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4">
+                    <div class="{% if stats.progress_percent >= 100 %}bg-green-600{% else %}bg-blue-600{% endif %} h-4 rounded-full transition-all duration-300"
+                         style="width: {{ stats.progress_percent }}%"></div>
+                </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
+                    <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ stats.approved_hours }}</div>
+                    <div class="text-xs text-green-700 dark:text-green-300">Approved</div>
+                </div>
+                <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3 text-center">
+                    <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{{ stats.pending_hours }}</div>
+                    <div class="text-xs text-yellow-700 dark:text-yellow-300">Pending</div>
+                </div>
+                <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-center">
+                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ stats.expected_hours }}</div>
+                    <div class="text-xs text-blue-700 dark:text-blue-300">Required</div>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 text-center">
+                    <div class="text-2xl font-bold text-gray-600 dark:text-gray-400">{{ stats.remaining_hours }}</div>
+                    <div class="text-xs text-gray-700 dark:text-gray-300">Remaining</div>
+                </div>
+            </div>
+
+            {% if stats.progress_percent >= 100 %}
+            <div class="mt-4 flex items-center justify-center text-green-600 dark:text-green-400">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span class="font-medium">You've completed your service hours requirement!</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% elif not current_period %}
+    <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
+        <div class="flex items-center">
+            <svg class="h-5 w-5 text-yellow-600 dark:text-yellow-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            <span class="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                No active service period. Contact the VPP to set up a service period.
+            </span>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- My Submissions -->
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">My Submissions</h2>
+        </div>
+        {% if submissions %}
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Service
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Hours
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Date
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Status
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Period
+                    </th>
+                    <th scope="col" class="relative px-6 py-3">
+                        <span class="sr-only">Actions</span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {% for submission in submissions %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td class="px-6 py-4">
+                        <div class="text-sm font-medium text-gray-900 dark:text-white">{{ submission.organization }}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">{{ submission.description|truncatewords:10 }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ submission.hours }}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {{ submission.service_date|date:"M d, Y" }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ submission.get_status_badge_class }}">
+                            {{ submission.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {{ submission.period.name }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="{% url 'user_view_service_submission' submission.id %}" class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300">
+                            View
+                        </a>
+                        {% if submission.can_edit %}
+                        <span class="mx-1 text-gray-300 dark:text-gray-600">|</span>
+                        <a href="{% url 'edit_service_submission' submission.id %}" class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300">
+                            Edit
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="px-6 py-12 text-center">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No submissions yet</h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by submitting your first service hours.</p>
+            <div class="mt-6">
+                <a href="{% url 'submit_service_hours' %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+                    <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    Submit Hours
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

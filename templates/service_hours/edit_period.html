@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Period - {{ period.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Edit Service Period</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="{% url 'service_form_builder' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                Form Builder
+            </a>
+            <a href="{% url 'manage_member_expectations' period.id %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">
+                <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                Member Expectations
+            </a>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        <form method="post" class="p-6 space-y-6" id="edit-form">
+            {% csrf_token %}
+
+            <div>
+                <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Period Name <span class="text-red-500">*</span>
+                </label>
+                {{ form.name }}
+                {% if form.name.errors %}
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.name.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="{{ form.start_date.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Start Date <span class="text-red-500">*</span>
+                    </label>
+                    {{ form.start_date }}
+                    {% if form.start_date.errors %}
+                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.start_date.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.end_date.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        End Date <span class="text-red-500">*</span>
+                    </label>
+                    {{ form.end_date }}
+                    {% if form.end_date.errors %}
+                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.end_date.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div>
+                <label for="{{ form.default_hours_required.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Default Hours Required <span class="text-red-500">*</span>
+                </label>
+                {{ form.default_hours_required }}
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Hours required for all members by default</p>
+                {% if form.default_hours_required.errors %}
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.default_hours_required.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="space-y-3">
+                <div class="flex items-center">
+                    {{ form.requires_approval }}
+                    <label for="{{ form.requires_approval.id_for_label }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                        Require approval for submissions
+                    </label>
+                </div>
+                <p class="ml-6 text-xs text-gray-500 dark:text-gray-400">
+                    If disabled, submissions will be automatically approved.
+                </p>
+            </div>
+
+            <div class="space-y-3">
+                <div class="flex items-center">
+                    {{ form.is_active }}
+                    <label for="{{ form.is_active.id_for_label }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                        Active (allows new submissions)
+                    </label>
+                </div>
+                <p class="ml-6 text-xs text-gray-500 dark:text-gray-400">
+                    Inactive periods won't accept new submissions but existing submissions remain visible.
+                </p>
+            </div>
+
+            <!-- Buttons -->
+            <div class="flex items-center justify-end space-x-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <a href="{% url 'manage_service_periods' %}" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                    Cancel
+                </a>
+                <button type="submit" id="save-btn" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition flex items-center space-x-2">
+                    <span id="save-text">Save Changes</span>
+                    <svg id="save-spinner" class="hidden animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Back Link -->
+    <div class="mt-6">
+        <a href="{% url 'manage_service_periods' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
+            &larr; Back to Periods
+        </a>
+    </div>
+</div>
+
+<script>
+document.getElementById('edit-form').addEventListener('submit', function(e) {
+    const saveBtn = document.getElementById('save-btn');
+    const saveText = document.getElementById('save-text');
+    const saveSpinner = document.getElementById('save-spinner');
+
+    if (saveBtn.disabled) {
+        e.preventDefault();
+        return false;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.classList.add('opacity-75', 'cursor-not-allowed');
+    saveText.textContent = 'Saving...';
+    saveSpinner.classList.remove('hidden');
+});
+</script>
+{% endblock %}

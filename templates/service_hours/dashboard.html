@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+
+{% block title %}Service Hours Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Service Hours Dashboard</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage and track member service hours</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="{% url 'service_form_builder' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                Form Builder
+            </a>
+            <a href="{% url 'manage_service_periods' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+                Manage Periods
+            </a>
+            <a href="{% url 'view_service_submissions' %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">
+                <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+                View All Submissions
+            </a>
+        </div>
+    </div>
+
+    <!-- Period Selector -->
+    {% if all_periods %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-6">
+        <form method="get" class="flex items-center space-x-4">
+            <label for="period" class="text-sm font-medium text-gray-700 dark:text-gray-300">Period:</label>
+            <select name="period" id="period" onchange="this.form.submit()" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500">
+                {% for period in all_periods %}
+                <option value="{{ period.id }}" {% if current_period and current_period.id == period.id %}selected{% endif %}>
+                    {{ period.name }} ({{ period.start_date|date:"M d" }} - {{ period.end_date|date:"M d, Y" }})
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+    {% endif %}
+
+    {% if current_period %}
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-blue-100 dark:bg-blue-900/50">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Submissions</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ stats.total_submissions }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-yellow-100 dark:bg-yellow-900/50">
+                    <svg class="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Pending Approval</p>
+                    <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{{ stats.pending_count }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-green-100 dark:bg-green-900/50">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Approved Hours</p>
+                    <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ stats.total_approved_hours }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-red-100 dark:bg-red-900/50">
+                    <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Rejected</p>
+                    <p class="text-2xl font-bold text-red-600 dark:text-red-400">{{ stats.rejected_count }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Member Progress -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Member Progress</h2>
+                <a href="{% url 'manage_member_expectations' current_period.id %}" class="text-sm text-green-600 hover:text-green-700 dark:text-green-400">
+                    Manage Expectations
+                </a>
+            </div>
+            <div class="max-h-96 overflow-y-auto">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead class="bg-gray-50 dark:bg-gray-700 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Member</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Progress</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Hours</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for item in member_progress %}
+                        <tr class="{% if item.completed %}bg-green-50 dark:bg-green-900/10{% endif %}">
+                            <td class="px-4 py-3">
+                                <div class="text-sm font-medium text-gray-900 dark:text-white">{{ item.member.name }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">{{ item.member.member_type }}</div>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                                    <div class="{% if item.completed %}bg-green-500{% else %}bg-blue-500{% endif %} h-2 rounded-full" style="width: {{ item.progress_percent }}%"></div>
+                                </div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ item.progress_percent }}%</div>
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                <div class="text-sm font-medium text-gray-900 dark:text-white">{{ item.approved_hours }}/{{ item.expected_hours }}</div>
+                                {% if item.pending_hours > 0 %}
+                                <div class="text-xs text-yellow-600 dark:text-yellow-400">+{{ item.pending_hours }} pending</div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                                No members found
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Recent Submissions -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Submissions</h2>
+                <a href="{% url 'view_service_submissions' %}?status=pending" class="text-sm text-green-600 hover:text-green-700 dark:text-green-400">
+                    View Pending
+                </a>
+            </div>
+            <div class="divide-y divide-gray-200 dark:divide-gray-700 max-h-96 overflow-y-auto">
+                {% for submission in recent_submissions %}
+                <a href="{% url 'manage_service_submission' submission.id %}" class="block px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ submission.submitted_by.name }}</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">{{ submission.organization }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm font-bold text-gray-900 dark:text-white">{{ submission.hours }} hrs</p>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ submission.get_status_badge_class }}">
+                                {{ submission.get_status_display }}
+                            </span>
+                        </div>
+                    </div>
+                </a>
+                {% empty %}
+                <div class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                    No submissions yet
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- No Period Selected -->
+    <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-8 text-center">
+        <svg class="mx-auto h-12 w-12 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        <h3 class="mt-4 text-lg font-medium text-yellow-800 dark:text-yellow-200">No Service Periods Configured</h3>
+        <p class="mt-2 text-yellow-700 dark:text-yellow-300">Create a service period to start tracking member hours.</p>
+        <a href="{% url 'manage_service_periods' %}" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700">
+            Create Period
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Back to User Dashboard -->
+    <div class="mt-6">
+        <a href="{% url 'user_service_dashboard' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
+            &larr; Back to My Service Hours
+        </a>
+    </div>
+</div>
+{% endblock %}

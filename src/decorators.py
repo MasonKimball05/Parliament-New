@@ -79,3 +79,36 @@ def exclude_pledges(view_func):
             return render(request, 'errors/pledge_restricted.html', status=403)
         return view_func(request, *args, **kwargs)
     return wrapper
+
+
+def vpp_required(view_func):
+    """
+    Decorator to restrict access to VPP (Vice President of Programming) role holders and admins.
+    Used for Service Hours officer pages.
+    In DEBUG mode, allows any authenticated user for development purposes.
+    """
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            from django.shortcuts import redirect
+            return redirect('login')
+
+        # Allow admins
+        if request.user.is_admin:
+            return view_func(request, *args, **kwargs)
+
+        # Allow any authenticated user in DEBUG mode (dev server)
+        from django.conf import settings
+        if settings.DEBUG:
+            return view_func(request, *args, **kwargs)
+
+        # Check if user has VPP role
+        if request.user.roles.filter(code='VPP').exists():
+            return view_func(request, *args, **kwargs)
+
+        # Deny access
+        from django.contrib import messages
+        messages.error(request, 'Only the Vice President of Programming can access this page.')
+        from django.shortcuts import redirect
+        return redirect('home')
+
+    return wrapper
