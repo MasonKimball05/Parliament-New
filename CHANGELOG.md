@@ -50,8 +50,8 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
-### v2.9.1 - Mobile UI Fixes (03-16-2026)
-Bug fixes for mobile layout issues.
+### v2.9.1 - Mobile UI Fixes & VPP Access Fix (03-16-2026)
+Bug fixes for mobile layout issues and VPP role access control.
 
 **Deployment Status:** Ready for Deployment
 
@@ -60,6 +60,8 @@ Bug fixes for mobile layout issues.
 - **Home Page Announcement URLs**: Long URLs in announcements now wrap properly instead of overflowing off the page on mobile
 - **Committee Page Button Labels**: "All Committees" and "Admin: View All" buttons now show readable text on mobile ("Browse" and "View All") instead of just "All"
 - **Committee Dropdown Positioning**: Dropdown menu now centers on mobile screens instead of being cut off on the left side
+- **VPP Role Check Case-Insensitive**: VPP role check now uses `code__iexact='VPP'` to match regardless of case (VPP, vpp, Vpp, etc.)
+- **VPP Decorator Improvements**: Added `functools.wraps` for proper function metadata preservation; DEBUG mode bypass for dev testing only
 
 ---
 
@@ -582,11 +584,13 @@ For comprehensive technical details, migration guides, and implementation specif
 ## Version History Summary
 
 <ul>
-<li><strong>v2.9.1</strong> (2026-03-16) - Mobile UI Fixes
+<li><strong>v2.9.1</strong> (2026-03-16) - Mobile UI Fixes & VPP Access Fix
     <ul>
     <li>Fixed long URLs overflowing in home page announcements on mobile</li>
     <li>Fixed committee page button labels showing only "All" on mobile</li>
     <li>Fixed committee dropdown menu positioning on mobile</li>
+    <li>Fixed VPP role check to be case-insensitive</li>
+    <li>Improved vpp_required decorator with functools.wraps</li>
     </ul>
 </li>
 <li><strong>v2.9.0</strong> (2026-03-16) - Service Hours System & Directory Export
