@@ -17,18 +17,28 @@
             </div>
             <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
                 <!-- Dropdown showing all committees -->
-                <div class="relative">
+                <div class="relative" id="dropdownContainer">
                     <button onclick="toggleDropdown()" class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition flex items-center space-x-2 text-sm sm:text-base whitespace-nowrap">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
                         </svg>
                         <span class="hidden sm:inline">All Committees</span>
-                        <span class="sm:hidden">All</span>
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <span class="sm:hidden">Browse</span>
+                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                         </svg>
                     </button>
-                    <div id="committeeDropdown" class="hidden absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-10 max-h-96 overflow-y-auto transition-colors duration-200">
+                    <div id="committeeDropdown" class="hidden absolute right-0 sm:right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-10 max-h-96 overflow-y-auto transition-colors duration-200" style="right: auto; left: 50%; transform: translateX(-50%);">
+                        <!-- On larger screens, reset to right-aligned -->
+                        <style>
+                            @media (min-width: 640px) {
+                                #committeeDropdown {
+                                    left: auto !important;
+                                    right: 0 !important;
+                                    transform: none !important;
+                                }
+                            }
+                        </style>
                         <div class="p-4">
                             <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 sticky top-0 bg-white dark:bg-gray-800 pb-2 border-b border-gray-200 dark:border-gray-700">Chapter Committees Directory</h3>
                             <div class="space-y-3">
@@ -66,8 +76,7 @@
                             <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                             </svg>
-                            <span class="hidden sm:inline">My Committees</span>
-                            <span class="sm:hidden">Mine</span>
+                            <span>My Committees</span>
                         </a>
                     {% else %}
                         <a href="?show_all=true" class="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-2 rounded-lg transition flex items-center space-x-2 text-sm sm:text-base whitespace-nowrap">
@@ -76,7 +85,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                             </svg>
                             <span class="hidden sm:inline">Admin: View All</span>
-                            <span class="sm:hidden">All</span>
+                            <span class="sm:hidden">View All</span>
                         </a>
                     {% endif %}
                 {% endif %}
