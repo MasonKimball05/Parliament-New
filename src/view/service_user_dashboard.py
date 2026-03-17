@@ -97,8 +97,10 @@ def user_service_dashboard(request):
         submitted_by=user
     ).select_related('period', 'reviewed_by').order_by('-submitted_at')
 
-    # Check if user is VPP (to show admin link)
-    is_vpp = user.is_admin or user.roles.filter(code='VPP').exists()
+    # Check if user is VPP (to show admin link) - case-insensitive
+    # Also show on DEBUG mode for dev testing
+    from django.conf import settings
+    is_vpp = user.is_admin or user.roles.filter(code__iexact='VPP').exists() or settings.DEBUG
 
     context = {
         'current_period': current_period,

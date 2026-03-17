@@ -85,8 +85,11 @@ def vpp_required(view_func):
     """
     Decorator to restrict access to VPP (Vice President of Programming) role holders and admins.
     Used for Service Hours officer pages.
-    In DEBUG mode, allows any authenticated user for development purposes.
+    In DEBUG mode (dev server only), allows any authenticated user for testing.
     """
+    from functools import wraps
+
+    @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             from django.shortcuts import redirect
@@ -96,13 +99,13 @@ def vpp_required(view_func):
         if request.user.is_admin:
             return view_func(request, *args, **kwargs)
 
-        # Allow any authenticated user in DEBUG mode (dev server)
-        from django.conf import settings
-        if settings.DEBUG:
+        # Check if user has VPP role (case-insensitive)
+        if request.user.roles.filter(code__iexact='VPP').exists():
             return view_func(request, *args, **kwargs)
 
-        # Check if user has VPP role
-        if request.user.roles.filter(code='VPP').exists():
+        # Allow any authenticated user in DEBUG mode (dev server only)
+        from django.conf import settings
+        if settings.DEBUG:
             return view_func(request, *args, **kwargs)
 
         # Deny access

@@ -249,7 +249,7 @@ def reorder_service_fields(request):
     """
     try:
         # Check permission
-        if not request.user.is_admin and not request.user.roles.filter(code='VPP').exists():
+        if not request.user.is_admin and not request.user.roles.filter(code__iexact='VPP').exists():
             return JsonResponse({'status': 'error', 'message': 'Permission denied'}, status=403)
 
         order_data = json.loads(request.POST.get('order', '[]'))
