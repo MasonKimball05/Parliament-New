@@ -23,6 +23,16 @@
                 </svg>
                 <span>Initiate (<span id="pledge-count">0</span>)</span>
             </button>
+            <!-- Sync Officer Admins Button (admin only) -->
+            {% if user.is_admin %}
+            <button id="sync-admins-btn" onclick="openSyncAdminsModal()" class="px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                <span class="hidden sm:inline">Sync Officer Admins</span>
+                <span class="sm:hidden">Sync Admins</span>
+            </button>
+            {% endif %}
             <!-- Add Member Button -->
             <button id="add-member-btn" onclick="openAddModal()" class="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
                 <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -744,6 +754,86 @@
     </div>
 </div>
 
+<!-- Sync Officer Admins Modal -->
+<div id="sync-admins-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="sync-admins-modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <!-- Background overlay -->
+        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeSyncAdminsModal()"></div>
+
+        <!-- Modal panel -->
+        <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                    <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-purple-100 dark:bg-purple-900/30 sm:mx-0 sm:h-10 sm:w-10">
+                        <svg class="h-6 w-6 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </div>
+                    <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left flex-1">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white" id="sync-admins-modal-title">
+                            Sync Officer Admins
+                        </h3>
+                        <div class="mt-2">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                This will sync admin status based on officer roles:
+                            </p>
+                            <ul class="mt-3 text-sm text-gray-600 dark:text-gray-300 space-y-2">
+                                <li class="flex items-center">
+                                    <svg class="w-4 h-4 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                    </svg>
+                                    <span><strong>Add admin</strong> to users with admin-granting roles</span>
+                                </li>
+                                <li class="flex items-center">
+                                    <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                                    </svg>
+                                    <span><strong>Remove admin</strong> from users without these roles</span>
+                                </li>
+                            </ul>
+                            <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                <p class="text-sm text-blue-700 dark:text-blue-300">
+                                    <strong>Admin-granting roles:</strong><br>
+                                    <span id="admin-roles-list">President, Executive Vice President, Vice President of Brotherhood</span>
+                                </p>
+                            </div>
+                            <div class="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                                <p class="text-xs text-yellow-700 dark:text-yellow-300">
+                                    <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    Protected accounts will not have admin removed.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results display (hidden by default) -->
+                <div id="sync-results" class="hidden mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <h4 class="font-medium text-gray-900 dark:text-white mb-3">Sync Results</h4>
+                    <div id="sync-results-content" class="space-y-2 text-sm"></div>
+                </div>
+
+                <!-- Error display -->
+                <div id="sync-error" class="hidden mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
+
+                <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
+                    <button type="button" onclick="confirmSyncAdmins()" id="confirm-sync-btn" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-purple-600 text-base font-medium text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 sm:w-auto sm:text-sm">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Sync Now
+                    </button>
+                    <button type="button" onclick="closeSyncAdminsModal()" class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Delete Confirmation Modal -->
 <div id="delete-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="delete-modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -1260,6 +1350,109 @@ async function confirmInitiate() {
         errorDiv.classList.remove('hidden');
         confirmBtn.disabled = false;
         confirmBtn.innerHTML = originalContent;
+    }
+}
+
+// Sync Officer Admins
+async function openSyncAdminsModal() {
+    document.getElementById('sync-error').classList.add('hidden');
+    document.getElementById('sync-results').classList.add('hidden');
+    document.getElementById('confirm-sync-btn').disabled = false;
+    document.getElementById('confirm-sync-btn').innerHTML = '<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Sync Now';
+
+    // Fetch admin-granting roles dynamically
+    try {
+        const response = await fetch('/api/admin-roles/');
+        const data = await response.json();
+        if (data.success && data.roles.length > 0) {
+            const roleNames = data.roles.map(r => r.name).join(', ');
+            document.getElementById('admin-roles-list').textContent = roleNames;
+        } else {
+            document.getElementById('admin-roles-list').textContent = 'No roles configured. Please set grants_admin=True on roles in admin.';
+        }
+    } catch (error) {
+        console.error('Failed to fetch admin roles:', error);
+    }
+
+    document.getElementById('sync-admins-modal').classList.remove('hidden');
+}
+
+function closeSyncAdminsModal() {
+    document.getElementById('sync-admins-modal').classList.add('hidden');
+    // Reload page if sync was performed
+    if (!document.getElementById('sync-results').classList.contains('hidden')) {
+        window.location.reload();
+    }
+}
+
+async function confirmSyncAdmins() {
+    const errorDiv = document.getElementById('sync-error');
+    const resultsDiv = document.getElementById('sync-results');
+    const resultsContent = document.getElementById('sync-results-content');
+    const confirmBtn = document.getElementById('confirm-sync-btn');
+
+    errorDiv.classList.add('hidden');
+    resultsDiv.classList.add('hidden');
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<svg class="animate-spin w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Syncing...';
+
+    try {
+        const response = await fetch('/officers/members/sync-admins/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrf(),
+            },
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Build results display
+            let html = '';
+
+            if (result.results.added.length > 0) {
+                html += '<div class="mb-2"><span class="font-medium text-green-600 dark:text-green-400">Added admin:</span><ul class="ml-4 list-disc">';
+                result.results.added.forEach(u => {
+                    html += `<li>${u.name} (${u.roles.join(', ')})</li>`;
+                });
+                html += '</ul></div>';
+            }
+
+            if (result.results.removed.length > 0) {
+                html += '<div class="mb-2"><span class="font-medium text-red-600 dark:text-red-400">Removed admin:</span><ul class="ml-4 list-disc">';
+                result.results.removed.forEach(u => {
+                    html += `<li>${u.name}</li>`;
+                });
+                html += '</ul></div>';
+            }
+
+            if (result.results.protected.length > 0) {
+                html += '<div class="mb-2"><span class="font-medium text-yellow-600 dark:text-yellow-400">Protected (not changed):</span><ul class="ml-4 list-disc">';
+                result.results.protected.forEach(u => {
+                    html += `<li>${u.name} - ${u.reason}</li>`;
+                });
+                html += '</ul></div>';
+            }
+
+            if (result.results.added.length === 0 && result.results.removed.length === 0) {
+                html = '<p class="text-gray-600 dark:text-gray-400">No changes needed. All admin statuses are already in sync.</p>';
+            }
+
+            resultsContent.innerHTML = html;
+            resultsDiv.classList.remove('hidden');
+            confirmBtn.innerHTML = '<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Done';
+        } else {
+            errorDiv.textContent = result.error || 'Failed to sync officer admins';
+            errorDiv.classList.remove('hidden');
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Sync Now';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'An error occurred. Please try again.';
+        errorDiv.classList.remove('hidden');
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Sync Now';
     }
 }
 </script>

@@ -1,0 +1,506 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Roles{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-6xl">
+    <!-- Header -->
+    <div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Manage Roles</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ total_roles }} role{{ total_roles|pluralize }}</p>
+        </div>
+        <button onclick="openAddRoleModal()" class="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center space-x-2 text-sm font-medium shadow-sm">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            <span>Add Role</span>
+        </button>
+    </div>
+
+    <!-- Roles List -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Role</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Code</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden md:table-cell">Holders</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Grants Admin</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden sm:table-cell">One Per Chapter</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-24">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for data in roles_data %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="font-medium text-gray-900 dark:text-white">{{ data.role.name }}</div>
+                            {% if data.role.description %}
+                            <div class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">{{ data.role.description|truncatewords:10 }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 text-xs font-mono font-semibold rounded bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">{{ data.role.code }}</span>
+                        </td>
+                        <td class="px-6 py-4 hidden md:table-cell">
+                            <div class="flex items-center">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">{{ data.holder_count }}</span>
+                                {% if data.holders %}
+                                <span class="ml-2 text-xs text-gray-500 dark:text-gray-400 truncate max-w-[150px]">
+                                    {{ data.holders|join:", " }}{% if data.holder_count > 5 %}...{% endif %}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            {% if data.role.grants_admin %}
+                            <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
+                                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                </svg>
+                                Yes
+                            </span>
+                            {% else %}
+                            <span class="text-gray-400 dark:text-gray-500 text-xs">No</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-center hidden sm:table-cell">
+                            {% if data.role.one_per_chapter %}
+                            <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">
+                                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                </svg>
+                                Yes
+                            </span>
+                            {% else %}
+                            <span class="text-gray-400 dark:text-gray-500 text-xs">No</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <div class="flex items-center justify-center space-x-2">
+                                <button onclick="openEditRoleModal({{ data.role.id }})" class="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition" title="Edit role">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                </button>
+                                <button onclick="openDeleteRoleModal({{ data.role.id }}, '{{ data.role.name|escapejs }}', {{ data.holder_count }})" class="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition" title="Delete role">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                            <p>No roles found. Create a new role to get started.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Back Link -->
+    <div class="mt-6">
+        <a href="{% url 'officer_home' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
+            &larr; Back to Officer Portal
+        </a>
+    </div>
+</div>
+
+<!-- Add Role Modal -->
+<div id="add-role-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="add-role-modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeAddRoleModal()"></div>
+        <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="add-role-modal-title">Add New Role</h3>
+                    <button onclick="closeAddRoleModal()" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <form id="add-role-form" onsubmit="submitAddRole(event)">
+                    <div class="space-y-4">
+                        <div>
+                            <label for="add-role-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role Name *</label>
+                            <input type="text" id="add-role-name" name="name" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., Vice President of Events">
+                        </div>
+                        <div>
+                            <label for="add-role-code" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role Code *</label>
+                            <input type="text" id="add-role-code" name="code" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase" placeholder="e.g., VPEVENTS" maxlength="20">
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Short unique code (will be converted to uppercase)</p>
+                        </div>
+                        <div>
+                            <label for="add-role-description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                            <textarea id="add-role-description" name="description" rows="2" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Optional description of this role"></textarea>
+                        </div>
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <label class="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition flex-1">
+                                <input type="checkbox" id="add-role-grants-admin" name="grants_admin" class="h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded">
+                                <div class="ml-3">
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Grants Admin</span>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Users get admin privileges</p>
+                                </div>
+                            </label>
+                            <label class="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition flex-1">
+                                <input type="checkbox" id="add-role-one-per-chapter" name="one_per_chapter" class="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 dark:border-gray-600 rounded">
+                                <div class="ml-3">
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">One Per Chapter</span>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Only one holder allowed</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="add-role-error" class="hidden mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
+
+                    <div class="mt-6 flex justify-end gap-3">
+                        <button type="button" onclick="closeAddRoleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">Cancel</button>
+                        <button type="submit" id="add-role-submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium">Add Role</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Role Modal -->
+<div id="edit-role-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="edit-role-modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeEditRoleModal()"></div>
+        <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="edit-role-modal-title">Edit Role</h3>
+                    <button onclick="closeEditRoleModal()" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <form id="edit-role-form" onsubmit="submitEditRole(event)">
+                    <input type="hidden" id="edit-role-id">
+
+                    <div class="space-y-4">
+                        <div>
+                            <label for="edit-role-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role Name *</label>
+                            <input type="text" id="edit-role-name" name="name" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label for="edit-role-code" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role Code *</label>
+                            <input type="text" id="edit-role-code" name="code" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase" maxlength="20">
+                        </div>
+                        <div>
+                            <label for="edit-role-description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                            <textarea id="edit-role-description" name="description" rows="2" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                        </div>
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <label class="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition flex-1">
+                                <input type="checkbox" id="edit-role-grants-admin" name="grants_admin" class="h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded">
+                                <div class="ml-3">
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Grants Admin</span>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Users get admin privileges</p>
+                                </div>
+                            </label>
+                            <label class="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition flex-1">
+                                <input type="checkbox" id="edit-role-one-per-chapter" name="one_per_chapter" class="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 dark:border-gray-600 rounded">
+                                <div class="ml-3">
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">One Per Chapter</span>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Only one holder allowed</p>
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- Current Holders -->
+                        <div id="edit-role-holders-section" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Holders</label>
+                            <div id="edit-role-holders" class="text-sm text-gray-600 dark:text-gray-400 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"></div>
+                        </div>
+                    </div>
+
+                    <div id="edit-role-error" class="hidden mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
+
+                    <div class="mt-6 flex justify-end gap-3">
+                        <button type="button" onclick="closeEditRoleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">Cancel</button>
+                        <button type="submit" id="edit-role-submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Role Modal -->
+<div id="delete-role-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="delete-role-modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeDeleteRoleModal()"></div>
+        <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full">
+            <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                    <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 sm:mx-0 sm:h-10 sm:w-10">
+                        <svg class="h-6 w-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </div>
+                    <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white" id="delete-role-modal-title">Delete Role</h3>
+                        <div class="mt-2">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                Are you sure you want to delete <span id="delete-role-name" class="font-semibold"></span>?
+                            </p>
+                            <p id="delete-role-warning" class="hidden mt-2 text-sm text-red-600 dark:text-red-400"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <input type="hidden" id="delete-role-id">
+
+                <div id="delete-role-error" class="hidden mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
+
+                <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
+                    <button type="button" onclick="confirmDeleteRole()" id="delete-role-submit" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:w-auto sm:text-sm">Delete</button>
+                    <button type="button" onclick="closeDeleteRoleModal()" class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function getCsrf() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta) return meta.getAttribute('content');
+    let val = null;
+    if (document.cookie) {
+        for (const c of document.cookie.split(';')) {
+            const t = c.trim();
+            if (t.startsWith('csrftoken=')) {
+                val = decodeURIComponent(t.substring(10));
+                break;
+            }
+        }
+    }
+    return val;
+}
+
+// Add Role
+function openAddRoleModal() {
+    document.getElementById('add-role-form').reset();
+    document.getElementById('add-role-error').classList.add('hidden');
+    document.getElementById('add-role-submit').disabled = false;
+    document.getElementById('add-role-submit').textContent = 'Add Role';
+    document.getElementById('add-role-modal').classList.remove('hidden');
+}
+
+function closeAddRoleModal() {
+    document.getElementById('add-role-modal').classList.add('hidden');
+}
+
+document.getElementById('add-role-code').addEventListener('input', function(e) {
+    e.target.value = e.target.value.toUpperCase();
+});
+
+async function submitAddRole(e) {
+    e.preventDefault();
+    const errorDiv = document.getElementById('add-role-error');
+    const submitBtn = document.getElementById('add-role-submit');
+
+    errorDiv.classList.add('hidden');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Adding...';
+
+    const data = {
+        name: document.getElementById('add-role-name').value,
+        code: document.getElementById('add-role-code').value,
+        description: document.getElementById('add-role-description').value,
+        grants_admin: document.getElementById('add-role-grants-admin').checked,
+        one_per_chapter: document.getElementById('add-role-one-per-chapter').checked,
+    };
+
+    try {
+        const response = await fetch('/officers/roles/add/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+            body: JSON.stringify(data),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            closeAddRoleModal();
+            window.location.reload();
+        } else {
+            errorDiv.textContent = result.error || 'Failed to add role';
+            errorDiv.classList.remove('hidden');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Add Role';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'An error occurred. Please try again.';
+        errorDiv.classList.remove('hidden');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Add Role';
+    }
+}
+
+// Edit Role
+async function openEditRoleModal(roleId) {
+    document.getElementById('edit-role-error').classList.add('hidden');
+    document.getElementById('edit-role-submit').disabled = false;
+    document.getElementById('edit-role-submit').textContent = 'Save Changes';
+
+    try {
+        const response = await fetch(`/officers/roles/${roleId}/`);
+        const data = await response.json();
+
+        if (data.success) {
+            const role = data.role;
+            document.getElementById('edit-role-id').value = role.id;
+            document.getElementById('edit-role-name').value = role.name;
+            document.getElementById('edit-role-code').value = role.code;
+            document.getElementById('edit-role-description').value = role.description || '';
+            document.getElementById('edit-role-grants-admin').checked = role.grants_admin;
+            document.getElementById('edit-role-one-per-chapter').checked = role.one_per_chapter;
+
+            // Show holders
+            const holdersSection = document.getElementById('edit-role-holders-section');
+            const holdersDiv = document.getElementById('edit-role-holders');
+            if (role.holders && role.holders.length > 0) {
+                holdersDiv.innerHTML = role.holders.map(h => `<span class="inline-block mr-2 mb-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-xs">${h.name}</span>`).join('');
+                holdersSection.classList.remove('hidden');
+            } else {
+                holdersSection.classList.add('hidden');
+            }
+
+            document.getElementById('edit-role-modal').classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Failed to load role data:', error);
+        alert('Failed to load role data. Please try again.');
+    }
+}
+
+function closeEditRoleModal() {
+    document.getElementById('edit-role-modal').classList.add('hidden');
+}
+
+document.getElementById('edit-role-code').addEventListener('input', function(e) {
+    e.target.value = e.target.value.toUpperCase();
+});
+
+async function submitEditRole(e) {
+    e.preventDefault();
+    const errorDiv = document.getElementById('edit-role-error');
+    const submitBtn = document.getElementById('edit-role-submit');
+    const roleId = document.getElementById('edit-role-id').value;
+
+    errorDiv.classList.add('hidden');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
+
+    const data = {
+        name: document.getElementById('edit-role-name').value,
+        code: document.getElementById('edit-role-code').value,
+        description: document.getElementById('edit-role-description').value,
+        grants_admin: document.getElementById('edit-role-grants-admin').checked,
+        one_per_chapter: document.getElementById('edit-role-one-per-chapter').checked,
+    };
+
+    try {
+        const response = await fetch(`/officers/roles/${roleId}/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+            body: JSON.stringify(data),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            closeEditRoleModal();
+            window.location.reload();
+        } else {
+            errorDiv.textContent = result.error || 'Failed to update role';
+            errorDiv.classList.remove('hidden');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Save Changes';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'An error occurred. Please try again.';
+        errorDiv.classList.remove('hidden');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save Changes';
+    }
+}
+
+// Delete Role
+function openDeleteRoleModal(roleId, roleName, holderCount) {
+    document.getElementById('delete-role-id').value = roleId;
+    document.getElementById('delete-role-name').textContent = roleName;
+    document.getElementById('delete-role-error').classList.add('hidden');
+
+    const warningDiv = document.getElementById('delete-role-warning');
+    const submitBtn = document.getElementById('delete-role-submit');
+
+    if (holderCount > 0) {
+        warningDiv.textContent = `This role has ${holderCount} member(s) assigned. Remove all members before deleting.`;
+        warningDiv.classList.remove('hidden');
+        submitBtn.disabled = true;
+        submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    } else {
+        warningDiv.classList.add('hidden');
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+
+    document.getElementById('delete-role-modal').classList.remove('hidden');
+}
+
+function closeDeleteRoleModal() {
+    document.getElementById('delete-role-modal').classList.add('hidden');
+}
+
+async function confirmDeleteRole() {
+    const errorDiv = document.getElementById('delete-role-error');
+    const submitBtn = document.getElementById('delete-role-submit');
+    const roleId = document.getElementById('delete-role-id').value;
+
+    errorDiv.classList.add('hidden');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Deleting...';
+
+    try {
+        const response = await fetch(`/officers/roles/${roleId}/delete/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            closeDeleteRoleModal();
+            window.location.reload();
+        } else {
+            errorDiv.textContent = result.error || 'Failed to delete role';
+            errorDiv.classList.remove('hidden');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Delete';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'An error occurred. Please try again.';
+        errorDiv.classList.remove('hidden');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Delete';
+    }
+}
+</script>
+{% endblock %}

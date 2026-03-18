@@ -161,8 +161,8 @@ def submit_service_hours(request):
         messages.error(request, 'No active service periods available. Please contact the VPP.')
         return redirect('user_service_dashboard')
 
-    # Get custom form fields
-    custom_fields = ServiceFormField.objects.filter(is_active=True).order_by('section', 'display_order')
+    # Get custom form fields (exclude built-in fields which are rendered by the Django form)
+    custom_fields = ServiceFormField.objects.filter(is_active=True, is_builtin=False).order_by('section', 'display_order')
 
     if request.method == 'POST':
         form = ServiceHoursSubmissionForm(request.POST, request.FILES)
@@ -246,8 +246,8 @@ def edit_service_submission(request, submission_id):
         messages.error(request, 'This submission cannot be edited because it has been approved.')
         return redirect('user_view_service_submission', submission_id=submission_id)
 
-    # Get custom form fields
-    custom_fields = ServiceFormField.objects.filter(is_active=True).order_by('section', 'display_order')
+    # Get custom form fields (exclude built-in fields which are rendered by the Django form)
+    custom_fields = ServiceFormField.objects.filter(is_active=True, is_builtin=False).order_by('section', 'display_order')
 
     # Get existing custom responses
     existing_responses = {

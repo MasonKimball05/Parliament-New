@@ -50,10 +50,35 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.8.2 - Admin Management Tools & Bug Fixes (03-18-2026)
+New admin management pages for roles and committees, officer admin sync functionality, and bug fixes.
+
+**Deployment Status:** Pending
+
+**Key Features:**
+
+- **Officer Admin Sync**: New tool to sync admin privileges based on officer roles (President, EVP, VPB grant admin by default)
+- **Manage Roles Page**: Admin-only page to add, edit, and delete officer roles with `grants_admin` configuration
+- **Manage Committees Page**: Full CRUD for committees including edit, delete, and ad-hoc/permanent status
+- **Protected Admin Account**: User ID 73 protected from having admin removed during sync
+
+**Bug Fixes:**
+
+- **Service Hours Form Duplicate**: Fixed form showing fields twice by excluding built-in fields from custom fields query
+
+**Database Changes:**
+
+- Added `grants_admin` field to Role model
+- Added `is_ad_hoc` field to Committee model
+
+**[View Detailed Changelog](changelogs/v2.8.2.md)**
+
+---
+
 ### v2.8.1 - Mobile UI Fixes & VPP Access Fix (03-16-2026)
 Bug fixes for mobile layout issues and VPP role access control.
 
-**Deployment Status:** Ready for Deployment
+**Deployment Status:** Deployed
 
 **Bug Fixes:**
 

@@ -72,7 +72,8 @@ from src.view.notification_admin import (
     notification_log_detail
 )
 from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event
-from src.view.officer.manage_members import add_member, edit_member, delete_member, initiate_pledges, get_all_roles
+from src.view.officer.manage_members import add_member, edit_member, delete_member, initiate_pledges, get_all_roles, sync_officer_admins, get_admin_roles
+from src.view.officer.manage_roles import manage_roles, role_detail, add_role, delete_role
 from src.view.home import home
 from src.view.vote_view import vote_view
 from src.view.change_password import change_password
@@ -273,7 +274,15 @@ urlpatterns = [
     path('officers/members/<str:user_id>/edit/', edit_member, name='edit_member'),
     path('officers/members/<str:user_id>/delete/', delete_member, name='delete_member'),
     path('officers/members/initiate/', initiate_pledges, name='initiate_pledges'),
+    path('officers/members/sync-admins/', sync_officer_admins, name='sync_officer_admins'),
     path('api/roles/', get_all_roles, name='get_all_roles'),
+    path('api/admin-roles/', get_admin_roles, name='get_admin_roles'),
+
+    # Role Management (Admin)
+    path('officers/roles/', manage_roles, name='manage_roles'),
+    path('officers/roles/add/', add_role, name='add_role'),
+    path('officers/roles/<int:role_id>/', role_detail, name='role_detail'),
+    path('officers/roles/<int:role_id>/delete/', delete_role, name='delete_role'),
 
     # Announcement Management (Officer)
     path('officers/announcements/', manage_announcements, name='manage_announcements'),
@@ -329,6 +338,10 @@ urlpatterns = [
 
     # Committee URLs
     path('committees/', committee_index, name='committee_index'),
+    path('committees/create/', create_committee, name='create_committee'),
+    path('committees/manage/', manage_committees, name='manage_committees'),
+    path('committees/<int:committee_id>/', committee_detail_api, name='committee_detail_api'),
+    path('committees/<int:committee_id>/delete/', delete_committee, name='delete_committee'),
     path('committee/<str:code>/details/', committee_detail, name='committee_detail'),
     path('committee/<str:code>/', committee_home, name='committee_home'),
     path('committee/<str:code>/documents/', committee_documents, name='committee_documents'),

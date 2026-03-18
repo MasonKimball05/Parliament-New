@@ -81,6 +81,10 @@ class Role(models.Model):
     description = models.TextField(blank=True)
 
     one_per_chapter = models.BooleanField(default=False)
+    grants_admin = models.BooleanField(
+        default=False,
+        help_text='If True, users with this role will automatically receive admin privileges when officer admins are synced'
+    )
 
     def __str__(self):
         return self.name
@@ -853,6 +857,7 @@ class Committee(models.Model):
     # Special committee flags
     is_exec_board = models.BooleanField(default=False, help_text='If True, membership auto-syncs with exec role holders')
     is_slating_committee = models.BooleanField(default=False, help_text='If True, has special visibility rules')
+    is_ad_hoc = models.BooleanField(default=False, help_text='If True, this is a temporary ad-hoc committee')
 
     # Explicit admin for committees (used for Slating Committee)
     admin = models.ForeignKey(

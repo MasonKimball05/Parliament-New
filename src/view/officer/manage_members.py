@@ -567,3 +567,129 @@ def get_all_roles(request):
         'success': True,
         'roles': list(roles),
     })
+
+
+@login_required
+def get_admin_roles(request):
+    """API endpoint to get roles that grant admin privileges."""
+    admin_roles = Role.objects.filter(grants_admin=True).values('id', 'name', 'code')
+    return JsonResponse({
+        'success': True,
+        'roles': list(admin_roles),
+    })
+
+
+# Protected user ID that can never have admin removed
+PROTECTED_ADMIN_USER_ID = '73'
+
+
+@login_required
+@require_POST
+def sync_officer_admins(request):
+    """
+    Sync admin status based on officer roles.
+    Users with roles that have grants_admin=True are made admins.
+    Users who no longer have these roles lose admin (except protected users).
+    Only admins can perform this action.
+    """
+    # Check admin permission
+    if not request.user.is_admin:
+        return JsonResponse({
+            'success': False,
+            'error': 'Only admins can sync officer admin status.'
+        }, status=403)
+
+    try:
+        results = {
+            'added': [],
+            'removed': [],
+            'protected': [],
+            'unchanged': [],
+        }
+
+        # Get all roles that grant admin (dynamic from database)
+        admin_roles = Role.objects.filter(grants_admin=True)
+
+        if not admin_roles.exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'No roles are configured to grant admin privileges. Please set grants_admin=True on at least one role.'
+            }, status=400)
+
+        users_with_admin_roles = ParliamentUser.objects.filter(
+            roles__in=admin_roles,
+            member_status='Active'
+        ).distinct()
+
+        # Get all current admins
+        current_admins = ParliamentUser.objects.filter(is_admin=True)
+
+        # Add admin to users with admin roles who don't have it
+        for user in users_with_admin_roles:
+            if not user.is_admin:
+                user.is_admin = True
+                user.save(update_fields=['is_admin'])
+                results['added'].append({
+                    'user_id': user.user_id,
+                    'name': user.name,
+                    'roles': list(user.roles.filter(grants_admin=True).values_list('name', flat=True))
+                })
+            else:
+                results['unchanged'].append({
+                    'user_id': user.user_id,
+                    'name': user.name,
+                })
+
+        # Remove admin from users who no longer have admin roles
+        users_with_admin_role_ids = set(users_with_admin_roles.values_list('user_id', flat=True))
+
+        for admin_user in current_admins:
+            # Skip if user has admin roles
+            if admin_user.user_id in users_with_admin_role_ids:
+                continue
+
+            # Protect user ID 73
+            if admin_user.user_id == PROTECTED_ADMIN_USER_ID:
+                results['protected'].append({
+                    'user_id': admin_user.user_id,
+                    'name': admin_user.name,
+                    'reason': 'Protected admin account'
+                })
+                continue
+
+            # Remove admin
+            admin_user.is_admin = False
+            admin_user.save(update_fields=['is_admin'])
+            results['removed'].append({
+                'user_id': admin_user.user_id,
+                'name': admin_user.name,
+            })
+
+        # Log the activity
+        ActivityLog.log_activity(
+            action_type='other',
+            user=request.user,
+            description=f'{request.user.get_display_name()} synced officer admin status: {len(results["added"])} added, {len(results["removed"])} removed',
+            request=request,
+            metadata={
+                'action': 'sync_officer_admins',
+                'added': results['added'],
+                'removed': results['removed'],
+                'protected': results['protected'],
+            }
+        )
+
+        logger.info(f"Admin {request.user.user_id} synced officer admins: {len(results['added'])} added, {len(results['removed'])} removed")
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Admin sync complete: {len(results["added"])} added, {len(results["removed"])} removed.',
+            'results': results,
+        })
+
+    except Exception as e:
+        logger.error(f"Error syncing officer admins: {e}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': f'An error occurred: {str(e)}'
+        }, status=500)
