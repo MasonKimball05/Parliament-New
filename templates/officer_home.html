@@ -177,7 +177,10 @@
                 </svg>
             </div>
         </a>
+        {% endif %}
 
+        <!-- Officer/Admin Cards -->
+        {% if user.is_admin or user.is_officer %}
         <!-- Manage Roles Card -->
         <a href="{% url 'manage_roles' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all p-6 group">
             <div class="flex items-center justify-between mb-4">

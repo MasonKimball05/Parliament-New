@@ -10,13 +10,13 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST, require_http_methods
 
 from src.models import Role, ParliamentUser, ActivityLog
-from src.decorators import admin_required
+from src.decorators import officer_required
 
 logger = logging.getLogger(__name__)
 
 
 @login_required
-@admin_required
+@officer_required
 def manage_roles(request):
     """Display all roles with management options."""
     roles = Role.objects.all().order_by('name')
@@ -40,7 +40,7 @@ def manage_roles(request):
 
 
 @login_required
-@admin_required
+@officer_required
 @require_http_methods(['GET', 'POST'])
 def role_detail(request, role_id):
     """Get or update a role's details."""
@@ -118,7 +118,7 @@ def role_detail(request, role_id):
                 'changes': changes,
             }
         )
-        logger.info(f"Admin {request.user.user_id} updated role {role.id}: {changes}")
+        logger.info(f"User {request.user.user_id} updated role {role.id}: {changes}")
 
     return JsonResponse({
         'success': True,
@@ -128,7 +128,7 @@ def role_detail(request, role_id):
 
 
 @login_required
-@admin_required
+@officer_required
 @require_POST
 def add_role(request):
     """Create a new role."""
@@ -177,7 +177,7 @@ def add_role(request):
             'role_code': role.code,
         }
     )
-    logger.info(f"Admin {request.user.user_id} created role {role.id}: {role.name}")
+    logger.info(f"User {request.user.user_id} created role {role.id}: {role.name}")
 
     return JsonResponse({
         'success': True,
@@ -191,7 +191,7 @@ def add_role(request):
 
 
 @login_required
-@admin_required
+@officer_required
 @require_POST
 def delete_role(request, role_id):
     """Delete a role."""
@@ -224,7 +224,7 @@ def delete_role(request, role_id):
             'role_code': role_code,
         }
     )
-    logger.info(f"Admin {request.user.user_id} deleted role {role_id_val}: {role_name}")
+    logger.info(f"User {request.user.user_id} deleted role {role_id_val}: {role_name}")
 
     return JsonResponse({
         'success': True,

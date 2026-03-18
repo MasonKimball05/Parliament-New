@@ -62,9 +62,9 @@
                     </div>
                 </div>
 
-                <!-- Admin buttons -->
-                {% if user.is_admin %}
-                    <!-- Manage Committees button -->
+                <!-- Officer/Admin buttons -->
+                {% if user.is_admin or user.is_officer %}
+                    <!-- Manage Committees button (officers and admins) -->
                     <a href="{% url 'manage_committees' %}" class="bg-green-600 hover:bg-green-700 text-white px-3 sm:px-4 py-2 rounded-lg transition flex items-center space-x-2 text-sm sm:text-base whitespace-nowrap">
                         <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
@@ -73,7 +73,10 @@
                         <span class="hidden sm:inline">Manage Committees</span>
                         <span class="sm:hidden">Manage</span>
                     </a>
+                {% endif %}
 
+                <!-- Admin-only: View All Committees toggle -->
+                {% if user.is_admin %}
                     {% if show_all %}
                         <a href="{% url 'committee_index' %}" class="bg-gray-600 hover:bg-gray-700 text-white px-3 sm:px-4 py-2 rounded-lg transition flex items-center space-x-2 text-sm sm:text-base whitespace-nowrap">
                             <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

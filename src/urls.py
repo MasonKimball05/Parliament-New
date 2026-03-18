@@ -53,7 +53,7 @@ from src.view.changelog import changelog, changelog_detail
 from src.view.admin_v2 import (
     admin_v2_login, admin_v2_dashboard, toggle_feature_flag,
     toggle_page, admin_v2_logout, manage_legislation, delete_legislation,
-    manage_committees, toggle_committee_active,
+    manage_committees as admin_v2_manage_committees, toggle_committee_active,
     manage_users, toggle_user_admin, remove_user_profile_picture, manage_login_history,
     manage_announcements as admin_v2_manage_announcements_view,
     delete_announcement as admin_v2_delete_announcement_view,
@@ -488,7 +488,7 @@ urlpatterns = [
     path('admin-v2/legislation/<int:legislation_id>/delete/', delete_legislation, name='admin_v2_delete_legislation'),
     path('admin-v2/events/', admin_v2_manage_events, name='admin_v2_manage_events'),
     path('admin-v2/events/<int:event_id>/delete/', admin_v2_delete_event, name='admin_v2_delete_event'),
-    path('admin-v2/committees/', manage_committees, name='admin_v2_manage_committees'),
+    path('admin-v2/committees/', admin_v2_manage_committees, name='admin_v2_manage_committees'),
     path('admin-v2/committees/<int:committee_id>/toggle/', toggle_committee_active, name='admin_v2_toggle_committee'),
     path('admin-v2/users/', manage_users, name='admin_v2_manage_users'),
     path('admin-v2/users/<str:user_id>/toggle-admin/', toggle_user_admin, name='admin_v2_toggle_user_admin'),

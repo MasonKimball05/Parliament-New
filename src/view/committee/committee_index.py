@@ -9,7 +9,7 @@ from django.views.decorators.http import require_POST, require_http_methods
 from src.models import *
 from src.forms import CommitteeCreateForm
 from src.feature_flag_decorators import require_page_enabled
-from src.decorators import admin_required
+from src.decorators import admin_required, officer_required
 import logging
 
 logger = logging.getLogger('function_calls')
@@ -122,9 +122,9 @@ def create_committee(request):
 
 
 @login_required
-@admin_required
+@officer_required
 def manage_committees(request):
-    """Manage all committees - list, add, edit, delete (admin only)"""
+    """Manage all committees - list, add, edit, delete (officers and admins)"""
     committees = Committee.objects.select_related('role').all().order_by('name')
 
     # Add member counts for each committee
@@ -155,7 +155,7 @@ def manage_committees(request):
 
 
 @login_required
-@admin_required
+@officer_required
 @require_http_methods(['GET', 'POST'])
 def committee_detail_api(request, committee_id):
     """Get or update a committee's details."""
@@ -251,7 +251,7 @@ def committee_detail_api(request, committee_id):
                 'changes': changes,
             }
         )
-        logger.info(f"Admin {request.user.user_id} updated committee {committee.id}: {changes}")
+        logger.info(f"User {request.user.user_id} updated committee {committee.id}: {changes}")
 
     return JsonResponse({
         'success': True,
@@ -261,7 +261,7 @@ def committee_detail_api(request, committee_id):
 
 
 @login_required
-@admin_required
+@officer_required
 @require_POST
 def delete_committee(request, committee_id):
     """Delete a committee."""
@@ -297,7 +297,7 @@ def delete_committee(request, committee_id):
             'committee_code': committee_code,
         }
     )
-    logger.info(f"Admin {request.user.user_id} deleted committee {committee_id_val}: {committee_name}")
+    logger.info(f"User {request.user.user_id} deleted committee {committee_id_val}: {committee_name}")
 
     return JsonResponse({
         'success': True,
