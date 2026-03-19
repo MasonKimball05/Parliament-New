@@ -136,6 +136,7 @@
                 </div>
                 <form method="post" class="px-6 py-4 space-y-4" id="review-form">
                     {% csrf_token %}
+                    <input type="hidden" name="action" id="action-input" value="">
                     <div>
                         <label for="reviewer_notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Notes (required for rejection)
@@ -145,14 +146,14 @@
                                   placeholder="Add notes about this submission..."></textarea>
                     </div>
                     <div class="flex space-x-3">
-                        <button type="submit" name="action" value="approve" id="approve-btn"
+                        <button type="submit" value="approve" id="approve-btn"
                                 class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium transition flex items-center justify-center">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                             </svg>
                             <span id="approve-text">Approve</span>
                         </button>
-                        <button type="submit" name="action" value="reject" id="reject-btn"
+                        <button type="submit" value="reject" id="reject-btn"
                                 class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-medium transition flex items-center justify-center">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -211,6 +212,9 @@ document.getElementById('review-form').addEventListener('submit', function(e) {
         document.getElementById('reviewer_notes').focus();
         return false;
     }
+
+    // Set the hidden input value before disabling buttons
+    document.getElementById('action-input').value = action;
 
     // Disable buttons to prevent double submit
     const approveBtn = document.getElementById('approve-btn');
