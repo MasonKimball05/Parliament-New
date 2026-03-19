@@ -885,6 +885,9 @@ class Committee(models.Model):
     chair_list.short_description = "Chairs"
 
     def is_chair(self, user):
+        # For EXEC committee specifically, all members have chair permissions
+        if self.code == 'EXEC' and self.members.filter(pk=user.pk).exists():
+            return True
         return self.chairs.filter(pk=user.pk).exists()
 
     def is_member(self, user):
