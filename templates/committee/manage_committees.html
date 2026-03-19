@@ -61,25 +61,45 @@
                         </td>
                         <td class="px-6 py-4 text-center hidden sm:table-cell">
                             {% if data.committee.is_ad_hoc %}
-                            <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">Ad Hoc</span>
+                            <div class="flex flex-col items-center gap-1">
+                                <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">Ad Hoc</span>
+                                {% if data.committee.ad_hoc_expiration %}
+                                <span class="text-xs text-gray-500 dark:text-gray-400">Expires: {{ data.committee.ad_hoc_expiration|date:"M j, Y" }}</span>
+                                {% endif %}
+                            </div>
                             {% else %}
                             <span class="text-xs text-gray-500 dark:text-gray-400">Permanent</span>
                             {% endif %}
                         </td>
                         <td class="px-6 py-4 text-center">
-                            {% if data.committee.is_active %}
+                            {% if data.committee.is_archived %}
+                            <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200">Archived</span>
+                            {% elif data.committee.is_active %}
                             <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">Active</span>
                             {% else %}
                             <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">Inactive</span>
                             {% endif %}
                         </td>
                         <td class="px-6 py-4 text-center">
-                            <div class="flex items-center justify-center space-x-2">
+                            <div class="flex items-center justify-center space-x-1">
                                 <button onclick="openEditCommitteeModal({{ data.committee.id }})" class="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition" title="Edit committee">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                     </svg>
                                 </button>
+                                {% if data.committee.is_archived %}
+                                <button onclick="toggleArchiveCommittee({{ data.committee.id }}, '{{ data.committee.name|escapejs }}', false)" class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition" title="Restore committee">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                    </svg>
+                                </button>
+                                {% else %}
+                                <button onclick="toggleArchiveCommittee({{ data.committee.id }}, '{{ data.committee.name|escapejs }}', true)" class="p-1.5 text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded transition" title="Archive committee">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
+                                    </svg>
+                                </button>
+                                {% endif %}
                                 <button onclick="openDeleteCommitteeModal({{ data.committee.id }}, '{{ data.committee.name|escapejs }}')" class="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition" title="Delete committee">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -145,7 +165,7 @@
                         </div>
                         <div class="flex flex-col sm:flex-row gap-4">
                             <label class="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition flex-1">
-                                <input type="checkbox" id="add-committee-ad-hoc" name="is_ad_hoc" class="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 dark:border-gray-600 rounded">
+                                <input type="checkbox" id="add-committee-ad-hoc" name="is_ad_hoc" class="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 dark:border-gray-600 rounded" onchange="toggleAddExpirationField()">
                                 <div class="ml-3">
                                     <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Ad Hoc</span>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">Temporary committee</p>
@@ -158,6 +178,12 @@
                                     <p class="text-xs text-gray-500 dark:text-gray-400">Committee is active</p>
                                 </div>
                             </label>
+                        </div>
+                        <!-- Ad Hoc Expiration Date (shown when Ad Hoc is checked) -->
+                        <div id="add-expiration-container" class="hidden">
+                            <label for="add-committee-expiration" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Expiration Date (Optional)</label>
+                            <input type="date" id="add-committee-expiration" name="ad_hoc_expiration" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent">
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">When this ad-hoc committee should expire</p>
                         </div>
                     </div>
 
@@ -207,21 +233,34 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="flex flex-col sm:flex-row gap-4">
-                            <label class="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition flex-1">
-                                <input type="checkbox" id="edit-committee-ad-hoc" name="is_ad_hoc" class="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 dark:border-gray-600 rounded">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <label class="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                                <input type="checkbox" id="edit-committee-ad-hoc" name="is_ad_hoc" class="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 dark:border-gray-600 rounded" onchange="toggleEditExpirationField()">
                                 <div class="ml-3">
                                     <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Ad Hoc</span>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">Temporary committee</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Temporary</p>
                                 </div>
                             </label>
-                            <label class="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition flex-1">
+                            <label class="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                                 <input type="checkbox" id="edit-committee-active" name="is_active" class="h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 dark:border-gray-600 rounded">
                                 <div class="ml-3">
                                     <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Active</span>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">Committee is active</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">In use</p>
                                 </div>
                             </label>
+                            <label class="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                                <input type="checkbox" id="edit-committee-archived" name="is_archived" class="h-5 w-5 text-orange-600 focus:ring-orange-500 border-gray-300 dark:border-gray-600 rounded">
+                                <div class="ml-3">
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Archived</span>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Read-only</p>
+                                </div>
+                            </label>
+                        </div>
+                        <!-- Ad Hoc Expiration Date (shown when Ad Hoc is checked) -->
+                        <div id="edit-expiration-container" class="hidden">
+                            <label for="edit-committee-expiration" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Expiration Date (Optional)</label>
+                            <input type="date" id="edit-committee-expiration" name="ad_hoc_expiration" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent">
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">When this ad-hoc committee should expire</p>
                         </div>
                     </div>
 
@@ -289,10 +328,34 @@ function getCsrf() {
     return val;
 }
 
+// Toggle expiration field visibility
+function toggleAddExpirationField() {
+    const isAdHoc = document.getElementById('add-committee-ad-hoc').checked;
+    const container = document.getElementById('add-expiration-container');
+    if (isAdHoc) {
+        container.classList.remove('hidden');
+    } else {
+        container.classList.add('hidden');
+        document.getElementById('add-committee-expiration').value = '';
+    }
+}
+
+function toggleEditExpirationField() {
+    const isAdHoc = document.getElementById('edit-committee-ad-hoc').checked;
+    const container = document.getElementById('edit-expiration-container');
+    if (isAdHoc) {
+        container.classList.remove('hidden');
+    } else {
+        container.classList.add('hidden');
+        document.getElementById('edit-committee-expiration').value = '';
+    }
+}
+
 // Add Committee
 function openAddCommitteeModal() {
     document.getElementById('add-committee-form').reset();
     document.getElementById('add-committee-active').checked = true;
+    document.getElementById('add-expiration-container').classList.add('hidden');
     document.getElementById('add-committee-modal').classList.remove('hidden');
 }
 
@@ -322,6 +385,16 @@ async function openEditCommitteeModal(committeeId) {
             document.getElementById('edit-committee-role').value = committee.role_id || '';
             document.getElementById('edit-committee-ad-hoc').checked = committee.is_ad_hoc;
             document.getElementById('edit-committee-active').checked = committee.is_active;
+            document.getElementById('edit-committee-archived').checked = committee.is_archived;
+            document.getElementById('edit-committee-expiration').value = committee.ad_hoc_expiration || '';
+
+            // Show/hide expiration field based on ad-hoc status
+            const expirationContainer = document.getElementById('edit-expiration-container');
+            if (committee.is_ad_hoc) {
+                expirationContainer.classList.remove('hidden');
+            } else {
+                expirationContainer.classList.add('hidden');
+            }
 
             document.getElementById('edit-committee-modal').classList.remove('hidden');
         }
@@ -354,7 +427,9 @@ async function submitEditCommittee(e) {
         code: document.getElementById('edit-committee-code').value,
         role_id: document.getElementById('edit-committee-role').value || null,
         is_ad_hoc: document.getElementById('edit-committee-ad-hoc').checked,
+        ad_hoc_expiration: document.getElementById('edit-committee-expiration').value || null,
         is_active: document.getElementById('edit-committee-active').checked,
+        is_archived: document.getElementById('edit-committee-archived').checked,
     };
 
     try {
@@ -428,6 +503,32 @@ async function confirmDeleteCommittee() {
         errorDiv.classList.remove('hidden');
         submitBtn.disabled = false;
         submitBtn.textContent = 'Delete';
+    }
+}
+
+// Archive/Unarchive Committee
+async function toggleArchiveCommittee(committeeId, committeeName, archive) {
+    const action = archive ? 'archive' : 'restore';
+    if (!confirm(`Are you sure you want to ${action} "${committeeName}"?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/committees/${committeeId}/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+            body: JSON.stringify({ is_archived: archive }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            window.location.reload();
+        } else {
+            alert(result.error || `Failed to ${action} committee`);
+        }
+    } catch (error) {
+        alert('An error occurred. Please try again.');
     }
 }
 </script>

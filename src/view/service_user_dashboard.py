@@ -15,7 +15,8 @@ import logging
 
 from src.models import (
     ServicePeriod, ServiceHoursSubmission, ServiceActivity,
-    ServiceFormField, ServiceFieldResponse
+    ServiceFormField, ServiceFieldResponse, ServiceHoursAdjustment,
+    ServiceMemberExpectation
 )
 from src.forms import ServiceHoursSubmissionForm
 
@@ -32,7 +33,7 @@ def get_user_service_stats(user, period):
         period=period
     )
 
-    approved_hours = submissions.filter(status='approved').aggregate(
+    submitted_approved = submissions.filter(status='approved').aggregate(
         total=Sum('hours')
     )['total'] or Decimal('0')
 
@@ -44,10 +45,32 @@ def get_user_service_stats(user, period):
         total=Sum('hours')
     )['total'] or Decimal('0')
 
+    # Get manual adjustments
+    adjusted_hours = ServiceHoursAdjustment.objects.filter(
+        member=user,
+        period=period
+    ).aggregate(total=Sum('hours'))['total'] or Decimal('0')
+
+    # Total approved = submitted approved + manual adjustments
+    approved_hours = submitted_approved + adjusted_hours
+
     total_hours = approved_hours + pending_hours
 
     # Get expected hours (check for individual override)
     expected_hours = period.get_member_expected_hours(user)
+
+    # Check if user has a custom expectation and get reason
+    expectation_override = None
+    try:
+        override = ServiceMemberExpectation.objects.get(period=period, member=user)
+        expectation_override = {
+            'expected_hours': override.expected_hours,
+            'reason': override.reason,
+            'default_hours': period.default_hours_required,
+            'difference': override.expected_hours - period.default_hours_required
+        }
+    except ServiceMemberExpectation.DoesNotExist:
+        pass
 
     # Calculate progress (only approved hours count toward completion)
     if expected_hours > 0:
@@ -57,10 +80,13 @@ def get_user_service_stats(user, period):
 
     return {
         'approved_hours': approved_hours,
+        'submitted_hours': submitted_approved,
+        'adjusted_hours': adjusted_hours,
         'pending_hours': pending_hours,
         'rejected_hours': rejected_hours,
         'total_hours': total_hours,
         'expected_hours': expected_hours,
+        'expectation_override': expectation_override,
         'progress_percent': progress_percent,
         'remaining_hours': max(Decimal('0'), expected_hours - approved_hours),
     }
@@ -89,8 +115,14 @@ def user_service_dashboard(request):
 
     # Get stats for current period
     stats = None
+    adjustments = []
     if current_period:
         stats = get_user_service_stats(user, current_period)
+        # Get adjustments for this user to display on dashboard
+        adjustments = ServiceHoursAdjustment.objects.filter(
+            member=user,
+            period=current_period
+        ).select_related('adjusted_by').order_by('-created_at')
 
     # Get all submissions for this user
     submissions = ServiceHoursSubmission.objects.filter(
@@ -107,6 +139,7 @@ def user_service_dashboard(request):
         'active_periods': active_periods,
         'stats': stats,
         'submissions': submissions,
+        'adjustments': adjustments,
         'is_vpp': is_vpp,
     }
 

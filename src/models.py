@@ -858,6 +858,15 @@ class Committee(models.Model):
     is_exec_board = models.BooleanField(default=False, help_text='If True, membership auto-syncs with exec role holders')
     is_slating_committee = models.BooleanField(default=False, help_text='If True, has special visibility rules')
     is_ad_hoc = models.BooleanField(default=False, help_text='If True, this is a temporary ad-hoc committee')
+    ad_hoc_expiration = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Optional expiration date for ad-hoc committees'
+    )
+    is_archived = models.BooleanField(
+        default=False,
+        help_text='If True, committee is archived (read-only). Used for expired ad-hoc committees.'
+    )
 
     # Explicit admin for committees (used for Slating Committee)
     admin = models.ForeignKey(
@@ -4934,6 +4943,49 @@ class ServiceActivity(models.Model):
 
     def __str__(self):
         return f"{self.submission} - {self.get_action_display()}"
+
+
+class ServiceHoursAdjustment(models.Model):
+    """
+    Manual hour adjustments made by VPP or admins.
+    Used to grant or deduct hours directly without a submission.
+    Requires a reason to be documented for transparency.
+    """
+    period = models.ForeignKey(
+        ServicePeriod, on_delete=models.CASCADE,
+        related_name='adjustments'
+    )
+    member = models.ForeignKey(
+        'ParliamentUser', on_delete=models.CASCADE,
+        related_name='service_adjustments'
+    )
+
+    # Adjustment amount (positive = grant hours, negative = deduct hours)
+    hours = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        help_text="Hours to add (positive) or remove (negative)"
+    )
+
+    # Required reason for transparency
+    reason = models.TextField(
+        help_text="Required explanation for this adjustment"
+    )
+
+    # Audit trail
+    adjusted_by = models.ForeignKey(
+        'ParliamentUser', on_delete=models.SET_NULL,
+        null=True, related_name='service_adjustments_made'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Service Hours Adjustment'
+        verbose_name_plural = 'Service Hours Adjustments'
+
+    def __str__(self):
+        action = "granted" if self.hours > 0 else "deducted"
+        return f"{abs(self.hours)} hrs {action} to {self.member.name} - {self.period.name}"
 
 
 # Import feature flags models

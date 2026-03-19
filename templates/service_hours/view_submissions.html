@@ -5,23 +5,23 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Service Hours Submissions</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Review and manage member submissions</p>
         </div>
-        <div class="flex items-center space-x-3">
-            <a href="{% url 'export_service_csv' %}{% if selected_period %}?period={{ selected_period }}{% endif %}" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
-                <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{% url 'export_service_csv' %}{% if selected_period %}?period={{ selected_period }}{% endif %}" class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <svg class="h-5 w-5 text-gray-500 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>
-                Export CSV
+                <span class="hidden sm:inline">Export CSV</span>
             </a>
-            <a href="{% url 'service_dashboard' %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">
-                <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <a href="{% url 'service_dashboard' %}" class="inline-flex items-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">
+                <svg class="h-5 w-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                 </svg>
-                Dashboard
+                <span class="hidden sm:inline">Dashboard</span>
             </a>
         </div>
     </div>
@@ -76,23 +76,25 @@
         {% csrf_token %}
 
         <!-- Bulk Action Bar -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-4 flex items-center justify-between">
-            <div class="flex items-center space-x-4">
-                <label class="flex items-center">
-                    <input type="checkbox" id="select-all" class="rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500">
-                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Select All Pending</span>
-                </label>
-                <span id="selected-count" class="text-sm text-gray-500 dark:text-gray-400"></span>
-            </div>
-            <div class="flex items-center space-x-2">
-                <select name="bulk_action" id="bulk-action" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm">
-                    <option value="">Bulk Actions</option>
-                    <option value="approve">Approve Selected</option>
-                    <option value="reject">Reject Selected</option>
-                </select>
-                <button type="submit" id="bulk-submit" disabled class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 rounded-md text-sm font-medium cursor-not-allowed">
-                    Apply
-                </button>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-3 sm:p-4 mb-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="flex items-center space-x-3">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="select-all" class="rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500">
+                        <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Select All</span>
+                    </label>
+                    <span id="selected-count" class="text-sm text-gray-500 dark:text-gray-400"></span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <select name="bulk_action" id="bulk-action" class="flex-1 sm:flex-none rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm">
+                        <option value="">Bulk Actions</option>
+                        <option value="approve">Approve</option>
+                        <option value="reject">Reject</option>
+                    </select>
+                    <button type="submit" id="bulk-submit" disabled class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 rounded-md text-sm font-medium cursor-not-allowed">
+                        Apply
+                    </button>
+                </div>
             </div>
         </div>
 

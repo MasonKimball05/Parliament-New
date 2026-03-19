@@ -171,7 +171,9 @@ def committee_detail_api(request, committee_id):
                 'role_id': committee.role_id,
                 'role_name': committee.role.name if committee.role else None,
                 'is_ad_hoc': committee.is_ad_hoc,
+                'ad_hoc_expiration': committee.ad_hoc_expiration.isoformat() if committee.ad_hoc_expiration else None,
                 'is_active': committee.is_active,
+                'is_archived': committee.is_archived,
                 'member_ids': list(committee.members.values_list('user_id', flat=True)),
                 'chair_ids': list(committee.chairs.values_list('user_id', flat=True)),
             }
@@ -217,12 +219,39 @@ def committee_detail_api(request, committee_id):
         if new_val != committee.is_ad_hoc:
             changes.append(f"is_ad_hoc: {committee.is_ad_hoc} -> {new_val}")
             committee.is_ad_hoc = new_val
+        # Clear expiration date if no longer ad-hoc
+        if not new_val and committee.ad_hoc_expiration:
+            changes.append(f"ad_hoc_expiration cleared")
+            committee.ad_hoc_expiration = None
+
+    if 'ad_hoc_expiration' in data:
+        from datetime import datetime
+        new_expiration = data['ad_hoc_expiration']
+        if new_expiration:
+            try:
+                new_date = datetime.strptime(new_expiration, '%Y-%m-%d').date()
+            except ValueError:
+                new_date = None
+        else:
+            new_date = None
+
+        if new_date != committee.ad_hoc_expiration:
+            old_val = committee.ad_hoc_expiration.isoformat() if committee.ad_hoc_expiration else 'None'
+            new_val = new_date.isoformat() if new_date else 'None'
+            changes.append(f"ad_hoc_expiration: {old_val} -> {new_val}")
+            committee.ad_hoc_expiration = new_date
 
     if 'is_active' in data:
         new_val = bool(data['is_active'])
         if new_val != committee.is_active:
             changes.append(f"is_active: {committee.is_active} -> {new_val}")
             committee.is_active = new_val
+
+    if 'is_archived' in data:
+        new_val = bool(data['is_archived'])
+        if new_val != committee.is_archived:
+            changes.append(f"is_archived: {committee.is_archived} -> {new_val}")
+            committee.is_archived = new_val
 
     committee.save()
 

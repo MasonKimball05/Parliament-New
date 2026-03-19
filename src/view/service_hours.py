@@ -16,10 +16,11 @@ import logging
 
 from src.models import (
     ServicePeriod, ServiceMemberExpectation, ServiceHoursSubmission,
-    ServiceActivity, ParliamentUser
+    ServiceActivity, ParliamentUser, ServiceHoursAdjustment
 )
 from src.forms import ServicePeriodForm, ServiceMemberExpectationForm
 from src.decorators import vpp_required
+from django.http import JsonResponse
 
 logger = logging.getLogger('function_calls')
 
@@ -89,20 +90,30 @@ def service_dashboard(request):
                 status='pending'
             ).aggregate(total=Sum('hours'))['total'] or Decimal('0')
 
+            # Include manual adjustments in approved hours
+            adjusted_hours = ServiceHoursAdjustment.objects.filter(
+                period=current_period,
+                member=member
+            ).aggregate(total=Sum('hours'))['total'] or Decimal('0')
+
+            total_approved = approved_hours + adjusted_hours
+
             expected_hours = current_period.get_member_expected_hours(member)
 
             if expected_hours > 0:
-                progress_percent = min(100, int((approved_hours / expected_hours) * 100))
+                progress_percent = min(100, int((total_approved / expected_hours) * 100))
             else:
-                progress_percent = 100 if approved_hours > 0 else 0
+                progress_percent = 100 if total_approved > 0 else 0
 
             member_progress.append({
                 'member': member,
-                'approved_hours': approved_hours,
+                'approved_hours': total_approved,
+                'submitted_hours': approved_hours,
+                'adjusted_hours': adjusted_hours,
                 'pending_hours': pending_hours,
                 'expected_hours': expected_hours,
                 'progress_percent': progress_percent,
-                'completed': approved_hours >= expected_hours,
+                'completed': total_approved >= expected_hours,
             })
 
         # Sort by progress (lowest first)
@@ -460,3 +471,120 @@ def manage_member_expectations(request, period_id):
     }
 
     return render(request, 'service_hours/manage_expectations.html', context)
+
+
+@login_required
+@vpp_required
+def add_service_adjustment(request):
+    """
+    Add a manual service hours adjustment for a member.
+    VPP/admins can grant or deduct hours with a required reason.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+
+    member_id = request.POST.get('member_id')
+    period_id = request.POST.get('period_id')
+    hours = request.POST.get('hours')
+    reason = request.POST.get('reason', '').strip()
+
+    # Validate required fields
+    if not all([member_id, period_id, hours]):
+        return JsonResponse({'success': False, 'error': 'Missing required fields'}, status=400)
+
+    if not reason:
+        return JsonResponse({'success': False, 'error': 'Reason is required for hour adjustments'}, status=400)
+
+    try:
+        hours = Decimal(hours)
+    except:
+        return JsonResponse({'success': False, 'error': 'Invalid hours value'}, status=400)
+
+    if hours == 0:
+        return JsonResponse({'success': False, 'error': 'Hours cannot be zero'}, status=400)
+
+    member = get_object_or_404(ParliamentUser, user_id=member_id)
+    period = get_object_or_404(ServicePeriod, id=period_id)
+
+    # Create the adjustment
+    adjustment = ServiceHoursAdjustment.objects.create(
+        period=period,
+        member=member,
+        hours=hours,
+        reason=reason,
+        adjusted_by=request.user
+    )
+
+    # Log activity
+    action_word = "granted" if hours > 0 else "deducted"
+    logger.info(f"Service hours adjustment: {request.user.name} {action_word} {abs(hours)} hrs to {member.name} for {period.name}")
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Successfully {action_word} {abs(hours)} hours {"to" if hours > 0 else "from"} {member.name}.',
+        'adjustment': {
+            'id': adjustment.id,
+            'hours': float(adjustment.hours),
+            'reason': adjustment.reason,
+            'member_name': member.name,
+            'adjusted_by': request.user.name,
+            'created_at': adjustment.created_at.strftime('%b %d, %Y %I:%M %p')
+        }
+    })
+
+
+@login_required
+@vpp_required
+def delete_service_adjustment(request, adjustment_id):
+    """
+    Delete a service hours adjustment.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+
+    adjustment = get_object_or_404(ServiceHoursAdjustment, id=adjustment_id)
+    member_name = adjustment.member.name
+    hours = adjustment.hours
+
+    adjustment.delete()
+
+    action_word = "granted" if hours > 0 else "deducted"
+    logger.info(f"Service hours adjustment deleted: {abs(hours)} hrs {action_word} to {member_name} removed by {request.user.name}")
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Adjustment removed successfully.'
+    })
+
+
+@login_required
+@vpp_required
+def get_member_adjustments(request, period_id, member_id):
+    """
+    Get all adjustments for a specific member in a period.
+    Returns JSON for AJAX requests.
+    """
+    period = get_object_or_404(ServicePeriod, id=period_id)
+    member = get_object_or_404(ParliamentUser, user_id=member_id)
+
+    adjustments = ServiceHoursAdjustment.objects.filter(
+        period=period,
+        member=member
+    ).select_related('adjusted_by').order_by('-created_at')
+
+    adjustments_data = [{
+        'id': adj.id,
+        'hours': float(adj.hours),
+        'reason': adj.reason,
+        'adjusted_by': adj.adjusted_by.name if adj.adjusted_by else 'System',
+        'created_at': adj.created_at.strftime('%b %d, %Y %I:%M %p')
+    } for adj in adjustments]
+
+    total_adjusted = sum(adj.hours for adj in adjustments)
+
+    return JsonResponse({
+        'success': True,
+        'adjustments': adjustments_data,
+        'total_adjusted': float(total_adjusted),
+        'member_name': member.name
+    })

@@ -33,7 +33,8 @@ from src.view.service_user_dashboard import (
 from src.view.service_hours import (
     service_dashboard, view_service_submissions, manage_service_submission,
     bulk_actions_service, export_service_csv, manage_service_periods,
-    edit_service_period, manage_member_expectations
+    edit_service_period, manage_member_expectations, add_service_adjustment,
+    delete_service_adjustment, get_member_adjustments
 )
 from src.view.service_form_builder import (
     service_form_builder, reorder_service_fields, get_service_field_details
@@ -417,6 +418,11 @@ urlpatterns = [
     path('service-hours/periods/', manage_service_periods, name='manage_service_periods'),
     path('service-hours/periods/<int:period_id>/edit/', edit_service_period, name='edit_service_period'),
     path('service-hours/periods/<int:period_id>/expectations/', manage_member_expectations, name='manage_member_expectations'),
+
+    # Service Hours Adjustment URLs (VPP only)
+    path('api/service-hours/adjustment/add/', add_service_adjustment, name='add_service_adjustment'),
+    path('api/service-hours/adjustment/<int:adjustment_id>/delete/', delete_service_adjustment, name='delete_service_adjustment'),
+    path('api/service-hours/adjustments/<int:period_id>/<int:member_id>/', get_member_adjustments, name='get_member_adjustments'),
 
     # Service Hours Form Builder URLs (VPP only)
     path('service-hours/form-builder/', service_form_builder, name='service_form_builder'),

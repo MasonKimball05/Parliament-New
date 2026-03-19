@@ -5,29 +5,29 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Service Hours Dashboard</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage and track member service hours</p>
         </div>
-        <div class="flex items-center space-x-3">
-            <a href="{% url 'service_form_builder' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
-                <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{% url 'service_form_builder' %}" class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <svg class="h-5 w-5 text-gray-500 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                 </svg>
-                Form Builder
+                <span class="hidden sm:inline">Form Builder</span>
             </a>
-            <a href="{% url 'manage_service_periods' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
-                <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <a href="{% url 'manage_service_periods' %}" class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <svg class="h-5 w-5 text-gray-500 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                 </svg>
-                Manage Periods
+                <span class="hidden sm:inline">Periods</span>
             </a>
-            <a href="{% url 'view_service_submissions' %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">
-                <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <a href="{% url 'view_service_submissions' %}" class="inline-flex items-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">
+                <svg class="h-5 w-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                 </svg>
-                View All Submissions
+                <span class="hidden sm:inline">Submissions</span>
             </a>
         </div>
     </div>
@@ -35,9 +35,9 @@
     <!-- Period Selector -->
     {% if all_periods %}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-6">
-        <form method="get" class="flex items-center space-x-4">
+        <form method="get" class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
             <label for="period" class="text-sm font-medium text-gray-700 dark:text-gray-300">Period:</label>
-            <select name="period" id="period" onchange="this.form.submit()" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500">
+            <select name="period" id="period" onchange="this.form.submit()" class="flex-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm">
                 {% for period in all_periods %}
                 <option value="{{ period.id }}" {% if current_period and current_period.id == period.id %}selected{% endif %}>
                     {{ period.name }} ({{ period.start_date|date:"M d" }} - {{ period.end_date|date:"M d, Y" }})
@@ -124,6 +124,7 @@
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Member</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Progress</th>
                             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Hours</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase w-16"></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -141,14 +142,28 @@
                             </td>
                             <td class="px-4 py-3 text-right">
                                 <div class="text-sm font-medium text-gray-900 dark:text-white">{{ item.approved_hours }}/{{ item.expected_hours }}</div>
+                                {% if item.adjusted_hours and item.adjusted_hours != 0 %}
+                                <div class="text-xs text-purple-600 dark:text-purple-400">
+                                    {% if item.adjusted_hours > 0 %}+{% endif %}{{ item.adjusted_hours }} adjusted
+                                </div>
+                                {% endif %}
                                 {% if item.pending_hours > 0 %}
                                 <div class="text-xs text-yellow-600 dark:text-yellow-400">+{{ item.pending_hours }} pending</div>
                                 {% endif %}
                             </td>
+                            <td class="px-4 py-3 text-center">
+                                <button type="button" onclick="openAdjustModal('{{ item.member.user_id }}', '{{ item.member.name }}')"
+                                        class="text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
+                                        title="Adjust hours">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                    </svg>
+                                </button>
+                            </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="3" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                            <td colspan="4" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                                 No members found
                             </td>
                         </tr>
@@ -212,4 +227,106 @@
         </a>
     </div>
 </div>
+
+<!-- Hour Adjustment Modal -->
+<div id="adjust-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white dark:bg-gray-800">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Adjust Hours</h3>
+            <button onclick="closeAdjustModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <form id="adjust-form">
+            {% csrf_token %}
+            <input type="hidden" id="adjust-member-id" name="member_id">
+            <input type="hidden" name="period_id" value="{{ current_period.id }}">
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Member</label>
+                <div id="adjust-member-name" class="text-gray-900 dark:text-white font-medium"></div>
+            </div>
+
+            <div class="mb-4">
+                <label for="adjust-hours" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Hours <span class="text-red-500">*</span>
+                </label>
+                <input type="number" id="adjust-hours" name="hours" step="0.25" required
+                       class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                       placeholder="e.g., 2 or -1.5">
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Use positive numbers to grant hours, negative to deduct</p>
+            </div>
+
+            <div class="mb-4">
+                <label for="adjust-reason" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Reason <span class="text-red-500">*</span>
+                </label>
+                <textarea id="adjust-reason" name="reason" rows="3" required
+                          class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          placeholder="Explain why these hours are being adjusted..."></textarea>
+            </div>
+
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeAdjustModal()"
+                        class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
+                    Apply Adjustment
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openAdjustModal(memberId, memberName) {
+    document.getElementById('adjust-member-id').value = memberId;
+    document.getElementById('adjust-member-name').textContent = memberName;
+    document.getElementById('adjust-hours').value = '';
+    document.getElementById('adjust-reason').value = '';
+    document.getElementById('adjust-modal').classList.remove('hidden');
+}
+
+function closeAdjustModal() {
+    document.getElementById('adjust-modal').classList.add('hidden');
+}
+
+document.getElementById('adjust-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+
+    fetch('{% url "add_service_adjustment" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeAdjustModal();
+            window.location.reload();
+        } else {
+            alert(data.error || 'Failed to apply adjustment');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while applying the adjustment');
+    });
+});
+
+// Close modal when clicking outside
+document.getElementById('adjust-modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeAdjustModal();
+    }
+});
+</script>
 {% endblock %}
