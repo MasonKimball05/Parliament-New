@@ -36,8 +36,10 @@ def profile_view(request):
 
     if request.method == 'POST':
         if profile_picture_submitted:
+            action = request.POST.get('action', '')
+
             # Handle profile picture removal
-            if 'remove_profile_picture' in request.POST:
+            if action == 'remove' or 'remove_profile_picture' in request.POST:
                 if user.profile_picture:
                     user.profile_picture.delete()
                     user.save()

@@ -110,6 +110,7 @@
             {% csrf_token %}
             <input type="hidden" name="profile_picture_submit" value="1">
             <input type="hidden" name="cropped_image" id="cropped-image-input">
+            <input type="hidden" name="action" id="profile-picture-action" value="">
 
             <div class="flex flex-col sm:flex-row gap-4">
                 <div class="flex-1">
@@ -131,9 +132,9 @@
 
                 <div class="flex gap-2 sm:pt-0 sm:self-start">
                     {% if user.profile_picture %}
-                        <button type="submit" name="remove_profile_picture" value="1"
+                        <button type="submit"
                                 class="bg-red-600 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600 text-white font-medium px-6 py-2 rounded-lg transition flex items-center whitespace-nowrap"
-                                onclick="return confirm('Remove your profile picture?')">
+                                onclick="if(confirm('Remove your profile picture?')) { document.getElementById('profile-picture-action').value = 'remove'; return true; } return false;">
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                             </svg>
