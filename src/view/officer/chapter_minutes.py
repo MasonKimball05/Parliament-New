@@ -724,7 +724,7 @@ def generate_minutes_pdf_buffer(minutes):
                 safe_notes = m.context_notes.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
                 motion_elements.append(Paragraph(f"<b>Notes:</b> {safe_notes}", style_motion_detail))
 
-            motion_table = Table([[motion_elements]], colWidths=[doc.width - 24])
+            motion_table = Table([[motion_elements]], colWidths=[doc.width - 24], splitByRow=0)
             motion_table.setStyle(TableStyle([
                 ('LEFTPADDING', (0, 0), (-1, -1), 10),
                 ('RIGHTPADDING', (0, 0), (-1, -1), 6),
@@ -745,7 +745,7 @@ def generate_minutes_pdf_buffer(minutes):
         box_elements.append(Paragraph(f"<b>{safe_title}</b>", style_custom_header))
         box_elements.extend(box_content)
 
-        section_table = Table([[box_elements]], colWidths=[doc.width - 12])
+        section_table = Table([[box_elements]], colWidths=[doc.width - 12], splitByRow=0)
         section_table.setStyle(TableStyle([
             ('LEFTPADDING', (0, 0), (-1, -1), 10),
             ('RIGHTPADDING', (0, 0), (-1, -1), 10),
