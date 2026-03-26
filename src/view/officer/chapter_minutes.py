@@ -500,7 +500,7 @@ def generate_minutes_pdf_buffer(minutes):
     from reportlab.lib.enums import TA_LEFT, TA_CENTER
     from reportlab.platypus import (
         SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-        HRFlowable, KeepTogether
+        HRFlowable, KeepTogether, Indenter
     )
 
     # Build the PDF in memory
@@ -699,63 +699,76 @@ def generate_minutes_pdf_buffer(minutes):
 
         elif section.section_type == 'motion' and hasattr(section, 'motion'):
             m = section.motion
-            motion_elements = []
-            motion_elements.append(Paragraph(f"MOTION: {m.get_motion_type_display()}", style_motion_header))
+            # Use indented paragraphs instead of a table wrapper to allow page breaks
+            style_motion_header_indented = ParagraphStyle(
+                'MotionHeaderIndented',
+                parent=style_motion_header,
+                leftIndent=12,
+                borderPadding=0,
+                borderColor=HexColor('#3b82f6'),
+                borderWidth=0,
+            )
+            style_motion_detail_indented = ParagraphStyle(
+                'MotionDetailIndented',
+                parent=style_motion_detail,
+                leftIndent=12,
+            )
+
+            target_list.append(Spacer(1, 4))
+            # Add a visual indicator line for the motion block
+            target_list.append(HRFlowable(width="100%", thickness=2, color=HexColor('#3b82f6')))
+            target_list.append(Spacer(1, 4))
+            target_list.append(Paragraph(f"MOTION: {m.get_motion_type_display()}", style_motion_header_indented))
             safe_text = m.motion_text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-            motion_elements.append(Paragraph(f"<i>{safe_text}</i>", style_motion_detail))
-            motion_elements.append(Paragraph(f"<b>Author:</b> {m.get_author_display()}", style_motion_detail))
+            target_list.append(Paragraph(f"<i>{safe_text}</i>", style_motion_detail_indented))
+            target_list.append(Paragraph(f"<b>Author:</b> {m.get_author_display()}", style_motion_detail_indented))
             if m.received_second:
-                motion_elements.append(Paragraph(f"<b>Seconded by:</b> {m.seconded_by_text}", style_motion_detail))
-            motion_elements.append(Paragraph(
+                target_list.append(Paragraph(f"<b>Seconded by:</b> {m.seconded_by_text}", style_motion_detail_indented))
+            target_list.append(Paragraph(
                 f"<b>Vote Method:</b> {m.get_vote_method_display()} &nbsp;&nbsp; <b>Result:</b> {m.get_result_display()}",
-                style_motion_detail
+                style_motion_detail_indented
             ))
             if m.votes_for is not None:
-                motion_elements.append(Paragraph(
+                target_list.append(Paragraph(
                     f"<b>Votes:</b> {m.votes_for} for, {m.votes_against or 0} against, {m.votes_abstain or 0} abstain",
-                    style_motion_detail
+                    style_motion_detail_indented
                 ))
             if m.caucus_held:
                 caucus_info = f"<b>Caucus:</b> {m.get_caucus_type_display()}, {m.caucus_duration} minutes"
                 if m.caucus_type == 'moderated' and m.speaker_time:
                     caucus_info += f", {m.speaker_time}s per speaker"
-                motion_elements.append(Paragraph(caucus_info, style_motion_detail))
+                target_list.append(Paragraph(caucus_info, style_motion_detail_indented))
             if m.context_notes:
                 safe_notes = m.context_notes.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-                motion_elements.append(Paragraph(f"<b>Notes:</b> {safe_notes}", style_motion_detail))
-
-            motion_table = Table([[motion_elements]], colWidths=[doc.width - 24], splitByRow=0)
-            motion_table.setStyle(TableStyle([
-                ('LEFTPADDING', (0, 0), (-1, -1), 10),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-                ('TOPPADDING', (0, 0), (-1, -1), 6),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-                ('BACKGROUND', (0, 0), (-1, -1), HexColor('#f0f4ff')),
-                ('LINEBEFORE', (0, 0), (0, -1), 3, HexColor('#3b82f6')),
-            ]))
-            target_list.append(Spacer(1, 4))
-            target_list.append(motion_table)
+                target_list.append(Paragraph(f"<b>Notes:</b> {safe_notes}", style_motion_detail_indented))
             target_list.append(Spacer(1, 4))
 
-    # Helper function to create a boxed section
+    # Helper function to create a boxed section - returns list of flowables
+    # that can flow across pages (no table wrapper)
     def create_section_box(header_title, box_content):
         box_elements = []
-        # Header inside the box
+        # Header with visual indicator
         safe_title = header_title.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-        box_elements.append(Paragraph(f"<b>{safe_title}</b>", style_custom_header))
-        box_elements.extend(box_content)
+        box_elements.append(HRFlowable(width="100%", thickness=2, color=HexColor('#a855f7')))
+        box_elements.append(Spacer(1, 4))
 
-        section_table = Table([[box_elements]], colWidths=[doc.width - 12], splitByRow=0)
-        section_table.setStyle(TableStyle([
-            ('LEFTPADDING', (0, 0), (-1, -1), 10),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 10),
-            ('TOPPADDING', (0, 0), (-1, -1), 8),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-            ('BACKGROUND', (0, 0), (-1, -1), HexColor('#faf5ff')),
-            ('LINEBEFORE', (0, 0), (0, -1), 3, HexColor('#a855f7')),
-            ('BOX', (0, 0), (-1, -1), 0.5, HexColor('#e9d5ff')),
-        ]))
-        return section_table
+        # Create indented style for section header
+        style_section_header_indented = ParagraphStyle(
+            'SectionHeaderIndented',
+            parent=style_custom_header,
+            leftIndent=12,
+        )
+
+        box_elements.append(Paragraph(f"<b>{safe_title}</b>", style_section_header_indented))
+
+        # Add indented content using Indenter flowable
+        if box_content:
+            box_elements.append(Indenter(left=12))
+            box_elements.extend(box_content)
+            box_elements.append(Indenter(left=-12))
+
+        box_elements.append(Spacer(1, 4))
+        return box_elements
 
     # Process sections with header/section_end pairing
     sections_list = list(minutes.sections.all().select_related('motion').order_by('order'))
@@ -785,7 +798,7 @@ def generate_minutes_pdf_buffer(minutes):
             # Render the boxed section
             if header_title:
                 elements.append(Spacer(1, 8))
-                elements.append(create_section_box(header_title, box_content))
+                elements.extend(create_section_box(header_title, box_content))
                 elements.append(Spacer(1, 8))
 
         elif section.section_type == 'section_end':
