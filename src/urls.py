@@ -5,6 +5,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from src.view.officer import *
 from src.view.officer.event_attendance import event_attendance_list, mark_event_attendance, review_excuses
+from src.view.officer.attendance_dashboard import attendance_dashboard, member_attendance_detail
 from src.view.officer.chapter_minutes import (
     chapter_minutes_list, create_chapter_minutes, edit_chapter_minutes,
     save_minutes_data, save_minutes_attendance, publish_chapter_minutes,
@@ -22,7 +23,7 @@ from src.view.committee.committee_minutes_editor import (
 )
 from src.view.committee.manage_chat_permissions import manage_chat_permissions, add_guest_permission, update_guest_permission, remove_guest_permission
 from src.view.chat import *
-from src.view.submit_excuse import my_excuses, submit_excuse, cancel_excuse
+from src.view.submit_excuse import my_excuses, submit_excuse, cancel_excuse, my_attendance
 from src.view.kai_reports import submit_kai_report, view_kai_reports, manage_kai_report, export_kai_reports_csv, print_kai_report, kai_dashboard, bulk_actions_kai_reports, manage_kai_templates, create_kai_template, edit_kai_template, delete_kai_template, track_kai_accused_email_view
 from src.view.kai_user_dashboard import user_kai_dashboard, user_view_report, request_closure, request_drop_case
 from src.view.kai_form_builder import kai_form_builder, reorder_kai_fields, get_kai_field_details
@@ -231,7 +232,8 @@ urlpatterns = [
     path('guide/tour/<slug:tour_slug>/complete/', tour_complete, name='tour_complete'),
     path('guide/tour/<slug:tour_slug>/skip/', tour_skip, name='tour_skip'),
 
-    # Member Excuse Requests
+    # Member Attendance & Excuse Requests
+    path('my-attendance/', my_attendance, name='my_attendance'),
     path('excuses/', my_excuses, name='my_excuses'),
     path('excuses/submit/<int:event_id>/', submit_excuse, name='submit_excuse'),
     path('excuses/cancel/<int:excuse_id>/', cancel_excuse, name='cancel_excuse'),
@@ -251,6 +253,8 @@ urlpatterns = [
 
     # Event-based Attendance (New System)
     path('officers/attendance/', event_attendance_list, name='event_attendance_list'),
+    path('officers/attendance/dashboard/', attendance_dashboard, name='attendance_dashboard'),
+    path('officers/attendance/member/<str:user_id>/', member_attendance_detail, name='officer_member_attendance'),
     path('officers/attendance/event/<int:event_id>/', mark_event_attendance, name='mark_event_attendance'),
     path('officers/excuses/', review_excuses, name='review_excuses'),
     path('officers/excuses/<int:event_id>/', review_excuses, name='review_excuses'),

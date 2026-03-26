@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from ..decorators import *
 from ..models import *
 from django.shortcuts import render
@@ -115,7 +116,16 @@ def passed_legislation(request):
             for pm in present_members:
                 print(f"- {pm.user.name} @ {pm.created_at}")
 
-    return render(request, 'passed_legislation.html', {'passed_legislation': passed})
+    # Pagination - 20 items per page
+    paginator = Paginator(passed, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, 'passed_legislation.html', {
+        'passed_legislation': page_obj,
+        'page_obj': page_obj,
+        'total_count': paginator.count,
+    })
 
 
 class PassedLegislationDetailView(DetailView):

@@ -5,6 +5,8 @@
 {% block content %}
 <div class="container mx-auto px-4 py-4 sm:py-8">
     <div class="max-w-3xl mx-auto">
+        {% include 'includes/breadcrumbs.html' with back_url='/vote/' back_label='Vote' current='Edit Legislation' %}
+
         <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
             <div class="bg-blue-50 dark:bg-blue-900/20 px-6 py-4 border-b border-blue-100 dark:border-blue-800">
                 <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Edit Legislation</h2>

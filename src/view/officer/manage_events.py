@@ -2,6 +2,8 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.db import models
+from django.core.paginator import Paginator
+from django.contrib import messages
 from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 from src.models import Event
@@ -56,12 +58,19 @@ def manage_events(request):
         from django.db.models import Count
         events = events.annotate(instance_count=Count('recurring_instances'))
 
+    # Pagination - 25 events per page
+    paginator = Paginator(events, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     context = {
-        'events': events,
+        'events': page_obj,  # Now a page object instead of queryset
+        'page_obj': page_obj,
         'current_time': now,
         'current_filter': show_filter,
         'series_parent': parent_event if series_id else None,
         'series_id': series_id,
+        'total_events': paginator.count,
     }
     return render(request, 'officer/manage_events.html', context)
 
@@ -177,6 +186,7 @@ def create_event(request):
                 import logging
                 logging.getLogger(__name__).error(f"Failed to create event notifications: {e}", exc_info=True)
 
+            messages.success(request, f'Event "{event.title}" created successfully.')
             return redirect('manage_events')
     else:
         form = EventForm()
@@ -193,6 +203,7 @@ def edit_event(request, event_id):
         form = EventForm(request.POST, instance=event)
         if form.is_valid():
             form.save()
+            messages.success(request, f'Event "{event.title}" updated successfully.')
             return redirect('manage_events')
     else:
         form = EventForm(instance=event)
@@ -206,7 +217,9 @@ def delete_event(request, event_id):
     event = get_object_or_404(Event, pk=event_id)
 
     if request.method == 'POST':
+        title = event.title
         event.delete()
+        messages.success(request, f'Event "{title}" deleted successfully.')
         return redirect('manage_events')
 
     return render(request, 'officer/delete_event.html', {'event': event})

@@ -1,0 +1,59 @@
+{% comment %}
+Form Progress Indicator Component
+
+Shows visual progress through multi-section forms.
+
+Usage:
+{% include 'includes/form_progress.html' with
+    steps='Basic Info,Details,Review'
+    current=2
+%}
+
+Where:
+- steps: Comma-separated list of step names
+- current: Current step number (1-indexed)
+{% endcomment %}
+
+{% with step_list=steps|default:'Step 1,Step 2,Step 3' current_step=current|default:1 %}
+<nav aria-label="Form progress" class="mb-8">
+    <ol class="flex items-center">
+        {% for step in step_list|make_list %}
+        {% with step_num=forloop.counter %}
+        <li class="flex items-center {% if not forloop.last %}flex-1{% endif %}">
+            <div class="flex items-center">
+                {% if step_num < current_step %}
+                <!-- Completed step -->
+                <span class="flex items-center justify-center w-10 h-10 rounded-full bg-green-600 dark:bg-green-500 text-white">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                </span>
+                {% elif step_num == current_step %}
+                <!-- Current step -->
+                <span class="flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 dark:bg-blue-500 text-white font-semibold ring-4 ring-blue-100 dark:ring-blue-900">
+                    {{ step_num }}
+                </span>
+                {% else %}
+                <!-- Future step -->
+                <span class="flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-semibold">
+                    {{ step_num }}
+                </span>
+                {% endif %}
+
+                <span class="ml-3 text-sm font-medium {% if step_num == current_step %}text-blue-600 dark:text-blue-400{% elif step_num < current_step %}text-green-600 dark:text-green-400{% else %}text-gray-500 dark:text-gray-400{% endif %}">
+                    {{ step }}
+                </span>
+            </div>
+
+            {% if not forloop.last %}
+            <!-- Connector line -->
+            <div class="flex-1 mx-4">
+                <div class="h-0.5 {% if step_num < current_step %}bg-green-600 dark:bg-green-500{% else %}bg-gray-200 dark:bg-gray-700{% endif %}"></div>
+            </div>
+            {% endif %}
+        </li>
+        {% endwith %}
+        {% endfor %}
+    </ol>
+</nav>
+{% endwith %}

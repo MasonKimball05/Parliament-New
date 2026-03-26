@@ -7,7 +7,10 @@
     <div class="mb-6 flex flex-col md:flex-row md:justify-between md:items-start gap-4">
         <div>
             <h2 class="text-2xl sm:text-3xl font-bold mb-2 text-gray-900 dark:text-white">Manage Events</h2>
-            <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">Create, edit, and manage chapter events</p>
+            <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">
+                Create, edit, and manage chapter events
+                {% if total_events %}<span class="text-gray-400 dark:text-gray-500">({{ total_events }} total)</span>{% endif %}
+            </p>
         </div>
         <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
             {% if user.is_admin %}
@@ -276,6 +279,9 @@
                     </div>
                 {% endfor %}
             </div>
+
+            <!-- Pagination -->
+            {% include 'includes/pagination.html' with page_obj=page_obj %}
         </div>
     {% else %}
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center transition-colors duration-200">

@@ -1062,7 +1062,7 @@
 
     <!-- Email Requirement Modal -->
     {% if user.is_authenticated and not user.email %}
-    <div id="emailModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: flex;">
+    <div id="emailModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: flex;" role="dialog" aria-modal="true" aria-labelledby="emailModalTitle">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full mx-4 p-6 transition-colors duration-200">
             <div class="flex items-center justify-center mb-4">
                 <div class="bg-red-100 dark:bg-red-900 rounded-full p-3">
@@ -1071,7 +1071,7 @@
                     </svg>
                 </div>
             </div>
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 text-center mb-2">Email Required</h2>
+            <h2 id="emailModalTitle" class="text-2xl font-bold text-gray-900 dark:text-gray-100 text-center mb-2">Email Required</h2>
             <p class="text-gray-600 dark:text-gray-300 text-center mb-4">
                 Please provide an email address to receive important notifications and updates.
             </p>
@@ -1114,9 +1114,13 @@
 
     <script>
         function closeEmailModal() {
-            const modal = document.getElementById('emailModal');
-            if (modal) {
-                modal.style.display = 'none';
+            if (window.ParliamentModal) {
+                ParliamentModal.close('emailModal');
+            } else {
+                const modal = document.getElementById('emailModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
             }
         }
 
@@ -1438,6 +1442,203 @@
     })();
     </script>
     {% endif %}
+
+    <!-- Modal Accessibility Utility -->
+    <script>
+    /**
+     * Modal Accessibility Helper
+     * Provides Escape key handling, focus trapping, and ARIA support for modals.
+     *
+     * Usage:
+     *   // Initialize a modal with accessibility features
+     *   ParliamentModal.init('myModal', {
+     *     closeOnEscape: true,           // Close when Escape is pressed (default: true)
+     *     closeOnBackdrop: false,        // Close when clicking backdrop (default: false)
+     *     onClose: function() { ... },   // Callback when modal closes
+     *     focusFirst: 'input[type="email"]'  // Selector for element to focus on open
+     *   });
+     *
+     *   // Open/close programmatically
+     *   ParliamentModal.open('myModal');
+     *   ParliamentModal.close('myModal');
+     */
+    window.ParliamentModal = (function() {
+        const modals = {};
+        let previousActiveElement = null;
+
+        // Get all focusable elements within a container
+        function getFocusableElements(container) {
+            return container.querySelectorAll(
+                'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            );
+        }
+
+        // Trap focus within modal
+        function trapFocus(e, modal) {
+            const focusable = getFocusableElements(modal);
+            if (focusable.length === 0) return;
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        }
+
+        // Initialize modal with accessibility features
+        function init(modalId, options = {}) {
+            const modal = document.getElementById(modalId);
+            if (!modal) return;
+
+            const config = {
+                closeOnEscape: options.closeOnEscape !== false,
+                closeOnBackdrop: options.closeOnBackdrop === true,
+                onClose: options.onClose || null,
+                focusFirst: options.focusFirst || null
+            };
+
+            modals[modalId] = { modal, config };
+
+            // Add ARIA attributes
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+
+            // Escape key handler
+            if (config.closeOnEscape) {
+                modal.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        e.preventDefault();
+                        close(modalId);
+                    }
+                });
+            }
+
+            // Tab key for focus trapping
+            modal.addEventListener('keydown', function(e) {
+                if (e.key === 'Tab') {
+                    trapFocus(e, modal);
+                }
+            });
+
+            // Backdrop click handler
+            if (config.closeOnBackdrop) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        close(modalId);
+                    }
+                });
+            }
+
+            // If modal is already visible, set up focus
+            if (modal.style.display !== 'none' && !modal.classList.contains('hidden')) {
+                setupFocus(modalId);
+            }
+        }
+
+        function setupFocus(modalId) {
+            const data = modals[modalId];
+            if (!data) return;
+
+            previousActiveElement = document.activeElement;
+
+            // Focus the specified element or first focusable
+            setTimeout(function() {
+                if (data.config.focusFirst) {
+                    const target = data.modal.querySelector(data.config.focusFirst);
+                    if (target) {
+                        target.focus();
+                        return;
+                    }
+                }
+                const focusable = getFocusableElements(data.modal);
+                if (focusable.length > 0) {
+                    focusable[0].focus();
+                }
+            }, 100);
+        }
+
+        function open(modalId) {
+            const data = modals[modalId];
+            if (!data) return;
+
+            data.modal.style.display = 'flex';
+            data.modal.classList.remove('hidden');
+            setupFocus(modalId);
+        }
+
+        function close(modalId) {
+            const data = modals[modalId];
+            if (!data) return;
+
+            data.modal.style.display = 'none';
+            data.modal.classList.add('hidden');
+
+            // Restore focus
+            if (previousActiveElement) {
+                previousActiveElement.focus();
+                previousActiveElement = null;
+            }
+
+            // Call onClose callback
+            if (data.config.onClose) {
+                data.config.onClose();
+            }
+        }
+
+        return { init, open, close };
+    })();
+
+    /**
+     * Helper function to open a confirmation modal with dynamic content.
+     *
+     * Usage:
+     *   confirmAction('deleteModal', '/delete/123/', {
+     *       message: 'Delete "My Item"?',
+     *       details: 'This action cannot be undone.'
+     *   });
+     */
+    window.confirmAction = function(modalId, formAction, options = {}) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+
+        // Update form action if provided
+        const form = modal.querySelector('form');
+        if (form && formAction) {
+            form.action = formAction;
+        }
+
+        // Update message if provided
+        if (options.message) {
+            const msgEl = document.getElementById(modalId + '-message');
+            if (msgEl) msgEl.textContent = options.message;
+        }
+
+        // Update details if provided
+        if (options.details) {
+            const detailsEl = document.getElementById(modalId + '-details');
+            if (detailsEl) detailsEl.textContent = options.details;
+        }
+
+        // Open the modal
+        ParliamentModal.open(modalId);
+    };
+
+    // Initialize email modal if present
+    document.addEventListener('DOMContentLoaded', function() {
+        if (document.getElementById('emailModal')) {
+            ParliamentModal.init('emailModal', {
+                closeOnEscape: true,
+                closeOnBackdrop: false,
+                focusFirst: '#email'
+            });
+        }
+    });
+    </script>
 
     {% block extra_js %}{% endblock %}
 </body>

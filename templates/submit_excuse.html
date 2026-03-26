@@ -5,14 +5,7 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-3xl">
-    <!-- Breadcrumb -->
-    <div class="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-6">
-        <a href="{% url 'my_excuses' %}" class="hover:text-blue-600 dark:hover:text-blue-400">My Excuses</a>
-        <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
-        </svg>
-        <span class="text-gray-900 dark:text-white">Submit Excuse</span>
-    </div>
+    {% include 'includes/breadcrumbs.html' with back_url='/excuses/' back_label='Excuse Requests' current='Submit Excuse' %}
 
     <!-- Header -->
     <div class="mb-6">

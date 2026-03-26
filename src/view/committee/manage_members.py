@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.http import HttpResponseForbidden
 from django.shortcuts import render, redirect, get_object_or_404
 from src.models import Committee, CommitteePermissions, ParliamentUser
@@ -30,22 +31,27 @@ def committee_manage_members(request, code):
 
         # Prevent adding pledges to committees
         if target.is_pledge and action in ["add_member", "add_advisor", "add_voter"]:
-            from django.contrib import messages
             messages.error(request, "Pledges cannot be added to committees.")
             return redirect("committee_manage_members", code=code)
 
         if action == "add_member":
             committee.members.add(target)
+            messages.success(request, f'{target.name} has been added as a committee member.')
         elif action == "remove_member":
             committee.members.remove(target)
+            messages.success(request, f'{target.name} has been removed from committee members.')
         elif action == "add_advisor":
             committee.advisors.add(target)
+            messages.success(request, f'{target.name} has been added as an advisor.')
         elif action == "remove_advisor":
             committee.advisors.remove(target)
+            messages.success(request, f'{target.name} has been removed from advisors.')
         elif action == "add_voter":
             committee.voting_members.add(target)
+            messages.success(request, f'{target.name} has been added as a voting member.')
         elif action == "remove_voter":
             committee.voting_members.remove(target)
+            messages.success(request, f'{target.name} has been removed from voting members.')
 
         return redirect("committee_manage_members", code=code)
 

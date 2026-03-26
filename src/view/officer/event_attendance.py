@@ -221,70 +221,13 @@ def mark_event_attendance(request, event_id):
 def review_excuses(request, event_id=None):
     """
     Review pending excuse requests
-    Optionally filter by event_id if provided in URL
-    Shows tabbed interface with events
+    Shows all events with their excuses grouped together
     """
     # Get filter parameters
     status_filter = request.GET.get('status', 'all')
     show_archived = request.GET.get('show_archived', 'false') == 'true'
 
-    # Use URL parameter if provided, otherwise check query string
-    if not event_id:
-        event_id = request.GET.get('event')
-
-    # Get all events with excuse requests (including archived/past events if requested)
-    now = timezone.now()
-    events_query = Event.objects.filter(
-        requires_attendance=True,
-        excuse_requests__isnull=False
-    ).distinct()
-
-    if not show_archived:
-        # Show only upcoming or recent events (within last 30 days)
-        cutoff_date = now - timedelta(days=30)
-        events_query = events_query.filter(date_time__gte=cutoff_date)
-
-    events = events_query.order_by('-date_time')
-
-    # Get excuse statistics per event
-    events_with_stats = []
-    for event in events:
-        event_excuses = AttendanceExcuse.objects.filter(event=event)
-        events_with_stats.append({
-            'event': event,
-            'pending_count': event_excuses.filter(status='pending').count(),
-            'approved_count': event_excuses.filter(status='approved').count(),
-            'denied_count': event_excuses.filter(status='denied').count(),
-            'total_count': event_excuses.count(),
-            'is_past': event.date_time < now,
-        })
-
-    # If event_id is provided or there are events, set active event
-    if event_id:
-        selected_event_id = int(event_id)
-    elif events_with_stats:
-        # Default to first event with pending excuses, or just first event
-        pending_events = [e for e in events_with_stats if e['pending_count'] > 0]
-        if pending_events:
-            selected_event_id = pending_events[0]['event'].id
-        else:
-            selected_event_id = events_with_stats[0]['event'].id
-    else:
-        selected_event_id = None
-
-    # Get excuses for selected event
-    if selected_event_id:
-        excuses = AttendanceExcuse.objects.filter(
-            event_id=selected_event_id
-        ).select_related('user', 'event', 'reviewed_by').order_by('-submitted_at')
-
-        # Apply status filter
-        if status_filter and status_filter != 'all':
-            excuses = excuses.filter(status=status_filter)
-    else:
-        excuses = AttendanceExcuse.objects.none()
-
-    # Handle excuse review actions
+    # Handle excuse review actions first
     if request.method == 'POST':
         excuse_id = request.POST.get('excuse_id')
         action = request.POST.get('action')
@@ -324,10 +267,58 @@ def review_excuses(request, event_id=None):
                 )
 
             # Redirect back with filters preserved
-            redirect_url = f'/officers/excuses/{selected_event_id}/?status={status_filter}'
+            redirect_url = '/officers/excuses/'
+            params = []
+            if status_filter and status_filter != 'all':
+                params.append(f'status={status_filter}')
             if show_archived:
-                redirect_url += '&show_archived=true'
+                params.append('show_archived=true')
+            if params:
+                redirect_url += '?' + '&'.join(params)
             return redirect(redirect_url)
+
+    # Get all events with excuse requests
+    now = timezone.now()
+    events_query = Event.objects.filter(
+        excuse_requests__isnull=False
+    ).distinct()
+
+    if not show_archived:
+        # Show only upcoming or recent events (within last 30 days)
+        cutoff_date = now - timedelta(days=30)
+        events_query = events_query.filter(date_time__gte=cutoff_date)
+
+    events = events_query.order_by('-date_time')
+
+    # Build events with their excuses
+    events_with_excuses = []
+    for event in events:
+        # Get excuses for this event
+        event_excuses = AttendanceExcuse.objects.filter(
+            event=event
+        ).select_related('user', 'reviewed_by').order_by('-submitted_at')
+
+        # Apply status filter
+        if status_filter and status_filter != 'all':
+            filtered_excuses = event_excuses.filter(status=status_filter)
+        else:
+            filtered_excuses = event_excuses
+
+        # Only include events that have excuses matching the filter
+        if filtered_excuses.exists() or status_filter == 'all':
+            events_with_excuses.append({
+                'event': event,
+                'excuses': list(filtered_excuses),
+                'pending_count': event_excuses.filter(status='pending').count(),
+                'approved_count': event_excuses.filter(status='approved').count(),
+                'denied_count': event_excuses.filter(status='denied').count(),
+                'total_count': event_excuses.count(),
+                'is_past': event.date_time < now,
+            })
+
+    # Filter out events with no matching excuses when filtering
+    if status_filter and status_filter != 'all':
+        events_with_excuses = [e for e in events_with_excuses if e['excuses']]
 
     # Get overall statistics
     stats = {
@@ -338,10 +329,8 @@ def review_excuses(request, event_id=None):
     }
 
     context = {
-        'excuses': excuses,
-        'events_with_stats': events_with_stats,
+        'events_with_excuses': events_with_excuses,
         'selected_status': status_filter,
-        'selected_event_id': selected_event_id,
         'show_archived': show_archived,
         'stats': stats,
     }

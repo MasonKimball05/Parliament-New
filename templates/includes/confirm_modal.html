@@ -1,0 +1,98 @@
+{% comment %}
+Reusable confirmation modal component.
+
+Usage in templates:
+{% include 'includes/confirm_modal.html' with
+    modal_id='deleteModal'
+    title='Delete Item'
+    message='Are you sure you want to delete this item? This action cannot be undone.'
+    confirm_text='Delete'
+    confirm_class='bg-red-600 hover:bg-red-700'
+    form_action='/delete/123/'
+%}
+
+Then trigger with JavaScript:
+<button onclick="ParliamentModal.open('deleteModal')">Delete</button>
+
+Or for inline delete buttons with dynamic URLs:
+<button onclick="confirmAction('deleteModal', '/delete/{{ item.id }}/')">Delete</button>
+{% endcomment %}
+
+<div id="{{ modal_id|default:'confirmModal' }}"
+     class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="{{ modal_id|default:'confirmModal' }}-title">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full mx-4 overflow-hidden transition-colors duration-200">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 {% if danger %}bg-red-50 dark:bg-red-900/20{% else %}bg-gray-50 dark:bg-gray-700{% endif %}">
+            <div class="flex items-center">
+                {% if danger %}
+                <div class="flex-shrink-0 mr-3">
+                    <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                </div>
+                {% endif %}
+                <h3 id="{{ modal_id|default:'confirmModal' }}-title" class="text-lg font-semibold {% if danger %}text-red-900 dark:text-red-200{% else %}text-gray-900 dark:text-gray-100{% endif %}">
+                    {{ title|default:'Confirm Action' }}
+                </h3>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div class="px-6 py-4">
+            <p class="text-gray-600 dark:text-gray-300" id="{{ modal_id|default:'confirmModal' }}-message">
+                {{ message|default:'Are you sure you want to continue?' }}
+            </p>
+
+            {% if details %}
+            <div class="mt-4 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                <p class="text-sm text-gray-700 dark:text-gray-300" id="{{ modal_id|default:'confirmModal' }}-details">
+                    {{ details }}
+                </p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Footer -->
+        <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-3">
+            <button type="button"
+                    onclick="ParliamentModal.close('{{ modal_id|default:'confirmModal' }}')"
+                    class="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition font-medium">
+                {{ cancel_text|default:'Cancel' }}
+            </button>
+
+            {% if form_action %}
+            <form method="POST" action="{{ form_action }}" id="{{ modal_id|default:'confirmModal' }}-form" class="inline">
+                {% csrf_token %}
+                {% if form_fields %}
+                    {{ form_fields }}
+                {% endif %}
+                <button type="submit"
+                        class="px-4 py-2 {{ confirm_class|default:'bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600' }} text-white rounded-lg transition font-medium">
+                    {{ confirm_text|default:'Confirm' }}
+                </button>
+            </form>
+            {% else %}
+            <button type="button"
+                    id="{{ modal_id|default:'confirmModal' }}-confirm"
+                    class="px-4 py-2 {{ confirm_class|default:'bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600' }} text-white rounded-lg transition font-medium">
+                {{ confirm_text|default:'Confirm' }}
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    // Initialize the modal with accessibility features
+    if (window.ParliamentModal) {
+        ParliamentModal.init('{{ modal_id|default:"confirmModal" }}', {
+            closeOnEscape: true,
+            closeOnBackdrop: true
+        });
+    }
+})();
+</script>

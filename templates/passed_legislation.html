@@ -17,7 +17,10 @@
                         </svg>
                         <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Passed Legislation</h1>
                     </div>
-                    <p class="text-gray-600 dark:text-gray-400">View all legislation that has been voted on by the chapter</p>
+                    <p class="text-gray-600 dark:text-gray-400">
+                        View all legislation that has been voted on by the chapter
+                        {% if total_count %}<span class="text-gray-400 dark:text-gray-500">({{ total_count }} total)</span>{% endif %}
+                    </p>
                 </div>
             </div>
         </div>
@@ -188,6 +191,11 @@
             </div>
         </div>
         {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    <div class="mt-6">
+        {% include 'includes/pagination.html' with page_obj=page_obj %}
     </div>
     {% else %}
     <!-- Empty State -->

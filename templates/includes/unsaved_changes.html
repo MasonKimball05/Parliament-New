@@ -1,0 +1,112 @@
+{% comment %}
+Unsaved Changes Warning Component
+
+Warns users before navigating away from a form with unsaved changes.
+
+Usage:
+1. Add to your template after the form:
+   {% include 'includes/unsaved_changes.html' with form_id='myForm' %}
+
+2. Or add the class 'track-changes' to your form:
+   <form class="track-changes" ...>
+
+The script will:
+- Track initial form state
+- Detect changes to form inputs
+- Warn before page unload if changes exist
+- Clear warning when form is submitted
+{% endcomment %}
+
+<script>
+(function() {
+    /**
+     * Unsaved Changes Tracker
+     * Monitors forms for changes and warns before navigation
+     */
+    window.UnsavedChangesTracker = {
+        trackedForms: new Map(),
+
+        // Initialize tracking for a form
+        track: function(formElement) {
+            if (!formElement || this.trackedForms.has(formElement)) return;
+
+            const initialState = this.getFormState(formElement);
+            this.trackedForms.set(formElement, {
+                initial: initialState,
+                submitted: false
+            });
+
+            // Mark submitted on form submit
+            formElement.addEventListener('submit', () => {
+                const data = this.trackedForms.get(formElement);
+                if (data) data.submitted = true;
+            });
+        },
+
+        // Get current form state as a string
+        getFormState: function(form) {
+            const formData = new FormData(form);
+            const entries = [];
+            for (const [key, value] of formData.entries()) {
+                // Skip CSRF tokens and file inputs (compare by name only)
+                if (key === 'csrfmiddlewaretoken') continue;
+                if (value instanceof File) {
+                    entries.push([key, value.name || '']);
+                } else {
+                    entries.push([key, value]);
+                }
+            }
+            return JSON.stringify(entries.sort());
+        },
+
+        // Check if a form has unsaved changes
+        hasChanges: function(form) {
+            const data = this.trackedForms.get(form);
+            if (!data || data.submitted) return false;
+
+            const currentState = this.getFormState(form);
+            return currentState !== data.initial;
+        },
+
+        // Check if any tracked form has changes
+        anyChanges: function() {
+            for (const [form, data] of this.trackedForms) {
+                if (this.hasChanges(form)) return true;
+            }
+            return false;
+        },
+
+        // Reset tracking (e.g., after AJAX save)
+        reset: function(form) {
+            const data = this.trackedForms.get(form);
+            if (data) {
+                data.initial = this.getFormState(form);
+            }
+        }
+    };
+
+    // Auto-track forms with class 'track-changes'
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('form.track-changes').forEach(form => {
+            UnsavedChangesTracker.track(form);
+        });
+
+        {% if form_id %}
+        // Track specific form if form_id is provided
+        const targetForm = document.getElementById('{{ form_id }}');
+        if (targetForm) {
+            UnsavedChangesTracker.track(targetForm);
+        }
+        {% endif %}
+    });
+
+    // Warn before page unload
+    window.addEventListener('beforeunload', function(e) {
+        if (UnsavedChangesTracker.anyChanges()) {
+            e.preventDefault();
+            e.returnValue = '';
+            return '';
+        }
+    });
+})();
+</script>

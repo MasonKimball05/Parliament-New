@@ -4,9 +4,11 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-2xl">
+    {% include 'includes/breadcrumbs.html' with back_url='/officer/manage-events/' back_label='Manage Events' current='Edit Event' %}
+
     <div class="mb-6">
         <h2 class="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Edit Event</h2>
-        <p class="text-gray-600 dark:text-gray-400">Update event details</p>
+        <p class="text-gray-600 dark:text-gray-400">Update event details for {{ event.title }}</p>
     </div>
 
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
