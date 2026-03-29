@@ -78,6 +78,12 @@ from src.view.officer.manage_members import add_member, edit_member, delete_memb
 from src.view.officer.manage_roles import manage_roles, role_detail, add_role, delete_role
 from src.view.home import home
 from src.view.vote_view import vote_view
+from src.view.two_factor import two_factor_setup, two_factor_qrcode, two_factor_verify, two_factor_disable, two_factor_dismiss
+from src.view.admin_two_factor import (
+    two_factor_dashboard as admin_v2_two_factor_dashboard,
+    update_two_factor_policy, set_two_factor_requirement,
+    bulk_two_factor_action, reset_user_2fa
+)
 from src.view.change_password import change_password
 from src.view.forced_password_change import forced_password_change
 from src.view.view_legislation_history import view_legislation_history
@@ -478,6 +484,13 @@ urlpatterns = [
     # User Settings
     path('set-email/', set_email, name='set_email'),
 
+    # Two-Factor Authentication
+    path('accounts/two-factor/setup/', two_factor_setup, name='two_factor_setup'),
+    path('accounts/two-factor/qrcode/', two_factor_qrcode, name='two_factor_qrcode'),
+    path('accounts/two-factor/verify/', two_factor_verify, name='two_factor_verify'),
+    path('accounts/two-factor/disable/', two_factor_disable, name='two_factor_disable'),
+    path('accounts/two-factor/dismiss/', two_factor_dismiss, name='two_factor_dismiss'),
+
     # Admin v2 - Advanced Administration
     path('admin-v2/', admin_v2_login, name='admin_v2_login'),
     path('admin_v2/', admin_v2_login, name='admin_v2_login'),
@@ -522,6 +535,13 @@ urlpatterns = [
 
     # Admin v2 - Security Alerts
     path('admin-v2/security/alerts/', manage_security_alerts, name='admin_v2_security_alerts'),
+
+    # Admin v2 - Two-Factor Authentication
+    path('admin-v2/two-factor/', admin_v2_two_factor_dashboard, name='admin_v2_two_factor'),
+    path('admin-v2/two-factor/update-policy/', update_two_factor_policy, name='admin_v2_two_factor_update_policy'),
+    path('admin-v2/two-factor/set-requirement/<str:user_id>/', set_two_factor_requirement, name='admin_v2_two_factor_set_requirement'),
+    path('admin-v2/two-factor/bulk-action/', bulk_two_factor_action, name='admin_v2_two_factor_bulk_action'),
+    path('admin-v2/two-factor/reset-2fa/<str:user_id>/', reset_user_2fa, name='admin_v2_two_factor_reset'),
 
     # Admin v2 - Notifications
     path('admin-v2/notifications/', notification_dashboard, name='admin_v2_notifications'),

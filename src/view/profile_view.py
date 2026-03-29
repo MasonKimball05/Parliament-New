@@ -142,8 +142,13 @@ def profile_view(request):
     # Get or create notification preferences
     notif_prefs, _ = UserPreferences.objects.get_or_create(user=user)
 
+    # Check 2FA status
+    from django_otp import user_has_device
+    has_2fa = user_has_device(user)
+
     return render(request, 'profile.html', {
         'user': user,
         'password_form': password_form,
         'notif_prefs': notif_prefs,
+        'has_2fa': has_2fa,
     })

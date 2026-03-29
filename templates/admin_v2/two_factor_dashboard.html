@@ -1,0 +1,447 @@
+{% extends "base.html" %}
+
+{% block title %}Two-Factor Authentication - Admin v2{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Two-Factor Authentication</h1>
+                <p class="text-gray-600 dark:text-gray-400">Manage 2FA requirements for members</p>
+            </div>
+            <a href="{% url 'admin_v2_dashboard' %}" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition">Back to Dashboard</a>
+        </div>
+    </div>
+
+    <!-- Policy Settings -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Global Policy</h2>
+        <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">Select who is required to use two-factor authentication. Individual overrides can be set below.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {% for value, label in policy_options %}
+            <label class="relative flex items-center p-4 border-2 rounded-lg cursor-pointer transition
+                {% if current_policy == value %}border-blue-500 bg-blue-50 dark:bg-blue-900/20{% else %}border-gray-200 dark:border-gray-700 hover:border-gray-300{% endif %}">
+                <input type="radio" name="policy" value="{{ value }}"
+                    {% if current_policy == value %}checked{% endif %}
+                    class="sr-only" onchange="updatePolicy('{{ value }}')">
+                <div class="flex-1">
+                    <span class="block text-sm font-medium text-gray-900 dark:text-gray-100">{{ label }}</span>
+                </div>
+                {% if current_policy == value %}
+                <svg class="w-5 h-5 text-blue-500 ml-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                {% endif %}
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+            <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ stats.total }}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Total Members</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+            <p class="text-3xl font-bold text-green-600 dark:text-green-400">{{ stats.has_2fa }}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400">2FA Enabled</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+            <p class="text-3xl font-bold text-blue-600 dark:text-blue-400">{{ stats.required }}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Individually Required</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+            <p class="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{{ stats.exempt }}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Exempt</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+            <p class="text-3xl font-bold text-purple-600 dark:text-purple-400">{{ stats.policy_required }}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Required by Policy</p>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <form method="get" class="flex flex-wrap gap-4">
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Search</label>
+                <input type="text" name="search" value="{{ search }}" placeholder="Search by name..."
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+            </div>
+            <div class="min-w-[200px]">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Filter</label>
+                <select name="filter" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    <option value="all" {% if filter == 'all' %}selected{% endif %}>All Members</option>
+                    <option value="has_2fa" {% if filter == 'has_2fa' %}selected{% endif %}>Has 2FA Enabled</option>
+                    <option value="no_2fa" {% if filter == 'no_2fa' %}selected{% endif %}>No 2FA</option>
+                    <option value="required" {% if filter == 'required' %}selected{% endif %}>Individually Required</option>
+                    <option value="exempt" {% if filter == 'exempt' %}selected{% endif %}>Exempt</option>
+                    <option value="needs_setup" {% if filter == 'needs_setup' %}selected{% endif %}>Needs Setup (Required but not enabled)</option>
+                </select>
+            </div>
+            <div class="flex items-end gap-2">
+                <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">Filter</button>
+                <a href="{% url 'admin_v2_two_factor' %}" class="px-6 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition">Clear</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Bulk Actions -->
+    <div id="bulkActions" class="hidden bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+        <div class="flex items-center justify-between">
+            <span class="text-blue-800 dark:text-blue-200"><span id="selectedCount">0</span> members selected</span>
+            <div class="flex gap-2">
+                <button onclick="bulkAction('require')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition">Require 2FA</button>
+                <button onclick="bulkAction('exempt')" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm transition">Exempt</button>
+                <button onclick="bulkAction('clear')" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm transition">Clear Override</button>
+                <button onclick="clearSelection()" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Member Table -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                        <th class="px-4 py-3 text-left">
+                            <input type="checkbox" id="selectAll" onchange="toggleSelectAll()"
+                                class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500">
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Member</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Type</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">2FA Status</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Requirement</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for item in member_data %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700" data-user-id="{{ item.user.user_id }}">
+                        <td class="px-4 py-4">
+                            <input type="checkbox" class="member-checkbox rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                                value="{{ item.user.user_id }}" onchange="updateSelection()">
+                        </td>
+                        <td class="px-4 py-4">
+                            <div class="flex items-center gap-3">
+                                {% if item.user.profile_picture %}
+                                <img src="{{ item.user.profile_picture.url }}" alt="{{ item.user.name }}" class="w-8 h-8 rounded-full object-cover">
+                                {% else %}
+                                <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
+                                    <span class="text-gray-500 dark:text-gray-400 text-xs font-medium">{{ item.user.name|slice:":1"|upper }}</span>
+                                </div>
+                                {% endif %}
+                                <div>
+                                    <p class="font-medium text-gray-900 dark:text-gray-100">{{ item.user.name }}</p>
+                                    {% if item.user.is_admin %}
+                                    <span class="text-xs text-red-600 dark:text-red-400">Admin</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-4 text-sm text-gray-900 dark:text-gray-100">{{ item.user.member_type }}</td>
+                        <td class="px-4 py-4">
+                            {% if item.has_2fa %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200">
+                                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                Enabled
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+                                Not Set Up
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4">
+                            {% if item.requirement_status == 'required' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200">
+                                Required
+                            </span>
+                            {% elif item.requirement_status == 'exempt' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200">
+                                Exempt
+                            </span>
+                            {% elif item.requires_2fa %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200">
+                                Policy
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                                Optional
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4">
+                            <div class="flex items-center gap-2">
+                                <button onclick="openRequirementModal('{{ item.user.user_id }}', '{{ item.user.name|escapejs }}')"
+                                    class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium">
+                                    Set Requirement
+                                </button>
+                                {% if item.has_2fa %}
+                                <button onclick="confirmReset2FA('{{ item.user.user_id }}', '{{ item.user.name|escapejs }}')"
+                                    class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium ml-2">
+                                    Reset 2FA
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                            No members found matching your criteria.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Set Requirement Modal -->
+<div id="requirementModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+        <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Set 2FA Requirement</h3>
+        <p class="text-gray-600 dark:text-gray-400 mb-4">Set requirement for <span id="modalMemberName" class="font-medium"></span></p>
+
+        <input type="hidden" id="modalUserId">
+
+        <div class="space-y-3 mb-4">
+            <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                <input type="radio" name="modalRequirement" value="required" class="mr-3">
+                <div>
+                    <span class="font-medium text-gray-900 dark:text-gray-100">Required</span>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">User must set up 2FA</p>
+                </div>
+            </label>
+            <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                <input type="radio" name="modalRequirement" value="exempt" class="mr-3">
+                <div>
+                    <span class="font-medium text-gray-900 dark:text-gray-100">Exempt</span>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">User is exempt from 2FA requirement</p>
+                </div>
+            </label>
+            <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                <input type="radio" name="modalRequirement" value="clear" class="mr-3">
+                <div>
+                    <span class="font-medium text-gray-900 dark:text-gray-100">Follow Policy</span>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Remove override, follow global policy</p>
+                </div>
+            </label>
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Reason (optional)</label>
+            <textarea id="modalReason" rows="2"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                placeholder="Reason for this setting..."></textarea>
+        </div>
+
+        <div class="flex justify-end gap-3">
+            <button onclick="closeRequirementModal()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg transition">Cancel</button>
+            <button onclick="saveRequirement()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Reset 2FA Confirmation Modal -->
+<div id="reset2FAModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+        <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Reset 2FA</h3>
+        <p class="text-gray-600 dark:text-gray-400 mb-4">Are you sure you want to reset 2FA for <span id="reset2FAMemberName" class="font-medium"></span>?</p>
+        <p class="text-yellow-600 dark:text-yellow-400 text-sm mb-4">This will remove their 2FA device. They will need to set it up again.</p>
+
+        <input type="hidden" id="reset2FAUserId">
+
+        <div class="flex justify-end gap-3">
+            <button onclick="closeReset2FAModal()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg transition">Cancel</button>
+            <button onclick="confirmReset()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition">Reset 2FA</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const csrfToken = '{{ csrf_token }}';
+
+// Policy update
+function updatePolicy(policy) {
+    fetch('{% url "admin_v2_two_factor_update_policy" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({ policy: policy })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred');
+    });
+}
+
+// Selection handling
+function toggleSelectAll() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.member-checkbox');
+    checkboxes.forEach(cb => cb.checked = selectAll.checked);
+    updateSelection();
+}
+
+function updateSelection() {
+    const checkboxes = document.querySelectorAll('.member-checkbox:checked');
+    const count = checkboxes.length;
+    document.getElementById('selectedCount').textContent = count;
+    document.getElementById('bulkActions').classList.toggle('hidden', count === 0);
+}
+
+function clearSelection() {
+    document.querySelectorAll('.member-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('selectAll').checked = false;
+    updateSelection();
+}
+
+// Bulk actions
+function bulkAction(action) {
+    const checkboxes = document.querySelectorAll('.member-checkbox:checked');
+    const userIds = Array.from(checkboxes).map(cb => cb.value);
+
+    if (userIds.length === 0) return;
+
+    const reason = prompt('Reason for this bulk action (optional):');
+
+    fetch('{% url "admin_v2_two_factor_bulk_action" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({ action: action, user_ids: userIds, reason: reason || '' })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred');
+    });
+}
+
+// Requirement modal
+function openRequirementModal(userId, memberName) {
+    document.getElementById('modalUserId').value = userId;
+    document.getElementById('modalMemberName').textContent = memberName;
+    document.getElementById('modalReason').value = '';
+    document.querySelectorAll('input[name="modalRequirement"]').forEach(r => r.checked = false);
+    document.getElementById('requirementModal').classList.remove('hidden');
+}
+
+function closeRequirementModal() {
+    document.getElementById('requirementModal').classList.add('hidden');
+}
+
+function saveRequirement() {
+    const userId = document.getElementById('modalUserId').value;
+    const requirement = document.querySelector('input[name="modalRequirement"]:checked')?.value;
+    const reason = document.getElementById('modalReason').value;
+
+    if (!requirement) {
+        alert('Please select a requirement option');
+        return;
+    }
+
+    fetch(`/admin-v2/two-factor/set-requirement/${userId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({ requirement: requirement, reason: reason })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred');
+    });
+}
+
+// Reset 2FA modal
+function confirmReset2FA(userId, memberName) {
+    document.getElementById('reset2FAUserId').value = userId;
+    document.getElementById('reset2FAMemberName').textContent = memberName;
+    document.getElementById('reset2FAModal').classList.remove('hidden');
+}
+
+function closeReset2FAModal() {
+    document.getElementById('reset2FAModal').classList.add('hidden');
+}
+
+function confirmReset() {
+    const userId = document.getElementById('reset2FAUserId').value;
+
+    fetch(`/admin-v2/two-factor/reset-2fa/${userId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred');
+    });
+}
+
+// Close modals on escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeRequirementModal();
+        closeReset2FAModal();
+    }
+});
+
+// Close modals on click outside
+document.getElementById('requirementModal').addEventListener('click', function(e) {
+    if (e.target === this) closeRequirementModal();
+});
+document.getElementById('reset2FAModal').addEventListener('click', function(e) {
+    if (e.target === this) closeReset2FAModal();
+});
+</script>
+{% endblock %}

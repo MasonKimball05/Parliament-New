@@ -38,3 +38,7 @@ PyMuPDF==1.24.0
 
 # Excel file generation for directory export
 openpyxl==3.1.2
+
+# Two-Factor Authentication (TOTP)
+django-otp==1.5.4
+qrcode==7.4.2

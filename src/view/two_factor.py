@@ -5,9 +5,11 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse
-from django_otp import user_has_device
+from django.utils import timezone
+from django_otp import user_has_device, login as otp_login
 from django_otp.plugins.otp_totp.models import TOTPDevice
 from django_otp.util import random_hex
+from datetime import timedelta
 import qrcode
 import qrcode.image.svg
 import io
@@ -105,8 +107,8 @@ def two_factor_verify(request):
         device = TOTPDevice.objects.filter(user=request.user, confirmed=True).first()
 
         if device and device.verify_token(token):
-            # Mark user as verified for this session
-            request.session['_otp_device_id'] = device.persistent_id
+            # Mark user as verified for this session using django-otp's login function
+            otp_login(request, device)
             messages.success(request, 'Two-Factor Authentication verified successfully!')
             return redirect('home')
         else:
@@ -127,3 +129,17 @@ def two_factor_disable(request):
         return redirect('profile')
 
     return render(request, 'two_factor/disable.html')
+
+
+@login_required
+def two_factor_dismiss(request):
+    """
+    Dismiss the 2FA setup prompt for 1 hour.
+    User can continue using the site without setting up 2FA temporarily.
+    """
+    # Set dismissal to expire in 1 hour
+    dismiss_until = timezone.now() + timedelta(hours=1)
+    request.session['2fa_setup_dismissed_until'] = dismiss_until.isoformat()
+
+    messages.info(request, 'Two-Factor Authentication setup has been postponed for 1 hour.')
+    return redirect('home')

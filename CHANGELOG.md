@@ -50,6 +50,43 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.8.5 - Two-Factor Authentication System (03-26-2026)
+Complete 2FA implementation with TOTP support, admin dashboard, and comprehensive test coverage.
+
+**Deployment Status:** Pending
+
+**Key Features:**
+
+- **2FA Setup Flow**: QR code scanning with Google Authenticator, Authy, or Microsoft Authenticator
+- **Policy-Based Enforcement**: Configure 2FA requirements by role (none, admins, officers, all members, custom)
+- **Individual Overrides**: Mark specific users as required or exempt regardless of policy
+- **Admin Dashboard**: New `/admin-v2/two-factor/` page for managing 2FA settings and user requirements
+- **Dismiss for 1 Hour**: Users can postpone 2FA setup temporarily instead of constant redirects
+- **Dark Mode Support**: All 2FA pages fully support dark mode
+
+**Bug Fixes:**
+
+- **Verification Loop Fix**: Fixed issue where users were stuck on verify page after entering correct code
+- **Session Handling**: Fixed middleware session access for compatibility with tests
+
+**Database Changes:**
+
+- Added `TwoFactorRequirement` model for per-user 2FA settings
+- Added `2fa_policy_mode` site setting
+
+**Dependencies:**
+
+- Added `django-otp==1.5.4` for TOTP authentication
+- Added `qrcode==7.4.2` for QR code generation
+
+**Test Coverage:**
+
+- 52 comprehensive tests covering setup, verification, policies, and admin dashboard
+
+**[View Detailed Changelog](changelogs/v2.8.5.md)**
+
+---
+
 ### v2.8.2 - Admin Management Tools & Bug Fixes (03-18-2026)
 New admin management pages for roles and committees, officer admin sync functionality, and bug fixes.
 
@@ -486,6 +523,19 @@ Builds on v2.0.0 security foundation with user-facing features and advanced prot
 For comprehensive technical details, migration guides, and implementation specifics:
 
 <ul>
+<li><strong><a href="changelogs/v2.8.5.md">v2.8.5 - Two-Factor Authentication System</a></strong> (March 26, 2026)
+    <ul>
+    <li>Complete 2FA implementation with TOTP support</li>
+    <li>QR code setup with Google Authenticator, Authy, Microsoft Authenticator</li>
+    <li>Policy-based enforcement (none, admins, officers, all members, custom)</li>
+    <li>Individual user overrides (required/exempt)</li>
+    <li>Admin-v2 dashboard for 2FA management</li>
+    <li>Dismiss for 1 hour feature</li>
+    <li>Dark mode support on all 2FA pages</li>
+    <li>Fixed verification loop bug</li>
+    <li>52 comprehensive tests</li>
+    </ul>
+</li>
 <li><strong><a href="changelogs/v2.8.1.md">v2.8.2 - Mobile UI Fixes & VPP Access Fix</a></strong> (March 16, 2026)
     <ul>
     <li>Fixed long URLs overflowing in home page announcements on mobile</li>
@@ -632,6 +682,19 @@ For comprehensive technical details, migration guides, and implementation specif
 ## Version History Summary
 
 <ul>
+<li><strong>v2.8.5</strong> (2026-03-26) - Two-Factor Authentication System
+    <ul>
+    <li>Complete 2FA implementation with TOTP support (Google Authenticator, Authy, etc.)</li>
+    <li>Policy-based enforcement: none, admins_only, officers_and_admins, all_members, custom</li>
+    <li>Individual user overrides (required/exempt) with admin dashboard</li>
+    <li>Admin-v2 2FA management dashboard at /admin-v2/two-factor/</li>
+    <li>Dismiss for 1 hour feature to postpone 2FA setup temporarily</li>
+    <li>Dark mode support on all 2FA pages (setup, verify, disable)</li>
+    <li>Fixed 2FA verification loop where users couldn't leave verify page</li>
+    <li>52 comprehensive tests for all 2FA functionality</li>
+    <li>Added django-otp and qrcode dependencies</li>
+    </ul>
+</li>
 <li><strong>v2.8.2</strong> (2026-03-16) - Mobile UI Fixes & VPP Access Fix
     <ul>
     <li>Fixed long URLs overflowing in home page announcements on mobile</li>
@@ -842,5 +905,5 @@ New changes will be documented in:
 
 ---
 
-**Last Updated:** 2026-03-16
-**Next Review:** 2026-04-16
+**Last Updated:** 2026-03-26
+**Next Review:** 2026-04-26

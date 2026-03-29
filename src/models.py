@@ -4991,5 +4991,48 @@ class ServiceHoursAdjustment(models.Model):
         return f"{abs(self.hours)} hrs {action} to {self.member.name} - {self.period.name}"
 
 
+class TwoFactorRequirement(models.Model):
+    """
+    Track 2FA requirements for individual members.
+    Allows per-user overrides to the global 2FA policy.
+    """
+    REQUIREMENT_CHOICES = (
+        ('required', 'Required'),
+        ('exempt', 'Exempt'),
+    )
+
+    user = models.OneToOneField(
+        'ParliamentUser',
+        on_delete=models.CASCADE,
+        related_name='two_factor_requirement'
+    )
+    requirement = models.CharField(
+        max_length=20,
+        choices=REQUIREMENT_CHOICES,
+        help_text='Whether this user is required to have 2FA or is exempt'
+    )
+    reason = models.TextField(
+        blank=True,
+        help_text='Reason for this requirement/exemption'
+    )
+    set_by = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='two_factor_requirements_set',
+        help_text='Admin who set this requirement'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Two-Factor Requirement'
+        verbose_name_plural = 'Two-Factor Requirements'
+
+    def __str__(self):
+        return f"{self.user.name} - {self.get_requirement_display()}"
+
+
 # Import feature flags models
 from src.models_feature_flags import FeatureFlag, PageToggle
