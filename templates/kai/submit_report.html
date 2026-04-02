@@ -153,8 +153,12 @@
         <!-- Custom Fields (added by Kai chair) -->
         {% if custom_sections %}
         {% for section_name, section_fields in custom_sections.items %}
+        {% if section_name and section_name != "Additional Information" and section_name != "Custom Fields" %}
         <div class="pt-6 border-t border-gray-200 dark:border-gray-700">
           <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">{{ section_name }}</h3>
+        {% else %}
+        <div>
+        {% endif %}
           {% for field in section_fields %}
           <div class="mb-4">
             <label for="custom_field_{{ field.id }}" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">

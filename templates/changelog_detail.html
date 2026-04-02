@@ -186,10 +186,16 @@
         .dark .changelog-content hr {
             border-top-color: #374151;
         }
+        /* Table responsive wrapper */
+        .changelog-content .table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-bottom: 1rem;
+        }
         .changelog-content table {
             width: 100%;
+            min-width: 500px;
             border-collapse: collapse;
-            margin-bottom: 1rem;
         }
         .changelog-content th {
             background-color: #f9fafb;
@@ -198,6 +204,7 @@
             font-weight: 600;
             color: #1f2937;
             border: 1px solid #e5e7eb;
+            white-space: nowrap;
         }
         .dark .changelog-content th {
             background-color: #374151;
@@ -212,6 +219,20 @@
         .dark .changelog-content td {
             border-color: #4b5563;
             color: #d1d5db;
+        }
+        /* Mobile hint for scrollable tables */
+        @media (max-width: 640px) {
+            .changelog-content .table-wrapper::after {
+                content: 'Scroll horizontally to see more';
+                display: block;
+                font-size: 0.75rem;
+                color: #9ca3af;
+                text-align: center;
+                padding-top: 0.5rem;
+            }
+            .dark .changelog-content .table-wrapper::after {
+                color: #6b7280;
+            }
         }
         .changelog-content blockquote {
             border-left: 4px solid #3b82f6;
@@ -231,4 +252,20 @@
         <p>Questions about this release? Contact the development team or report an issue via the <a href="{% url 'bug_report' %}" class="text-primary-600 dark:text-primary-400 hover:underline">bug report</a> page.</p>
     </div>
 </div>
+
+<script>
+// Wrap all tables in a scrollable container for mobile responsiveness
+document.addEventListener('DOMContentLoaded', function() {
+    const tables = document.querySelectorAll('.changelog-content table');
+    tables.forEach(function(table) {
+        // Check if already wrapped
+        if (table.parentElement.classList.contains('table-wrapper')) return;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-wrapper';
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+    });
+});
+</script>
 {% endblock %}

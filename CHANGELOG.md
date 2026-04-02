@@ -50,6 +50,82 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.9.0 - Security Update (04-01-2026)
+Major security update with login rate limiting, attack detection, and session management.
+
+**Deployment Status:** Pending
+
+**Type:** Security Update
+
+**Security Features:**
+
+- **Login Rate Limiting**: 5 failed attempts = 15-minute lockout (prevents brute force attacks)
+- **SQL Injection & XSS Protection**: `InputSanitizationMiddleware` detects and blocks attack patterns
+- **Auto IP Blocking**: 10+ attacks in 1 hour = automatic 1-hour IP block
+- **Security Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy
+- **Session Viewer**: Users can view all active sessions and log out remotely
+- **Device Detection**: Track browser, OS, and device type for each session
+
+**New Features:**
+
+- Active Sessions page (`/account/sessions/`)
+- Remote session logout (individual or bulk)
+- Security & Privacy section in Preferences
+- Automatic session tracking on login
+
+**Files Changed:**
+
+- `src/view/login_view.py` - Login rate limiting
+- `src/middleware/security.py` - Attack detection middleware
+- `Parliament/settings_postgres.py` - Registered security middleware
+- `src/models.py` - Added `UserSession` model
+- `src/view/session_viewer.py` - Session management views (new)
+- `templates/account/sessions.html` - Session viewer UI (new)
+- `templates/preferences.html` - Added Security & Privacy section
+
+**[View Detailed Changelog](changelogs/v2.9.0.md)**
+
+---
+
+### v2.8.6 - Mobile UI Fixes & Performance Optimizations (03-30-2026)
+Mobile UI improvements, email warmup system, password requirement fixes, and database optimizations.
+
+**Deployment Status:** Deployed
+
+**Key Features:**
+
+- **Email Warmup System**: Pre-loads announcement emails while user reviews confirmation page for faster sending
+- **Warmup Logs in Admin-v2**: Email logs page now shows warmup and cancelled statuses with proper badges
+
+**Bug Fixes:**
+
+- **Email Warmup Foreign Key Error**: Fixed race condition where stale cache data referenced deleted email logs
+- **Documents Page Mobile UI**: Fixed layout issues with document items, folder headers, vote results, and committee headers on mobile devices
+- **DOCX Hyperlink Overflow**: Fixed hyperlinks in DOCX files going off-screen on mobile with word-break CSS
+- **Password Requirement Text**: Fixed inconsistent "8 characters" text to show correct "9 characters" requirement across all pages (password reset, admin security)
+
+**Performance Optimizations:**
+
+- **Removed Redundant Notifications**: Announcements and events no longer create per-user notification rows (saves ~32 rows per announcement/event)
+- **Email Warmup**: Pre-renders email templates and pre-creates recipient records during confirmation page load
+
+**Files Changed:**
+
+- `templates/chapter_documents.html` - Mobile responsive fixes
+- `templates/chapter_documents_item.html` - Mobile responsive fixes
+- `templates/view_document.html` - DOCX hyperlink overflow fix
+- `templates/registration/password_reset_confirm.html` - Password requirement text
+- `templates/admin_v2/user_login_security.html` - Password requirement text
+- `src/view/admin_v2.py` - Password validation (8 → 9 characters)
+- `src/view/officer/manage_announcements.py` - Email warmup system
+- `src/view/officer/manage_events.py` - Removed redundant notifications
+- `src/notifications.py` - Removed redundant notifications
+- `templates/officer/confirm_announcement_email.html` - Warmup JavaScript
+
+**[View Detailed Changelog](changelogs/v2.8.6.md)**
+
+---
+
 ### v2.8.5 - Two-Factor Authentication System (03-26-2026)
 Complete 2FA implementation with TOTP support, admin dashboard, and comprehensive test coverage.
 
@@ -523,6 +599,15 @@ Builds on v2.0.0 security foundation with user-facing features and advanced prot
 For comprehensive technical details, migration guides, and implementation specifics:
 
 <ul>
+<li><strong><a href="changelogs/v2.8.6.md">v2.8.6 - Mobile UI Fixes & Performance Optimizations</a></strong> (March 30, 2026)
+    <ul>
+    <li>Email warmup system for faster announcement sending</li>
+    <li>Fixed documents page mobile UI issues</li>
+    <li>Fixed DOCX hyperlink overflow on mobile</li>
+    <li>Fixed password requirement text (8 → 9 characters)</li>
+    <li>Removed redundant per-user notifications (database optimization)</li>
+    </ul>
+</li>
 <li><strong><a href="changelogs/v2.8.5.md">v2.8.5 - Two-Factor Authentication System</a></strong> (March 26, 2026)
     <ul>
     <li>Complete 2FA implementation with TOTP support</li>
@@ -682,6 +767,15 @@ For comprehensive technical details, migration guides, and implementation specif
 ## Version History Summary
 
 <ul>
+<li><strong>v2.8.6</strong> (2026-03-30) - Mobile UI Fixes & Performance Optimizations
+    <ul>
+    <li>Email warmup system for faster announcement email sending</li>
+    <li>Fixed documents page mobile UI (layout, overflow, responsive design)</li>
+    <li>Fixed DOCX hyperlink overflow on mobile devices</li>
+    <li>Fixed password requirement text (8 → 9 characters) across all pages</li>
+    <li>Removed redundant per-user notifications for announcements and events</li>
+    </ul>
+</li>
 <li><strong>v2.8.5</strong> (2026-03-26) - Two-Factor Authentication System
     <ul>
     <li>Complete 2FA implementation with TOTP support (Google Authenticator, Authy, etc.)</li>
@@ -905,5 +999,5 @@ New changes will be documented in:
 
 ---
 
-**Last Updated:** 2026-03-26
-**Next Review:** 2026-04-26
+**Last Updated:** 2026-03-30
+**Next Review:** 2026-04-30

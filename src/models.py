@@ -326,14 +326,18 @@ class Legislation(models.Model):
     ], default='51')
 
     STATUS_CHOICES = [
-        ('draft', 'Draft'),
+        ('pending', 'Pending'),
+        ('active', 'Active Voting'),
         ('passed', 'Passed'),
+        ('failed', 'Failed'),
+        ('tabled', 'Tabled'),
         ('removed', 'Removed'),
     ]
 
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     title = models.CharField(max_length=200)
     description = models.TextField()
-    document = models.FileField(upload_to='legislation_docs/', validators=[validate_legislation_file], storage=DualLocationStorage())
+    document = models.FileField(upload_to='legislation_docs/', validators=[validate_legislation_file], storage=DualLocationStorage(), blank=True, null=True)
     posted_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
     available_at = models.DateTimeField(help_text="When the document becomes visible for review")
     voting_starts_at = models.DateTimeField(null=True, blank=True, help_text="When voting opens (defaults to available_at if not set)")
@@ -380,6 +384,11 @@ class Legislation(models.Model):
         related_name='runoff_votes',
         help_text="Original legislation if this is a runoff vote"
     )
+
+    # Historical vote counts (for manually entered legislation)
+    historical_yes_votes = models.PositiveIntegerField(null=True, blank=True, help_text="Historical yes vote count")
+    historical_no_votes = models.PositiveIntegerField(null=True, blank=True, help_text="Historical no vote count")
+    historical_abstain_votes = models.PositiveIntegerField(null=True, blank=True, help_text="Historical abstain vote count")
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
 
@@ -4562,10 +4571,13 @@ class AnnouncementEmailLog(models.Model):
 
     # Status
     STATUS_CHOICES = (
+        ('warming_up', 'Warming Up'),
+        ('pending', 'Pending'),
         ('started', 'Started'),
         ('completed', 'Completed'),
         ('partial', 'Partial (Some Failed)'),
         ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='started')
     error_message = models.TextField(blank=True)
@@ -4611,6 +4623,7 @@ class AnnouncementEmailRecipient(models.Model):
 
     # Result
     STATUS_CHOICES = (
+        ('pending', 'Pending'),
         ('sent', 'Sent'),
         ('skipped_no_email', 'Skipped - No Email Address'),
         ('skipped_disabled', 'Skipped - Notifications Disabled'),
@@ -5032,6 +5045,136 @@ class TwoFactorRequirement(models.Model):
 
     def __str__(self):
         return f"{self.user.name} - {self.get_requirement_display()}"
+
+
+class UserSession(models.Model):
+    """
+    Track active user sessions for security monitoring.
+    Allows users to view their active sessions and log out remotely.
+    """
+    user = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.CASCADE,
+        related_name='sessions'
+    )
+    session_key = models.CharField(max_length=40, unique=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    device_type = models.CharField(max_length=50, blank=True)  # mobile, tablet, desktop
+    browser = models.CharField(max_length=100, blank=True)
+    operating_system = models.CharField(max_length=100, blank=True)
+    location = models.CharField(max_length=200, blank=True)  # City, Country (if available)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_activity = models.DateTimeField(auto_now=True)
+    is_current = models.BooleanField(default=False)  # Mark the current session
+
+    class Meta:
+        ordering = ['-last_activity']
+        verbose_name = 'User Session'
+        verbose_name_plural = 'User Sessions'
+
+    def __str__(self):
+        return f"{self.user.name} - {self.device_type} ({self.ip_address})"
+
+    @classmethod
+    def parse_user_agent(cls, user_agent_string):
+        """Parse user agent string to extract device, browser, and OS info."""
+        device_type = 'desktop'
+        browser = 'Unknown'
+        operating_system = 'Unknown'
+
+        if not user_agent_string:
+            return device_type, browser, operating_system
+
+        ua_lower = user_agent_string.lower()
+
+        # Detect device type
+        if 'mobile' in ua_lower or 'android' in ua_lower and 'mobile' in ua_lower:
+            device_type = 'mobile'
+        elif 'tablet' in ua_lower or 'ipad' in ua_lower:
+            device_type = 'tablet'
+
+        # Detect browser
+        if 'edg/' in ua_lower or 'edge/' in ua_lower:
+            browser = 'Microsoft Edge'
+        elif 'chrome/' in ua_lower and 'safari/' in ua_lower:
+            browser = 'Chrome'
+        elif 'firefox/' in ua_lower:
+            browser = 'Firefox'
+        elif 'safari/' in ua_lower and 'chrome/' not in ua_lower:
+            browser = 'Safari'
+        elif 'opera' in ua_lower or 'opr/' in ua_lower:
+            browser = 'Opera'
+        elif 'msie' in ua_lower or 'trident/' in ua_lower:
+            browser = 'Internet Explorer'
+
+        # Detect OS
+        if 'windows nt 10' in ua_lower:
+            operating_system = 'Windows 10/11'
+        elif 'windows nt' in ua_lower:
+            operating_system = 'Windows'
+        elif 'mac os x' in ua_lower:
+            operating_system = 'macOS'
+        elif 'iphone' in ua_lower:
+            operating_system = 'iOS'
+        elif 'ipad' in ua_lower:
+            operating_system = 'iPadOS'
+        elif 'android' in ua_lower:
+            operating_system = 'Android'
+        elif 'linux' in ua_lower:
+            operating_system = 'Linux'
+
+        return device_type, browser, operating_system
+
+    @classmethod
+    def create_or_update_session(cls, user, request):
+        """Create or update a session record for the user."""
+        session_key = request.session.session_key
+        if not session_key:
+            request.session.create()
+            session_key = request.session.session_key
+
+        # Get IP address
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip_address = x_forwarded_for.split(',')[0].strip()
+        else:
+            ip_address = request.META.get('REMOTE_ADDR')
+
+        user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
+        device_type, browser, operating_system = cls.parse_user_agent(user_agent)
+
+        session, created = cls.objects.update_or_create(
+            session_key=session_key,
+            defaults={
+                'user': user,
+                'ip_address': ip_address,
+                'user_agent': user_agent,
+                'device_type': device_type,
+                'browser': browser,
+                'operating_system': operating_system,
+            }
+        )
+
+        return session
+
+    @classmethod
+    def cleanup_expired_sessions(cls):
+        """Remove session records for expired Django sessions."""
+        from django.contrib.sessions.models import Session
+        from django.utils import timezone
+
+        # Get all valid session keys
+        valid_sessions = Session.objects.filter(
+            expire_date__gt=timezone.now()
+        ).values_list('session_key', flat=True)
+
+        # Delete UserSession records that don't have a valid Django session
+        deleted_count, _ = cls.objects.exclude(
+            session_key__in=list(valid_sessions)
+        ).delete()
+
+        return deleted_count
 
 
 # Import feature flags models

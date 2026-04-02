@@ -13,7 +13,8 @@ from src.view.officer.chapter_minutes import (
 )
 from src.view.officer.manage_announcements import (
     track_email_view, announcement_stats, confirm_announcement_email,
-    send_announcement_emails, skip_announcement_email
+    send_announcement_emails, skip_announcement_email,
+    warmup_announcement_email, cancel_warmup_announcement_email
 )
 from src.view.committee import *
 from src.view.committee.committee_minutes_editor import (
@@ -92,11 +93,12 @@ from src.view.logout_view import logout_view
 from src.view.profile_view import profile_view
 from src.view.directory import member_directory, export_directory
 from src.view.preferences import preferences_view
+from src.view.session_viewer import session_list, revoke_session, revoke_all_other_sessions
 from src.view.activity_logs import activity_logs_view, export_activity_logs
 from src.view.upload_legislation import upload_legislation
 from src.view.end_vote import end_vote, create_runoff
 from src.view.delete_legislation import delete_chapter_legislation
-from src.view.passed_legislation import passed_legislation, PassedLegislationDetailView
+from src.view.passed_legislation import passed_legislation, PassedLegislationDetailView, add_legislation
 from src.view.legislation_detail import legislation_detail
 from src.view.edit_legislation import edit_legislation
 from src.view.reopen_legislation import reopen_legislation
@@ -305,6 +307,8 @@ urlpatterns = [
     path('officers/announcements/<int:announcement_id>/confirm-email/', confirm_announcement_email, name='confirm_announcement_email'),
     path('officers/announcements/<int:announcement_id>/send-emails/', send_announcement_emails, name='send_announcement_emails'),
     path('officers/announcements/<int:announcement_id>/skip-email/', skip_announcement_email, name='skip_announcement_email'),
+    path('officers/announcements/<int:announcement_id>/warmup-email/', warmup_announcement_email, name='warmup_announcement_email'),
+    path('officers/announcements/<int:announcement_id>/cancel-warmup/', cancel_warmup_announcement_email, name='cancel_warmup_announcement_email'),
 
     # Announcement Email Tracking (no login required - used as tracking pixel)
     path('track/announcement/<int:announcement_id>/user/<str:user_id>/', track_email_view, name='track_email_view'),
@@ -333,6 +337,7 @@ urlpatterns = [
     path('vote/runoff/<int:legislation_id>/', create_runoff, name='create_runoff'),
     path('vote/delete/<int:legislation_id>/', delete_chapter_legislation, name='delete_chapter_legislation'),
     path('passed_legislation/', passed_legislation, name='passed_legislation'),
+    path('legislation/add/', add_legislation, name='add_legislation'),
     path('legislation/detail/<int:pk>/', PassedLegislationDetailView.as_view(), name='passed_legislation_detail'),
     path('legislation/detail/<int:pk>/document/', view_passed_legislation_document, name='view_passed_legislation_document'),
     path('legislation/<int:legislation_id>/', legislation_detail, name='legislation_detail'),
@@ -490,6 +495,11 @@ urlpatterns = [
     path('accounts/two-factor/verify/', two_factor_verify, name='two_factor_verify'),
     path('accounts/two-factor/disable/', two_factor_disable, name='two_factor_disable'),
     path('accounts/two-factor/dismiss/', two_factor_dismiss, name='two_factor_dismiss'),
+
+    # Session Management
+    path('account/sessions/', session_list, name='session_list'),
+    path('account/sessions/<str:session_key>/revoke/', revoke_session, name='revoke_session'),
+    path('account/sessions/revoke-all/', revoke_all_other_sessions, name='revoke_all_sessions'),
 
     # Admin v2 - Advanced Administration
     path('admin-v2/', admin_v2_login, name='admin_v2_login'),

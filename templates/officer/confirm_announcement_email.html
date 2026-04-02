@@ -161,12 +161,74 @@
     </div>
 
     <script>
+        // Warmup state tracking
+        let warmupStatus = 'pending';
+        let warmupLogId = null;
+
+        // Start warmup immediately when page loads
+        async function startWarmup() {
+            try {
+                const response = await fetch('{% url "warmup_announcement_email" announcement.id %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json',
+                    },
+                });
+                const data = await response.json();
+
+                if (data.status === 'success' || data.status === 'already_warming') {
+                    warmupStatus = 'ready';
+                    warmupLogId = data.log_id;
+                    console.log('[Warmup] Email preparation complete:', data.emails_prepared || 'cached', 'emails ready');
+
+                    // Update UI to show warmup is ready
+                    const sendBtn = document.getElementById('send-btn');
+                    if (sendBtn && !sendBtn.disabled) {
+                        sendBtn.classList.add('ring-2', 'ring-green-300');
+                        sendBtn.title = 'Emails pre-loaded and ready to send!';
+                    }
+                } else {
+                    warmupStatus = 'failed';
+                    console.warn('[Warmup] Preparation failed:', data.message);
+                }
+            } catch (error) {
+                warmupStatus = 'failed';
+                console.error('[Warmup] Error:', error);
+            }
+        }
+
+        // Cancel warmup when skipping
+        async function cancelWarmup() {
+            if (warmupStatus === 'ready' || warmupStatus === 'pending') {
+                try {
+                    await fetch('{% url "cancel_warmup_announcement_email" announcement.id %}', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}',
+                            'Content-Type': 'application/json',
+                        },
+                    });
+                    console.log('[Warmup] Cancelled');
+                } catch (error) {
+                    console.error('[Warmup] Cancel error:', error);
+                }
+            }
+        }
+
         function confirmSkip() {
             document.getElementById('skipModal').classList.remove('hidden');
         }
+
         function closeSkipModal() {
             document.getElementById('skipModal').classList.add('hidden');
         }
+
+        // Handle skip confirmation - cancel warmup first
+        document.querySelector('#skipModal a[href*="skip"]').addEventListener('click', function(e) {
+            cancelWarmup();
+        });
+
         // Close modal on escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') closeSkipModal();
@@ -175,6 +237,9 @@
         document.getElementById('skipModal').addEventListener('click', function(e) {
             if (e.target === this) closeSkipModal();
         });
+
+        // Track if user is intentionally sending (not navigating away)
+        let isSendingEmails = false;
 
         // Prevent double form submission
         document.getElementById('send-email-form').addEventListener('submit', function(e) {
@@ -189,13 +254,41 @@
                 return false;
             }
 
+            // Mark that we're intentionally sending - don't cancel warmup
+            isSendingEmails = true;
+
             // Disable button and show loading state
             sendBtn.disabled = true;
             sendBtn.classList.add('opacity-75', 'cursor-not-allowed');
+            sendBtn.classList.remove('ring-2', 'ring-green-300');
             sendIcon.classList.add('hidden');
             sendSpinner.classList.remove('hidden');
-            sendText.textContent = 'Sending...';
+
+            if (warmupStatus === 'ready') {
+                sendText.textContent = 'Sending (Fast Mode)...';
+            } else {
+                sendText.textContent = 'Sending...';
+            }
         });
+
+        // Cancel warmup if user navigates away (but not if they're sending)
+        window.addEventListener('beforeunload', function() {
+            // Don't cancel if user clicked Send - warmup data will be used
+            if (isSendingEmails) {
+                return;
+            }
+
+            if (warmupStatus === 'ready' || warmupStatus === 'pending') {
+                // Use sendBeacon for reliable delivery during page unload
+                navigator.sendBeacon(
+                    '{% url "cancel_warmup_announcement_email" announcement.id %}',
+                    new URLSearchParams({ 'csrfmiddlewaretoken': '{{ csrf_token }}' })
+                );
+            }
+        });
+
+        // Start warmup when page loads
+        document.addEventListener('DOMContentLoaded', startWarmup);
     </script>
 </div>
 {% endblock %}

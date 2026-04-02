@@ -1,10 +1,14 @@
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db.models import Q
+from django.utils import timezone
+from django.contrib import messages
+from django.shortcuts import render, redirect
+from django.views.generic import DetailView
+from django.views.decorators.http import require_http_methods
+from django.urls import reverse
 from ..decorators import *
 from ..models import *
-from django.shortcuts import render
-from django.views.generic import DetailView
-from django.urls import reverse
 from src.feature_flag_decorators import require_page_enabled
 import pytz
 from datetime import timedelta
@@ -13,21 +17,86 @@ from datetime import timedelta
 @require_page_enabled('passed_legislation')
 @log_function_call
 def passed_legislation(request):
-    closed_legislation = Legislation.objects.filter(voting_closed=True)
-    passed = []
-    passed_legs = Legislation.objects.filter(passed=True)
-    print("Passed Legislation:", passed_legs)
+    # Get filter from query params (default to 'all')
+    status_filter = request.GET.get('status', 'all')
+    now = timezone.now()
 
-    for leg in closed_legislation:
+    # Base queryset - all non-removed legislation
+    all_legislation = Legislation.objects.filter(is_active=True).exclude(status='removed')
+
+    # Apply status filter
+    if status_filter == 'pending':
+        # Pending: voting hasn't started yet
+        queryset = all_legislation.filter(
+            Q(status='pending') |
+            (Q(voting_starts_at__gt=now) & Q(voting_closed=False))
+        ).order_by('-available_at')
+    elif status_filter == 'active':
+        # Active: voting is open
+        queryset = all_legislation.filter(
+            Q(status='active') |
+            (Q(voting_closed=False) & Q(voting_starts_at__lte=now))
+        ).exclude(status__in=['tabled', 'removed']).order_by('-available_at')
+    elif status_filter == 'passed':
+        queryset = all_legislation.filter(Q(status='passed') | Q(passed=True, voting_closed=True)).order_by('-voting_ended_at')
+    elif status_filter == 'failed':
+        queryset = all_legislation.filter(
+            Q(status='failed') |
+            (Q(passed=False) & Q(voting_closed=True))
+        ).exclude(status__in=['passed', 'tabled', 'removed']).order_by('-voting_ended_at')
+    elif status_filter == 'tabled':
+        queryset = all_legislation.filter(status='tabled').order_by('-available_at')
+    else:
+        # All - show closed legislation (passed + failed)
+        queryset = all_legislation.filter(voting_closed=True).order_by('-voting_ended_at')
+
+    # Count for each status tab
+    status_counts = {
+        'all': all_legislation.filter(voting_closed=True).count(),
+        'pending': all_legislation.filter(
+            Q(status='pending') | (Q(voting_starts_at__gt=now) & Q(voting_closed=False))
+        ).count(),
+        'active': all_legislation.filter(
+            Q(status='active') | (Q(voting_closed=False) & Q(voting_starts_at__lte=now))
+        ).exclude(status__in=['tabled', 'removed', 'pending']).count(),
+        'passed': all_legislation.filter(Q(status='passed') | Q(passed=True, voting_closed=True)).count(),
+        'failed': all_legislation.filter(
+            Q(status='failed') | (Q(passed=False) & Q(voting_closed=True))
+        ).exclude(status__in=['passed', 'tabled', 'removed']).count(),
+        'tabled': all_legislation.filter(status='tabled').count(),
+    }
+
+    passed = []
+
+    for leg in queryset:
         votes = Vote.objects.filter(legislation=leg)
         yes = votes.filter(vote_choice='yes').count()
         no = votes.filter(vote_choice='no').count()
         abstain = votes.filter(vote_choice='abstain').count()
+
+        # Use historical vote counts if available (for manually entered legislation)
+        if leg.historical_yes_votes is not None:
+            yes = leg.historical_yes_votes
+        if leg.historical_no_votes is not None:
+            no = leg.historical_no_votes
+        if leg.historical_abstain_votes is not None:
+            abstain = leg.historical_abstain_votes
+
         total_non_abstain = yes + no
 
-        # Skip only if not passed AND has no votes
+        # Skip legislation with no votes UNLESS:
+        # - It's marked as passed
+        # - It's tabled, pending, or active (these should show regardless of votes)
+        # - We're filtering by a specific status (user wants to see all items in that status)
         if total_non_abstain == 0 and not leg.passed:
-            continue
+            # Always show if filtering by specific status
+            if status_filter in ['tabled', 'pending', 'active']:
+                pass  # Don't skip
+            # Always show tabled/pending/active items
+            elif leg.status in ['tabled', 'pending', 'active']:
+                pass  # Don't skip
+            else:
+                continue
 
         vote_passed = False
         yes_pct = 0
@@ -125,6 +194,8 @@ def passed_legislation(request):
         'passed_legislation': page_obj,
         'page_obj': page_obj,
         'total_count': paginator.count,
+        'status_filter': status_filter,
+        'status_counts': status_counts,
     })
 
 
@@ -164,3 +235,87 @@ class PassedLegislationDetailView(DetailView):
             }
 
         return context
+
+
+@login_required
+@require_http_methods(["POST"])
+@log_function_call
+def add_legislation(request):
+    """
+    Add new legislation to the tracker.
+    Officers and admins can add legislation with title, status, description,
+    optional document, and optional vote results.
+    """
+    # Check permissions
+    if not request.user.is_admin and request.user.member_type != 'Officer':
+        messages.error(request, 'You do not have permission to add legislation.')
+        return redirect('passed_legislation')
+
+    title = request.POST.get('title', '').strip()
+    status = request.POST.get('status', 'pending')
+    description = request.POST.get('description', '').strip()
+    document = request.FILES.get('document')
+    include_votes = request.POST.get('include_votes') == 'on'
+
+    # Validation
+    if not title:
+        messages.error(request, 'Title is required.')
+        return redirect('passed_legislation')
+
+    if not document and len(description) < 20:
+        messages.error(request, 'Please provide either a document or a detailed description (at least 20 characters).')
+        return redirect('passed_legislation')
+
+    # Validate status
+    valid_statuses = ['pending', 'active', 'passed', 'failed', 'tabled']
+    if status not in valid_statuses:
+        status = 'pending'
+
+    # Determine if voting is closed based on status
+    # Tabled legislation also has voting closed (it's on hold, not being voted on)
+    voting_closed = status in ['passed', 'failed', 'tabled']
+    passed = status == 'passed'
+
+    # Create the legislation
+    now = timezone.now()
+    legislation = Legislation.objects.create(
+        title=title,
+        description=description,
+        document=document,
+        status=status,
+        posted_by=request.user,
+        available_at=now,
+        voting_starts_at=now,
+        voting_closed=voting_closed,
+        passed=passed,
+        required_percentage=request.POST.get('required_percentage', '51'),
+    )
+
+    # If voting is closed (passed, failed, or tabled), set voting_ended_at
+    if voting_closed:
+        legislation.voting_ended_at = now
+        legislation.save()
+
+    # For pending status, set voting_starts_at to future (so it doesn't appear as active)
+    if status == 'pending':
+        legislation.voting_starts_at = None
+        legislation.save()
+
+    # Handle vote results if included
+    if include_votes and voting_closed:
+        try:
+            yes_votes = int(request.POST.get('yes_votes', 0))
+            no_votes = int(request.POST.get('no_votes', 0))
+            abstain_votes = int(request.POST.get('abstain_votes', 0))
+
+            # Store historical vote counts on the legislation
+            legislation.historical_yes_votes = yes_votes
+            legislation.historical_no_votes = no_votes
+            legislation.historical_abstain_votes = abstain_votes
+            legislation.save()
+        except (ValueError, TypeError):
+            pass  # Ignore invalid vote counts
+
+    logger.info(f"{request.user.username} added legislation: {title} with status {status}")
+    messages.success(request, f'Legislation "{title}" has been added.')
+    return redirect('passed_legislation')

@@ -12,6 +12,7 @@
         border-radius: 8px;
         max-width: 850px;
         margin: 0 auto;
+        overflow-x: hidden;
     }
     html.dark .document-paper {
         background: #1f2937;
@@ -24,13 +25,19 @@
         font-size: 15px;
         line-height: 1.8;
         color: #1f2937 !important;
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+        word-break: break-word;
     }
     .docx-content * {
         color: inherit !important;
+        max-width: 100%;
     }
     .docx-content p {
         margin-bottom: 1em;
         text-indent: 0;
+        overflow-wrap: break-word;
+        word-wrap: break-word;
     }
     .docx-content p:empty {
         margin-bottom: 0.5em;
@@ -81,17 +88,23 @@
         color: #6b7280;
     }
 
-    /* Tables */
+    /* Tables - with responsive wrapper */
+    .docx-content .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 1.5em 0;
+    }
     .docx-content table {
         border-collapse: collapse;
         width: 100%;
-        margin: 1.5em 0;
+        min-width: 300px;
         font-size: 14px;
     }
     .docx-content th, .docx-content td {
         border: 1px solid #d1d5db;
         padding: 0.6em 0.8em;
         text-align: left;
+        word-break: break-word;
     }
     .docx-content th {
         background: #f3f4f6;
@@ -113,11 +126,14 @@
         text-decoration: underline !important;
     }
 
-    /* Links */
+    /* Links - with overflow handling for mobile */
     .docx-content a {
         color: #2563eb !important;
         text-decoration: none;
         border-bottom: 1px solid #93c5fd;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
     }
     .docx-content a:hover {
         color: #1d4ed8 !important;

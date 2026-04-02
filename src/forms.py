@@ -32,7 +32,21 @@ class LegislationForm(forms.ModelForm):
             'available_at': 'When the document becomes visible for review.',
             'voting_starts_at': 'Optional: When voting opens. Leave blank to start voting when document is available.',
             'voting_ends_at': 'Optional: Voting will automatically close at this time. Leave blank for manual close only.',
+            'document': 'Optional if you provide a detailed description (20+ characters).',
         }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        document = cleaned_data.get('document')
+        description = cleaned_data.get('description', '').strip()
+
+        # Require either a document OR a meaningful description (at least 20 characters)
+        if not document and len(description) < 20:
+            raise forms.ValidationError(
+                'Please either upload a document OR provide a detailed description (at least 20 characters).'
+            )
+
+        return cleaned_data
 
     def clean_document(self):
         file = self.cleaned_data.get('document')

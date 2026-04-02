@@ -196,10 +196,13 @@ def vote_view(request):
 
     # Gather available legislation
     # Show legislation that is available OR pending legislation created by the current user
+    # Exclude tabled, passed, failed, and removed legislation
     from django.db.models import Q
     available_legislation = Legislation.objects.filter(
         Q(available_at__lte=timezone.now()) | Q(posted_by=user),
         voting_closed=False
+    ).exclude(
+        status__in=['tabled', 'passed', 'failed', 'removed']
     ).order_by('-available_at')
 
     # Build vote data for uploader

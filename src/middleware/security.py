@@ -4,11 +4,51 @@ Custom middleware for Parliament application
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.core.cache import cache
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, HttpResponseBadRequest
 from django.contrib import messages
+from django.conf import settings
 import logging
+import re
+import html
 
 logger = logging.getLogger('admin_actions')
+
+# Compiled regex patterns for attack detection
+SQL_INJECTION_PATTERNS = [
+    re.compile(r"(\b(union|select|insert|update|delete|drop|create|alter|exec|execute)\b.*\b(from|into|table|database|where)\b)", re.IGNORECASE),
+    re.compile(r"(--|;|/\*|\*/|@@|@|char\(|nchar\(|varchar\(|nvarchar\(|cast\(|convert\()", re.IGNORECASE),
+    re.compile(r"(\b(or|and)\b\s+\d+\s*=\s*\d+)", re.IGNORECASE),  # or 1=1, and 1=1
+    re.compile(r"(\b(or|and)\b\s+['\"]?\w+['\"]?\s*=\s*['\"]?\w+['\"]?)", re.IGNORECASE),  # or 'a'='a'
+    re.compile(r"(waitfor\s+delay|benchmark\s*\(|sleep\s*\()", re.IGNORECASE),  # Time-based injection
+    re.compile(r"(information_schema|sys\.objects|sysobjects)", re.IGNORECASE),  # Schema probing
+]
+
+XSS_PATTERNS = [
+    re.compile(r"<script[^>]*>.*?</script>", re.IGNORECASE | re.DOTALL),
+    re.compile(r"<script[^>]*>", re.IGNORECASE),
+    re.compile(r"javascript\s*:", re.IGNORECASE),
+    re.compile(r"on\w+\s*=\s*['\"]?[^'\"]*['\"]?", re.IGNORECASE),  # onclick=, onerror=, etc.
+    re.compile(r"<iframe[^>]*>", re.IGNORECASE),
+    re.compile(r"<object[^>]*>", re.IGNORECASE),
+    re.compile(r"<embed[^>]*>", re.IGNORECASE),
+    re.compile(r"<link[^>]*>", re.IGNORECASE),
+    re.compile(r"<img[^>]*onerror\s*=", re.IGNORECASE),
+    re.compile(r"expression\s*\(", re.IGNORECASE),  # CSS expression
+    re.compile(r"url\s*\(\s*['\"]?\s*javascript:", re.IGNORECASE),
+]
+
+PATH_TRAVERSAL_PATTERNS = [
+    re.compile(r"\.\./"),  # ../
+    re.compile(r"\.\.\\"),  # ..\
+    re.compile(r"%2e%2e[/\\]", re.IGNORECASE),  # URL encoded
+    re.compile(r"\.%00", re.IGNORECASE),  # Null byte
+]
+
+COMMAND_INJECTION_PATTERNS = [
+    re.compile(r"[;&|`$]"),  # Shell metacharacters
+    re.compile(r"\$\(.*\)"),  # Command substitution
+    re.compile(r"`.*`"),  # Backtick execution
+]
 
 
 class ForcePasswordChangeMiddleware:
@@ -256,6 +296,181 @@ class LoginRateLimitMiddleware:
                     cache.delete(f'login_lockout_user_{username}')
 
         return response
+
+    def get_client_ip(self, request):
+        """Get the client's IP address from the request."""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0].strip()
+        else:
+            ip = request.META.get('REMOTE_ADDR', 'unknown')
+        return ip
+
+
+class InputSanitizationMiddleware:
+    """
+    Middleware to detect and log potential SQL injection, XSS, and other attacks.
+    Also adds security headers to all responses.
+
+    Note: Django's ORM already protects against SQL injection via parameterized queries.
+    Django's template system already escapes output to prevent XSS.
+    This middleware adds an extra layer of defense by:
+    1. Detecting and logging attack attempts for security monitoring
+    2. Blocking obviously malicious requests
+    3. Adding security headers
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+        # Paths to skip checking (e.g., admin that has its own handling)
+        self.skip_paths = ['/admin/', '/static/', '/media/']
+        # Maximum input length before truncating for logging
+        self.max_log_length = 500
+
+    def __call__(self, request):
+        ip_address = self.get_client_ip(request)
+
+        # Skip checking for static files and certain paths
+        if any(request.path.startswith(path) for path in self.skip_paths):
+            response = self.get_response(request)
+            return self.add_security_headers(response)
+
+        # Check all input sources for malicious patterns
+        attack_detected = False
+        attack_type = None
+        attack_payload = None
+
+        # Check GET parameters
+        for key, value in request.GET.items():
+            result = self.check_for_attacks(value)
+            if result:
+                attack_detected = True
+                attack_type = result['type']
+                attack_payload = f"GET[{key}]={self.truncate(value)}"
+                break
+
+        # Check POST parameters (only for form data, not file uploads)
+        if not attack_detected and request.method == 'POST':
+            try:
+                for key, value in request.POST.items():
+                    if isinstance(value, str):
+                        result = self.check_for_attacks(value)
+                        if result:
+                            attack_detected = True
+                            attack_type = result['type']
+                            attack_payload = f"POST[{key}]={self.truncate(value)}"
+                            break
+            except Exception:
+                pass  # Skip if POST data can't be read
+
+        # Check URL path
+        if not attack_detected:
+            result = self.check_for_attacks(request.path)
+            if result:
+                attack_detected = True
+                attack_type = result['type']
+                attack_payload = f"PATH={self.truncate(request.path)}"
+
+        # If attack detected, log and potentially block
+        if attack_detected:
+            user_info = f"User: {request.user.username}" if request.user.is_authenticated else "Unauthenticated"
+            logger.warning(
+                f"ATTACK DETECTED [{attack_type}]: {attack_payload} | "
+                f"IP: {ip_address} | {user_info} | "
+                f"Path: {request.path} | UA: {request.META.get('HTTP_USER_AGENT', 'unknown')[:100]}"
+            )
+
+            # Track attack attempts per IP
+            attack_count_key = f'attack_attempts_{ip_address}'
+            attack_count = cache.get(attack_count_key, 0) + 1
+            cache.set(attack_count_key, attack_count, 3600)  # 1 hour window
+
+            # Block if too many attack attempts
+            if attack_count >= 10:
+                logger.critical(
+                    f"BLOCKING IP {ip_address}: {attack_count} attack attempts in 1 hour. "
+                    f"Latest: {attack_type}"
+                )
+                return HttpResponseForbidden(
+                    '<html><body style="font-family: sans-serif; max-width: 600px; margin: 100px auto; padding: 20px;">'
+                    '<h1 style="color: #dc2626;">Access Denied</h1>'
+                    '<p>Your request has been blocked due to suspicious activity.</p>'
+                    '<p>If you believe this is an error, please contact the administrator.</p>'
+                    '</body></html>'
+                )
+
+        response = self.get_response(request)
+        return self.add_security_headers(response)
+
+    def check_for_attacks(self, value):
+        """Check a value for various attack patterns."""
+        if not value or not isinstance(value, str):
+            return None
+
+        # Check for SQL injection
+        for pattern in SQL_INJECTION_PATTERNS:
+            if pattern.search(value):
+                return {'type': 'SQL_INJECTION', 'pattern': pattern.pattern}
+
+        # Check for XSS
+        for pattern in XSS_PATTERNS:
+            if pattern.search(value):
+                return {'type': 'XSS', 'pattern': pattern.pattern}
+
+        # Check for path traversal
+        for pattern in PATH_TRAVERSAL_PATTERNS:
+            if pattern.search(value):
+                return {'type': 'PATH_TRAVERSAL', 'pattern': pattern.pattern}
+
+        # Check for command injection (only for certain fields)
+        # Be careful not to block legitimate uses
+        # for pattern in COMMAND_INJECTION_PATTERNS:
+        #     if pattern.search(value):
+        #         return {'type': 'COMMAND_INJECTION', 'pattern': pattern.pattern}
+
+        return None
+
+    def add_security_headers(self, response):
+        """Add security headers to the response."""
+        # Prevent MIME type sniffing
+        response['X-Content-Type-Options'] = 'nosniff'
+
+        # Prevent clickjacking
+        response['X-Frame-Options'] = 'SAMEORIGIN'
+
+        # Enable XSS filter in browsers (legacy but still useful)
+        response['X-XSS-Protection'] = '1; mode=block'
+
+        # Referrer policy
+        response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+
+        # Permissions policy (limit access to sensitive browser features)
+        response['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+
+        # Content Security Policy (adjust based on your needs)
+        # Note: Tailwind CDN is used, so we need to allow it
+        if not getattr(settings, 'DEBUG', False):
+            csp_parts = [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com",
+                "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com",
+                "img-src 'self' data: https:",
+                "font-src 'self' data:",
+                "connect-src 'self'",
+                "frame-ancestors 'self'",
+                "form-action 'self'",
+                "base-uri 'self'",
+            ]
+            response['Content-Security-Policy'] = '; '.join(csp_parts)
+
+        return response
+
+    def truncate(self, value, max_length=None):
+        """Truncate a value for safe logging."""
+        max_length = max_length or self.max_log_length
+        if len(value) > max_length:
+            return value[:max_length] + '...[truncated]'
+        return value
 
     def get_client_ip(self, request):
         """Get the client's IP address from the request."""

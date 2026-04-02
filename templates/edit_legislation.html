@@ -28,6 +28,25 @@
                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>{{ form.description.value|default:legislation.description }}</textarea>
                 </div>
 
+                {% if legislation.status == 'tabled' or legislation.status == 'pending' %}
+                <div>
+                    <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
+                    <select name="status" id="status"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="pending" {% if legislation.status == 'pending' %}selected{% endif %}>Pending</option>
+                        <option value="active" {% if legislation.status == 'active' %}selected{% endif %}>Active (Reintroduce to Voting)</option>
+                        <option value="tabled" {% if legislation.status == 'tabled' %}selected{% endif %}>Tabled</option>
+                    </select>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {% if legislation.status == 'tabled' %}
+                        Change to "Active" to reintroduce this legislation to voting.
+                        {% else %}
+                        Change status to "Active" when ready for voting, or "Tabled" to put on hold.
+                        {% endif %}
+                    </p>
+                </div>
+                {% endif %}
+
                 <div class="grid md:grid-cols-2 gap-4">
                     <div>
                         <label for="available_at" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Document Available At</label>

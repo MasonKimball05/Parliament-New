@@ -170,21 +170,9 @@ def create_event(request):
                 for instance in recurring_instances:
                     instance.save()
 
-            # Send in-app notification to all active members
-            try:
-                date_str = event.date_time.strftime('%b %d') if event.date_time else ''
-                location_str = event.location or 'TBD'
-                notify_all_active_members(
-                    'event_new',
-                    f'New Event: {event.title}',
-                    message=f'{date_str} — {location_str}',
-                    link='/calendar/',
-                    source_type='Event',
-                    source_id=event.id,
-                )
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).error(f"Failed to create event notifications: {e}", exc_info=True)
+            # Note: We don't create in-app notifications for events because
+            # events are displayed on the calendar page which all members access.
+            # This saves significant database space (~1 row per member per event).
 
             messages.success(request, f'Event "{event.title}" created successfully.')
             return redirect('manage_events')

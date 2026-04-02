@@ -2,12 +2,17 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.db.models import Q
-from src.models import Announcement, UserAnnouncementView, ParliamentUser
+from django.views.decorators.http import require_POST
+from django.core.cache import cache
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from django.conf import settings
+from src.models import Announcement, UserAnnouncementView, ParliamentUser, AnnouncementEmailLog, AnnouncementEmailRecipient
 from src.forms import AnnouncementForm
 from src.decorators import log_function_call, officer_required
-from src.notifications import send_announcement_notification
+from src.notifications import send_announcement_notification, get_site_url
 from src.notification_service import notify_all_active_members
 from django.utils import timezone
 import base64
@@ -53,19 +58,10 @@ def create_announcement(request):
 
             announcement.save()
 
-            # Send in-app notification to all active members (always, if published)
-            if announcement.is_published():
-                try:
-                    notify_all_active_members(
-                        'announcement',
-                        f'New Announcement: {announcement.title}',
-                        message=announcement.content[:100],
-                        link='/announcements/',
-                        source_type='Announcement',
-                        source_id=announcement.id,
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to create announcement notifications: {e}", exc_info=True)
+            # Note: We don't create in-app notifications for announcements because
+            # announcements have their own dedicated display system (home page popup,
+            # announcements page) with UserAnnouncementView tracking. This saves
+            # significant database space (~1 row per member per announcement).
 
             # If send_email is checked and announcement is published, redirect to confirmation
             if announcement.is_published() and send_email:
@@ -155,17 +151,141 @@ def confirm_announcement_email(request, announcement_id):
 def send_announcement_emails(request, announcement_id):
     """
     Actually send the announcement emails after confirmation.
+    Uses pre-warmed data if available for faster sending.
     """
+    from django.core.mail import EmailMultiAlternatives
+
     if request.method != 'POST':
         return redirect('manage_announcements')
 
     announcement = get_object_or_404(Announcement, id=announcement_id)
+    cache_key = f'email_warmup_{announcement_id}'
+    warmup_data = cache.get(cache_key)
 
-    try:
-        sent_count = send_announcement_notification(announcement, initiated_by=request.user)
-        messages.success(request, f'Announcement created and {sent_count} email notifications sent!')
-    except Exception as e:
-        messages.warning(request, f'Announcement created but email notifications failed: {str(e)}')
+    if warmup_data:
+        # Use pre-warmed data for faster sending
+        logger.info(f"[SEND] Using pre-warmed data for announcement {announcement_id}")
+
+        try:
+            log_id = warmup_data.get('log_id')
+
+            # Verify the log still exists and is in warming_up state
+            try:
+                email_log = AnnouncementEmailLog.objects.get(id=log_id)
+                if email_log.status != 'warming_up':
+                    logger.warning(f"[SEND] Warmup log {log_id} has status '{email_log.status}', not 'warming_up'. Falling back to regular send.")
+                    cache.delete(cache_key)
+                    warmup_data = None
+            except AnnouncementEmailLog.DoesNotExist:
+                logger.warning(f"[SEND] Warmup log {log_id} no longer exists. Falling back to regular send.")
+                cache.delete(cache_key)
+                warmup_data = None
+        except Exception as e:
+            logger.warning(f"[SEND] Error checking warmup log: {e}. Falling back to regular send.")
+            cache.delete(cache_key)
+            warmup_data = None
+
+    if warmup_data:
+        # Continue with warmup send (log was verified to exist)
+        try:
+            log_id = warmup_data.get('log_id')
+            email_log = AnnouncementEmailLog.objects.get(id=log_id)
+            rendered_emails = warmup_data.get('rendered_emails', {})
+            subject = warmup_data.get('subject')
+            from_email = warmup_data.get('from_email')
+
+            # Immediately mark as 'started' to prevent cancel race condition
+            email_log.status = 'started'
+            email_log.save(update_fields=['status'])
+
+            # Console log buffer
+            console = []
+            def log_msg(msg):
+                console.append(f"[{timezone.now().strftime('%H:%M:%S.%f')[:-3]}] {msg}")
+
+            log_msg("=" * 60)
+            log_msg("SENDING EMAILS (Using Pre-warmed Data)")
+            log_msg("=" * 60)
+            log_msg(f"Pre-rendered emails available: {len(rendered_emails)}")
+
+            sent_count = 0
+            failed_count = 0
+
+            for user_id, email_data in rendered_emails.items():
+                recipient = AnnouncementEmailRecipient.objects.filter(
+                    email_log=email_log,
+                    user_id=user_id
+                ).first()
+
+                try:
+                    msg = EmailMultiAlternatives(
+                        subject=subject,
+                        body=email_data['plain'],
+                        from_email=from_email,
+                        to=[email_data['email']]
+                    )
+                    msg.attach_alternative(email_data['html'], "text/html")
+                    msg.send()
+
+                    sent_count += 1
+                    if recipient:
+                        recipient.status = 'sent'
+                        recipient.save()
+                    log_msg(f"  SENT: {email_data['name']} <{email_data['email']}>")
+
+                except Exception as e:
+                    failed_count += 1
+                    if recipient:
+                        recipient.status = 'failed'
+                        recipient.error_message = str(e)
+                        recipient.save()
+                    log_msg(f"  FAIL: {email_data['name']} <{email_data['email']}> - {str(e)}")
+
+            # Update email log
+            log_msg("")
+            log_msg("=" * 60)
+            log_msg("COMPLETE")
+            log_msg("=" * 60)
+            log_msg(f"Emails sent: {sent_count}")
+            log_msg(f"Emails failed: {failed_count}")
+
+            if failed_count == 0 and sent_count > 0:
+                email_log.status = 'completed'
+            elif sent_count > 0 and failed_count > 0:
+                email_log.status = 'partial'
+            elif sent_count == 0 and failed_count > 0:
+                email_log.status = 'failed'
+            else:
+                email_log.status = 'completed'
+
+            email_log.emails_sent = sent_count
+            email_log.emails_failed = failed_count
+            email_log.completed_at = timezone.now()
+            email_log.console_log = '\n'.join(console)
+            email_log.save()
+
+            # Clear warmup cache
+            cache.delete(cache_key)
+
+            messages.success(request, f'Announcement created and {sent_count} email notifications sent!')
+
+        except Exception as e:
+            logger.error(f"[SEND] Failed using warmup data: {e}", exc_info=True)
+            cache.delete(cache_key)
+            # Fall back to regular send
+            try:
+                sent_count = send_announcement_notification(announcement, initiated_by=request.user)
+                messages.success(request, f'Announcement created and {sent_count} email notifications sent!')
+            except Exception as e2:
+                messages.warning(request, f'Announcement created but email notifications failed: {str(e2)}')
+    else:
+        # No warmup data, use regular send
+        logger.info(f"[SEND] No warmup data, using regular send for announcement {announcement_id}")
+        try:
+            sent_count = send_announcement_notification(announcement, initiated_by=request.user)
+            messages.success(request, f'Announcement created and {sent_count} email notifications sent!')
+        except Exception as e:
+            messages.warning(request, f'Announcement created but email notifications failed: {str(e)}')
 
     return redirect('manage_announcements')
 
@@ -176,9 +296,195 @@ def send_announcement_emails(request, announcement_id):
 def skip_announcement_email(request, announcement_id):
     """
     Skip sending emails for an announcement (user cancelled from confirmation page).
+    Also cleans up any warmup data.
     """
+    # Clean up warmup data if it exists
+    cache_key = f'email_warmup_{announcement_id}'
+    warmup_data = cache.get(cache_key)
+
+    if warmup_data:
+        log_id = warmup_data.get('log_id')
+        if log_id:
+            try:
+                email_log = AnnouncementEmailLog.objects.get(id=log_id, status='warming_up')
+                # Delete recipients to save space
+                email_log.recipients.all().delete()
+                # Mark as cancelled
+                email_log.status = 'cancelled'
+                email_log.completed_at = timezone.now()
+                email_log.console_log = f"[{timezone.now().strftime('%H:%M:%S')}] Email send skipped by user"
+                email_log.save()
+            except AnnouncementEmailLog.DoesNotExist:
+                pass
+        cache.delete(cache_key)
+    else:
+        # Fall back to deleting any orphaned warming_up logs
+        AnnouncementEmailLog.objects.filter(
+            announcement_id=announcement_id,
+            status='warming_up'
+        ).delete()
+
     messages.success(request, 'Announcement created successfully! (No emails sent)')
     return redirect('manage_announcements')
+
+
+@login_required
+@officer_required
+@require_POST
+def warmup_announcement_email(request, announcement_id):
+    """
+    Pre-warm the email sending process by:
+    1. Creating the email log entry
+    2. Pre-creating all recipient records
+    3. Pre-rendering email templates and caching them
+
+    This runs in the background while the user reviews the confirmation page.
+    """
+    announcement = get_object_or_404(Announcement, id=announcement_id)
+    cache_key = f'email_warmup_{announcement_id}'
+
+    # Check if warmup already exists
+    existing_warmup = cache.get(cache_key)
+    if existing_warmup:
+        return JsonResponse({'status': 'already_warming', 'log_id': existing_warmup.get('log_id')})
+
+    try:
+        # Get all users for comprehensive processing
+        all_users = ParliamentUser.objects.all()
+        all_active_users = ParliamentUser.objects.filter(member_status='Active')
+
+        # Determine member types to target
+        if announcement.visible_to:
+            member_types = list(announcement.visible_to)
+            if 'Member' in member_types:
+                member_types.extend(['Chair', 'Officer'])
+            targeted_users = all_active_users.filter(member_type__in=member_types)
+        else:
+            member_types = None
+            targeted_users = all_active_users
+
+        # Filter to users with valid emails who want notifications
+        users_to_email = targeted_users.filter(
+            email__isnull=False
+        ).filter(
+            Q(preferences__email_announcements=True) | Q(preferences__isnull=True)
+        ).exclude(email='')
+
+        # Create the email log entry with warming_up status
+        email_log = AnnouncementEmailLog.objects.create(
+            announcement=announcement,
+            initiated_by=request.user,
+            visible_to_raw=announcement.visible_to,
+            expanded_member_types=member_types,
+            total_active_users=all_active_users.count(),
+            users_matching_visibility=targeted_users.count(),
+            users_with_valid_email=users_to_email.count(),
+            status='warming_up'
+        )
+
+        # Pre-create all recipient records
+        recipients_to_create = []
+        for user in all_users:
+            if user.member_status != 'Active':
+                user_status = 'skipped_inactive'
+            elif member_types is not None and user.member_type not in member_types:
+                user_status = 'skipped_visibility'
+            elif not user.email or not user.email.strip():
+                user_status = 'skipped_no_email'
+            elif hasattr(user, 'preferences') and user.preferences and not user.preferences.email_announcements:
+                user_status = 'skipped_disabled'
+            else:
+                user_status = 'pending'
+
+            recipients_to_create.append(AnnouncementEmailRecipient(
+                email_log=email_log,
+                user=user,
+                user_name=user.get_display_name() if hasattr(user, 'get_display_name') else user.name,
+                user_email=user.email or '',
+                user_member_type=user.member_type,
+                user_member_status=user.member_status,
+                status=user_status
+            ))
+
+        AnnouncementEmailRecipient.objects.bulk_create(recipients_to_create)
+
+        # Pre-render email templates for users who will receive emails
+        site_url = get_site_url()
+        subject = f"New Announcement: {announcement.title}"
+        rendered_emails = {}
+
+        for user in users_to_email:
+            tracking_url = f"{site_url}/track/announcement/{announcement.id}/user/{user.user_id}/"
+            html_message = render_to_string('emails/announcement_notification.html', {
+                'announcement': announcement,
+                'site_url': site_url,
+                'tracking_url': tracking_url,
+                'user': user,
+            })
+            plain_message = strip_tags(html_message)
+            rendered_emails[user.user_id] = {
+                'html': html_message,
+                'plain': plain_message,
+                'email': user.email,
+                'name': user.name,
+            }
+
+        # Store warmup data in cache (expires in 10 minutes)
+        warmup_data = {
+            'log_id': email_log.id,
+            'subject': subject,
+            'rendered_emails': rendered_emails,
+            'from_email': settings.DEFAULT_FROM_EMAIL,
+            'site_url': site_url,
+        }
+        cache.set(cache_key, warmup_data, timeout=600)  # 10 minutes
+
+        logger.info(f"[WARMUP] Pre-warmed email send for announcement {announcement_id}: {len(rendered_emails)} emails ready")
+
+        return JsonResponse({
+            'status': 'success',
+            'log_id': email_log.id,
+            'emails_prepared': len(rendered_emails),
+        })
+
+    except Exception as e:
+        logger.error(f"[WARMUP] Failed to warmup announcement {announcement_id}: {e}", exc_info=True)
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@login_required
+@officer_required
+def cancel_warmup_announcement_email(request, announcement_id):
+    """
+    Cancel a warmup operation and mark the log as cancelled.
+    Called when user decides to skip sending emails or navigates away.
+    Accepts both POST and sendBeacon requests.
+    """
+    if request.method not in ['POST']:
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+
+    cache_key = f'email_warmup_{announcement_id}'
+    warmup_data = cache.get(cache_key)
+
+    if warmup_data:
+        # Mark the log as cancelled (keep for audit trail) and delete recipients
+        log_id = warmup_data.get('log_id')
+        if log_id:
+            try:
+                email_log = AnnouncementEmailLog.objects.get(id=log_id, status='warming_up')
+                # Delete recipients to save space
+                email_log.recipients.all().delete()
+                # Mark as cancelled
+                email_log.status = 'cancelled'
+                email_log.completed_at = timezone.now()
+                email_log.console_log = f"[{timezone.now().strftime('%H:%M:%S')}] Warmup cancelled by user"
+                email_log.save()
+            except AnnouncementEmailLog.DoesNotExist:
+                pass  # Already deleted or status changed
+        cache.delete(cache_key)
+        logger.info(f"[WARMUP] Cancelled warmup for announcement {announcement_id}")
+
+    return JsonResponse({'status': 'cancelled'})
 
 @login_required
 @officer_required

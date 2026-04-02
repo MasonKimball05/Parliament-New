@@ -916,8 +916,8 @@ def force_password_reset(request, user_id):
         if not temp_password:
             messages.error(request, 'Custom password cannot be empty')
             return redirect('admin_v2_user_login_security', user_id=user_id)
-        if len(temp_password) < 8:
-            messages.error(request, 'Custom password should be at least 8 characters')
+        if len(temp_password) < 9:
+            messages.error(request, 'Custom password should be at least 9 characters')
             return redirect('admin_v2_user_login_security', user_id=user_id)
     else:
         # Generate a temporary random password

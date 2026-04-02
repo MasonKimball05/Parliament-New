@@ -283,8 +283,6 @@ def process_pending_scheduled_announcements():
     Returns:
         int: Number of announcements processed
     """
-    from src.notification_service import notify_all_active_members
-
     now = timezone.now()
 
     # Find announcements that:
@@ -304,18 +302,9 @@ def process_pending_scheduled_announcements():
         logger.info(f"[SCHEDULED] Processing scheduled announcement: {announcement.title} (ID: {announcement.id})")
 
         try:
-            # Send in-app notifications
-            try:
-                notify_all_active_members(
-                    'announcement',
-                    f'New Announcement: {announcement.title}',
-                    message=announcement.content[:100],
-                    link='/announcements/',
-                    source_type='Announcement',
-                    source_id=announcement.id,
-                )
-            except Exception as e:
-                logger.error(f"[SCHEDULED] Failed to create in-app notifications: {e}")
+            # Note: We don't create in-app notifications for announcements because
+            # announcements have their own dedicated display system (home page popup,
+            # announcements page) with UserAnnouncementView tracking.
 
             # Send email notifications
             send_announcement_notification(
