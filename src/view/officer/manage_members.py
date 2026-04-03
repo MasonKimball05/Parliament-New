@@ -498,31 +498,45 @@ def initiate_pledges(request):
                 if table_name not in allowed_tables:
                     raise ValueError(f"Invalid table name: {table_name}")
 
-                # Step 1: Create a copy of the pledge with the new user_id
-                # Get all column names except user_id (which we'll set to the new value)
+                # Step 1: Temporarily rename unique fields on old record to avoid conflicts
+                # This allows us to create the new record with the same username/email
+                cursor.execute(
+                    f"""UPDATE {table_name}
+                        SET username = '_migrating_' || username,
+                            email = '_migrating_' || email
+                        WHERE user_id = %s""",  # nosec B608
+                    [old_user_id]
+                )
+
+                # Step 2: Create a copy of the pledge with the new user_id
+                # Get all column names except user_id and the unique fields we'll restore
                 cursor.execute(
                     """SELECT column_name FROM information_schema.columns
-                       WHERE table_name = %s AND column_name != 'user_id'
+                       WHERE table_name = %s AND column_name NOT IN ('user_id', 'username', 'email')
                        ORDER BY ordinal_position""",
                     [table_name]
                 )
                 columns = [row[0] for row in cursor.fetchall()]
                 columns_str = ', '.join(columns)
 
-                # Insert new record with new user_id, copying all other fields
+                # Insert new record with new user_id, restoring original username/email
                 cursor.execute(
-                    f"""INSERT INTO {table_name} (user_id, {columns_str})
-                        SELECT %s, {columns_str} FROM {table_name} WHERE user_id = %s""",  # nosec B608 - table from Django model meta, validated above
+                    f"""INSERT INTO {table_name} (user_id, username, email, {columns_str})
+                        SELECT %s,
+                               REPLACE(username, '_migrating_', ''),
+                               REPLACE(email, '_migrating_', ''),
+                               {columns_str}
+                        FROM {table_name} WHERE user_id = %s""",  # nosec B608
                     [assigned_role_number, old_user_id]
                 )
 
-                # Step 2: Update member_type and role_number on the new record
+                # Step 3: Update member_type and role_number on the new record
                 cursor.execute(
                     f"UPDATE {table_name} SET member_type = %s, role_number = %s WHERE user_id = %s",  # nosec B608
                     ['Member', assigned_role_number, assigned_role_number]
                 )
 
-                # Step 3: Update all FK references to point to the new user_id
+                # Step 4: Update all FK references to point to the new user_id
                 for rel_table, rel_column in related_tables:
                     # Validate table/column names against allowlist (defense-in-depth)
                     if rel_table not in allowed_tables or rel_column not in allowed_columns:
@@ -543,7 +557,7 @@ def initiate_pledges(request):
                             logger.error(f"Error updating {rel_table}.{rel_column}: {e}")
                             raise
 
-                # Step 4: Delete the old pledge record (now has no FK references)
+                # Step 5: Delete the old pledge record (now has no FK references)
                 cursor.execute(
                     f"DELETE FROM {table_name} WHERE user_id = %s",  # nosec B608
                     [old_user_id]
