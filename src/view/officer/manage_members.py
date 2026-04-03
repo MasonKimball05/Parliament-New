@@ -494,7 +494,35 @@ def initiate_pledges(request):
 
         try:
             with connection.cursor() as cursor:
-                # Update all FK references to point to the new user_id (preserves historical data)
+                # Validate table_name (comes from Django model meta, but validate anyway)
+                if table_name not in allowed_tables:
+                    raise ValueError(f"Invalid table name: {table_name}")
+
+                # Step 1: Create a copy of the pledge with the new user_id
+                # Get all column names except user_id (which we'll set to the new value)
+                cursor.execute(
+                    """SELECT column_name FROM information_schema.columns
+                       WHERE table_name = %s AND column_name != 'user_id'
+                       ORDER BY ordinal_position""",
+                    [table_name]
+                )
+                columns = [row[0] for row in cursor.fetchall()]
+                columns_str = ', '.join(columns)
+
+                # Insert new record with new user_id, copying all other fields
+                cursor.execute(
+                    f"""INSERT INTO {table_name} (user_id, {columns_str})
+                        SELECT %s, {columns_str} FROM {table_name} WHERE user_id = %s""",  # nosec B608 - table from Django model meta, validated above
+                    [assigned_role_number, old_user_id]
+                )
+
+                # Step 2: Update member_type and role_number on the new record
+                cursor.execute(
+                    f"UPDATE {table_name} SET member_type = %s, role_number = %s WHERE user_id = %s",  # nosec B608
+                    ['Member', assigned_role_number, assigned_role_number]
+                )
+
+                # Step 3: Update all FK references to point to the new user_id
                 for rel_table, rel_column in related_tables:
                     # Validate table/column names against allowlist (defense-in-depth)
                     if rel_table not in allowed_tables or rel_column not in allowed_columns:
@@ -505,23 +533,25 @@ def initiate_pledges(request):
                             f"UPDATE {rel_table} SET {rel_column} = %s WHERE {rel_column} = %s",  # nosec B608 - table/column from hardcoded allowlist
                             [assigned_role_number, old_user_id]
                         )
+                        logger.debug(f"Updated {rel_table}.{rel_column}: {cursor.rowcount} rows")
                     except Exception as e:
-                        # Log but continue - table might not exist or have no matching records
-                        logger.debug(f"Note updating {rel_table}.{rel_column}: {e}")
+                        error_str = str(e).lower()
+                        # Only ignore "table does not exist" or "column does not exist" errors
+                        if 'does not exist' in error_str or 'undefined' in error_str:
+                            logger.debug(f"Table/column not found: {rel_table}.{rel_column}")
+                        else:
+                            logger.error(f"Error updating {rel_table}.{rel_column}: {e}")
+                            raise
 
-                # Validate table_name (comes from Django model meta, but validate anyway)
-                if table_name not in allowed_tables:
-                    raise ValueError(f"Invalid table name: {table_name}")
-
-                # Now update the user_id, member_type, and role_number
+                # Step 4: Delete the old pledge record (now has no FK references)
                 cursor.execute(
-                    f"UPDATE {table_name} SET user_id = %s, member_type = %s, role_number = %s WHERE user_id = %s",  # nosec B608 - table from Django model meta, validated above
-                    [assigned_role_number, 'Member', assigned_role_number, old_user_id]
+                    f"DELETE FROM {table_name} WHERE user_id = %s",  # nosec B608
+                    [old_user_id]
                 )
                 rows_updated = cursor.rowcount
 
             if rows_updated == 0:
-                logger.warning(f"No rows updated for pledge {old_user_id}")
+                logger.warning(f"Failed to delete old pledge record for {old_user_id}")
                 continue
 
             # Refresh the pledge object with the new user_id
