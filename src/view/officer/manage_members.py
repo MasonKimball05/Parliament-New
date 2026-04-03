@@ -494,7 +494,7 @@ def initiate_pledges(request):
 
         try:
             with connection.cursor() as cursor:
-                # Delete all related records first (pledges shouldn't have much data)
+                # Update all FK references to point to the new user_id (preserves historical data)
                 for rel_table, rel_column in related_tables:
                     # Validate table/column names against allowlist (defense-in-depth)
                     if rel_table not in allowed_tables or rel_column not in allowed_columns:
@@ -502,12 +502,12 @@ def initiate_pledges(request):
                         continue
                     try:
                         cursor.execute(
-                            f"DELETE FROM {rel_table} WHERE {rel_column} = %s",  # nosec B608 - table/column from hardcoded allowlist
-                            [old_user_id]
+                            f"UPDATE {rel_table} SET {rel_column} = %s WHERE {rel_column} = %s",  # nosec B608 - table/column from hardcoded allowlist
+                            [assigned_role_number, old_user_id]
                         )
-                    except Exception:
-                        # Table might not exist, that's OK
-                        pass
+                    except Exception as e:
+                        # Log but continue - table might not exist or have no matching records
+                        logger.debug(f"Note updating {rel_table}.{rel_column}: {e}")
 
                 # Validate table_name (comes from Django model meta, but validate anyway)
                 if table_name not in allowed_tables:
