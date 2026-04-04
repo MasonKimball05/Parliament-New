@@ -50,6 +50,59 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.10.0 - Songbook Lyrics & Pledge Initiation Fixes (04-03-2026)
+Songbook feature enhancements with complete lyrics for all songs, plus critical fixes for pledge initiation.
+
+**Deployment Status:** Pending
+
+**Type:** Feature Enhancement & Bug Fix
+
+**Songbook Enhancements:**
+
+- **Complete Song Lyrics**: Clean, properly formatted lyrics for 40 songs extracted from "Beta Theta Pi Song Book Revised 2005" (Beta Tunes)
+- **Lyrics Update Command**: Management command `update_song_lyrics` with options:
+  - `--dry-run` - Preview changes without saving
+  - `--force` - Overwrite existing lyrics
+- **Title Alias Support**: Handles database titles that don't exactly match songbook (e.g., "As Beta Now We Meet" → "As Betas Now We Meet")
+- **Songs Updated**: The Alumni's Return, As Betas Now We Meet, The Banquet Hall, Beta Day, Beta Doxology, Beta Hymn, Beta Lullaby, The Beta Marseillaise, Beta Praise, Beta Rose, The Beta Shrine, The Beta Stars, Beta Sweetheart, Beta's Emblems, The Crow Song, For The Staunchest, Gemma Nostra, I Took My Girl Out Walking, The Jolly Greeks, The Loving Cup, Marching Along, My Beta Girl, Parting Song, She Wears My Beta Pin, The Sons of the Dragon, There's a Scene, Ti-de-i-de-o, To the Pledge, We Gather Again, Wooglin Forever!, Wooglin to the Pledge, and more
+- **4 Songs Unavailable**: Good Betas Sing Forever, Ring the Bells of Old Miami, We'll Always Hang Together, I Love You (Only You) Beta Girl - not included in 2005 songbook edition
+
+**Bug Fixes:**
+
+- **Pledge Initiation Data Loss**: Fixed critical bug where service hours, attendance, and other data was being CASCADE deleted during pledge initiation
+  - Added transaction safety with `transaction.atomic()` to ensure all-or-nothing operations
+  - Added verification step before deletion to check for remaining FK references
+  - Logs all FK updates for audit trail
+
+- **Pledge Initiation FK Constraint Errors**: Fixed critical bug preventing pledge initiation due to foreign key constraint violations
+  - Changed initiation approach from DELETE to INSERT/UPDATE/DELETE to properly handle FK constraints
+  - Handles unique constraints (username, email) during user_id migration
+  - Preserves all historical data (Kai reports, attendance, service hours, etc.) when initiating pledges
+
+- **Fixed Incorrect FK Column Names**: Corrected 4 wrong column names in related_tables:
+  - `src_servicememberexpectation`: `user_id` → `member_id`
+  - `src_servicehourssubmission`: `user_id` → `submitted_by_id`
+  - `src_servicehoursadjustment`: `user_id` → `member_id`, `created_by_id` → `adjusted_by_id`
+  - `src_announcementemaillog`: `sent_by_id` → `initiated_by_id`
+
+- **Added 12 Missing FK References**: Added missing foreign key references that could cause initiation failures:
+  - `src_serviceperiod.created_by_id`
+  - `src_serviceformfield.created_by_id`
+  - `src_slatingapplication.reviewer_id`
+  - `src_slatinginterview.destroyed_by_id`
+  - `src_slatingperiod.created_by_id`, `admin_transferred_from_id`
+  - `src_slate.created_by_id`, `approved_by_id`
+  - `src_kaiformfield.created_by_id`
+  - `src_notificationschedule.created_by_id`
+  - `src_committee.admin_id`
+
+**Files Changed:**
+
+- `src/management/commands/update_song_lyrics.py` - Complete rewrite with clean lyrics from 2005 songbook
+- `src/view/officer/manage_members.py` - Fixed initiation logic and FK references
+
+---
+
 ### v2.9.0 - Security Update (04-01-2026)
 Major security update with login rate limiting, attack detection, and session management.
 

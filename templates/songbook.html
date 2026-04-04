@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Songbook{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Page Header -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <div class="flex items-center justify-between flex-wrap gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 sm:w-14 sm:h-14 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                    <svg class="w-7 h-7 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Songbook</h1>
+                    <p class="text-gray-600 dark:text-gray-400">
+                        Chapter songs and lyrics
+                        {% if songs.paginator.count %}<span class="text-gray-400 dark:text-gray-500">({{ songs.paginator.count }} songs)</span>{% endif %}
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                {% if sheet_music_url %}
+                <a href="{{ sheet_music_url }}" target="_blank"
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <svg class="-ml-1 mr-2 h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/>
+                    </svg>
+                    Sheet Music
+                </a>
+                {% endif %}
+                {% if can_manage %}
+                <a href="{% url 'song_create' %}"
+                   class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    Add Song
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
+        <form method="get" class="flex flex-col sm:flex-row gap-3">
+            <div class="flex-1">
+                <input type="text" name="q" value="{{ search_query }}" placeholder="Search songs..."
+                       class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">
+                    Search
+                </button>
+                {% if search_query or category_filter %}
+                <a href="{% url 'songbook' %}" class="px-4 py-2 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 rounded-lg transition">
+                    Clear
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Category Tabs -->
+    {% if categories %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md mb-6 overflow-hidden">
+        <div class="flex flex-wrap border-b border-gray-200 dark:border-gray-700">
+            <a href="{% url 'songbook' %}{% if search_query %}?q={{ search_query }}{% endif %}"
+               class="flex items-center px-4 py-3 text-sm font-medium border-b-2 transition-colors {% if not category_filter %}border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20{% else %}border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300{% endif %}">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                </svg>
+                All Songs
+                <span class="ml-2 px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{{ category_counts.all }}</span>
+            </a>
+            {% for cat in categories %}
+            <a href="?category={{ cat.id }}{% if search_query %}&q={{ search_query }}{% endif %}"
+               class="flex items-center px-4 py-3 text-sm font-medium border-b-2 transition-colors {% if category_filter == cat.id|stringformat:'s' %}border-{{ cat.color }}-500 text-{{ cat.color }}-600 dark:text-{{ cat.color }}-400 bg-{{ cat.color }}-50 dark:bg-{{ cat.color }}-900/20{% else %}border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300{% endif %}">
+                {{ cat.name }}
+                <span class="ml-2 px-2 py-0.5 text-xs rounded-full bg-{{ cat.color }}-100 dark:bg-{{ cat.color }}-900/50 text-{{ cat.color }}-700 dark:text-{{ cat.color }}-300">{{ cat.song_count }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Songs List -->
+    {% if songs %}
+    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {% for song in songs %}
+        <a href="{% url 'song_detail' song.pk %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden group">
+            <div class="p-5">
+                <div class="flex items-start justify-between mb-3">
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        {{ song.title }}
+                    </h3>
+                    {% if song.audio_file %}
+                    <span class="flex-shrink-0 ml-2 text-green-500 dark:text-green-400" title="Has audio">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clip-rule="evenodd"/>
+                        </svg>
+                    </span>
+                    {% endif %}
+                </div>
+
+                {% if song.category %}
+                <span class="inline-block px-2.5 py-1 text-xs font-medium rounded-full bg-{{ song.category.color }}-100 dark:bg-{{ song.category.color }}-900/50 text-{{ song.category.color }}-700 dark:text-{{ song.category.color }}-300 mb-3">
+                    {{ song.category.name }}
+                </span>
+                {% endif %}
+
+                <p class="text-gray-600 dark:text-gray-400 text-sm line-clamp-3">
+                    {{ song.lyrics|truncatewords:25 }}
+                </p>
+            </div>
+            <div class="px-5 py-3 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700">
+                <span class="text-xs text-gray-500 dark:text-gray-400">Click to view full lyrics</span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if songs.has_other_pages %}
+    <div class="mt-6">
+        {% include 'includes/pagination.html' with page_obj=songs %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center">
+        <svg class="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+        </svg>
+        <h3 class="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">No Songs Found</h3>
+        {% if search_query %}
+        <p class="text-gray-500 dark:text-gray-400 mb-4">No songs match your search "{{ search_query }}".</p>
+        <a href="{% url 'songbook' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Clear search</a>
+        {% else %}
+        <p class="text-gray-500 dark:text-gray-400">The songbook is empty. Add some songs to get started!</p>
+        {% if can_manage %}
+        <a href="{% url 'song_create' %}" class="inline-flex items-center mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            Add First Song
+        </a>
+        {% endif %}
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Admin Link -->
+    {% if request.user.is_admin %}
+    <div class="mt-6 text-center">
+        <a href="{% url 'manage_song_categories' %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition">
+            Manage Categories
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

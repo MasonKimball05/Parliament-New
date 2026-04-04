@@ -504,76 +504,110 @@ def initiate_pledges(request):
         pledge_name = pledge.name
 
         try:
-            with connection.cursor() as cursor:
-                # Validate table_name (comes from Django model meta, but validate anyway)
-                if table_name not in allowed_tables:
-                    raise ValueError(f"Invalid table name: {table_name}")
+            from django.db import transaction
+            with transaction.atomic():
+                with connection.cursor() as cursor:
+                    # Validate table_name (comes from Django model meta, but validate anyway)
+                    if table_name not in allowed_tables:
+                        raise ValueError(f"Invalid table name: {table_name}")
 
-                # Step 1: Temporarily rename unique fields on old record to avoid conflicts
-                # This allows us to create the new record with the same username/email
-                cursor.execute(
-                    f"""UPDATE {table_name}
-                        SET username = '_migrating_' || username,
-                            email = '_migrating_' || email
-                        WHERE user_id = %s""",  # nosec B608
-                    [old_user_id]
-                )
+                    # Step 1: Temporarily rename unique fields on old record to avoid conflicts
+                    # This allows us to create the new record with the same username/email
+                    cursor.execute(
+                        f"""UPDATE {table_name}
+                            SET username = '_migrating_' || username,
+                                email = '_migrating_' || email
+                            WHERE user_id = %s""",  # nosec B608
+                        [old_user_id]
+                    )
 
-                # Step 2: Create a copy of the pledge with the new user_id
-                # Get all column names except user_id and the unique fields we'll restore
-                cursor.execute(
-                    """SELECT column_name FROM information_schema.columns
-                       WHERE table_name = %s AND column_name NOT IN ('user_id', 'username', 'email')
-                       ORDER BY ordinal_position""",
-                    [table_name]
-                )
-                columns = [row[0] for row in cursor.fetchall()]
-                columns_str = ', '.join(columns)
+                    # Step 2: Create a copy of the pledge with the new user_id
+                    # Get all column names except user_id and the unique fields we'll restore
+                    cursor.execute(
+                        """SELECT column_name FROM information_schema.columns
+                           WHERE table_name = %s AND column_name NOT IN ('user_id', 'username', 'email')
+                           ORDER BY ordinal_position""",
+                        [table_name]
+                    )
+                    columns = [row[0] for row in cursor.fetchall()]
+                    columns_str = ', '.join(columns)
 
-                # Insert new record with new user_id, restoring original username/email
-                cursor.execute(
-                    f"""INSERT INTO {table_name} (user_id, username, email, {columns_str})
-                        SELECT %s,
-                               REPLACE(username, '_migrating_', ''),
-                               REPLACE(email, '_migrating_', ''),
-                               {columns_str}
-                        FROM {table_name} WHERE user_id = %s""",  # nosec B608
-                    [assigned_role_number, old_user_id]
-                )
+                    # Insert new record with new user_id, restoring original username/email
+                    cursor.execute(
+                        f"""INSERT INTO {table_name} (user_id, username, email, {columns_str})
+                            SELECT %s,
+                                   REPLACE(username, '_migrating_', ''),
+                                   REPLACE(email, '_migrating_', ''),
+                                   {columns_str}
+                            FROM {table_name} WHERE user_id = %s""",  # nosec B608
+                        [assigned_role_number, old_user_id]
+                    )
 
-                # Step 3: Update member_type and role_number on the new record
-                cursor.execute(
-                    f"UPDATE {table_name} SET member_type = %s, role_number = %s WHERE user_id = %s",  # nosec B608
-                    ['Member', assigned_role_number, assigned_role_number]
-                )
+                    # Step 3: Update member_type and role_number on the new record
+                    cursor.execute(
+                        f"UPDATE {table_name} SET member_type = %s, role_number = %s WHERE user_id = %s",  # nosec B608
+                        ['Member', assigned_role_number, assigned_role_number]
+                    )
 
-                # Step 4: Update all FK references to point to the new user_id
-                for rel_table, rel_column in related_tables:
-                    # Validate table/column names against allowlist (defense-in-depth)
-                    if rel_table not in allowed_tables or rel_column not in allowed_columns:
-                        logger.warning(f"Skipping invalid table/column: {rel_table}.{rel_column}")
-                        continue
-                    try:
-                        cursor.execute(
-                            f"UPDATE {rel_table} SET {rel_column} = %s WHERE {rel_column} = %s",  # nosec B608 - table/column from hardcoded allowlist
-                            [assigned_role_number, old_user_id]
-                        )
-                        logger.debug(f"Updated {rel_table}.{rel_column}: {cursor.rowcount} rows")
-                    except Exception as e:
-                        error_str = str(e).lower()
-                        # Only ignore "table does not exist" or "column does not exist" errors
-                        if 'does not exist' in error_str or 'undefined' in error_str:
-                            logger.debug(f"Table/column not found: {rel_table}.{rel_column}")
-                        else:
-                            logger.error(f"Error updating {rel_table}.{rel_column}: {e}")
-                            raise
+                    # Step 4: Update all FK references to point to the new user_id
+                    fk_update_summary = []
+                    for rel_table, rel_column in related_tables:
+                        # Validate table/column names against allowlist (defense-in-depth)
+                        if rel_table not in allowed_tables or rel_column not in allowed_columns:
+                            logger.warning(f"Skipping invalid table/column: {rel_table}.{rel_column}")
+                            continue
+                        try:
+                            cursor.execute(
+                                f"UPDATE {rel_table} SET {rel_column} = %s WHERE {rel_column} = %s",  # nosec B608 - table/column from hardcoded allowlist
+                                [assigned_role_number, old_user_id]
+                            )
+                            if cursor.rowcount > 0:
+                                fk_update_summary.append(f"{rel_table}.{rel_column}: {cursor.rowcount}")
+                            logger.debug(f"Updated {rel_table}.{rel_column}: {cursor.rowcount} rows")
+                        except Exception as e:
+                            error_str = str(e).lower()
+                            # Only ignore "table does not exist" or "column does not exist" errors
+                            if 'does not exist' in error_str or 'undefined' in error_str:
+                                logger.debug(f"Table/column not found: {rel_table}.{rel_column}")
+                            else:
+                                logger.error(f"Error updating {rel_table}.{rel_column}: {e}")
+                                raise
 
-                # Step 5: Delete the old pledge record (now has no FK references)
-                cursor.execute(
-                    f"DELETE FROM {table_name} WHERE user_id = %s",  # nosec B608
-                    [old_user_id]
-                )
-                rows_updated = cursor.rowcount
+                    if fk_update_summary:
+                        logger.info(f"FK updates for {pledge_name}: {', '.join(fk_update_summary)}")
+
+                    # Step 5: Verify no CASCADE-delete FKs still reference the old user
+                    # Check critical tables that have CASCADE delete
+                    cascade_tables = [
+                        ('src_servicehourssubmission', 'submitted_by_id'),
+                        ('src_servicehoursadjustment', 'member_id'),
+                        ('src_servicememberexpectation', 'member_id'),
+                        ('src_attendance', 'user_id'),
+                        ('src_vote', 'user_id'),
+                        ('src_committeevote', 'user_id'),
+                    ]
+                    for check_table, check_col in cascade_tables:
+                        try:
+                            cursor.execute(
+                                f"SELECT COUNT(*) FROM {check_table} WHERE {check_col} = %s",  # nosec B608
+                                [old_user_id]
+                            )
+                            count = cursor.fetchone()[0]
+                            if count > 0:
+                                logger.error(f"CRITICAL: {count} rows in {check_table}.{check_col} still reference {old_user_id}")
+                                raise ValueError(f"Cannot delete old user - {count} records in {check_table} still reference it")
+                        except Exception as e:
+                            if 'does not exist' not in str(e).lower() and 'undefined' not in str(e).lower():
+                                if 'Cannot delete' in str(e):
+                                    raise
+                                logger.debug(f"Check skipped for {check_table}: {e}")
+
+                    # Step 6: Delete the old pledge record (now has no FK references)
+                    cursor.execute(
+                        f"DELETE FROM {table_name} WHERE user_id = %s",  # nosec B608
+                        [old_user_id]
+                    )
+                    rows_updated = cursor.rowcount
 
             if rows_updated == 0:
                 logger.warning(f"Failed to delete old pledge record for {old_user_id}")

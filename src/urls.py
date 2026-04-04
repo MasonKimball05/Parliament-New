@@ -149,6 +149,10 @@ from src.view.guide import (
     guide_resolutions, guide_activity_logs, guide_kai_forms,
     tour_start, tour_advance, tour_complete, tour_skip
 )
+from src.view.songbook import (
+    songbook_list, song_detail, song_create, song_edit, song_delete, manage_categories,
+    serve_song_audio
+)
 
 urlpatterns = [
     # General User Pages
@@ -197,6 +201,15 @@ urlpatterns = [
     path('calendar/subscribe/regenerate/', regenerate_calendar_token, name='regenerate_calendar_token'),
     path('calendar/feed/<str:token>/', calendar_subscription_feed, name='calendar_subscription_feed'),
     path('search/', global_search, name='global_search'),
+
+    # Songbook
+    path('songbook/', songbook_list, name='songbook'),
+    path('songbook/song/<int:pk>/', song_detail, name='song_detail'),
+    path('songbook/song/<int:pk>/audio/', serve_song_audio, name='song_audio'),
+    path('songbook/add/', song_create, name='song_create'),
+    path('songbook/song/<int:pk>/edit/', song_edit, name='song_edit'),
+    path('songbook/song/<int:pk>/delete/', song_delete, name='song_delete'),
+    path('songbook/categories/', manage_categories, name='manage_song_categories'),
 
     # Bug Reports
     path('bug-report/', submit_bug_report, name='bug_report'),

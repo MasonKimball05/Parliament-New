@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ action }} Song - Songbook{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    {% include 'includes/breadcrumbs.html' with back_url='/songbook/' back_label='Songbook' current=action|add:' Song' %}
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 px-6 py-4 border-b border-blue-200 dark:border-blue-700">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
+                    <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">{{ action }} Song</h2>
+                    {% if song %}
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Editing: {{ song.title }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Form -->
+        <form method="post" enctype="multipart/form-data" class="p-6 space-y-6">
+            {% csrf_token %}
+
+            <!-- Title -->
+            <div>
+                <label for="id_title" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Song Title <span class="text-red-500">*</span>
+                </label>
+                {{ form.title }}
+                {% if form.title.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.title.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Category -->
+            <div>
+                <label for="id_category" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Category
+                </label>
+                {{ form.category }}
+                {% if form.category.help_text %}
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.category.help_text }}</p>
+                {% endif %}
+                {% if form.category.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.category.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Lyrics -->
+            <div>
+                <label for="id_lyrics" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Lyrics <span class="text-red-500">*</span>
+                </label>
+                {{ form.lyrics }}
+                {% if form.lyrics.help_text %}
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.lyrics.help_text }}</p>
+                {% endif %}
+                {% if form.lyrics.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.lyrics.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Audio File -->
+            <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
+                <label for="id_audio_file" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Audio File (Optional)
+                </label>
+                {% if song.audio_file %}
+                <div class="mb-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
+                    <div class="flex items-center gap-2 text-green-700 dark:text-green-300 text-sm mb-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <span>Current audio file attached</span>
+                    </div>
+                    <audio controls class="w-full" preload="metadata">
+                        <source src="{{ song.audio_file.url }}" type="audio/mpeg">
+                    </audio>
+                </div>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Upload a new file to replace the current one:</p>
+                {% endif %}
+                {{ form.audio_file }}
+                {% if form.audio_file.help_text %}
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.audio_file.help_text }}</p>
+                {% endif %}
+                {% if form.audio_file.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.audio_file.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Form Actions -->
+            <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <a href="{% if song %}{% url 'song_detail' song.pk %}{% else %}{% url 'songbook' %}{% endif %}"
+                   class="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                    Cancel
+                </a>
+                <button type="submit"
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    {% if song %}Save Changes{% else %}Add Song{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tips -->
+    <div class="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-5">
+        <h3 class="font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Tips
+        </h3>
+        <ul class="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+            <li>Use blank lines to separate verses and choruses</li>
+            <li>Audio files can be up to 50MB (MP3, WAV, M4A, OGG, FLAC)</li>
+            <li>Line breaks in lyrics will be preserved when displayed</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
