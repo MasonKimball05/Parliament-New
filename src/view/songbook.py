@@ -7,7 +7,7 @@ from django.http import HttpResponseForbidden, FileResponse, Http404
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from ..decorators import log_function_call
-from ..models import Song, SongCategory
+from ..models import Song, SongCategory, Role, ParliamentUser
 from ..forms import SongForm, SongCategoryForm
 import os
 import logging
@@ -18,7 +18,10 @@ logger = logging.getLogger('function_calls')
 
 def can_manage_songs(user):
     """Check if user can add/edit/delete songs"""
-    return user.is_admin or user.member_type in ['Officer', 'Chair']
+    if user.is_admin or user.member_type in ['Officer', 'Chair']:
+        return True
+    # Check if user has the Chorister role
+    return user.roles.filter(code='Chorister').exists()
 
 
 @login_required
@@ -170,11 +173,32 @@ def song_delete(request, pk):
 @log_function_call
 @require_http_methods(["GET", "POST"])
 def manage_categories(request):
-    """Manage song categories - admins only"""
+    """Manage song categories and Chorister role - admins only"""
     if not request.user.is_admin:
         return HttpResponseForbidden("Only administrators can manage categories.")
 
     categories = SongCategory.objects.all()
+
+    # Get or create the Chorister role
+    chorister_role, _ = Role.objects.get_or_create(
+        code='Chorister',
+        defaults={
+            'name': 'Chorister',
+            'description': 'Can manage songs and lyrics in the Songbook',
+            'one_per_chapter': False,
+            'grants_admin': False,
+        }
+    )
+
+    # Get current choristers
+    choristers = ParliamentUser.objects.filter(roles=chorister_role, is_active=True).order_by('name')
+
+    # Get eligible members (active, not already a chorister)
+    eligible_members = ParliamentUser.objects.filter(
+        is_active=True
+    ).exclude(
+        roles=chorister_role
+    ).order_by('name')
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -190,6 +214,8 @@ def manage_categories(request):
                 return render(request, 'songbook_categories.html', {
                     'categories': categories,
                     'form': form,
+                    'choristers': choristers,
+                    'eligible_members': eligible_members,
                 })
 
         elif action == 'delete':
@@ -208,11 +234,33 @@ def manage_categories(request):
             except SongCategory.DoesNotExist:
                 messages.error(request, 'Category not found.')
 
+        elif action == 'add_chorister':
+            user_id = request.POST.get('user_id')
+            try:
+                user = ParliamentUser.objects.get(user_id=user_id)
+                user.roles.add(chorister_role)
+                logger.info(f"{request.user.username} assigned Chorister role to {user.name}")
+                messages.success(request, f'{user.name} has been assigned the Chorister role.')
+            except ParliamentUser.DoesNotExist:
+                messages.error(request, 'User not found.')
+
+        elif action == 'remove_chorister':
+            user_id = request.POST.get('user_id')
+            try:
+                user = ParliamentUser.objects.get(user_id=user_id)
+                user.roles.remove(chorister_role)
+                logger.info(f"{request.user.username} removed Chorister role from {user.name}")
+                messages.success(request, f'{user.name} is no longer a Chorister.')
+            except ParliamentUser.DoesNotExist:
+                messages.error(request, 'User not found.')
+
         return redirect('manage_song_categories')
 
     return render(request, 'songbook_categories.html', {
         'categories': categories,
         'form': SongCategoryForm(),
+        'choristers': choristers,
+        'eligible_members': eligible_members,
     })
 
 

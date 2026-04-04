@@ -134,6 +134,74 @@
         </div>
     </div>
 
+    <!-- Chorister Management -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mt-6">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+                </svg>
+                Chorister Role
+            </h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Members with this role can add, edit, and delete songs</p>
+        </div>
+
+        <div class="p-6">
+            <div class="grid gap-6 lg:grid-cols-2">
+                <!-- Add Chorister -->
+                <div>
+                    <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Add Chorister</h3>
+                    <form method="post" class="flex gap-2">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="add_chorister">
+                        <select name="user_id" required
+                                class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">Select a member...</option>
+                            {% for member in eligible_members %}
+                            <option value="{{ member.user_id }}">{{ member.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit"
+                                class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition">
+                            Add
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Current Choristers -->
+                <div>
+                    <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                        Current Choristers
+                        <span class="text-gray-500 dark:text-gray-400 font-normal">({{ choristers.count }})</span>
+                    </h3>
+                    {% if choristers %}
+                    <div class="space-y-2">
+                        {% for chorister in choristers %}
+                        <div class="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                            <span class="text-gray-900 dark:text-white">{{ chorister.name }}</span>
+                            <form method="post" class="inline" onsubmit="return confirm('Remove Chorister role from {{ chorister.name }}?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="remove_chorister">
+                                <input type="hidden" name="user_id" value="{{ chorister.user_id }}">
+                                <button type="submit"
+                                        class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm"
+                                        title="Remove Chorister role">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-sm text-gray-500 dark:text-gray-400 italic">No choristers assigned yet</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Back Link -->
     <div class="mt-6 text-center">
         <a href="{% url 'songbook' %}" class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline">

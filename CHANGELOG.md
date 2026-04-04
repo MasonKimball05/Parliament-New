@@ -66,6 +66,11 @@ Songbook feature enhancements with complete lyrics for all songs, plus critical 
 - **Title Alias Support**: Handles database titles that don't exactly match songbook (e.g., "As Beta Now We Meet" → "As Betas Now We Meet")
 - **Songs Updated**: The Alumni's Return, As Betas Now We Meet, The Banquet Hall, Beta Day, Beta Doxology, Beta Hymn, Beta Lullaby, The Beta Marseillaise, Beta Praise, Beta Rose, The Beta Shrine, The Beta Stars, Beta Sweetheart, Beta's Emblems, The Crow Song, For The Staunchest, Gemma Nostra, I Took My Girl Out Walking, The Jolly Greeks, The Loving Cup, Marching Along, My Beta Girl, Parting Song, She Wears My Beta Pin, The Sons of the Dragon, There's a Scene, Ti-de-i-de-o, To the Pledge, We Gather Again, Wooglin Forever!, Wooglin to the Pledge, and more
 - **4 Songs Unavailable**: Good Betas Sing Forever, Ring the Bells of Old Miami, We'll Always Hang Together, I Love You (Only You) Beta Girl - not included in 2005 songbook edition
+- **Chorister Role**: New role that grants song management permissions
+  - Members with the Chorister role can add, edit, and delete songs
+  - Admins can assign/remove the role from the Manage Categories page
+  - Role is automatically created when first accessing the categories page
+- **Changelog Version Sorting**: Fixed sorting so v2.10.0 appears after v2.9.0 (was appearing next to v2.1.0 due to alphabetical sorting)
 
 **Bug Fixes:**
 
@@ -99,6 +104,9 @@ Songbook feature enhancements with complete lyrics for all songs, plus critical 
 **Files Changed:**
 
 - `src/management/commands/update_song_lyrics.py` - Complete rewrite with clean lyrics from 2005 songbook
+- `src/view/songbook.py` - Added Chorister role permission check and management
+- `src/view/changelog.py` - Fixed semantic version sorting
+- `templates/songbook_categories.html` - Added Chorister management UI
 - `src/view/officer/manage_members.py` - Fixed initiation logic and FK references
 
 ---
