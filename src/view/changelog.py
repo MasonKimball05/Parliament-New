@@ -7,6 +7,34 @@ from django.shortcuts import render
 from django.conf import settings
 
 
+def parse_version(filename):
+    """
+    Parse version string for proper semantic version sorting.
+    Returns tuple of (major, minor, patch, suffix) for sorting.
+    e.g., 'v2.10.0.md' -> (2, 10, 0, '')
+          'v2.7.0-slating-system.md' -> (2, 7, 0, 'slating-system')
+    """
+    # Remove .md extension and 'v' prefix
+    version = filename.replace('.md', '').lstrip('v')
+
+    # Split on dash to separate version from suffix
+    parts = version.split('-', 1)
+    version_str = parts[0]
+    suffix = parts[1] if len(parts) > 1 else ''
+
+    # Parse version numbers
+    version_parts = version_str.split('.')
+    try:
+        major = int(version_parts[0]) if len(version_parts) > 0 else 0
+        minor = int(version_parts[1]) if len(version_parts) > 1 else 0
+        patch = int(version_parts[2]) if len(version_parts) > 2 else 0
+    except ValueError:
+        # If parsing fails, return zeros
+        major, minor, patch = 0, 0, 0
+
+    return (major, minor, patch, suffix)
+
+
 def changelog(request):
     """
     Display the changelog/version history page.
@@ -42,13 +70,17 @@ def changelog(request):
     changelogs_dir = os.path.join(settings.BASE_DIR, 'changelogs')
 
     if os.path.exists(changelogs_dir):
-        for filename in sorted(os.listdir(changelogs_dir), reverse=True):
-            if filename.endswith('.md') and filename.startswith('v'):
-                version = filename.replace('.md', '')
-                detailed_changelogs.append({
-                    'version': version,
-                    'filename': filename,
-                })
+        # Get all changelog files and sort by semantic version (newest first)
+        changelog_files = [f for f in os.listdir(changelogs_dir)
+                          if f.endswith('.md') and f.startswith('v')]
+        changelog_files.sort(key=parse_version, reverse=True)
+
+        for filename in changelog_files:
+            version = filename.replace('.md', '')
+            detailed_changelogs.append({
+                'version': version,
+                'filename': filename,
+            })
 
     context = {
         'changelog_html': changelog_html,
