@@ -67,7 +67,13 @@ def songbook_list(request):
     sheet_music_url = None
     sheet_music_path = os.path.join(settings.BASE_DIR, 'exportable_media', 'BTP Sheet Music.pdf')
     if os.path.exists(sheet_music_path):
-        sheet_music_url = f'{settings.MEDIA_URL}BTP Sheet Music.pdf'
+        sheet_music_url = '/exportable_media/BTP Sheet Music.pdf'
+
+    # Check for songbook PDF
+    songbook_url = None
+    songbook_path = os.path.join(settings.BASE_DIR, 'exportable_media', 'Beta Theta Pi Song Book Revised 2005.pdf')
+    if os.path.exists(songbook_path):
+        songbook_url = '/exportable_media/Beta Theta Pi Song Book Revised 2005.pdf'
 
     return render(request, 'songbook.html', {
         'songs': page_obj,
@@ -77,6 +83,7 @@ def songbook_list(request):
         'category_counts': category_counts,
         'can_manage': can_manage_songs(request.user),
         'sheet_music_url': sheet_music_url,
+        'songbook_url': songbook_url,
     })
 
 
