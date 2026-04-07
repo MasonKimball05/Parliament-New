@@ -684,6 +684,52 @@
 </div>
 
 <script>
+  // Preserve textarea values across form submissions
+  const STORAGE_KEY = 'kai_manage_report_{{ report.id }}';
+
+  // Save all textarea values to sessionStorage before form submission
+  function saveTextareaValues() {
+    const values = {};
+    document.querySelectorAll('textarea').forEach(function(textarea) {
+      if (textarea.name) {
+        values[textarea.name] = textarea.value;
+      }
+    });
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(values));
+  }
+
+  // Restore textarea values from sessionStorage on page load
+  function restoreTextareaValues() {
+    const saved = sessionStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const values = JSON.parse(saved);
+        document.querySelectorAll('textarea').forEach(function(textarea) {
+          if (textarea.name && values[textarea.name] !== undefined) {
+            // Only restore if the current value is empty or matches the server value
+            // This prevents overwriting values that were just saved to the database
+            const serverValue = textarea.defaultValue || '';
+            if (textarea.value === serverValue && values[textarea.name] !== serverValue) {
+              textarea.value = values[textarea.name];
+            }
+          }
+        });
+      } catch (e) {
+        console.error('Error restoring textarea values:', e);
+      }
+      // Clear storage after restoring
+      sessionStorage.removeItem(STORAGE_KEY);
+    }
+  }
+
+  // Attach save handler to all forms
+  document.querySelectorAll('form').forEach(function(form) {
+    form.addEventListener('submit', saveTextareaValues);
+  });
+
+  // Restore values on page load
+  restoreTextareaValues();
+
   // Handle closure request form submission
   function submitClosureForm(form, closureId, action) {
     const reviewNotes = document.getElementById('review_notes_' + closureId);
