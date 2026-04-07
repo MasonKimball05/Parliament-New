@@ -151,7 +151,7 @@ from src.view.guide import (
 )
 from src.view.songbook import (
     songbook_list, song_detail, song_create, song_edit, song_delete, manage_categories,
-    serve_song_audio
+    serve_song_audio, serve_exportable_media
 )
 
 urlpatterns = [
@@ -210,6 +210,7 @@ urlpatterns = [
     path('songbook/song/<int:pk>/edit/', song_edit, name='song_edit'),
     path('songbook/song/<int:pk>/delete/', song_delete, name='song_delete'),
     path('songbook/categories/', manage_categories, name='manage_song_categories'),
+    path('exportable_media/<path:filename>', serve_exportable_media, name='serve_exportable_media'),
 
     # Bug Reports
     path('bug-report/', submit_bug_report, name='bug_report'),

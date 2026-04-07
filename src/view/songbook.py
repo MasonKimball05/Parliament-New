@@ -303,3 +303,30 @@ def serve_song_audio(request, pk):
     response = FileResponse(open(file_path, 'rb'), content_type=content_type)
     response['Content-Disposition'] = f'inline; filename="{os.path.basename(file_path)}"'
     return response
+
+
+@login_required
+def serve_exportable_media(request, filename):
+    """Serve files from exportable_media folder"""
+    # Build the full path
+    file_path = os.path.join(settings.BASE_DIR, 'exportable_media', filename)
+
+    # Resolve the path and ensure it's within exportable_media (prevent directory traversal)
+    exportable_root = os.path.realpath(os.path.join(settings.BASE_DIR, 'exportable_media'))
+    resolved_path = os.path.realpath(file_path)
+
+    if not resolved_path.startswith(exportable_root):
+        raise Http404("File not found")
+
+    if not os.path.exists(resolved_path) or not os.path.isfile(resolved_path):
+        raise Http404("File not found")
+
+    # Determine content type
+    content_type, _ = mimetypes.guess_type(resolved_path)
+    if content_type is None:
+        content_type = 'application/octet-stream'
+
+    # Serve the file
+    response = FileResponse(open(resolved_path, 'rb'), content_type=content_type)
+    response['Content-Disposition'] = f'inline; filename="{os.path.basename(resolved_path)}"'
+    return response
