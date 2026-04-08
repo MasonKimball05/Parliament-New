@@ -5162,18 +5162,27 @@ class UserSession(models.Model):
     @classmethod
     def cleanup_expired_sessions(cls):
         """Remove session records for expired Django sessions."""
-        from django.contrib.sessions.models import Session
+        from django.conf import settings
         from django.utils import timezone
+        from datetime import timedelta
 
-        # Get all valid session keys
-        valid_sessions = Session.objects.filter(
-            expire_date__gt=timezone.now()
-        ).values_list('session_key', flat=True)
+        session_engine = getattr(settings, 'SESSION_ENGINE', 'django.contrib.sessions.backends.db')
 
-        # Delete UserSession records that don't have a valid Django session
-        deleted_count, _ = cls.objects.exclude(
-            session_key__in=list(valid_sessions)
-        ).delete()
+        if session_engine == 'django.contrib.sessions.backends.db':
+            # DB sessions: efficiently batch-query the session table
+            from django.contrib.sessions.models import Session
+            valid_keys = Session.objects.filter(
+                expire_date__gt=timezone.now()
+            ).values_list('session_key', flat=True)
+            deleted_count, _ = cls.objects.exclude(
+                session_key__in=list(valid_keys)
+            ).delete()
+        else:
+            # Cache/Redis sessions: the DB session table is empty so we can't
+            # use it. Fall back to expiring records older than SESSION_COOKIE_AGE.
+            session_age = getattr(settings, 'SESSION_COOKIE_AGE', 1209600)
+            cutoff = timezone.now() - timedelta(seconds=session_age)
+            deleted_count, _ = cls.objects.filter(last_activity__lt=cutoff).delete()
 
         return deleted_count
 

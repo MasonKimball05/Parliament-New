@@ -166,6 +166,14 @@ def require_admin_v2_auth(view_func):
     return wrapper
 
 
+def _safe_count(fn):
+    """Run a DB count query, returning 0 if the table doesn't exist yet (pre-migration)."""
+    try:
+        return fn()
+    except Exception:
+        return 0
+
+
 @require_admin_v2_auth
 def admin_v2_dashboard(request):
     """
@@ -239,11 +247,11 @@ def admin_v2_dashboard(request):
                 timestamp__gte=timezone.now() - timezone.timedelta(hours=24),
                 successful=False
             ).count() if hasattr(LoginHistory, 'successful') else 0,
-            'quarantined_accounts': QuarantinedAccount.objects.filter(released_at__isnull=True).count(),
-            'blocked_ips': IPBlacklist.objects.filter(is_active=True).count(),
-            'honeypot_24h': HoneypotAccess.objects.filter(accessed_at__gte=timezone.now() - timezone.timedelta(hours=24)).count(),
-            'security_notifications_24h': SecurityNotificationLog.objects.filter(sent_at__gte=timezone.now() - timezone.timedelta(hours=24)).count(),
-            'critical_notifications': SecurityNotificationLog.objects.filter(severity__in=['high', 'critical'], sent_at__gte=timezone.now() - timezone.timedelta(hours=24)).count(),
+            'quarantined_accounts': _safe_count(lambda: QuarantinedAccount.objects.filter(released_at__isnull=True).count()),
+            'blocked_ips': _safe_count(lambda: IPBlacklist.objects.filter(is_active=True).count()),
+            'honeypot_24h': _safe_count(lambda: HoneypotAccess.objects.filter(accessed_at__gte=timezone.now() - timezone.timedelta(hours=24)).count()),
+            'security_notifications_24h': _safe_count(lambda: SecurityNotificationLog.objects.filter(sent_at__gte=timezone.now() - timezone.timedelta(hours=24)).count()),
+            'critical_notifications': _safe_count(lambda: SecurityNotificationLog.objects.filter(severity__in=['high', 'critical'], sent_at__gte=timezone.now() - timezone.timedelta(hours=24)).count()),
         },
         'database': {
             'tables': len(connection.introspection.table_names()),
