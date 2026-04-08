@@ -38,6 +38,17 @@
         </div>
     </div>
 
+    <!-- Bulk Actions -->
+    {% if stats.new_alerts %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6 flex items-center justify-between">
+        <p class="text-sm text-gray-600 dark:text-gray-400">{{ stats.new_alerts }} unreviewed alert{{ stats.new_alerts|pluralize }}</p>
+        <button type="button" id="dismiss-all-btn" onclick="dismissAll()"
+            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium">
+            Dismiss All New Alerts
+        </button>
+    </div>
+    {% endif %}
+
     <!-- Filters -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
         <form method="get" class="flex flex-wrap gap-4">
@@ -112,10 +123,17 @@
                         {% endif %}
                     </div>
 
-                    <div class="ml-4">
-                        <a href="{% url 'admin_v2_user_login_security' alert.user.user_id %}" class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded" title="View user's login security">
+                    <div class="ml-4 flex flex-col gap-2">
+                        <a href="{% url 'admin_v2_user_login_security' alert.user.user_id %}" class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded text-center" title="View user's login security">
                             Investigate
                         </a>
+                        {% if alert.status == 'new' %}
+                        <button type="button"
+                            onclick="dismissAlert(this, {{ alert.id }})"
+                            class="px-3 py-1.5 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded">
+                            Dismiss
+                        </button>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -127,4 +145,60 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+
+async function dismissAlert(btn, alertId) {
+    btn.disabled = true;
+    btn.textContent = '...';
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', CSRF);
+    try {
+        const resp = await fetch(`/admin-v2/security/alerts/${alertId}/dismiss/`, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData,
+        });
+        const data = await resp.json();
+        if (data.success) {
+            const row = btn.closest('.border');
+            const statusBadge = row.querySelector('.bg-red-100.text-red-800');
+            if (statusBadge) {
+                statusBadge.className = 'px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+                statusBadge.textContent = 'Resolved';
+            }
+            btn.remove();
+        }
+    } catch (e) {
+        console.error(e);
+        btn.disabled = false;
+        btn.textContent = 'Dismiss';
+    }
+}
+
+async function dismissAll() {
+    if (!confirm('Dismiss all new security alerts?')) return;
+    const btn = document.getElementById('dismiss-all-btn');
+    btn.disabled = true;
+    btn.textContent = 'Dismissing...';
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', CSRF);
+    try {
+        const resp = await fetch('{% url "admin_v2_dismiss_all_alerts" %}', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData,
+        });
+        const data = await resp.json();
+        if (data.success) location.reload();
+    } catch (e) {
+        console.error(e);
+        btn.disabled = false;
+        btn.textContent = 'Dismiss All New Alerts';
+    }
+}
+</script>
 {% endblock %}

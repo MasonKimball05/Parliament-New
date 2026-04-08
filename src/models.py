@@ -129,6 +129,7 @@ class ParliamentUser(AbstractBaseUser):
 
     member_status = models.CharField(max_length=20, choices=MEMBER_STATUS, default='Active')
     force_password_change = models.BooleanField(default=False, help_text='User must change password on next login')
+    is_quarantined = models.BooleanField(default=False, help_text='Account quarantined due to suspicious activity')
     role_number = models.CharField(
         max_length=30,
         unique=True,
@@ -5236,6 +5237,234 @@ class Song(models.Model):
     def has_audio(self):
         """Check if song has an audio file"""
         return bool(self.audio_file)
+
+
+# =============================================================================
+# Security Models
+# =============================================================================
+
+class QuarantinedAccount(models.Model):
+    """
+    Track accounts that have been quarantined due to suspicious activity.
+    Quarantined accounts cannot log in until manually released by an admin.
+    """
+    user = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.CASCADE,
+        related_name='quarantine_records'
+    )
+    ip_address = models.GenericIPAddressField(help_text='IP address that triggered quarantine')
+    reason = models.TextField(help_text='Why this account was quarantined')
+    quarantined_at = models.DateTimeField(auto_now_add=True)
+    quarantined_by = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='quarantine_actions',
+        help_text='Admin who quarantined (null if automatic)'
+    )
+    is_auto = models.BooleanField(default=True, help_text='True if auto-quarantined by system')
+    released_at = models.DateTimeField(null=True, blank=True)
+    released_by = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='quarantine_releases'
+    )
+    release_notes = models.TextField(blank=True, help_text='Notes about why account was released')
+
+    class Meta:
+        ordering = ['-quarantined_at']
+        verbose_name = 'Quarantined Account'
+        verbose_name_plural = 'Quarantined Accounts'
+
+    def __str__(self):
+        status = 'Active' if not self.released_at else 'Released'
+        return f"{self.user.name} - {status} ({self.quarantined_at.strftime('%Y-%m-%d')})"
+
+    @property
+    def is_active(self):
+        """Check if quarantine is still active"""
+        return self.released_at is None
+
+    @classmethod
+    def quarantine_user(cls, user, ip_address, reason, admin=None):
+        """
+        Quarantine a user account.
+        Also sets is_quarantined flag on the user.
+        """
+        user.is_quarantined = True
+        user.save(update_fields=['is_quarantined'])
+
+        return cls.objects.create(
+            user=user,
+            ip_address=ip_address,
+            reason=reason,
+            quarantined_by=admin,
+            is_auto=(admin is None)
+        )
+
+    def release(self, admin, notes=''):
+        """Release this quarantine"""
+        from django.utils import timezone
+        self.released_at = timezone.now()
+        self.released_by = admin
+        self.release_notes = notes
+        self.save()
+
+        # Check if user has any other active quarantines
+        active_quarantines = QuarantinedAccount.objects.filter(
+            user=self.user,
+            released_at__isnull=True
+        ).exclude(pk=self.pk).exists()
+
+        if not active_quarantines:
+            self.user.is_quarantined = False
+            self.user.save(update_fields=['is_quarantined'])
+
+
+class HoneypotAccess(models.Model):
+    """
+    Log access attempts to honeypot/poison pill endpoints.
+    These are fake admin URLs that real users would never access.
+    Any access is suspicious and triggers immediate action.
+    """
+    ACTIONS = [
+        ('blocked', 'IP Blocked'),
+        ('alerted', 'Alert Sent'),
+        ('logged', 'Logged Only'),
+    ]
+
+    endpoint = models.CharField(max_length=200, help_text='Honeypot URL accessed')
+    ip_address = models.GenericIPAddressField()
+    user_agent = models.TextField(blank=True)
+    referer = models.TextField(blank=True, help_text='Referring page if any')
+    request_method = models.CharField(max_length=10, default='GET')
+    request_body = models.TextField(blank=True, help_text='POST body if any (sanitized)')
+    accessed_at = models.DateTimeField(auto_now_add=True)
+    action_taken = models.CharField(max_length=50, choices=ACTIONS, default='blocked')
+    additional_data = models.JSONField(default=dict, blank=True, help_text='Extra context data')
+
+    class Meta:
+        ordering = ['-accessed_at']
+        verbose_name = 'Honeypot Access'
+        verbose_name_plural = 'Honeypot Accesses'
+
+    def __str__(self):
+        return f"{self.ip_address} -> {self.endpoint} ({self.accessed_at.strftime('%Y-%m-%d %H:%M')})"
+
+
+class SystemLockdown(models.Model):
+    """
+    Emergency lockdown mode - blocks all logins except whitelisted IPs.
+    Only one lockdown record should exist (singleton pattern).
+    """
+    is_active = models.BooleanField(default=False)
+    reason = models.TextField(help_text='Why lockdown was activated')
+    whitelisted_ips = models.TextField(
+        blank=True,
+        help_text='Comma-separated list of IPs that can still log in'
+    )
+    activated_at = models.DateTimeField(null=True, blank=True)
+    activated_by = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lockdowns_activated'
+    )
+    deactivated_at = models.DateTimeField(null=True, blank=True)
+    deactivated_by = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lockdowns_deactivated'
+    )
+    message = models.TextField(
+        default='The system is currently in maintenance mode. Please try again later.',
+        help_text='Message shown to blocked users'
+    )
+
+    class Meta:
+        verbose_name = 'System Lockdown'
+        verbose_name_plural = 'System Lockdowns'
+
+    def __str__(self):
+        status = 'ACTIVE' if self.is_active else 'Inactive'
+        return f"System Lockdown - {status}"
+
+    @classmethod
+    def get_instance(cls):
+        """Get or create the singleton lockdown instance"""
+        instance, _ = cls.objects.get_or_create(pk=1)
+        return instance
+
+    def activate(self, admin, reason, whitelisted_ips=''):
+        """Activate emergency lockdown"""
+        from django.utils import timezone
+        self.is_active = True
+        self.reason = reason
+        self.whitelisted_ips = whitelisted_ips
+        self.activated_at = timezone.now()
+        self.activated_by = admin
+        self.deactivated_at = None
+        self.deactivated_by = None
+        self.save()
+
+    def deactivate(self, admin):
+        """Deactivate emergency lockdown"""
+        from django.utils import timezone
+        self.is_active = False
+        self.deactivated_at = timezone.now()
+        self.deactivated_by = admin
+        self.save()
+
+    def is_ip_whitelisted(self, ip_address):
+        """Check if an IP is whitelisted"""
+        if not self.whitelisted_ips:
+            return False
+        whitelist = [ip.strip() for ip in self.whitelisted_ips.split(',')]
+        return ip_address in whitelist
+
+
+class SecurityNotificationLog(models.Model):
+    """
+    Log all security notifications sent to admins.
+    Helps track what alerts have been sent and when.
+    """
+    SEVERITY_CHOICES = [
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('critical', 'Critical'),
+    ]
+
+    event_type = models.CharField(max_length=100, help_text='Type of security event')
+    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES)
+    details = models.TextField(help_text='Full event details')
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='security_notifications'
+    )
+    sent_at = models.DateTimeField(auto_now_add=True)
+    email_sent_to = models.EmailField(blank=True)
+    email_sent = models.BooleanField(default=False)
+    email_error = models.TextField(blank=True, help_text='Error message if email failed')
+
+    class Meta:
+        ordering = ['-sent_at']
+        verbose_name = 'Security Notification Log'
+        verbose_name_plural = 'Security Notification Logs'
+
+    def __str__(self):
+        return f"[{self.severity.upper()}] {self.event_type} - {self.sent_at.strftime('%Y-%m-%d %H:%M')}"
 
 
 # Import feature flags models

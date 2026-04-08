@@ -1,7 +1,7 @@
 from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
 from .decorators import log_function_call
-from .models import Committee, ParliamentUser, Legislation, Vote, Attendance, AttendanceExcuse, CommitteeDocument, Role, Announcement, ChatChannel, ChatChannelPermission, ChatMessage, ChatReadReceipt, UserAnnouncementView, DocumentTag, DocumentVersion, Event, ActivityLog, LoginHistory, LoginAlert, BugReport, Notification
+from .models import Committee, ParliamentUser, Legislation, Vote, Attendance, AttendanceExcuse, CommitteeDocument, Role, Announcement, ChatChannel, ChatChannelPermission, ChatMessage, ChatReadReceipt, UserAnnouncementView, DocumentTag, DocumentVersion, Event, ActivityLog, LoginHistory, LoginAlert, BugReport, Notification, IPWhitelist, IPBlacklist, QuarantinedAccount, HoneypotAccess, SystemLockdown, SecurityNotificationLog
 from .models_feature_flags import FeatureFlag, PageToggle, ScheduledMaintenance
 import logging
 from django.db.models.signals import post_save, pre_delete
@@ -1794,6 +1794,86 @@ class BugReportAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False  # Bug reports are submitted through the form only
+
+
+@admin.register(IPWhitelist, site=admin_site)
+class IPWhitelistAdmin(admin.ModelAdmin):
+    list_display = ('ip_address', 'description', 'added_by', 'added_at', 'is_active')
+    list_filter = ('is_active', 'added_at')
+    search_fields = ('ip_address', 'description')
+    readonly_fields = ('added_at',)
+    ordering = ('-added_at',)
+
+
+@admin.register(IPBlacklist, site=admin_site)
+class IPBlacklistAdmin(admin.ModelAdmin):
+    list_display = ('ip_address', 'reason', 'added_by', 'added_at', 'is_active', 'expires_at', 'block_count')
+    list_filter = ('is_active', 'added_at')
+    search_fields = ('ip_address', 'reason')
+    readonly_fields = ('added_at', 'block_count', 'last_blocked')
+    ordering = ('-added_at',)
+
+
+@admin.register(QuarantinedAccount, site=admin_site)
+class QuarantinedAccountAdmin(admin.ModelAdmin):
+    list_display = ('user', 'ip_address', 'quarantined_at', 'is_auto', 'quarantined_by', 'status_display', 'released_at', 'released_by')
+    list_filter = ('is_auto', 'quarantined_at')
+    search_fields = ('user__name', 'ip_address', 'reason')
+    readonly_fields = ('quarantined_at',)
+    ordering = ('-quarantined_at',)
+
+    def status_display(self, obj):
+        if obj.is_active:
+            return format_html('<span style="background-color: #ef4444; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">QUARANTINED</span>')
+        return format_html('<span style="background-color: #10b981; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">Released</span>')
+    status_display.short_description = 'Status'
+
+
+@admin.register(HoneypotAccess, site=admin_site)
+class HoneypotAccessAdmin(admin.ModelAdmin):
+    list_display = ('ip_address', 'endpoint', 'request_method', 'action_taken', 'accessed_at')
+    list_filter = ('action_taken', 'request_method', 'accessed_at')
+    search_fields = ('ip_address', 'endpoint', 'user_agent')
+    readonly_fields = ('accessed_at', 'ip_address', 'endpoint', 'user_agent', 'referer', 'request_method', 'request_body', 'additional_data')
+    ordering = ('-accessed_at',)
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(SystemLockdown, site=admin_site)
+class SystemLockdownAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'is_active', 'activated_by', 'activated_at', 'deactivated_by', 'deactivated_at')
+    readonly_fields = ('activated_at', 'deactivated_at')
+
+    def has_add_permission(self, request):
+        return not SystemLockdown.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(SecurityNotificationLog, site=admin_site)
+class SecurityNotificationLogAdmin(admin.ModelAdmin):
+    list_display = ('sent_at', 'severity_badge', 'event_type', 'ip_address', 'user', 'email_sent')
+    list_filter = ('severity', 'email_sent', 'sent_at')
+    search_fields = ('event_type', 'ip_address', 'details', 'user__name')
+    readonly_fields = ('sent_at', 'event_type', 'severity', 'details', 'ip_address', 'user', 'email_sent_to', 'email_sent', 'email_error')
+    ordering = ('-sent_at',)
+
+    def severity_badge(self, obj):
+        colors = {'low': '#10b981', 'medium': '#f59e0b', 'high': '#ef4444', 'critical': '#7f1d1d'}
+        color = colors.get(obj.severity, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">{}</span>',
+            color,
+            obj.get_severity_display()
+        )
+    severity_badge.short_description = 'Severity'
+    severity_badge.admin_order_field = 'severity'
+
+    def has_add_permission(self, request):
+        return False
 
 
 original_get_urls = admin.site.get_urls

@@ -50,6 +50,84 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.11.0 - Security Attack Mitigation & Admin Dashboard Redesign (04-07-2026)
+Major security update with attack mitigation tools, honeypot traps, emergency lockdown system, and a complete admin dashboard redesign with modern card-based UI.
+
+**Deployment Status:** Pending
+
+**Type:** Security Enhancement & UI Redesign
+
+**Security Features:**
+
+- **Session Tracking Middleware**: Fixed active sessions not displaying on preferences page by tracking sessions on each authenticated request (throttled to 5-minute intervals)
+- **Auto-Quarantine System**: Automatically quarantines accounts showing attack patterns (20+ attacks from IP triggers quarantine)
+- **Honeypot/Poison Pill Endpoints**: Fake admin URLs that trap attackers:
+  - `/wp-admin/`, `/phpmyadmin/`, `/.env`, `/admin/backup/`, `/api/v1/users/export/`
+  - Any access triggers immediate 24-hour IP ban and security alert
+- **Emergency Lockdown Mode**: One-click system lockdown blocking all logins except whitelisted IPs
+- **Security Email Notifications**: Critical security alerts sent to configured email address:
+  - Attack blocks (10+ attacks from same IP)
+  - Multiple failed logins (5+ from same IP in 15 minutes)
+  - Account quarantines
+  - Honeypot triggers
+  - Lockdown activation/deactivation
+- **Security Notification Logs**: Full audit trail of all security alerts with severity levels
+
+**Admin Dashboard Redesign:**
+
+- **Card-Based Layout**: Modern expandable/collapsible cards using Alpine.js
+- **Security Card**: Prominent security overview with attack alerts, quarantined accounts, blocked IPs
+- **Quick Stats Grid**: At-a-glance statistics for users, logins, votes, events
+- **Organized Sections**: Security, Users, Content, Email, System, Performance cards
+- **Lockdown Alert Banner**: Visible warning when system is in lockdown mode
+- **Dark Mode Support**: Full dark mode support throughout redesigned dashboard
+- **Responsive Design**: Works on desktop, tablet, and mobile
+
+**New Admin-v2 Pages:**
+
+- `/admin-v2/security/` - Security dashboard with attack statistics
+- `/admin-v2/security/quarantine/` - Quarantine management (view, release accounts)
+- `/admin-v2/security/lockdown/` - Emergency lockdown control panel
+- `/admin-v2/security/honeypot/` - Honeypot access logs
+- `/admin-v2/security/notifications/` - Security notification history
+
+**Database Changes:**
+
+- Added `is_quarantined` field to `ParliamentUser` model
+- Added `QuarantinedAccount` model for tracking quarantined accounts with release workflow
+- Added `HoneypotAccess` model for logging honeypot trap access attempts
+- Added `SystemLockdown` model for managing emergency lockdown state
+- Added `SecurityNotificationLog` model for security alert audit trail
+
+**New Files:**
+
+- `src/middleware/session_tracking.py` - Session tracking middleware
+- `src/middleware/lockdown.py` - Emergency lockdown enforcement middleware
+- `src/security_notifications.py` - Security alert email functions
+- `src/view/honeypot.py` - Honeypot trap view handlers
+- `templates/lockdown.html` - User-facing lockdown page
+- `templates/admin_v2/security_dashboard.html` - Security dashboard
+- `templates/admin_v2/quarantine_management.html` - Quarantine management UI
+- `templates/admin_v2/lockdown_control.html` - Lockdown control panel
+- `templates/admin_v2/honeypot_logs.html` - Honeypot access logs
+- `templates/admin_v2/security_notifications.html` - Security notification history
+
+**Files Modified:**
+
+- `src/models.py` - Added 4 new security models and is_quarantined field
+- `src/middleware/security.py` - Added auto-quarantine triggers and notification calls
+- `src/view/admin_v2.py` - Added 5 new security management views, dashboard context updates
+- `src/view/login_view.py` - Added quarantine check before login
+- `src/urls.py` - Added honeypot and security management URL patterns
+- `Parliament/settings_postgres.py` - Added new middleware and SECURITY_ALERT_EMAIL setting
+- `templates/admin_v2/dashboard.html` - Complete redesign with card-based layout
+
+**Environment Variables:**
+
+- `SECURITY_ALERT_EMAIL` - Email address for critical security alerts (required)
+
+---
+
 ### v2.10.0 - Songbook Lyrics & Pledge Initiation Fixes (04-03-2026)
 Songbook feature enhancements with complete lyrics for all songs, plus critical fixes for pledge initiation.
 
@@ -660,6 +738,28 @@ Builds on v2.0.0 security foundation with user-facing features and advanced prot
 For comprehensive technical details, migration guides, and implementation specifics:
 
 <ul>
+<li><strong>v2.11.0 - Security Attack Mitigation & Admin Dashboard Redesign</strong> (April 7, 2026)
+    <ul>
+    <li>Session tracking middleware (fixes active sessions display)</li>
+    <li>Auto-quarantine system for accounts showing attack patterns</li>
+    <li>Honeypot/poison pill endpoints to trap attackers (wp-admin, phpmyadmin, .env, etc.)</li>
+    <li>Emergency lockdown mode with IP whitelisting</li>
+    <li>Security email notifications for critical events</li>
+    <li>New admin-v2 security dashboard with attack statistics</li>
+    <li>Quarantine management, lockdown control, honeypot logs pages</li>
+    <li>Complete admin dashboard redesign with card-based layout using Alpine.js</li>
+    <li>4 new security models: QuarantinedAccount, HoneypotAccess, SystemLockdown, SecurityNotificationLog</li>
+    </ul>
+</li>
+<li><strong>v2.10.0 - Songbook Lyrics & Pledge Initiation Fixes</strong> (April 3, 2026)
+    <ul>
+    <li>Complete song lyrics for 40 songs from 2005 Beta songbook</li>
+    <li>Chorister role for song management permissions</li>
+    <li>Fixed pledge initiation data loss (CASCADE delete bug)</li>
+    <li>Fixed FK constraint errors during pledge initiation</li>
+    <li>Changelog version sorting fix</li>
+    </ul>
+</li>
 <li><strong><a href="changelogs/v2.8.6.md">v2.8.6 - Mobile UI Fixes & Performance Optimizations</a></strong> (March 30, 2026)
     <ul>
     <li>Email warmup system for faster announcement sending</li>
@@ -828,6 +928,26 @@ For comprehensive technical details, migration guides, and implementation specif
 ## Version History Summary
 
 <ul>
+<li><strong>v2.11.0</strong> (2026-04-07) - Security Attack Mitigation & Admin Dashboard Redesign
+    <ul>
+    <li>Session tracking middleware fixes active sessions display</li>
+    <li>Auto-quarantine system for attack detection</li>
+    <li>Honeypot/poison pill endpoints trap attackers</li>
+    <li>Emergency lockdown mode with IP whitelisting</li>
+    <li>Security email notifications for critical events</li>
+    <li>Admin-v2 security dashboard with quarantine, lockdown, honeypot management</li>
+    <li>Complete admin dashboard redesign with Alpine.js card-based UI</li>
+    <li>4 new security models, 2 new middleware, 5 new admin views</li>
+    </ul>
+</li>
+<li><strong>v2.10.0</strong> (2026-04-03) - Songbook Lyrics & Pledge Initiation Fixes
+    <ul>
+    <li>Complete song lyrics for 40 songs from 2005 Beta songbook</li>
+    <li>Chorister role for song management</li>
+    <li>Fixed pledge initiation data loss and FK constraint errors</li>
+    <li>Fixed changelog version sorting</li>
+    </ul>
+</li>
 <li><strong>v2.8.6</strong> (2026-03-30) - Mobile UI Fixes & Performance Optimizations
     <ul>
     <li>Email warmup system for faster announcement email sending</li>
@@ -1060,5 +1180,5 @@ New changes will be documented in:
 
 ---
 
-**Last Updated:** 2026-03-30
-**Next Review:** 2026-04-30
+**Last Updated:** 2026-04-07
+**Next Review:** 2026-05-07

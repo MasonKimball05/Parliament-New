@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Emergency Lockdown - Admin v2{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Emergency Lockdown Control</h1>
+                <p class="text-gray-600 dark:text-gray-400">Block all access to the system except from whitelisted IPs</p>
+            </div>
+            <a href="{% url 'admin_v2_security' %}" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">Back to Security</a>
+        </div>
+    </div>
+
+    <!-- Current Status -->
+    <div class="{% if lockdown.is_active %}bg-red-600{% else %}bg-green-600{% endif %} text-white rounded-lg shadow-md p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center">
+                {% if lockdown.is_active %}
+                <svg class="w-10 h-10 mr-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                </svg>
+                <div>
+                    <h2 class="text-2xl font-bold">LOCKDOWN ACTIVE</h2>
+                    <p class="text-red-100">All non-whitelisted access is blocked</p>
+                </div>
+                {% else %}
+                <svg class="w-10 h-10 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path>
+                </svg>
+                <div>
+                    <h2 class="text-2xl font-bold">System Normal</h2>
+                    <p class="text-green-100">All users can access the system</p>
+                </div>
+                {% endif %}
+            </div>
+            <div class="text-right text-sm">
+                {% if lockdown.is_active %}
+                <p>Activated: {{ lockdown.activated_at|date:"M d, Y H:i" }}</p>
+                <p>By: {{ lockdown.activated_by.name }}</p>
+                {% elif lockdown.deactivated_at %}
+                <p>Last deactivated: {{ lockdown.deactivated_at|date:"M d, Y H:i" }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if lockdown.is_active %}
+    <!-- Deactivate Lockdown -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Deactivate Lockdown</h2>
+        <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
+            <p class="text-amber-800 dark:text-amber-200">
+                <strong>Current Reason:</strong> {{ lockdown.reason }}
+            </p>
+        </div>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="deactivate">
+            <button type="submit" class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white text-lg font-bold rounded-lg">
+                Deactivate Lockdown
+            </button>
+        </form>
+    </div>
+
+    <!-- Update Settings While Active -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Update Whitelist</h2>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_whitelist">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Whitelisted IPs</label>
+                    <textarea name="whitelisted_ips" rows="4" class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="Enter IPs separated by commas">{{ lockdown.whitelisted_ips }}</textarea>
+                    <p class="text-xs text-gray-500 mt-1">Your current IP: <code>{{ current_ip }}</code></p>
+                </div>
+                <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Update Whitelist</button>
+            </form>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Update Message</h2>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_message">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Lockdown Message</label>
+                    <textarea name="message" rows="4" class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">{{ lockdown.message }}</textarea>
+                </div>
+                <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Update Message</button>
+            </form>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Activate Lockdown -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 class="text-xl font-bold text-red-600 dark:text-red-400 mb-4">Activate Emergency Lockdown</h2>
+        <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+            <div class="flex items-start">
+                <svg class="w-6 h-6 text-red-600 dark:text-red-400 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                <div>
+                    <h3 class="font-bold text-red-800 dark:text-red-300">Warning: This is an emergency action</h3>
+                    <ul class="text-sm text-red-700 dark:text-red-400 mt-2 space-y-1">
+                        <li>All login attempts from non-whitelisted IPs will be blocked</li>
+                        <li>Currently logged-in users will be blocked on their next request</li>
+                        <li>A security alert email will be sent to all administrators</li>
+                        <li>Make sure to whitelist your IP before activating</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="activate">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Reason for Lockdown *</label>
+                <textarea name="reason" rows="3" required class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="Explain why lockdown is being activated..."></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Whitelisted IPs</label>
+                <textarea name="whitelisted_ips" rows="3" class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="Enter IPs separated by commas (e.g., 192.168.1.1, 10.0.0.1)">{{ current_ip }}</textarea>
+                <p class="text-xs text-gray-500 mt-1">Your current IP (<code>{{ current_ip }}</code>) has been pre-filled. Add additional IPs as needed.</p>
+            </div>
+            <div class="pt-4">
+                <button type="submit" class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white text-lg font-bold rounded-lg" onclick="return confirm('Are you SURE you want to activate emergency lockdown? This will block all non-whitelisted users immediately.')">
+                    ACTIVATE EMERGENCY LOCKDOWN
+                </button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Info Box -->
+    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
+        <h3 class="font-bold text-blue-800 dark:text-blue-300 mb-2">About Emergency Lockdown</h3>
+        <div class="text-sm text-blue-700 dark:text-blue-400 space-y-2">
+            <p>Emergency lockdown is a last-resort security measure that blocks all access to the system except from explicitly whitelisted IP addresses.</p>
+            <p><strong>When to use:</strong></p>
+            <ul class="list-disc list-inside ml-4">
+                <li>Active security breach detected</li>
+                <li>Mass credential compromise suspected</li>
+                <li>System under active attack</li>
+                <li>Emergency maintenance required</li>
+            </ul>
+            <p><strong>What happens:</strong> All users attempting to access any page will see a maintenance message. Only IPs in the whitelist can log in and access the system.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

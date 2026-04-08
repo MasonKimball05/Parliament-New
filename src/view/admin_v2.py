@@ -14,7 +14,8 @@ from src.models_feature_flags import FeatureFlag, PageToggle, SiteSetting
 from src.models import (
     ParliamentUser, Legislation, Event, Committee,
     Announcement, ActivityLog, LoginHistory, LoginAlert,
-    IPWhitelist, IPBlacklist, AnnouncementEmailLog, AnnouncementEmailRecipient
+    IPWhitelist, IPBlacklist, AnnouncementEmailLog, AnnouncementEmailRecipient,
+    QuarantinedAccount, HoneypotAccess, SecurityNotificationLog
 )
 import os
 import secrets
@@ -231,12 +232,18 @@ def admin_v2_dashboard(request):
             'total_logins': LoginHistory.objects.count(),
             'logins_24h': LoginHistory.objects.filter(timestamp__gte=timezone.now() - timezone.timedelta(hours=24)).count(),
             'logins_7d': LoginHistory.objects.filter(timestamp__gte=timezone.now() - timezone.timedelta(days=7)).count(),
+            'new_login_alerts': LoginAlert.objects.filter(status='new').count(),
             'recent_alerts': LoginAlert.objects.filter(status='new').count(),
             'total_alerts': LoginAlert.objects.count(),
             'failed_logins_24h': LoginHistory.objects.filter(
                 timestamp__gte=timezone.now() - timezone.timedelta(hours=24),
                 successful=False
             ).count() if hasattr(LoginHistory, 'successful') else 0,
+            'quarantined_accounts': QuarantinedAccount.objects.filter(released_at__isnull=True).count(),
+            'blocked_ips': IPBlacklist.objects.filter(is_active=True).count(),
+            'honeypot_24h': HoneypotAccess.objects.filter(accessed_at__gte=timezone.now() - timezone.timedelta(hours=24)).count(),
+            'security_notifications_24h': SecurityNotificationLog.objects.filter(sent_at__gte=timezone.now() - timezone.timedelta(hours=24)).count(),
+            'critical_notifications': SecurityNotificationLog.objects.filter(severity__in=['high', 'critical'], sent_at__gte=timezone.now() - timezone.timedelta(hours=24)).count(),
         },
         'database': {
             'tables': len(connection.introspection.table_names()),
@@ -322,6 +329,7 @@ def admin_v2_dashboard(request):
     context = {
         'stats': stats,
         'feature_flags': feature_flags,
+        'all_feature_flags': FeatureFlag.objects.all().order_by('category', 'name'),
         'page_toggles': page_toggles,
         'chat_settings': chat_settings,
         'recent_logs': recent_logs,
@@ -377,6 +385,11 @@ def toggle_page(request, toggle_id):
             toggle.save()
 
             status = "enabled" if toggle.is_enabled else "disabled"
+
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                from django.http import JsonResponse
+                return JsonResponse({'is_enabled': toggle.is_enabled, 'status': status})
+
             messages.success(request, f'Page "{toggle.display_name}" has been {status}')
 
             ActivityLog.log_activity(
@@ -386,6 +399,9 @@ def toggle_page(request, toggle_id):
                 request=request
             )
         except PageToggle.DoesNotExist:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                from django.http import JsonResponse
+                return JsonResponse({'error': 'Not found'}, status=404)
             messages.error(request, 'Page toggle not found')
 
     return redirect('admin_v2_dashboard')
@@ -1209,6 +1225,43 @@ def manage_security_alerts(request):
 
 
 @require_admin_v2_auth
+def dismiss_alert(request, alert_id):
+    """Dismiss a single security alert (mark as resolved)."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    try:
+        alert = LoginAlert.objects.get(id=alert_id)
+        alert.status = 'resolved'
+        alert.reviewed_by = request.user
+        alert.reviewed_at = timezone.now()
+        alert.resolution_notes = request.POST.get('notes', 'Dismissed by admin')
+        alert.save()
+        return JsonResponse({'success': True, 'new_count': LoginAlert.objects.filter(status='new').count()})
+    except LoginAlert.DoesNotExist:
+        return JsonResponse({'error': 'Alert not found'}, status=404)
+
+
+@require_admin_v2_auth
+def dismiss_all_alerts(request):
+    """Dismiss all new security alerts."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    count = LoginAlert.objects.filter(status='new').update(
+        status='resolved',
+        reviewed_by=request.user,
+        reviewed_at=timezone.now(),
+        resolution_notes='Bulk dismissed by admin',
+    )
+    ActivityLog.log_activity(
+        action_type='security',
+        user=request.user,
+        description=f'{request.user.get_display_name()} bulk-dismissed {count} security alert(s)',
+        request=request,
+    )
+    return JsonResponse({'success': True, 'dismissed': count})
+
+
+@require_admin_v2_auth
 def send_test_announcement_email(request):
     """
     Send a test announcement email to the current user.
@@ -1684,3 +1737,260 @@ def send_scheduled_announcement_email(request, announcement_id):
         messages.error(request, f'Failed to send emails: {str(e)}')
 
     return redirect('admin_v2_email_logs')
+
+
+# =============================================================================
+# Security Management Views
+# =============================================================================
+
+@require_admin_v2_auth
+def security_dashboard(request):
+    """Main security dashboard showing all security tools and alerts."""
+    if not request.user.is_admin:
+        return HttpResponseForbidden("Admin access required")
+
+    from src.models import (
+        QuarantinedAccount, HoneypotAccess, SystemLockdown,
+        SecurityNotificationLog
+    )
+
+    # Get quarantine stats
+    active_quarantines = QuarantinedAccount.objects.filter(released_at__isnull=True)
+    recent_quarantines = QuarantinedAccount.objects.order_by('-quarantined_at')[:10]
+
+    # Get honeypot stats
+    recent_honeypot = HoneypotAccess.objects.order_by('-accessed_at')[:20]
+    honeypot_24h = HoneypotAccess.objects.filter(
+        accessed_at__gte=timezone.now() - timedelta(hours=24)
+    ).count()
+
+    # Get lockdown status
+    lockdown = SystemLockdown.get_instance()
+
+    # Get recent security notifications
+    recent_notifications = SecurityNotificationLog.objects.order_by('-sent_at')[:20]
+    critical_notifications = SecurityNotificationLog.objects.filter(
+        severity='critical',
+        sent_at__gte=timezone.now() - timedelta(hours=24)
+    ).count()
+
+    return render(request, 'admin_v2/security_dashboard.html', {
+        'active_quarantines': active_quarantines,
+        'recent_quarantines': recent_quarantines,
+        'recent_honeypot': recent_honeypot,
+        'honeypot_24h': honeypot_24h,
+        'lockdown': lockdown,
+        'recent_notifications': recent_notifications,
+        'critical_notifications': critical_notifications,
+    })
+
+
+@require_admin_v2_auth
+def quarantine_management(request):
+    """Manage quarantined accounts."""
+    if not request.user.is_admin:
+        return HttpResponseForbidden("Admin access required")
+
+    from src.models import QuarantinedAccount
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        quarantine_id = request.POST.get('quarantine_id')
+
+        if action == 'release' and quarantine_id:
+            try:
+                quarantine = QuarantinedAccount.objects.get(pk=quarantine_id)
+                notes = request.POST.get('release_notes', '')
+                quarantine.release(request.user, notes)
+                messages.success(request, f'Released quarantine for {quarantine.user.name}')
+                logger.info(f"Admin {request.user.username} released quarantine for {quarantine.user.name}")
+            except QuarantinedAccount.DoesNotExist:
+                messages.error(request, 'Quarantine record not found')
+
+        elif action == 'quarantine_user':
+            from src.models import ParliamentUser
+            user_id = request.POST.get('user_id')
+            reason = request.POST.get('reason', 'Manual quarantine by admin')
+            ip_address = request.POST.get('ip_address', '0.0.0.0')
+
+            try:
+                user = ParliamentUser.objects.get(user_id=user_id)
+                QuarantinedAccount.quarantine_user(
+                    user=user,
+                    ip_address=ip_address,
+                    reason=reason,
+                    admin=request.user
+                )
+                messages.success(request, f'Quarantined account: {user.name}')
+                logger.info(f"Admin {request.user.username} quarantined {user.name}: {reason}")
+
+                # Send alert
+                from src.security_notifications import alert_account_quarantined
+                alert_account_quarantined(user, ip_address, reason, is_auto=False)
+
+            except ParliamentUser.DoesNotExist:
+                messages.error(request, 'User not found')
+
+        return redirect('admin_v2_quarantine')
+
+    # Get all quarantine records
+    active_quarantines = QuarantinedAccount.objects.filter(
+        released_at__isnull=True
+    ).select_related('user', 'quarantined_by')
+
+    released_quarantines = QuarantinedAccount.objects.filter(
+        released_at__isnull=False
+    ).select_related('user', 'quarantined_by', 'released_by').order_by('-released_at')[:50]
+
+    # Get list of users that can be quarantined
+    from src.models import ParliamentUser
+    active_users = ParliamentUser.objects.filter(
+        is_active=True,
+        is_quarantined=False
+    ).order_by('name')
+
+    return render(request, 'admin_v2/quarantine_management.html', {
+        'active_quarantines': active_quarantines,
+        'released_quarantines': released_quarantines,
+        'active_users': active_users,
+    })
+
+
+@require_admin_v2_auth
+def lockdown_control(request):
+    """Control emergency lockdown mode."""
+    if not request.user.is_admin:
+        return HttpResponseForbidden("Admin access required")
+
+    from src.models import SystemLockdown
+
+    lockdown = SystemLockdown.get_instance()
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'activate':
+            reason = request.POST.get('reason', 'Emergency lockdown activated')
+            whitelisted_ips = request.POST.get('whitelisted_ips', '')
+
+            lockdown.activate(request.user, reason, whitelisted_ips)
+            messages.warning(request, 'EMERGENCY LOCKDOWN ACTIVATED. All non-whitelisted access is blocked.')
+            logger.critical(f"LOCKDOWN ACTIVATED by {request.user.username}: {reason}")
+
+            # Send alert
+            from src.security_notifications import alert_lockdown_activated
+            alert_lockdown_activated(request.user, reason)
+
+        elif action == 'deactivate':
+            lockdown.deactivate(request.user)
+            messages.success(request, 'Emergency lockdown has been deactivated. Normal operations resumed.')
+            logger.info(f"Lockdown deactivated by {request.user.username}")
+
+            # Send alert
+            from src.security_notifications import alert_lockdown_deactivated
+            alert_lockdown_deactivated(request.user)
+
+        elif action == 'update_whitelist':
+            whitelisted_ips = request.POST.get('whitelisted_ips', '')
+            lockdown.whitelisted_ips = whitelisted_ips
+            lockdown.save()
+            messages.success(request, 'Whitelist updated')
+            logger.info(f"Lockdown whitelist updated by {request.user.username}")
+
+        elif action == 'update_message':
+            lockdown.message = request.POST.get('message', lockdown.message)
+            lockdown.save()
+            messages.success(request, 'Lockdown message updated')
+
+        return redirect('admin_v2_lockdown')
+
+    # Get current IP for whitelisting suggestion
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        current_ip = x_forwarded_for.split(',')[0].strip()
+    else:
+        current_ip = request.META.get('REMOTE_ADDR', 'unknown')
+
+    return render(request, 'admin_v2/lockdown_control.html', {
+        'lockdown': lockdown,
+        'current_ip': current_ip,
+    })
+
+
+@require_admin_v2_auth
+def honeypot_logs(request):
+    """View honeypot access logs."""
+    if not request.user.is_admin:
+        return HttpResponseForbidden("Admin access required")
+
+    from src.models import HoneypotAccess
+    from django.core.paginator import Paginator
+
+    logs = HoneypotAccess.objects.order_by('-accessed_at')
+
+    # Filter by endpoint if specified
+    endpoint_filter = request.GET.get('endpoint', '')
+    if endpoint_filter:
+        logs = logs.filter(endpoint__icontains=endpoint_filter)
+
+    # Paginate
+    paginator = Paginator(logs, 50)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Get stats
+    total_24h = HoneypotAccess.objects.filter(
+        accessed_at__gte=timezone.now() - timedelta(hours=24)
+    ).count()
+
+    # Most targeted endpoints
+    from django.db.models import Count
+    top_endpoints = HoneypotAccess.objects.values('endpoint').annotate(
+        count=Count('id')
+    ).order_by('-count')[:10]
+
+    return render(request, 'admin_v2/honeypot_logs.html', {
+        'logs': page_obj,
+        'endpoint_filter': endpoint_filter,
+        'total_24h': total_24h,
+        'top_endpoints': top_endpoints,
+    })
+
+
+@require_admin_v2_auth
+def security_notifications_log(request):
+    """View security notification history."""
+    if not request.user.is_admin:
+        return HttpResponseForbidden("Admin access required")
+
+    from src.models import SecurityNotificationLog
+    from django.core.paginator import Paginator
+
+    notifications = SecurityNotificationLog.objects.order_by('-sent_at')
+
+    # Filter by severity if specified
+    severity_filter = request.GET.get('severity', '')
+    if severity_filter:
+        notifications = notifications.filter(severity=severity_filter)
+
+    # Filter by event type if specified
+    event_filter = request.GET.get('event_type', '')
+    if event_filter:
+        notifications = notifications.filter(event_type__icontains=event_filter)
+
+    # Paginate
+    paginator = Paginator(notifications, 50)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Get distinct event types for filter dropdown
+    event_types = SecurityNotificationLog.objects.values_list(
+        'event_type', flat=True
+    ).distinct()
+
+    return render(request, 'admin_v2/security_notifications.html', {
+        'notifications': page_obj,
+        'severity_filter': severity_filter,
+        'event_filter': event_filter,
+        'event_types': event_types,
+    })

@@ -143,6 +143,20 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
+            # Check if account is quarantined
+            if hasattr(user, 'is_quarantined') and user.is_quarantined:
+                is_locked, remaining, lockout_until = record_failed_attempt(ip_address)
+                messages.error(
+                    request,
+                    "This account has been temporarily locked due to suspicious activity. "
+                    "Please contact an administrator."
+                )
+                security_logger = logging.getLogger('admin_actions')
+                security_logger.warning(
+                    f"LOGIN BLOCKED: Quarantined account '{username}' attempted login from IP {ip_address}"
+                )
+                return redirect('login')
+
             if user.is_active:
                 login(request, user)
 

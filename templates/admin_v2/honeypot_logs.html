@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Honeypot Logs - Admin v2{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Honeypot Logs</h1>
+                <p class="text-gray-600 dark:text-gray-400">Access attempts to trap endpoints - indicates potential attackers</p>
+            </div>
+            <a href="{% url 'admin_v2_security' %}" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">Back to Security</a>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-sm text-gray-500 dark:text-gray-400">Total Hits (24h)</div>
+            <div class="text-2xl font-bold text-amber-600">{{ total_24h }}</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 col-span-2">
+            <div class="text-sm text-gray-500 dark:text-gray-400 mb-2">Most Targeted Endpoints</div>
+            <div class="flex flex-wrap gap-2">
+                {% for ep in top_endpoints|slice:":5" %}
+                <span class="px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 rounded text-sm">
+                    {{ ep.endpoint }} ({{ ep.count }})
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <form method="get" class="flex flex-wrap gap-4 items-end">
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Filter by Endpoint</label>
+                <input type="text" name="endpoint" value="{{ endpoint_filter }}" placeholder="e.g., wp-admin" class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Filter</button>
+                <a href="{% url 'admin_v2_honeypot_logs' %}" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg">Clear</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Logs -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Access Attempts</h2>
+        {% if logs %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-200 dark:border-gray-700">
+                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">Time</th>
+                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">Endpoint</th>
+                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">IP Address</th>
+                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">Method</th>
+                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">Action</th>
+                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">User Agent</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr class="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td class="py-2 px-3 text-gray-900 dark:text-gray-100 whitespace-nowrap">{{ log.accessed_at|date:"M d, H:i:s" }}</td>
+                        <td class="py-2 px-3">
+                            <code class="text-amber-600 dark:text-amber-400">{{ log.endpoint }}</code>
+                        </td>
+                        <td class="py-2 px-3 text-gray-900 dark:text-gray-100">{{ log.ip_address }}</td>
+                        <td class="py-2 px-3">
+                            <span class="px-2 py-0.5 text-xs font-bold rounded {% if log.request_method == 'POST' %}bg-red-500{% else %}bg-blue-500{% endif %} text-white">
+                                {{ log.request_method }}
+                            </span>
+                        </td>
+                        <td class="py-2 px-3">
+                            <span class="px-2 py-0.5 text-xs rounded {% if log.action_taken == 'blocked' %}bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200{% else %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200{% endif %}">
+                                {{ log.action_taken }}
+                            </span>
+                        </td>
+                        <td class="py-2 px-3 text-gray-600 dark:text-gray-400 max-w-xs truncate" title="{{ log.user_agent }}">{{ log.user_agent|truncatechars:50 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if logs.has_other_pages %}
+        <div class="mt-4 flex justify-center gap-2">
+            {% if logs.has_previous %}
+            <a href="?page={{ logs.previous_page_number }}{% if endpoint_filter %}&endpoint={{ endpoint_filter }}{% endif %}" class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600">Previous</a>
+            {% endif %}
+            <span class="px-3 py-1 text-gray-600 dark:text-gray-400">Page {{ logs.number }} of {{ logs.paginator.num_pages }}</span>
+            {% if logs.has_next %}
+            <a href="?page={{ logs.next_page_number }}{% if endpoint_filter %}&endpoint={{ endpoint_filter }}{% endif %}" class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600">Next</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% else %}
+        <p class="text-gray-500 dark:text-gray-400">No honeypot access attempts recorded.</p>
+        {% endif %}
+    </div>
+
+    <!-- Info -->
+    <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-6 mt-6">
+        <h3 class="font-bold text-purple-800 dark:text-purple-300 mb-2">About Honeypots</h3>
+        <p class="text-sm text-purple-700 dark:text-purple-400">
+            Honeypot endpoints are fake URLs that legitimate users would never access. They mimic common attack targets
+            (like WordPress admin, phpMyAdmin, etc.). Any access to these endpoints is suspicious and triggers an
+            automatic IP ban and security alert. This helps identify and block attackers before they can find real vulnerabilities.
+        </p>
+    </div>
+</div>
+{% endblock %}

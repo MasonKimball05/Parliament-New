@@ -66,7 +66,10 @@ from src.view.admin_v2 import (
     manage_ip_whitelist, manage_ip_blacklist, manage_security_alerts,
     update_site_setting, send_test_announcement_email, preview_test_email,
     health_check, check_default_password, test_email_targeting,
-    email_logs, email_log_detail, send_scheduled_announcement_email
+    email_logs, email_log_detail, send_scheduled_announcement_email,
+    security_dashboard, quarantine_management, lockdown_control,
+    honeypot_logs, security_notifications_log,
+    dismiss_alert, dismiss_all_alerts
 )
 from src.view.admin_v2 import manage_events as admin_v2_manage_events, delete_event as admin_v2_delete_event
 from src.view.notification_admin import (
@@ -152,6 +155,11 @@ from src.view.guide import (
 from src.view.songbook import (
     songbook_list, song_detail, song_create, song_edit, song_delete, manage_categories,
     serve_song_audio, serve_exportable_media
+)
+from src.view.honeypot import (
+    honeypot_wp_admin, honeypot_wp_login, honeypot_phpmyadmin, honeypot_env,
+    honeypot_admin_backup, honeypot_api_export, honeypot_xmlrpc, honeypot_config,
+    honeypot_shell, honeypot_setup
 )
 
 urlpatterns = [
@@ -528,6 +536,14 @@ urlpatterns = [
     path('admin-v2/email-logs/', email_logs, name='admin_v2_email_logs'),
     path('admin-v2/email-logs/<int:log_id>/', email_log_detail, name='admin_v2_email_log_detail'),
     path('admin-v2/email-logs/send-scheduled/<int:announcement_id>/', send_scheduled_announcement_email, name='admin_v2_send_scheduled_email'),
+
+    # Admin v2 - Security Management
+    path('admin-v2/security/', security_dashboard, name='admin_v2_security'),
+    path('admin-v2/security/quarantine/', quarantine_management, name='admin_v2_quarantine'),
+    path('admin-v2/security/lockdown/', lockdown_control, name='admin_v2_lockdown'),
+    path('admin-v2/security/honeypot-logs/', honeypot_logs, name='admin_v2_honeypot_logs'),
+    path('admin-v2/security/notifications/', security_notifications_log, name='admin_v2_security_notifications'),
+
     path('admin-v2/logout/', admin_v2_logout, name='admin_v2_logout'),
 
     # Admin v2 - Management Pages
@@ -559,6 +575,8 @@ urlpatterns = [
 
     # Admin v2 - Security Alerts
     path('admin-v2/security/alerts/', manage_security_alerts, name='admin_v2_security_alerts'),
+    path('admin-v2/security/alerts/dismiss-all/', dismiss_all_alerts, name='admin_v2_dismiss_all_alerts'),
+    path('admin-v2/security/alerts/<int:alert_id>/dismiss/', dismiss_alert, name='admin_v2_dismiss_alert'),
 
     # Admin v2 - Two-Factor Authentication
     path('admin-v2/two-factor/', admin_v2_two_factor_dashboard, name='admin_v2_two_factor'),
@@ -662,6 +680,23 @@ urlpatterns = [
     path('api/slating/period/<int:period_id>/voting-status/', voting_status, name='slating_api_voting_status'),
     path('api/slating/period/<int:period_id>/field/<int:field_id>/toggle/', toggle_field_active, name='slating_api_toggle_field'),
     path('api/slating/period/<int:period_id>/position/<int:position_id>/toggle/', toggle_position_active, name='slating_api_toggle_position'),
+
+    # Honeypot (poison pill) endpoints - trap for attackers/scanners
+    # Any access to these endpoints triggers immediate IP ban and alert
+    path('wp-admin/', honeypot_wp_admin, name='honeypot_wp_admin'),
+    path('wp-admin/<path:path>', honeypot_wp_admin, name='honeypot_wp_admin_path'),
+    path('wp-login.php', honeypot_wp_login, name='honeypot_wp_login'),
+    path('phpmyadmin/', honeypot_phpmyadmin, name='honeypot_phpmyadmin'),
+    path('phpmyadmin/<path:path>', honeypot_phpmyadmin, name='honeypot_phpmyadmin_path'),
+    path('.env', honeypot_env, name='honeypot_env'),
+    path('admin/backup/', honeypot_admin_backup, name='honeypot_backup'),
+    path('api/v1/users/export/', honeypot_api_export, name='honeypot_api_export'),
+    path('xmlrpc.php', honeypot_xmlrpc, name='honeypot_xmlrpc'),
+    path('config.php', honeypot_config, name='honeypot_config'),
+    path('shell.php', honeypot_shell, name='honeypot_shell'),
+    path('install.php', honeypot_setup, name='honeypot_install'),
+    path('setup/', honeypot_setup, name='honeypot_setup'),
+    path('setup/<path:path>', honeypot_setup, name='honeypot_setup_path'),
 ]
 
 if settings.DEBUG:

@@ -6,6 +6,8 @@ from .performance import (
     clear_old_metrics,
 )
 from .maintenance import MaintenanceModeMiddleware
+from .session_tracking import SessionTrackingMiddleware
+from .lockdown import EmergencyLockdownMiddleware
 
 __all__ = [
     'PerformanceMiddleware',
@@ -14,4 +16,6 @@ __all__ = [
     'get_slow_requests',
     'clear_old_metrics',
     'MaintenanceModeMiddleware',
+    'SessionTrackingMiddleware',
+    'EmergencyLockdownMiddleware',
 ]

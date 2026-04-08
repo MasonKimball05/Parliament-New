@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Security Notifications - Admin v2{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Security Notification Log</h1>
+                <p class="text-gray-600 dark:text-gray-400">History of all security alerts and notifications</p>
+            </div>
+            <a href="{% url 'admin_v2_security' %}" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">Back to Security</a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <form method="get" class="flex flex-wrap gap-4 items-end">
+            <div class="min-w-[150px]">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Severity</label>
+                <select name="severity" class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    <option value="">All</option>
+                    <option value="critical" {% if severity_filter == 'critical' %}selected{% endif %}>Critical</option>
+                    <option value="high" {% if severity_filter == 'high' %}selected{% endif %}>High</option>
+                    <option value="medium" {% if severity_filter == 'medium' %}selected{% endif %}>Medium</option>
+                    <option value="low" {% if severity_filter == 'low' %}selected{% endif %}>Low</option>
+                </select>
+            </div>
+            <div class="min-w-[200px]">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Event Type</label>
+                <select name="event_type" class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    <option value="">All</option>
+                    {% for et in event_types %}
+                    <option value="{{ et }}" {% if event_filter == et %}selected{% endif %}>{{ et }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Filter</button>
+                <a href="{% url 'admin_v2_security_notifications' %}" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg">Clear</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Notifications -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Notifications</h2>
+        {% if notifications %}
+        <div class="space-y-3">
+            {% for n in notifications %}
+            <div class="border {% if n.severity == 'critical' %}border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20{% elif n.severity == 'high' %}border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-900/20{% elif n.severity == 'medium' %}border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/20{% else %}border-gray-200 dark:border-gray-700{% endif %} rounded-lg p-4">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 text-xs font-bold rounded {% if n.severity == 'critical' %}bg-red-600 text-white{% elif n.severity == 'high' %}bg-orange-500 text-white{% elif n.severity == 'medium' %}bg-yellow-500 text-white{% else %}bg-gray-500 text-white{% endif %}">
+                            {{ n.severity|upper }}
+                        </span>
+                        <span class="font-bold text-gray-900 dark:text-gray-100">{{ n.event_type }}</span>
+                        {% if n.email_sent %}
+                        <span class="px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded">Email Sent</span>
+                        {% endif %}
+                    </div>
+                    <span class="text-sm text-gray-500 dark:text-gray-400">{{ n.sent_at|date:"M d, Y H:i:s" }}</span>
+                </div>
+                <div class="text-sm text-gray-700 dark:text-gray-300 mb-2 whitespace-pre-wrap">{{ n.details }}</div>
+                <div class="flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-500">
+                    {% if n.ip_address %}
+                    <span>IP: {{ n.ip_address }}</span>
+                    {% endif %}
+                    {% if n.user %}
+                    <span>User: {{ n.user.name }}</span>
+                    {% endif %}
+                    {% if n.email_sent_to %}
+                    <span>Sent to: {{ n.email_sent_to }}</span>
+                    {% endif %}
+                    {% if n.email_error %}
+                    <span class="text-red-500">Email error: {{ n.email_error }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if notifications.has_other_pages %}
+        <div class="mt-4 flex justify-center gap-2">
+            {% if notifications.has_previous %}
+            <a href="?page={{ notifications.previous_page_number }}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if event_filter %}&event_type={{ event_filter }}{% endif %}" class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600">Previous</a>
+            {% endif %}
+            <span class="px-3 py-1 text-gray-600 dark:text-gray-400">Page {{ notifications.number }} of {{ notifications.paginator.num_pages }}</span>
+            {% if notifications.has_next %}
+            <a href="?page={{ notifications.next_page_number }}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if event_filter %}&event_type={{ event_filter }}{% endif %}" class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600">Next</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% else %}
+        <p class="text-gray-500 dark:text-gray-400">No security notifications recorded.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

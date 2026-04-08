@@ -391,6 +391,39 @@ class InputSanitizationMiddleware:
                     f"BLOCKING IP {ip_address}: {attack_count} attack attempts in 1 hour. "
                     f"Latest: {attack_type}"
                 )
+
+                # Send security alert for critical attack threshold
+                try:
+                    from src.security_notifications import alert_attack_blocked
+                    alert_attack_blocked(
+                        ip_address=ip_address,
+                        attack_count=attack_count,
+                        attack_type=attack_type,
+                        details=f"Payload: {attack_payload}"
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send attack alert: {e}")
+
+                # Auto-quarantine authenticated user if attacks persist
+                if request.user.is_authenticated and attack_count >= 20:
+                    try:
+                        from src.models import QuarantinedAccount
+                        from src.security_notifications import alert_account_quarantined
+                        if not request.user.is_quarantined:
+                            QuarantinedAccount.quarantine_user(
+                                user=request.user,
+                                ip_address=ip_address,
+                                reason=f"Auto-quarantined: {attack_count} attack attempts detected. Latest: {attack_type}"
+                            )
+                            alert_account_quarantined(
+                                user=request.user,
+                                ip_address=ip_address,
+                                reason=f"Automated quarantine due to {attack_count} attack attempts",
+                                is_auto=True
+                            )
+                    except Exception as e:
+                        logger.error(f"Failed to auto-quarantine user: {e}")
+
                 return HttpResponseForbidden(
                     '<html><body style="font-family: sans-serif; max-width: 600px; margin: 100px auto; padding: 20px;">'
                     '<h1 style="color: #dc2626;">Access Denied</h1>'

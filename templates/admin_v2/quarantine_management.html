@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Quarantine Management - Admin v2{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Quarantine Management</h1>
+                <p class="text-gray-600 dark:text-gray-400">Manage accounts that have been locked due to suspicious activity</p>
+            </div>
+            <a href="{% url 'admin_v2_security' %}" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">Back to Security</a>
+        </div>
+    </div>
+
+    <!-- Quarantine User Form -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Quarantine a User</h2>
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="quarantine_user">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select User</label>
+                    <select name="user_id" required class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                        <option value="">-- Select User --</option>
+                        {% for user in active_users %}
+                        <option value="{{ user.user_id }}">{{ user.name }} ({{ user.username }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">IP Address</label>
+                    <input type="text" name="ip_address" placeholder="0.0.0.0" class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                </div>
+                <div class="flex items-end">
+                    <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">Quarantine User</button>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Reason</label>
+                <textarea name="reason" rows="2" required placeholder="Explain why this account is being quarantined..." class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"></textarea>
+            </div>
+        </form>
+    </div>
+
+    <!-- Active Quarantines -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Active Quarantines ({{ active_quarantines.count }})</h2>
+        {% if active_quarantines %}
+        <div class="space-y-4">
+            {% for q in active_quarantines %}
+            <div class="border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+                        <span class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ q.user.name }}</span>
+                        <span class="text-gray-500 dark:text-gray-400">({{ q.user.username }})</span>
+                        <span class="ml-2 px-2 py-0.5 text-xs font-bold rounded {% if q.is_auto %}bg-amber-500{% else %}bg-blue-500{% endif %} text-white">
+                            {% if q.is_auto %}AUTO{% else %}MANUAL{% endif %}
+                        </span>
+                    </div>
+                    <span class="text-sm text-red-600 dark:text-red-400">{{ q.quarantined_at|date:"M d, Y H:i" }}</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                    <div>
+                        <span class="text-sm font-medium text-gray-600 dark:text-gray-400">IP Address:</span>
+                        <span class="text-sm text-gray-900 dark:text-gray-100">{{ q.ip_address }}</span>
+                    </div>
+                    <div>
+                        <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Quarantined By:</span>
+                        <span class="text-sm text-gray-900 dark:text-gray-100">{% if q.quarantined_by %}{{ q.quarantined_by.name }}{% else %}System (Auto){% endif %}</span>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Reason:</span>
+                    <p class="text-sm text-gray-900 dark:text-gray-100 mt-1">{{ q.reason }}</p>
+                </div>
+                <form method="post" class="border-t border-red-200 dark:border-red-800 pt-3 mt-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="release">
+                    <input type="hidden" name="quarantine_id" value="{{ q.id }}">
+                    <div class="flex items-end gap-3">
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Release Notes</label>
+                            <input type="text" name="release_notes" placeholder="Optional: Add notes about the release..." class="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
+                        </div>
+                        <button type="submit" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg whitespace-nowrap">Release Quarantine</button>
+                    </div>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-500 dark:text-gray-400">No accounts are currently quarantined.</p>
+        {% endif %}
+    </div>
+
+    <!-- Released Quarantines History -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Recently Released</h2>
+        {% if released_quarantines %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-200 dark:border-gray-700">
+                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">User</th>
+                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">Quarantined</th>
+                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">Released</th>
+                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">Released By</th>
+                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for q in released_quarantines %}
+                    <tr class="border-b border-gray-100 dark:border-gray-700/50">
+                        <td class="py-2 px-3 text-gray-900 dark:text-gray-100">{{ q.user.name }}</td>
+                        <td class="py-2 px-3 text-gray-600 dark:text-gray-400">{{ q.quarantined_at|date:"M d, H:i" }}</td>
+                        <td class="py-2 px-3 text-gray-600 dark:text-gray-400">{{ q.released_at|date:"M d, H:i" }}</td>
+                        <td class="py-2 px-3 text-gray-600 dark:text-gray-400">{% if q.released_by %}{{ q.released_by.name }}{% else %}System{% endif %}</td>
+                        <td class="py-2 px-3 text-gray-600 dark:text-gray-400">{{ q.reason|truncatechars:50 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-gray-500 dark:text-gray-400">No quarantine history.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
