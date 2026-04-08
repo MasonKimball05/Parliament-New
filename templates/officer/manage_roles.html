@@ -221,10 +221,19 @@
                             </label>
                         </div>
 
-                        <!-- Current Holders -->
-                        <div id="edit-role-holders-section" class="hidden">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Holders</label>
-                            <div id="edit-role-holders" class="text-sm text-gray-600 dark:text-gray-400 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"></div>
+                        <!-- Member Management -->
+                        <div class="border-t border-gray-200 dark:border-gray-600 pt-4">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Members in this Role</label>
+                            <div id="edit-role-holders" class="mb-3 flex flex-wrap gap-2 min-h-[2rem]">
+                                <span class="text-xs text-gray-400 dark:text-gray-500 italic">None</span>
+                            </div>
+                            <div id="edit-role-add-container" class="flex gap-2">
+                                <select id="edit-role-add-member" class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">— Add a member —</option>
+                                </select>
+                                <button type="button" onclick="assignMember()" class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg">Add</button>
+                            </div>
+                            <p id="edit-role-one-per-chapter-blocked" class="hidden text-xs text-amber-600 dark:text-amber-400 italic">This role is limited to one member per chapter. Remove the current holder before assigning someone new.</p>
                         </div>
                     </div>
 
@@ -354,33 +363,35 @@ async function submitAddRole(e) {
 }
 
 // Edit Role
+let currentRoleId = null;
+let currentRoleOnePerChapter = false;
+
 async function openEditRoleModal(roleId) {
+    currentRoleId = roleId;
     document.getElementById('edit-role-error').classList.add('hidden');
     document.getElementById('edit-role-submit').disabled = false;
     document.getElementById('edit-role-submit').textContent = 'Save Changes';
 
     try {
-        const response = await fetch(`/officers/roles/${roleId}/`);
-        const data = await response.json();
+        const [roleResp, membersResp] = await Promise.all([
+            fetch(`/officers/roles/${roleId}/`),
+            fetch(`/officers/roles/${roleId}/members/`),
+        ]);
+        const roleData = await roleResp.json();
+        const membersData = await membersResp.json();
 
-        if (data.success) {
-            const role = data.role;
+        if (roleData.success) {
+            const role = roleData.role;
             document.getElementById('edit-role-id').value = role.id;
             document.getElementById('edit-role-name').value = role.name;
             document.getElementById('edit-role-code').value = role.code;
             document.getElementById('edit-role-description').value = role.description || '';
             document.getElementById('edit-role-grants-admin').checked = role.grants_admin;
             document.getElementById('edit-role-one-per-chapter').checked = role.one_per_chapter;
+            currentRoleOnePerChapter = role.one_per_chapter;
 
-            // Show holders
-            const holdersSection = document.getElementById('edit-role-holders-section');
-            const holdersDiv = document.getElementById('edit-role-holders');
-            if (role.holders && role.holders.length > 0) {
-                holdersDiv.innerHTML = role.holders.map(h => `<span class="inline-block mr-2 mb-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-xs">${h.name}</span>`).join('');
-                holdersSection.classList.remove('hidden');
-            } else {
-                holdersSection.classList.add('hidden');
-            }
+            renderHolders(role.holders || []);
+            updateAddMemberUI(role.holders || [], membersData.members || []);
 
             document.getElementById('edit-role-modal').classList.remove('hidden');
         }
@@ -388,6 +399,87 @@ async function openEditRoleModal(roleId) {
         console.error('Failed to load role data:', error);
         alert('Failed to load role data. Please try again.');
     }
+}
+
+function renderHolders(holders) {
+    const div = document.getElementById('edit-role-holders');
+    if (holders.length === 0) {
+        div.innerHTML = '<span class="text-xs text-gray-400 dark:text-gray-500 italic">None</span>';
+    } else {
+        div.innerHTML = holders.map(h => `
+            <span class="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-xs">
+                ${h.name}
+                <button type="button" onclick="unassignMember('${h.user_id}', '${h.name.replace(/'/g, "\\'")}')"
+                    class="ml-1 text-blue-600 dark:text-blue-300 hover:text-red-600 dark:hover:text-red-400 font-bold leading-none"
+                    title="Remove from role">&times;</button>
+            </span>`).join('');
+    }
+}
+
+async function assignMember() {
+    const select = document.getElementById('edit-role-add-member');
+    const userId = select.value;
+    if (!userId) return;
+
+    const resp = await fetch(`/officers/roles/${currentRoleId}/assign/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ user_id: userId }),
+    });
+    const data = await resp.json();
+    if (data.success) {
+        await refreshRoleMembers();
+    } else {
+        document.getElementById('edit-role-error').textContent = data.error;
+        document.getElementById('edit-role-error').classList.remove('hidden');
+    }
+}
+
+async function unassignMember(userId, name) {
+    if (!confirm(`Remove ${name} from this role?`)) return;
+    const resp = await fetch(`/officers/roles/${currentRoleId}/unassign/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ user_id: userId }),
+    });
+    const data = await resp.json();
+    if (data.success) {
+        await refreshRoleMembers();
+    } else {
+        alert(data.error || 'Failed to remove member.');
+    }
+}
+
+function updateAddMemberUI(holders, availableMembers) {
+    const container = document.getElementById('edit-role-add-container');
+    const blocked = document.getElementById('edit-role-one-per-chapter-blocked');
+    const select = document.getElementById('edit-role-add-member');
+
+    if (currentRoleOnePerChapter && holders.length >= 1) {
+        container.classList.add('hidden');
+        blocked.classList.remove('hidden');
+    } else {
+        container.classList.remove('hidden');
+        blocked.classList.add('hidden');
+        select.innerHTML = '<option value="">— Add a member —</option>';
+        availableMembers.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.user_id;
+            opt.textContent = m.name;
+            select.appendChild(opt);
+        });
+    }
+}
+
+async function refreshRoleMembers() {
+    const [roleResp, membersResp] = await Promise.all([
+        fetch(`/officers/roles/${currentRoleId}/`),
+        fetch(`/officers/roles/${currentRoleId}/members/`),
+    ]);
+    const roleData = await roleResp.json();
+    const membersData = await membersResp.json();
+    renderHolders(roleData.role.holders || []);
+    updateAddMemberUI(roleData.role.holders || [], membersData.members || []);
 }
 
 function closeEditRoleModal() {

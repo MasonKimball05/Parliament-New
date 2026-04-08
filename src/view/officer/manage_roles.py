@@ -193,6 +193,79 @@ def add_role(request):
 @login_required
 @officer_required
 @require_POST
+def assign_role_member(request, role_id):
+    """Add a member to a role."""
+    role = get_object_or_404(Role, id=role_id)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+
+    user_id = data.get('user_id')
+    if not user_id:
+        return JsonResponse({'success': False, 'error': 'user_id required'}, status=400)
+
+    user = get_object_or_404(ParliamentUser, user_id=user_id)
+
+    if role.one_per_chapter and ParliamentUser.objects.filter(roles=role).exclude(user_id=user_id).exists():
+        return JsonResponse({'success': False, 'error': f'"{role.name}" can only have one holder. Remove the current holder first.'}, status=400)
+
+    user.roles.add(role)
+
+    ActivityLog.log_activity(
+        action_type='other',
+        user=request.user,
+        description=f'{request.user.get_display_name()} assigned {user.name} to role {role.name}',
+        request=request,
+    )
+
+    return JsonResponse({'success': True, 'message': f'{user.name} added to {role.name}.'})
+
+
+@login_required
+@officer_required
+@require_POST
+def unassign_role_member(request, role_id):
+    """Remove a member from a role."""
+    role = get_object_or_404(Role, id=role_id)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+
+    user_id = data.get('user_id')
+    if not user_id:
+        return JsonResponse({'success': False, 'error': 'user_id required'}, status=400)
+
+    user = get_object_or_404(ParliamentUser, user_id=user_id)
+    user.roles.remove(role)
+
+    ActivityLog.log_activity(
+        action_type='other',
+        user=request.user,
+        description=f'{request.user.get_display_name()} removed {user.name} from role {role.name}',
+        request=request,
+    )
+
+    return JsonResponse({'success': True, 'message': f'{user.name} removed from {role.name}.'})
+
+
+@login_required
+@officer_required
+def get_assignable_members(request, role_id):
+    """Return active members not already in this role."""
+    role = get_object_or_404(Role, id=role_id)
+    members = ParliamentUser.objects.filter(
+        member_status='Active'
+    ).exclude(
+        roles=role
+    ).order_by('name').values('user_id', 'name')
+    return JsonResponse({'success': True, 'members': list(members)})
+
+
+@login_required
+@officer_required
+@require_POST
 def delete_role(request, role_id):
     """Delete a role."""
     role = get_object_or_404(Role, id=role_id)

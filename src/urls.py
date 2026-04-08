@@ -79,7 +79,7 @@ from src.view.notification_admin import (
 )
 from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event
 from src.view.officer.manage_members import add_member, edit_member, delete_member, initiate_pledges, get_all_roles, sync_officer_admins, get_admin_roles
-from src.view.officer.manage_roles import manage_roles, role_detail, add_role, delete_role
+from src.view.officer.manage_roles import manage_roles, role_detail, add_role, delete_role, assign_role_member, unassign_role_member, get_assignable_members
 from src.view.home import home
 from src.view.vote_view import vote_view
 from src.view.two_factor import two_factor_setup, two_factor_qrcode, two_factor_verify, two_factor_disable, two_factor_dismiss
@@ -318,6 +318,9 @@ urlpatterns = [
     path('officers/roles/add/', add_role, name='add_role'),
     path('officers/roles/<int:role_id>/', role_detail, name='role_detail'),
     path('officers/roles/<int:role_id>/delete/', delete_role, name='delete_role'),
+    path('officers/roles/<int:role_id>/assign/', assign_role_member, name='assign_role_member'),
+    path('officers/roles/<int:role_id>/unassign/', unassign_role_member, name='unassign_role_member'),
+    path('officers/roles/<int:role_id>/members/', get_assignable_members, name='get_assignable_members'),
 
     # Announcement Management (Officer)
     path('officers/announcements/', manage_announcements, name='manage_announcements'),
