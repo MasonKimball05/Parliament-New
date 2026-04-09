@@ -34,6 +34,7 @@ def manage_roles(request):
     context = {
         'roles_data': roles_data,
         'total_roles': roles.count(),
+        'user_is_admin': request.user.is_admin,
     }
 
     return render(request, 'officer/manage_roles.html', context)
@@ -96,7 +97,7 @@ def role_detail(request, role_id):
             changes.append(f"one_per_chapter: {role.one_per_chapter} -> {new_val}")
             role.one_per_chapter = new_val
 
-    if 'grants_admin' in data:
+    if 'grants_admin' in data and request.user.is_admin:
         new_val = bool(data['grants_admin'])
         if new_val != role.grants_admin:
             changes.append(f"grants_admin: {role.grants_admin} -> {new_val}")
@@ -141,7 +142,8 @@ def add_role(request):
     code = data.get('code', '').upper().strip()
     description = data.get('description', '').strip()
     one_per_chapter = bool(data.get('one_per_chapter', False))
-    grants_admin = bool(data.get('grants_admin', False))
+    # Only admins may create roles that grant admin privileges
+    grants_admin = bool(data.get('grants_admin', False)) if request.user.is_admin else False
 
     if not name:
         return JsonResponse({'success': False, 'error': 'Role name is required.'}, status=400)

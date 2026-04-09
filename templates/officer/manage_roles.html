@@ -144,6 +144,7 @@
                             <textarea id="add-role-description" name="description" rows="2" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Optional description of this role"></textarea>
                         </div>
                         <div class="flex flex-col sm:flex-row gap-4">
+                            {% if user_is_admin %}
                             <label class="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition flex-1">
                                 <input type="checkbox" id="add-role-grants-admin" name="grants_admin" class="h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded">
                                 <div class="ml-3">
@@ -151,6 +152,7 @@
                                     <p class="text-xs text-gray-500 dark:text-gray-400">Users get admin privileges</p>
                                 </div>
                             </label>
+                            {% endif %}
                             <label class="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition flex-1">
                                 <input type="checkbox" id="add-role-one-per-chapter" name="one_per_chapter" class="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 dark:border-gray-600 rounded">
                                 <div class="ml-3">
@@ -205,6 +207,7 @@
                             <textarea id="edit-role-description" name="description" rows="2" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
                         </div>
                         <div class="flex flex-col sm:flex-row gap-4">
+                            {% if user_is_admin %}
                             <label class="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition flex-1">
                                 <input type="checkbox" id="edit-role-grants-admin" name="grants_admin" class="h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded">
                                 <div class="ml-3">
@@ -212,6 +215,7 @@
                                     <p class="text-xs text-gray-500 dark:text-gray-400">Users get admin privileges</p>
                                 </div>
                             </label>
+                            {% endif %}
                             <label class="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition flex-1">
                                 <input type="checkbox" id="edit-role-one-per-chapter" name="one_per_chapter" class="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 dark:border-gray-600 rounded">
                                 <div class="ml-3">
