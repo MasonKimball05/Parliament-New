@@ -178,3 +178,15 @@ def linkify(value, autoescape=True):
 
     # nosec B308 B703 - all text segments are escaped, URLs are escaped in href and display
     return mark_safe(''.join(result))
+
+
+@register.filter
+def country_flag(country_code):
+    """Convert a 2-letter ISO country code to its flag emoji (e.g. 'US' → '🇺🇸')."""
+    if not country_code or len(country_code) != 2:
+        return ''
+    code = country_code.upper()
+    try:
+        return ''.join(chr(0x1F1E6 + ord(c) - ord('A')) for c in code)
+    except Exception:
+        return ''

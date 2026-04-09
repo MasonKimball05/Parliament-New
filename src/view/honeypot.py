@@ -9,10 +9,27 @@ from django.core.cache import cache
 from django.conf import settings
 from src.models import HoneypotAccess
 from src.security_notifications import alert_honeypot_triggered
+from src.geo_utils import get_ip_geo
 import logging
 import json
+import threading
 
 logger = logging.getLogger('admin_actions')
+
+
+def lookup_geo(ip_address, record_id):
+    """
+    Look up geolocation and store it in the HoneypotAccess record's additional_data.
+    Runs in a background thread so it never blocks the response.
+    """
+    geo = get_ip_geo(ip_address)
+    result = geo if geo else {'geo_error': 'private IP or lookup failed'}
+    try:
+        record = HoneypotAccess.objects.get(id=record_id)
+        record.additional_data['geo'] = result
+        record.save(update_fields=['additional_data'])
+    except Exception as e:
+        logger.warning(f"Failed to save geo data for honeypot record {record_id}: {e}")
 
 # How long to ban an IP after honeypot access (seconds)
 HONEYPOT_BAN_DURATION = 24 * 60 * 60  # 24 hours
@@ -65,6 +82,13 @@ def log_and_block_honeypot_access(request, endpoint):
             }
         }
     )
+
+    # Kick off geolocation lookup in background (non-blocking)
+    threading.Thread(
+        target=lookup_geo,
+        args=(ip_address, honeypot_record.id),
+        daemon=True,
+    ).start()
 
     # Ban the IP
     ban_key = f'honeypot_ban_{ip_address}'

@@ -1,12 +1,13 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.messages import get_messages
-from ..models import IPBlacklist, UserSession
+from ..models import IPBlacklist, UserSession, LoginHistory, LoginAlert
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth import login, authenticate
 from django.utils import timezone
 from django.core.cache import cache
 from datetime import timedelta
+from src.geo_utils import is_foreign_ip
 import logging
 
 
@@ -166,18 +167,84 @@ def login_view(request):
                 # Create session record for session management
                 UserSession.create_or_update_session(user, request)
 
+                # --- Geo check ---
+                is_foreign, geo = is_foreign_ip(ip_address)
+                risk_factors = []
+                if is_foreign:
+                    risk_factors.append('non_us_location')
+
+                # Store geo + suspicion flag in session for middleware to read
+                request.session['login_geo'] = geo
+                request.session['login_geo_suspicious'] = is_foreign
+                if geo:
+                    request.session['login_geo_country'] = geo.get('country', '')
+                    request.session['login_geo_city'] = geo.get('city', '')
+
+                # Record LoginHistory
+                try:
+                    login_record = LoginHistory.objects.create(
+                        user=user,
+                        status='success',
+                        ip_address=ip_address,
+                        country=geo.get('country', '') if geo else '',
+                        city=geo.get('city', '') if geo else '',
+                        region=geo.get('region', '') if geo else '',
+                        latitude=geo.get('lat') if geo else None,
+                        longitude=geo.get('lon') if geo else None,
+                        user_agent=user_agent,
+                        is_suspicious=is_foreign,
+                        risk_level='medium' if is_foreign else 'low',
+                        risk_factors=risk_factors,
+                        alert_created=is_foreign,
+                    )
+                except Exception as e:
+                    login_record = None
+                    logging.getLogger('admin_actions').warning(f"Failed to create LoginHistory: {e}")
+
+                # Create LoginAlert for non-US logins
+                if is_foreign and geo:
+                    try:
+                        location_str = ', '.join(filter(None, [geo.get('city'), geo.get('region'), geo.get('country')]))
+                        LoginAlert.objects.create(
+                            user=user,
+                            login_history=login_record,
+                            alert_type='new_location',
+                            severity='medium',
+                            status='new',
+                            title=f'Non-US login: {user.name} from {geo.get("country", "Unknown")}',
+                            description=(
+                                f'{user.name} logged in from outside the United States.\n\n'
+                                f'Location: {location_str}\n'
+                                f'IP: {ip_address}\n'
+                                f'ISP: {geo.get("isp", "Unknown")}\n'
+                                f'Coordinates: {geo.get("lat")}, {geo.get("lon")}\n\n'
+                                f'The user has been flagged for this session. Sensitive data exports '
+                                f'are restricted until they log in from a US IP address.'
+                            ),
+                        )
+                    except Exception as e:
+                        logging.getLogger('admin_actions').warning(f"Failed to create LoginAlert: {e}")
+
                 # Log successful login with IP and user agent
                 logger = logging.getLogger('function_calls')
                 logger.info(
                     f"Successful login: {user.name} ({user.member_type}) (user_id={user.user_id}) "
                     f"from IP {ip_address}"
+                    + (f" [{geo.get('city')}, {geo.get('country')}]" if geo else "")
                 )
 
                 # Also log to admin_actions for security audit
                 security_logger = logging.getLogger('admin_actions')
-                security_logger.info(
-                    f"LOGIN SUCCESS: User '{username}' (ID: {user.user_id}) from IP {ip_address}"
-                )
+                if is_foreign:
+                    security_logger.warning(
+                        f"LOGIN SUCCESS (NON-US): User '{username}' (ID: {user.user_id}) from IP {ip_address} "
+                        f"- Location: {geo.get('city', '?')}, {geo.get('country', '?')} "
+                        f"(ISP: {geo.get('isp', '?')}). Session flagged as suspicious."
+                    )
+                else:
+                    security_logger.info(
+                        f"LOGIN SUCCESS: User '{username}' (ID: {user.user_id}) from IP {ip_address}"
+                    )
 
                 messages.success(request, f"Welcome, {user.get_display_name() if hasattr(user, 'get_display_name') else user.name}!")
 
