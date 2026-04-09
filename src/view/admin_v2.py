@@ -1933,13 +1933,19 @@ def honeypot_logs(request):
 
     from src.models import HoneypotAccess
     from django.core.paginator import Paginator
+    from django.db.models import Count
 
     logs = HoneypotAccess.objects.order_by('-accessed_at')
 
-    # Filter by endpoint if specified
+    # Filters
     endpoint_filter = request.GET.get('endpoint', '')
+    ip_filter = request.GET.get('ip', '')
     if endpoint_filter:
         logs = logs.filter(endpoint__icontains=endpoint_filter)
+    if ip_filter:
+        logs = logs.filter(ip_address=ip_filter)
+
+    total_filtered = logs.count()
 
     # Paginate
     paginator = Paginator(logs, 50)
@@ -1950,19 +1956,64 @@ def honeypot_logs(request):
     total_24h = HoneypotAccess.objects.filter(
         accessed_at__gte=timezone.now() - timedelta(hours=24)
     ).count()
+    total_all = HoneypotAccess.objects.count()
 
     # Most targeted endpoints
-    from django.db.models import Count
     top_endpoints = HoneypotAccess.objects.values('endpoint').annotate(
         count=Count('id')
     ).order_by('-count')[:10]
 
+    # Top attacking IPs
+    top_ips = HoneypotAccess.objects.values('ip_address').annotate(
+        count=Count('id')
+    ).order_by('-count')[:10]
+
+    # Currently blacklisted IPs (for showing block status per row)
+    blacklisted_ips = set(
+        IPBlacklist.objects.filter(is_active=True).values_list('ip_address', flat=True)
+    )
+
     return render(request, 'admin_v2/honeypot_logs.html', {
         'logs': page_obj,
         'endpoint_filter': endpoint_filter,
+        'ip_filter': ip_filter,
         'total_24h': total_24h,
+        'total_all': total_all,
+        'total_filtered': total_filtered,
         'top_endpoints': top_endpoints,
+        'top_ips': top_ips,
+        'blacklisted_ips': blacklisted_ips,
     })
+
+
+@require_admin_v2_auth
+@require_POST
+def delete_honeypot_log(request, log_id):
+    """Delete a single honeypot log entry."""
+    if not request.user.is_admin:
+        return JsonResponse({'success': False, 'error': 'Admin access required'}, status=403)
+    from src.models import HoneypotAccess
+    try:
+        entry = HoneypotAccess.objects.get(id=log_id)
+        entry.delete()
+        return JsonResponse({'success': True})
+    except HoneypotAccess.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Log not found'}, status=404)
+
+
+@require_admin_v2_auth
+@require_POST
+def clear_honeypot_logs(request):
+    """Bulk delete honeypot logs, optionally filtered by IP."""
+    if not request.user.is_admin:
+        return JsonResponse({'success': False, 'error': 'Admin access required'}, status=403)
+    from src.models import HoneypotAccess
+    ip_address = request.POST.get('ip_address', '').strip()
+    if ip_address:
+        deleted, _ = HoneypotAccess.objects.filter(ip_address=ip_address).delete()
+    else:
+        deleted, _ = HoneypotAccess.objects.all().delete()
+    return JsonResponse({'success': True, 'deleted': deleted})
 
 
 @require_admin_v2_auth

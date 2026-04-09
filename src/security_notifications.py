@@ -181,8 +181,17 @@ by an administrator in Admin-v2 > Security > Quarantine Management.
     )
 
 
-def alert_honeypot_triggered(endpoint, ip_address, user_agent):
-    """Send alert when a honeypot/poison pill endpoint is accessed."""
+def alert_honeypot_triggered(endpoint, ip_address, user_agent, escalate=False, escalation_reason=''):
+    """
+    Log a honeypot access attempt.
+
+    By default (escalate=False) this only writes to the DB — no email is sent.
+    The daily digest command (send_honeypot_digest) covers routine hits.
+
+    Set escalate=True for genuinely serious activity (e.g. same IP hitting
+    multiple honeypots, POST with credential-like payload). Those still fire
+    an immediate critical email.
+    """
     event_details = f"""
 A honeypot (trap) endpoint was accessed. This is suspicious activity
 that indicates potential scanning or attack reconnaissance.
@@ -196,12 +205,100 @@ This type of access is typically from automated scanners or
 attackers probing for vulnerabilities.
     """.strip()
 
+    if escalate and escalation_reason:
+        event_details += f"\n\nEscalation Reason:\n{escalation_reason}"
+
     return send_security_alert(
         event_type='HONEYPOT_TRIGGERED',
-        severity='critical',
+        severity='critical' if escalate else 'low',
         details=event_details,
-        ip_address=ip_address
+        ip_address=ip_address,
+        force_send=escalate,
     )
+
+
+def send_honeypot_digest(since=None):
+    """
+    Send a daily digest email summarising honeypot activity.
+    Called by the send_honeypot_digest management command.
+    Returns True if an email was sent, False otherwise.
+    """
+    from src.models import HoneypotAccess
+    from django.db.models import Count
+
+    if since is None:
+        since = timezone.now() - timezone.timedelta(hours=24)
+
+    hits = HoneypotAccess.objects.filter(accessed_at__gte=since)
+    total = hits.count()
+
+    if total == 0:
+        logger.info("Honeypot digest: no hits in last 24h, skipping email.")
+        return False
+
+    email_to = get_security_alert_email()
+    if not email_to:
+        logger.warning("Honeypot digest: no SECURITY_ALERT_EMAIL configured.")
+        return False
+
+    top_endpoints = (
+        hits.values('endpoint')
+        .annotate(count=Count('id'))
+        .order_by('-count')[:5]
+    )
+    top_ips = (
+        hits.values('ip_address')
+        .annotate(count=Count('id'))
+        .order_by('-count')[:5]
+    )
+
+    endpoint_lines = '\n'.join(
+        f"  {e['endpoint']} — {e['count']} hit{'s' if e['count'] != 1 else ''}"
+        for e in top_endpoints
+    )
+    ip_lines = '\n'.join(
+        f"  {e['ip_address']} — {e['count']} hit{'s' if e['count'] != 1 else ''}"
+        for e in top_ips
+    )
+
+    site_url = get_site_url()
+    subject = f"[Parliament] Honeypot Daily Digest — {total} hit{'s' if total != 1 else ''} in the last 24h"
+    message = f"""
+Parliament Honeypot Daily Digest
+{'=' * 60}
+
+Period: Last 24 hours (since {since.strftime('%Y-%m-%d %H:%M %Z')})
+Total hits: {total}
+
+Top Targeted Endpoints:
+{endpoint_lines}
+
+Top Attacking IPs:
+{ip_lines}
+
+All attempts were automatically blocked.
+View full logs: {site_url}/admin-v2/security/honeypot-logs/
+
+---
+Note: Only routine scanner/bot activity is included in this digest.
+Serious threats (coordinated multi-honeypot attacks, POST credential
+attempts from the same IP) are still emailed immediately.
+    """.strip()
+
+    try:
+        from django.core.mail import send_mail
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email_to],
+            fail_silently=False,
+        )
+        logger.info(f"Honeypot digest sent: {total} hits to {email_to}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send honeypot digest: {e}")
+        return False
 
 
 def alert_lockdown_activated(admin, reason):

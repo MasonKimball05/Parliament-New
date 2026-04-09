@@ -4,83 +4,241 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
+
+    <!-- Header -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Honeypot Logs</h1>
-                <p class="text-gray-600 dark:text-gray-400">Access attempts to trap endpoints - indicates potential attackers</p>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">Honeypot Logs</h1>
+                <p class="text-gray-600 dark:text-gray-400">Access attempts to trap endpoints — indicates potential attackers</p>
             </div>
-            <a href="{% url 'admin_v2_security' %}" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">Back to Security</a>
+            <div class="flex flex-wrap gap-2">
+                <button onclick="confirmClearAll()" class="px-4 py-2 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 rounded-lg text-sm font-medium">
+                    Clear All Logs
+                </button>
+                <a href="{% url 'admin_v2_security' %}" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg text-sm font-medium">
+                    Back to Security
+                </a>
+            </div>
         </div>
     </div>
 
     <!-- Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <div class="text-sm text-gray-500 dark:text-gray-400">Total Hits (24h)</div>
-            <div class="text-2xl font-bold text-amber-600">{{ total_24h }}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">Total (24h)</div>
+            <div class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ total_24h }}</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">Total All Time</div>
+            <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ total_all }}</div>
         </div>
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 col-span-2">
-            <div class="text-sm text-gray-500 dark:text-gray-400 mb-2">Most Targeted Endpoints</div>
-            <div class="flex flex-wrap gap-2">
+            <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">Most Targeted Endpoints</div>
+            <div class="flex flex-wrap gap-1">
                 {% for ep in top_endpoints|slice:":5" %}
-                <span class="px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 rounded text-sm">
+                <a href="?endpoint={{ ep.endpoint }}" class="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-200 rounded text-xs">
                     {{ ep.endpoint }} ({{ ep.count }})
-                </span>
+                </a>
                 {% endfor %}
             </div>
         </div>
     </div>
 
+    <!-- Top IPs -->
+    {% if top_ips %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Top Attacking IPs</h3>
+        <div class="flex flex-wrap gap-2">
+            {% for ip in top_ips %}
+            <div class="flex items-center gap-1 bg-gray-50 dark:bg-gray-700 rounded-lg px-2 py-1">
+                <a href="?ip={{ ip.ip_address }}" class="text-sm font-mono text-blue-600 dark:text-blue-400 hover:underline">{{ ip.ip_address }}</a>
+                <span class="text-xs text-gray-500 dark:text-gray-400">({{ ip.count }})</span>
+                {% if ip.ip_address in blacklisted_ips %}
+                <span class="text-xs text-red-600 dark:text-red-400 font-medium">blocked</span>
+                {% else %}
+                <form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}" class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="ip_address" value="{{ ip.ip_address }}">
+                    <input type="hidden" name="reason" value="Honeypot trigger — top attacking IP">
+                    <button type="submit" class="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-300 font-medium" onclick="return confirm('Block {{ ip.ip_address }}?')">block</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Filter -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-        <form method="get" class="flex flex-wrap gap-4 items-end">
-            <div class="flex-1 min-w-[200px]">
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Filter by Endpoint</label>
-                <input type="text" name="endpoint" value="{{ endpoint_filter }}" placeholder="e.g., wp-admin" class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
+        <form method="get" class="flex flex-wrap gap-3 items-end">
+            <div class="flex-1 min-w-[160px]">
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Endpoint</label>
+                <input type="text" name="endpoint" value="{{ endpoint_filter }}" placeholder="e.g., wp-admin"
+                    class="w-full px-3 py-2 text-sm border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600">
+            </div>
+            <div class="flex-1 min-w-[160px]">
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">IP Address</label>
+                <input type="text" name="ip" value="{{ ip_filter }}" placeholder="e.g., 1.2.3.4"
+                    class="w-full px-3 py-2 text-sm border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600">
             </div>
             <div class="flex gap-2">
-                <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Filter</button>
-                <a href="{% url 'admin_v2_honeypot_logs' %}" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg">Clear</a>
+                <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm">Filter</button>
+                <a href="{% url 'admin_v2_honeypot_logs' %}" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg text-sm">Clear</a>
             </div>
         </form>
+        {% if ip_filter or endpoint_filter %}
+        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            Showing {{ total_filtered }} result{{ total_filtered|pluralize }}
+            {% if ip_filter %}for IP <span class="font-mono font-medium">{{ ip_filter }}</span>{% endif %}
+            {% if endpoint_filter %}matching <span class="font-medium">{{ endpoint_filter }}</span>{% endif %}
+            {% if ip_filter and not blacklisted_ips|length == 0 %}
+                {% if ip_filter in blacklisted_ips %}
+                — <span class="text-red-600 dark:text-red-400 font-medium">This IP is currently blocked</span>
+                {% else %}
+                —
+                <form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}" class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="ip_address" value="{{ ip_filter }}">
+                    <input type="hidden" name="reason" value="Honeypot trigger">
+                    <button type="submit" class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200 font-medium underline" onclick="return confirm('Block {{ ip_filter }}?')">Block this IP</button>
+                </form>
+                {% endif %}
+            {% endif %}
+        </p>
+        {% if ip_filter %}
+        <div class="mt-2 flex gap-2">
+            <button onclick="confirmClearIP('{{ ip_filter }}')" class="text-xs px-3 py-1 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 rounded">
+                Delete all logs for this IP ({{ total_filtered }})
+            </button>
+        </div>
+        {% endif %}
+        {% endif %}
     </div>
 
-    <!-- Logs -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Access Attempts</h2>
+    <!-- Logs Table -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">Access Attempts</h2>
+            <span class="text-sm text-gray-500 dark:text-gray-400">Click any row to expand details</span>
+        </div>
+
         {% if logs %}
         <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="border-b border-gray-200 dark:border-gray-700">
-                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">Time</th>
-                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">Endpoint</th>
-                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">IP Address</th>
-                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">Method</th>
-                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">Action</th>
-                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">User Agent</th>
+            <table class="w-full text-sm" id="honeypot-table">
+                <thead class="bg-gray-50 dark:bg-gray-700/50">
+                    <tr>
+                        <th class="text-left py-2 px-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Time</th>
+                        <th class="text-left py-2 px-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Endpoint</th>
+                        <th class="text-left py-2 px-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">IP Address</th>
+                        <th class="text-left py-2 px-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Method</th>
+                        <th class="text-left py-2 px-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Action</th>
+                        <th class="text-left py-2 px-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">User Agent</th>
+                        <th class="text-left py-2 px-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="honeypot-tbody">
                     {% for log in logs %}
-                    <tr class="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                        <td class="py-2 px-3 text-gray-900 dark:text-gray-100 whitespace-nowrap">{{ log.accessed_at|date:"M d, H:i:s" }}</td>
+                    <!-- Main row -->
+                    <tr class="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer"
+                        onclick="toggleDetail('detail-{{ log.id }}')" id="row-{{ log.id }}">
+                        <td class="py-2 px-3 text-gray-900 dark:text-gray-100 whitespace-nowrap text-xs">{{ log.accessed_at|date:"M d, H:i:s" }}</td>
                         <td class="py-2 px-3">
-                            <code class="text-amber-600 dark:text-amber-400">{{ log.endpoint }}</code>
+                            <code class="text-amber-600 dark:text-amber-400 text-xs">{{ log.endpoint }}</code>
                         </td>
-                        <td class="py-2 px-3 text-gray-900 dark:text-gray-100">{{ log.ip_address }}</td>
                         <td class="py-2 px-3">
-                            <span class="px-2 py-0.5 text-xs font-bold rounded {% if log.request_method == 'POST' %}bg-red-500{% else %}bg-blue-500{% endif %} text-white">
+                            <a href="?ip={{ log.ip_address }}" class="font-mono text-blue-600 dark:text-blue-400 hover:underline text-xs" onclick="event.stopPropagation()">{{ log.ip_address }}</a>
+                            {% if log.ip_address in blacklisted_ips %}
+                            <span class="ml-1 px-1 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs rounded">blocked</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-2 px-3">
+                            <span class="px-1.5 py-0.5 text-xs font-bold rounded {% if log.request_method == 'POST' %}bg-red-500{% else %}bg-blue-500{% endif %} text-white">
                                 {{ log.request_method }}
                             </span>
                         </td>
                         <td class="py-2 px-3">
-                            <span class="px-2 py-0.5 text-xs rounded {% if log.action_taken == 'blocked' %}bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200{% else %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200{% endif %}">
+                            <span class="px-1.5 py-0.5 text-xs rounded
+                                {% if log.action_taken == 'blocked' %}bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200
+                                {% elif log.action_taken == 'alerted' %}bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200
+                                {% else %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200{% endif %}">
                                 {{ log.action_taken }}
                             </span>
                         </td>
-                        <td class="py-2 px-3 text-gray-600 dark:text-gray-400 max-w-xs truncate" title="{{ log.user_agent }}">{{ log.user_agent|truncatechars:50 }}</td>
+                        <td class="py-2 px-3 text-gray-500 dark:text-gray-400 text-xs max-w-[200px]">
+                            <span class="truncate block">{{ log.user_agent|truncatechars:45 }}</span>
+                        </td>
+                        <td class="py-2 px-3" onclick="event.stopPropagation()">
+                            <div class="flex items-center gap-1">
+                                {% if log.ip_address not in blacklisted_ips %}
+                                <form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="ip_address" value="{{ log.ip_address }}">
+                                    <input type="hidden" name="reason" value="Honeypot trigger: {{ log.endpoint }}">
+                                    <button type="submit" title="Block IP" onclick="return confirm('Block {{ log.ip_address }}?')"
+                                        class="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded" title="Block IP">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                                        </svg>
+                                    </button>
+                                </form>
+                                {% else %}
+                                <span class="p-1 text-gray-400 dark:text-gray-600" title="IP already blocked">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </span>
+                                {% endif %}
+                                <button type="button" title="Delete log" onclick="deleteLog({{ log.id }}, this)"
+                                    class="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <!-- Detail row (hidden by default) -->
+                    <tr id="detail-{{ log.id }}" class="hidden bg-gray-50 dark:bg-gray-700/20 border-b border-gray-200 dark:border-gray-700">
+                        <td colspan="7" class="px-6 py-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Full User Agent</div>
+                                    <p class="text-gray-800 dark:text-gray-200 font-mono text-xs break-all bg-white dark:bg-gray-800 rounded p-2 border border-gray-200 dark:border-gray-700">
+                                        {% if log.user_agent %}{{ log.user_agent }}{% else %}<span class="text-gray-400 italic">Not provided</span>{% endif %}
+                                    </p>
+                                </div>
+                                <div class="space-y-3">
+                                    {% if log.referer %}
+                                    <div>
+                                        <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Referer</div>
+                                        <p class="text-gray-800 dark:text-gray-200 font-mono text-xs break-all bg-white dark:bg-gray-800 rounded p-2 border border-gray-200 dark:border-gray-700">{{ log.referer }}</p>
+                                    </div>
+                                    {% endif %}
+                                    {% if log.request_body %}
+                                    <div>
+                                        <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Request Body</div>
+                                        <pre class="text-gray-800 dark:text-gray-200 font-mono text-xs break-all bg-white dark:bg-gray-800 rounded p-2 border border-gray-200 dark:border-gray-700 overflow-x-auto">{{ log.request_body }}</pre>
+                                    </div>
+                                    {% endif %}
+                                    {% if log.additional_data %}
+                                    <div>
+                                        <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Additional Data</div>
+                                        <pre class="text-gray-800 dark:text-gray-200 font-mono text-xs break-all bg-white dark:bg-gray-800 rounded p-2 border border-gray-200 dark:border-gray-700 overflow-x-auto">{{ log.additional_data }}</pre>
+                                    </div>
+                                    {% endif %}
+                                    <div class="flex flex-wrap gap-2 pt-1">
+                                        <a href="?ip={{ log.ip_address }}" class="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50">
+                                            All logs from this IP
+                                        </a>
+                                        <a href="?endpoint={{ log.endpoint }}" class="text-xs px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded hover:bg-amber-200 dark:hover:bg-amber-900/50">
+                                            All logs for this endpoint
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -89,30 +247,89 @@
 
         <!-- Pagination -->
         {% if logs.has_other_pages %}
-        <div class="mt-4 flex justify-center gap-2">
+        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-center gap-2">
             {% if logs.has_previous %}
-            <a href="?page={{ logs.previous_page_number }}{% if endpoint_filter %}&endpoint={{ endpoint_filter }}{% endif %}" class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600">Previous</a>
+            <a href="?page={{ logs.previous_page_number }}{% if endpoint_filter %}&endpoint={{ endpoint_filter }}{% endif %}{% if ip_filter %}&ip={{ ip_filter }}{% endif %}"
+               class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-sm">Previous</a>
             {% endif %}
-            <span class="px-3 py-1 text-gray-600 dark:text-gray-400">Page {{ logs.number }} of {{ logs.paginator.num_pages }}</span>
+            <span class="px-3 py-1 text-gray-600 dark:text-gray-400 text-sm">Page {{ logs.number }} of {{ logs.paginator.num_pages }}</span>
             {% if logs.has_next %}
-            <a href="?page={{ logs.next_page_number }}{% if endpoint_filter %}&endpoint={{ endpoint_filter }}{% endif %}" class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600">Next</a>
+            <a href="?page={{ logs.next_page_number }}{% if endpoint_filter %}&endpoint={{ endpoint_filter }}{% endif %}{% if ip_filter %}&ip={{ ip_filter }}{% endif %}"
+               class="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-sm">Next</a>
             {% endif %}
         </div>
         {% endif %}
 
         {% else %}
-        <p class="text-gray-500 dark:text-gray-400">No honeypot access attempts recorded.</p>
+        <div class="p-12 text-center text-gray-500 dark:text-gray-400">
+            <svg class="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+            No honeypot access attempts recorded{% if endpoint_filter or ip_filter %} matching your filter{% endif %}.
+        </div>
         {% endif %}
     </div>
 
     <!-- Info -->
-    <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-6 mt-6">
-        <h3 class="font-bold text-purple-800 dark:text-purple-300 mb-2">About Honeypots</h3>
+    <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-5 mt-6">
+        <h3 class="font-bold text-purple-800 dark:text-purple-300 mb-1">About Honeypots</h3>
         <p class="text-sm text-purple-700 dark:text-purple-400">
             Honeypot endpoints are fake URLs that legitimate users would never access. They mimic common attack targets
             (like WordPress admin, phpMyAdmin, etc.). Any access to these endpoints is suspicious and triggers an
-            automatic IP ban and security alert. This helps identify and block attackers before they can find real vulnerabilities.
+            automatic IP ban and security alert.
         </p>
     </div>
+
+    <!-- Hidden clear-all form -->
+    <form id="clear-all-form" method="post" action="{% url 'admin_v2_clear_honeypot_logs' %}" class="hidden">
+        {% csrf_token %}
+    </form>
+    <form id="clear-ip-form" method="post" action="{% url 'admin_v2_clear_honeypot_logs' %}" class="hidden">
+        {% csrf_token %}
+        <input type="hidden" name="ip_address" id="clear-ip-value">
+    </form>
 </div>
+
+{% block extra_js %}
+<script>
+function toggleDetail(id) {
+    const row = document.getElementById(id);
+    if (row) row.classList.toggle('hidden');
+}
+
+function deleteLog(logId, btn) {
+    if (!confirm('Delete this log entry?')) return;
+    fetch(`/admin-v2/security/honeypot-logs/${logId}/delete/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const mainRow = document.getElementById(`row-${logId}`);
+            const detailRow = document.getElementById(`detail-${logId}`);
+            if (mainRow) mainRow.remove();
+            if (detailRow) detailRow.remove();
+        } else {
+            alert('Failed to delete: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(() => alert('Request failed'));
+}
+
+function confirmClearAll() {
+    if (!confirm('Delete ALL honeypot logs? This cannot be undone.')) return;
+    document.getElementById('clear-all-form').submit();
+}
+
+function confirmClearIP(ip) {
+    if (!confirm(`Delete all logs for IP ${ip}? This cannot be undone.`)) return;
+    document.getElementById('clear-ip-value').value = ip;
+    document.getElementById('clear-ip-form').submit();
+}
+</script>
+{% endblock %}
 {% endblock %}

@@ -3,121 +3,116 @@
 {% block title %}Kai Dashboard{% endblock %}
 
 {% block content %}
-<div class="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 -m-8 p-8 min-h-screen transition-colors duration-200">
-  <div class="max-w-7xl mx-auto">
+<div class="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 min-h-screen transition-colors duration-200">
+  <div class="max-w-7xl mx-auto px-4 py-6">
+
     <!-- Header -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 transition-colors duration-200">
-      <div class="flex justify-between items-center">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6 transition-colors duration-200">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Kai Committee Dashboard</h1>
-          <p class="text-gray-600 dark:text-gray-400 mt-1">Analytics and insights for Kai reports</p>
+          <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">Kai Committee Dashboard</h1>
+          <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm">Analytics and insights for Kai reports</p>
         </div>
-        <div class="flex gap-3">
-          <a href="{% url 'kai_form_builder' %}" class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold shadow" title="Customize form fields">
+        <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:gap-3">
+          <a href="{% url 'kai_form_builder' %}" class="px-3 py-2 sm:px-6 sm:py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold shadow text-center text-sm sm:text-base">
             Form Builder
           </a>
-          <a href="{% url 'manage_kai_templates' %}" class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold shadow" title="Manage text templates">
+          <a href="{% url 'manage_kai_templates' %}" class="px-3 py-2 sm:px-6 sm:py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold shadow text-center text-sm sm:text-base">
             Templates
           </a>
-          <a href="{% url 'view_kai_reports' %}" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold shadow">
-            View All Reports
+          <a href="{% url 'view_kai_reports' %}" class="px-3 py-2 sm:px-6 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold shadow text-center text-sm sm:text-base">
+            All Reports
           </a>
-          <a href="{% url 'submit_kai_report' %}" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold shadow">
-            + Submit Report
+          <a href="{% url 'submit_kai_report' %}" class="px-3 py-2 sm:px-6 sm:py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold shadow text-center text-sm sm:text-base">
+            + Submit
           </a>
         </div>
       </div>
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-      <!-- Total Reports -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors duration-200">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Reports</p>
-            <p class="text-3xl font-bold text-gray-800 dark:text-gray-100 mt-1">{{ total_reports }}</p>
+            <p class="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Total</p>
+            <p class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 mt-1">{{ total_reports }}</p>
           </div>
-          <div class="bg-blue-100 dark:bg-blue-900/50 rounded-full p-3">
-            <svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="bg-blue-100 dark:bg-blue-900/50 rounded-full p-2 sm:p-3">
+            <svg class="w-5 h-5 sm:w-8 sm:h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
             </svg>
           </div>
         </div>
       </div>
 
-      <!-- Pending Reports -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors duration-200">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Pending</p>
-            <p class="text-3xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">{{ pending_count }}</p>
+            <p class="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Pending</p>
+            <p class="text-2xl sm:text-3xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">{{ pending_count }}</p>
           </div>
-          <div class="bg-yellow-100 dark:bg-yellow-900/50 rounded-full p-3">
-            <svg class="w-8 h-8 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="bg-yellow-100 dark:bg-yellow-900/50 rounded-full p-2 sm:p-3">
+            <svg class="w-5 h-5 sm:w-8 sm:h-8 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
           </div>
         </div>
-        <a href="{% url 'view_kai_reports' %}?status=pending" class="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 mt-2 inline-block">View pending →</a>
+        <a href="{% url 'view_kai_reports' %}?status=pending" class="text-xs sm:text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 mt-2 inline-block">View →</a>
       </div>
 
-      <!-- Reviewed Reports -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors duration-200">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Reviewed</p>
-            <p class="text-3xl font-bold text-green-600 dark:text-green-400 mt-1">{{ reviewed_count }}</p>
+            <p class="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Reviewed</p>
+            <p class="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400 mt-1">{{ reviewed_count }}</p>
           </div>
-          <div class="bg-green-100 dark:bg-green-900/50 rounded-full p-3">
-            <svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="bg-green-100 dark:bg-green-900/50 rounded-full p-2 sm:p-3">
+            <svg class="w-5 h-5 sm:w-8 sm:h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
           </div>
         </div>
-        <a href="{% url 'view_kai_reports' %}?status=reviewed" class="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 mt-2 inline-block">View reviewed →</a>
+        <a href="{% url 'view_kai_reports' %}?status=reviewed" class="text-xs sm:text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 mt-2 inline-block">View →</a>
       </div>
 
-      <!-- Archived Reports -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors duration-200">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Archived</p>
-            <p class="text-3xl font-bold text-gray-600 dark:text-gray-400 mt-1">{{ archived_count }}</p>
+            <p class="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Archived</p>
+            <p class="text-2xl sm:text-3xl font-bold text-gray-600 dark:text-gray-400 mt-1">{{ archived_count }}</p>
           </div>
-          <div class="bg-gray-100 dark:bg-gray-700 rounded-full p-3">
-            <svg class="w-8 h-8 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="bg-gray-100 dark:bg-gray-700 rounded-full p-2 sm:p-3">
+            <svg class="w-5 h-5 sm:w-8 sm:h-8 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
             </svg>
           </div>
         </div>
-        <a href="{% url 'view_kai_reports' %}?status=archived" class="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 mt-2 inline-block">View archived →</a>
+        <a href="{% url 'view_kai_reports' %}?status=archived" class="text-xs sm:text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 mt-2 inline-block">View →</a>
       </div>
     </div>
 
     <!-- Charts Row -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-      <!-- Category Distribution -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors duration-200">
-        <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Reports by Category</h2>
-        <div style="height: 300px; max-height: 300px;">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 transition-colors duration-200">
+        <h2 class="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Reports by Category</h2>
+        <div class="relative w-full" style="height: 260px;">
           <canvas id="categoryChart"></canvas>
         </div>
       </div>
 
-      <!-- Monthly Trends -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors duration-200">
-        <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Submission Trends (Last 6 Months)</h2>
-        <div style="height: 300px; max-height: 300px;">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 transition-colors duration-200">
+        <h2 class="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Submission Trends (Last 6 Months)</h2>
+        <div class="relative w-full" style="height: 260px;">
           <canvas id="monthlyChart"></canvas>
         </div>
       </div>
     </div>
 
     <!-- Deliberation Outcomes -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 transition-colors duration-200">
-      <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Deliberation Outcomes</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6 transition-colors duration-200">
+      <h2 class="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Deliberation Outcomes</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <div class="p-4 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg border border-yellow-200 dark:border-yellow-700">
           <p class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Pending Deliberation</p>
           <p class="text-2xl font-bold text-yellow-900 dark:text-yellow-100 mt-1">{{ outcome_pending }}</p>
@@ -136,9 +131,9 @@
     <!-- Bottom Row: Recent Activity and Recent Reports -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- Recent Activity -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors duration-200">
-        <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center">
-          <svg class="w-6 h-6 mr-2 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 transition-colors duration-200">
+        <h2 class="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center">
+          <svg class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-gray-600 dark:text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
           Recent Activity
@@ -170,9 +165,9 @@
       </div>
 
       <!-- Recent Reports -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors duration-200">
-        <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center">
-          <svg class="w-6 h-6 mr-2 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 transition-colors duration-200">
+        <h2 class="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center">
+          <svg class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-gray-600 dark:text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
           </svg>
           Recent Reports
@@ -182,18 +177,17 @@
         <div class="space-y-3 max-h-96 overflow-y-auto">
           {% for report in recent_reports %}
           <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-            <div class="flex items-start justify-between">
+            <div class="flex items-start justify-between gap-2">
               <div class="flex-1 min-w-0">
-                <a href="{% url 'manage_kai_report' report.id %}" class="text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 truncate block">
+                <a href="{% url 'manage_kai_report' report.id %}" class="text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 block truncate">
                   {{ report.title }}
                 </a>
-                <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  By {{ report.submitted_by.name }}
-                  {% if report.targeted_to %}→ {{ report.targeted_to.name }}{% endif %}
+                <p class="text-xs text-gray-600 dark:text-gray-400 mt-1 truncate">
+                  By {{ report.submitted_by.name }}{% if report.targeted_to %} → {{ report.targeted_to.name }}{% endif %}
                 </p>
                 <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ report.submitted_at|date:"M d, Y" }}</p>
               </div>
-              <span class="ml-2 px-2 py-1 rounded text-xs font-semibold whitespace-nowrap
+              <span class="flex-shrink-0 px-2 py-1 rounded text-xs font-semibold
                 {% if report.status == 'pending' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-200
                 {% elif report.status == 'reviewed' %}bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200
                 {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200{% endif %}">
@@ -211,99 +205,70 @@
         {% endif %}
       </div>
     </div>
+
   </div>
 </div>
 
-<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-
 <script>
-  // Category Chart
+  const isDark = document.documentElement.classList.contains('dark');
+  const tickColor = isDark ? '#9ca3af' : '#6b7280';
+  const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+
+  const sharedScales = {
+    x: { ticks: { color: tickColor, maxRotation: 30 }, grid: { color: gridColor } },
+    y: { beginAtZero: true, ticks: { stepSize: 1, color: tickColor }, grid: { color: gridColor } },
+  };
+
   const categoryData = {{ category_data|safe }};
-  const categoryCtx = document.getElementById('categoryChart').getContext('2d');
-  new Chart(categoryCtx, {
+  new Chart(document.getElementById('categoryChart').getContext('2d'), {
     type: 'bar',
     data: {
       labels: Object.keys(categoryData),
       datasets: [{
-        label: 'Number of Reports',
+        label: 'Reports',
         data: Object.values(categoryData),
         backgroundColor: [
-          'rgba(59, 130, 246, 0.8)',
-          'rgba(16, 185, 129, 0.8)',
-          'rgba(245, 158, 11, 0.8)',
-          'rgba(239, 68, 68, 0.8)',
-          'rgba(139, 92, 246, 0.8)',
-          'rgba(107, 114, 128, 0.8)',
+          'rgba(59,130,246,0.8)', 'rgba(16,185,129,0.8)', 'rgba(245,158,11,0.8)',
+          'rgba(239,68,68,0.8)', 'rgba(139,92,246,0.8)', 'rgba(107,114,128,0.8)',
         ],
-        borderColor: [
-          'rgb(59, 130, 246)',
-          'rgb(16, 185, 129)',
-          'rgb(245, 158, 11)',
-          'rgb(239, 68, 68)',
-          'rgb(139, 92, 246)',
-          'rgb(107, 114, 128)',
-        ],
-        borderWidth: 2
+        borderWidth: 0,
+        borderRadius: 4,
       }]
     },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
-      plugins: {
-        legend: {
-          display: false
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
-            stepSize: 1
-          }
-        }
-      }
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: sharedScales,
     }
   });
 
-  // Monthly Trends Chart
   const monthlyData = {{ monthly_data|safe }};
-  const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
-  new Chart(monthlyCtx, {
+  new Chart(document.getElementById('monthlyChart').getContext('2d'), {
     type: 'line',
     data: {
       labels: Object.keys(monthlyData),
       datasets: [{
         label: 'Reports Submitted',
         data: Object.values(monthlyData),
-        borderColor: 'rgb(59, 130, 246)',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderColor: 'rgb(59,130,246)',
+        backgroundColor: 'rgba(59,130,246,0.1)',
         borderWidth: 3,
         fill: true,
         tension: 0.4,
         pointRadius: 5,
-        pointBackgroundColor: 'rgb(59, 130, 246)',
+        pointBackgroundColor: 'rgb(59,130,246)',
         pointBorderColor: '#fff',
         pointBorderWidth: 2,
-        pointHoverRadius: 7
+        pointHoverRadius: 7,
       }]
     },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
-      plugins: {
-        legend: {
-          display: false
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
-            stepSize: 1
-          }
-        }
-      }
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: sharedScales,
     }
   });
 </script>

@@ -82,8 +82,31 @@ def log_and_block_honeypot_access(request, endpoint):
         f"IP banned for {HONEYPOT_BAN_DURATION // 3600} hours."
     )
 
-    # Send security alert
-    alert_honeypot_triggered(endpoint, ip_address, user_agent)
+    # Determine if this hit warrants immediate escalation.
+    # Routine scanner hits just get logged; the daily digest covers those.
+    escalate = False
+    escalation_reason = ''
+
+    # Escalate if this IP has hit multiple distinct honeypots within the last hour
+    from django.utils import timezone as tz
+    recent_distinct = (
+        HoneypotAccess.objects
+        .filter(ip_address=ip_address, accessed_at__gte=tz.now() - tz.timedelta(hours=1))
+        .values('endpoint')
+        .distinct()
+        .count()
+    )
+    if recent_distinct >= 3:
+        escalate = True
+        escalation_reason = f"IP hit {recent_distinct} distinct honeypot endpoints in the last hour — coordinated recon."
+
+    # Escalate POST requests that include form field data (credential probing)
+    if not escalate and request.method == 'POST' and request.POST:
+        escalate = True
+        escalation_reason = f"POST request with form data submitted to honeypot ({endpoint}). Fields: {list(request.POST.keys())}"
+
+    # Send security alert (immediate email only if escalated, otherwise logs-only)
+    alert_honeypot_triggered(endpoint, ip_address, user_agent, escalate=escalate, escalation_reason=escalation_reason)
 
     # Return a convincing fake response based on endpoint
     return get_fake_response(endpoint)

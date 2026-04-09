@@ -69,7 +69,8 @@ from src.view.admin_v2 import (
     email_logs, email_log_detail, send_scheduled_announcement_email,
     security_dashboard, quarantine_management, lockdown_control,
     honeypot_logs, security_notifications_log,
-    dismiss_alert, dismiss_all_alerts
+    dismiss_alert, dismiss_all_alerts,
+    delete_honeypot_log, clear_honeypot_logs,
 )
 from src.view.admin_v2 import manage_events as admin_v2_manage_events, delete_event as admin_v2_delete_event
 from src.view.notification_admin import (
@@ -545,6 +546,8 @@ urlpatterns = [
     path('admin-v2/security/quarantine/', quarantine_management, name='admin_v2_quarantine'),
     path('admin-v2/security/lockdown/', lockdown_control, name='admin_v2_lockdown'),
     path('admin-v2/security/honeypot-logs/', honeypot_logs, name='admin_v2_honeypot_logs'),
+    path('admin-v2/security/honeypot-logs/<int:log_id>/delete/', delete_honeypot_log, name='admin_v2_delete_honeypot_log'),
+    path('admin-v2/security/honeypot-logs/clear/', clear_honeypot_logs, name='admin_v2_clear_honeypot_logs'),
     path('admin-v2/security/notifications/', security_notifications_log, name='admin_v2_security_notifications'),
 
     path('admin-v2/logout/', admin_v2_logout, name='admin_v2_logout'),
