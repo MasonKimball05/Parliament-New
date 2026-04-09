@@ -114,16 +114,18 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
             </div>
-            <div x-show="expanded" x-collapse class="p-4 space-y-2">
-                <!-- Alert breakdown -->
-                {% if stats.security.new_login_alerts or stats.security.quarantined_accounts or stats.security.honeypot_24h or stats.security.critical_notifications %}
+            <div x-show="expanded" class="p-4 space-y-2">
+                <!-- Dismissible alerts (login alerts + quarantined accounts) -->
+                {% if stats.security.new_login_alerts or stats.security.quarantined_accounts %}
                 <div class="mb-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                     <div class="flex items-center justify-between mb-2">
-                        <p class="text-xs font-semibold text-red-700 dark:text-red-300 uppercase">Active Alerts</p>
+                        <p class="text-xs font-semibold text-red-700 dark:text-red-300 uppercase">Needs Attention</p>
+                        {% if stats.security.new_login_alerts %}
                         <button type="button" onclick="event.stopPropagation(); dismissAllAlerts(this)"
                             class="text-xs px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded">
-                            Dismiss All
+                            Dismiss Alerts
                         </button>
+                        {% endif %}
                     </div>
                     {% if stats.security.new_login_alerts %}
                     <div class="flex items-center justify-between text-sm mb-1">
@@ -132,21 +134,27 @@
                     </div>
                     {% endif %}
                     {% if stats.security.quarantined_accounts %}
-                    <div class="flex items-center justify-between text-sm mb-1">
+                    <div class="flex items-center justify-between text-sm">
                         <span class="text-red-700 dark:text-red-300">Quarantined accounts</span>
                         <span class="font-bold text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/50 px-2 py-0.5 rounded">{{ stats.security.quarantined_accounts }}</span>
                     </div>
                     {% endif %}
+                </div>
+                {% endif %}
+                <!-- Informational activity (not dismissible) -->
+                {% if stats.security.honeypot_24h or stats.security.critical_notifications %}
+                <div class="mb-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <p class="text-xs font-semibold text-amber-700 dark:text-amber-300 uppercase mb-2">Activity (24h)</p>
                     {% if stats.security.honeypot_24h %}
                     <div class="flex items-center justify-between text-sm mb-1">
-                        <span class="text-red-700 dark:text-red-300">Honeypot hits (24h)</span>
-                        <span class="font-bold text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/50 px-2 py-0.5 rounded">{{ stats.security.honeypot_24h }}</span>
+                        <span class="text-amber-700 dark:text-amber-300">Honeypot hits</span>
+                        <span class="font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/50 px-2 py-0.5 rounded">{{ stats.security.honeypot_24h }}</span>
                     </div>
                     {% endif %}
                     {% if stats.security.critical_notifications %}
                     <div class="flex items-center justify-between text-sm">
-                        <span class="text-red-700 dark:text-red-300">High/critical alerts (24h)</span>
-                        <span class="font-bold text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/50 px-2 py-0.5 rounded">{{ stats.security.critical_notifications }}</span>
+                        <span class="text-amber-700 dark:text-amber-300">High/critical notifications</span>
+                        <span class="font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/50 px-2 py-0.5 rounded">{{ stats.security.critical_notifications }}</span>
                     </div>
                     {% endif %}
                 </div>
@@ -197,7 +205,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
             </div>
-            <div x-show="expanded" x-collapse class="p-4">
+            <div x-show="expanded" class="p-4">
                 <div class="grid grid-cols-3 gap-2 mb-4 text-center text-sm">
                     <div class="bg-gray-50 dark:bg-gray-700 rounded p-2">
                         <div class="font-bold text-gray-900 dark:text-gray-100">{{ stats.users.officers }}</div>
@@ -239,7 +247,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
             </div>
-            <div x-show="expanded" x-collapse class="p-4 space-y-2">
+            <div x-show="expanded" class="p-4 space-y-2">
                 <a href="{% url 'admin_v2_manage_legislation' %}" class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">
                     <span class="font-medium text-gray-900 dark:text-gray-100">Legislation</span>
                     <span class="text-sm text-purple-600 dark:text-purple-400">{{ stats.legislation.total }}</span>
@@ -277,7 +285,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
             </div>
-            <div x-show="expanded" x-collapse class="p-4 space-y-2">
+            <div x-show="expanded" class="p-4 space-y-2">
                 <a href="{% url 'admin_v2_email_logs' %}" class="block p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">
                     <span class="font-medium text-gray-900 dark:text-gray-100">Email Logs</span>
                 </a>
@@ -317,7 +325,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
             </div>
-            <div x-show="expanded" x-collapse class="p-4">
+            <div x-show="expanded" class="p-4">
                 <!-- Feature Flags Quick Toggle -->
                 <div class="mb-4">
                     <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Feature Flags</h4>
@@ -372,7 +380,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
             </div>
-            <div x-show="expanded" x-collapse class="p-4">
+            <div x-show="expanded" class="p-4">
                 <div class="grid grid-cols-3 gap-2 mb-4 text-center text-sm">
                     <div class="bg-gray-50 dark:bg-gray-700 rounded p-2">
                         <div class="font-bold text-gray-900 dark:text-gray-100">{{ performance.total_requests|default:"0" }}</div>
@@ -412,7 +420,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
             </svg>
         </div>
-        <div x-show="expanded" x-collapse>
+        <div x-show="expanded">
             <p class="text-gray-600 dark:text-gray-400 mb-4 text-sm">Control visibility of pages across the site</p>
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
                 {% for page in page_toggles %}
@@ -488,7 +496,6 @@
 </div>
 
 <!-- Alpine.js -->
-<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script>
 // Page Toggle Function
