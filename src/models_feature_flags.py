@@ -268,7 +268,8 @@ class ScheduledMaintenance(models.Model):
             status = "⏰ Pending Start"
         else:
             status = "📅 Scheduled"
-        return f"{status} - {self.title} ({self.scheduled_start.strftime('%Y-%m-%d %H:%M')})"
+        from django.utils.timezone import localtime
+        return f"{status} - {self.title} ({localtime(self.scheduled_start).strftime('%Y-%m-%d %H:%M %Z')})"
 
     @property
     def time_until_start(self):
@@ -359,6 +360,7 @@ class ScheduledMaintenance(models.Model):
         """Send email notification that maintenance has started"""
         from django.core.mail import send_mail
         from django.conf import settings
+        from django.utils.timezone import localtime
 
         try:
             subject = f"[Parliament] Maintenance Started: {self.title}"
@@ -366,7 +368,7 @@ class ScheduledMaintenance(models.Model):
 Scheduled maintenance has automatically started.
 
 Title: {self.title}
-Started at: {self.started_at.strftime('%Y-%m-%d %H:%M:%S %Z') if self.started_at else 'Now'}
+Started at: {localtime(self.started_at).strftime('%Y-%m-%d %H:%M:%S %Z') if self.started_at else 'Now'}
 Estimated duration: {self.estimated_duration_minutes} minutes
 
 Message shown to users:

@@ -5,6 +5,7 @@ from src.decorators import officer_required
 from src.utils.export_utils import export_to_csv
 from src.feature_flag_decorators import require_page_enabled
 from django.utils import timezone
+from django.utils.timezone import localtime
 from datetime import timedelta
 
 @login_required
@@ -28,7 +29,11 @@ def user_list(request):
         users = users.filter(member_status='Inactive')
     elif member_status_filter == 'alumni':
         users = users.filter(member_status='Alumni')
-    # 'all' shows everyone
+    elif member_status_filter == 'removed':
+        users = users.filter(member_status='Removed')
+    else:
+        # 'all' shows everyone except Removed
+        users = users.exclude(member_status='Removed')
 
     # Apply member type filter
     if member_type_filter:
@@ -72,12 +77,13 @@ def user_list(request):
         # Calculate days since last login
         if user.last_login:
             days_ago = (now - user.last_login).days
+            local_last_login = localtime(user.last_login)
             if days_ago == 0:
-                last_login_display = user.last_login.strftime('%b %d, %Y') + ': Today'
+                last_login_display = local_last_login.strftime('%b %d, %Y') + ': Today'
             elif days_ago == 1:
-                last_login_display = user.last_login.strftime('%b %d, %Y') + ': 1 day ago'
+                last_login_display = local_last_login.strftime('%b %d, %Y') + ': 1 day ago'
             else:
-                last_login_display = user.last_login.strftime('%b %d, %Y') + f': {days_ago} days ago'
+                last_login_display = local_last_login.strftime('%b %d, %Y') + f': {days_ago} days ago'
         else:
             last_login_display = 'Never logged in'
 
@@ -142,8 +148,10 @@ def export_user_list(request):
         users = ParliamentUser.objects.filter(member_status='Inactive')
     elif status_filter == 'alumni':
         users = ParliamentUser.objects.filter(member_status='Alumni')
+    elif status_filter == 'removed':
+        users = ParliamentUser.objects.filter(member_status='Removed')
     else:
-        users = ParliamentUser.objects.all()
+        users = ParliamentUser.objects.exclude(member_status='Removed')
 
     users = users.order_by('name')
 
@@ -164,7 +172,7 @@ def export_user_list(request):
     for user in users.prefetch_related('roles'):
         # Calculate last login
         if user.last_login:
-            last_login_str = user.last_login.strftime('%Y-%m-%d')
+            last_login_str = localtime(user.last_login).strftime('%Y-%m-%d')
         else:
             last_login_str = 'Never'
 

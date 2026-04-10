@@ -101,7 +101,7 @@
                             {{ legislation.legislation.title }}
                             {% endif %}
                         </h3>
-                        <div class="flex items-center space-x-3 text-sm text-gray-600 dark:text-gray-400">
+                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
                             {% if legislation.legislation.vote_mode %}
                             <span class="flex items-center space-x-1">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -110,6 +110,7 @@
                                 <span>Vote Type: {{ legislation.legislation.vote_mode|title }}</span>
                             </span>
                             {% endif %}
+                            <span>Submitted by {{ legislation.legislation.posted_by.name }}{% with coauthors=legislation.legislation.co_authors.all %}{% if coauthors %} &middot; Co-authors: {% for ca in coauthors %}{{ ca.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}{% endwith %}</span>
                         </div>
                     </div>
 

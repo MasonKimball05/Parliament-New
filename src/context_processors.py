@@ -157,7 +157,7 @@ def maintenance_mode(request):
                 'server': {
                     'python_version': sys.version.split()[0],
                     'django_debug': settings.DEBUG,
-                    'server_time': timezone.now().strftime('%Y-%m-%d %H:%M:%S %Z'),
+                    'server_time': timezone.localtime(timezone.now()).strftime('%Y-%m-%d %H:%M:%S %Z'),
                     'timezone': str(settings.TIME_ZONE),
                     'allowed_hosts': ', '.join(settings.ALLOWED_HOSTS[:3]) + ('...' if len(settings.ALLOWED_HOSTS) > 3 else ''),
                 },

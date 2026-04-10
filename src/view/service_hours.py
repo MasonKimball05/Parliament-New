@@ -8,6 +8,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
+from django.utils.timezone import localtime
 from django.db.models import Sum, Count, Q
 from django.http import HttpResponse
 from decimal import Decimal
@@ -16,7 +17,8 @@ import logging
 
 from src.models import (
     ServicePeriod, ServiceMemberExpectation, ServiceHoursSubmission,
-    ServiceActivity, ParliamentUser, ServiceHoursAdjustment
+    ServiceActivity, ParliamentUser, ServiceHoursAdjustment,
+    ServiceFieldResponse
 )
 from src.forms import ServicePeriodForm, ServiceMemberExpectationForm
 from src.decorators import vpp_required
@@ -231,9 +233,15 @@ def manage_service_submission(request, submission_id):
         submission=submission
     ).select_related('user').order_by('-timestamp')
 
+    # Get custom field responses
+    custom_responses = ServiceFieldResponse.objects.filter(
+        submission=submission
+    ).select_related('field').order_by('field__display_order')
+
     context = {
         'submission': submission,
         'activity_log': activity_log,
+        'custom_responses': custom_responses,
     }
 
     return render(request, 'service_hours/manage_submission.html', context)
@@ -332,9 +340,9 @@ def export_service_csv(request):
             submission.organization,
             submission.description,
             submission.get_status_display(),
-            submission.submitted_at.strftime('%Y-%m-%d %H:%M'),
+            localtime(submission.submitted_at).strftime('%Y-%m-%d %H:%M'),
             submission.reviewed_by.name if submission.reviewed_by else '',
-            submission.reviewed_at.strftime('%Y-%m-%d %H:%M') if submission.reviewed_at else '',
+            localtime(submission.reviewed_at).strftime('%Y-%m-%d %H:%M') if submission.reviewed_at else '',
         ])
 
     return response
@@ -528,7 +536,7 @@ def add_service_adjustment(request):
             'reason': adjustment.reason,
             'member_name': member.name,
             'adjusted_by': request.user.name,
-            'created_at': adjustment.created_at.strftime('%b %d, %Y %I:%M %p')
+            'created_at': localtime(adjustment.created_at).strftime('%b %d, %Y %I:%M %p')
         }
     })
 

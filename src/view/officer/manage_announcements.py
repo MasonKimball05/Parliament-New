@@ -1,3 +1,4 @@
+import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -15,6 +16,7 @@ from src.decorators import log_function_call, officer_required
 from src.notifications import send_announcement_notification, get_site_url
 from src.notification_service import notify_all_active_members
 from django.utils import timezone
+from django.utils.timezone import localtime
 import base64
 import logging
 
@@ -52,6 +54,16 @@ def create_announcement(request):
             # Check if user wants to send email notifications
             send_email = request.POST.get('send_email') == 'on'
 
+            # Collect individually-selected inactive/alumni user IDs
+            extra_ids = request.POST.getlist('extra_user_ids')
+            # user_id is a CharField (e.g. "ABC123"), validate they exist
+            valid_ids = list(
+                ParliamentUser.objects.filter(user_id__in=extra_ids)
+                .exclude(member_status='Active').exclude(member_status='Removed')
+                .values_list('user_id', flat=True)
+            )
+            extra_ids_str = ','.join(valid_ids)
+
             # If scheduled for later and user wants emails, remember that preference
             if not announcement.is_published() and send_email:
                 announcement.send_email_on_publish = True
@@ -65,7 +77,10 @@ def create_announcement(request):
 
             # If send_email is checked and announcement is published, redirect to confirmation
             if announcement.is_published() and send_email:
-                return redirect('confirm_announcement_email', announcement_id=announcement.id)
+                url = f"{redirect('confirm_announcement_email', announcement_id=announcement.id).url}"
+                if extra_ids_str:
+                    url += f"?extra_user_ids={extra_ids_str}"
+                return redirect(url)
             elif announcement.is_published():
                 messages.success(request, 'Announcement created successfully!')
             elif send_email:
@@ -77,8 +92,13 @@ def create_announcement(request):
     else:
         form = AnnouncementForm(initial={'is_active': True})
 
+    inactive_members = ParliamentUser.objects.exclude(
+        member_status='Active'
+    ).filter(email__isnull=False).exclude(email='').order_by('member_status', 'name')
+
     return render(request, 'officer/create_announcement.html', {
-        'form': form
+        'form': form,
+        'inactive_members': inactive_members,
     })
 
 
@@ -92,38 +112,66 @@ def confirm_announcement_email(request, announcement_id):
     """
     announcement = get_object_or_404(Announcement, id=announcement_id)
 
-    # Calculate who would receive the email (same logic as send_announcement_notification)
-    all_active_users = ParliamentUser.objects.filter(member_status='Active')
+    # Parse individually-added inactive user IDs from query param
+    extra_ids_str = request.GET.get('extra_user_ids', '')
+    extra_user_ids = [p.strip() for p in extra_ids_str.split(',') if p.strip()]
+
+    # Base queryset: active members only
+    base_users = ParliamentUser.objects.filter(member_status='Active')
 
     if announcement.visible_to:
         member_types = list(announcement.visible_to)
         if 'Member' in member_types:
             member_types.extend(['Chair', 'Officer'])
-        targeted_users = all_active_users.filter(member_type__in=member_types)
-        excluded_by_visibility = all_active_users.exclude(member_type__in=member_types)
+        targeted_users = base_users.filter(member_type__in=member_types)
+        excluded_by_visibility = base_users.exclude(member_type__in=member_types)
     else:
         member_types = None  # All types
-        targeted_users = all_active_users
+        targeted_users = base_users
         excluded_by_visibility = ParliamentUser.objects.none()
 
-    # Filter to users with valid emails who want notifications
-    users_with_email = targeted_users.filter(
+    # Filter active recipients to users with valid emails who want notifications
+    active_with_email = targeted_users.filter(
         email__isnull=False
     ).filter(
         Q(preferences__email_announcements=True) | Q(preferences__isnull=True)
     ).exclude(email='')
 
-    # Users who match visibility but won't receive email
+    # Individually-added inactive users (must have email, must want notifications)
+    extra_users = []
+    if extra_user_ids:
+        extra_qs = ParliamentUser.objects.filter(
+            user_id__in=extra_user_ids,
+        ).exclude(member_status='Active').exclude(member_status='Removed').filter(
+            email__isnull=False
+        ).filter(
+            Q(preferences__email_announcements=True) | Q(preferences__isnull=True)
+        ).exclude(email='')
+        extra_users = list(extra_qs)
+
+    # All users who will receive email (active matching + individually added inactive)
+    users_with_email = list(active_with_email) + extra_users
+
+    # Users who match visibility but won't receive email (active only, no email/disabled)
     users_no_email = targeted_users.exclude(
-        user_id__in=users_with_email.values_list('user_id', flat=True)
+        user_id__in=active_with_email.values_list('user_id', flat=True)
     )
 
-    # Group by member type for display
+    # Inactive members available to add individually (have email, not already added)
+    added_ids = {u.user_id for u in extra_users}
+    inactive_available = list(
+        ParliamentUser.objects.exclude(member_status='Active').exclude(member_status='Removed').filter(
+            email__isnull=False
+        ).exclude(email='').order_by('member_status', 'name')
+    )
+
+    # Group active recipients by member type for display
     recipients_by_type = {}
-    for user in users_with_email:
-        if user.member_type not in recipients_by_type:
-            recipients_by_type[user.member_type] = []
-        recipients_by_type[user.member_type].append(user)
+    for user in active_with_email:
+        key = user.member_type
+        if key not in recipients_by_type:
+            recipients_by_type[key] = []
+        recipients_by_type[key].append(user)
 
     excluded_by_type = {}
     for user in excluded_by_visibility:
@@ -131,15 +179,37 @@ def confirm_announcement_email(request, announcement_id):
             excluded_by_type[user.member_type] = []
         excluded_by_type[user.member_type].append(user)
 
+    # Build URL helper: extra_user_ids string with one id added or removed
+    def ids_with(uid):
+        new_ids = sorted(set(extra_user_ids) | {uid})
+        return ','.join(str(i) for i in new_ids)
+
+    def ids_without(uid):
+        new_ids = sorted(set(extra_user_ids) - {uid})
+        return ','.join(str(i) for i in new_ids)
+
+    # Annotate each inactive_available with add/remove URL
+    for member in inactive_available:
+        if member.user_id in added_ids:
+            member.is_added = True
+            member.toggle_url = f"?extra_user_ids={ids_without(member.user_id)}"
+        else:
+            member.is_added = False
+            member.toggle_url = f"?extra_user_ids={ids_with(member.user_id)}"
+
     context = {
         'announcement': announcement,
         'visible_to': announcement.visible_to or ['All Members'],
         'expanded_types': member_types or ['All Types'],
-        'recipients_count': users_with_email.count(),
+        'recipients_count': len(users_with_email),
         'recipients_by_type': recipients_by_type,
+        'extra_users': extra_users,
         'no_email_count': users_no_email.count(),
         'excluded_count': excluded_by_visibility.count(),
         'excluded_by_type': excluded_by_type,
+        'inactive_available': inactive_available,
+        'extra_user_ids_str': extra_ids_str,
+        'has_inactive_with_email': bool(inactive_available),
     }
 
     return render(request, 'officer/confirm_announcement_email.html', context)
@@ -159,7 +229,10 @@ def send_announcement_emails(request, announcement_id):
         return redirect('manage_announcements')
 
     announcement = get_object_or_404(Announcement, id=announcement_id)
-    cache_key = f'email_warmup_{announcement_id}'
+    extra_ids_str = request.POST.get('extra_user_ids', '')
+    extra_user_ids = [x.strip() for x in extra_ids_str.split(',') if x.strip()]
+    ids_key = '_'.join(sorted(extra_user_ids)) if extra_user_ids else ''
+    cache_key = f'email_warmup_{announcement_id}_{ids_key}' if ids_key else f'email_warmup_{announcement_id}'
     warmup_data = cache.get(cache_key)
 
     if warmup_data:
@@ -201,7 +274,7 @@ def send_announcement_emails(request, announcement_id):
             # Console log buffer
             console = []
             def log_msg(msg):
-                console.append(f"[{timezone.now().strftime('%H:%M:%S.%f')[:-3]}] {msg}")
+                console.append(f"[{localtime(timezone.now()).strftime('%H:%M:%S.%f')[:-3]}] {msg}")
 
             log_msg("=" * 60)
             log_msg("SENDING EMAILS (Using Pre-warmed Data)")
@@ -298,31 +371,16 @@ def skip_announcement_email(request, announcement_id):
     Skip sending emails for an announcement (user cancelled from confirmation page).
     Also cleans up any warmup data.
     """
-    # Clean up warmup data if it exists
-    cache_key = f'email_warmup_{announcement_id}'
-    warmup_data = cache.get(cache_key)
+    # Cancel any active warmup logs for this announcement
+    for email_log in AnnouncementEmailLog.objects.filter(announcement_id=announcement_id, status='warming_up'):
+        email_log.recipients.all().delete()
+        email_log.status = 'cancelled'
+        email_log.completed_at = timezone.now()
+        email_log.console_log = f"[{localtime(timezone.now()).strftime('%H:%M:%S')}] Email send skipped by user"
+        email_log.save()
 
-    if warmup_data:
-        log_id = warmup_data.get('log_id')
-        if log_id:
-            try:
-                email_log = AnnouncementEmailLog.objects.get(id=log_id, status='warming_up')
-                # Delete recipients to save space
-                email_log.recipients.all().delete()
-                # Mark as cancelled
-                email_log.status = 'cancelled'
-                email_log.completed_at = timezone.now()
-                email_log.console_log = f"[{timezone.now().strftime('%H:%M:%S')}] Email send skipped by user"
-                email_log.save()
-            except AnnouncementEmailLog.DoesNotExist:
-                pass
-        cache.delete(cache_key)
-    else:
-        # Fall back to deleting any orphaned warming_up logs
-        AnnouncementEmailLog.objects.filter(
-            announcement_id=announcement_id,
-            status='warming_up'
-        ).delete()
+    for extra in ['', '_inactive']:
+        cache.delete(f'email_warmup_{announcement_id}{extra}')
 
     messages.success(request, 'Announcement created successfully! (No emails sent)')
     return redirect('manage_announcements')
@@ -341,7 +399,24 @@ def warmup_announcement_email(request, announcement_id):
     This runs in the background while the user reviews the confirmation page.
     """
     announcement = get_object_or_404(Announcement, id=announcement_id)
-    cache_key = f'email_warmup_{announcement_id}'
+
+    try:
+        body_data = json.loads(request.body) if request.body else {}
+    except (json.JSONDecodeError, Exception):
+        body_data = {}
+
+    # Parse individually-added inactive user IDs
+    extra_ids_raw = body_data.get('extra_user_ids', [])
+    if isinstance(extra_ids_raw, str):
+        extra_user_ids = [x.strip() for x in extra_ids_raw.split(',') if x.strip()]
+    elif isinstance(extra_ids_raw, list):
+        extra_user_ids = [str(x).strip() for x in extra_ids_raw if str(x).strip()]
+    else:
+        extra_user_ids = []
+
+    # Cache key includes extra user IDs so different recipient sets get different warmups
+    ids_key = '_'.join(sorted(extra_user_ids)) if extra_user_ids else ''
+    cache_key = f'email_warmup_{announcement_id}_{ids_key}' if ids_key else f'email_warmup_{announcement_id}'
 
     # Check if warmup already exists
     existing_warmup = cache.get(cache_key)
@@ -353,6 +428,12 @@ def warmup_announcement_email(request, announcement_id):
         all_users = ParliamentUser.objects.all()
         all_active_users = ParliamentUser.objects.filter(member_status='Active')
 
+        # Individually added inactive users
+        extra_users_qs = ParliamentUser.objects.filter(
+            user_id__in=extra_user_ids
+        ).exclude(member_status='Active').exclude(member_status='Removed') if extra_user_ids else ParliamentUser.objects.none()
+        extra_user_id_set = set(extra_users_qs.values_list('user_id', flat=True))
+
         # Determine member types to target
         if announcement.visible_to:
             member_types = list(announcement.visible_to)
@@ -363,12 +444,20 @@ def warmup_announcement_email(request, announcement_id):
             member_types = None
             targeted_users = all_active_users
 
-        # Filter to users with valid emails who want notifications
-        users_to_email = targeted_users.filter(
+        # Active users with email + individually-added inactive users with email
+        active_to_email = targeted_users.filter(
             email__isnull=False
         ).filter(
             Q(preferences__email_announcements=True) | Q(preferences__isnull=True)
         ).exclude(email='')
+
+        extra_to_email = extra_users_qs.filter(
+            email__isnull=False
+        ).filter(
+            Q(preferences__email_announcements=True) | Q(preferences__isnull=True)
+        ).exclude(email='')
+
+        users_to_email_count = active_to_email.count() + extra_to_email.count()
 
         # Create the email log entry with warming_up status
         email_log = AnnouncementEmailLog.objects.create(
@@ -378,16 +467,16 @@ def warmup_announcement_email(request, announcement_id):
             expanded_member_types=member_types,
             total_active_users=all_active_users.count(),
             users_matching_visibility=targeted_users.count(),
-            users_with_valid_email=users_to_email.count(),
+            users_with_valid_email=users_to_email_count,
             status='warming_up'
         )
 
         # Pre-create all recipient records
         recipients_to_create = []
         for user in all_users:
-            if user.member_status != 'Active':
+            if user.member_status != 'Active' and user.user_id not in extra_user_id_set:
                 user_status = 'skipped_inactive'
-            elif member_types is not None and user.member_type not in member_types:
+            elif member_types is not None and user.member_type not in member_types and user.user_id not in extra_user_id_set:
                 user_status = 'skipped_visibility'
             elif not user.email or not user.email.strip():
                 user_status = 'skipped_no_email'
@@ -413,7 +502,7 @@ def warmup_announcement_email(request, announcement_id):
         subject = f"New Announcement: {announcement.title}"
         rendered_emails = {}
 
-        for user in users_to_email:
+        for user in list(active_to_email) + list(extra_to_email):
             tracking_url = f"{site_url}/track/announcement/{announcement.id}/user/{user.user_id}/"
             html_message = render_to_string('emails/announcement_notification.html', {
                 'announcement': announcement,
@@ -436,6 +525,7 @@ def warmup_announcement_email(request, announcement_id):
             'rendered_emails': rendered_emails,
             'from_email': settings.DEFAULT_FROM_EMAIL,
             'site_url': site_url,
+            'cache_key': cache_key,
         }
         cache.set(cache_key, warmup_data, timeout=600)  # 10 minutes
 
@@ -463,27 +553,23 @@ def cancel_warmup_announcement_email(request, announcement_id):
     if request.method not in ['POST']:
         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
 
-    cache_key = f'email_warmup_{announcement_id}'
-    warmup_data = cache.get(cache_key)
+    # Cancel any active warmup by finding it via the AnnouncementEmailLog
+    cancelled = AnnouncementEmailLog.objects.filter(
+        announcement_id=announcement_id,
+        status='warming_up'
+    )
+    for email_log in cancelled:
+        email_log.recipients.all().delete()
+        email_log.status = 'cancelled'
+        email_log.completed_at = timezone.now()
+        email_log.console_log = f"[{localtime(timezone.now()).strftime('%H:%M:%S')}] Warmup cancelled by user"
+        email_log.save()
 
-    if warmup_data:
-        # Mark the log as cancelled (keep for audit trail) and delete recipients
-        log_id = warmup_data.get('log_id')
-        if log_id:
-            try:
-                email_log = AnnouncementEmailLog.objects.get(id=log_id, status='warming_up')
-                # Delete recipients to save space
-                email_log.recipients.all().delete()
-                # Mark as cancelled
-                email_log.status = 'cancelled'
-                email_log.completed_at = timezone.now()
-                email_log.console_log = f"[{timezone.now().strftime('%H:%M:%S')}] Warmup cancelled by user"
-                email_log.save()
-            except AnnouncementEmailLog.DoesNotExist:
-                pass  # Already deleted or status changed
-        cache.delete(cache_key)
-        logger.info(f"[WARMUP] Cancelled warmup for announcement {announcement_id}")
+    # Also clear any cache keys we know about
+    for extra in ['', '_inactive']:
+        cache.delete(f'email_warmup_{announcement_id}{extra}')
 
+    logger.info(f"[WARMUP] Cancelled warmup for announcement {announcement_id}")
     return JsonResponse({'status': 'cancelled'})
 
 @login_required

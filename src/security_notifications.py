@@ -6,6 +6,7 @@ quarantine activation, and emergency lockdown.
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
+from django.utils.timezone import localtime
 import logging
 
 logger = logging.getLogger('admin_actions')
@@ -59,7 +60,7 @@ Parliament Security Alert
 
 Event Type: {event_type}
 Severity: {severity.upper()}
-Time: {timezone.now().strftime('%Y-%m-%d %H:%M:%S %Z')}
+Time: {localtime(timezone.now()).strftime('%Y-%m-%d %H:%M:%S %Z')}
 
 IP Address: {ip_address or 'N/A'}
 User: {user.name if user else 'N/A'} ({user.username if user else ''})
@@ -267,7 +268,7 @@ def send_honeypot_digest(since=None):
 Parliament Honeypot Daily Digest
 {'=' * 60}
 
-Period: Last 24 hours (since {since.strftime('%Y-%m-%d %H:%M %Z')})
+Period: Last 24 hours (since {localtime(since).strftime('%Y-%m-%d %H:%M %Z')})
 Total hits: {total}
 
 Top Targeted Endpoints:
@@ -331,7 +332,7 @@ def alert_lockdown_deactivated(admin):
 Emergency lockdown has been deactivated.
 
 Deactivated by: {admin.name} ({admin.username})
-Time: {timezone.now().strftime('%Y-%m-%d %H:%M:%S %Z')}
+Time: {localtime(timezone.now()).strftime('%Y-%m-%d %H:%M:%S %Z')}
 
 Normal operations have resumed. All users can now log in.
     """.strip()

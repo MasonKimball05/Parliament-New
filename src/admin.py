@@ -17,6 +17,7 @@ from django.contrib.auth import login
 from django.utils.html import format_html
 from django.db.models import Count, Q
 from django.utils import timezone
+from django.utils.timezone import localtime
 
 logger = logging.getLogger('admin_actions')
 
@@ -228,7 +229,7 @@ class ParliamentUserAdmin(admin.ModelAdmin):
 
     def last_login_display(self, obj):
         if obj.last_login:
-            return obj.last_login.strftime('%m/%d/%Y %I:%M %p')
+            return localtime(obj.last_login).strftime('%m/%d/%Y %I:%M %p')
         return 'Never'
     last_login_display.short_description = 'Last Login'
     last_login_display.admin_order_field = 'last_login'
@@ -1025,7 +1026,7 @@ class LoginAlertAdmin(admin.ModelAdmin):
         """Display key details about the related login"""
         lh = obj.login_history
         details = f"""
-        <strong>Time:</strong> {lh.timestamp.strftime('%Y-%m-%d %H:%M:%S')}<br>
+        <strong>Time:</strong> {localtime(lh.timestamp).strftime('%Y-%m-%d %H:%M:%S %Z')}<br>
         <strong>IP:</strong> {lh.ip_address}<br>
         <strong>Location:</strong> {lh.location_display}<br>
         <strong>Device:</strong> {lh.device_type} - {lh.browser}<br>
@@ -1254,7 +1255,7 @@ class FeatureFlagAdmin(admin.ModelAdmin):
                 duration_str = f"{int(minutes)}m {int(seconds)}s"
             else:
                 duration_str = f"{int(seconds)}s"
-            started_str = started_at.strftime('%Y-%m-%d %H:%M:%S %Z')
+            started_str = localtime(started_at).strftime('%Y-%m-%d %H:%M:%S %Z')
         else:
             duration_str = "Just started"
             started_str = "Now"
@@ -1274,7 +1275,7 @@ class FeatureFlagAdmin(admin.ModelAdmin):
             ).order_by('-created_at')[:5]
             log_html = ""
             for log in recent_logs:
-                log_html += f'<li style="margin: 3px 0; font-size: 12px;">{log.created_at.strftime("%H:%M:%S")} - {log.action_type}: {log.description[:50]}...</li>'
+                log_html += f'<li style="margin: 3px 0; font-size: 12px;">{localtime(log.created_at).strftime("%H:%M:%S %Z")} - {log.action_type}: {log.description[:50]}...</li>'
             if not log_html:
                 log_html = '<li style="color: #9ca3af;">No activity logged during maintenance</li>'
         except Exception:
@@ -1341,7 +1342,7 @@ class FeatureFlagAdmin(admin.ModelAdmin):
             admin_users,
             active_users - admin_users if isinstance(active_users, int) and isinstance(admin_users, int) else "N/A",
             sys.version.split()[0],
-            tz.now().strftime('%Y-%m-%d %H:%M:%S'),
+            localtime(tz.now()).strftime('%Y-%m-%d %H:%M:%S %Z'),
             log_html
         )
     maintenance_stats_display.short_description = 'Maintenance Statistics'

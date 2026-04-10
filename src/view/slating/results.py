@@ -8,6 +8,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
+from django.utils.timezone import localtime
 from django.db.models import Count
 from collections import Counter
 from src.models import (
@@ -250,7 +251,7 @@ def _save_results_to_documents(period, uploaded_by):
         f"",
         f"Election: {period.name}",
         f"Academic Term: {period.academic_term}",
-        f"Published: {timezone.now().strftime('%B %d, %Y at %I:%M %p')}",
+        f"Published: {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}",
         f"",
         f"VOTING SUMMARY",
         f"--------------",

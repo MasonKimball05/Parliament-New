@@ -84,6 +84,11 @@
                                         {% endif %}
                                     </form>
                                 {% endif %}
+                                {% if can_edit_minutes and doc.linked_minutes_id %}
+                                    <a href="{% url 'edit_committee_minutes' committee.code doc.linked_minutes_id %}" class="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 transition-colors">
+                                        ✏️ Edit Minutes
+                                    </a>
+                                {% endif %}
                                 {% if can_delete %}
                                     <form method="POST" action="{% url 'delete_committee_document' committee.code doc.id %}" class="inline"
                                           onsubmit="return confirm('Are you sure you want to delete &quot;{{ doc.title }}&quot;? This action cannot be undone.');">

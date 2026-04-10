@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
+from django.utils.timezone import localtime
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError
 import csv
@@ -108,7 +109,7 @@ A new Kai report has been submitted.
 
 Title: {report.title}
 Submitted by: {report.submitted_by.name}
-Submitted at: {report.submitted_at.strftime('%B %d, %Y at %I:%M %p')}
+Submitted at: {localtime(report.submitted_at).strftime('%B %d, %Y at %I:%M %p %Z')}
 {f"Directed to: {report.targeted_to.name}" if report.targeted_to else ""}
 
 Description:
@@ -423,12 +424,12 @@ def export_kai_reports_csv(request):
                 report.get_category_display(),
                 report.submitted_by.name,
                 report.targeted_to.name if report.targeted_to else '',
-                report.submitted_at.strftime('%Y-%m-%d %H:%M:%S'),
+                localtime(report.submitted_at).strftime('%Y-%m-%d %H:%M:%S'),
                 report.get_status_display(),
                 report.get_deliberation_outcome_display(),
                 'Yes' if report.closed_by_accused_request else 'No',
                 report.reviewed_by.name if report.reviewed_by else '',
-                report.reviewed_at.strftime('%Y-%m-%d %H:%M:%S') if report.reviewed_at else '',
+                localtime(report.reviewed_at).strftime('%Y-%m-%d %H:%M:%S') if report.reviewed_at else '',
                 report.tags,
                 report.description
             ])
@@ -486,7 +487,7 @@ Your Kai report has been reviewed.
 Report Title: {report.title}
 Status: Reviewed
 Reviewed by: {request.user.name}
-Reviewed at: {timezone.now().strftime('%B %d, %Y at %I:%M %p')}
+Reviewed at: {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}
 
 You can view the full report details at the Kai Committee page.
                     """
@@ -625,7 +626,7 @@ The Kai Committee has decided to hear this case and may reach out to you for fur
 
 If you have any questions, please contact the Kai Committee chair(s).
 
-Updated at: {timezone.now().strftime('%B %d, %Y at %I:%M %p')}
+Updated at: {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}
                             """
                         elif deliberation_outcome == 'thrown_out':
                             subject = 'Kai Committee Notification - Case Resolved'
@@ -636,7 +637,7 @@ The case has been thrown out and no further action is required from you.
 
 If you have any questions, please contact the Kai Committee chair(s).
 
-Updated at: {timezone.now().strftime('%B %d, %Y at %I:%M %p')}
+Updated at: {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}
                             """
                         elif deliberation_outcome == 'pending':
                             # Don't notify for pending status
@@ -679,7 +680,7 @@ Committee Notes:
 
 If you have any questions, please contact the Kai Committee chair(s).
 
-Notified at: {timezone.now().strftime('%B %d, %Y at %I:%M %p')}
+Notified at: {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}
                         """
 
                         send_mail(
@@ -830,7 +831,7 @@ The Kai Committee will review this matter and may contact you for further inform
 
 If you have any questions or concerns, please contact the Kai Committee chair(s).
 
-This notification was sent on {timezone.now().strftime('%B %d, %Y at %I:%M %p')}.
+This notification was sent on {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}.
 
 Kai Committee
 Beta Theta Pi - Samford Chapter
@@ -886,7 +887,7 @@ Beta Theta Pi - Samford Chapter
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
 
         <p style="color: #718096; font-size: 12px; margin-bottom: 0;">
-            This notification was sent on {timezone.now().strftime('%B %d, %Y at %I:%M %p')}.<br>
+            This notification was sent on {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}.<br>
             Kai Committee &bull; Beta Theta Pi - Samford Chapter
         </p>
     </div>
@@ -1059,11 +1060,11 @@ You may submit another closure request in the future if circumstances change.
     except:
         available_reports = []
 
-    # Get all members for accused person selection (active first, then inactive)
+    # Get all members for accused person selection (active first, then inactive/alumni)
     try:
-        all_members = ParliamentUser.objects.all().order_by('member_status', 'name')
+        all_members = ParliamentUser.objects.exclude(member_status='Removed').order_by('member_status', 'name')
     except:
-        all_members = ParliamentUser.objects.all().order_by('name')
+        all_members = ParliamentUser.objects.exclude(member_status='Removed').order_by('name')
 
     # Get pending closure requests for this report
     try:

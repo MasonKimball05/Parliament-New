@@ -136,7 +136,40 @@
                     Send email notification to members
                 </label>
             </div>
-            <p class="ml-6 text-sm text-gray-500 dark:text-gray-400">Uncheck to publish without sending an email blast</p>
+            <p class="ml-6 text-sm text-gray-500 dark:text-gray-400">Uncheck to publish without sending an email blast.</p>
+
+            <!-- Include Inactive / Alumni Members -->
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                <button type="button" id="inactive-toggle-btn" onclick="toggleInactive()"
+                        class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <span>Include Inactive / Alumni in Email</span>
+                    <span id="inactive-badge" class="hidden px-1.5 py-0.5 text-xs bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-400 rounded-full"></span>
+                    <svg id="inactive-chevron" class="w-4 h-4 text-gray-500 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div id="inactive-panel" class="hidden border-t border-gray-200 dark:border-gray-700 bg-orange-50 dark:bg-orange-900/10 px-4 py-3">
+                    {% if inactive_members %}
+                    <p class="text-xs text-orange-700 dark:text-orange-400 mb-3">These members are excluded from emails by default. Check any you want to include.</p>
+                    <div class="space-y-2 max-h-64 overflow-y-auto">
+                        {% for member in inactive_members %}
+                        <label class="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-orange-100 dark:hover:bg-orange-900/30 cursor-pointer">
+                            <input type="checkbox" name="extra_user_ids" value="{{ member.user_id }}"
+                                   class="inactive-checkbox rounded border-gray-300 dark:border-gray-600 text-orange-500 focus:ring-orange-400 dark:bg-gray-700"
+                                   onchange="updateBadge()">
+                            <span class="flex-1 min-w-0">
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">{{ member.name }}</span>
+                                <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">{{ member.member_status }}</span>
+                                <span class="ml-1 text-xs text-gray-400 dark:text-gray-500 truncate">{{ member.email }}</span>
+                            </span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-xs text-gray-500 dark:text-gray-400">No inactive or alumni members with email addresses on file.</p>
+                    {% endif %}
+                </div>
+            </div>
 
             <!-- Buttons -->
             <div class="flex items-center justify-end space-x-4 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -192,6 +225,24 @@ document.addEventListener('DOMContentLoaded', function() {
         updatePledgeWarning(); // Initial state
     }
 });
+
+function toggleInactive() {
+    const panel = document.getElementById('inactive-panel');
+    const chevron = document.getElementById('inactive-chevron');
+    panel.classList.toggle('hidden');
+    chevron.style.transform = panel.classList.contains('hidden') ? '' : 'rotate(180deg)';
+}
+
+function updateBadge() {
+    const checked = document.querySelectorAll('.inactive-checkbox:checked').length;
+    const badge = document.getElementById('inactive-badge');
+    if (checked > 0) {
+        badge.textContent = checked + ' added';
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+}
 
 // Prevent double form submission
 document.querySelector('form').addEventListener('submit', function(e) {

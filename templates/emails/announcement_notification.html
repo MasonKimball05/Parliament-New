@@ -87,7 +87,7 @@
         <div class="announcement-title">{{ announcement.title }}</div>
 
         <div class="meta-info">
-            Posted by {{ announcement.posted_by.get_display_name }} on {{ announcement.posted_at|date:"F j, Y \a\t g:i A" }}
+            Posted by {{ announcement.posted_by.get_display_name }} on {{ announcement.posted_at|date:"F j, Y \a\t g:i A T" }}
         </div>
 
         <div class="announcement-content">
@@ -96,7 +96,7 @@
 
         {% if announcement.event_date %}
         <div class="event-info">
-            <strong>📅 Event Date:</strong> {{ announcement.event_date|date:"l, F j, Y \a\t g:i A" }}
+            <strong>📅 Event Date:</strong> {{ announcement.event_date|date:"l, F j, Y \a\t g:i A T" }}
         </div>
         {% endif %}
 

@@ -9,6 +9,7 @@ from ..decorators import *
 from django.db.models import Q
 from datetime import datetime, timedelta
 from django.utils import timezone
+from django.utils.timezone import localtime
 from src.utils.export_utils import export_to_csv
 
 
@@ -173,7 +174,7 @@ def export_activity_logs(request):
     rows = []
     for log in logs:
         rows.append([
-            log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            localtime(log.timestamp).strftime('%Y-%m-%d %H:%M:%S'),
             log.user.get_display_name() if log.user else 'System',
             log.user.user_id if log.user else 'N/A',
             log.get_action_category_display(),

@@ -328,13 +328,17 @@ def save_committee_minutes_data(request, code, minutes_id):
 
     minutes.save()
 
-    # If published and has a linked document, regenerate the PDF
+    # If published and has a linked document, regenerate the PDF and sync metadata
     if is_published and minutes.published_document:
         pdf_buffer = generate_minutes_pdf_buffer(minutes)
         file_name = f"Committee_Minutes_{committee.code}_{minutes.date.strftime('%Y-%m-%d')}_{minutes.title.replace(' ', '_')}.pdf"
         if minutes.published_document.document:
             minutes.published_document.document.delete(save=False)
         minutes.published_document.document.save(file_name, ContentFile(pdf_buffer.read()), save=True)
+        # Keep CommitteeDocument title/description in sync with current minutes data
+        minutes.published_document.title = f"Committee Minutes - {committee.name} - {minutes.title} ({minutes.date.strftime('%m/%d/%Y')})"
+        minutes.published_document.description = f"Committee meeting minutes for {committee.name} on {minutes.date.strftime('%B %d, %Y')}"
+        minutes.published_document.save(update_fields=['title', 'description'])
 
     return JsonResponse({'success': True, 'message': 'Minutes saved.', 'was_published': is_published})
 

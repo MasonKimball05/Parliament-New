@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from math import radians, cos, sin, asin, sqrt
 from user_agents import parse as parse_user_agent
 from django.utils import timezone
+from django.utils.timezone import localtime
 from django.conf import settings
 
 logger = logging.getLogger('security')
@@ -243,9 +244,10 @@ def analyze_login_risk(user, ip_address, location_data, device_info):
         time_from_last = None
 
     # Check for unusual login time (e.g., 2-6 AM)
-    current_hour = timezone.now().hour
+    local_now = localtime(timezone.now())
+    current_hour = local_now.hour
     if 2 <= current_hour <= 6:
-        risk_factors.append(f'Unusual login time: {timezone.now().strftime("%H:%M")}')
+        risk_factors.append(f'Unusual login time: {local_now.strftime("%H:%M %Z")}')
         risk_score += 5
 
     # Determine risk level based on score

@@ -9,6 +9,7 @@ from django.utils.html import strip_tags
 from django.urls import reverse
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.timezone import localtime
 from src.models import ParliamentUser, Announcement, UserAnnouncementView, AnnouncementEmailLog, AnnouncementEmailRecipient
 import logging
 
@@ -38,7 +39,7 @@ def send_announcement_notification(announcement, initiated_by=None):
     # Console log buffer
     console = []
     def log(msg):
-        console.append(f"[{timezone.now().strftime('%H:%M:%S.%f')[:-3]}] {msg}")
+        console.append(f"[{localtime(timezone.now()).strftime('%H:%M:%S.%f')[:-3]}] {msg}")
         logger.info(f"[ANNOUNCEMENT EMAIL] {msg}")
 
     # Create the email log entry FIRST to ensure we always have a record

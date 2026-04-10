@@ -192,6 +192,9 @@
                         <div>
                             <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ leg.title }}</h3>
                             <div class="text-sm text-gray-600 dark:text-gray-400 mt-1 space-y-0.5">
+                                <p>
+                                    Submitted by {{ leg.posted_by.name }}{% with coauthors=leg.co_authors.all %}{% if coauthors %} &middot; Co-authors: {% for ca in coauthors %}{{ ca.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}{% endwith %}
+                                </p>
                                 <p>Document Available: {{ leg.available_at|date:"F j, Y, g:i a" }}</p>
                                 {% if leg.voting_starts_at and leg.voting_starts_at != leg.available_at %}
                                 <p>Voting Opens: {{ leg.voting_starts_at|date:"F j, Y, g:i a" }}</p>

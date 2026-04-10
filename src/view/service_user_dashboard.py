@@ -9,7 +9,10 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
+from django.utils.timezone import localtime
 from django.db.models import Sum, Q
+from django.core.mail import send_mail
+from django.conf import settings
 from decimal import Decimal
 import logging
 
@@ -21,6 +24,53 @@ from src.models import (
 from src.forms import ServiceHoursSubmissionForm
 
 logger = logging.getLogger('function_calls')
+
+
+def _notify_vpp_new_submission(submission, is_resubmission=False):
+    """Send a notification email to all VPP role holders when a service hour submission is received."""
+    from src.models import ParliamentUser
+    vpp_users = ParliamentUser.objects.filter(
+        roles__code__iexact='VPP',
+        member_status='Active',
+    ).exclude(email='').filter(email__isnull=False)
+
+    if not vpp_users.exists():
+        # Fall back to admins if no VPP is set
+        vpp_users = ParliamentUser.objects.filter(
+            is_admin=True,
+            member_status='Active',
+        ).exclude(email='').filter(email__isnull=False)
+
+    if not vpp_users.exists():
+        return
+
+    submitted_at = localtime(submission.submitted_at).strftime('%B %d, %Y at %I:%M %p %Z')
+    action = 'Resubmitted' if is_resubmission else 'New'
+    subject = f"[Service Hours] {action} Submission: {submission.submitted_by.get_display_name()} — {submission.hours} hrs"
+
+    message = f"""{action} service hours submission received.
+
+Member: {submission.submitted_by.get_display_name()}
+Hours: {submission.hours}
+Organization: {submission.organization}
+Description: {submission.description}
+Period: {submission.period}
+Submitted: {submitted_at}
+
+Review submissions at {getattr(settings, 'SITE_URL', '').rstrip('/')}/service-hours/dashboard/
+"""
+
+    recipient_emails = [u.email for u in vpp_users]
+    try:
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=recipient_emails,
+            fail_silently=True,
+        )
+    except Exception as e:
+        logger.error(f"Failed to send VPP service hours notification: {e}")
 
 
 def get_user_service_stats(user, period):
@@ -243,6 +293,10 @@ def submit_service_hours(request):
                 details=f'Submitted {submission.hours} hours for {submission.organization}'
             )
 
+            # Notify VPP of new submission
+            if submission.period.requires_approval:
+                _notify_vpp_new_submission(submission)
+
             if submission.status == 'approved':
                 messages.success(request, f'Successfully submitted {submission.hours} service hours! (Auto-approved)')
             else:
@@ -339,6 +393,10 @@ def edit_service_submission(request, submission_id):
                 action=action,
                 details=f'Updated submission to {submission.hours} hours for {submission.organization}'
             )
+
+            # Notify VPP when a rejected submission is resubmitted for approval
+            if was_rejected and submission.status == 'pending':
+                _notify_vpp_new_submission(submission, is_resubmission=True)
 
             if was_rejected:
                 messages.success(request, 'Submission updated and resubmitted for approval.')
