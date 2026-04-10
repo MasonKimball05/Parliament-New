@@ -186,7 +186,7 @@ def admin_v2_dashboard(request):
     # Gather comprehensive site statistics
     stats = {
         'users': {
-            'total': ParliamentUser.objects.count(),
+            'total': ParliamentUser.objects.exclude(member_status='Removed').count(),
             'active': ParliamentUser.objects.filter(member_status='Active').count(),
             'inactive': ParliamentUser.objects.filter(member_status='Inactive').count(),
             'alumni': ParliamentUser.objects.filter(member_status='Alumni').count(),

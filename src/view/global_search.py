@@ -224,7 +224,7 @@ def global_search(request):
 
     # Search Users (name, username) - only for officers
     if request.user.is_officer:
-        users = ParliamentUser.objects.filter(
+        users = ParliamentUser.objects.exclude(member_status='Removed').filter(
             Q(name__icontains=query) |
             Q(user_id__icontains=query) |
             Q(preferred_name__icontains=query)

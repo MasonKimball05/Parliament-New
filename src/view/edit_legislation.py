@@ -14,7 +14,7 @@ def edit_legislation(request, legislation_id):
     legislation = get_object_or_404(Legislation, id=legislation_id)
 
     # Check if user can edit this legislation
-    is_author = request.user == legislation.posted_by
+    is_author = request.user == legislation.posted_by or legislation.co_authors.filter(pk=request.user.pk).exists()
     is_officer = request.user.member_type in ['Chair', 'Officer']
     is_admin = request.user.is_admin
     is_scheduled = not legislation.is_available()
@@ -47,6 +47,29 @@ def edit_legislation(request, legislation_id):
         return HttpResponseForbidden("You can only edit scheduled legislation before it becomes available.")
 
     if request.method == 'POST':
+        # Handle authorship transfer separately
+        if request.POST.get('action_type') == 'transfer_authorship':
+            # Only the primary author, officers, or admins can transfer
+            if not (request.user == legislation.posted_by or is_officer or is_admin):
+                return HttpResponseForbidden("You don't have permission to transfer authorship.")
+            transfer_to_id = request.POST.get('transfer_to_id', '').strip()
+            if not transfer_to_id:
+                messages.error(request, "Please select a member to transfer authorship to.")
+            else:
+                new_author = ParliamentUser.objects.filter(user_id=transfer_to_id).first()
+                if not new_author:
+                    messages.error(request, "Member not found.")
+                else:
+                    old_author = legislation.posted_by
+                    legislation.posted_by = new_author
+                    # Remove new author from co_authors if they were one
+                    legislation.co_authors.remove(new_author)
+                    # Add old author as co-author
+                    legislation.co_authors.add(old_author)
+                    legislation.save()
+                    messages.success(request, f"Authorship transferred to {new_author.name}. {old_author.name} has been added as a co-author.")
+            return redirect('edit_legislation', legislation_id=legislation.id)
+
         # Validate uploaded file before processing form
         if 'document' in request.FILES:
             try:
@@ -78,6 +101,10 @@ def edit_legislation(request, legislation_id):
                         saved_legislation.voting_closed = True
                         saved_legislation.voting_ended_at = timezone.now()
                         messages.success(request, "Legislation has been updated and tabled.")
+                    elif new_status == 'pending':
+                        saved_legislation.voting_closed = False
+                        saved_legislation.voting_ended_at = None
+                        messages.success(request, "Legislation has been updated and set to pending.")
                     else:
                         messages.success(request, "Legislation has been updated.")
                 else:
@@ -87,6 +114,11 @@ def edit_legislation(request, legislation_id):
 
             saved_legislation.save()
 
+            # Handle co-authors update
+            co_author_ids = request.POST.getlist('co_author_ids')
+            co_author_users = ParliamentUser.objects.filter(user_id__in=co_author_ids)
+            saved_legislation.co_authors.set(co_author_users)
+
             # Redirect based on new status
             if saved_legislation.status in ['tabled', 'pending']:
                 return redirect('passed_legislation')
@@ -94,4 +126,14 @@ def edit_legislation(request, legislation_id):
         else:
             messages.error(request, "Please correct the error below.")
 
-    return render(request, 'edit_legislation.html', {'form': LegislationForm(instance=legislation), 'legislation': legislation})
+    all_members = ParliamentUser.objects.filter(
+        member_status__in=['Active', 'Inactive']
+    ).exclude(pk=legislation.posted_by.pk).order_by('name')
+    current_co_authors = legislation.co_authors.values_list('user_id', flat=True)
+
+    return render(request, 'edit_legislation.html', {
+        'form': LegislationForm(instance=legislation),
+        'legislation': legislation,
+        'all_members': all_members,
+        'current_co_authors': list(current_co_authors),
+    })

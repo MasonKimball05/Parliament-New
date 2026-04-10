@@ -156,14 +156,16 @@ def edit_member(request, user_id):
     if request.method == 'GET':
         # Calculate last login display
         from django.utils import timezone
+        from django.utils.timezone import localtime
         if member.last_login:
             days_ago = (timezone.now() - member.last_login).days
+            local_last_login = localtime(member.last_login)
             if days_ago == 0:
-                last_login_display = member.last_login.strftime('%b %d, %Y at %I:%M %p') + ' (Today)'
+                last_login_display = local_last_login.strftime('%b %d, %Y at %I:%M %p') + ' (Today)'
             elif days_ago == 1:
-                last_login_display = member.last_login.strftime('%b %d, %Y at %I:%M %p') + ' (Yesterday)'
+                last_login_display = local_last_login.strftime('%b %d, %Y at %I:%M %p') + ' (Yesterday)'
             else:
-                last_login_display = member.last_login.strftime('%b %d, %Y at %I:%M %p') + f' ({days_ago} days ago)'
+                last_login_display = local_last_login.strftime('%b %d, %Y at %I:%M %p') + f' ({days_ago} days ago)'
         else:
             last_login_display = 'Never logged in'
 

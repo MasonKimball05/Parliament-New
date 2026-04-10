@@ -202,7 +202,7 @@ def vote_view(request):
         Q(available_at__lte=timezone.now()) | Q(posted_by=user),
         voting_closed=False
     ).exclude(
-        status__in=['tabled', 'passed', 'failed', 'removed']
+        status__in=['pending', 'tabled', 'passed', 'failed', 'removed']
     ).order_by('-available_at')
 
     # Build vote data for uploader

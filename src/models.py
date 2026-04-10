@@ -101,6 +101,7 @@ class ParliamentUser(AbstractBaseUser):
         ('Active', 'Active'),
         ('Inactive', 'Inactive'),
         ('Alumni', 'Alumni'),
+        ('Removed', 'Removed'),
     )
 
     user_id = models.CharField(max_length=30, unique=True, primary_key=True)
@@ -340,6 +341,7 @@ class Legislation(models.Model):
     description = models.TextField()
     document = models.FileField(upload_to='legislation_docs/', validators=[validate_legislation_file], storage=DualLocationStorage(), blank=True, null=True)
     posted_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
+    co_authors = models.ManyToManyField('ParliamentUser', blank=True, related_name='co_authored_legislation')
     available_at = models.DateTimeField(help_text="When the document becomes visible for review")
     voting_starts_at = models.DateTimeField(null=True, blank=True, help_text="When voting opens (defaults to available_at if not set)")
     created_at = models.DateTimeField(auto_now_add=True)

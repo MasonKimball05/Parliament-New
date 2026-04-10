@@ -70,6 +70,33 @@
                 </div>
             </div>
 
+            <!-- Custom Field Responses -->
+            {% if custom_responses %}
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Additional Information</h2>
+                </div>
+                <div class="px-6 py-4 space-y-4">
+                    {% for response in custom_responses %}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">{{ response.field.label }}</label>
+                        <p class="mt-1 text-gray-900 dark:text-white">
+                            {% if response.field.field_type == 'file' and response.file_value %}
+                                <a href="{{ response.file_value.url }}" target="_blank" class="text-blue-600 hover:text-blue-800 dark:text-blue-400">View File</a>
+                            {% elif response.field.field_type in 'multiselect,checkbox' %}
+                                {{ response.json_value|join:", " }}
+                            {% elif response.number_value %}
+                                {{ response.number_value }}
+                            {% else %}
+                                {{ response.text_value|default:"-" }}
+                            {% endif %}
+                        </p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Activity Log -->
             {% if activity_log %}
             <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
