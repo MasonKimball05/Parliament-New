@@ -1059,14 +1059,11 @@ You may submit another closure request in the future if circumstances change.
     except:
         available_reports = []
 
-    # Get all active members for accused person selection
+    # Get all members for accused person selection (active first, then inactive)
     try:
-        all_members = ParliamentUser.objects.filter(member_status='Active').order_by('name')
+        all_members = ParliamentUser.objects.all().order_by('member_status', 'name')
     except:
-        try:
-            all_members = ParliamentUser.objects.filter(is_active=True).order_by('name')
-        except:
-            all_members = ParliamentUser.objects.all().order_by('name')
+        all_members = ParliamentUser.objects.all().order_by('name')
 
     # Get pending closure requests for this report
     try:

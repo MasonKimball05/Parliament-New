@@ -289,17 +289,25 @@
 
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Select Accused Person
-                      </label>
+                      <div class="flex items-center justify-between mb-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Select Accused Person
+                        </label>
+                        <label class="flex items-center space-x-1.5 cursor-pointer select-none">
+                          <input type="checkbox" id="showInactiveMembers" class="h-3.5 w-3.5 text-blue-600 border-gray-300 dark:border-gray-600 rounded">
+                          <span class="text-xs text-gray-500 dark:text-gray-400">Show inactive members</span>
+                        </label>
+                      </div>
                       <select name="accused_id" id="accusedSelect"
                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
                         <option value="">-- Select Member --</option>
                         {% for member in all_members %}
                         <option value="{{ member.user_id }}"
                                 data-email="{{ member.email|default:'' }}"
+                                data-status="{{ member.member_status }}"
+                                {% if member.member_status != 'Active' %}class="inactive-member-option"{% endif %}
                                 {% if report.targeted_to and report.targeted_to.user_id == member.user_id %}selected{% endif %}>
-                          {{ member.name }} {% if member.email %}({{ member.email }}){% endif %}
+                          {{ member.name }}{% if member.member_status != 'Active' %} ({{ member.member_status }}){% endif %}{% if member.email %} — {{ member.email }}{% endif %}
                         </option>
                         {% endfor %}
                       </select>
@@ -787,6 +795,29 @@
       const email = selectedOption.dataset.email || '';
       accusedEmail.value = email;
     });
+  }
+
+  // Show/hide inactive members in the accused select
+  const showInactiveCheckbox = document.getElementById('showInactiveMembers');
+  if (showInactiveCheckbox && accusedSelect) {
+    function applyInactiveFilter() {
+      const show = showInactiveCheckbox.checked;
+      Array.from(accusedSelect.options).forEach(function(opt) {
+        if (opt.dataset.status && opt.dataset.status !== 'Active') {
+          opt.hidden = !show;
+          opt.disabled = !show;
+        }
+      });
+    }
+
+    // On load: if the currently selected member is inactive, auto-check the box
+    const selectedOpt = accusedSelect.options[accusedSelect.selectedIndex];
+    if (selectedOpt && selectedOpt.dataset.status && selectedOpt.dataset.status !== 'Active') {
+      showInactiveCheckbox.checked = true;
+    }
+
+    applyInactiveFilter();
+    showInactiveCheckbox.addEventListener('change', applyInactiveFilter);
   }
 
   // Prevent multiple form submissions for email sending

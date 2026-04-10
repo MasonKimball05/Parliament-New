@@ -335,6 +335,25 @@ class InputSanitizationMiddleware:
             response = self.get_response(request)
             return self.add_security_headers(response)
 
+        # Enforce IPBlacklist for all requests (cache result for 5 minutes to avoid per-request DB hits)
+        blacklist_cache_key = f'ip_blacklisted_{ip_address}'
+        is_blacklisted = cache.get(blacklist_cache_key)
+        if is_blacklisted is None:
+            try:
+                from src.models import IPBlacklist
+                is_blacklisted = IPBlacklist.objects.filter(ip_address=ip_address, is_active=True).exists()
+            except Exception:
+                is_blacklisted = False
+            cache.set(blacklist_cache_key, is_blacklisted, 300)
+        if is_blacklisted:
+            logger.warning(
+                f"BLACKLISTED_IP_BLOCKED: {ip_address} attempted {request.method} {request.path}"
+            )
+            return HttpResponseForbidden(
+                '<html><body><h1>403 Forbidden</h1></body></html>',
+                content_type='text/html'
+            )
+
         # Check all input sources for malicious patterns
         attack_detected = False
         attack_type = None

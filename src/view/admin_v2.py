@@ -6,6 +6,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate
 from django.contrib import messages
 from django.conf import settings
+from django.core.cache import cache
 from django.utils import timezone
 from django.db.models import Count, Q
 from django.db import transaction
@@ -1102,6 +1103,11 @@ def add_ip_to_blacklist(request):
         added_by=request.user
     )
 
+    # Immediately invalidate any cached "not blacklisted" result for this IP
+    cache.delete(f'ip_blacklisted_{ip_address}')
+    # Also set the honeypot ban key so it's blocked without a DB hit for 24h
+    cache.set(f'honeypot_ban_{ip_address}', True, 24 * 60 * 60)
+
     ActivityLog.log_activity(
         action_type='ip_blacklisted',
         user=request.user,
@@ -1157,6 +1163,9 @@ def remove_ip_from_blacklist(request):
     entries = IPBlacklist.objects.filter(ip_address=ip_address, is_active=True)
     count = entries.count()
     entries.update(is_active=False)
+
+    # Clear cached block state so the next request re-checks the DB
+    cache.delete(f'ip_blacklisted_{ip_address}')
 
     ActivityLog.log_activity(
         action_type='ip_blacklist_removed',

@@ -51,6 +51,13 @@ def log_and_block_honeypot_access(request, endpoint):
     Returns an HttpResponse.
     """
     ip_address = get_client_ip(request)
+
+    # If this IP is already banned (honeypot ban or DB blacklist), return the fake
+    # response immediately without creating another log record.
+    ban_key = f'honeypot_ban_{ip_address}'
+    if cache.get(ban_key):
+        return get_fake_response(endpoint)
+
     user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
     referer = request.META.get('HTTP_REFERER', '')[:500]
 
