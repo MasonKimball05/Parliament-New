@@ -1,0 +1,84 @@
+{% extends "admin/base_site.html" %}
+{% block title %}Migrate User ID — {{ user.name }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Home</a> &rsaquo;
+    <a href="/admin/src/parliamentuser/">Parliament Users</a> &rsaquo;
+    <a href="/admin/src/parliamentuser/{{ user.user_id }}/change/">{{ user.name }}</a> &rsaquo;
+    Migrate User ID
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Migrate User ID — {{ user.name }}</h1>
+
+<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:16px 20px;margin-bottom:24px;">
+    <strong>⚠ Warning:</strong> This operation changes the primary key for this user and reassigns all related records
+    (votes, attendance, legislation, chat messages, preferences, etc.) to the new ID in a single atomic transaction.
+    The old user ID will no longer exist. This cannot be undone — make sure the new ID is correct before proceeding.
+</div>
+
+{% if error %}
+<div style="background:#f8d7da;border:1px solid #f5c6cb;border-radius:4px;padding:12px 16px;margin-bottom:20px;color:#721c24;">
+    <strong>Error:</strong> {{ error }}
+</div>
+{% endif %}
+
+<div style="background:#fff;border:1px solid #dee2e6;border-radius:4px;padding:24px;max-width:500px;">
+    <table style="width:100%;margin-bottom:20px;">
+        <tr>
+            <th style="text-align:left;padding:6px 0;color:#666;width:140px;">Name</th>
+            <td style="padding:6px 0;">{{ user.name }}</td>
+        </tr>
+        <tr>
+            <th style="text-align:left;padding:6px 0;color:#666;">Current User ID</th>
+            <td style="padding:6px 0;font-family:monospace;font-size:14px;">{{ user.user_id }}</td>
+        </tr>
+        <tr>
+            <th style="text-align:left;padding:6px 0;color:#666;">Username</th>
+            <td style="padding:6px 0;">{{ user.username }}</td>
+        </tr>
+        <tr>
+            <th style="text-align:left;padding:6px 0;color:#666;">Email</th>
+            <td style="padding:6px 0;">{{ user.email|default:"—" }}</td>
+        </tr>
+        <tr>
+            <th style="text-align:left;padding:6px 0;color:#666;">Member Type</th>
+            <td style="padding:6px 0;">{{ user.member_type }}</td>
+        </tr>
+        <tr>
+            <th style="text-align:left;padding:6px 0;color:#666;">Role Number</th>
+            <td style="padding:6px 0;">{{ user.role_number|default:"—" }}</td>
+        </tr>
+    </table>
+
+    <form method="post">
+        {% csrf_token %}
+        <div style="margin-bottom:16px;">
+            <label for="new_user_id" style="display:block;font-weight:bold;margin-bottom:6px;">New User ID</label>
+            <input
+                type="text"
+                id="new_user_id"
+                name="new_user_id"
+                maxlength="30"
+                style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:monospace;font-size:14px;"
+                placeholder="Enter new user ID"
+                required
+                autofocus
+            >
+            <p style="color:#666;font-size:12px;margin-top:4px;">Max 30 characters. Must be unique across all users.</p>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;">
+            <button
+                type="submit"
+                onclick="return confirm('Are you sure you want to migrate user ID from \'{{ user.user_id }}\' to the new ID?\n\nThis will reassign ALL related data and delete the old user ID. This cannot be undone.');"
+                style="background:#ba2121;color:#fff;padding:8px 18px;border:none;border-radius:4px;cursor:pointer;font-size:14px;">
+                Migrate User ID
+            </button>
+            <a href="/admin/src/parliamentuser/{{ user.user_id }}/change/" style="color:#666;font-size:14px;">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
