@@ -307,6 +307,20 @@ class ParliamentUserAdmin(admin.ModelAdmin):
                                 if hasattr(f, 'attname') and f.attname not in skip_pref and f.name not in skip_pref:
                                     pref_fields[f.attname] = getattr(old_prefs, f.attname)
 
+                        # Stash the real credentials before temporarily clearing them
+                        real_username = old_user.username
+                        real_email = old_user.email
+                        real_role_number = old_user.role_number
+
+                        # Temporarily clear all unique fields on the old user so the
+                        # new user record can be inserted with the real values while
+                        # both rows coexist within the same transaction.
+                        ParliamentUser.objects.filter(pk=user_id).update(
+                            username=f'__migrating__{user_id}',
+                            email=None,
+                            role_number=None,
+                        )
+
                         # Create new user, copying every non-pk field
                         new_user = ParliamentUser(
                             user_id=new_user_id,
@@ -315,8 +329,8 @@ class ParliamentUserAdmin(admin.ModelAdmin):
                             member_type=old_user.member_type,
                             is_active=old_user.is_active,
                             is_admin=old_user.is_admin,
-                            username=old_user.username,
-                            email=old_user.email,
+                            username=real_username,
+                            email=real_email,
                             phone_number=old_user.phone_number,
                             profile_picture=old_user.profile_picture,
                             profile_picture_removed_by_admin=old_user.profile_picture_removed_by_admin,
@@ -325,7 +339,7 @@ class ParliamentUserAdmin(admin.ModelAdmin):
                             member_status=old_user.member_status,
                             force_password_change=old_user.force_password_change,
                             is_quarantined=old_user.is_quarantined,
-                            role_number=old_user.role_number,
+                            role_number=real_role_number,
                             last_login=old_user.last_login,
                             password=old_user.password,  # raw hashed password — no re-hashing
                         )
