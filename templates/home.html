@@ -14,7 +14,7 @@
                 <p class="text-sm sm:text-base opacity-90">{{ user.member_type }}{% if not user.is_pledge %} • {{ user.user_id }}{% endif %}</p>
             </div>
             <button onclick="document.getElementById('coat-modal').classList.remove('hidden')" class="flex-shrink-0 focus:outline-none group flex flex-col items-center gap-1">
-                <img src="{% static 'images/am-coat-of-arms.png' %}" alt="Alpha Mu Coat of Arms" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-contain bg-white p-1 shadow-lg transition-transform duration-200 group-hover:scale-110 cursor-pointer">
+                <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-contain bg-white p-1 shadow-lg transition-transform duration-200 group-hover:scale-110 cursor-pointer">
                 <span class="text-white/80 text-center leading-tight">
                     <span class="block text-xs">Ἀρετὴ Μονάζει</span>
                     <span class="block text-xs italic opacity-75">Virtue Stands Alone</span>
@@ -27,7 +27,7 @@
                     <button onclick="document.getElementById('coat-modal').classList.add('hidden')" class="absolute -top-3 -right-3 w-8 h-8 bg-white dark:bg-gray-700 rounded-full shadow-lg flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white z-10">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
-                    <img src="{% static 'images/am-coat-of-arms.png' %}" alt="Alpha Mu Coat of Arms" class="w-full rounded-lg shadow-2xl bg-white p-4">
+                    <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms" class="w-full rounded-lg shadow-2xl bg-white p-4">
                     <p class="text-center text-white text-sm mt-3 font-medium opacity-90">"Virtue Stands Alone" Alpha Mu Chapter — Beta Theta Pi</p>
                 </div>
             </div>

@@ -110,6 +110,7 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - static_volume:/app/staticfiles:ro
       - media_volume:/app/media:ro
+      - ./exportable_media:/app/exportable_media:ro
     ports:
       - "80:80"
     deploy:
