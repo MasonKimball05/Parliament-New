@@ -57,10 +57,11 @@ def export_directory(request):
 
     # Prepare data rows
     rows = []
-    for member in all_members:
+    for member in all_members.prefetch_related('roles'):
         roles = ', '.join([role.name for role in member.roles.all()]) if member.roles.exists() else ''
         rows.append({
             'name': member.name,
+            'roll_number': member.role_number if member.role_number else member.user_id,
             'email': member.email or '',
             'phone': member.phone_number or '',
             'member_type': member.member_type,
@@ -83,10 +84,10 @@ def _export_csv(rows):
     response['Content-Disposition'] = 'attachment; filename="member_directory.csv"'
 
     writer = csv.writer(response)
-    writer.writerow(['Name', 'Email', 'Phone', 'Member Type', 'Role(s)'])
+    writer.writerow(['Name', 'Roll Number', 'Email', 'Phone', 'Member Type', 'Role(s)'])
 
     for row in rows:
-        writer.writerow([row['name'], row['email'], row['phone'], row['member_type'], row['roles']])
+        writer.writerow([row['name'], row['roll_number'], row['email'], row['phone'], row['member_type'], row['roles']])
 
     return response
 
@@ -100,6 +101,7 @@ def _export_txt(rows):
 
     for row in rows:
         lines.append(f"Name: {row['name']}")
+        lines.append(f"Roll Number: {row['roll_number']}")
         if row['email']:
             lines.append(f"Email: {row['email']}")
         if row['phone']:
@@ -127,7 +129,7 @@ def _export_xlsx(rows):
     ws.title = "Member Directory"
 
     # Header row styling
-    headers = ['Name', 'Email', 'Phone', 'Member Type', 'Role(s)']
+    headers = ['Name', 'Roll Number', 'Email', 'Phone', 'Member Type', 'Role(s)']
     header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
     header_font = Font(bold=True, color='FFFFFF')
 
@@ -140,10 +142,11 @@ def _export_xlsx(rows):
     # Data rows
     for row_num, row in enumerate(rows, 2):
         ws.cell(row=row_num, column=1, value=row['name'])
-        ws.cell(row=row_num, column=2, value=row['email'])
-        ws.cell(row=row_num, column=3, value=row['phone'])
-        ws.cell(row=row_num, column=4, value=row['member_type'])
-        ws.cell(row=row_num, column=5, value=row['roles'])
+        ws.cell(row=row_num, column=2, value=row['roll_number'])
+        ws.cell(row=row_num, column=3, value=row['email'])
+        ws.cell(row=row_num, column=4, value=row['phone'])
+        ws.cell(row=row_num, column=5, value=row['member_type'])
+        ws.cell(row=row_num, column=6, value=row['roles'])
 
     # Auto-adjust column widths
     for col in ws.columns:

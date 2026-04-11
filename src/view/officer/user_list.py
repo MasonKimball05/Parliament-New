@@ -178,7 +178,7 @@ def export_user_list(request):
 
         rows.append([
             user.name,
-            user.role_number if user.role_number else '',
+            user.role_number if user.role_number else user.user_id,
             user.user_id,
             user.email if user.email else '',
             user.member_type,
