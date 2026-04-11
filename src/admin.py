@@ -195,6 +195,20 @@ class ParliamentUserAdmin(admin.ModelAdmin):
     filter_horizontal = ('roles',)
     list_filter = ('member_type', 'member_status', 'is_admin', 'roles')
     list_per_page = 50
+    readonly_fields = ('user_id',)
+
+    def get_form(self, request, obj=None, **kwargs):
+        form_class = super().get_form(request, obj, **kwargs)
+        if obj is not None:
+            # When editing an existing user, ensure validate_unique properly excludes
+            # the current instance. AbstractBaseUser subclasses can trigger false
+            # "already exists" errors on username/email when _state.adding is incorrect.
+            class ParliamentUserChangeForm(form_class):
+                def validate_unique(self):
+                    self.instance._state.adding = False
+                    super().validate_unique()
+            return ParliamentUserChangeForm
+        return form_class
 
     fieldsets = (
         ('Personal Information', {
