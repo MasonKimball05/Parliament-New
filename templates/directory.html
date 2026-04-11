@@ -285,9 +285,6 @@
                     <div class="flex-1 min-w-0">
                         <h3 class="font-semibold text-gray-900 dark:text-white truncate">{{ member.get_display_name }}</h3>
                         <p class="text-sm text-gray-500 dark:text-gray-400">{% if member.role_number %}#{{ member.role_number }}{% endif %}</p>
-                        <div class="mt-1">
-                            <span class="px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400">Advisor</span>
-                        </div>
                         {% if member.email %}
                         <a href="mailto:{{ member.email }}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline truncate block">
                             {{ member.email }}
@@ -298,6 +295,9 @@
                             {{ member.phone_number|format_phone }}
                         </a>
                         {% endif %}
+                        <div class="mt-2">
+                            <span class="px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400">Advisor</span>
+                        </div>
                     </div>
                 </div>
             </div>
