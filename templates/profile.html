@@ -48,7 +48,7 @@
                     <p class="text-blue-100 mt-1">Welcome, {{ user.get_display_name }}</p>
                 </div>
             </div>
-            <img src="{% static 'images/beta-seal.webp' %}" alt="The Great Seal of Beta Theta Pi" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-contain bg-white p-1 opacity-90">
+            <img src="{% static 'images/am-coat-of-arms.png' %}" alt="Alpha Mu Coat of Arms" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-contain bg-white p-1 opacity-90">
         </div>
     </div>
 
@@ -89,6 +89,7 @@
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                         {% if user.member_status == 'Active' %}bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200
                         {% elif user.member_status == 'Inactive' %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300
+                        {% elif user.member_status == 'Removed' %}bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200
                         {% else %}bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200{% endif %}">
                         {{ user.member_status }}
                     </span>
