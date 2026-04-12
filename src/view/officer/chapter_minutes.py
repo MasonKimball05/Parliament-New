@@ -339,7 +339,8 @@ def save_minutes_data(request, minutes_id):
     # If published and has a linked document, regenerate the PDF
     if is_published and minutes.published_document:
         pdf_buffer = generate_minutes_pdf_buffer(minutes)
-        file_name = f"Chapter_Minutes_{minutes.date.strftime('%Y-%m-%d')}_{minutes.title.replace(' ', '_')}.pdf"
+        ts = timezone.now().strftime('%Y%m%d%H%M%S')
+        file_name = f"Chapter_Minutes_{minutes.date.strftime('%Y-%m-%d')}_{minutes.title.replace(' ', '_')}_{ts}.pdf"
         # Delete old file and save new one
         if minutes.published_document.document:
             minutes.published_document.document.delete(save=False)
@@ -429,7 +430,8 @@ def save_minutes_attendance(request, minutes_id):
     # If published and has a linked document, regenerate the PDF
     if minutes.status == 'published' and minutes.published_document:
         pdf_buffer = generate_minutes_pdf_buffer(minutes)
-        file_name = f"Chapter_Minutes_{minutes.date.strftime('%Y-%m-%d')}_{minutes.title.replace(' ', '_')}.pdf"
+        ts = timezone.now().strftime('%Y%m%d%H%M%S')
+        file_name = f"Chapter_Minutes_{minutes.date.strftime('%Y-%m-%d')}_{minutes.title.replace(' ', '_')}_{ts}.pdf"
         if minutes.published_document.document:
             minutes.published_document.document.delete(save=False)
         minutes.published_document.document.save(file_name, ContentFile(pdf_buffer.read()), save=True)
