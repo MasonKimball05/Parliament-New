@@ -53,7 +53,7 @@ The original Parliament system with basic functionality but significant security
 ### v2.11.0 - Security Attack Mitigation & Admin Dashboard Redesign (04-07-2026)
 Major security update with attack mitigation tools, honeypot traps, emergency lockdown system, and a complete admin dashboard redesign with modern card-based UI.
 
-**Deployment Status:** Pending
+**Deployment Status:** Deployed
 
 **Type:** Security Enhancement & UI Redesign
 
@@ -131,7 +131,7 @@ Major security update with attack mitigation tools, honeypot traps, emergency lo
 ### v2.10.0 - Songbook Lyrics & Pledge Initiation Fixes (04-03-2026)
 Songbook feature enhancements with complete lyrics for all songs, plus critical fixes for pledge initiation.
 
-**Deployment Status:** Pending
+**Deployment Status:** Deployed
 
 **Type:** Feature Enhancement & Bug Fix
 

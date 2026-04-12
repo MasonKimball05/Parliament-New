@@ -1,4 +1,4 @@
-# 🏛️ Parliament - Chapter Management System
+# Parliament - Chapter Management System
 
 A comprehensive Django-based management system for student organizations, designed to streamline legislation, voting, committee management, and chapter operations.
 
@@ -6,115 +6,131 @@ A comprehensive Django-based management system for student organizations, design
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Django 4.2+](https://img.shields.io/badge/django-4.2+-green.svg)](https://www.djangoproject.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-2.11.1-blue.svg)](changelogs/)
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
-- [Screenshots](#-screenshots)
-- [Features](#-features)
-- [Quick Start](#-quick-start)
-- [Installation](#-installation)
-- [Configuration](#-configuration)
-- [Usage](#-usage)
-- [Testing](#-testing)
-- [Deployment](#-deployment)
-- [Contributing](#-contributing)
-- [License](#-license)
-
----
-
-## 📸 Screenshots
-
-### Home Dashboard (v2.0) (Dark Mode)
-![Parliament 2.0 UI](exportable_media/2.0.0-UI.png)
-*Modern dark/light mode interface with quick access to all chapter functions*
-
-### Officer Portal (Dark Mode)
-![Officer Portal](exportable_media/officer-UI.png)
-*Dedicated dashboard for officers to manage attendance, events, and members*
-
-### Admin v2 Dashboard (Dark Mode)
-![Admin v2 Dashboard](exportable_media/admin-v2-UI.png)
-*Advanced administration with feature flags, page toggles, and site metrics*
-
-### Original UI (v1.0) (Pre-Dark Mode)
-![Parliament 1.0 UI](exportable_media/1.0.0-UI.png)
-*The original interface design*
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [Testing](#testing)
+- [Deployment](#deployment)
+- [Project Structure](#project-structure)
+- [Security](#security)
+- [Changelog](#changelog)
 
 ---
 
-## ✨ Features
+## Features
 
 ### Legislation & Voting
-- **Multiple Vote Modes**
-  - **Percentage**: Traditional yes/no/abstain voting with configurable thresholds (51%, 60%, 67%, 75%, unanimous)
-  - **Piecewise**: Requires exact number of yes votes to pass
-  - **Plurality**: Multiple choice voting with single winner determination
-- **Anonymous Voting**: Optional anonymous ballot mode
-- **Real-time Vote Tallies**: Live vote counts for legislation authors
-- **Vote History**: Comprehensive tracking of all past legislation
-- **Automated Vote Calculations**: Smart pass/fail determination based on mode
+- **Multiple Vote Modes** — Percentage (yes/no with configurable thresholds), Piecewise (exact count), and Plurality (multi-choice)
+- **Anonymous Voting** — optional secret ballot mode
+- **Co-Authorship** — add co-authors to legislation who share edit access
+- **Authorship Transfer** — transfer primary ownership to another member
+- **Real-time Vote Tallies** — live counts visible to legislation authors
+- **Vote History** — comprehensive archive of all past legislation
+
+### Officer Slating & Elections
+- **Modular Slating System** — fully configurable officer election workflow without code changes
+- **Dynamic Application Forms** — committee chairs build custom forms with any field types
+- **GPA & Eligibility Checks** — automatically enforces constitutional requirements per position
+- **Secret Ballot** — configurable voting with 60% threshold and up to 3 slate attempts
+- **Interview Notes** — confidential notes with destruction capability post-election
+- **Transition System** — structured handoff workflow between outgoing and incoming officers
 
 ### Committee Management
-- **Committee Structure**: Pre-configured with default committees (Brotherhood, Finance, Education, etc.)
-- **Committee Legislation**: Separate voting system for committee-level decisions
-- **Document Management**: Upload and share minutes, agendas, reports, and policies
-- **Member Roles**: Chairs, members, voting members, and advisors
-- **Committee-to-Chapter**: Push approved committee legislation to chapter-wide votes
+- **Committee Structure** — pre-configured default committees (Brotherhood, Finance, Education, etc.)
+- **Committee Legislation** — separate voting system for committee-level decisions
+- **Document Management** — upload and share minutes, agendas, reports, and policies
+- **Exec Committee Minutes** — dedicated minutes editor with PDF generation and document sync
+- **Member Roles** — chairs, members, voting members, and advisors
+- **Push to Chapter** — promote approved committee legislation to chapter-wide vote
 
-### User & Profile Management
-- **Preferred Names**: Optional preferred first name display (e.g., "Mike Johnson" instead of "Michael Johnson")
-- **Role-Based Access**: Member, Chair, Officer, and Admin permissions
-- **User Profiles**: Customizable profiles with contact info and roles
-- **VP Positions**: Hard-coded executive roles (President, EVP, VPs of various areas)
+### Service Hours
+- **Member Dashboard** — submit hours, track progress toward period requirements
+- **VPP Officer Dashboard** — approve/reject submissions, set period requirements, member overrides
+- **Custom Form Builder** — VPP can add custom fields to the submission form
+- **Approval Workflow** — approve, reject, or request changes with reviewer notes
+- **Bulk Actions** — bulk approve/reject multiple submissions
+- **CSV Export** — export submission data for reporting
+- **Email Notifications** — VPP notified automatically when members submit hours
+
+### Kai (Conduct) Reports
+- **Report Filing** — members and officers can file conduct reports against active or inactive members
+- **Inactive Member Support** — dropdown toggle to include alumni/inactive members as accused parties
+- **Officer Management** — Kai committee manages and tracks all reports
 
 ### Events & Calendar
-- **Event Management**: Create and manage chapter events with dates, times, and locations
-- **Calendar View**: Visual calendar with all upcoming events
-- **Calendar Subscriptions** ⭐ NEW: Subscribe to auto-updating calendar feeds
-  - Works with Google Calendar, Apple Calendar, Outlook, and more
-  - Automatic sync when events are added/modified/deleted
-  - Permission-based filtering (only see events you're authorized to view)
-  - Secure token system with regeneration capability
-  - Usage tracking and analytics
-- **iCal Export**: One-time export of all events to calendar file
-- **Automatic Archiving**: Events older than 1 year automatically archived
-- **Manual Controls**: Admin ability to archive/unarchive events
+- **Event Management** — create and manage chapter events with dates, times, and locations
+- **Calendar View** — visual calendar with all upcoming events
+- **Calendar Subscriptions** — subscribe to auto-updating `.ics` feeds compatible with Google Calendar, Apple Calendar, and Outlook
+- **iCal Export** — one-time export to calendar file
+- **Automatic Archiving** — events older than 1 year automatically archived
 
 ### Attendance Tracking
-- **Session Attendance**: Mark members present/absent for meetings
-- **Voting Eligibility**: Only present members can vote (3-hour window)
-- **Historical Records**: Complete attendance history
+- **Session Attendance** — mark members present/absent for meetings
+- **Voting Eligibility** — only present members can vote (3-hour window)
+- **Historical Records** — complete attendance history
+
+### Announcements
+- **Chapter-wide Announcements** — post announcements visible to all members
+- **Email Notifications** — send email notifications to active members
+- **Inactive Member Inclusion** — add individual inactive/alumni members to specific email sends
+- **Email Warmup** — preview recipients and warm up email before sending
 
 ### Document Management
-- **Chapter Documents**: Upload constitutions, bylaws, and policies
-- **Committee Documents**: Committee-specific document repositories
-- **Published/Unpublished**: Control visibility of documents to chapter
-- **Document Types**: Minutes, agendas, reports, policies, general documents
+- **Chapter Documents** — upload constitutions, bylaws, and policies
+- **Committee Documents** — committee-specific document repositories
+- **Published/Unpublished** — control visibility of documents to the chapter
+- **Document Types** — minutes, agendas, reports, policies, general documents
 
-### Admin Features
-- **Officer Portal**: Dedicated dashboard for officers and chairs
-- **Admin v2 Dashboard** ⭐ NEW: Advanced administration system
-  - Dual authentication (password + secret key) for enhanced security
-  - Site-wide statistics and metrics
-  - Feature flag management interface
-  - Page toggle controls
-  - Comprehensive audit logging
-- **Feature Flags System** ⭐ NEW: Granular control over site functionality
-  - Enable/disable features without code changes
-  - Organized by category (Core, Voting, Committees, Events, Communications, Documents, Admin)
-  - Page-level toggles with custom disabled messages
-  - Server-side enforcement (cannot be bypassed)
-  - Template integration for conditional UI rendering
-- **Activity Logs**: Track all system actions and changes
-- **Database Backup**: Built-in backup and restore functionality
-- **User Management**: Create, modify, and manage member accounts
-- **Announcements**: Post chapter-wide announcements
+### Songbook
+- **Chapter Songs** — full lyrics for 40 songs from the Beta Theta Pi Song Book (Revised 2005)
+- **Proper Formatting** — verse/chorus structure with clean formatting
+
+### Public Landing Page
+- **Officer-Editable Content** — officers manage all public-facing text, photos, and sections via a WYSIWYG editor
+- **Photo Library** — upload and embed photos inline with `[photo:ID:size:align]` shortcodes
+- **Contact Form** — visitors submit messages routed to specific officers by topic/role
+- **Contact Inbox** — all submissions saved to database; officer inbox with unread badge
+- **Custom Form Links** — officers add externally-hosted recruitment forms and surveys
+- **Social & External Links** — dynamic link manager (Instagram, Linktree, etc.)
+- **Recruitment Banner** — dismissible banner with optional auto-expiry date
+- **SEO & Open Graph** — meta description and OG image upload for link previews
+- **Section Visibility** — show/hide individual sections without deleting content
+- **In Development** — v2.12.0
+
+### Admin v2 Dashboard
+- **Card-Based Layout** — modern expandable card UI with Alpine.js
+- **Dual Authentication** — password + secret key for enhanced security
+- **Site-wide Statistics** — users, sessions, content counts, performance metrics
+- **Feature Flag Management** — enable/disable features without code changes
+- **Page Toggle Controls** — disable specific pages with custom messages
+- **Comprehensive Audit Logging** — track all system actions and changes
+- **Quarantine Management** — view and release quarantined accounts
+- **Lockdown Controls** — emergency lockdown activation/deactivation
+- **User ID Migration** — safely migrate a member's user ID in a single atomic transaction
+
+### Security
+- **Rate Limiting** — 5 failed login attempts triggers 15-minute lockout
+- **Attack Detection Middleware** — detects and blocks SQL injection, XSS, path traversal, and command injection patterns
+- **IP Blacklisting** — automatic and manual IP blocking
+- **Honeypot Endpoints** — fake admin URLs (`/wp-admin/`, `/.env`, etc.) auto-ban scanners
+- **Auto-Quarantine** — accounts triggering attack thresholds are automatically locked
+- **Emergency Lockdown** — one-click mode blocks all logins except whitelisted IPs
+- **Security Email Alerts** — critical events trigger immediate admin email notifications
+- **Session Tracking** — active sessions visible on preferences page with device/IP info
+- **Field-level Encryption** — sensitive fields (usernames, emails, IPs) encrypted at rest
+- **Activity Logs** — full audit trail of all actions
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Python 3.11+
@@ -152,15 +168,13 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-Visit `http://localhost:8000` to see your application!
+Visit `http://localhost:8000` to see your application.
 
 ---
 
-## 📦 Installation
+## Installation
 
-### Manual Installation
-
-#### 1. System Requirements
+### System Requirements
 ```bash
 # macOS
 brew install postgresql python3
@@ -174,16 +188,8 @@ python3 --version  # Should be 3.11+
 psql --version     # Should be 13+
 ```
 
-#### 2. Database Setup
+### Database Setup
 ```bash
-# Start PostgreSQL
-# macOS:
-brew services start postgresql
-
-# Ubuntu:
-sudo systemctl start postgresql
-
-# Create database and user
 psql postgres
 ```
 
@@ -197,39 +203,9 @@ GRANT ALL PRIVILEGES ON DATABASE parliament_db TO parliament_user;
 \q
 ```
 
-#### 3. Application Setup
-```bash
-# Clone repository
-git clone https://github.com/MasonKimball05/Parliament.git
-cd Parliament
-
-# Create virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env file with your database credentials and secret key
-
-# Run migrations
-python manage.py migrate
-
-# Restore default data
-python manage.py restore_committees_and_roles
-
-# Collect static files
-python manage.py collectstatic --noinput
-
-# Create admin account
-python manage.py createsuperuser
-```
-
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -241,57 +217,31 @@ python manage.py shell -c "from django.core.management.utils import get_random_s
 ```
 
 Key settings:
-- `SECRET_KEY`: Django secret key (keep this secure!)
-- `DEBUG`: Set to `False` in production
-- `ALLOWED_HOSTS`: Your domain names
-- `DB_*`: Database connection settings
-- `TIME_ZONE`: Your local timezone
+
+| Variable | Description |
+|----------|-------------|
+| `SECRET_KEY` | Django secret key — keep this secure |
+| `DEBUG` | Set to `False` in production |
+| `ALLOWED_HOSTS` | Comma-separated domain names |
+| `DB_*` | Database connection settings |
+| `TIME_ZONE` | Local timezone (default: `America/Chicago`) |
+| `ENCRYPTION_KEY` | Key for field-level encryption — back this up |
+| `SECURITY_ALERT_EMAIL` | Email address for critical security alerts |
+| `DEFAULT_FROM_EMAIL` | From address for outgoing emails |
 
 ### Default Data
 
-The system includes 11 pre-configured committees:
-1. Constitution and Bylaws Committee
-2. Ritual Committee
-3. Executive Board
-4. Kai
-5. Brotherhood
-6. Recruitment
-7. Education
-8. Risk Management
-9. Finance
-10. Administration
-11. Programming
+The system includes 11 pre-configured committees and 9 VP roles. Restore these after any database reset:
 
-And 9 VP roles:
-1. President
-2. Executive Vice President
-3. VP of Brotherhood
-4. VP of Risk Management
-5. VP of Education
-6. VP of Recruitment
-7. VP of Programming
-8. VP of Finance
-9. VP of Administration
-
-Restore these after any database reset:
 ```bash
 python manage.py restore_committees_and_roles
 ```
 
 ---
 
-## 💻 Usage
+## Usage
 
 ### Creating Users
-
-```bash
-# Via Django admin
-python manage.py createsuperuser
-# Then visit http://localhost:8000/admin
-
-# Or via management command
-python manage.py shell
-```
 
 ```python
 from src.models import ParliamentUser
@@ -311,148 +261,56 @@ user.save()
 1. Log in as Officer or Chair
 2. Go to `/vote/`
 3. Fill out the "Upload New Legislation" form
-4. Select vote mode:
-   - **Percentage**: Yes/No vote with threshold
-   - **Piecewise**: Requires exact number of yes votes
-   - **Plurality**: Multiple choice vote
-5. Set availability time
-6. Upload document (PDF/DOCX)
-7. Submit
+4. Select vote mode (Percentage / Piecewise / Plurality)
+5. Set availability time and upload document
+6. Submit
 
 ### Voting on Legislation
 
 1. Members must be marked present (within 3-hour window)
 2. Go to `/vote/`
-3. Select vote choice
-4. Enter password to confirm
-5. Submit vote
+3. Select vote choice and enter password to confirm
 
 ### Managing Committees
 
 1. Navigate to `/committees/`
-2. Select a committee
-3. Chairs can:
-   - Upload documents
-   - Create committee votes
-   - Manage members
-   - View minutes
-   - Push legislation to chapter
-
-### Archiving Old Events
-
-Automatically archive events older than 1 year:
-```bash
-python manage.py archive_old_events
-```
-
-Or manually archive via Admin portal:
-1. Go to `/officers/events/`
-2. Click archive icon next to event
-3. View archived events at `/officers/archived-events/`
+2. Chairs can upload documents, create committee votes, manage members, view minutes, and push legislation to chapter
 
 ---
 
-## 🧪 Testing
-
-### Running Tests
+## Testing
 
 ```bash
 # Run all tests
 python manage.py test
 
-# Run specific test file
-python manage.py test src.test_comprehensive
-
-# Run specific test class
-python manage.py test src.test_comprehensive.VoteModeTestCase
-
-# Run with verbosity
-python manage.py test --verbosity=2
-
 # Run with coverage
 pip install coverage
 coverage run --source='.' manage.py test
 coverage report
-coverage html  # Creates htmlcov/index.html
 ```
 
-### Test Files
-
-- `src/tests.py` - Original test suite
-- `src/test_comprehensive.py` - Comprehensive tests (50+ tests)
-- `src/test_edge_cases.py` - Edge cases and integration tests (20+ tests)
-
-See [TESTING.md](TESTING.md) for detailed testing documentation.
+See [TESTING.md](TESTING.md) for detailed documentation.
 
 ---
 
-## 🚢 Deployment
+## Deployment
 
-### Docker Deployment
+### Docker
 
 ```bash
-# Build and run with Docker Compose
 docker-compose up -d
-
-# Run migrations
 docker-compose exec web python manage.py migrate
-
-# Create superuser
 docker-compose exec web python manage.py createsuperuser
-
-# View logs
-docker-compose logs -f web
 ```
 
-### Production Deployment
+### Production
 
-#### Prerequisites
-- Server with Ubuntu 20.04+ or similar
-- Domain name pointing to your server
-- SSL certificate (Let's Encrypt recommended)
-
-#### Quick Deploy with Docker
-
-```bash
-# 1. Clone repository on server
-git clone https://github.com/MasonKimball05/Parliament.git
-cd Parliament
-
-# 2. Configure environment
-cp .env.example .env
-nano .env  # Edit with production settings
-# Set DEBUG=False, add your domain to ALLOWED_HOSTS
-
-# 3. Build and start services
-docker-compose -f docker-compose.prod.yml up -d
-
-# 4. Run migrations
-docker-compose exec web python manage.py migrate
-
-# 5. Restore default data
-docker-compose exec web python manage.py restore_committees_and_roles
-
-# 6. Create admin account
-docker-compose exec web python manage.py createsuperuser
-
-# 7. Collect static files
-docker-compose exec web python manage.py collectstatic --noinput
-```
-
-#### Manual Production Setup
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions including:
-- Gunicorn configuration
-- Nginx setup
-- SSL certificates
-- Database backups
-- Monitoring and logging
+See [DEPLOYMENT.md](DEPLOYMENT.md) for full instructions including Gunicorn, Nginx, SSL, and database backups.
 
 ---
 
-## 🔧 Management Commands
-
-### Custom Commands
+## Management Commands
 
 ```bash
 # Restore committees and VP roles
@@ -461,7 +319,7 @@ python manage.py restore_committees_and_roles
 # Archive events older than 1 year
 python manage.py archive_old_events
 
-# Archive only (dry run)
+# Dry run
 python manage.py archive_old_events --dry-run
 
 # Database backup
@@ -470,183 +328,112 @@ python manage.py dumpdata > backup.json
 # Clear expired attendance records
 python manage.py clear_expired_attendance
 
-# Clean up old legislation
-python manage.py cleanup_legislation
+# Django security check
+python manage.py check --deploy
 ```
 
 ---
 
-## 🤝 Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Quick Contribution Guide
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Write/update tests
-5. Run the test suite (`python manage.py test`)
-6. Commit your changes (`git commit -m 'Add amazing feature'`)
-7. Push to your branch (`git push origin feature/amazing-feature`)
-8. Open a Pull Request
-
----
-
-## 📝 Project Structure
+## Project Structure
 
 ```
 Parliament/
-├── .github/
-│   └── workflows/
-│       └── ci.yml              # GitHub Actions CI/CD
+├── Parliament/                 # Project settings
+│   ├── base_settings.py
+│   ├── settings_postgres.py
+│   └── wsgi.py
 ├── src/
-│   ├── management/
-│   │   └── commands/           # Custom management commands
+│   ├── middleware/             # Security, session tracking, lockdown
+│   ├── management/commands/    # Custom management commands
 │   ├── templatetags/           # Custom template filters
 │   ├── view/                   # View modules
+│   │   ├── officer/            # Officer portal views
+│   │   ├── committee/          # Committee views
+│   │   ├── slating/            # Election/slating views
+│   │   └── admin_v2.py         # Admin v2 views
 │   ├── models.py               # Database models
 │   ├── forms.py                # Django forms
-│   ├── urls.py                 # URL routing
-│   ├── tests.py                # Original tests
-│   ├── test_comprehensive.py   # Comprehensive test suite
-│   └── test_edge_cases.py      # Edge case tests
+│   └── urls.py                 # URL routing
 ├── templates/                  # HTML templates
+│   ├── admin_v2/               # Admin v2 dashboard
+│   ├── officer/                # Officer portal templates
+│   ├── committee/              # Committee templates
+│   └── slating/                # Election templates
 ├── static/                     # Static files (CSS, JS, images)
-├── media/                      # User-uploaded files
-├── Parliament/                 # Project settings
-│   ├── settings.py
-│   ├── urls.py
-│   └── wsgi.py
-├── Dockerfile                  # Docker configuration
-├── docker-compose.yml          # Docker Compose config
-├── nginx.conf                  # Nginx configuration
-├── requirements.txt            # Python dependencies
-├── .env.example                # Environment variables template
-├── manage.py                   # Django management script
-├── README.md                   # This file
-├── TESTING.md                  # Testing documentation
-└── DEPLOYMENT.md               # Deployment guide
+├── exportable_media/           # Media served directly by nginx
+├── changelogs/                 # Per-version detailed changelogs
+├── Dockerfile
+├── docker-compose.yml
+├── nginx.conf
+├── requirements.txt
+└── manage.py
 ```
 
 ---
 
-## 📖 Documentation
+## Security
 
-- [Testing Guide](TESTING.md) - Comprehensive testing documentation
-- [Test Examples](TEST_EXAMPLES.md) - Quick reference for writing tests
-- [Deployment Guide](DEPLOYMENT.md) - Production deployment instructions
-- [Contributing Guidelines](CONTRIBUTING.md) - How to contribute
+Parliament includes a multi-layered security system. See [SECURITY.md](SECURITY.md) and [SECURITY_GUIDE.md](SECURITY_GUIDE.md) for full details.
 
----
+**Key protections:**
+- CSRF, XSS, and SQL injection protection
+- Rate limiting on login (5 attempts / 15 min)
+- Attack detection middleware with auto IP blocking
+- Honeypot endpoints that auto-ban scanners
+- Auto-quarantine for attack-pattern accounts
+- Emergency lockdown mode
+- Field-level encryption for sensitive data
+- Security email alerts for critical events
+- Password hashing with PBKDF2-SHA256
 
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**Database Connection Error**
-```bash
-# Check PostgreSQL is running
-pg_isready
-
-# Check credentials in .env file
-# Verify database exists
-psql -U parliament_user -d parliament_db
-```
-
-**Migration Errors**
-```bash
-# Reset migrations (DESTRUCTIVE)
-python manage.py migrate --fake src zero
-python manage.py migrate
-
-# Or reset database completely
-dropdb parliament_db
-createdb parliament_db
-python manage.py migrate
-```
-
-**Static Files Not Loading**
-```bash
-# Collect static files
-python manage.py collectstatic --clear --noinput
-
-# Check STATIC_ROOT in settings
-# Verify DEBUG=True for development
-```
-
-**Permission Errors**
-```bash
-# Ensure proper permissions on media directory
-chmod -R 755 media/
-chown -R $USER:$USER media/
-```
+Report vulnerabilities to: mason.kimball@icloud.com
 
 ---
 
-## 📊 Tech Stack
+## Changelog
 
-- **Backend**: Django 4.2+
+See the [changelogs/](changelogs/) directory for detailed per-version release notes.
+
+| Version | Status | Summary |
+|---------|--------|---------|
+| [v2.12.0](changelogs/v2.12.0-landing-page-overhaul.md) | In Development | Landing page officer editor, contact form routing, photo library, SEO |
+| [v2.11.1](changelogs/v2.11.1.md) | Deployed | Timezone fixes, announcement inactive members, co-authors, legislation bugs |
+| [v2.11.0](changelogs/v2.11.0.md) | Deployed | Attack mitigation (quarantine, honeypots, lockdown), admin v2 redesign |
+| [v2.10.0](changelogs/v2.10.0.md) | Deployed | Songbook lyrics, pledge initiation fixes |
+| [v2.9.0](changelogs/v2.9.0.md) | Deployed | Login rate limiting, SQL injection/XSS middleware, IP blacklisting |
+| [v2.8.x](changelogs/v2.8.6.md) | Deployed | Service hours system, directory export, chat, calendar subscriptions |
+| [v2.7.x](changelogs/v2.7.0-slating-system.md) | Deployed | Officer slating/election system |
+| [v2.6.x](changelogs/v2.6.4.md) | Deployed | Admin v2 dashboard, feature flags, page toggles |
+
+---
+
+## Tech Stack
+
+- **Backend**: Django 4.2+, Python 3.11+
 - **Database**: PostgreSQL 15
-- **Frontend**: HTML, Tailwind CSS, JavaScript
-- **Authentication**: Django Auth
-- **File Storage**: Django FileField (local/S3)
-- **Testing**: Django TestCase, Coverage
+- **Frontend**: HTML, Tailwind CSS, Alpine.js, JavaScript
+- **Rich Text**: Quill.js (officer editors)
+- **Authentication**: Django Auth with field-level encryption
+- **File Storage**: Django FileField (local / S3-compatible)
+- **Cache**: Redis (session throttling, rate limiting, performance metrics)
 - **CI/CD**: GitHub Actions
 - **Deployment**: Docker, Gunicorn, Nginx
 
 ---
 
-## 🔒 Security
+## License
 
-- CSRF protection enabled
-- XSS protection enabled
-- SQL injection protection via ORM
-- Password hashing with Django's PBKDF2
-- Secure session cookies in production
-- File upload validation
-- Permission-based access control
-
-Report security vulnerabilities to: mason.kimball@icloud.com
+MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
-## 📄 License
+## Authors
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 👥 Authors
-
-- **Mason Kimball** - [MasonKimball05](https://github.com/MasonKimball05)
-
-See also the list of [contributors](https://github.com/MasonKimball05/Parliament/contributors) who participated in this project.
+- **Mason Kimball** — [MasonKimball05](https://github.com/MasonKimball05)
 
 ---
 
-## 🙏 Acknowledgments
-
-- Built for student organizations to streamline chapter operations
-- Inspired by parliamentary procedure and democratic governance
-
----
-
-## 📞 Support
+## Support
 
 - **Issues**: [GitHub Issues](https://github.com/MasonKimball05/Parliament/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/MasonKimball05/Parliament/discussions)
 - **Email**: mason.kimball@icloud.com
-
----
-
-## 🗺️ Roadmap
-
-- [ ] Email notifications for new legislation
-- [ ] Mobile app (React Native)
-- [ ] Automated report generation
-- [ ] SMS reminders for events
-- [ ] Editable template support for forms
-
----
-
