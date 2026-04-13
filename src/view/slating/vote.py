@@ -60,9 +60,8 @@ def slating_vote(request, period_id):
 
         # Verify password for vote authentication
         password = request.POST.get('password')
-        auth_user = authenticate(request, username=user.username, password=password)
 
-        if not auth_user:
+        if not user.check_password(password):
             messages.error(request, 'Incorrect password. Please try again.')
             return redirect('slating_vote', period_id=period_id)
 
@@ -214,9 +213,8 @@ def individual_vote(request, period_id):
     if request.method == 'POST':
         # Verify password
         password = request.POST.get('password')
-        auth_user = authenticate(request, username=user.username, password=password)
 
-        if not auth_user:
+        if not user.check_password(password):
             messages.error(request, 'Incorrect password. Please try again.')
             return redirect('slating_vote_individual', period_id=period_id)
 

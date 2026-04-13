@@ -72,8 +72,7 @@ def admin_v2_login(request):
         secret_key = request.POST.get('secret_key', '')
 
         # Verify user password
-        user = authenticate(username=request.user.username, password=user_password)
-        if user is None:
+        if not request.user.check_password(user_password):
             messages.error(request, 'Invalid user password')
             return render(request, 'admin_v2/login.html')
 

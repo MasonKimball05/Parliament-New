@@ -180,9 +180,8 @@ def committee_vote(request, code):
     # Handle voting
     if request.method == 'POST' and ('vote_choice' in request.POST or 'vote_choices' in request.POST) and can_vote:
         password = request.POST.get('password')
-        auth_user = authenticate(request, username=user.username, password=password)
 
-        if auth_user:
+        if user.check_password(password):
             legislation_id = request.POST.get('legislation_id')
             legislation = get_object_or_404(CommitteeLegislation, id=legislation_id)
 
