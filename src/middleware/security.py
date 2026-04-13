@@ -68,7 +68,7 @@ class ForcePasswordChangeMiddleware:
 
     def __call__(self, request):
         # Check if user is authenticated and needs to change password
-        if request.user.is_authenticated and hasattr(request.user, 'force_password_change'):
+        if hasattr(request, 'user') and request.user.is_authenticated and hasattr(request.user, 'force_password_change'):
             if request.user.force_password_change:
                 # Allow access to certain paths
                 if not any(request.path.startswith(path) for path in self.exempt_paths):
@@ -322,8 +322,15 @@ class InputSanitizationMiddleware:
 
     def __init__(self, get_response):
         self.get_response = get_response
-        # Paths to skip checking (e.g., admin that has its own handling)
-        self.skip_paths = ['/admin/', '/static/', '/media/']
+        # Paths to skip checking (e.g., admin that has its own handling,
+        # or officer pages that accept rich HTML content with legitimate CSS/HTML)
+        self.skip_paths = [
+            '/admin/',
+            '/static/',
+            '/media/',
+            '/officers/edit-landing-page/',  # Rich HTML editor — CSS semicolons trigger false positives
+            '/contact/submit/',              # Public contact form — free-text messages trigger false positives
+        ]
         # Maximum input length before truncating for logging
         self.max_log_length = 500
 
@@ -392,7 +399,9 @@ class InputSanitizationMiddleware:
 
         # If attack detected, log and potentially block
         if attack_detected:
-            user_info = f"User: {request.user.username}" if request.user.is_authenticated else "Unauthenticated"
+            user_info = (f"User: {request.user.username}"
+                         if hasattr(request, 'user') and request.user.is_authenticated
+                         else "Unauthenticated")
             logger.warning(
                 f"ATTACK DETECTED [{attack_type}]: {attack_payload} | "
                 f"IP: {ip_address} | {user_info} | "
@@ -424,7 +433,7 @@ class InputSanitizationMiddleware:
                     logger.error(f"Failed to send attack alert: {e}")
 
                 # Auto-quarantine authenticated user if attacks persist
-                if request.user.is_authenticated and attack_count >= 20:
+                if hasattr(request, 'user') and request.user.is_authenticated and attack_count >= 20:
                     try:
                         from src.models import QuarantinedAccount
                         from src.security_notifications import alert_account_quarantined
@@ -549,7 +558,7 @@ class AdminAccessMonitoringMiddleware:
             ip_address = self.get_client_ip(request)
 
             # Log admin access attempts
-            if request.user.is_authenticated:
+            if hasattr(request, 'user') and request.user.is_authenticated:
                 if hasattr(request.user, 'is_admin') and request.user.is_admin:
                     # Log successful admin access
                     if request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
