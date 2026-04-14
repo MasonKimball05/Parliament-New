@@ -200,7 +200,7 @@ class PassedLegislationDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         legislation = self.object
-        votes = Vote.objects.filter(legislation=legislation)
+        votes = Vote.objects.filter(legislation=legislation).select_related('user')
 
         if legislation.vote_mode == 'plurality':
             options = legislation.plurality_options or []
@@ -246,6 +246,22 @@ class PassedLegislationDetailView(DetailView):
                 'passed': yes_pct >= required_pct,
                 'total': yes + no + abstain,
             }
+
+        # Individual votes (only if not anonymous and votes exist in DB)
+        if not legislation.anonymous_vote and votes.exists():
+            context['individual_votes'] = list(votes.order_by('user__name'))
+
+        # Present members: look back 6 hours from when voting ended
+        total_cast = votes.count()
+        if total_cast > 0:
+            vote_end = legislation.voting_ended_at or legislation.voting_starts_at or legislation.available_at
+            vote_start = vote_end - timedelta(hours=6)
+            context['present_members'] = (
+                Attendance.objects.filter(
+                    present=True,
+                    created_at__range=(vote_start, vote_end)
+                ).order_by('user_id', '-created_at').distinct('user_id').select_related('user')
+            )
 
         return context
 

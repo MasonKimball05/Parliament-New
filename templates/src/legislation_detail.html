@@ -253,7 +253,90 @@
     {% endif %}
     {% endif %}{# voting_closed #}
 
+    <!-- Present Members Dropdown -->
+    {% if present_members %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden mb-6">
+        <button type="button" onclick="toggleSection('present-members-panel', 'pm-chevron')"
+                class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+            <span class="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-white">
+                <svg class="w-5 h-5 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                Present Members
+                <span class="ml-1.5 px-2 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full">{{ present_members|length }}</span>
+            </span>
+            <svg id="pm-chevron" class="w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+        </button>
+        <div id="present-members-panel" class="hidden px-6 pb-6 border-t border-gray-200 dark:border-gray-700">
+            <div class="pt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                {% for attendance in present_members %}
+                <div class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-600">
+                    <svg class="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+                    </svg>
+                    <span>{{ attendance.user.name }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Individual Votes Dropdown (non-anonymous only) -->
+    {% if individual_votes %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden mb-6">
+        <button type="button" onclick="toggleSection('individual-votes-panel', 'iv-chevron')"
+                class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+            <span class="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-white">
+                <svg class="w-5 h-5 text-indigo-500 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                </svg>
+                Vote Roll Call
+                <span class="ml-1.5 px-2 py-0.5 text-xs font-medium bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-full">{{ individual_votes|length }}</span>
+            </span>
+            <svg id="iv-chevron" class="w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+        </button>
+        <div id="individual-votes-panel" class="hidden px-6 pb-6 border-t border-gray-200 dark:border-gray-700">
+            <div class="pt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                {% for vote in individual_votes %}
+                <div class="flex items-center justify-between text-sm bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-600">
+                    <span class="text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+                        </svg>
+                        {{ vote.user.name }}
+                    </span>
+                    {% if vote.vote_choice == 'yes' %}
+                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">Yes</span>
+                    {% elif vote.vote_choice == 'no' %}
+                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300">No</span>
+                    {% elif vote.vote_choice == 'abstain' %}
+                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300">Abstain</span>
+                    {% else %}
+                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">{{ vote.vote_choice }}</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
 </div>
+
+<script>
+function toggleSection(panelId, chevronId) {
+    const panel = document.getElementById(panelId);
+    const chevron = document.getElementById(chevronId);
+    const isHidden = panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', !isHidden);
+    chevron.style.transform = isHidden ? 'rotate(180deg)' : '';
+}
+</script>
 
 {% if vote_result.mode != "plurality" and legislation.voting_closed and vote_result.total > 0 %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
