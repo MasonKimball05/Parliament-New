@@ -87,8 +87,7 @@
     {% if passed_legislation %}
     <div class="space-y-6">
         {% for legislation in passed_legislation %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-             data-note-url="{% url 'update_legislation_note' legislation.legislation.id %}">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
             <!-- Card Header -->
             <div class="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 px-6 py-4 border-b border-blue-200 dark:border-blue-700">
                 <div class="flex items-start justify-between">
@@ -639,21 +638,13 @@
         const statusEl = document.getElementById('note-status-' + id);
         const note = input ? input.value.trim() : '';
 
-        // Find the card element that carries the server-generated URL
-        const card = document.querySelector('[data-note-url][data-note-url*="/' + id + '/"]');
-        const noteUrl = card ? card.dataset.noteUrl : null;
-        if (!noteUrl) {
-            if (statusEl) { statusEl.textContent = 'Error: URL not found'; statusEl.classList.remove('hidden'); }
-            return;
-        }
-
         if (statusEl) { statusEl.textContent = 'Saving\u2026'; statusEl.classList.remove('hidden'); }
 
         const data = new FormData();
         data.append('note', note);
         data.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
-        fetch(noteUrl, { method: 'POST', body: data })
+        fetch('/legislation/' + id + '/note/', { method: 'POST', body: data })
             .then(r => {
                 if (!r.ok) {
                     return r.text().then(t => { throw new Error('HTTP ' + r.status + ': ' + t.substring(0, 200)); });

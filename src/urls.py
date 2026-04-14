@@ -102,7 +102,7 @@ from src.view.activity_logs import activity_logs_view, export_activity_logs
 from src.view.upload_legislation import upload_legislation
 from src.view.end_vote import end_vote, create_runoff
 from src.view.delete_legislation import delete_chapter_legislation
-from src.view.passed_legislation import passed_legislation, PassedLegislationDetailView, add_legislation
+from src.view.passed_legislation import passed_legislation, PassedLegislationDetailView, add_legislation, update_legislation_note
 from src.view.legislation_detail import legislation_detail
 from src.view.edit_legislation import edit_legislation
 from src.view.reopen_legislation import reopen_legislation
