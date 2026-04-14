@@ -371,6 +371,7 @@ urlpatterns = [
     path('legislation/history/', view_legislation_history, name='view_legislation_history'),
     path('legislation/<int:legislation_id>/edit/', edit_legislation, name='edit_legislation'),
     path('legislation/<int:legislation_id>/reopen/', reopen_legislation, name='reopen_legislation'),
+    path('legislation/<int:legislation_id>/note/', update_legislation_note, name='update_legislation_note'),
     path('legislation/<int:legislation_id>/submit_new_version/', submit_new_version, name='submit_new_version'),
 
     # Admin Pages
