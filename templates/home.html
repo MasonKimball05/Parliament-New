@@ -601,20 +601,39 @@
             <div class="space-y-3">
                 {% for item in legislation_previews %}
                 <a href="{{ item.detail_url }}" class="block border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                    <div class="flex items-start justify-between">
-                        <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-2 flex-1">{{ item.title }}</h3>
-                        <div class="ml-4 text-right">
-                            <div class="text-2xl font-bold text-green-600">{{ item.yes_percentage }}</div>
+                    <div class="flex items-start justify-between gap-4">
+                        <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100 flex-1">{{ item.title }}</h3>
+                        {% if item.vote_mode == "plurality" %}
+                        <div class="text-right shrink-0">
+                            <div class="text-sm font-semibold text-purple-600 dark:text-purple-400">{{ item.winner|default:"—" }}</div>
                             <div class="text-xs text-gray-500 dark:text-gray-400">{{ item.total_votes }} vote{{ item.total_votes|pluralize }}</div>
                         </div>
+                        {% elif item.vote_mode == "piecewise" %}
+                        <div class="text-right shrink-0">
+                            <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ item.yes_votes }}</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">yes{% if item.required_yes_votes %} / {{ item.required_yes_votes }} req{% endif %}</div>
+                        </div>
+                        {% else %}
+                        <div class="text-right shrink-0">
+                            <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ item.yes_percentage }}</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">{{ item.total_votes }} vote{{ item.total_votes|pluralize }}</div>
+                        </div>
+                        {% endif %}
                     </div>
+                    {% if item.vote_mode == "percentage" %}
                     <div class="mt-2">
-                        <div class="w-full bg-gray-200 rounded-full h-2">
-                            {% with item.yes_percentage|cut:"%"|floatformat:0 as percent_num %}
-                            <div class="bg-green-500 h-2 rounded-full" style="width: {{ item.yes_percentage }}"></div>
-                            {% endwith %}
+                        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                            <div class="bg-green-500 h-1.5 rounded-full" style="width: {{ item.yes_pct_num }}%"></div>
                         </div>
                     </div>
+                    {% elif item.vote_mode == "plurality" and item.winner %}
+                    <div class="mt-1.5">
+                        <span class="inline-flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400">
+                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                            Winner
+                        </span>
+                    </div>
+                    {% endif %}
                 </a>
                 {% endfor %}
             </div>

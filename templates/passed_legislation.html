@@ -281,6 +281,68 @@
                 </div>
                 {% endif %}
 
+                <!-- Admin Note -->
+                {% if legislation.legislation.admin_note or user.is_admin or user.member_type == 'Officer' %}
+                <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4" id="note-section-{{ legislation.legislation.id }}">
+                    {% if legislation.legislation.admin_note %}
+                    <!-- Display existing note -->
+                    <div id="note-display-{{ legislation.legislation.id }}" class="flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3">
+                        <svg class="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-semibold text-amber-700 dark:text-amber-300 mb-1">Officer Note</p>
+                            <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line" id="note-text-{{ legislation.legislation.id }}">{{ legislation.legislation.admin_note }}</p>
+                        </div>
+                        {% if user.is_admin or user.member_type == 'Officer' %}
+                        <button type="button"
+                                data-note="{{ legislation.legislation.admin_note|escapejs }}"
+                                onclick="showNoteEditor('{{ legislation.legislation.id }}', this.dataset.note)"
+                                class="shrink-0 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 font-medium transition-colors">
+                            Edit
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if user.is_admin or user.member_type == 'Officer' %}
+                    <!-- Add/edit note form (shown via JS) -->
+                    <div id="note-editor-{{ legislation.legislation.id }}" class="{% if legislation.legislation.admin_note %}hidden{% endif %}">
+                        {% if not legislation.legislation.admin_note %}
+                        <button type="button"
+                                onclick="showNoteEditor('{{ legislation.legislation.id }}', '')"
+                                class="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-amber-600 dark:hover:text-amber-400 font-medium transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                            </svg>
+                            Add officer note
+                        </button>
+                        {% endif %}
+                        <div id="note-form-{{ legislation.legislation.id }}" class="hidden">
+                            <textarea id="note-input-{{ legislation.legislation.id }}"
+                                      rows="3"
+                                      placeholder="Add a note about this legislation (context, implementation status, follow-up actions, etc.)"
+                                      class="w-full px-3 py-2 text-sm border border-amber-300 dark:border-amber-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none mb-2"></textarea>
+                            <div class="flex items-center gap-2">
+                                <button type="button"
+                                        onclick="saveNote('{{ legislation.legislation.id }}')"
+                                        class="text-xs font-medium bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-md transition-colors">
+                                    Save Note
+                                </button>
+                                <button type="button"
+                                        data-has-note="{% if legislation.legislation.admin_note %}1{% else %}0{% endif %}"
+                                        onclick="cancelNote('{{ legislation.legislation.id }}', this.dataset.hasNote === '1')"
+                                        class="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-2 py-1.5 transition-colors">
+                                    Cancel
+                                </button>
+                                <span id="note-status-{{ legislation.legislation.id }}" class="text-xs text-gray-400 dark:text-gray-500 ml-auto hidden"></span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
                 <!-- View Document Button -->
                 {% if legislation.document_url %}
                 <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-3">
@@ -524,6 +586,82 @@
             buttonText.textContent = "Show Voting Details";
             chevron.style.transform = "rotate(0deg)";
         }
+    }
+
+    // ── Admin note helpers ──────────────────────────────────────────────────
+    function showNoteEditor(id, currentNote) {
+        // Hide the display block, show the form
+        const display = document.getElementById('note-display-' + id);
+        const editorWrap = document.getElementById('note-editor-' + id);
+        const form = document.getElementById('note-form-' + id);
+        const input = document.getElementById('note-input-' + id);
+        if (display) display.classList.add('hidden');
+        if (editorWrap) editorWrap.classList.remove('hidden');
+        if (form) form.classList.remove('hidden');
+        if (input) {
+            input.value = currentNote || '';
+            input.focus();
+        }
+    }
+
+    function cancelNote(id, hadNote) {
+        const display = document.getElementById('note-display-' + id);
+        const editorWrap = document.getElementById('note-editor-' + id);
+        const form = document.getElementById('note-form-' + id);
+        if (hadNote) {
+            // Had a note — restore display, hide form
+            if (display) display.classList.remove('hidden');
+            if (form) form.classList.add('hidden');
+        } else {
+            // No note yet — hide form, keep "add" button visible
+            if (form) form.classList.add('hidden');
+            if (editorWrap) editorWrap.classList.remove('hidden');
+        }
+    }
+
+    function saveNote(id) {
+        const input = document.getElementById('note-input-' + id);
+        const statusEl = document.getElementById('note-status-' + id);
+        const note = input ? input.value.trim() : '';
+
+        if (statusEl) { statusEl.textContent = 'Saving\u2026'; statusEl.classList.remove('hidden'); }
+
+        const data = new FormData();
+        data.append('note', note);
+        data.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch('/legislation/' + id + '/note/', { method: 'POST', body: data })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.ok) throw new Error(res.error || 'Save failed');
+
+                const display = document.getElementById('note-display-' + id);
+                const editorWrap = document.getElementById('note-editor-' + id);
+                const form = document.getElementById('note-form-' + id);
+                const noteText = document.getElementById('note-text-' + id);
+
+                if (note) {
+                    // Update or create the display block
+                    if (noteText) {
+                        noteText.textContent = note;
+                    } else {
+                        // First time adding note — reload to get full markup
+                        location.reload();
+                        return;
+                    }
+                    if (display) display.classList.remove('hidden');
+                    if (form) form.classList.add('hidden');
+                } else {
+                    // Note cleared — hide display, show "add" prompt
+                    if (display) display.classList.add('hidden');
+                    if (form) form.classList.add('hidden');
+                    if (editorWrap) editorWrap.classList.remove('hidden');
+                }
+                if (statusEl) { statusEl.textContent = 'Saved'; setTimeout(() => statusEl.classList.add('hidden'), 2000); }
+            })
+            .catch(err => {
+                if (statusEl) { statusEl.textContent = 'Error: ' + err.message; }
+            });
     }
 
     // JavaScript function to toggle the visibility of the present members list

@@ -12,7 +12,6 @@ from src.feature_flag_decorators import require_page_enabled
 @require_page_enabled('home')
 @log_function_call
 def home(request):
-    print(f"🔐 User: {request.user} | Authenticated: {request.user.is_authenticated}")
     logger.info(f"User: {request.user} | Authenticated: {request.user.is_authenticated} | IP: {request.META.get('REMOTE_ADDR')} | Page accessed: home")
 
     now = timezone.now()
@@ -79,14 +78,50 @@ def home(request):
         status='passed'
     ).order_by('-voting_ended_at')[:3]
 
-    legislation_previews = [
-        {
-            'title': leg.title,
-            'yes_percentage': "{:.0%}".format(leg.yes_votes / leg.total_votes) if leg.total_votes > 0 else "0%",
-            'total_votes': leg.total_votes,
-            'detail_url': reverse('passed_legislation_detail', kwargs={'pk': leg.pk})
-        } for leg in recently_passed_legislation
-    ]
+    legislation_previews = []
+    for leg in recently_passed_legislation:
+        # Use historical counts if set (manually entered legislation)
+        yes = leg.historical_yes_votes if leg.historical_yes_votes is not None else leg.yes_votes
+        total = leg.total_votes
+
+        if leg.vote_mode == 'plurality':
+            votes = Vote.objects.filter(legislation=leg)
+            option_counts = {
+                opt: votes.filter(vote_choice=opt).count()
+                for opt in (leg.plurality_options or [])
+            }
+            winner = max(option_counts, key=option_counts.get) if option_counts else None
+            legislation_previews.append({
+                'title': leg.title,
+                'vote_mode': 'plurality',
+                'winner': winner,
+                'total_votes': total,
+                'detail_url': reverse('passed_legislation_detail', kwargs={'pk': leg.pk}),
+            })
+        elif leg.vote_mode == 'piecewise':
+            legislation_previews.append({
+                'title': leg.title,
+                'vote_mode': 'piecewise',
+                'yes_votes': yes,
+                'required_yes_votes': leg.required_number,
+                'total_votes': total,
+                'detail_url': reverse('passed_legislation_detail', kwargs={'pk': leg.pk}),
+            })
+        else:
+            # Percentage mode
+            no = leg.historical_no_votes if leg.historical_no_votes is not None else (
+                Vote.objects.filter(legislation=leg, vote_choice='no').count()
+            )
+            countable = yes + no
+            yes_pct_str = "{:.0f}%".format((yes / countable) * 100) if countable > 0 else "N/A"
+            legislation_previews.append({
+                'title': leg.title,
+                'vote_mode': 'percentage',
+                'yes_percentage': yes_pct_str,
+                'yes_pct_num': round((yes / countable) * 100) if countable > 0 else 0,
+                'total_votes': total,
+                'detail_url': reverse('passed_legislation_detail', kwargs={'pk': leg.pk}),
+            })
 
     # === RECENT ACTIVITY ===
     # Count new items this week

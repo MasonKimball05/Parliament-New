@@ -10,7 +10,6 @@ from django.urls import reverse
 from ..decorators import *
 from ..models import *
 from src.feature_flag_decorators import require_page_enabled
-import pytz
 from datetime import timedelta
 
 @login_required
@@ -83,6 +82,8 @@ def passed_legislation(request):
             abstain = leg.historical_abstain_votes
 
         total_non_abstain = yes + no
+        # For plurality votes, determine if any votes were cast via total vote count
+        total_cast = votes.count() if leg.vote_mode == 'plurality' else total_non_abstain + abstain
 
         # Skip legislation with no votes UNLESS:
         # - It's marked as passed
@@ -133,23 +134,18 @@ def passed_legislation(request):
 
 
         # Determine time range for attendance window (only if there were votes)
+        # Use total_cast so plurality votes (which have no yes/no) still get attendance
         present_members = []
-        if total_non_abstain > 0:
-            local_tz = pytz.timezone("America/Chicago")
-            vote_end = leg.voting_ended_at or leg.available_at
-            vote_start = vote_end - timedelta(hours=3)
-
-            # Convert to local time and back to UTC to simulate attendance in UTC-6 window
-            vote_start_local = vote_start.astimezone(local_tz)
-            vote_end_local = vote_end.astimezone(local_tz)
-
-            vote_start_utc = vote_start_local.astimezone(pytz.UTC)
-            vote_end_utc = vote_end_local.astimezone(pytz.UTC)
+        if total_cast > 0:
+            # Anchor the window on when voting started (or ended) and look back up to 6 hours
+            # to capture attendance marked at the beginning of a long meeting
+            vote_end = leg.voting_ended_at or leg.voting_starts_at or leg.available_at
+            vote_start = vote_end - timedelta(hours=6)
 
             # Only get the latest attendance record per user in the window
             present_members = Attendance.objects.filter(
                 present=True,
-                created_at__range=(vote_start_utc, vote_end_utc)
+                created_at__range=(vote_start, vote_end)
             ).order_by('user_id', '-created_at').distinct('user_id').select_related('user')
 
         # Calculate percentages for display
@@ -315,3 +311,25 @@ def add_legislation(request):
     logger.info(f"{request.user.username} added legislation: {title} with status {status}")
     messages.success(request, f'Legislation "{title}" has been added.')
     return redirect('passed_legislation')
+
+
+@login_required
+@require_http_methods(["POST"])
+@log_function_call
+def update_legislation_note(request, legislation_id):
+    """
+    Add or update an admin note on a piece of legislation.
+    Only admins and officers can edit notes. The vote result is not affected.
+    """
+    from django.http import JsonResponse
+
+    if not request.user.is_admin and request.user.member_type != 'Officer':
+        return JsonResponse({'ok': False, 'error': 'Permission denied.'}, status=403)
+
+    legislation = get_object_or_404(Legislation, id=legislation_id)
+    note = request.POST.get('note', '').strip()
+    legislation.admin_note = note
+    legislation.save(update_fields=['admin_note'])
+
+    logger.info(f"{request.user.username} updated note on legislation '{legislation.title}' (ID: {legislation_id})")
+    return JsonResponse({'ok': True, 'note': note})
