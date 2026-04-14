@@ -3,7 +3,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.utils import timezone
 from django.contrib import messages
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import DetailView
 from django.views.decorators.http import require_http_methods
 from django.urls import reverse
@@ -170,6 +170,7 @@ def passed_legislation(request):
             'present_members': present_members,
             'document_url': leg.document.url if leg.document else None,
             'document_viewer_url': reverse('view_document', args=[leg.id]) if leg.document else None,
+            'detail_url': reverse('passed_legislation_detail', kwargs={'pk': leg.id}),
             'vote_breakdown': vote_breakdown,
             'winner': winner,
         })
@@ -200,30 +201,50 @@ class PassedLegislationDetailView(DetailView):
         context = super().get_context_data(**kwargs)
         legislation = self.object
         votes = Vote.objects.filter(legislation=legislation)
-        total_votes = votes.count()
 
         if legislation.vote_mode == 'plurality':
-            vote_counts = {option: votes.filter(vote_choice=option).count() for option in legislation.plurality_options}
+            options = legislation.plurality_options or []
+            vote_counts = {opt: votes.filter(vote_choice=opt).count() for opt in options}
             winner = max(vote_counts, key=vote_counts.get) if vote_counts else None
             context['vote_result'] = {
                 'mode': 'plurality',
                 'options': vote_counts,
                 'winner': winner,
-                'total': total_votes
+                'total': votes.count(),
             }
-        else:
-            yes_votes = votes.filter(vote_choice='yes').count()
-            no_votes = votes.filter(vote_choice='no').count()
-            abstain_votes = votes.filter(vote_choice='abstain').count()
-            yes_pct = (yes_votes / total_votes * 100) if total_votes > 0 else 0
+
+        elif legislation.vote_mode == 'piecewise':
+            yes = legislation.historical_yes_votes if legislation.historical_yes_votes is not None else votes.filter(vote_choice='yes').count()
+            no  = legislation.historical_no_votes  if legislation.historical_no_votes  is not None else votes.filter(vote_choice='no').count()
+            abstain = legislation.historical_abstain_votes if legislation.historical_abstain_votes is not None else votes.filter(vote_choice='abstain').count()
+            required = legislation.required_number or 0
+            context['vote_result'] = {
+                'mode': 'piecewise',
+                'yes': yes,
+                'no': no,
+                'abstain': abstain,
+                'required_yes': required,
+                'passed': yes >= required,
+                'total': yes + no + abstain,
+            }
+
+        else:  # percentage
+            yes = legislation.historical_yes_votes if legislation.historical_yes_votes is not None else votes.filter(vote_choice='yes').count()
+            no  = legislation.historical_no_votes  if legislation.historical_no_votes  is not None else votes.filter(vote_choice='no').count()
+            abstain = legislation.historical_abstain_votes if legislation.historical_abstain_votes is not None else votes.filter(vote_choice='abstain').count()
+            countable = yes + no
+            yes_pct = (yes / countable * 100) if countable > 0 else 0
+            required_pct = int(legislation.required_percentage)
             context['vote_result'] = {
                 'mode': 'percentage',
-                'yes': yes_votes,
-                'no': no_votes,
-                'abstain': abstain_votes,
+                'yes': yes,
+                'no': no,
+                'abstain': abstain,
                 'yes_percentage': "{:.0f}%".format(yes_pct),
-                'required_percentage': legislation.required_percentage,
-                'total': total_votes
+                'yes_pct_num': round(yes_pct, 1),
+                'required_percentage': required_pct,
+                'passed': yes_pct >= required_pct,
+                'total': yes + no + abstain,
             }
 
         return context

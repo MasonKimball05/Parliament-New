@@ -5,169 +5,303 @@
 
 {% block content %}
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
     <!-- Back Link -->
     <div class="mb-6">
-        <a href="{% url 'vote' %}" class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
-            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <a href="{% url 'passed_legislation' %}" class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
             </svg>
-            Back to Voting
+            Back to Legislation Tracker
         </a>
     </div>
 
-    <!-- Main Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors duration-200">
-        <!-- Header -->
-        <div class="bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-700 dark:to-purple-800 px-6 py-8">
-            <h1 class="text-2xl sm:text-3xl font-bold text-white mb-2">{{ legislation.title }}</h1>
-            <p class="text-purple-100">View legislation details and vote results</p>
+    <!-- Header Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden mb-6">
+        <div class="px-6 py-6 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex-1 min-w-0">
+                    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-3">{{ legislation.title }}</h1>
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-gray-500 dark:text-gray-400">
+                        <span class="flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                            {{ legislation.posted_by.name }}
+                        </span>
+                        {% if legislation.available_at %}
+                        <span class="flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            Submitted {{ legislation.available_at|date:"M j, Y" }}
+                        </span>
+                        {% endif %}
+                        {% if legislation.voting_ended_at %}
+                        <span class="flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            Voted {{ legislation.voting_ended_at|date:"M j, Y" }}
+                        </span>
+                        {% endif %}
+                        <span class="flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                            </svg>
+                            {{ legislation.vote_mode|title }} vote
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Status Badge -->
+                <div class="shrink-0">
+                    {% if legislation.status == 'passed' or legislation.passed %}
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 border border-green-200 dark:border-green-700">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                        Passed
+                    </span>
+                    {% elif legislation.status == 'failed' %}
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 border border-red-200 dark:border-red-700">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+                        Failed
+                    </span>
+                    {% elif legislation.status == 'tabled' %}
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
+                        Tabled
+                    </span>
+                    {% elif legislation.status == 'pending' %}
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700">
+                        Pending
+                    </span>
+                    {% else %}
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
+                        Active
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
         </div>
 
-        <!-- Content -->
+        <!-- Description -->
+        {% if legislation.description %}
+        <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Description</h2>
+            <p class="text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">{{ legislation.description }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Document -->
+        {% if legislation.document %}
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-wrap gap-3">
+            <a href="{% url 'view_document' legislation.id %}"
+               class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+                View Document
+            </a>
+            <a href="{{ legislation.document.url }}" download
+               class="inline-flex items-center gap-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                Download
+            </a>
+        </div>
+        {% endif %}
+
+        <!-- Admin Note -->
+        {% if legislation.admin_note %}
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
+                <svg class="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                <div>
+                    <p class="text-xs font-semibold text-amber-700 dark:text-amber-300 mb-1">Officer Note</p>
+                    <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{{ legislation.admin_note }}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Vote Results Card -->
+    {% if legislation.voting_closed %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                Vote Results
+            </h2>
+        </div>
+
         <div class="p-6">
-            <!-- Read Resolution Link -->
-            {% if legislation.document %}
-            <div class="mb-8 text-center">
-                <a href="{% url 'view_document' legislation.id %}"
-                   class="inline-flex items-center space-x-2 text-lg text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
-                    <span>Read Resolution</span>
-                </a>
+
+            {% if vote_result.mode == "plurality" %}
+            <!-- Plurality results -->
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+                {% for option, count in vote_result.options.items %}
+                <div class="rounded-lg border p-4 text-center {% if vote_result.winner == option %}bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-600 ring-2 ring-purple-400 dark:ring-purple-500{% else %}bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600{% endif %}">
+                    <div class="text-3xl font-bold {% if vote_result.winner == option %}text-purple-600 dark:text-purple-400{% else %}text-gray-700 dark:text-gray-300{% endif %}">{{ count }}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ option }}</div>
+                    {% if vote_result.winner == option %}
+                    <div class="mt-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300">&#x2713; Winner</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            <div class="flex justify-between text-sm text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700 pt-4">
+                <span>Total votes cast: <strong class="text-gray-900 dark:text-white">{{ vote_result.total }}</strong></span>
+            </div>
+
+            {% elif vote_result.mode == "piecewise" %}
+            <!-- Piecewise results -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4 text-center">
+                    <div class="text-3xl font-bold text-green-600 dark:text-green-400">{{ vote_result.yes }}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">Yes Votes</div>
+                    <div class="text-xs text-green-700 dark:text-green-400 font-medium mt-1">Need {{ vote_result.required_yes }}</div>
+                </div>
+                <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4 text-center">
+                    <div class="text-3xl font-bold text-red-600 dark:text-red-400">{{ vote_result.no }}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">No Votes</div>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4 text-center">
+                    <div class="text-3xl font-bold text-gray-600 dark:text-gray-400">{{ vote_result.abstain }}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">Abstain</div>
+                </div>
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 text-center">
+                    <div class="text-3xl font-bold text-blue-600 dark:text-blue-400">{{ vote_result.required_yes }}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">Required Yes</div>
+                </div>
+            </div>
+            <div class="flex flex-wrap justify-between gap-3 text-sm text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700 pt-4">
+                <span>Total votes cast: <strong class="text-gray-900 dark:text-white">{{ vote_result.total }}</strong></span>
+                <span>
+                    Result:
+                    {% if vote_result.passed %}
+                    <strong class="text-green-600 dark:text-green-400">Passed</strong> ({{ vote_result.yes }} &ge; {{ vote_result.required_yes }} required)
+                    {% else %}
+                    <strong class="text-red-600 dark:text-red-400">Failed</strong> ({{ vote_result.yes }} &lt; {{ vote_result.required_yes }} required)
+                    {% endif %}
+                </span>
+            </div>
+
+            {% else %}
+            <!-- Percentage results -->
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4 text-center">
+                    <div class="text-3xl font-bold text-green-600 dark:text-green-400">{{ vote_result.yes }}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">Yes</div>
+                </div>
+                <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4 text-center">
+                    <div class="text-3xl font-bold text-red-600 dark:text-red-400">{{ vote_result.no }}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">No</div>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4 text-center">
+                    <div class="text-3xl font-bold text-gray-600 dark:text-gray-400">{{ vote_result.abstain }}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">Abstain</div>
+                </div>
+            </div>
+
+            <!-- Progress bar -->
+            <div class="mb-4">
+                <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    <span>Yes: {{ vote_result.yes_percentage }}</span>
+                    <span>Required: {{ vote_result.required_percentage }}%</span>
+                </div>
+                <div class="relative w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                    <div class="bg-green-500 h-3 rounded-full transition-all" style="width: {{ vote_result.yes_pct_num }}%"></div>
+                    <!-- Required threshold marker -->
+                    <div class="absolute top-0 bottom-0 w-0.5 bg-blue-500 dark:bg-blue-400" style="left: {{ vote_result.required_percentage }}%"></div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap justify-between gap-3 text-sm text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700 pt-4">
+                <span>Total votes cast: <strong class="text-gray-900 dark:text-white">{{ vote_result.total }}</strong></span>
+                <span>
+                    Result:
+                    {% if vote_result.passed %}
+                    <strong class="text-green-600 dark:text-green-400">Passed</strong> ({{ vote_result.yes_percentage }} &ge; {{ vote_result.required_percentage }}% required)
+                    {% else %}
+                    <strong class="text-red-600 dark:text-red-400">Failed</strong> ({{ vote_result.yes_percentage }} &lt; {{ vote_result.required_percentage }}% required)
+                    {% endif %}
+                </span>
             </div>
             {% endif %}
 
-            <!-- Vote Results -->
-            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 mb-6 transition-colors duration-200">
-                <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                    <svg class="w-6 h-6 mr-2 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                    </svg>
-                    Vote Results
-                </h2>
-
-                <div class="grid grid-cols-3 gap-4 mb-6">
-                    <div class="bg-green-100 dark:bg-green-900/40 border border-green-200 dark:border-green-700 rounded-lg p-4 text-center">
-                        <div class="text-3xl font-bold text-green-600 dark:text-green-400">{{ vote_result.yes }}</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">Yes Votes</div>
-                    </div>
-
-                    <div class="bg-red-100 dark:bg-red-900/40 border border-red-200 dark:border-red-700 rounded-lg p-4 text-center">
-                        <div class="text-3xl font-bold text-red-600 dark:text-red-400">{{ vote_result.no }}</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">No Votes</div>
-                    </div>
-
-                    <div class="bg-yellow-100 dark:bg-yellow-900/40 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 text-center">
-                        <div class="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{{ vote_result.abstain }}</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">Abstain</div>
-                    </div>
-                </div>
-
-                <!-- Vote Summary -->
-                <div class="space-y-3 text-gray-700 dark:text-gray-300">
-                    <div class="flex justify-between items-center py-2 border-b dark:border-gray-600">
-                        <span class="font-medium">Total Votes:</span>
-                        <span class="font-bold text-gray-900 dark:text-white">{{ vote_result.total }}</span>
-                    </div>
-                    <div class="flex justify-between items-center py-2 border-b dark:border-gray-600">
-                        <span class="font-medium">Yes Percentage:</span>
-                        <span class="font-bold text-green-600 dark:text-green-400">{{ vote_result.yes_percentage }}</span>
-                    </div>
-                    <div class="flex justify-between items-center py-2">
-                        <span class="font-medium">Required for Passage:</span>
-                        <span class="font-bold text-blue-600 dark:text-blue-400">{{ vote_result.required_percentage }}%</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Vote Chart -->
-            <div class="bg-white dark:bg-gray-700 rounded-lg p-6 mb-6 border border-gray-200 dark:border-gray-600 transition-colors duration-200">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Vote Distribution</h3>
-                <div class="max-w-sm mx-auto">
-                    <canvas id="voteChart" width="300" height="300"></canvas>
-                </div>
-            </div>
-
-            <!-- Document Actions -->
-            {% if legislation.document %}
-            <div class="border-t dark:border-gray-700 pt-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Documentation</h3>
-                <div class="flex flex-wrap gap-3">
-                    <a href="{% url 'view_document' legislation.id %}"
-                       class="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm hover:shadow-md">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                        </svg>
-                        <span>View Document</span>
-                    </a>
-                    <a href="{{ legislation.document.url }}" download
-                       class="inline-flex items-center space-x-2 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 px-6 py-3 rounded-lg font-medium transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                        </svg>
-                        <span>Download</span>
-                    </a>
-                </div>
-            </div>
-            {% endif %}
         </div>
     </div>
+
+    <!-- Chart Card (percentage and piecewise only — plurality uses cards above) -->
+    {% if vote_result.mode != "plurality" and vote_result.total > 0 %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Vote Distribution</h2>
+        </div>
+        <div class="p-6 flex justify-center">
+            <div class="w-64 h-64">
+                <canvas id="voteChart"></canvas>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}{# voting_closed #}
+
 </div>
 
-<!-- Chart.js Script -->
+{% if vote_result.mode != "plurality" and legislation.voting_closed and vote_result.total > 0 %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        var ctx = document.getElementById('voteChart').getContext('2d');
+document.addEventListener('DOMContentLoaded', function() {
+    var ctx = document.getElementById('voteChart').getContext('2d');
+    var dark = document.documentElement.classList.contains('dark');
 
-        // Check for dark mode
-        var isDarkMode = document.documentElement.classList.contains('dark') ||
-                         window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-        var voteChart = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Yes', 'No', 'Abstain'],
-                datasets: [{
-                    data: [{{ vote_result.yes }}, {{ vote_result.no }}, {{ vote_result.abstain }}],
-                    backgroundColor: [
-                        isDarkMode ? 'rgba(34, 197, 94, 0.8)' : 'rgba(34, 197, 94, 1)',
-                        isDarkMode ? 'rgba(239, 68, 68, 0.8)' : 'rgba(239, 68, 68, 1)',
-                        isDarkMode ? 'rgba(234, 179, 8, 0.8)' : 'rgba(234, 179, 8, 1)'
-                    ],
-                    borderColor: isDarkMode ? 'rgb(55, 65, 81)' : 'rgb(255, 255, 255)',
-                    borderWidth: 2,
-                    hoverOffset: 8
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                cutout: '50%',
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            color: isDarkMode ? '#e5e7eb' : '#374151',
-                            padding: 20,
-                            font: {
-                                size: 14
-                            }
-                        }
-                    },
-                    tooltip: {
-                        enabled: true,
-                        backgroundColor: isDarkMode ? 'rgba(31, 41, 55, 0.9)' : 'rgba(255, 255, 255, 0.9)',
-                        titleColor: isDarkMode ? '#f9fafb' : '#111827',
-                        bodyColor: isDarkMode ? '#d1d5db' : '#4b5563',
-                        borderColor: isDarkMode ? '#4b5563' : '#e5e7eb',
-                        borderWidth: 1
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Yes', 'No', 'Abstain'],
+            datasets: [{
+                data: [{{ vote_result.yes }}, {{ vote_result.no }}, {{ vote_result.abstain }}],
+                backgroundColor: [
+                    dark ? 'rgba(34,197,94,0.8)'  : 'rgba(34,197,94,1)',
+                    dark ? 'rgba(239,68,68,0.8)'  : 'rgba(239,68,68,1)',
+                    dark ? 'rgba(156,163,175,0.8)': 'rgba(156,163,175,1)'
+                ],
+                borderColor: dark ? 'rgb(31,41,55)' : 'rgb(255,255,255)',
+                borderWidth: 2,
+                hoverOffset: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            cutout: '55%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: dark ? '#e5e7eb' : '#374151',
+                        padding: 16,
+                        font: { size: 13 }
                     }
+                },
+                tooltip: {
+                    backgroundColor: dark ? 'rgba(31,41,55,0.95)' : 'rgba(255,255,255,0.95)',
+                    titleColor: dark ? '#f9fafb' : '#111827',
+                    bodyColor: dark ? '#d1d5db' : '#4b5563',
+                    borderColor: dark ? '#4b5563' : '#e5e7eb',
+                    borderWidth: 1
                 }
             }
-        });
+        }
     });
+});
 </script>
+{% endif %}
 {% endblock %}

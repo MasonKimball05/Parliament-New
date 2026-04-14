@@ -330,6 +330,7 @@ class InputSanitizationMiddleware:
             '/media/',
             '/officers/edit-landing-page/',  # Rich HTML editor — CSS semicolons trigger false positives
             '/contact/submit/',              # Public contact form — free-text messages trigger false positives
+            '/legislation/',                 # Officer notes are free-text and may contain SQL-like patterns
         ]
         # Maximum input length before truncating for logging
         self.max_log_length = 500
