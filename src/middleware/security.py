@@ -342,8 +342,9 @@ class InputSanitizationMiddleware:
         if any(request.path.startswith(path) for path in self.skip_paths):
             if request.path.startswith('/legislation/') and request.method == 'POST':
                 import logging as _logging
+                _username = getattr(getattr(request, 'user', None), 'username', 'anon')
                 _logging.getLogger('function_calls').info(
-                    f"[DEBUG] POST to legislation path: {request.path} | user={getattr(request.user, 'username', 'anon')}"
+                    f"[DEBUG] POST to legislation path: {request.path} | user={_username}"
                 )
             response = self.get_response(request)
             return self.add_security_headers(response)
