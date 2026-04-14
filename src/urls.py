@@ -706,7 +706,9 @@ urlpatterns = [
 ]
 
 if settings.DEBUG:
+    import os as _os
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static('/exportable_media/', document_root=_os.path.join(settings.BASE_DIR, 'exportable_media'))
 
 # Custom error handlers
 from src.view.error_handlers import custom_404, custom_500
