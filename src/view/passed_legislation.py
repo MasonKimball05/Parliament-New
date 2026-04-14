@@ -90,10 +90,10 @@ def passed_legislation(request):
         # - We're filtering by a specific status (user wants to see all items in that status)
         if total_non_abstain == 0 and not leg.passed:
             # Always show if filtering by specific status
-            if status_filter in ['tabled', 'pending', 'active']:
+            if status_filter in ['tabled', 'pending', 'active', 'passed', 'failed']:
                 pass  # Don't skip
-            # Always show tabled/pending/active items
-            elif leg.status in ['tabled', 'pending', 'active']:
+            # Always show items whose status is explicitly set
+            elif leg.status in ['tabled', 'pending', 'active', 'passed', 'failed']:
                 pass  # Don't skip
             else:
                 continue
@@ -180,10 +180,6 @@ def passed_legislation(request):
 
         if present_members:
             logger.info(f"{leg.title} present members: {[a.user.name for a in present_members]}")
-
-            print("Present members for:", leg.title)
-            for pm in present_members:
-                print(f"- {pm.user.name} @ {pm.created_at}")
 
     # Pagination - 20 items per page
     paginator = Paginator(passed, 20)
