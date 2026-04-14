@@ -645,7 +645,12 @@
         data.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
         fetch('/legislation/' + id + '/note/', { method: 'POST', body: data })
-            .then(r => r.json())
+            .then(r => {
+                if (!r.ok) {
+                    return r.text().then(t => { throw new Error('HTTP ' + r.status + ': ' + t.substring(0, 200)); });
+                }
+                return r.json();
+            })
             .then(res => {
                 if (!res.ok) throw new Error(res.error || 'Save failed');
 
