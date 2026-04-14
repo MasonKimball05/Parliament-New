@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from src.utils.file_validation import validate_uploaded_file
 
 @login_required
@@ -47,6 +48,49 @@ def edit_legislation(request, legislation_id):
         return HttpResponseForbidden("You can only edit scheduled legislation before it becomes available.")
 
     if request.method == 'POST':
+        # Handle "mark as voted" — must be before status redirect checks
+        if request.POST.get('action_type') == 'mark_voted':
+            if not is_officer and not is_admin:
+                return HttpResponseForbidden("Officers and admins only.")
+
+            outcome = request.POST.get('mark_voted_outcome', 'passed')
+            if outcome not in ('passed', 'failed'):
+                outcome = 'passed'
+
+            voted_at_str = request.POST.get('mark_voted_date', '').strip()
+            voted_at = None
+            if voted_at_str:
+                try:
+                    voted_at = parse_datetime(voted_at_str)
+                except Exception:
+                    pass
+            if not voted_at:
+                voted_at = timezone.now()
+
+            legislation.status = outcome
+            legislation.passed = (outcome == 'passed')
+            legislation.voting_closed = True
+            legislation.voting_ended_at = voted_at
+
+            try:
+                yes_votes = int(request.POST.get('mark_voted_yes') or 0)
+                no_votes = int(request.POST.get('mark_voted_no') or 0)
+                abstain_votes = int(request.POST.get('mark_voted_abstain') or 0)
+                if yes_votes or no_votes or abstain_votes:
+                    legislation.historical_yes_votes = yes_votes
+                    legislation.historical_no_votes = no_votes
+                    legislation.historical_abstain_votes = abstain_votes
+            except (ValueError, TypeError):
+                pass
+
+            legislation.save()
+            logger.info(
+                f"{request.user.username} marked legislation '{legislation.title}' (ID: {legislation.id}) "
+                f"as {outcome} via mark_voted action"
+            )
+            messages.success(request, f'Legislation marked as {outcome}.')
+            return redirect('passed_legislation')
+
         # Handle authorship transfer separately
         if request.POST.get('action_type') == 'transfer_authorship':
             # Only the primary author, officers, or admins can transfer
