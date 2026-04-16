@@ -56,7 +56,9 @@ jobs:
           DB_PORT: '5432'
           DB_SSLMODE: disable
           LOG_DIR: /tmp
-        run: python manage.py migrate --noinput
+        run: |
+          python manage.py makemigrations --noinput
+          python manage.py migrate --noinput
 
       - name: Run tests
         env:
