@@ -21,8 +21,11 @@ from src.models import (
 import os
 import secrets
 import string
+import logging
+
+logger = logging.getLogger('function_calls')
 from django.views.decorators.http import require_POST
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404
 from src.logging_utils import get_client_ip
 from src.middleware.performance import get_performance_summary, get_slow_requests
