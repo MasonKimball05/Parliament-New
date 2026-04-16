@@ -56,7 +56,7 @@ jobs:
         DB_SSLMODE: disable
         LOG_DIR: /tmp
       run: |
-        python manage.py makemigrations --noinput
+        python manage.py makemigrations src --noinput
         python manage.py migrate --noinput
 
     - name: Run tests
