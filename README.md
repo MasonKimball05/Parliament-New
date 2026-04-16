@@ -1,11 +1,12 @@
 # Parliament - Chapter Management System
+Copyright (C) 2026 Mason Kimball
 
 A comprehensive Django-based management system for student organizations, designed to streamline legislation, voting, committee management, and chapter operations.
 
-[![Django CI/CD](https://github.com/MasonKimball05/Parliament/workflows/Django%20CI%2FCD/badge.svg)](https://github.com/MasonKimball05/Parliament/actions)
+[![Django CI/CD](https://github.com/MasonKimball05/Parliament-New/workflows/Django%20CI%2FCD/badge.svg)](https://github.com/MasonKimball05/Parliament-New/actions)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Django 4.2+](https://img.shields.io/badge/django-4.2+-green.svg)](https://www.djangoproject.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/license-AGPLv3-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-2.11.1-blue.svg)](changelogs/)
 
 ---
@@ -141,7 +142,7 @@ A comprehensive Django-based management system for student organizations, design
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/MasonKimball05/Parliament.git
+git clone https://github.com/MasonKimball05/Parliament-New.git
 cd Parliament
 
 # 2. Create virtual environment
@@ -422,18 +423,19 @@ See the [changelogs/](changelogs/) directory for detailed per-version release no
 ---
 
 ## License
+This project is licensed under the GNU Affero General Public License v3.0.
+See the [LICENSE](LICENSE) file for details.
 
-MIT License — see [LICENSE](LICENSE) for details.
-
+Source code is available at:
+https://github.com/MasonKimball05/Parliament-New
 ---
 
 ## Authors
 
 - **Mason Kimball** — [MasonKimball05](https://github.com/MasonKimball05)
-
 ---
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/MasonKimball05/Parliament/issues)
+- **Issues**: [GitHub Issues](https://github.com/MasonKimball05/Parliament-New/issues)
 - **Email**: mason.kimball@icloud.com

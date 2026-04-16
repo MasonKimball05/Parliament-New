@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
-from src.models import CommitteeDocument, Event, Legislation, CommitteeLegislation
+from src.models import CommitteeDocument, Event, Legislation, CommitteeLegislation, ContactSubmission
 from src.decorators import officer_or_advisor_required
 from src.feature_flag_decorators import require_page_enabled
 
@@ -36,12 +36,18 @@ def officer_home(request):
         status='draft'
     ).select_related('committee', 'posted_by').order_by('-created_at')[:2]
 
+    # Contact submissions — most recent 10, with unread count
+    contact_submissions = ContactSubmission.objects.all()[:10]
+    unread_contact_count = ContactSubmission.objects.filter(is_read=False).count()
+
     context = {
         'recent_reports': recent_reports,
         'upcoming_events': upcoming_events,
         'recent_legislation': recent_legislation,
         'recent_committee_docs': recent_committee_docs,
         'recent_committee_legislation': recent_committee_legislation,
+        'contact_submissions': contact_submissions,
+        'unread_contact_count': unread_contact_count,
     }
 
     return render(request, 'officer_home.html', context)

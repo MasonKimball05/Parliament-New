@@ -1,4 +1,5 @@
 # Parliament Development Changelog
+This project is licensed under the MIT License. Copyright (c) 2025-2026 Mason Kimball. Source code available at: https://github.com/MasonKimball05/Parliament-New
 
 ## Version History Overview
 
@@ -49,6 +50,58 @@ The original Parliament system with basic functionality but significant security
 - All environment variables must be properly set
 - No backward compatibility with v1.0.0 authentication
 
+
+### v2.12.0 - Lockout Management, Bug Fixes & UI Improvements (04-15-2026)
+Security hardening, bug fixes, and UI overhaul for the legislation history page.
+
+**Deployment Status:** Deployed
+
+**Type:** Security, Bug Fix & UI
+
+**Security:**
+
+- **Login Lockout Management Page**: New `/admin-v2/security/lockouts/` page showing all active lockouts with per-row Clear, Blacklist IP, and Whitelist+Clear actions, plus a bulk "Clear All Active" button
+- **Whitelist Bypass Fix**: Whitelisted IPs could still be locked out due to both rate-limiting systems (`login_view.py` and `LoginRateLimitMiddleware`) ignoring the `IPWhitelist` table — both now check whitelist before applying any lockout
+- **LoginLockout Model**: New DB model persists lockout events from all three rate-limiting sources (login_view IP, middleware IP, middleware username) so admins can see and manage them from the dashboard
+- **Security Dashboard**: Added Active Lockouts stat card and Login Lockouts quick-action button to security dashboard
+
+**Bug Fixes:**
+
+- **Deliberation Email Crash**: Fixed `UnboundLocalError: cannot access local variable 'message'` in `src/view/kai_reports.py` — `message` was uninitialized when `deliberation_outcome` didn't match any branch
+- **Initiate Pledge Tracebacks Invisible**: Errors in `initiate_pledges` were silently swallowed because the logger (`src.view.officer.manage_members`) had no file handler — added `logging.getLogger('admin_actions')` call in the except block so full tracebacks now appear in the production log
+- **Missing FK in Initiate**: Added `('src_loginlockout', 'cleared_by_id')` to the `related_tables` list in `initiate_pledges` to prevent FK constraint errors after `LoginLockout` model was added
+
+**UI:**
+
+- **Legislation History Page — Complete Overhaul**: Personal dashboard layout replacing the old generic card grid:
+  - Personal stats row (Total / Passed / Failed / Active) with colored left-border stat boxes
+  - Pill-style filter buttons (All / Active+Pending / Passed / Failed / Tabled) with live counts
+  - Compact list rows with colored left-border status strip instead of full gradient headers
+  - Inline vote summaries per vote mode (plurality: option pills + winner; piecewise: one-liner with required count; percentage: inline progress bar with pass/fail coloring)
+  - Author vs Co-author role badge per row
+  - Action row split into text links (View Details · Document · Download) and action buttons (Reopen / Edit / Submit New Version)
+  - Now includes co-authored legislation, not just submitted
+  - Mobile-responsive throughout
+- **Legislation Detail Page — Mobile Fixes**: Percentage vote grid (`grid-cols-3`) now uses `gap-2 sm:gap-4`, `p-3 sm:p-4`, and `text-2xl sm:text-3xl` to prevent squeeze on narrow screens; individual vote names get `min-w-0 truncate` so long names don't push badges off-screen
+- **Legislation Tracker Page — Mobile Fixes**: Action button rows use `grid grid-cols-1 sm:flex sm:flex-wrap` with reduced mobile padding; status tabs scroll horizontally with `overflow-x-auto whitespace-nowrap`
+
+**Files Modified:**
+
+- `src/models.py` — Added `LoginLockout` model
+- `src/view/login_view.py` — Added `IPWhitelist` check, `LoginLockout` persistence on lockout
+- `src/middleware/security.py` — Added `_is_ip_whitelisted()` with cache, `LoginLockout` persistence
+- `src/view/admin_v2.py` — Added `manage_lockouts` view, updated `security_dashboard` context
+- `src/view/kai_reports.py` — Fixed deliberation email `UnboundLocalError`
+- `src/view/officer/manage_members.py` — Added `admin_actions` logger in initiate except block, added `src_loginlockout` FK to `related_tables`
+- `src/view/view_legislation_history.py` — Full rewrite: status filters, vote-mode-aware data, co-author support
+- `src/urls.py` — Added `manage_lockouts` URL
+- `templates/admin_v2/lockouts.html` — **NEW** lockout management page
+- `templates/admin_v2/security_dashboard.html` — Added lockout stat card and quick-action button
+- `templates/legislation_history.html` — Complete redesign
+- `templates/passed_legislation.html` — Mobile responsive fixes
+- `templates/src/legislation_detail.html` — Mobile responsive fixes
+
+---
 
 ### v2.11.0 - Security Attack Mitigation & Admin Dashboard Redesign (04-07-2026)
 Major security update with attack mitigation tools, honeypot traps, emergency lockdown system, and a complete admin dashboard redesign with modern card-based UI.

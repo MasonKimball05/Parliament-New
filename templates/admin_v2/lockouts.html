@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Login Lockouts - Admin v2{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+
+    <!-- Header -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">Login Lockouts</h1>
+                <p class="text-gray-600 dark:text-gray-400">Active rate-limit lockouts from all three enforcement systems</p>
+            </div>
+            <div class="flex gap-3">
+                {% if active_count > 0 %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="clear_all_active">
+                    <button type="submit"
+                        onclick="return confirm('Clear all {{ active_count }} active lockout(s)?')"
+                        class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium">
+                        Clear All Active ({{ active_count }})
+                    </button>
+                </form>
+                {% endif %}
+                <a href="{% url 'admin_v2_security' %}" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg">
+                    Back to Security
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="mb-6 space-y-2">
+        {% for message in messages %}
+        <div class="px-4 py-3 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300{% elif message.tags == 'error' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300{% else %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Active Lockouts -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <div class="flex items-center mb-4">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">Active Lockouts</h2>
+            {% if active_count > 0 %}
+            <span class="ml-3 px-2 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 rounded-full text-sm font-semibold">{{ active_count }}</span>
+            {% endif %}
+        </div>
+
+        {% if active_lockouts %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                        <th class="pb-3 pr-4">IP Address</th>
+                        <th class="pb-3 pr-4">Username</th>
+                        <th class="pb-3 pr-4">Source</th>
+                        <th class="pb-3 pr-4">Locked At</th>
+                        <th class="pb-3 pr-4">Expires At</th>
+                        <th class="pb-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% for lockout in active_lockouts %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td class="py-3 pr-4">
+                            <code class="text-red-700 dark:text-red-400 font-mono">{{ lockout.ip_address }}</code>
+                        </td>
+                        <td class="py-3 pr-4 text-gray-600 dark:text-gray-400">
+                            {{ lockout.username|default:"—" }}
+                        </td>
+                        <td class="py-3 pr-4">
+                            {% if lockout.source == 'ip' %}
+                            <span class="px-2 py-0.5 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 rounded text-xs">IP (login_view)</span>
+                            {% elif lockout.source == 'middleware_ip' %}
+                            <span class="px-2 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 rounded text-xs">IP (middleware)</span>
+                            {% elif lockout.source == 'middleware_user' %}
+                            <span class="px-2 py-0.5 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded text-xs">Username (middleware)</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 pr-4 text-gray-500 dark:text-gray-400">{{ lockout.locked_at|date:"M j, Y H:i" }}</td>
+                        <td class="py-3 pr-4 text-gray-500 dark:text-gray-400">{{ lockout.expires_at|date:"M j, Y H:i" }}</td>
+                        <td class="py-3">
+                            <div class="flex gap-2">
+                                <!-- Clear -->
+                                <form method="post" class="inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="clear">
+                                    <input type="hidden" name="lockout_id" value="{{ lockout.pk }}">
+                                    <input type="hidden" name="ip_address" value="{{ lockout.ip_address }}">
+                                    <button type="submit"
+                                        onclick="return confirm('Clear lockout for {{ lockout.ip_address }}?')"
+                                        class="px-2 py-1 text-xs bg-green-100 hover:bg-green-200 text-green-800 dark:bg-green-900/40 dark:hover:bg-green-900/60 dark:text-green-300 rounded font-medium">
+                                        Clear
+                                    </button>
+                                </form>
+
+                                <!-- Blacklist -->
+                                <form method="post" class="inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="blacklist">
+                                    <input type="hidden" name="lockout_id" value="{{ lockout.pk }}">
+                                    <input type="hidden" name="ip_address" value="{{ lockout.ip_address }}">
+                                    <button type="submit"
+                                        onclick="return confirm('Permanently blacklist {{ lockout.ip_address }}? This will block all access from this IP.')"
+                                        class="px-2 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-800 dark:bg-red-900/40 dark:hover:bg-red-900/60 dark:text-red-300 rounded font-medium">
+                                        Blacklist
+                                    </button>
+                                </form>
+
+                                <!-- Whitelist + Clear -->
+                                <form method="post" class="inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="whitelist_and_clear">
+                                    <input type="hidden" name="lockout_id" value="{{ lockout.pk }}">
+                                    <input type="hidden" name="ip_address" value="{{ lockout.ip_address }}">
+                                    <button type="submit"
+                                        onclick="return confirm('Whitelist {{ lockout.ip_address }} and clear lockout? Whitelisted IPs bypass all rate limiting.')"
+                                        class="px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 dark:text-blue-300 rounded font-medium">
+                                        Whitelist
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-gray-500 dark:text-gray-400">No active lockouts.</p>
+        {% endif %}
+    </div>
+
+    <!-- Expired (not yet cleared) -->
+    {% if expired_lockouts %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Recently Expired (Awaiting Cleanup)</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                        <th class="pb-3 pr-4">IP Address</th>
+                        <th class="pb-3 pr-4">Username</th>
+                        <th class="pb-3 pr-4">Source</th>
+                        <th class="pb-3 pr-4">Locked At</th>
+                        <th class="pb-3">Expired At</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% for lockout in expired_lockouts %}
+                    <tr class="opacity-60">
+                        <td class="py-3 pr-4"><code class="font-mono text-gray-600 dark:text-gray-400">{{ lockout.ip_address }}</code></td>
+                        <td class="py-3 pr-4 text-gray-500 dark:text-gray-400">{{ lockout.username|default:"—" }}</td>
+                        <td class="py-3 pr-4 text-gray-500 dark:text-gray-400">{{ lockout.get_source_display }}</td>
+                        <td class="py-3 pr-4 text-gray-500 dark:text-gray-400">{{ lockout.locked_at|date:"M j, Y H:i" }}</td>
+                        <td class="py-3 text-gray-500 dark:text-gray-400">{{ lockout.expires_at|date:"M j, Y H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recently Cleared -->
+    {% if recent_cleared %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Recently Cleared</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                        <th class="pb-3 pr-4">IP Address</th>
+                        <th class="pb-3 pr-4">Username</th>
+                        <th class="pb-3 pr-4">Source</th>
+                        <th class="pb-3 pr-4">Locked At</th>
+                        <th class="pb-3 pr-4">Cleared At</th>
+                        <th class="pb-3">Cleared By</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% for lockout in recent_cleared %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td class="py-3 pr-4"><code class="font-mono text-gray-600 dark:text-gray-400">{{ lockout.ip_address }}</code></td>
+                        <td class="py-3 pr-4 text-gray-500 dark:text-gray-400">{{ lockout.username|default:"—" }}</td>
+                        <td class="py-3 pr-4 text-gray-500 dark:text-gray-400">{{ lockout.get_source_display }}</td>
+                        <td class="py-3 pr-4 text-gray-500 dark:text-gray-400">{{ lockout.locked_at|date:"M j, Y H:i" }}</td>
+                        <td class="py-3 pr-4 text-gray-500 dark:text-gray-400">{{ lockout.cleared_at|date:"M j, Y H:i"|default:"—" }}</td>
+                        <td class="py-3 text-gray-500 dark:text-gray-400">{{ lockout.cleared_by.name|default:"System" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

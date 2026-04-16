@@ -119,14 +119,18 @@ def edit_chapter_minutes(request, minutes_id):
         parts = user.name.strip().split()
         return parts[-1].lower() if parts else ''
 
+    def get_user_id(user):
+        """Extract user id for sorting"""
+        return user.user_id
+
     all_members = ParliamentUser.objects.filter(
         member_status='Active'
     ).exclude(member_type='Advisor')
 
-    # Separate non-pledges and pledges, sort each by last name
+    # Separate non-pledges and pledges, sort members by id and by last name for pledges
     non_pledges = sorted(
         [m for m in all_members if m.member_type != 'Pledge'],
-        key=get_last_name
+        key=get_user_id
     )
     pledges = sorted(
         [m for m in all_members if m.member_type == 'Pledge'],

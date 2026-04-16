@@ -305,7 +305,6 @@ def serve_song_audio(request, pk):
     return response
 
 
-@login_required
 def serve_exportable_media(request, filename):
     """Serve files from exportable_media folder"""
     # Build the full path

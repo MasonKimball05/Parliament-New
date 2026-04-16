@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter Songbook — Beta Theta Pi Alpha Mu</title>
+    <link rel="icon" type="image/png" href="/exportable_media/am-coat-of-arms.png">
+
+    <script>
+        (function() {
+            const stored = localStorage.getItem('theme');
+            if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe',
+                            300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6',
+                            600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+</head>
+<body class="bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-200 min-h-screen">
+
+<!-- ── Header ─────────────────────────────────────────────────────────────── -->
+<header class="sticky top-0 z-50 bg-white/90 dark:bg-gray-950/90 backdrop-blur border-b border-gray-200 dark:border-gray-800">
+    <div class="max-w-4xl mx-auto px-5 sm:px-8 h-14 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="/" class="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </a>
+            <span class="font-semibold text-gray-900 dark:text-white truncate">Chapter Songbook</span>
+            <span class="hidden sm:inline text-xs text-gray-400 dark:text-gray-500">Beta Theta Pi · Alpha Mu</span>
+        </div>
+        <button id="theme-toggle" type="button" aria-label="Toggle dark mode"
+                class="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors shrink-0">
+            <svg id="icon-sun" class="hidden w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>
+            </svg>
+            <svg id="icon-moon" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
+            </svg>
+        </button>
+    </div>
+</header>
+
+<!-- ── Content ────────────────────────────────────────────────────────────── -->
+<main class="max-w-4xl mx-auto px-5 sm:px-8 py-8">
+
+    <!-- Search & Filter -->
+    <form method="get" class="flex flex-col sm:flex-row gap-3 mb-6">
+        <div class="relative flex-1">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input type="text" name="q" value="{{ query }}" placeholder="Search songs or lyrics…"
+                   class="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+        </div>
+        {% if active_category %}
+        <input type="hidden" name="category" value="{{ active_category.pk }}">
+        {% endif %}
+    </form>
+
+    <!-- Category tabs -->
+    {% if categories %}
+    <div class="flex flex-wrap gap-2 mb-6">
+        <a href="{% if query %}?q={{ query }}{% else %}?{% endif %}"
+           class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors
+                  {% if not active_category %}bg-primary-600 text-white{% else %}bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
+            All <span class="ml-1 opacity-70">{{ songs.count }}</span>
+        </a>
+        {% for cat in categories %}
+        {% if cat.public_count > 0 %}
+        <a href="?category={{ cat.pk }}{% if query %}&q={{ query }}{% endif %}"
+           class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors
+                  {% if active_category.pk == cat.pk %}bg-primary-600 text-white{% else %}bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
+            {{ cat.name }} <span class="ml-1 opacity-70">{{ cat.public_count }}</span>
+        </a>
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Song list -->
+    {% if songs %}
+    <div class="divide-y divide-gray-100 dark:divide-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        {% for song in songs %}
+        <a href="/songbook/public/{{ song.pk }}/"
+           class="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
+            <!-- Music note icon -->
+            <span class="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0">
+                <svg class="w-4 h-4 text-primary-600 dark:text-primary-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/>
+                </svg>
+            </span>
+
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                    {{ song.title }}
+                </p>
+                {% if song.category %}
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ song.category.name }}</p>
+                {% endif %}
+            </div>
+
+            {% if song.has_audio %}
+            <span class="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1 shrink-0">
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clip-rule="evenodd"/>
+                </svg>
+                Audio
+            </span>
+            {% endif %}
+
+            <svg class="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-primary-400 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+        </a>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="text-center py-16 text-gray-400 dark:text-gray-500">
+        <svg class="w-10 h-10 mx-auto mb-3 opacity-40" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/>
+        </svg>
+        <p class="text-sm">No songs found{% if query %} for "{{ query }}"{% endif %}.</p>
+        {% if query or active_category %}
+        <a href="/songbook/public/" class="mt-2 inline-block text-xs text-primary-600 dark:text-primary-400 hover:underline">Clear filters</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</main>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+<footer class="mt-16 border-t border-gray-200 dark:border-gray-800 py-6 text-center text-xs text-gray-400 dark:text-gray-500">
+    Beta Theta Pi · Alpha Mu at Samford University
+</footer>
+
+<script>
+    const toggle = document.getElementById('theme-toggle');
+    const iconSun = document.getElementById('icon-sun');
+    const iconMoon = document.getElementById('icon-moon');
+
+    function syncIcons() {
+        const dark = document.documentElement.classList.contains('dark');
+        iconSun.classList.toggle('hidden', !dark);
+        iconMoon.classList.toggle('hidden', dark);
+    }
+    syncIcons();
+
+    toggle.addEventListener('click', () => {
+        const dark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem('theme', dark ? 'dark' : 'light');
+        syncIcons();
+    });
+</script>
+</body>
+</html>

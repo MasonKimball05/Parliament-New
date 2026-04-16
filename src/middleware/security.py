@@ -185,11 +185,25 @@ class LoginRateLimitMiddleware:
         self.window_minutes = 15  # Time window in minutes
         self.lockout_minutes = 30  # Lockout duration after exceeding limits
 
+    def _is_ip_whitelisted(self, ip_address):
+        """Check if an IP is on the active whitelist (DB query cached briefly)."""
+        cache_key = f'ip_whitelist_{ip_address}'
+        result = cache.get(cache_key)
+        if result is None:
+            from src.models import IPWhitelist
+            result = IPWhitelist.objects.filter(ip_address=ip_address, is_active=True).exists()
+            cache.set(cache_key, result, 60)  # cache for 60 seconds
+        return result
+
     def __call__(self, request):
         # Only check login endpoints
         if (request.path == '/login/' or request.path == '/accounts/login/') and request.method == 'POST':
             ip_address = self.get_client_ip(request)
             username = request.POST.get('username', '').strip().lower()
+
+            # Whitelisted IPs bypass all rate limiting
+            if self._is_ip_whitelisted(ip_address):
+                return self.get_response(request)
 
             # Check IP-based rate limit
             ip_key = f'login_attempts_ip_{ip_address}'
@@ -217,6 +231,19 @@ class LoginRateLimitMiddleware:
                 )
                 # Lock out the IP
                 cache.set(ip_lockout_key, True, self.lockout_minutes * 60)
+                # Persist lockout to DB for admin visibility
+                try:
+                    from src.models import LoginLockout
+                    from django.utils import timezone as tz
+                    from datetime import timedelta as td
+                    expires = tz.now() + td(minutes=self.lockout_minutes)
+                    LoginLockout.objects.create(
+                        ip_address=ip_address,
+                        source='middleware_ip',
+                        expires_at=expires,
+                    )
+                except Exception:
+                    pass
                 return HttpResponseForbidden(
                     '<html><body style="font-family: sans-serif; max-width: 600px; margin: 100px auto; padding: 20px;">'
                     '<h1 style="color: #dc2626;">Too Many Login Attempts</h1>'
@@ -255,6 +282,20 @@ class LoginRateLimitMiddleware:
                     )
                     # Lock out the username
                     cache.set(username_lockout_key, True, self.lockout_minutes * 60)
+                    # Persist lockout to DB for admin visibility
+                    try:
+                        from src.models import LoginLockout
+                        from django.utils import timezone as tz
+                        from datetime import timedelta as td
+                        expires = tz.now() + td(minutes=self.lockout_minutes)
+                        LoginLockout.objects.create(
+                            ip_address=ip_address,
+                            username=username,
+                            source='middleware_user',
+                            expires_at=expires,
+                        )
+                    except Exception:
+                        pass
 
         response = self.get_response(request)
 
@@ -340,12 +381,6 @@ class InputSanitizationMiddleware:
 
         # Skip checking for static files and certain paths
         if any(request.path.startswith(path) for path in self.skip_paths):
-            if request.path.startswith('/legislation/') and request.method == 'POST':
-                import logging as _logging
-                _username = getattr(getattr(request, 'user', None), 'username', 'anon')
-                _logging.getLogger('function_calls').info(
-                    f"[DEBUG] POST to legislation path: {request.path} | user={_username}"
-                )
             response = self.get_response(request)
             return self.add_security_headers(response)
 

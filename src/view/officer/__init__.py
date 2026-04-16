@@ -15,3 +15,4 @@ from .archive_event import *
 from .manage_resolutions import *
 from .chapter_minutes import *
 from .manage_members import *
+from .edit_landing_page import edit_landing_page

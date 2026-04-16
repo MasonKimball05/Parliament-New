@@ -1,6 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.messages import get_messages
-from ..models import IPBlacklist, UserSession, LoginHistory, LoginAlert
+from ..models import IPBlacklist, IPWhitelist, UserSession, LoginHistory, LoginAlert, LoginLockout
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth import login, authenticate
@@ -37,8 +37,15 @@ def get_lockout_key(ip_address):
     return f"login_lockout_{ip_address}"
 
 
+def is_ip_whitelisted(ip_address):
+    """Check if an IP is on the active whitelist."""
+    return IPWhitelist.objects.filter(ip_address=ip_address, is_active=True).exists()
+
+
 def is_rate_limited(ip_address):
-    """Check if an IP is currently rate limited."""
+    """Check if an IP is currently rate limited. Whitelisted IPs are never rate limited."""
+    if is_ip_whitelisted(ip_address):
+        return False, None
     lockout_key = get_lockout_key(ip_address)
     lockout_until = cache.get(lockout_key)
     if lockout_until:
@@ -50,7 +57,11 @@ def record_failed_attempt(ip_address):
     """
     Record a failed login attempt and check if lockout should be triggered.
     Returns (is_locked_out, attempts_remaining, lockout_until)
+    Whitelisted IPs never get locked out.
     """
+    if is_ip_whitelisted(ip_address):
+        return False, MAX_LOGIN_ATTEMPTS, None
+
     attempts_key = get_rate_limit_key(ip_address)
     lockout_key = get_lockout_key(ip_address)
 
@@ -67,6 +78,15 @@ def record_failed_attempt(ip_address):
         cache.set(lockout_key, lockout_until, LOCKOUT_DURATION)
         # Clear attempts counter
         cache.delete(attempts_key)
+        # Persist lockout to DB for admin visibility
+        try:
+            LoginLockout.objects.create(
+                ip_address=ip_address,
+                source='ip',
+                expires_at=lockout_until,
+            )
+        except Exception:
+            pass
         return True, 0, lockout_until
 
     return False, MAX_LOGIN_ATTEMPTS - attempts, None

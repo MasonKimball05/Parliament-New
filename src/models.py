@@ -5673,5 +5673,44 @@ class LandingPageFormLink(models.Model):
         return self.title
 
 
+class LoginLockout(models.Model):
+    """
+    Persisted record of IP/username lockout events from the rate-limiting systems.
+    Cache-only lockouts are transient; this model makes them visible in the admin UI.
+    """
+    SOURCE_CHOICES = [
+        ('ip', 'IP-Based (login_view)'),
+        ('middleware_ip', 'IP-Based (middleware)'),
+        ('middleware_user', 'Username-Based (middleware)'),
+    ]
+
+    ip_address = models.GenericIPAddressField(help_text='IP address that was locked out')
+    username = models.CharField(max_length=150, blank=True, help_text='Username locked out (if applicable)')
+    source = models.CharField(max_length=30, choices=SOURCE_CHOICES, default='ip')
+    locked_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(help_text='When the cache lockout expires')
+    is_cleared = models.BooleanField(default=False, help_text='True if manually cleared by admin')
+    cleared_at = models.DateTimeField(null=True, blank=True)
+    cleared_by = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='lockout_clears',
+    )
+
+    class Meta:
+        ordering = ['-locked_at']
+        verbose_name = 'Login Lockout'
+        verbose_name_plural = 'Login Lockouts'
+
+    def __str__(self):
+        return f"{self.ip_address} ({self.source}) locked at {self.locked_at:%Y-%m-%d %H:%M}"
+
+    @property
+    def is_active(self):
+        from django.utils import timezone
+        return not self.is_cleared and self.expires_at > timezone.now()
+
+
 # Import feature flags models
 from src.models_feature_flags import FeatureFlag, PageToggle

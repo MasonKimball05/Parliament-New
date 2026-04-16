@@ -615,6 +615,7 @@ You can view the full report details at the Kai Committee page.
                 if old_outcome != deliberation_outcome and report.targeted_to and report.targeted_to.email:
                     try:
                         outcome_display = dict(report.DELIBERATION_CHOICES).get(deliberation_outcome)
+                        message = None  # Initialize before conditional branches
 
                         # Notify targeted person about deliberation outcome
                         if deliberation_outcome == 'heard':

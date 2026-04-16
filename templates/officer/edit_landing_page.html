@@ -1,0 +1,982 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Edit Landing Page - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center gap-3 mb-2">
+            <a href="{% url 'officer_home' %}" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </a>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Landing Page</h1>
+            <a href="/?preview=1" target="_blank"
+               class="ml-auto inline-flex items-center gap-1.5 text-sm text-primary-600 dark:text-primary-400 hover:underline">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                </svg>
+                Preview
+            </a>
+        </div>
+        <p class="text-sm text-gray-500 dark:text-gray-400 ml-8">
+            Drag and drop text, images, and columns to build each section.
+            {% if content.updated_by and content.updated_at %}
+                Last saved by {{ content.updated_by.get_display_name }} on {{ content.updated_at|date:"N j, Y" }}.
+            {% endif %}
+        </p>
+    </div>
+
+    {% if messages %}
+    <div class="mb-6 space-y-2">
+        {% for message in messages %}
+        <div class="p-3 rounded-lg text-sm {% if message.tags == 'success' %}bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800{% else %}bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ── Photo Library ─────────────────────────────────────────────────────── -->
+    <div class="mb-8 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Photo Library</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            Upload photos here. They'll be available to drag into any section via the Image block in the editor.
+        </p>
+
+        <form method="post" action="{% url 'edit_landing_page' %}" enctype="multipart/form-data"
+              class="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="upload_photo">
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Photo</label>
+                    <input type="file" name="image" accept="image/*" required
+                           class="w-full text-sm text-gray-700 dark:text-gray-300 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-primary-50 dark:file:bg-primary-900/20 file:text-primary-700 dark:file:text-primary-400 hover:file:bg-primary-100 cursor-pointer">
+                </div>
+                <div class="flex gap-3">
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Caption (optional)</label>
+                        <input type="text" name="caption" placeholder="e.g. Fall 2024 Pledge Class"
+                               class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition">
+                    </div>
+                    <div class="flex items-end">
+                        <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white font-medium px-5 py-2 rounded-lg transition-colors text-sm whitespace-nowrap">
+                            Upload
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        {% if photos %}
+        <div class="flex flex-wrap gap-3">
+            {% for photo in photos %}
+            <div class="flex items-center gap-2 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-2">
+                <img src="{{ photo.image.url }}" alt="{{ photo.caption }}"
+                     class="w-14 h-14 rounded object-contain bg-white dark:bg-gray-800 flex-shrink-0 border border-gray-100 dark:border-gray-700">
+                <div>
+                    <p class="text-xs text-gray-600 dark:text-gray-400 max-w-[120px] truncate">{{ photo.caption|default:"No caption" }}</p>
+                    <form method="post" action="{% url 'edit_landing_page' %}" class="mt-1"
+                          onsubmit="return confirm('Delete this photo?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="delete_photo">
+                        <input type="hidden" name="photo_id" value="{{ photo.pk }}">
+                        <button type="submit" class="text-xs text-red-400 hover:text-red-600 dark:hover:text-red-400 transition-colors">Delete</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 dark:text-gray-500 italic">No photos yet. Upload one above — they'll appear in the Image block picker inside the editor.</p>
+        {% endif %}
+    </div>
+
+    <!-- ── Section Editors ───────────────────────────────────────────────────── -->
+    <form method="post" action="{% url 'edit_landing_page' %}" id="content-form" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save_content">
+
+        <!-- Tagline -->
+        <div class="mb-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5">
+            <label class="block text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">Hero Tagline</label>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Short line under the chapter name in the hero.</p>
+            <input type="text" name="tagline" value="{{ content.tagline }}" maxlength="300"
+                   class="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 transition text-sm">
+        </div>
+
+        <!-- Recruitment Banner -->
+        <div class="mb-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5">Recruitment Banner</label>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Displays a dismissible bar at the top of the landing page.</p>
+                </div>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="recruitment_banner_active" {% if content.recruitment_banner_active %}checked{% endif %}
+                           class="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                    <span class="text-sm text-gray-700 dark:text-gray-300">Active</span>
+                </label>
+            </div>
+            <div class="grid sm:grid-cols-3 gap-3">
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Message</label>
+                    <input type="text" name="recruitment_banner_message" value="{{ content.recruitment_banner_message }}" maxlength="300"
+                           placeholder="e.g. Recruitment is open — spring rush runs Jan 15–20."
+                           class="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Auto-hide after</label>
+                    <input type="date" name="recruitment_banner_end"
+                           value="{{ content.recruitment_banner_end|date:'Y-m-d' }}"
+                           class="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition">
+                </div>
+            </div>
+        </div>
+
+        <!-- Section editors (accordion) -->
+        <div class="space-y-4 mb-6">
+
+            <!-- Who We Are -->
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <button type="button" onclick="toggleSection('wwa')"
+                        class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div>
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Who We Are</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Describe the chapter. Leave blank to show the default text.</p>
+                    </div>
+                    <svg id="chevron-wwa" class="w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div id="section-wwa" class="hidden border-t border-gray-200 dark:border-gray-700">
+                    <div id="quill-wwa"></div>
+                </div>
+                <textarea name="who_we_are_html" id="hidden-wwa" class="hidden">{{ content.who_we_are_html }}</textarea>
+            </div>
+
+            <!-- What We Believe -->
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <button type="button" onclick="toggleSection('bel')"
+                        class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div>
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">What We Believe</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Core values. Leave blank to show the default Scholarship / Friendship / Integrity / Service layout.</p>
+                    </div>
+                    <svg id="chevron-bel" class="w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div id="section-bel" class="hidden border-t border-gray-200 dark:border-gray-700">
+                    <div id="quill-bel"></div>
+                </div>
+                <textarea name="what_we_believe_html" id="hidden-bel" class="hidden">{{ content.what_we_believe_html }}</textarea>
+            </div>
+
+            <!-- Chapter History -->
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <button type="button" onclick="toggleSection('his')"
+                        class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div>
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Chapter History</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Appears at the bottom. Leave blank to hide the section entirely.</p>
+                    </div>
+                    <svg id="chevron-his" class="w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div id="section-his" class="hidden border-t border-gray-200 dark:border-gray-700">
+                    <div class="px-6 pt-4">
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Section Title</label>
+                        <input type="text" name="chapter_history_title" value="{{ content.chapter_history_title }}" maxlength="200"
+                               class="w-full px-3.5 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition mb-4">
+                    </div>
+                    <div id="quill-his"></div>
+                </div>
+                <textarea name="chapter_history_html" id="hidden-his" class="hidden">{{ content.chapter_history_html }}</textarea>
+            </div>
+
+        </div>
+
+        <!-- Contact Info -->
+        <div class="mb-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5">
+            <label class="block text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">Contact Section Info</label>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Shown on the left side of the contact section.</p>
+            <div class="grid sm:grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">Location</label>
+                    <input type="text" name="contact_location" value="{{ content.contact_location }}" placeholder="City, State"
+                           class="w-full px-3.5 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">Street Address</label>
+                    <input type="text" name="contact_address" value="{{ content.contact_address }}" placeholder="e.g. 800 Lakeshore Dr"
+                           class="w-full px-3.5 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">Phone</label>
+                    <input type="text" name="contact_phone" value="{{ content.contact_phone }}" placeholder="(205) 555-0100"
+                           class="w-full px-3.5 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition">
+                </div>
+            </div>
+        </div>
+
+        <!-- SEO & Link Preview -->
+        <div class="mb-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5">
+            <label class="block text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">SEO &amp; Link Preview</label>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Controls what appears in search results and when the page is shared.</p>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">
+                        Meta Description
+                        <span class="normal-case font-normal text-gray-400 ml-1">(recommended ≤ 160 characters)</span>
+                    </label>
+                    <textarea name="meta_description" rows="2" maxlength="300"
+                              placeholder="e.g. Beta Theta Pi Alpha Mu — a men's fraternity at Samford University built on scholarship, friendship, and integrity."
+                              class="w-full px-3.5 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition resize-none">{{ content.meta_description }}</textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">
+                        Social Share Image
+                        <span class="normal-case font-normal text-gray-400 ml-1">(1200×630 px recommended — shown when link is shared)</span>
+                    </label>
+                    {% if content.og_image %}
+                    <div class="flex items-center gap-3 mb-2">
+                        <img src="{{ content.og_image.url }}" alt="OG image" class="h-16 rounded border border-gray-200 dark:border-gray-700 object-cover">
+                        <span class="text-xs text-gray-500 dark:text-gray-400">Current image. Upload a new one below to replace it.</span>
+                    </div>
+                    {% endif %}
+                    <input type="file" name="og_image" accept="image/*"
+                           class="w-full text-sm text-gray-700 dark:text-gray-300 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-primary-50 dark:file:bg-primary-900/20 file:text-primary-700 dark:file:text-primary-400 hover:file:bg-primary-100 cursor-pointer">
+                </div>
+            </div>
+        </div>
+
+        <!-- Section Visibility -->
+        <div class="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5">
+            <label class="block text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">Section Visibility</label>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Show or hide optional sections of the landing page.</p>
+            <div class="space-y-3">
+                <label class="flex items-start gap-3 cursor-pointer">
+                    <input type="checkbox" name="show_parliament_info" {% if content.show_parliament_info %}checked{% endif %}
+                           class="mt-0.5 w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                    <div>
+                        <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Parliament info box</span>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">"What is Parliament?" explanation block. Hide if you don't want to mention the portal to prospective members.</p>
+                    </div>
+                </label>
+                <label class="flex items-start gap-3 cursor-pointer">
+                    <input type="checkbox" name="show_contact_section" {% if content.show_contact_section %}checked{% endif %}
+                           class="mt-0.5 w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                    <div>
+                        <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Contact section</span>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">The "Send a Message" form and chapter contact info at the bottom.</p>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- Save -->
+        <div class="flex items-center justify-between pt-2">
+            <a href="/?preview=1" target="_blank"
+               class="inline-flex items-center gap-2 text-sm text-primary-600 dark:text-primary-400 hover:underline">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                </svg>
+                Preview landing page
+            </a>
+            <button type="submit" id="save-btn"
+                    class="bg-primary-600 hover:bg-primary-700 text-white font-medium px-6 py-2.5 rounded-lg transition-colors text-sm">
+                Save All Sections
+            </button>
+        </div>
+    </form>
+
+    <!-- ── Social / External Links ─────────────────────────────────────────── -->
+    <div class="mt-8 mb-8 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Social &amp; External Links</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Shown in the footer and next to the contact form. Add any link — Instagram, a chapter blog, Linktree, etc.</p>
+
+        <form method="post" action="{% url 'edit_landing_page' %}"
+              class="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_social_link">
+            <div class="grid sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Label</label>
+                    <input type="text" name="social_label" required placeholder="e.g. Instagram"
+                           class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition">
+                </div>
+                <div class="flex gap-2">
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">URL</label>
+                        <input type="url" name="social_url" required placeholder="https://…"
+                               class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition">
+                    </div>
+                    <div class="flex items-end">
+                        <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm whitespace-nowrap">Add</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        {% if social_links %}
+        <div class="space-y-2">
+            {% for link in social_links %}
+            <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+                <div class="flex items-center gap-3 min-w-0">
+                    <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ link.label }}</span>
+                    <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer"
+                       class="text-xs text-gray-400 truncate max-w-[200px] hover:underline">{{ link.url }}</a>
+                </div>
+                <form method="post" action="{% url 'edit_landing_page' %}" class="ml-3 flex-shrink-0"
+                      onsubmit="return confirm('Delete \'{{ link.label }}\'?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete_social_link">
+                    <input type="hidden" name="link_id" value="{{ link.pk }}">
+                    <button type="submit" class="text-xs text-red-400 hover:text-red-600 transition-colors">Delete</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 dark:text-gray-500 italic">No links yet.</p>
+        {% endif %}
+    </div>
+
+    <!-- ── Contact Topics ──────────────────────────────────────────────────── -->
+    <div class="mb-8 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Contact Form Topics</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            Add topics to the landing page contact form (e.g. "Recruitment", "General"). Each topic routes to the officer holding that role. Leave role blank to fall back to the President.
+        </p>
+
+        <form method="post" action="{% url 'edit_landing_page' %}"
+              class="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_contact_topic">
+            <div class="grid sm:grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Label</label>
+                    <input type="text" name="topic_label" required placeholder="e.g. Recruitment"
+                           class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Role Code (recipient)</label>
+                    <input type="text" name="topic_role_code" placeholder="e.g. VPR (leave blank = President)"
+                           class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition">
+                </div>
+                <div class="flex items-end">
+                    <button type="submit" class="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm">
+                        Add Topic
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        {% if contact_topics %}
+        <div class="space-y-2">
+            {% for topic in contact_topics %}
+            <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+                <div class="flex items-center gap-3">
+                    <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ topic.label }}</span>
+                    {% if topic.role_code %}
+                    <span class="text-xs text-gray-500 dark:text-gray-400">→ <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">{{ topic.role_code }}</code></span>
+                    {% else %}
+                    <span class="text-xs text-gray-400 italic">→ President (default)</span>
+                    {% endif %}
+                    {% if not topic.is_active %}
+                    <span class="text-xs text-amber-600 dark:text-amber-400 font-medium">Hidden</span>
+                    {% endif %}
+                </div>
+                <div class="flex items-center gap-2">
+                    <form method="post" action="{% url 'edit_landing_page' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="toggle_contact_topic">
+                        <input type="hidden" name="topic_id" value="{{ topic.pk }}">
+                        <button type="submit" class="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors">
+                            {% if topic.is_active %}Hide{% else %}Show{% endif %}
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'edit_landing_page' %}"
+                          onsubmit="return confirm('Delete topic \'{{ topic.label }}\'?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="delete_contact_topic">
+                        <input type="hidden" name="topic_id" value="{{ topic.pk }}">
+                        <button type="submit" class="text-xs text-red-400 hover:text-red-600 transition-colors">Delete</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 dark:text-gray-500 italic">No topics yet. Without topics, the form sends to the President (or VPR if no President is set).</p>
+        {% endif %}
+    </div>
+
+    <!-- ── Form Links ───────────────────────────────────────────────────────── -->
+    <div class="mb-8 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Forms &amp; Applications</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            Add links to forms or applications (Google Forms, Typeform, etc.). They appear as cards on the public landing page.
+        </p>
+
+        <form method="post" action="{% url 'edit_landing_page' %}"
+              class="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_form_link">
+            <div class="grid sm:grid-cols-2 gap-3 mb-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Title</label>
+                    <input type="text" name="form_title" required placeholder="e.g. Recruitment Interest Form"
+                           class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">URL</label>
+                    <input type="url" name="form_url" required placeholder="https://forms.google.com/…"
+                           class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition">
+                </div>
+            </div>
+            <div class="grid sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Description (optional)</label>
+                    <input type="text" name="form_description" placeholder="Short description shown on the card"
+                           class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition">
+                </div>
+                <div class="flex gap-3">
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Button Text</label>
+                        <input type="text" name="form_button_text" placeholder="Apply Now"
+                               class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition">
+                    </div>
+                    <div class="flex items-end">
+                        <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm whitespace-nowrap">
+                            Add Form
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        {% if form_links %}
+        <div class="space-y-2">
+            {% for link in form_links %}
+            <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ link.title }}</span>
+                        <span class="text-xs text-gray-400 truncate max-w-[180px]">{{ link.url }}</span>
+                        {% if not link.is_active %}
+                        <span class="text-xs text-amber-600 dark:text-amber-400 font-medium flex-shrink-0">Hidden</span>
+                        {% endif %}
+                    </div>
+                    {% if link.description %}
+                    <p class="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{{ link.description }}</p>
+                    {% endif %}
+                </div>
+                <div class="flex items-center gap-2 ml-3 flex-shrink-0">
+                    <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer"
+                       class="text-xs text-primary-600 dark:text-primary-400 hover:underline">Open</a>
+                    <form method="post" action="{% url 'edit_landing_page' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="toggle_form_link">
+                        <input type="hidden" name="link_id" value="{{ link.pk }}">
+                        <button type="submit" class="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors">
+                            {% if link.is_active %}Hide{% else %}Show{% endif %}
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'edit_landing_page' %}"
+                          onsubmit="return confirm('Delete \'{{ link.title }}\'?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="delete_form_link">
+                        <input type="hidden" name="link_id" value="{{ link.pk }}">
+                        <button type="submit" class="text-xs text-red-400 hover:text-red-600 transition-colors">Delete</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 dark:text-gray-500 italic">No form links yet. Add one above to show a "Forms &amp; Applications" section on the landing page.</p>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- ── Quill ───────────────────────────────────────────────────────────────── -->
+<link rel="stylesheet" href="https://cdn.quilljs.com/1.3.7/quill.snow.css">
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+
+<style>
+    /* ── Editor ── */
+    .ql-container { font-size: 15px; min-height: 260px; }
+    .ql-editor    { min-height: 260px; line-height: 1.7; }
+
+    /* Images inside the editor — allow floats to work */
+    .ql-editor img { max-width: 100%; height: auto; }
+    .ql-editor img[data-align="left"]   { float: left;  margin: 0.25rem 1rem 0.5rem 0; clear: none; display: block; }
+    .ql-editor img[data-align="right"]  { float: right; margin: 0.25rem 0 0.5rem 1rem; clear: none; display: block; }
+    .ql-editor img[data-align="center"] { display: block; float: none; margin: 0.5rem auto; clear: both; }
+    /* Paragraph containing a centered image: stack content vertically */
+    .ql-editor p:has(img[data-align="center"]) {
+        display: flex; flex-direction: column; align-items: flex-start;
+    }
+    .ql-editor p:has(img[data-align="center"]) img[data-align="center"] {
+        align-self: center; float: none;
+    }
+    /* After floated images, clear so the next paragraph starts fresh */
+    .ql-editor p::after { content: ''; display: table; clear: both; }
+
+    /* Highlight selected image */
+    .ql-editor img.img-selected { outline: 2px solid #2563eb; outline-offset: 2px; }
+
+    /* ── Dark mode toolbar ── */
+    .dark .ql-toolbar { background: #1f2937; border-color: #374151 !important; }
+    .dark .ql-toolbar .ql-stroke { stroke: #d1d5db; }
+    .dark .ql-toolbar .ql-fill   { fill: #d1d5db; }
+    .dark .ql-toolbar .ql-picker-label { color: #d1d5db; }
+    .dark .ql-toolbar button:hover .ql-stroke,
+    .dark .ql-toolbar .ql-picker-label:hover .ql-stroke { stroke: #fff; }
+    .dark .ql-container { background: #111827; border-color: #374151 !important; color: #f3f4f6; }
+    .dark .ql-editor.ql-blank::before { color: #6b7280; }
+    .dark .ql-picker-options { background: #1f2937 !important; border-color: #374151 !important; }
+    .dark .ql-picker-item    { color: #d1d5db !important; }
+
+    /* ── Image controls bar (appears when an image is clicked) ── */
+    #img-controls {
+        display: none;
+        position: fixed; z-index: 1001;
+        background: #1f2937;
+        border: 1px solid #374151;
+        border-radius: 8px;
+        box-shadow: 0 4px 16px rgba(0,0,0,.35);
+        padding: 6px 8px;
+        gap: 4px;
+        align-items: center;
+        white-space: nowrap;
+    }
+    #img-controls.visible { display: flex; }
+    #img-controls .ic-label {
+        font-size: 10px; font-weight: 600; color: #9ca3af;
+        text-transform: uppercase; letter-spacing: .05em; padding: 0 4px;
+    }
+    #img-controls .ic-sep {
+        width: 1px; height: 20px; background: #374151; margin: 0 4px;
+    }
+    #img-controls button {
+        font-size: 12px; color: #e5e7eb;
+        background: transparent; border: 1px solid transparent;
+        border-radius: 5px; padding: 3px 7px; cursor: pointer;
+        line-height: 1.4; transition: background .12s, border-color .12s;
+    }
+    #img-controls button:hover   { background: #374151; border-color: #4b5563; }
+    #img-controls button.active  { background: #2563eb; border-color: #1d4ed8; color: #fff; }
+
+    /* ── Resize indicator (blue border around selected image, non-interactive) ── */
+    #resize-overlay {
+        display: none;
+        position: fixed; z-index: 999;
+        border: 2px solid #2563eb;
+        border-radius: 3px;
+        pointer-events: none;   /* purely visual — drag is handled on the image itself */
+    }
+
+    /* ── Photo picker modal ── */
+    #photo-picker-backdrop {
+        display: none;
+        position: fixed; inset: 0; z-index: 9999;
+        background: rgba(0,0,0,.5);
+        align-items: center; justify-content: center;
+    }
+    #photo-picker-backdrop.open { display: flex; }
+    #photo-picker-box {
+        background: white; border-radius: 12px; padding: 24px;
+        max-width: 560px; width: 100%; max-height: 80vh;
+        overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    }
+    .dark #photo-picker-box { background: #1f2937; color: #f3f4f6; }
+    #photo-picker-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-top: 16px; }
+    .photo-picker-item {
+        cursor: pointer; border-radius: 8px; overflow: hidden;
+        border: 2px solid transparent; transition: border-color .15s;
+        background: #f3f4f6;
+    }
+    .dark .photo-picker-item { background: #374151; }
+    .photo-picker-item:hover { border-color: #2563eb; }
+    .photo-picker-item img { width: 100%; height: 100px; object-fit: contain; display: block; }
+    .photo-picker-item p { font-size: 11px; color: #6b7280; text-align: center; padding: 4px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+
+<!-- ── Image controls (position, shown on click) ─────────────────────────── -->
+<div id="img-controls">
+    <span class="ic-label">Position</span>
+    <button id="ic-left"   onclick="imgAlign('left')"   title="Float left — text wraps to the right">&#9664; Left</button>
+    <button id="ic-center" onclick="imgAlign('center')" title="Centered block">&#9632; Center</button>
+    <button id="ic-right"  onclick="imgAlign('right')"  title="Float right — text wraps to the left">Right &#9654;</button>
+    <div class="ic-sep"></div>
+    <span class="ic-label">Size</span>
+    <button id="ic-s"    onclick="imgSize('130px')" title="Small — 130 px">S</button>
+    <button id="ic-m"    onclick="imgSize('260px')" title="Medium — 260 px">M</button>
+    <button id="ic-l"    onclick="imgSize('420px')" title="Large — 420 px">L</button>
+    <button id="ic-full" onclick="imgSize('100%')"  title="Full width">Full</button>
+</div>
+
+<!-- ── Resize overlay (visual border only — drag is detected on the image itself) ── -->
+<div id="resize-overlay"></div>
+
+<!-- ── Photo picker modal ─────────────────────────────────────────────────── -->
+<div id="photo-picker-backdrop">
+    <div id="photo-picker-box">
+        <div class="flex items-center justify-between">
+            <h3 class="text-base font-semibold">Insert Photo</h3>
+            <button onclick="closePhotoPicker()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Click a photo to insert it at your cursor. Upload more photos in the Photo Library above.</p>
+        {% if photos %}
+        <div id="photo-picker-grid">
+            {% for photo in photos %}
+            <div class="photo-picker-item" onclick="pickPhoto('{{ photo.image.url }}')" >
+                <img src="{{ photo.image.url }}" alt="{{ photo.caption }}">
+                <p>{{ photo.caption|default:"No caption" }}</p>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="mt-4 text-sm text-gray-400 italic">No photos uploaded yet. Use the Photo Library above to upload some.</p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    // ── Defaults ──────────────────────────────────────────────────────────────
+    const DEFAULTS = {
+        wwa: `<p>Beta Theta Pi's Alpha Mu chapter calls Samford University in Birmingham, Alabama home. We are a men's fraternity grounded in the ideals of the <em>Men of Principle</em> — a commitment to intellectual growth, genuine friendship, and moral character.</p><p>Our chapter brings together students from across Samford with a shared belief that fraternity, at its best, makes men better — as students, as leaders, and as members of their communities.</p>`,
+        bel: `<ul><li><strong>Scholarship</strong> — We hold one another to high academic standards.</li><li><strong>Friendship</strong> — Lifelong bonds built on trust and shared experience.</li><li><strong>Integrity</strong> — Honest, accountable, committed to doing right.</li><li><strong>Service</strong> — Investing in Samford, Birmingham, and beyond.</li></ul>`,
+        his: '',
+    };
+
+    // ── Quill toolbar ─────────────────────────────────────────────────────────
+    const TOOLBAR = [
+        [{ header: [2, 3, false] }],
+        ['bold', 'italic', 'underline'],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        [{ align: [] }],
+        ['link', 'insertPhoto'],
+        ['clean'],
+    ];
+
+    // ── Custom image blot: preserves data-align and style through Quill's internals ──
+    const BaseImage = Quill.import('formats/image');
+    class StyledImage extends BaseImage {
+        static formats(domNode) {
+            const formats = {};
+            if (domNode.hasAttribute('style'))      formats.style        = domNode.getAttribute('style');
+            if (domNode.hasAttribute('data-align')) formats['data-align'] = domNode.getAttribute('data-align');
+            return formats;
+        }
+        format(name, value) {
+            if (name === 'style' || name === 'data-align') {
+                if (value) this.domNode.setAttribute(name, value);
+                else       this.domNode.removeAttribute(name);
+            } else {
+                super.format(name, value);
+            }
+        }
+    }
+    StyledImage.blotName = 'image';
+    StyledImage.tagName  = 'IMG';
+    Quill.register(StyledImage, true);
+
+    const icons = Quill.import('ui/icons');
+    icons['insertPhoto'] = `<svg viewBox="0 0 18 18"><rect class="ql-stroke" height="10" width="12" x="3" y="4" rx="1"/><circle class="ql-fill" cx="6.5" cy="7.5" r="1"/><polyline class="ql-stroke" points="3 13 6 10 8 12 11 9 15 14"/></svg>`;
+
+    const editors   = {};
+    let activeQuill = null;
+    let selectedImg = null;
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // RESIZE HANDLE — real div appended to body, lives outside contenteditable
+    // ══════════════════════════════════════════════════════════════════════════
+    const resizeOverlay = document.getElementById('resize-overlay');
+    let isDragging = false, dragDir = 1, dragStartX = 0, dragStartW = 0;
+
+    // Two pill handles (left + right) appended to body so Quill never touches them
+    function makeResizeHandle(side) {
+        const el = document.createElement('div');
+        Object.assign(el.style, {
+            display: 'none', position: 'fixed', zIndex: '10001',
+            width: '12px', height: '36px',
+            cursor: 'ew-resize',
+            background: '#2563eb',
+            borderRadius: '4px',
+            transform: 'translateX(-50%)',
+            boxShadow: '0 1px 5px rgba(0,0,0,.45)',
+        });
+        el.addEventListener('mousedown', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!selectedImg) return;
+            isDragging = true;
+            dragDir    = (side === 'right') ? 1 : -1;
+            dragStartX = e.clientX;
+            dragStartW = selectedImg.getBoundingClientRect().width;
+            document.body.style.cursor     = 'ew-resize';
+            document.body.style.userSelect = 'none';
+            document.addEventListener('mousemove', onDragMove);
+            document.addEventListener('mouseup',   onDragUp);
+        });
+        document.body.appendChild(el);
+        return el;
+    }
+    const resizeHandleLeft  = makeResizeHandle('left');
+    const resizeHandleRight = makeResizeHandle('right');
+
+    function updateOverlay() {
+        if (!selectedImg) {
+            resizeOverlay.style.display     = 'none';
+            resizeHandleLeft.style.display  = 'none';
+            resizeHandleRight.style.display = 'none';
+            return;
+        }
+        const r   = selectedImg.getBoundingClientRect();
+        const mid = (r.top + r.height / 2 - 18) + 'px';  // vertically center handles
+        Object.assign(resizeOverlay.style, {
+            display: 'block',
+            left: r.left + 'px', top: r.top + 'px',
+            width: r.width + 'px', height: r.height + 'px',
+        });
+        Object.assign(resizeHandleLeft.style, {
+            display: 'block',
+            left: r.left  + 'px',
+            top:  mid,
+        });
+        Object.assign(resizeHandleRight.style, {
+            display: 'block',
+            left: r.right + 'px',
+            top:  mid,
+        });
+    }
+
+    function onDragMove(e) {
+        if (!isDragging || !selectedImg) return;
+        const newW = Math.max(40, Math.round(dragStartW + dragDir * (e.clientX - dragStartX)));
+        selectedImg.style.width  = newW + 'px';
+        selectedImg.style.height = 'auto';
+        updateOverlay();
+        updateImgBar();
+    }
+
+    function onDragUp() {
+        isDragging = false;
+        document.body.style.cursor     = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onDragMove);
+        document.removeEventListener('mouseup',   onDragUp);
+        updateOverlay();
+    }
+
+    window.addEventListener('scroll', updateOverlay, true);
+    window.addEventListener('resize', updateOverlay);
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // IMAGE CONTROLS BAR
+    // ══════════════════════════════════════════════════════════════════════════
+    const imgControls = document.getElementById('img-controls');
+
+    function showImgControls(img) {
+        if (selectedImg) selectedImg.classList.remove('img-selected');
+        selectedImg = img;
+        img.classList.add('img-selected');
+        updateOverlay();
+        updateImgBar();
+    }
+
+    function updateImgBar() {
+        if (!selectedImg) return;
+        // Position bar above (or below if near top of viewport)
+        const r    = selectedImg.getBoundingClientRect();
+        const barH = 40;
+        let top    = r.top - barH - 8;
+        if (top < 8) top = r.bottom + 8;
+        imgControls.style.top = top + 'px';
+        imgControls.classList.add('visible');
+        // Clamp left so bar doesn't overflow off the right side of the viewport
+        const barW = imgControls.offsetWidth || 320;
+        const idealLeft = Math.max(8, r.left);
+        imgControls.style.left = Math.min(idealLeft, window.innerWidth - barW - 8) + 'px';
+        // Highlight active buttons
+        const align = selectedImg.dataset.align || 'center';
+        const w     = selectedImg.style.width   || '';
+        document.getElementById('ic-left').classList.toggle('active',   align === 'left');
+        document.getElementById('ic-center').classList.toggle('active', align === 'center');
+        document.getElementById('ic-right').classList.toggle('active',  align === 'right');
+        document.getElementById('ic-s').classList.toggle('active',    w === '130px');
+        document.getElementById('ic-m').classList.toggle('active',    w === '260px');
+        document.getElementById('ic-l').classList.toggle('active',    w === '420px');
+        document.getElementById('ic-full').classList.toggle('active', w === '100%');
+    }
+
+    function hideImgControls() {
+        if (selectedImg) selectedImg.classList.remove('img-selected');
+        selectedImg = null;
+        imgControls.classList.remove('visible');
+        resizeOverlay.style.display     = 'none';
+        resizeHandleLeft.style.display  = 'none';
+        resizeHandleRight.style.display = 'none';
+    }
+
+    function imgAlign(align) {
+        if (!selectedImg) return;
+        selectedImg.dataset.align = align;
+        if (align === 'left') {
+            Object.assign(selectedImg.style, { float: 'left',  display: 'block', margin: '0.25rem 1rem 0.5rem 0', clear: 'none' });
+        } else if (align === 'right') {
+            Object.assign(selectedImg.style, { float: 'right', display: 'block', margin: '0.25rem 0 0.5rem 1rem', clear: 'none' });
+        } else {
+            Object.assign(selectedImg.style, { float: 'none',  display: 'block', margin: '0.5rem auto',           clear: 'both' });
+        }
+        updateOverlay();
+        updateImgBar();
+    }
+
+    function imgSize(w) {
+        if (!selectedImg) return;
+        selectedImg.style.width  = w;
+        selectedImg.style.height = 'auto';
+        updateOverlay();
+        updateImgBar();
+    }
+
+    // Hide when clicking outside an image or the controls
+    document.addEventListener('click', e => {
+        if (e.target.tagName !== 'IMG'
+            && !e.target.closest('#img-controls')
+            && !e.target.closest('#resize-overlay')) {
+            hideImgControls();
+        }
+    });
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // PHOTO PICKER
+    // ══════════════════════════════════════════════════════════════════════════
+    function openPhotoPicker(quill) {
+        activeQuill = quill;
+        document.getElementById('photo-picker-backdrop').classList.add('open');
+    }
+    function closePhotoPicker() {
+        document.getElementById('photo-picker-backdrop').classList.remove('open');
+        activeQuill = null;
+    }
+
+    function pickPhoto(src) {
+        if (!activeQuill) return;
+        const quill = activeQuill;   // capture before close nulls it
+        const range = quill.getSelection(true);
+        const index = range ? range.index : quill.getLength();
+
+        quill.insertEmbed(index, 'image', src, Quill.sources.USER);
+
+        // Style the inserted img immediately (before close, so quill ref is live)
+        // Find the newly added img — it won't have a width style yet
+        const allImgs = Array.from(quill.root.querySelectorAll('img'));
+        const newImg  = allImgs.find(i => i.src.endsWith(src.split('/').pop()) && !i.style.width)
+                     || allImgs[allImgs.length - 1];
+        if (newImg) {
+            newImg.style.width  = '260px';
+            newImg.style.height = 'auto';
+            newImg.dataset.align = 'center';
+            Object.assign(newImg.style, { float: 'none', display: 'block', margin: '0.5rem auto', clear: 'both' });
+        }
+
+        quill.setSelection(index + 1, Quill.sources.SILENT);
+        closePhotoPicker();
+    }
+
+    document.getElementById('photo-picker-backdrop').addEventListener('click', function(e) {
+        if (e.target === this) closePhotoPicker();
+    });
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // EDITOR INIT
+    // ══════════════════════════════════════════════════════════════════════════
+    function makeEditor(key) {
+        const hiddenEl = document.getElementById('hidden-' + key);
+
+        const quill = new Quill('#quill-' + key, {
+            theme: 'snow',
+            placeholder: 'Start typing here…',
+            modules: {
+                toolbar: {
+                    container: TOOLBAR,
+                    handlers: { insertPhoto: () => openPhotoPicker(quill) },
+                },
+            },
+        });
+
+        // Load content (strip any legacy GrapesJS <style> wrappers)
+        const raw  = hiddenEl.value.trim();
+        const html = raw
+            ? raw.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '').trim()
+            : (DEFAULTS[key] || '');
+        // Use innerHTML directly — dangerouslyPasteHTML runs Quill's converter
+        // which strips inline styles and data-* attributes from images.
+        if (html) quill.root.innerHTML = html;
+
+        // Click on image → select and show controls/resize handle
+        quill.root.addEventListener('click', e => {
+            if (e.target.tagName !== 'IMG') return;
+            e.stopPropagation();
+            showImgControls(e.target);
+        });
+
+        editors[key] = quill;
+    }
+
+    // ── Accordion ─────────────────────────────────────────────────────────────
+    function toggleSection(key) {
+        const body    = document.getElementById('section-' + key);
+        const chevron = document.getElementById('chevron-' + key);
+        const opening = body.classList.contains('hidden');
+
+        // When closing: snapshot current editor content into the hidden textarea
+        // so that reopening restores the exact same state (including image styles)
+        if (!opening && editors[key]) {
+            const html = editors[key].root.innerHTML;
+            document.getElementById('hidden-' + key).value =
+                (html === '<p><br></p>' || html.trim() === '') ? '' : html;
+        }
+
+        body.classList.toggle('hidden', !opening);
+        chevron.style.transform = opening ? 'rotate(180deg)' : '';
+
+        // When opening: init on first open, or re-init from the (now-updated) textarea
+        if (opening) {
+            if (!editors[key]) {
+                makeEditor(key);
+            } else {
+                // Already existed — reload from the snapshot we saved on close
+                const hiddenEl = document.getElementById('hidden-' + key);
+                const raw  = hiddenEl.value.trim();
+                const html = raw || (DEFAULTS[key] || '');
+                if (html) editors[key].root.innerHTML = html;
+            }
+        }
+    }
+
+    // ── Save ──────────────────────────────────────────────────────────────────
+    document.getElementById('content-form').addEventListener('submit', () => {
+        ['wwa', 'bel', 'his'].forEach(key => {
+            const quill = editors[key];
+            if (!quill) return;
+            const html = quill.root.innerHTML;
+            document.getElementById('hidden-' + key).value =
+                (html === '<p><br></p>' || html.trim() === '') ? '' : html;
+        });
+    });
+</script>
+{% endblock %}

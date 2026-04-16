@@ -1767,7 +1767,7 @@ def security_dashboard(request):
 
     from src.models import (
         QuarantinedAccount, HoneypotAccess, SystemLockdown,
-        SecurityNotificationLog
+        SecurityNotificationLog, LoginLockout
     )
 
     # Get quarantine stats
@@ -1790,6 +1790,12 @@ def security_dashboard(request):
         sent_at__gte=timezone.now() - timedelta(hours=24)
     ).count()
 
+    # Get active lockout count
+    active_lockouts_count = LoginLockout.objects.filter(
+        is_cleared=False,
+        expires_at__gt=timezone.now()
+    ).count()
+
     return render(request, 'admin_v2/security_dashboard.html', {
         'active_quarantines': active_quarantines,
         'recent_quarantines': recent_quarantines,
@@ -1798,6 +1804,7 @@ def security_dashboard(request):
         'lockdown': lockdown,
         'recent_notifications': recent_notifications,
         'critical_notifications': critical_notifications,
+        'active_lockouts_count': active_lockouts_count,
     })
 
 
@@ -2022,6 +2029,160 @@ def clear_honeypot_logs(request):
     else:
         deleted, _ = HoneypotAccess.objects.all().delete()
     return JsonResponse({'success': True, 'deleted': deleted})
+
+
+@require_admin_v2_auth
+def manage_lockouts(request):
+    """View and manage active login lockouts."""
+    if not request.user.is_admin:
+        return HttpResponseForbidden("Admin access required")
+
+    from src.models import LoginLockout, IPBlacklist, IPWhitelist
+    from django.core.cache import cache
+    from django.utils import timezone
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        lockout_id = request.POST.get('lockout_id', '').strip()
+        ip_address = request.POST.get('ip_address', '').strip()
+
+        if action == 'clear' and lockout_id:
+            try:
+                lockout = LoginLockout.objects.get(pk=lockout_id)
+                ip = lockout.ip_address
+                username = lockout.username
+
+                # Clear cache keys for all three systems
+                cache.delete(f'login_lockout_{ip}')
+                cache.delete(f'login_attempts_{ip}')
+                cache.delete(f'login_lockout_ip_{ip}')
+                cache.delete(f'login_attempts_ip_{ip}')
+                if username:
+                    cache.delete(f'login_lockout_user_{username}')
+                    cache.delete(f'login_attempts_user_{username}')
+                # Also clear whitelist cache so it refreshes
+                cache.delete(f'ip_whitelist_{ip}')
+
+                lockout.is_cleared = True
+                lockout.cleared_at = timezone.now()
+                lockout.cleared_by = request.user
+                lockout.save()
+
+                messages.success(request, f'Lockout cleared for {ip}.')
+                logger.info(f"Admin {request.user.username} cleared lockout for IP {ip}")
+            except LoginLockout.DoesNotExist:
+                messages.error(request, 'Lockout record not found.')
+
+        elif action == 'blacklist' and lockout_id:
+            try:
+                lockout = LoginLockout.objects.get(pk=lockout_id)
+                ip = lockout.ip_address
+
+                # Add to blacklist
+                existing = IPBlacklist.objects.filter(ip_address=ip).first()
+                if existing:
+                    existing.is_active = True
+                    existing.reason = f'Blacklisted from lockout management by {request.user.username}'
+                    existing.save()
+                else:
+                    IPBlacklist.objects.create(
+                        ip_address=ip,
+                        reason=f'Repeated login failures — blacklisted by {request.user.username}',
+                        added_by=request.user,
+                        is_active=True,
+                    )
+
+                # Mark lockout as cleared too
+                lockout.is_cleared = True
+                lockout.cleared_at = timezone.now()
+                lockout.cleared_by = request.user
+                lockout.save()
+
+                messages.success(request, f'IP {ip} has been blacklisted.')
+                logger.info(f"Admin {request.user.username} blacklisted IP {ip} from lockout management")
+            except LoginLockout.DoesNotExist:
+                messages.error(request, 'Lockout record not found.')
+
+        elif action == 'whitelist_and_clear' and lockout_id:
+            try:
+                lockout = LoginLockout.objects.get(pk=lockout_id)
+                ip = lockout.ip_address
+
+                # Add to whitelist
+                existing = IPWhitelist.objects.filter(ip_address=ip).first()
+                if existing:
+                    existing.is_active = True
+                    existing.save()
+                else:
+                    IPWhitelist.objects.create(
+                        ip_address=ip,
+                        description=f'Whitelisted from lockout management by {request.user.username}',
+                        added_by=request.user,
+                        is_active=True,
+                    )
+
+                # Clear all cache lockout keys
+                cache.delete(f'login_lockout_{ip}')
+                cache.delete(f'login_attempts_{ip}')
+                cache.delete(f'login_lockout_ip_{ip}')
+                cache.delete(f'login_attempts_ip_{ip}')
+                cache.delete(f'ip_whitelist_{ip}')
+
+                lockout.is_cleared = True
+                lockout.cleared_at = timezone.now()
+                lockout.cleared_by = request.user
+                lockout.save()
+
+                messages.success(request, f'IP {ip} has been whitelisted and lockout cleared.')
+                logger.info(f"Admin {request.user.username} whitelisted IP {ip} from lockout management")
+            except LoginLockout.DoesNotExist:
+                messages.error(request, 'Lockout record not found.')
+
+        elif action == 'clear_all_active':
+            to_clear = list(LoginLockout.objects.filter(
+                is_cleared=False,
+                expires_at__gt=timezone.now()
+            ))
+            now = timezone.now()
+            for lockout in to_clear:
+                cache.delete(f'login_lockout_{lockout.ip_address}')
+                cache.delete(f'login_attempts_{lockout.ip_address}')
+                cache.delete(f'login_lockout_ip_{lockout.ip_address}')
+                cache.delete(f'login_attempts_ip_{lockout.ip_address}')
+                if lockout.username:
+                    cache.delete(f'login_lockout_user_{lockout.username}')
+                    cache.delete(f'login_attempts_user_{lockout.username}')
+                cache.delete(f'ip_whitelist_{lockout.ip_address}')
+                lockout.is_cleared = True
+                lockout.cleared_at = now
+                lockout.cleared_by = request.user
+                lockout.save()
+            messages.success(request, f'Cleared {len(to_clear)} active lockout(s).')
+            logger.info(f"Admin {request.user.username} bulk-cleared {len(to_clear)} lockouts")
+
+        return redirect('admin_v2_lockouts')
+
+    # GET: show lockouts
+    active_lockouts = LoginLockout.objects.filter(
+        is_cleared=False,
+        expires_at__gt=timezone.now()
+    ).order_by('-locked_at')
+
+    expired_lockouts = LoginLockout.objects.filter(
+        is_cleared=False,
+        expires_at__lte=timezone.now()
+    ).order_by('-locked_at')[:20]
+
+    recent_cleared = LoginLockout.objects.filter(
+        is_cleared=True
+    ).order_by('-cleared_at')[:20]
+
+    return render(request, 'admin_v2/lockouts.html', {
+        'active_lockouts': active_lockouts,
+        'expired_lockouts': expired_lockouts,
+        'recent_cleared': recent_cleared,
+        'active_count': active_lockouts.count(),
+    })
 
 
 @require_admin_v2_auth

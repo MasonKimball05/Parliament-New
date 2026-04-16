@@ -4,6 +4,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from src.view.officer import *
+from src.view.officer.contact_submissions import contact_submissions_view, mark_contact_read, mark_all_contact_read
 from src.view.officer.event_attendance import event_attendance_list, mark_event_attendance, review_excuses
 from src.view.officer.attendance_dashboard import attendance_dashboard, member_attendance_detail
 from src.view.officer.chapter_minutes import (
@@ -71,6 +72,7 @@ from src.view.admin_v2 import (
     honeypot_logs, security_notifications_log,
     dismiss_alert, dismiss_all_alerts,
     delete_honeypot_log, clear_honeypot_logs,
+    manage_lockouts,
 )
 from src.view.admin_v2 import manage_events as admin_v2_manage_events, delete_event as admin_v2_delete_event
 from src.view.notification_admin import (
@@ -82,6 +84,7 @@ from src.view.officer.manage_events import manage_events, create_event, edit_eve
 from src.view.officer.manage_members import add_member, edit_member, delete_member, initiate_pledges, get_all_roles, sync_officer_admins, get_admin_roles
 from src.view.officer.manage_roles import manage_roles, role_detail, add_role, delete_role, assign_role_member, unassign_role_member, get_assignable_members
 from src.view.home import home
+from src.view.landing import landing_page, contact_submit
 from src.view.vote_view import vote_view
 from src.view.two_factor import two_factor_setup, two_factor_qrcode, two_factor_verify, two_factor_disable, two_factor_dismiss
 from src.view.admin_two_factor import (
@@ -157,6 +160,7 @@ from src.view.songbook import (
     songbook_list, song_detail, song_create, song_edit, song_delete, manage_categories,
     serve_song_audio, serve_exportable_media
 )
+from src.view.public_songbook import public_songbook_list, public_song_detail
 from src.view.honeypot import (
     honeypot_wp_admin, honeypot_wp_login, honeypot_phpmyadmin, honeypot_env,
     honeypot_admin_backup, honeypot_api_export, honeypot_xmlrpc, honeypot_config,
@@ -164,8 +168,12 @@ from src.view.honeypot import (
 )
 
 urlpatterns = [
+    # Public landing page
+    path('', landing_page, name='landing'),
+    path('contact/submit/', contact_submit, name='contact_submit'),
+
     # General User Pages
-    path('', home, name='home'),
+    path('home/', home, name='home'),
     path('login/', login_view, name='login'),
     path('logout/', logout_view, name='logout'),
     path('roberts-rules/', roberts_rules, name='roberts_rules'),
@@ -210,6 +218,10 @@ urlpatterns = [
     path('calendar/subscribe/regenerate/', regenerate_calendar_token, name='regenerate_calendar_token'),
     path('calendar/feed/<str:token>/', calendar_subscription_feed, name='calendar_subscription_feed'),
     path('search/', global_search, name='global_search'),
+
+    # Public songbook (no auth, no management functions)
+    path('songbook/public/', public_songbook_list, name='public_songbook'),
+    path('songbook/public/<int:pk>/', public_song_detail, name='public_song_detail'),
 
     # Songbook
     path('songbook/', songbook_list, name='songbook'),
@@ -271,6 +283,10 @@ urlpatterns = [
 
     # Officer Pages
     path('officers/', officer_home, name='officer_home'),
+    path('officers/edit-landing-page/', edit_landing_page, name='edit_landing_page'),
+    path('officers/contact-messages/', contact_submissions_view, name='contact_submissions'),
+    path('officers/contact-messages/<int:pk>/read/', mark_contact_read, name='mark_contact_read'),
+    path('officers/contact-messages/mark-all-read/', mark_all_contact_read, name='mark_all_contact_read'),
     path('officers/upload-report/', upload_report, name='upload_report'),
     path('officers/all-events/', view_all_events, name='view_all_events'),
     path('officers/all-reports/', view_all_reports, name='view_all_reports'),
@@ -550,6 +566,7 @@ urlpatterns = [
     path('admin-v2/security/honeypot-logs/<int:log_id>/delete/', delete_honeypot_log, name='admin_v2_delete_honeypot_log'),
     path('admin-v2/security/honeypot-logs/clear/', clear_honeypot_logs, name='admin_v2_clear_honeypot_logs'),
     path('admin-v2/security/notifications/', security_notifications_log, name='admin_v2_security_notifications'),
+    path('admin-v2/security/lockouts/', manage_lockouts, name='admin_v2_lockouts'),
 
     path('admin-v2/logout/', admin_v2_logout, name='admin_v2_logout'),
 

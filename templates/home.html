@@ -95,9 +95,9 @@
                 <p class="text-sm text-red-700 dark:text-red-200 mb-4">{{ pending_votes|length }} piece{{ pending_votes|length|pluralize }} of legislation need{{ pending_votes|length|pluralize:",s" }} your vote.</p>
                 <div class="space-y-2">
                     {% for legislation in pending_votes %}
-                    <div class="flex items-center justify-between bg-white dark:bg-gray-800 rounded p-3 transition-colors duration-200">
-                        <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ legislation.title }}</span>
-                        <a href="{% url 'vote' %}" class="text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition">Vote Now</a>
+                    <div class="flex items-center justify-between gap-3 bg-white dark:bg-gray-800 rounded p-3 transition-colors duration-200">
+                        <span class="text-sm font-medium text-gray-900 dark:text-gray-100 min-w-0 flex-1 break-words">{{ legislation.title }}</span>
+                        <a href="{% url 'vote' %}" class="text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition shrink-0">Vote Now</a>
                     </div>
                     {% endfor %}
                 </div>
@@ -380,7 +380,7 @@
         {% if user.user_id == '73' %}
         <!-- Two-card layout for user 73: Django Admin + Admin-v2 -->
         <div class="grid grid-cols-2 gap-3">
-            <a href="/admin/" class="block bg-gradient-to-br from-red-600 to-red-700 rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 group text-white">
+            <a href="/admin/" class="block bg-gradient-to-br from-red-600 to-red-700 rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 group text-white min-w-0">
                 <div class="flex items-center justify-between mb-2">
                     <h2 class="text-base font-semibold group-hover:text-red-100 transition-colors">Admin</h2>
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -390,7 +390,7 @@
                 </div>
                 <p class="text-red-100 text-xs">Django admin</p>
             </a>
-            <a href="{% url 'admin_v2_dashboard' %}" class="block bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 group text-white">
+            <a href="{% url 'admin_v2_dashboard' %}" class="block bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 group text-white min-w-0">
                 <div class="flex items-center justify-between mb-2">
                     <h2 class="text-base font-semibold group-hover:text-indigo-100 transition-colors">Admin v2</h2>
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -438,12 +438,12 @@
             <div class="border-l-4 border-primary-500 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-r-lg mb-4 transition-colors duration-200 overflow-hidden">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">{{ latest.title }}</h3>
                 <p class="text-gray-700 dark:text-gray-300 mb-2 whitespace-pre-wrap break-words overflow-wrap-anywhere" style="word-break: break-word; overflow-wrap: anywhere;">{{ latest.content|linkify }}</p>
-                <div class="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
                     <span>Posted by {{ latest.posted_by.get_display_name }}</span>
-                    <span>•</span>
+                    <span class="hidden sm:inline">•</span>
                     <span>{{ latest.posted_at|date:"M d, Y" }}</span>
                     {% if latest.event_date %}
-                    <span>•</span>
+                    <span class="hidden sm:inline">•</span>
                     <span class="flex items-center space-x-1 text-primary-600 dark:text-primary-400 font-medium">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -459,13 +459,13 @@
             {% if announcements|length > 1 %}
             <div class="space-y-2">
                 {% for announcement in announcements|slice:"1:3" %}
-                <div class="flex items-center justify-between py-2 px-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded transition-colors">
-                    <div class="flex-1">
-                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ announcement.title }}</p>
+                <div class="flex items-center justify-between gap-3 py-2 px-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded transition-colors">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ announcement.title }}</p>
                         <p class="text-xs text-gray-500 dark:text-gray-400">{{ announcement.posted_at|date:"M d, Y" }}</p>
                     </div>
                     {% if announcement.event_date %}
-                    <span class="text-xs text-primary-600 dark:text-primary-400 font-medium">Event</span>
+                    <span class="text-xs text-primary-600 dark:text-primary-400 font-medium shrink-0">Event</span>
                     {% endif %}
                 </div>
                 {% endfor %}
@@ -552,9 +552,9 @@
                 <div class="space-y-3">
                     {% for committee in user_committees %}
                     <a href="{% url 'committee_home' committee.code %}" class="block border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                        <div class="flex items-center justify-between mb-2">
-                            <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">{{ committee.name }}</h3>
-                            <span class="px-2 py-1 bg-primary-100 text-primary-800 text-xs font-medium rounded">{{ committee.code }}</span>
+                        <div class="flex items-center justify-between gap-2 mb-2">
+                            <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100 min-w-0 truncate">{{ committee.name }}</h3>
+                            <span class="px-2 py-1 bg-primary-100 text-primary-800 text-xs font-medium rounded shrink-0">{{ committee.code }}</span>
                         </div>
                         <div class="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
                             {% if user in committee.chairs.all %}

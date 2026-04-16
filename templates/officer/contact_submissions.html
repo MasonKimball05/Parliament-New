@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Contact Messages - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <div class="mb-6 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <a href="{% url 'officer_home' %}" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </a>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Contact Messages</h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Submitted via the public landing page contact form.</p>
+            </div>
+        </div>
+        {% if unread_count %}
+        <form method="post" action="{% url 'mark_all_contact_read' %}">
+            {% csrf_token %}
+            <button type="submit" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                Mark all as read ({{ unread_count }})
+            </button>
+        </form>
+        {% endif %}
+    </div>
+
+    {% if submissions %}
+    <div class="space-y-4">
+        {% for submission in submissions %}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border {% if not submission.is_read %}border-blue-300 dark:border-blue-700{% else %}border-gray-200 dark:border-gray-700{% endif %} p-5">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                        {% if not submission.is_read %}
+                        <span class="inline-block w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></span>
+                        {% endif %}
+                        <span class="font-semibold text-gray-900 dark:text-gray-100">{{ submission.name }}</span>
+                        <a href="mailto:{{ submission.email }}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">{{ submission.email }}</a>
+                        {% if submission.topic %}
+                        <span class="px-2 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium">{{ submission.topic }}</span>
+                        {% endif %}
+                        {% if submission.recipient_email %}
+                        <span class="text-xs text-gray-400">→ {{ submission.recipient_email }}</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{{ submission.submitted_at|date:"N j, Y \a\t g:i A" }}</p>
+                    <p class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{{ submission.message }}</p>
+                </div>
+                <div class="flex flex-col gap-2 flex-shrink-0">
+                    <a href="mailto:{{ submission.email }}?subject=Re: Your message to Beta Theta Pi Alpha Mu"
+                       class="inline-flex items-center gap-1 text-xs text-white bg-primary-600 hover:bg-primary-700 px-3 py-1.5 rounded-lg transition-colors">
+                        Reply
+                    </a>
+                    {% if not submission.is_read %}
+                    <form method="post" action="{% url 'mark_contact_read' submission.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="w-full text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-lg transition-colors">
+                            Mark read
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-16 text-gray-400 dark:text-gray-500">
+        <svg class="w-12 h-12 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+        <p class="text-sm">No contact messages yet.</p>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

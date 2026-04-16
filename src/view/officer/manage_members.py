@@ -492,6 +492,7 @@ def initiate_pledges(request):
         ('src_notificationschedule', 'created_by_id'),
         ('src_committee', 'admin_id'),
         ('src_usertourprogress', 'user_id'),
+        ('src_loginlockout', 'cleared_by_id'),
     ]
 
     # Security: Build allowlists from the hardcoded related_tables for validation
@@ -624,6 +625,11 @@ def initiate_pledges(request):
 
         except Exception as e:
             logger.error(f"Error initiating pledge {old_user_id}: {e}", exc_info=True)
+            # Also log to admin_actions so it appears in the main log file
+            import traceback
+            logging.getLogger('admin_actions').error(
+                f"INITIATE FAILED: pledge {old_user_id} ({pledge_name}): {e}\n{traceback.format_exc()}"
+            )
             return JsonResponse({
                 'success': False,
                 'error': f'Error initiating {pledge_name}: {str(e)}'
