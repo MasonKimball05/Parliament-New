@@ -44,7 +44,7 @@ jobs:
 
       - name: Run migrations
         env:
-          DJANGO_SETTINGS_MODULE: Parliament.settings_postgres
+          DJANGO_SETTINGS_MODULE: ci_settings
           DJANGO_SECRET_KEY: 'ci-test-secret-key-not-for-production'
           DJANGO_DEBUG: 'True'
           ALLOWED_HOSTS: 'localhost,127.0.0.1'
@@ -60,7 +60,7 @@ jobs:
 
       - name: Run tests
         env:
-          DJANGO_SETTINGS_MODULE: Parliament.settings_postgres
+          DJANGO_SETTINGS_MODULE: ci_settings
           DJANGO_SECRET_KEY: 'ci-test-secret-key-not-for-production'
           DJANGO_DEBUG: 'True'
           ALLOWED_HOSTS: 'localhost,127.0.0.1'
