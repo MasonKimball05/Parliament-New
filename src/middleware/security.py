@@ -5,7 +5,6 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.core.cache import cache
 from django.http import HttpResponseForbidden, HttpResponseBadRequest
-from django.contrib import messages
 from django.conf import settings
 import logging
 import re
@@ -16,9 +15,9 @@ logger = logging.getLogger('admin_actions')
 # Compiled regex patterns for attack detection
 SQL_INJECTION_PATTERNS = [
     re.compile(r"(\b(union|select|insert|update|delete|drop|create|alter|exec|execute)\b.*\b(from|into|table|database|where)\b)", re.IGNORECASE),
-    re.compile(r"(--|;|/\*|\*/|@@|@|char\(|nchar\(|varchar\(|nvarchar\(|cast\(|convert\()", re.IGNORECASE),
+    re.compile(r"(/\*|\*/|@@|char\s*\(|nchar\s*\(|varchar\s*\(|nvarchar\s*\(|cast\s*\(|convert\s*\()", re.IGNORECASE),  # SQL functions/comments (removed @ and ; — too broad)
     re.compile(r"(\b(or|and)\b\s+\d+\s*=\s*\d+)", re.IGNORECASE),  # or 1=1, and 1=1
-    re.compile(r"(\b(or|and)\b\s+['\"]?\w+['\"]?\s*=\s*['\"]?\w+['\"]?)", re.IGNORECASE),  # or 'a'='a'
+    re.compile(r"(\b(or|and)\b\s+'[^']*'\s*=\s*'[^']*')", re.IGNORECASE),  # or 'a'='a' — require quotes
     re.compile(r"(waitfor\s+delay|benchmark\s*\(|sleep\s*\()", re.IGNORECASE),  # Time-based injection
     re.compile(r"(information_schema|sys\.objects|sysobjects)", re.IGNORECASE),  # Schema probing
 ]
@@ -27,13 +26,11 @@ XSS_PATTERNS = [
     re.compile(r"<script[^>]*>.*?</script>", re.IGNORECASE | re.DOTALL),
     re.compile(r"<script[^>]*>", re.IGNORECASE),
     re.compile(r"javascript\s*:", re.IGNORECASE),
-    re.compile(r"on\w+\s*=\s*['\"]?[^'\"]*['\"]?", re.IGNORECASE),  # onclick=, onerror=, etc.
+    re.compile(r"(?:^|[\s<])on\w+\s*=\s*['\"]?[^'\"<>\s]", re.IGNORECASE),  # onclick= etc. — require HTML context
     re.compile(r"<iframe[^>]*>", re.IGNORECASE),
     re.compile(r"<object[^>]*>", re.IGNORECASE),
     re.compile(r"<embed[^>]*>", re.IGNORECASE),
-    re.compile(r"<link[^>]*>", re.IGNORECASE),
     re.compile(r"<img[^>]*onerror\s*=", re.IGNORECASE),
-    re.compile(r"expression\s*\(", re.IGNORECASE),  # CSS expression
     re.compile(r"url\s*\(\s*['\"]?\s*javascript:", re.IGNORECASE),
 ]
 
@@ -145,10 +142,8 @@ class PasswordResetRateLimitMiddleware:
                     logger.warning(
                         f'Password reset rate limit exceeded for email {email} from IP {ip_address}'
                     )
-                    # Don't reveal that the email exists, just slow them down
-                    cache.set(email_key, email_attempts + 1, self.window_minutes * 60)
 
-                # Increment email attempt counter
+                # Increment email attempt counter (once, regardless of limit state)
                 cache.set(email_key, email_attempts + 1, self.window_minutes * 60)
 
                 # Log the attempt
@@ -301,9 +296,9 @@ class LoginRateLimitMiddleware:
 
         # After response, track failed login attempts
         if (request.path == '/login/' or request.path == '/accounts/login/') and request.method == 'POST':
-            # Check if login failed by looking for error messages
-            storage = messages.get_messages(request)
-            has_error = any('Invalid' in str(msg) or 'disabled' in str(msg) for msg in storage)
+            # A successful login redirects (302); a failed login re-renders the form (200).
+            # Checking status code avoids consuming the message queue via get_messages().
+            has_error = response.status_code == 200
 
             if has_error:
                 ip_address = self.get_client_ip(request)
@@ -369,12 +364,18 @@ class InputSanitizationMiddleware:
             '/admin/',
             '/static/',
             '/media/',
+            '/login/',               # Password fields should never be scanned
+            '/accounts/login/',      # Password fields should never be scanned
             '/officers/edit-landing-page/',  # Rich HTML editor — CSS semicolons trigger false positives
             '/contact/submit/',              # Public contact form — free-text messages trigger false positives
             '/legislation/',                 # Officer notes are free-text and may contain SQL-like patterns
         ]
         # Maximum input length before truncating for logging
         self.max_log_length = 500
+        # Fields that should never be scanned (tokens, internal fields)
+        self.skip_fields = {'csrfmiddlewaretoken', 'next'}
+        # Minimum value length to bother scanning — short values can't contain real exploits
+        self.min_scan_length = 8
 
     def __call__(self, request):
         ip_address = self.get_client_ip(request)
@@ -410,6 +411,8 @@ class InputSanitizationMiddleware:
 
         # Check GET parameters
         for key, value in request.GET.items():
+            if key in self.skip_fields or len(value) < self.min_scan_length:
+                continue
             result = self.check_for_attacks(value)
             if result:
                 attack_detected = True
@@ -421,13 +424,14 @@ class InputSanitizationMiddleware:
         if not attack_detected and request.method == 'POST':
             try:
                 for key, value in request.POST.items():
-                    if isinstance(value, str):
-                        result = self.check_for_attacks(value)
-                        if result:
-                            attack_detected = True
-                            attack_type = result['type']
-                            attack_payload = f"POST[{key}]={self.truncate(value)}"
-                            break
+                    if key in self.skip_fields or not isinstance(value, str) or len(value) < self.min_scan_length:
+                        continue
+                    result = self.check_for_attacks(value)
+                    if result:
+                        attack_detected = True
+                        attack_type = result['type']
+                        attack_payload = f"POST[{key}]={self.truncate(value)}"
+                        break
             except Exception:
                 pass  # Skip if POST data can't be read
 
