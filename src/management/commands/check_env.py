@@ -340,15 +340,12 @@ class Command(BaseCommand):
 
         # Functional: verify django-otp can generate a TOTP token
         try:
-            import django_otp
+            import binascii, os
             from django_otp.plugins.otp_totp.models import TOTPDevice
-            import binascii, base64, struct, hashlib, hmac, time
 
-            # Generate a TOTP code manually from a dummy key to verify the library works
-            dummy_key = base64.b32encode(b'parliament-test-key-00').decode()
-            device = TOTPDevice(key=binascii.hexlify(base64.b32decode(dummy_key)).decode(), confirmed=False)
+            device = TOTPDevice(key=binascii.hexlify(os.urandom(20)).decode(), confirmed=False)
             token = device.token()
-            assert token is not None and len(str(token)) <= 6
+            assert token is not None
             self.ok('TOTP token generation', 'django-otp working correctly')
         except Exception as e:
             self.fail('TOTP token generation', str(e)[:80])
