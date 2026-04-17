@@ -242,10 +242,41 @@ def setup_slating_committee_admin():
                 logger.info(f"Set Slating Committee admin to President: {president.name}")
 
 
+def sync_member_type_for_officer_roles(user):
+    """
+    Update user's member_type based on whether they hold any officer roles
+    (President or any Vice President). Called after role changes.
+
+    - Gains an officer role → member_type set to 'Officer'
+    - Loses all officer roles → member_type reverted to 'Member'
+      (only if currently 'Officer' and not a system admin)
+    """
+    from src.models import Role
+
+    officer_role_codes = set(EXEC_ROLE_CODES)
+    has_officer_role = user.roles.filter(code__in=officer_role_codes).exists()
+
+    if has_officer_role:
+        if user.member_type != 'Officer':
+            user.member_type = 'Officer'
+            user.save(update_fields=['member_type'])
+            logger.info(
+                f"Auto-promoted {user.name} to Officer (assigned officer role)"
+            )
+    else:
+        # Revert to Member if currently Officer (is_admin flag is unaffected)
+        if user.member_type == 'Officer':
+            user.member_type = 'Member'
+            user.save(update_fields=['member_type'])
+            logger.info(
+                f"Auto-demoted {user.name} to Member (no officer roles remaining)"
+            )
+
+
 @receiver(m2m_changed)
 def sync_exec_committee_on_role_change(sender, instance, action, pk_set, model, **kwargs):
     """
-    When user roles change, sync Executive Board membership.
+    When user roles change, sync Executive Board membership and member_type.
     This is connected to ParliamentUser.roles.through via m2m_changed signal.
     """
     from src.models import ParliamentUser, Role
@@ -262,7 +293,13 @@ def sync_exec_committee_on_role_change(sender, instance, action, pk_set, model, 
         changed_roles = Role.objects.filter(pk__in=pk_set)
         exec_role_codes = set(changed_roles.values_list('code', flat=True))
         if not exec_role_codes.intersection(set(EXEC_ROLE_CODES)):
-            return  # No exec roles changed
+            return  # No exec roles changed, skip both syncs
+
+    # Sync member_type for the user whose roles changed
+    try:
+        sync_member_type_for_officer_roles(instance)
+    except Exception as e:
+        logger.error(f"Error syncing member_type for officer role change: {e}")
 
     # Sync the EXEC committee
     try:
