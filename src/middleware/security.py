@@ -559,8 +559,8 @@ class InputSanitizationMiddleware:
         if not getattr(settings, 'DEBUG', False):
             csp_parts = [
                 "default-src 'self'",
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com",
-                "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.quilljs.com",
+                "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.quilljs.com",
                 "img-src 'self' data: https:",
                 "font-src 'self' data:",
                 "connect-src 'self'",
