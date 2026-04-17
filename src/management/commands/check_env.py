@@ -344,7 +344,7 @@ class Command(BaseCommand):
             from django_otp.plugins.otp_totp.models import TOTPDevice
 
             device = TOTPDevice(key=binascii.hexlify(os.urandom(20)).decode(), confirmed=False)
-            token = device.token()
+            token = device.totp()
             assert token is not None
             self.ok('TOTP token generation', 'django-otp working correctly')
         except Exception as e:
