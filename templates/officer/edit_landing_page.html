@@ -670,34 +670,39 @@
         ['clean'],
     ];
 
-    // ── Custom image blot: preserves data-align and style through Quill's internals ──
-    const BaseImage = Quill.import('formats/image');
-    class StyledImage extends BaseImage {
-        static formats(domNode) {
-            const formats = {};
-            if (domNode.hasAttribute('style'))      formats.style        = domNode.getAttribute('style');
-            if (domNode.hasAttribute('data-align')) formats['data-align'] = domNode.getAttribute('data-align');
-            return formats;
-        }
-        format(name, value) {
-            if (name === 'style' || name === 'data-align') {
-                if (value) this.domNode.setAttribute(name, value);
-                else       this.domNode.removeAttribute(name);
-            } else {
-                super.format(name, value);
-            }
-        }
-    }
-    StyledImage.blotName = 'image';
-    StyledImage.tagName  = 'IMG';
-    Quill.register(StyledImage, true);
-
-    const icons = Quill.import('ui/icons');
-    icons['insertPhoto'] = `<svg viewBox="0 0 18 18"><rect class="ql-stroke" height="10" width="12" x="3" y="4" rx="1"/><circle class="ql-fill" cx="6.5" cy="7.5" r="1"/><polyline class="ql-stroke" points="3 13 6 10 8 12 11 9 15 14"/></svg>`;
-
+    // ── State (declared first so toggleSection never throws on undefined) ────────
     const editors   = {};
     let activeQuill = null;
     let selectedImg = null;
+
+    // ── Custom image blot: preserves data-align and style through Quill's internals ──
+    try {
+        const BaseImage = Quill.import('formats/image');
+        class StyledImage extends BaseImage {
+            static formats(domNode) {
+                const formats = {};
+                if (domNode.hasAttribute('style'))      formats.style        = domNode.getAttribute('style');
+                if (domNode.hasAttribute('data-align')) formats['data-align'] = domNode.getAttribute('data-align');
+                return formats;
+            }
+            format(name, value) {
+                if (name === 'style' || name === 'data-align') {
+                    if (value) this.domNode.setAttribute(name, value);
+                    else       this.domNode.removeAttribute(name);
+                } else {
+                    super.format(name, value);
+                }
+            }
+        }
+        StyledImage.blotName = 'image';
+        StyledImage.tagName  = 'IMG';
+        Quill.register(StyledImage, true);
+
+        const icons = Quill.import('ui/icons');
+        icons['insertPhoto'] = `<svg viewBox="0 0 18 18"><rect class="ql-stroke" height="10" width="12" x="3" y="4" rx="1"/><circle class="ql-fill" cx="6.5" cy="7.5" r="1"/><polyline class="ql-stroke" points="3 13 6 10 8 12 11 9 15 14"/></svg>`;
+    } catch (e) {
+        console.warn('Quill custom blot registration failed (editor will still work):', e);
+    }
 
     // ══════════════════════════════════════════════════════════════════════════
     // RESIZE HANDLE — real div appended to body, lives outside contenteditable
@@ -957,7 +962,11 @@
         // When opening: init on first open, or re-init from the (now-updated) textarea
         if (opening) {
             if (!editors[key]) {
-                makeEditor(key);
+                try {
+                    makeEditor(key);
+                } catch (e) {
+                    console.error('Editor init failed for', key, e);
+                }
             } else {
                 // Already existed — reload from the snapshot we saved on close
                 const hiddenEl = document.getElementById('hidden-' + key);
