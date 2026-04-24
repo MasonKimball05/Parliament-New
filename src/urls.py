@@ -161,6 +161,7 @@ from src.view.songbook import (
     serve_song_audio, serve_exportable_media
 )
 from src.view.public_songbook import public_songbook_list, public_song_detail
+from src.view.csp_report import csp_report
 from src.view.honeypot import (
     honeypot_wp_admin, honeypot_wp_login, honeypot_phpmyadmin, honeypot_env,
     honeypot_admin_backup, honeypot_api_export, honeypot_xmlrpc, honeypot_config,
@@ -567,6 +568,8 @@ urlpatterns = [
     path('admin-v2/security/honeypot-logs/clear/', clear_honeypot_logs, name='admin_v2_clear_honeypot_logs'),
     path('admin-v2/security/notifications/', security_notifications_log, name='admin_v2_security_notifications'),
     path('admin-v2/security/lockouts/', manage_lockouts, name='admin_v2_lockouts'),
+
+    path('csp-report/', csp_report, name='csp_report'),
 
     path('admin-v2/logout/', admin_v2_logout, name='admin_v2_logout'),
 

@@ -554,19 +554,21 @@ class InputSanitizationMiddleware:
         # Permissions policy (limit access to sensitive browser features)
         response['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
 
-        # Content Security Policy (adjust based on your needs)
-        # Note: Tailwind CDN is used, so we need to allow it
+        # Content Security Policy — all JS/CSS is self-hosted, no external CDNs.
+        # CSP violations are reported to /csp-report/ and logged to
+        # SecurityNotificationLog for review in the Admin-v2 security dashboard.
         if not getattr(settings, 'DEBUG', False):
             csp_parts = [
                 "default-src 'self'",
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.quilljs.com",
-                "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.quilljs.com",
+                "script-src 'self' 'unsafe-inline'",
+                "style-src 'self' 'unsafe-inline'",
                 "img-src 'self' data: https:",
                 "font-src 'self' data:",
                 "connect-src 'self'",
                 "frame-ancestors 'self'",
                 "form-action 'self'",
                 "base-uri 'self'",
+                "report-uri /csp-report/",
             ]
             response['Content-Security-Policy'] = '; '.join(csp_parts)
 

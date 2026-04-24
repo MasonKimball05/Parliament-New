@@ -450,9 +450,175 @@ class Command(BaseCommand):
             else:
                 self.ok('STATIC_ROOT', f"{static_root} ({file_count} files)")
 
+    def check_supply_chain(self):
+        """
+        Verify self-hosted static assets haven't been tampered with and that
+        no external CDN references have crept back into templates.
+        """
+        self.section('Supply Chain & Asset Integrity')
+        import hashlib, json, glob as globmod
+
+        base_dir = settings.BASE_DIR
+
+        # ── 1. Vendor file integrity (SHA-256 vs. manifest) ──────────────
+        manifest_path = base_dir / 'static' / 'vendor' / '.integrity.json'
+        if not manifest_path.exists():
+            self.warn('Asset integrity manifest', 'static/vendor/.integrity.json not found — run check_env --update-hashes')
+        else:
+            try:
+                manifest = json.loads(manifest_path.read_text())
+                files = manifest.get('files', {})
+                all_ok = True
+                for rel_path, meta in files.items():
+                    abs_path = base_dir / rel_path
+                    if not abs_path.exists():
+                        self.fail(f'Asset exists: {rel_path}', 'file not found')
+                        all_ok = False
+                        continue
+                    actual = hashlib.sha256(abs_path.read_bytes()).hexdigest()
+                    expected = meta.get('sha256', '')
+                    if actual != expected:
+                        self.fail(
+                            f'Asset hash: {abs_path.name}',
+                            f'MISMATCH — expected {expected[:16]}… got {actual[:16]}…'
+                        )
+                        all_ok = False
+                    else:
+                        self.ok(f'Asset hash: {abs_path.name}', f'{actual[:16]}… ✓')
+                if all_ok:
+                    self.ok('All vendor asset hashes', f'{len(files)} files verified')
+            except Exception as e:
+                self.fail('Asset integrity manifest', str(e)[:80])
+
+        # ── 2. CDN drift detection — no external CDN refs in templates ───
+        cdn_patterns = [
+            'cdn.tailwindcss.com', 'play.tailwindcss.com',
+            'cdn.quilljs.com', 'unpkg.com/quill', 'unpkg.com/tailwind',
+        ]
+        # Chart.js CDN is a known remaining dependency — warn rather than fail
+        warn_patterns = ['cdn.jsdelivr.net/npm/chart']
+
+        template_dir = base_dir / 'templates'
+        html_files = list(template_dir.rglob('*.html'))
+        cdn_hits = []
+        warn_hits = []
+        for f in html_files:
+            try:
+                content = f.read_text(errors='replace')
+            except Exception:
+                continue
+            for pat in cdn_patterns:
+                if pat in content:
+                    cdn_hits.append(f'{f.relative_to(base_dir)}: {pat}')
+            for pat in warn_patterns:
+                if pat in content:
+                    warn_hits.append(str(f.relative_to(base_dir)))
+
+        if cdn_hits:
+            for hit in cdn_hits:
+                self.fail('CDN ref found', hit)
+        else:
+            self.ok('No blocked CDN refs in templates', f'scanned {len(html_files)} files')
+
+        if warn_hits:
+            unique = sorted(set(warn_hits))
+            self.warn('Chart.js CDN (known, low risk)', f'{len(unique)} template(s) — consider self-hosting')
+        else:
+            self.ok('No Chart.js CDN refs', 'all clear')
+
+        # ── 3. Python dependency CVE scan (pip-audit) ────────────────────
+        import subprocess, shutil
+        pip_audit = shutil.which('pip-audit') or str(base_dir / '.venv' / 'bin' / 'pip-audit')
+        if not os.path.exists(pip_audit) and not shutil.which('pip-audit'):
+            self.warn('pip-audit CVE scan', 'pip-audit not installed — run: pip install pip-audit')
+        else:
+            try:
+                result = subprocess.run(
+                    [pip_audit, '--format', 'json', '--progress-spinner', 'off'],
+                    capture_output=True, text=True, timeout=60,
+                    cwd=str(base_dir)
+                )
+                import json as _json
+                data = _json.loads(result.stdout or '{}')
+                # pip-audit JSON format: {"dependencies": [{"name":..., "vulns":[...]}]}
+                deps = data.get('dependencies', [])
+                all_vulns = [v for dep in deps for v in dep.get('vulns', [])]
+                # Ignore ECHO-only advisories with no standard CVE/fix — treat as warnings
+                actionable = [v for v in all_vulns if v.get('fix_versions')
+                              and not all('echo' in a.lower() for a in ([v['id']] + v.get('aliases', [])))]
+                echo_only  = [v for v in all_vulns if v not in actionable]
+                if actionable:
+                    pkgs = {dep['name'] for dep in deps
+                            for v in dep.get('vulns', []) if v in actionable}
+                    self.fail('pip-audit CVE scan',
+                              f'{len(actionable)} CVE(s) in {len(pkgs)} package(s) — run pip-audit for details')
+                elif echo_only:
+                    self.warn('pip-audit CVE scan',
+                              f'{len(echo_only)} ECHO-database advisory/advisories (no OSV/PYSEC equivalent)')
+                else:
+                    self.ok('pip-audit CVE scan', 'no known vulnerabilities')
+            except subprocess.TimeoutExpired:
+                self.warn('pip-audit CVE scan', 'timed out after 60s')
+            except Exception as e:
+                self.warn('pip-audit CVE scan', f'could not run: {e}')
+
+    def _update_integrity_manifest(self):
+        """Recompute SHA-256 hashes and write static/vendor/.integrity.json."""
+        import hashlib, json
+        from datetime import date
+
+        base_dir = settings.BASE_DIR
+        manifest_path = base_dir / 'static' / 'vendor' / '.integrity.json'
+
+        tracked = [
+            'static/vendor/quill/quill.min.js',
+            'static/vendor/quill/quill.snow.css',
+            'static/css/tailwind.css',
+        ]
+
+        files_entry = {}
+        import base64
+        for rel in tracked:
+            p = base_dir / rel
+            if not p.exists():
+                self.warn(f'Skipped (not found)', rel)
+                continue
+            data = p.read_bytes()
+            sha256 = hashlib.sha256(data).hexdigest()
+            sri = 'sha384-' + base64.b64encode(hashlib.sha384(data).digest()).decode()
+            # Preserve existing metadata (source, version, note) if present
+            try:
+                existing = json.loads(manifest_path.read_text()).get('files', {}).get(rel, {})
+            except Exception:
+                existing = {}
+            entry = {k: v for k, v in existing.items() if k not in ('sha256', 'sri', 'size')}
+            entry.update({'sha256': sha256, 'sri': sri, 'size': len(data)})
+            files_entry[rel] = entry
+            self.ok(f'Updated hash: {p.name}', sha256[:16] + '…')
+
+        manifest = {
+            '_comment': 'SHA-256 hashes of self-hosted vendor files. Regenerate with: python manage.py check_env --update-hashes',
+            '_generated': str(date.today()),
+            'files': files_entry,
+        }
+        manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
+        self.stdout.write(self.style.SUCCESS(f'\n  Manifest written to {manifest_path}\n'))
+
     # ------------------------------------------------------------------ main
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--update-hashes',
+            action='store_true',
+            help='Recompute SHA-256 hashes for vendor files and update static/vendor/.integrity.json',
+        )
+
     def handle(self, *args, **kwargs):
+        if kwargs.get('update_hashes'):
+            self.section('Updating Asset Integrity Manifest')
+            self._update_integrity_manifest()
+            return
+
         self.stdout.write(self.style.MIGRATE_HEADING(
             '\n══════════════════════════════════════════════════════════════\n'
             '  Parliament — Settings & Environment Check\n'
@@ -467,6 +633,7 @@ class Command(BaseCommand):
         self.check_2fa()
         self.check_security()
         self.check_storage()
+        self.check_supply_chain()
 
         # ── Summary ──────────────────────────────────────────────────────
         self.stdout.write(f"\n{'─' * 64}")

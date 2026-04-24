@@ -154,7 +154,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </button>
-                <div id="section-wwa" class="hidden border-t border-gray-200 dark:border-gray-700">
+                <div id="section-wwa" style="display:none" class="border-t border-gray-200 dark:border-gray-700">
                     <div id="quill-wwa"></div>
                 </div>
                 <textarea name="who_we_are_html" id="hidden-wwa" class="hidden">{{ content.who_we_are_html }}</textarea>
@@ -172,7 +172,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </button>
-                <div id="section-bel" class="hidden border-t border-gray-200 dark:border-gray-700">
+                <div id="section-bel" style="display:none" class="border-t border-gray-200 dark:border-gray-700">
                     <div id="quill-bel"></div>
                 </div>
                 <textarea name="what_we_believe_html" id="hidden-bel" class="hidden">{{ content.what_we_believe_html }}</textarea>
@@ -190,7 +190,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </button>
-                <div id="section-his" class="hidden border-t border-gray-200 dark:border-gray-700">
+                <div id="section-his" style="display:none" class="border-t border-gray-200 dark:border-gray-700">
                     <div class="px-6 pt-4">
                         <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Section Title</label>
                         <input type="text" name="chapter_history_title" value="{{ content.chapter_history_title }}" maxlength="200"
@@ -508,9 +508,13 @@
 
 </div>
 
-<!-- ── Quill ───────────────────────────────────────────────────────────────── -->
-<link rel="stylesheet" href="https://cdn.quilljs.com/1.3.7/quill.snow.css">
-<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<!-- ── Quill (self-hosted; SRI hashes match static/vendor/.integrity.json) ── -->
+<link rel="stylesheet" href="{% static 'vendor/quill/quill.snow.css' %}"
+      integrity="sha384-cPa8kzsYWhqpAfWOLWYIw3V0BhPi/m3lrd8tBTPxr2NrYCHRVZ7xy1cEoRGOM/03"
+      crossorigin="anonymous">
+<script src="{% static 'vendor/quill/quill.min.js' %}"
+        integrity="sha384-QUJ+ckWz1M+a7w0UfG1sEn4pPrbQwSxGm/1TIPyioqXBrwuT9l4f9gdHWLDLbVWI"
+        crossorigin="anonymous"></script>
 
 <style>
     /* ── Editor ── */
@@ -946,36 +950,38 @@
     function toggleSection(key) {
         const body    = document.getElementById('section-' + key);
         const chevron = document.getElementById('chevron-' + key);
-        const opening = body.classList.contains('hidden');
+        const opening = body.style.display === 'none';
 
-        // When closing: snapshot current editor content into the hidden textarea
-        // so that reopening restores the exact same state (including image styles)
         if (!opening && editors[key]) {
+            // Closing: snapshot editor content into the hidden textarea
             const html = editors[key].root.innerHTML;
             document.getElementById('hidden-' + key).value =
                 (html === '<p><br></p>' || html.trim() === '') ? '' : html;
         }
 
-        body.classList.toggle('hidden', !opening);
+        body.style.display = opening ? 'block' : 'none';
         chevron.style.transform = opening ? 'rotate(180deg)' : '';
-
-        // When opening: init on first open, or re-init from the (now-updated) textarea
-        if (opening) {
-            if (!editors[key]) {
-                try {
-                    makeEditor(key);
-                } catch (e) {
-                    console.error('Editor init failed for', key, e);
-                }
-            } else {
-                // Already existed — reload from the snapshot we saved on close
-                const hiddenEl = document.getElementById('hidden-' + key);
-                const raw  = hiddenEl.value.trim();
-                const html = raw || (DEFAULTS[key] || '');
-                if (html) editors[key].root.innerHTML = html;
-            }
-        }
     }
+
+    // Pre-initialize all editors at page load.
+    // Quill cannot measure a display:none container, so we briefly show each
+    // section, init the editor, then hide it again.
+    document.addEventListener('DOMContentLoaded', function () {
+        if (typeof Quill === 'undefined') {
+            console.error('Quill failed to load — check static/vendor/quill/quill.min.js');
+            return;
+        }
+        ['wwa', 'bel', 'his'].forEach(function (key) {
+            const body = document.getElementById('section-' + key);
+            body.style.display = 'block';          // temporarily visible
+            try {
+                makeEditor(key);
+            } catch (e) {
+                console.error('Editor init failed for', key, e);
+            }
+            body.style.display = 'none';           // hide again
+        });
+    });
 
     // ── Save ──────────────────────────────────────────────────────────────────
     document.getElementById('content-form').addEventListener('submit', () => {

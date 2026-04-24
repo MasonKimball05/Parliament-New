@@ -7,17 +7,15 @@
     <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}Parliament{% endblock %}</title>
 
-    <!-- Preconnect to external resources for faster loading -->
-    <link rel="preconnect" href="https://cdn.tailwindcss.com">
-    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
-
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/exportable_media/am-coat-of-arms.png">
     <link rel="apple-touch-icon" href="/exportable_media/am-coat-of-arms.png">
 
-    <!-- Dark Mode Initialization - MUST run BEFORE Tailwind loads -->
+    <!-- Tailwind CSS (self-hosted, no CDN) -->
+    <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
+
+    <!-- Dark Mode Initialization - MUST run BEFORE styles apply -->
     <script>
-        // Initialize theme before page renders to prevent flash
         (function() {
             const theme = '{{ user.preferences.theme|default:"light" }}';
             if (theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -25,40 +23,7 @@
             } else {
                 document.documentElement.classList.remove('dark');
             }
-
-            // Debug: Log dark mode status
-            console.log('Dark mode initialized:', {
-                theme: theme,
-                hasDarkClass: document.documentElement.classList.contains('dark'),
-                htmlClasses: document.documentElement.className
-            });
         })();
-    </script>
-
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        // Configure Tailwind AFTER it loads
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        primary: {
-                            50: '#eff6ff',
-                            100: '#dbeafe',
-                            200: '#bfdbfe',
-                            300: '#93c5fd',
-                            400: '#60a5fa',
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                            700: '#1d4ed8',
-                            800: '#1e40af',
-                            900: '#1e3a8a',
-                        }
-                    }
-                }
-            }
-        };
     </script>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col transition-colors duration-200">

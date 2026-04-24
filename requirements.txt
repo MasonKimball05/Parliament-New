@@ -1,13 +1,13 @@
 asgiref==3.8.1
-Django==5.1.7
+Django==5.1.15
 icalendar==6.1.0
 psycopg2==2.9.10
 psycopg2-binary==2.9.10
-python-dotenv==1.1.0
+python-dotenv==1.2.2
 python-magic==0.4.27
 pytz==2025.2
-requests==2.32.3
-sqlparse==0.5.3
+requests==2.33.1
+sqlparse==0.5.5
 user-agents==2.2.0
 
 # Production server with async workers for better memory efficiency
@@ -22,7 +22,7 @@ redis==5.2.1
 django-redis==5.4.0
 
 # Field-level encryption for sensitive data (AES encryption via Fernet)
-cryptography==43.0.3
+cryptography==46.0.7
 
 # Markdown rendering for changelog display
 markdown==3.7
