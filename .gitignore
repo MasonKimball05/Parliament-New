@@ -37,7 +37,6 @@ uploads/
 
 # === Static Files ===
 staticfiles/
-static/
 
 # === DB / Backups ===
 *.sqlite3
