@@ -2045,14 +2045,22 @@ def delete_honeypot_log(request, log_id):
 def clear_honeypot_logs(request):
     """Bulk delete honeypot logs, optionally filtered by IP."""
     if not request.user.is_admin:
-        return JsonResponse({'success': False, 'error': 'Admin access required'}, status=403)
+        return HttpResponseForbidden("Admin access required")
     from src.models import HoneypotAccess
     ip_address = request.POST.get('ip_address', '').strip()
     if ip_address:
         deleted, _ = HoneypotAccess.objects.filter(ip_address=ip_address).delete()
+        if deleted:
+            messages.success(request, f'Deleted {deleted} log entr{"ies" if deleted != 1 else "y"} for {ip_address}.')
+        else:
+            messages.info(request, f'No logs found for {ip_address}.')
     else:
         deleted, _ = HoneypotAccess.objects.all().delete()
-    return JsonResponse({'success': True, 'deleted': deleted})
+        if deleted:
+            messages.success(request, f'Cleared {deleted} honeypot log entr{"ies" if deleted != 1 else "y"}.')
+        else:
+            messages.info(request, 'No honeypot logs to clear.')
+    return redirect('admin_v2_honeypot_logs')
 
 
 @require_admin_v2_auth
