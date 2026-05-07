@@ -52,6 +52,15 @@ def csp_report(request):
     line_number   = report.get('line-number', '')
     ip_address    = get_client_ip(request)
 
+    # Known benign origins injected by infrastructure (Cloudflare beacon, etc.)
+    # Downgrade these to 'low' so they don't pollute the security dashboard.
+    _NOISE_ORIGINS = (
+        'static.cloudflareinsights.com',
+        'cloudflareinsights.com',
+    )
+    is_noise = any(origin in blocked_uri for origin in _NOISE_ORIGINS)
+    severity = 'low' if is_noise else 'medium'
+
     details = (
         f"Blocked URI: {blocked_uri}\n"
         f"Violated directive: {violated}\n"
@@ -59,17 +68,23 @@ def csp_report(request):
         f"Source: {source_file}:{line_number}"
     )
 
-    logger.warning(
-        "CSP violation | IP=%s | blocked=%s | directive=%s | document=%s",
-        ip_address, blocked_uri, violated, document_uri,
-    )
+    if is_noise:
+        logger.info(
+            "CSP violation (known infrastructure) | blocked=%s | directive=%s | document=%s",
+            blocked_uri, violated, document_uri,
+        )
+    else:
+        logger.warning(
+            "CSP violation | IP=%s | blocked=%s | directive=%s | document=%s",
+            ip_address, blocked_uri, violated, document_uri,
+        )
 
     # Log to SecurityNotificationLog (non-blocking — ignore DB errors)
     try:
         from src.models import SecurityNotificationLog
         SecurityNotificationLog.objects.create(
             event_type='csp_violation',
-            severity='medium',
+            severity=severity,
             details=details,
             ip_address=ip_address if ip_address else None,
             email_sent=False,

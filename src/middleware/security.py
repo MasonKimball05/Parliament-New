@@ -518,16 +518,21 @@ class InputSanitizationMiddleware:
         response['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
 
         # Content Security Policy — all JS/CSS is self-hosted, no external CDNs.
+        # Cloudflare injects beacon.min.js for Web Analytics; allow its domain
+        # when BEHIND_CLOUDFLARE is enabled so it doesn't spam CSP reports.
         # CSP violations are reported to /csp-report/ and logged to
         # SecurityNotificationLog for review in the Admin-v2 security dashboard.
         if not getattr(settings, 'DEBUG', False):
+            behind_cf = getattr(settings, 'BEHIND_CLOUDFLARE', False)
+            # Cloudflare injects its beacon script; allow it when behind CF
+            cf_beacon = ' https://static.cloudflareinsights.com' if behind_cf else ''
             csp_parts = [
                 "default-src 'self'",
-                "script-src 'self' 'unsafe-inline'",
+                f"script-src 'self' 'unsafe-inline'{cf_beacon}",
                 "style-src 'self' 'unsafe-inline'",
                 "img-src 'self' data: https:",
                 "font-src 'self' data:",
-                "connect-src 'self'",
+                f"connect-src 'self'{cf_beacon}",
                 "frame-ancestors 'self'",
                 "form-action 'self'",
                 "base-uri 'self'",
