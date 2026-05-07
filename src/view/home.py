@@ -155,6 +155,39 @@ def home(request):
     # Show slating card if user has committee access OR there's an active period
     show_slating_card = has_slating_access or (active_slating_period and not request.user.is_pledge)
 
+    # Enhanced slating data for rich card
+    slating_positions = []
+    slating_total_applications = 0
+    user_has_applied = False
+    user_has_voted = False
+    slating_passed_slate = None
+    slating_slate_candidates = []
+
+    if active_slating_period:
+        slating_positions = list(
+            active_slating_period.positions.filter(is_active=True).order_by('display_order', 'title')
+        )
+        if active_slating_period.status == 'nominations_open':
+            slating_total_applications = active_slating_period.applications.exclude(
+                status='withdrawn'
+            ).count()
+            user_has_applied = active_slating_period.applications.filter(
+                applicant=request.user
+            ).exclude(status='withdrawn').exists()
+        elif active_slating_period.status == 'voting_open':
+            user_has_voted = SlatingBallot.objects.filter(
+                period=active_slating_period,
+                voter=request.user,
+            ).exists()
+        elif active_slating_period.status == 'results_published':
+            slating_passed_slate = active_slating_period.slates.filter(passed=True).first()
+            if slating_passed_slate:
+                slating_slate_candidates = list(
+                    slating_passed_slate.candidates.select_related(
+                        'position', 'application__applicant'
+                    ).order_by('display_order')
+                )
+
     context = {
         'user': request.user,
         # Stats
@@ -175,6 +208,12 @@ def home(request):
         'active_slating_period': active_slating_period,
         'has_slating_access': has_slating_access,
         'show_slating_card': show_slating_card,
+        'slating_positions': slating_positions,
+        'slating_total_applications': slating_total_applications,
+        'user_has_applied': user_has_applied,
+        'user_has_voted': user_has_voted,
+        'slating_passed_slate': slating_passed_slate,
+        'slating_slate_candidates': slating_slate_candidates,
     }
 
     return render(request, 'home.html', context)
