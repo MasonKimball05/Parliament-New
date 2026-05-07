@@ -17,11 +17,20 @@ def get_client_ip(request):
     """
     Get the client's IP address from the request.
 
-    We sit behind a single nginx proxy. nginx appends the real client IP as
-    the RIGHTMOST entry in X-Forwarded-For via $proxy_add_x_forwarded_for.
-    Taking the rightmost value prevents spoofing: an attacker can forge
-    leading XFF entries, but nginx always appends the actual socket IP.
+    When BEHIND_CLOUDFLARE=True in settings, Cloudflare sits in front of nginx
+    and sets the CF-Connecting-IP header to the real visitor IP. We use that
+    directly because it is set by Cloudflare and cannot be forged by the visitor.
+
+    Otherwise we sit behind a single nginx proxy. nginx appends the real client
+    IP as the RIGHTMOST entry in X-Forwarded-For via $proxy_add_x_forwarded_for.
+    Taking the rightmost value prevents spoofing: an attacker can forge leading
+    XFF entries, but nginx always appends the actual socket IP.
     """
+    if getattr(settings, 'BEHIND_CLOUDFLARE', False):
+        cf_ip = request.META.get('HTTP_CF_CONNECTING_IP')
+        if cf_ip:
+            return cf_ip.strip()
+
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:
         ip = x_forwarded_for.split(',')[-1].strip()

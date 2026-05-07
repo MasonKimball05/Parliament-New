@@ -5,17 +5,15 @@ Also performs fingerprint validation to detect potentially stolen sessions.
 """
 from django.core.cache import cache
 from ..models import UserSession
+from src.utils.security_utils import get_client_ip as _get_client_ip
 import logging
 
 logger = logging.getLogger('function_calls')
 
 
 def _get_request_ip(request):
-    """Extract the real client IP (rightmost XFF entry, cannot be spoofed through nginx)."""
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        return x_forwarded_for.split(',')[-1].strip()
-    return request.META.get('REMOTE_ADDR', '')
+    """Extract the real client IP, respecting BEHIND_CLOUDFLARE setting."""
+    return _get_client_ip(request) or ''
 
 
 class SessionTrackingMiddleware:

@@ -1,11 +1,12 @@
 """
 Custom middleware for Parliament application
 """
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.core.cache import cache
 from django.http import HttpResponseForbidden, HttpResponseBadRequest
 from django.conf import settings
+from src.utils.security_utils import get_client_ip as _get_client_ip
 import logging
 import re
 import html
@@ -106,13 +107,9 @@ class PasswordResetRateLimitMiddleware:
                 logger.warning(
                     f'Password reset blocked: IP {ip_address} is locked out due to too many attempts'
                 )
-                return HttpResponseForbidden(
-                    '<html><body>'
-                    '<h1>Too Many Requests</h1>'
-                    '<p>Too many password reset attempts. Please try again later.</p>'
-                    '<p>If you need immediate assistance, please contact an administrator.</p>'
-                    '</body></html>'
-                )
+                return render(request, '403.html', {
+                    'reason': 'Too many password reset attempts. Please try again later.'
+                }, status=403)
 
             # Check if IP has exceeded rate limit
             if ip_attempts >= self.max_attempts_per_ip:
@@ -122,12 +119,9 @@ class PasswordResetRateLimitMiddleware:
                 )
                 # Lock out the IP
                 cache.set(lockout_key, True, self.lockout_minutes * 60)
-                return HttpResponseForbidden(
-                    '<html><body>'
-                    '<h1>Too Many Requests</h1>'
-                    '<p>Too many password reset attempts. Please try again in 1 hour.</p>'
-                    '</body></html>'
-                )
+                return render(request, '403.html', {
+                    'reason': 'Too many password reset attempts. Please try again in 1 hour.'
+                }, status=403)
 
             # Increment IP attempt counter
             cache.set(ip_key, ip_attempts + 1, self.window_minutes * 60)
@@ -158,12 +152,7 @@ class PasswordResetRateLimitMiddleware:
 
     def get_client_ip(self, request):
         """Get the client's IP address from the request."""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[-1].strip()
-        else:
-            ip = request.META.get('REMOTE_ADDR', 'unknown')
-        return ip
+        return _get_client_ip(request) or 'unknown'
 
 
 class LoginRateLimitMiddleware:
@@ -210,14 +199,9 @@ class LoginRateLimitMiddleware:
                 logger.warning(
                     f'Login blocked: IP {ip_address} is locked out due to too many attempts'
                 )
-                return HttpResponseForbidden(
-                    '<html><body style="font-family: sans-serif; max-width: 600px; margin: 100px auto; padding: 20px;">'
-                    '<h1 style="color: #dc2626;">Account Temporarily Locked</h1>'
-                    '<p>Too many failed login attempts from your IP address.</p>'
-                    '<p>Please try again in 30 minutes, or contact an administrator if you need immediate access.</p>'
-                    '<p><a href="/login/" style="color: #2563eb;">← Back to Login</a></p>'
-                    '</body></html>'
-                )
+                return render(request, '403.html', {
+                    'reason': 'Too many failed login attempts from your IP address. Please try again in 30 minutes.'
+                }, status=403)
 
             # Check if IP has exceeded rate limit
             if ip_attempts >= self.max_attempts_per_ip:
@@ -239,14 +223,9 @@ class LoginRateLimitMiddleware:
                     )
                 except Exception:
                     pass
-                return HttpResponseForbidden(
-                    '<html><body style="font-family: sans-serif; max-width: 600px; margin: 100px auto; padding: 20px;">'
-                    '<h1 style="color: #dc2626;">Too Many Login Attempts</h1>'
-                    '<p>Your IP address has been temporarily blocked due to excessive failed login attempts.</p>'
-                    '<p>Please try again in 30 minutes.</p>'
-                    '<p><a href="/login/" style="color: #2563eb;">← Back to Login</a></p>'
-                    '</body></html>'
-                )
+                return render(request, '403.html', {
+                    'reason': 'Your IP address has been temporarily blocked due to excessive failed login attempts. Please try again in 30 minutes.'
+                }, status=403)
 
             # Check username-based rate limit if username is provided
             if username:
@@ -260,15 +239,9 @@ class LoginRateLimitMiddleware:
                         f'Login blocked: Username {username} is locked out. Attempt from IP {ip_address}'
                     )
                     # Don't reveal if username exists, use generic message
-                    return HttpResponseForbidden(
-                        '<html><body style="font-family: sans-serif; max-width: 600px; margin: 100px auto; padding: 20px;">'
-                        '<h1 style="color: #dc2626;">Account Temporarily Locked</h1>'
-                        '<p>This account has been temporarily locked due to multiple failed login attempts.</p>'
-                        '<p>Please try again in 30 minutes, or use the "Forgot Password" link to reset your password.</p>'
-                        '<p><a href="/login/" style="color: #2563eb;">← Back to Login</a></p>'
-                        '<p><a href="/password-reset/" style="color: #2563eb;">Reset Password</a></p>'
-                        '</body></html>'
-                    )
+                    return render(request, '403.html', {
+                        'reason': 'This account has been temporarily locked due to multiple failed login attempts. Please try again in 30 minutes.'
+                    }, status=403)
 
                 if username_attempts >= self.max_attempts_per_username:
                     logger.warning(
@@ -335,12 +308,7 @@ class LoginRateLimitMiddleware:
 
     def get_client_ip(self, request):
         """Get the client's IP address from the request."""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[-1].strip()
-        else:
-            ip = request.META.get('REMOTE_ADDR', 'unknown')
-        return ip
+        return _get_client_ip(request) or 'unknown'
 
 
 class InputSanitizationMiddleware:
@@ -399,10 +367,9 @@ class InputSanitizationMiddleware:
             logger.warning(
                 f"BLACKLISTED_IP_BLOCKED: {ip_address} attempted {request.method} {request.path}"
             )
-            return HttpResponseForbidden(
-                '<html><body><h1>403 Forbidden</h1></body></html>',
-                content_type='text/html'
-            )
+            return render(request, '403.html', {
+                'reason': 'Your IP address has been blocked. Contact an administrator if you believe this is an error.'
+            }, status=403)
 
         # Check all input sources for malicious patterns
         attack_detected = False
@@ -498,13 +465,9 @@ class InputSanitizationMiddleware:
                     except Exception as e:
                         logger.error(f"Failed to auto-quarantine user: {e}")
 
-                return HttpResponseForbidden(
-                    '<html><body style="font-family: sans-serif; max-width: 600px; margin: 100px auto; padding: 20px;">'
-                    '<h1 style="color: #dc2626;">Access Denied</h1>'
-                    '<p>Your request has been blocked due to suspicious activity.</p>'
-                    '<p>If you believe this is an error, please contact the administrator.</p>'
-                    '</body></html>'
-                )
+                return render(request, '403.html', {
+                    'reason': 'Your request has been blocked due to suspicious activity. Contact an administrator if you believe this is an error.'
+                }, status=403)
 
         response = self.get_response(request)
         return self.add_security_headers(response)
@@ -583,12 +546,7 @@ class InputSanitizationMiddleware:
 
     def get_client_ip(self, request):
         """Get the client's IP address from the request."""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[-1].strip()
-        else:
-            ip = request.META.get('REMOTE_ADDR', 'unknown')
-        return ip
+        return _get_client_ip(request) or 'unknown'
 
 
 class AdminAccessMonitoringMiddleware:
@@ -633,9 +591,4 @@ class AdminAccessMonitoringMiddleware:
 
     def get_client_ip(self, request):
         """Get the client's IP address from the request."""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[-1].strip()
-        else:
-            ip = request.META.get('REMOTE_ADDR', 'unknown')
-        return ip
+        return _get_client_ip(request) or 'unknown'
