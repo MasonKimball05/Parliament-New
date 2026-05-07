@@ -13,8 +13,12 @@
             <h1 class="text-xl sm:text-2xl font-bold leading-tight">Welcome, {{ user.get_display_name }}</h1>
             <p class="text-sm opacity-85 mt-0.5">{{ user.member_type }}{% if not user.is_pledge %} · {{ user.user_id }}{% endif %}</p>
         </div>
-        <button onclick="document.getElementById('coat-modal').classList.remove('hidden')" class="flex-shrink-0 focus:outline-none group">
+        <button onclick="document.getElementById('coat-modal').classList.remove('hidden')" class="flex-shrink-0 focus:outline-none group flex flex-col items-center gap-1">
             <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-0.5 shadow-lg transition-transform duration-200 group-hover:scale-110 cursor-pointer">
+            <span class="text-white/80 text-center leading-tight">
+                <span class="block text-xs">Ἀρετὴ Μονάζει</span>
+                <span class="block text-xs italic opacity-75">Virtue Stands Alone</span>
+            </span>
         </button>
     </div>
 
