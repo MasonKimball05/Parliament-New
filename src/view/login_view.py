@@ -18,10 +18,12 @@ ATTEMPT_WINDOW = 15 * 60  # Window to count attempts in seconds (15 minutes)
 
 
 def get_client_ip(request):
-    """Get the client's IP address from the request."""
+    """Get the client's IP address from the request.
+    Takes the rightmost XFF entry — nginx appends the real client IP there.
+    """
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0].strip()
+        ip = x_forwarded_for.split(',')[-1].strip()
     else:
         ip = request.META.get('REMOTE_ADDR', 'unknown')
     return ip

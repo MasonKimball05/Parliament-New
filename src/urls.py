@@ -71,7 +71,7 @@ from src.view.admin_v2 import (
     security_dashboard, quarantine_management, lockdown_control,
     honeypot_logs, security_notifications_log,
     dismiss_alert, dismiss_all_alerts,
-    delete_honeypot_log, clear_honeypot_logs,
+    delete_honeypot_log, clear_honeypot_logs, blacklist_all_honeypot_ips,
     manage_lockouts,
 )
 from src.view.admin_v2 import manage_events as admin_v2_manage_events, delete_event as admin_v2_delete_event
@@ -566,6 +566,7 @@ urlpatterns = [
     path('admin-v2/security/honeypot-logs/', honeypot_logs, name='admin_v2_honeypot_logs'),
     path('admin-v2/security/honeypot-logs/<int:log_id>/delete/', delete_honeypot_log, name='admin_v2_delete_honeypot_log'),
     path('admin-v2/security/honeypot-logs/clear/', clear_honeypot_logs, name='admin_v2_clear_honeypot_logs'),
+    path('admin-v2/security/honeypot-logs/blacklist-all/', blacklist_all_honeypot_ips, name='admin_v2_blacklist_all_honeypot_ips'),
     path('admin-v2/security/notifications/', security_notifications_log, name='admin_v2_security_notifications'),
     path('admin-v2/security/lockouts/', manage_lockouts, name='admin_v2_lockouts'),
 

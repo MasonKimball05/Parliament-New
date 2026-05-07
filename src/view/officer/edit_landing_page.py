@@ -1,5 +1,6 @@
 import json
 import logging
+import bleach
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -12,6 +13,31 @@ from src.models import (
     LandingPageContent, LandingPagePhoto,
     LandingPageContactTopic, LandingPageFormLink, LandingPageSocialLink,
 )
+
+# Tags and attributes produced by Quill Snow editor that are safe to store.
+_ALLOWED_TAGS = [
+    'p', 'br', 'b', 'i', 'em', 'strong', 'u', 's', 'strike',
+    'a', 'blockquote', 'ol', 'ul', 'li',
+    'h1', 'h2', 'h3', 'h4',
+    'img', 'hr', 'span', 'div',
+    'figure', 'figcaption',
+]
+_ALLOWED_ATTRS = {
+    'a':          ['href', 'target', 'rel'],
+    'img':        ['src', 'alt', 'class', 'width', 'height'],
+    'span':       ['class'],
+    'div':        ['class'],
+    'p':          ['class'],
+    'figure':     ['class'],
+    'figcaption': ['class'],
+}
+
+
+def _sanitize_html(html):
+    """Strip any tags/attributes not in the allowlist before saving to DB."""
+    if not html:
+        return html
+    return bleach.clean(html, tags=_ALLOWED_TAGS, attributes=_ALLOWED_ATTRS, strip=True)
 
 logger = logging.getLogger('function_calls')
 
@@ -33,9 +59,9 @@ def edit_landing_page(request):
 
         if action == 'save_content':
             content.tagline = request.POST.get('tagline', content.tagline).strip()
-            content.who_we_are_html = request.POST.get('who_we_are_html', '').strip()
-            content.what_we_believe_html = request.POST.get('what_we_believe_html', '').strip()
-            content.chapter_history_html = request.POST.get('chapter_history_html', '').strip()
+            content.who_we_are_html = _sanitize_html(request.POST.get('who_we_are_html', '').strip())
+            content.what_we_believe_html = _sanitize_html(request.POST.get('what_we_believe_html', '').strip())
+            content.chapter_history_html = _sanitize_html(request.POST.get('chapter_history_html', '').strip())
             content.chapter_history_title = request.POST.get('chapter_history_title', content.chapter_history_title).strip()
 
             # SEO

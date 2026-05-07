@@ -4,11 +4,30 @@ Guide System Views
 Static guide pages and article views for user documentation.
 """
 
+import bleach
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.utils import timezone
+from django.utils.safestring import mark_safe
 import logging
+
+_GUIDE_ALLOWED_TAGS = [
+    'p', 'br', 'b', 'i', 'em', 'strong', 'u', 's',
+    'a', 'blockquote', 'ol', 'ul', 'li',
+    'h1', 'h2', 'h3', 'h4', 'h5',
+    'img', 'hr', 'span', 'div', 'pre', 'code',
+    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+]
+_GUIDE_ALLOWED_ATTRS = {
+    'a':   ['href', 'target', 'rel'],
+    'img': ['src', 'alt', 'class', 'width', 'height'],
+    'span': ['class'],
+    'div':  ['class'],
+    'code': ['class'],
+    'td':   ['colspan', 'rowspan'],
+    'th':   ['colspan', 'rowspan'],
+}
 
 from src.models import GuideTour, GuideTourStep, UserTourProgress, GuideArticle
 
@@ -95,6 +114,12 @@ def guide_article(request, slug):
     """
     article = get_object_or_404(GuideArticle, slug=slug, is_published=True)
 
+    # Sanitize HTML before rendering to prevent stored XSS
+    safe_content = mark_safe(
+        bleach.clean(article.content or '', tags=_GUIDE_ALLOWED_TAGS,
+                     attributes=_GUIDE_ALLOWED_ATTRS, strip=True)
+    )
+
     # Get related articles in same category
     related_articles = GuideArticle.objects.filter(
         is_published=True,
@@ -103,6 +128,7 @@ def guide_article(request, slug):
 
     context = {
         'article': article,
+        'article_content': safe_content,
         'related_articles': related_articles,
     }
 

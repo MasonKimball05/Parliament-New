@@ -51,6 +51,27 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.13.0 - Security Patch (05-06-2026)
+Critical security fixes for IP spoofing, stored XSS, and honeypot ban propagation.
+
+**Deployment Status:** Deployed
+
+**Type:** Security Update
+
+**Security:**
+
+- **IP Spoofing Fix**: All `get_client_ip()` functions now read the rightmost `X-Forwarded-For` entry (appended by nginx) instead of the leftmost (attacker-controlled). Previously, attackers could send arbitrary `X-Forwarded-For` headers to appear as a different IP on every request, bypassing login rate limiting, IP blacklisting, geo-restriction, and honeypot bans entirely
+- **Honeypot Ban Propagation**: Honeypot-triggered bans now write to the `IPBlacklist` database table so the block enforced on all endpoints immediately and survives cache flushes/server restarts. Previously, the ban was cache-only and only prevented repeat honeypot hits — the attacker could still reach login and all other pages freely
+- **Stored XSS — Landing Page**: Officer-authored landing page HTML (via Quill editor) is now sanitized with `bleach` before saving to the database. Prevents officers from injecting `<script>` tags or event handlers that would execute for all public visitors
+- **Stored XSS — Vote Results**: Replaced `{{ vote_breakdown.keys|safe }}` with Django's `json_script` tag and `JSON.parse()`. Officers can no longer inject JavaScript via plurality vote option names
+- **Stored XSS — Guide Articles**: Guide article content is now sanitized with `bleach` in the view before rendering, preventing a compromised admin account from injecting JavaScript for all authenticated users
+
+**Dependencies:**
+
+- Added `bleach==6.2.0` for HTML sanitization
+
+---
+
 ### v2.12.0 - Lockout Management, Bug Fixes & UI Improvements (04-15-2026)
 Security hardening, bug fixes, and UI overhaul for the legislation history page.
 

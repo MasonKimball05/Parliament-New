@@ -27,6 +27,9 @@ cryptography==46.0.7
 # Markdown rendering for changelog display
 markdown==3.7
 
+# HTML sanitization to prevent stored XSS from rich-text editors
+bleach==6.2.0
+
 # DOCX to HTML conversion for document preview
 mammoth==1.8.0
 

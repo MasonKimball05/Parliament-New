@@ -36,10 +36,12 @@ HONEYPOT_BAN_DURATION = 24 * 60 * 60  # 24 hours
 
 
 def get_client_ip(request):
-    """Get the client's IP address from the request."""
+    """Get the client's IP address from the request.
+    Takes the rightmost XFF entry — nginx appends the real client IP there.
+    """
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0].strip()
+        ip = x_forwarded_for.split(',')[-1].strip()
     else:
         ip = request.META.get('REMOTE_ADDR', 'unknown')
     return ip
@@ -97,9 +99,24 @@ def log_and_block_honeypot_access(request, endpoint):
         daemon=True,
     ).start()
 
-    # Ban the IP
+    # Ban the IP in cache (fast path for repeat honeypot requests)
     ban_key = f'honeypot_ban_{ip_address}'
     cache.set(ban_key, True, HONEYPOT_BAN_DURATION)
+
+    # Also persist to IPBlacklist DB so InputSanitizationMiddleware blocks this IP
+    # on ALL endpoints, not just honeypot URLs, and so the ban survives cache flushes.
+    try:
+        from src.models import IPBlacklist
+        if not IPBlacklist.objects.filter(ip_address=ip_address, is_active=True).exists():
+            IPBlacklist.objects.create(
+                ip_address=ip_address,
+                reason=f'Honeypot trigger: {endpoint}',
+                added_by=None,  # auto-added, no admin user
+            )
+        # Invalidate the middleware's cached blacklist result so it re-checks immediately
+        cache.delete(f'ip_blacklisted_{ip_address}')
+    except Exception as e:
+        logger.error(f"Failed to add {ip_address} to IPBlacklist: {e}")
 
     # Also add to attack attempts counter
     attack_key = f'attack_attempts_{ip_address}'

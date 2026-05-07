@@ -15,11 +15,16 @@ logger = logging.getLogger('security')
 
 def get_client_ip(request):
     """
-    Get the client's IP address from the request, accounting for proxies
+    Get the client's IP address from the request.
+
+    We sit behind a single nginx proxy. nginx appends the real client IP as
+    the RIGHTMOST entry in X-Forwarded-For via $proxy_add_x_forwarded_for.
+    Taking the rightmost value prevents spoofing: an attacker can forge
+    leading XFF entries, but nginx always appends the actual socket IP.
     """
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
+        ip = x_forwarded_for.split(',')[-1].strip()
     else:
         ip = request.META.get('REMOTE_ADDR')
     return ip

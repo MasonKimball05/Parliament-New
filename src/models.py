@@ -2698,8 +2698,8 @@ class ActivityLog(models.Model):
                 # Check X-Forwarded-For header first (for requests behind proxy/load balancer)
                 x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
                 if x_forwarded_for:
-                    # Take the first IP (client's real IP) from the comma-separated list
-                    ip_address = x_forwarded_for.split(',')[0].strip()
+                    # Take the rightmost IP — nginx appends the real client IP there.
+                    ip_address = x_forwarded_for.split(',')[-1].strip()
                 else:
                     ip_address = request.META.get('REMOTE_ADDR')
             if not user_agent:
@@ -5144,7 +5144,7 @@ class UserSession(models.Model):
         # Get IP address
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
-            ip_address = x_forwarded_for.split(',')[0].strip()
+            ip_address = x_forwarded_for.split(',')[-1].strip()
         else:
             ip_address = request.META.get('REMOTE_ADDR')
 

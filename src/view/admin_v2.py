@@ -1933,7 +1933,7 @@ def lockdown_control(request):
     # Get current IP for whitelisting suggestion
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:
-        current_ip = x_forwarded_for.split(',')[0].strip()
+        current_ip = x_forwarded_for.split(',')[-1].strip()
     else:
         current_ip = request.META.get('REMOTE_ADDR', 'unknown')
 
@@ -2032,6 +2032,48 @@ def clear_honeypot_logs(request):
     else:
         deleted, _ = HoneypotAccess.objects.all().delete()
     return JsonResponse({'success': True, 'deleted': deleted})
+
+
+@require_admin_v2_auth
+@require_POST
+def blacklist_all_honeypot_ips(request):
+    """Blacklist every unique honeypot IP that is not already blacklisted."""
+    if not request.user.is_admin:
+        return JsonResponse({'success': False, 'error': 'Admin access required'}, status=403)
+
+    from src.models import HoneypotAccess
+
+    already_blocked = set(
+        IPBlacklist.objects.filter(is_active=True).values_list('ip_address', flat=True)
+    )
+    all_honeypot_ips = set(
+        HoneypotAccess.objects.values_list('ip_address', flat=True).distinct()
+    )
+    to_block = all_honeypot_ips - already_blocked
+
+    created = 0
+    for ip in to_block:
+        IPBlacklist.objects.create(
+            ip_address=ip,
+            reason='Honeypot trigger — bulk blacklist',
+            added_by=request.user,
+        )
+        cache.delete(f'ip_blacklisted_{ip}')
+        cache.set(f'honeypot_ban_{ip}', True, 24 * 60 * 60)
+        created += 1
+
+    if created:
+        ActivityLog.log_activity(
+            action_type='ip_blacklisted',
+            user=request.user,
+            description=f'{request.user.get_display_name()} bulk-blacklisted {created} honeypot IP(s)',
+            request=request,
+        )
+        messages.success(request, f'{created} IP address{"es" if created != 1 else ""} blacklisted.')
+    else:
+        messages.info(request, 'All honeypot IPs are already blacklisted.')
+
+    return redirect('admin_v2_honeypot_logs')
 
 
 @require_admin_v2_auth
