@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Your Backup Codes — Save These Now{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-lg">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+
+        <div class="text-center mb-6">
+            <svg class="w-14 h-14 mx-auto text-green-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">2FA Enabled — Save Your Backup Codes</h1>
+        </div>
+
+        <div class="bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-lg p-4 mb-5">
+            <p class="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-1">Save these codes now — they won't be shown again.</p>
+            <p class="text-xs text-amber-700 dark:text-amber-400">
+                Each code can be used once to log in if you lose access to your authenticator app.
+                Store them somewhere safe (password manager, printed copy, etc.).
+            </p>
+        </div>
+
+        <!-- Codes grid -->
+        <div class="grid grid-cols-2 gap-2 mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700" id="codes-block">
+            {% for code in backup_codes %}
+            <div class="font-mono text-sm text-gray-900 dark:text-gray-100 tracking-widest text-center py-1.5 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600">
+                {{ code }}
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="flex gap-3 mb-5">
+            <button onclick="copyAllCodes()" id="copy-btn"
+                class="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+                Copy All Codes
+            </button>
+            <button onclick="window.print()"
+                class="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                </svg>
+                Print
+            </button>
+        </div>
+
+        <a href="{% url 'home' %}"
+            class="block w-full text-center px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold">
+            I've saved my codes — continue
+        </a>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+function copyAllCodes() {
+    const codes = {{ backup_codes|safe }};
+    const text = codes.join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('copy-btn');
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => btn.innerHTML = `<svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>Copy All Codes`, 2000);
+    });
+}
+</script>
+{% endblock %}
+{% endblock %}

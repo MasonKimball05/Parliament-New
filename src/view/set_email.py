@@ -51,7 +51,11 @@ def set_email(request):
         # Update with transaction to ensure atomicity
         with transaction.atomic():
             request.user.email = email
-            request.user.save(update_fields=['email'])
+            # Clear any email deliverability flag when the user sets a new address
+            request.user.email_flagged = False
+            request.user.email_flagged_reason = ''
+            request.user.email_flagged_at = None
+            request.user.save(update_fields=['email', 'email_flagged', 'email_flagged_reason', 'email_flagged_at'])
             logger.info(f"AFTER SAVE (in transaction):")
             logger.info(f"  - User object email: '{request.user.email}'")
 

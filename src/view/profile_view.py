@@ -144,11 +144,15 @@ def profile_view(request):
 
     # Check 2FA status
     from django_otp import user_has_device
+    from django_otp.plugins.otp_static.models import StaticDevice
     has_2fa = user_has_device(user)
+    backup_device = StaticDevice.objects.filter(user=user, name='backup', confirmed=True).first()
+    backup_codes_remaining = backup_device.token_set.count() if backup_device else 0
 
     return render(request, 'profile.html', {
         'user': user,
         'password_form': password_form,
         'notif_prefs': notif_prefs,
         'has_2fa': has_2fa,
+        'backup_codes_remaining': backup_codes_remaining,
     })

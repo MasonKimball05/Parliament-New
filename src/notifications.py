@@ -16,6 +16,36 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _flag_user_email(user, error_message):
+    """
+    Flag a user's email address as potentially undeliverable after a send failure.
+    Logs the event and sets fields that will prompt the user on next login.
+    Only flags if not already flagged, to avoid overwriting the original error.
+    """
+    try:
+        from django.utils import timezone as _tz
+        if not user.email_flagged:
+            user.email_flagged = True
+            user.email_flagged_reason = error_message[:500]
+            user.email_flagged_at = _tz.now()
+            user.save(update_fields=['email_flagged', 'email_flagged_reason', 'email_flagged_at'])
+            logger.warning(
+                f"[EMAIL FLAG] Flagged email for user {user.username} ({user.email}): {error_message[:200]}"
+            )
+            try:
+                from src.models import ActivityLog
+                ActivityLog.log_activity(
+                    action_type='other',
+                    user=user,
+                    description=f"Email address flagged as undeliverable. Error: {error_message[:300]}",
+                    metadata={'email': user.email, 'error': error_message[:500]},
+                )
+            except Exception:
+                pass
+    except Exception as flag_err:
+        logger.error(f"[EMAIL FLAG] Failed to flag email for {getattr(user, 'username', '?')}: {flag_err}")
+
+
 def get_site_url():
     """Get the site URL from settings"""
     return getattr(settings, 'SITE_URL', 'https://am-parliament.org').rstrip('/')
@@ -234,6 +264,7 @@ def send_announcement_notification(announcement, initiated_by=None):
                     recipient.error_message = str(e)
                     recipient.save()
                 log(f"  FAIL: {user.name} <{user.email}> - Error: {str(e)}")
+                _flag_user_email(user, str(e))
 
         # Update the email log with final counts
         log(f"")

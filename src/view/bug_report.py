@@ -5,6 +5,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.conf import settings
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
@@ -280,9 +281,11 @@ def bug_admin_update(request, bug_id):
     bug_report.save()
     messages.success(request, f'Bug #{bug_id} updated successfully.')
 
-    # Redirect back to the same page or admin
+    # Redirect back to the same page or admin (validate to prevent open redirect)
     next_url = request.POST.get('next', '')
-    if next_url:
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
         return redirect(next_url)
     return redirect('bug_admin')
 

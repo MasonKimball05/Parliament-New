@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Regenerate Backup Codes{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-md">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Regenerate Backup Codes</h1>
+        <p class="text-gray-600 dark:text-gray-400 mb-5">
+            You currently have <strong>{{ remaining_codes }}</strong> backup code{{ remaining_codes|pluralize }} remaining.
+        </p>
+
+        <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg p-4 mb-6">
+            <p class="text-sm font-semibold text-red-800 dark:text-red-300 mb-1">This will invalidate all existing backup codes.</p>
+            <p class="text-xs text-red-700 dark:text-red-400">
+                If you still have your old codes saved somewhere, they will stop working immediately.
+                Make sure to save the new codes once generated.
+            </p>
+        </div>
+
+        <form method="post" class="space-y-3">
+            {% csrf_token %}
+            <button type="submit"
+                class="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold">
+                Generate New Backup Codes
+            </button>
+        </form>
+
+        <a href="{% url 'profile' %}" class="block mt-3 text-center text-sm text-gray-500 dark:text-gray-400 hover:underline">
+            Cancel
+        </a>
+    </div>
+</div>
+{% endblock %}

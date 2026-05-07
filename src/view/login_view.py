@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.messages import get_messages
+from django.utils.http import url_has_allowed_host_and_scheme
 from ..models import IPBlacklist, IPWhitelist, UserSession, LoginHistory, LoginAlert, LoginLockout
 from django.shortcuts import render, redirect
 from django.contrib import messages
@@ -270,9 +271,20 @@ def login_view(request):
 
                 messages.success(request, f"Welcome, {user.get_display_name() if hasattr(user, 'get_display_name') else user.name}!")
 
-                next_url = request.GET.get('next', 'home')
+                # Warn user if their email address has been flagged as undeliverable
+                if getattr(user, 'email_flagged', False):
+                    messages.warning(
+                        request,
+                        f'Your email address ({user.email or "none set"}) appears to be invalid or undeliverable. '
+                        f'Please update it in your profile so you continue receiving notifications.'
+                    )
 
-                return redirect(next_url)
+                next_url = request.GET.get('next', '')
+                if next_url and url_has_allowed_host_and_scheme(
+                    next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+                ):
+                    return redirect(next_url)
+                return redirect('home')
             else:
                 # Disabled account also counts as failed attempt
                 is_locked, remaining, lockout_until = record_failed_attempt(ip_address)

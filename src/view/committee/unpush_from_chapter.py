@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.utils.http import url_has_allowed_host_and_scheme
 from src.models import Committee, CommitteeLegislation
 import logging
 
@@ -33,9 +34,11 @@ def committee_unpush_from_chapter(request, code):
             logger.info(f"{request.user.username} unpublished '{committee_leg.title}' from {committee.code} chapter documents")
             messages.success(request, f"'{committee_leg.title}' results removed from chapter documents.")
 
-    # Redirect back to referring page
+    # Redirect back to referring page (validate to prevent open redirect)
     next_url = request.POST.get('next') or request.GET.get('next')
-    if next_url:
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
         return redirect(next_url)
     return redirect(f'/committee/{code}/vote/')
 
@@ -66,8 +69,10 @@ def delete_chapter_vote_link(request, code):
             logger.info(f"{request.user.username} deleted chapter vote '{title}' linked from {committee.code}")
             messages.success(request, f"Chapter vote deleted.")
 
-    # Redirect back to referring page
+    # Redirect back to referring page (validate to prevent open redirect)
     next_url = request.POST.get('next') or request.GET.get('next')
-    if next_url:
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
         return redirect(next_url)
     return redirect(f'/committee/{code}/vote/')

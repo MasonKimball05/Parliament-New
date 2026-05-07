@@ -1,4 +1,5 @@
 {% extends "admin_base.html" %}
+{% load static %}
 
 {% block title %}Kai Dashboard{% endblock %}
 
@@ -209,7 +210,7 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script src="{% static 'vendor/chart.min.js' %}"></script>
 <script>
   const isDark = document.documentElement.classList.contains('dark');
   const tickColor = isDark ? '#9ca3af' : '#6b7280';

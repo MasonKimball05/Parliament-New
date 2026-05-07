@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.utils.http import url_has_allowed_host_and_scheme
 from src.models import CommitteeLegislation, CommitteeVote
 import logging
 
@@ -75,8 +76,10 @@ def recalculate_committee_vote(request, legislation_id):
     else:
         messages.warning(request, "No votes to calculate result from.")
 
-    # Redirect back to referring page
+    # Redirect back to referring page (validate to prevent open redirect)
     next_url = request.POST.get('next') or request.GET.get('next')
-    if next_url:
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
         return redirect(next_url)
-    return redirect(request.META.get('HTTP_REFERER', 'chapter_documents'))
+    return redirect('chapter_documents')

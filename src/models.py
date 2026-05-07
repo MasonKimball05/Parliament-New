@@ -132,6 +132,9 @@ class ParliamentUser(AbstractBaseUser):
     member_status = models.CharField(max_length=20, choices=MEMBER_STATUS, default='Active')
     force_password_change = models.BooleanField(default=False, help_text='User must change password on next login')
     is_quarantined = models.BooleanField(default=False, help_text='Account quarantined due to suspicious activity')
+    email_flagged = models.BooleanField(default=False, help_text='Email address flagged as undeliverable — user prompted to update it')
+    email_flagged_reason = models.TextField(blank=True, help_text='Reason the email address was flagged (e.g. delivery error message)')
+    email_flagged_at = models.DateTimeField(null=True, blank=True, help_text='When the email address was flagged')
     role_number = models.CharField(
         max_length=30,
         unique=True,

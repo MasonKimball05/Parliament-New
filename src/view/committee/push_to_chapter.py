@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.utils.http import url_has_allowed_host_and_scheme
 from src.models import Committee, CommitteeLegislation, Legislation
 import logging
 from django.utils import timezone
@@ -33,9 +34,11 @@ def committee_push_to_chapter(request, code):
             logger.info(f"{request.user.username} published '{committee_leg.title}' from {committee.code} to chapter documents")
             messages.success(request, f"'{committee_leg.title}' results published to chapter documents.")
 
-        # Redirect back to referring page if specified
+        # Redirect back to referring page if specified (validate to prevent open redirect)
         next_url = request.POST.get('next') or request.GET.get('next')
-        if next_url:
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+        ):
             return redirect(next_url)
         return redirect(f'/committee/{code}/vote/')
 

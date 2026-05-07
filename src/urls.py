@@ -86,7 +86,11 @@ from src.view.officer.manage_roles import manage_roles, role_detail, add_role, d
 from src.view.home import home
 from src.view.landing import landing_page, contact_submit
 from src.view.vote_view import vote_view
-from src.view.two_factor import two_factor_setup, two_factor_qrcode, two_factor_verify, two_factor_disable, two_factor_dismiss
+from src.view.two_factor import (
+    two_factor_setup, two_factor_qrcode, two_factor_verify,
+    two_factor_disable, two_factor_dismiss,
+    two_factor_backup_codes_reveal, two_factor_regenerate_backup_codes,
+)
 from src.view.admin_two_factor import (
     two_factor_dashboard as admin_v2_two_factor_dashboard,
     update_two_factor_policy, set_two_factor_requirement,
@@ -542,6 +546,8 @@ urlpatterns = [
     path('accounts/two-factor/qrcode/', two_factor_qrcode, name='two_factor_qrcode'),
     path('accounts/two-factor/verify/', two_factor_verify, name='two_factor_verify'),
     path('accounts/two-factor/disable/', two_factor_disable, name='two_factor_disable'),
+    path('accounts/two-factor/backup-codes/', two_factor_backup_codes_reveal, name='two_factor_backup_codes_reveal'),
+    path('accounts/two-factor/backup-codes/regenerate/', two_factor_regenerate_backup_codes, name='two_factor_regenerate_backup_codes'),
     path('accounts/two-factor/dismiss/', two_factor_dismiss, name='two_factor_dismiss'),
 
     # Session Management
