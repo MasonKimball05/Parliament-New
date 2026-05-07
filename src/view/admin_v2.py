@@ -1770,44 +1770,65 @@ def security_dashboard(request):
 
     from src.models import (
         QuarantinedAccount, HoneypotAccess, SystemLockdown,
-        SecurityNotificationLog, LoginLockout
+        SecurityNotificationLog, LoginLockout, LoginAlert,
+        IPBlacklist, IPWhitelist,
     )
 
-    # Get quarantine stats
-    active_quarantines = QuarantinedAccount.objects.filter(released_at__isnull=True)
-    recent_quarantines = QuarantinedAccount.objects.order_by('-quarantined_at')[:10]
+    now = timezone.now()
 
-    # Get honeypot stats
-    recent_honeypot = HoneypotAccess.objects.order_by('-accessed_at')[:20]
+    # Quarantines
+    active_quarantines = QuarantinedAccount.objects.filter(
+        released_at__isnull=True
+    ).select_related('user', 'quarantined_by')
+
+    # Honeypot
+    recent_honeypot = HoneypotAccess.objects.order_by('-accessed_at')[:15]
     honeypot_24h = HoneypotAccess.objects.filter(
-        accessed_at__gte=timezone.now() - timedelta(hours=24)
+        accessed_at__gte=now - timedelta(hours=24)
     ).count()
 
-    # Get lockdown status
+    # Lockdown
     lockdown = SystemLockdown.get_instance()
 
-    # Get recent security notifications
-    recent_notifications = SecurityNotificationLog.objects.order_by('-sent_at')[:20]
+    # Security notifications
+    recent_notifications = SecurityNotificationLog.objects.order_by('-sent_at')[:8]
     critical_notifications = SecurityNotificationLog.objects.filter(
         severity='critical',
-        sent_at__gte=timezone.now() - timedelta(hours=24)
+        sent_at__gte=now - timedelta(hours=24)
     ).count()
 
-    # Get active lockout count
-    active_lockouts_count = LoginLockout.objects.filter(
-        is_cleared=False,
-        expires_at__gt=timezone.now()
+    # Lockouts
+    active_lockouts_qs = LoginLockout.objects.filter(is_cleared=False, expires_at__gt=now)
+    active_lockouts_count = active_lockouts_qs.count()
+    active_lockouts = active_lockouts_qs.order_by('-locked_at')[:10]
+
+    # Security alerts (LoginAlert)
+    new_alerts = LoginAlert.objects.filter(status='new').select_related('user').order_by('-created_at')[:8]
+    new_alerts_count = LoginAlert.objects.filter(status='new').count()
+    critical_alerts_count = LoginAlert.objects.filter(
+        status='new', severity__in=['critical', 'high']
     ).count()
+
+    # IP lists
+    blacklist_count = IPBlacklist.objects.filter(is_active=True).count()
+    whitelist_count = IPWhitelist.objects.filter(is_active=True).count()
+    blacklisted_ips = set(IPBlacklist.objects.filter(is_active=True).values_list('ip_address', flat=True))
 
     return render(request, 'admin_v2/security_dashboard.html', {
         'active_quarantines': active_quarantines,
-        'recent_quarantines': recent_quarantines,
         'recent_honeypot': recent_honeypot,
         'honeypot_24h': honeypot_24h,
         'lockdown': lockdown,
         'recent_notifications': recent_notifications,
         'critical_notifications': critical_notifications,
+        'active_lockouts': active_lockouts,
         'active_lockouts_count': active_lockouts_count,
+        'new_alerts': new_alerts,
+        'new_alerts_count': new_alerts_count,
+        'critical_alerts_count': critical_alerts_count,
+        'blacklist_count': blacklist_count,
+        'whitelist_count': whitelist_count,
+        'blacklisted_ips': blacklisted_ips,
     })
 
 

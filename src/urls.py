@@ -123,7 +123,8 @@ from src.view.academic_standards_detail import academic_standards_detail
 from src.view.view_document import (
     view_legislation_document, view_chapter_document,
     view_committee_document, view_passed_legislation_document,
-    view_reference_document
+    view_reference_document,
+    download_legislation_document, download_chapter_document, download_committee_document,
 )
 from src.view.bug_report import submit_bug_report, bug_report_success, my_bug_reports, bug_tracker, bug_report_detail, bug_admin, bug_admin_update
 from src.view.debug_panel import (
@@ -208,6 +209,7 @@ urlpatterns = [
     path('chapter-documents/upload/', upload_chapter_document, name='upload_chapter_document'),
     path('chapter-documents/manage/<int:doc_id>/', manage_chapter_document, name='manage_chapter_document'),
     path('chapter-documents/view/<int:document_id>/', view_chapter_document, name='view_chapter_document'),
+    path('chapter-documents/download/<int:document_id>/', download_chapter_document, name='download_chapter_document'),
     path('chapter-documents/create-folder/', create_folder, name='create_folder'),
     path('chapter-documents/delete-folder/<int:folder_id>/', delete_folder, name='delete_folder'),
     path('announcements/', announcements_view, name='announcements'),
@@ -385,6 +387,7 @@ urlpatterns = [
     path('legislation/detail/<int:pk>/document/', view_passed_legislation_document, name='view_passed_legislation_document'),
     path('legislation/<int:legislation_id>/', legislation_detail, name='legislation_detail'),
     path('legislation/<int:legislation_id>/document/', view_legislation_document, name='view_document'),
+    path('legislation/<int:legislation_id>/download/', download_legislation_document, name='download_legislation_document'),
     path('legislation/history/', view_legislation_history, name='view_legislation_history'),
     path('legislation/<int:legislation_id>/edit/', edit_legislation, name='edit_legislation'),
     path('legislation/<int:legislation_id>/reopen/', reopen_legislation, name='reopen_legislation'),
@@ -432,6 +435,7 @@ urlpatterns = [
     path('committee/<str:code>/minutes/<int:minutes_id>/delete/', delete_committee_minutes, name='delete_committee_minutes'),
 
     path('committee/<str:code>/documents/<int:document_id>/view/', view_committee_document, name='view_committee_document'),
+    path('committee/<str:code>/documents/<int:document_id>/download/', download_committee_document, name='download_committee_document'),
     path('committee/<str:code>/documents/<int:document_id>/toggle-publish/', toggle_document_publish, name='toggle_document_publish'),
     path('committee/<str:code>/documents/<int:document_id>/delete/', delete_committee_document, name='delete_committee_document'),
     path('committee/<str:code>/attendance/', committee_attendance, name='committee_attendance'),

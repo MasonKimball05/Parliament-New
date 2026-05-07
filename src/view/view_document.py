@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from django.conf import settings
+from django.http import FileResponse, Http404, HttpResponseForbidden
 from src.models import Legislation, CommitteeDocument
 import os
 import urllib.parse
@@ -321,6 +322,47 @@ def view_passed_legislation_document(request, pk):
     }
 
     return render(request, 'view_document.html', context)
+
+
+@login_required
+def download_legislation_document(request, legislation_id):
+    """Protected download for legislation documents — enforces authentication."""
+    legislation = get_object_or_404(Legislation, id=legislation_id)
+    if not legislation.document:
+        raise Http404("No document attached to this legislation")
+    file_path = legislation.document.path
+    if not os.path.exists(file_path):
+        raise Http404("File not found")
+    filename = os.path.basename(file_path)
+    return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=filename)
+
+
+@login_required
+def download_chapter_document(request, document_id):
+    """Protected download for chapter documents — enforces authentication and permissions."""
+    document = get_object_or_404(CommitteeDocument, id=document_id, published_to_chapter=True)
+    if not document.can_user_view(request.user):
+        return HttpResponseForbidden("You don't have permission to download this document")
+    file_path = document.document.path
+    if not os.path.exists(file_path):
+        raise Http404("File not found")
+    filename = os.path.basename(file_path)
+    return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=filename)
+
+
+@login_required
+def download_committee_document(request, code, document_id):
+    """Protected download for committee documents — enforces authentication and permissions."""
+    from src.models import Committee
+    committee = get_object_or_404(Committee, code=code)
+    document = get_object_or_404(CommitteeDocument, id=document_id, committee=committee)
+    if not document.can_user_view(request.user):
+        return HttpResponseForbidden("You don't have permission to download this document")
+    file_path = document.document.path
+    if not os.path.exists(file_path):
+        raise Http404("File not found")
+    filename = os.path.basename(file_path)
+    return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=filename)
 
 
 # Mapping of document slugs to their details

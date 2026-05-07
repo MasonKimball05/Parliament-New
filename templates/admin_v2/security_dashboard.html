@@ -1,192 +1,420 @@
 {% extends "base.html" %}
+{% load custom_filters %}
 
 {% block title %}Security Dashboard - Admin v2{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
+
+    <!-- Header -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Security Dashboard</h1>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">Security Dashboard</h1>
                 <p class="text-gray-600 dark:text-gray-400">Monitor and manage system security</p>
             </div>
-            <a href="{% url 'admin_v2_dashboard' %}" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">Back to Dashboard</a>
+            <a href="{% url 'admin_v2_dashboard' %}" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg text-sm font-medium">
+                ← Dashboard
+            </a>
         </div>
     </div>
 
     <!-- Emergency Lockdown Banner -->
     {% if lockdown.is_active %}
-    <div class="bg-red-600 text-white rounded-lg shadow-md p-6 mb-6">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center">
-                <svg class="w-8 h-8 mr-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                </svg>
-                <div>
-                    <h2 class="text-xl font-bold">EMERGENCY LOCKDOWN ACTIVE</h2>
-                    <p class="text-red-100">{{ lockdown.reason }}</p>
-                </div>
+    <div class="bg-red-600 text-white rounded-lg shadow-md p-5 mb-6 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <svg class="w-8 h-8 animate-pulse flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            <div>
+                <div class="font-bold text-lg">EMERGENCY LOCKDOWN ACTIVE</div>
+                <div class="text-red-100 text-sm">{{ lockdown.reason }}</div>
             </div>
-            <a href="{% url 'admin_v2_lockdown' %}" class="px-4 py-2 bg-white text-red-600 font-bold rounded-lg hover:bg-red-50">Manage Lockdown</a>
         </div>
+        <a href="{% url 'admin_v2_lockdown' %}" class="px-4 py-2 bg-white text-red-600 font-bold rounded-lg hover:bg-red-50 whitespace-nowrap">Manage Lockdown</a>
     </div>
     {% endif %}
 
-    <!-- Quick Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-red-500">
-            <div class="text-sm text-gray-500 dark:text-gray-400">Active Quarantines</div>
-            <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ active_quarantines.count }}</div>
-            <a href="{% url 'admin_v2_quarantine' %}" class="text-sm text-blue-600 hover:underline">Manage</a>
-        </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-amber-500">
-            <div class="text-sm text-gray-500 dark:text-gray-400">Honeypot Hits (24h)</div>
-            <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ honeypot_24h }}</div>
-            <a href="{% url 'admin_v2_honeypot_logs' %}" class="text-sm text-blue-600 hover:underline">View Logs</a>
-        </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-purple-500">
-            <div class="text-sm text-gray-500 dark:text-gray-400">Critical Alerts (24h)</div>
-            <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ critical_notifications }}</div>
-            <a href="{% url 'admin_v2_security_notifications' %}" class="text-sm text-blue-600 hover:underline">View All</a>
-        </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-orange-500">
-            <div class="text-sm text-gray-500 dark:text-gray-400">Active Lockouts</div>
-            <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ active_lockouts_count }}</div>
-            <a href="{% url 'admin_v2_lockouts' %}" class="text-sm text-blue-600 hover:underline">Manage</a>
-        </div>
+    <!-- Stat Cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+
+        <!-- System Status -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 {% if lockdown.is_active %}border-red-500{% else %}border-green-500{% endif %}">
-            <div class="text-sm text-gray-500 dark:text-gray-400">System Status</div>
-            <div class="text-xl font-bold {% if lockdown.is_active %}text-red-600{% else %}text-green-600{% endif %}">
-                {% if lockdown.is_active %}LOCKDOWN{% else %}NORMAL{% endif %}
+            <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">System</div>
+            <div class="text-lg font-bold {% if lockdown.is_active %}text-red-600 dark:text-red-400{% else %}text-green-600 dark:text-green-400{% endif %}">
+                {% if lockdown.is_active %}LOCKDOWN{% else %}Normal{% endif %}
             </div>
-            <a href="{% url 'admin_v2_lockdown' %}" class="text-sm text-blue-600 hover:underline">Control</a>
+            <a href="{% url 'admin_v2_lockdown' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">Control</a>
         </div>
-    </div>
 
-    <!-- Quick Actions -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h2>
-        <div class="flex flex-wrap gap-3">
-            <a href="{% url 'admin_v2_quarantine' %}" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
-                </svg>
-                Quarantine Management
-            </a>
-            <a href="{% url 'admin_v2_lockdown' %}" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                </svg>
-                Emergency Lockdown
-            </a>
-            <a href="{% url 'admin_v2_honeypot_logs' %}" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                </svg>
-                Honeypot Logs
-            </a>
-            <a href="{% url 'admin_v2_ip_blacklist' %}" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg flex items-center">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                </svg>
-                IP Blacklist
-            </a>
-            <a href="{% url 'admin_v2_security_alerts' %}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                </svg>
-                Security Alerts
-            </a>
-            <a href="{% url 'admin_v2_lockouts' %}" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg flex items-center">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                </svg>
-                Login Lockouts
-                {% if active_lockouts_count > 0 %}<span class="ml-2 bg-white text-orange-600 rounded-full px-2 py-0.5 text-xs font-bold">{{ active_lockouts_count }}</span>{% endif %}
-            </a>
-        </div>
-    </div>
+        <!-- Security Alerts -->
+        <a href="{% url 'admin_v2_security_alerts' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 {% if critical_alerts_count > 0 %}border-red-500{% elif new_alerts_count > 0 %}border-orange-500{% else %}border-gray-300 dark:border-gray-600{% endif %} hover:shadow-md transition-shadow">
+            <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">New Alerts</div>
+            <div class="text-2xl font-bold {% if critical_alerts_count > 0 %}text-red-600 dark:text-red-400{% elif new_alerts_count > 0 %}text-orange-600 dark:text-orange-400{% else %}text-gray-900 dark:text-gray-100{% endif %}">{{ new_alerts_count }}</div>
+            {% if critical_alerts_count > 0 %}<div class="text-xs text-red-500 dark:text-red-400">{{ critical_alerts_count }} critical/high</div>{% else %}<div class="text-xs text-gray-400">unreviewed</div>{% endif %}
+        </a>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Active Quarantines -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Active Quarantines</h2>
-            {% if active_quarantines %}
-            <div class="space-y-3">
-                {% for q in active_quarantines %}
-                <div class="border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <span class="font-bold text-gray-900 dark:text-gray-100">{{ q.user.name }}</span>
-                            <span class="text-sm text-gray-500 dark:text-gray-400">({{ q.user.username }})</span>
+        <a href="{% url 'admin_v2_quarantine' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 {% if active_quarantines.count > 0 %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} hover:shadow-md transition-shadow">
+            <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">Quarantined</div>
+            <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ active_quarantines.count }}</div>
+            <div class="text-xs text-gray-400">accounts</div>
+        </a>
+
+        <!-- Active Lockouts -->
+        <a href="{% url 'admin_v2_lockouts' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 {% if active_lockouts_count > 0 %}border-orange-500{% else %}border-gray-300 dark:border-gray-600{% endif %} hover:shadow-md transition-shadow">
+            <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">Lockouts</div>
+            <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ active_lockouts_count }}</div>
+            <div class="text-xs text-gray-400">active</div>
+        </a>
+
+        <!-- Honeypot 24h -->
+        <a href="{% url 'admin_v2_honeypot_logs' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 {% if honeypot_24h > 0 %}border-amber-500{% else %}border-gray-300 dark:border-gray-600{% endif %} hover:shadow-md transition-shadow">
+            <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">Honeypot (24h)</div>
+            <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ honeypot_24h }}</div>
+            <div class="text-xs text-gray-400">hits</div>
+        </a>
+
+        <!-- IP Blacklist -->
+        <a href="{% url 'admin_v2_ip_blacklist' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-gray-300 dark:border-gray-600 hover:shadow-md transition-shadow">
+            <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">Blacklisted IPs</div>
+            <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ blacklist_count }}</div>
+            <div class="text-xs text-gray-400">{{ whitelist_count }} whitelisted</div>
+        </a>
+
+    </div>
+
+    <!-- Tool Navigation -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5 mb-6">
+        <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Security Tools</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+
+            <a href="{% url 'admin_v2_security_alerts' %}" class="flex flex-col items-center gap-1.5 px-3 py-3 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-700 dark:text-red-300 transition-colors group">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                <span class="text-xs font-medium text-center">Security Alerts</span>
+                {% if new_alerts_count > 0 %}<span class="text-xs bg-red-600 text-white rounded-full px-1.5 py-0.5 leading-none">{{ new_alerts_count }}</span>{% endif %}
+            </a>
+
+            <a href="{% url 'admin_v2_quarantine' %}" class="flex flex-col items-center gap-1.5 px-3 py-3 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                </svg>
+                <span class="text-xs font-medium text-center">Quarantine</span>
+                {% if active_quarantines.count > 0 %}<span class="text-xs bg-rose-600 text-white rounded-full px-1.5 py-0.5 leading-none">{{ active_quarantines.count }}</span>{% endif %}
+            </a>
+
+            <a href="{% url 'admin_v2_lockouts' %}" class="flex flex-col items-center gap-1.5 px-3 py-3 rounded-lg bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/20 dark:hover:bg-orange-900/40 text-orange-700 dark:text-orange-300 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+                <span class="text-xs font-medium text-center">Login Lockouts</span>
+                {% if active_lockouts_count > 0 %}<span class="text-xs bg-orange-600 text-white rounded-full px-1.5 py-0.5 leading-none">{{ active_lockouts_count }}</span>{% endif %}
+            </a>
+
+            <a href="{% url 'admin_v2_honeypot_logs' %}" class="flex flex-col items-center gap-1.5 px-3 py-3 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-300 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+                <span class="text-xs font-medium text-center">Honeypot Logs</span>
+                {% if honeypot_24h > 0 %}<span class="text-xs bg-amber-600 text-white rounded-full px-1.5 py-0.5 leading-none">{{ honeypot_24h }}</span>{% endif %}
+            </a>
+
+            <a href="{% url 'admin_v2_ip_blacklist' %}" class="flex flex-col items-center gap-1.5 px-3 py-3 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+                <span class="text-xs font-medium text-center">IP Blacklist</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">{{ blacklist_count }} blocked</span>
+            </a>
+
+            <a href="{% url 'admin_v2_lockdown' %}" class="flex flex-col items-center gap-1.5 px-3 py-3 rounded-lg {% if lockdown.is_active %}bg-red-100 hover:bg-red-200 dark:bg-red-900/40 dark:hover:bg-red-900/60 text-red-700 dark:text-red-300{% else %}bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300{% endif %} transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                </svg>
+                <span class="text-xs font-medium text-center">{% if lockdown.is_active %}Lockdown ON{% else %}Lockdown{% endif %}</span>
+                <span class="text-xs opacity-70">{% if lockdown.is_active %}Deactivate{% else %}Emergency{% endif %}</span>
+            </a>
+
+        </div>
+    </div>
+
+    <!-- Previewers: top row -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+        <!-- Security Alerts Previewer -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md flex flex-col">
+            <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Security Alerts</h2>
+                    {% if new_alerts_count > 0 %}
+                    <span class="px-2 py-0.5 text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 rounded-full">{{ new_alerts_count }} new</span>
+                    {% endif %}
+                </div>
+                <a href="{% url 'admin_v2_security_alerts' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">View all →</a>
+            </div>
+            <div class="flex-1 divide-y divide-gray-100 dark:divide-gray-700/50">
+                {% for alert in new_alerts %}
+                <div class="px-5 py-3">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                                <span class="text-xs font-bold px-1.5 py-0.5 rounded
+                                    {% if alert.severity == 'critical' %}bg-red-600 text-white
+                                    {% elif alert.severity == 'high' %}bg-orange-500 text-white
+                                    {% elif alert.severity == 'medium' %}bg-yellow-500 text-white
+                                    {% else %}bg-gray-400 text-white{% endif %}">
+                                    {{ alert.severity|upper }}
+                                </span>
+                                <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ alert.title }}</span>
+                            </div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">
+                                {{ alert.user.get_display_name }} · {{ alert.created_at|timesince }} ago
+                            </div>
                         </div>
-                        <span class="text-xs text-red-600 dark:text-red-400">{{ q.quarantined_at|timesince }} ago</span>
+                        <a href="{% url 'admin_v2_user_login_security' alert.user.user_id %}" class="flex-shrink-0 text-xs px-2 py-1 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded font-medium">
+                            Investigate
+                        </a>
                     </div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ q.reason|truncatechars:100 }}</p>
-                    <div class="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                        IP: {{ q.ip_address }} | {% if q.is_auto %}Auto{% else %}By {{ q.quarantined_by.name }}{% endif %}
-                    </div>
+                </div>
+                {% empty %}
+                <div class="px-5 py-8 text-center text-gray-400 dark:text-gray-500 text-sm">
+                    No unreviewed security alerts
                 </div>
                 {% endfor %}
             </div>
-            {% else %}
-            <p class="text-gray-500 dark:text-gray-400">No active quarantines</p>
+            {% if new_alerts_count > new_alerts|length %}
+            <div class="px-5 py-3 border-t border-gray-100 dark:border-gray-700/50 text-center">
+                <a href="{% url 'admin_v2_security_alerts' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">+ {{ new_alerts_count|add:"-8" }} more alerts</a>
+            </div>
             {% endif %}
-            <a href="{% url 'admin_v2_quarantine' %}" class="block mt-4 text-center text-blue-600 hover:underline">View All</a>
         </div>
+
+        <!-- Active Quarantines Previewer -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md flex flex-col">
+            <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Quarantined Accounts</h2>
+                    {% if active_quarantines.count > 0 %}
+                    <span class="px-2 py-0.5 text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 rounded-full">{{ active_quarantines.count }}</span>
+                    {% endif %}
+                </div>
+                <a href="{% url 'admin_v2_quarantine' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">Manage →</a>
+            </div>
+            <div class="flex-1 divide-y divide-gray-100 dark:divide-gray-700/50">
+                {% for q in active_quarantines %}
+                <div class="px-5 py-3">
+                    <div class="flex items-start justify-between gap-2 mb-1">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-1.5 mb-0.5">
+                                <span class="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{{ q.user.name }}</span>
+                                <span class="text-xs px-1.5 py-0.5 rounded {% if q.is_auto %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300{% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300{% endif %}">
+                                    {% if q.is_auto %}Auto{% else %}Manual{% endif %}
+                                </span>
+                            </div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">
+                                {{ q.ip_address }} · {{ q.quarantined_at|timesince }} ago
+                            </div>
+                            <div class="text-xs text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-1">{{ q.reason }}</div>
+                        </div>
+                        <form method="post" action="{% url 'admin_v2_quarantine' %}" class="flex-shrink-0">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="release">
+                            <input type="hidden" name="quarantine_id" value="{{ q.id }}">
+                            <button type="submit" onclick="return confirm('Release quarantine for {{ q.user.name }}?')"
+                                class="text-xs px-2 py-1 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 rounded font-medium">
+                                Release
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="px-5 py-8 text-center text-gray-400 dark:text-gray-500 text-sm">
+                    No accounts currently quarantined
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Active Lockouts Previewer -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md flex flex-col">
+            <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Login Lockouts</h2>
+                    {% if active_lockouts_count > 0 %}
+                    <span class="px-2 py-0.5 text-xs font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 rounded-full">{{ active_lockouts_count }}</span>
+                    {% endif %}
+                </div>
+                <a href="{% url 'admin_v2_lockouts' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">Manage →</a>
+            </div>
+            <div class="flex-1 divide-y divide-gray-100 dark:divide-gray-700/50">
+                {% for lockout in active_lockouts %}
+                <div class="px-5 py-3">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-0.5">
+                                <code class="text-sm font-mono text-gray-900 dark:text-gray-100">{{ lockout.ip_address }}</code>
+                                {% if lockout.source == 'ip' %}
+                                <span class="text-xs px-1.5 py-0.5 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 rounded">login_view</span>
+                                {% elif lockout.source == 'middleware_ip' %}
+                                <span class="text-xs px-1.5 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 rounded">middleware</span>
+                                {% elif lockout.source == 'middleware_user' %}
+                                <span class="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded">username</span>
+                                {% endif %}
+                            </div>
+                            {% if lockout.username %}
+                            <div class="text-xs text-gray-500 dark:text-gray-400">User: {{ lockout.username }}</div>
+                            {% endif %}
+                            <div class="text-xs text-gray-400 dark:text-gray-500">Expires in {{ lockout.expires_at|timeuntil }}</div>
+                        </div>
+                        <div class="flex flex-col gap-1 flex-shrink-0">
+                            <form method="post" action="{% url 'admin_v2_lockouts' %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="clear">
+                                <input type="hidden" name="lockout_id" value="{{ lockout.pk }}">
+                                <input type="hidden" name="ip_address" value="{{ lockout.ip_address }}">
+                                <button type="submit" onclick="return confirm('Clear lockout for {{ lockout.ip_address }}?')"
+                                    class="text-xs px-2 py-1 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 rounded font-medium w-full">
+                                    Clear
+                                </button>
+                            </form>
+                            <form method="post" action="{% url 'admin_v2_lockouts' %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="blacklist">
+                                <input type="hidden" name="lockout_id" value="{{ lockout.pk }}">
+                                <input type="hidden" name="ip_address" value="{{ lockout.ip_address }}">
+                                <button type="submit" onclick="return confirm('Permanently blacklist {{ lockout.ip_address }}?')"
+                                    class="text-xs px-2 py-1 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 rounded font-medium w-full">
+                                    Blacklist
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="px-5 py-8 text-center text-gray-400 dark:text-gray-500 text-sm">
+                    No active lockouts
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Previewers: bottom row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         <!-- Recent Honeypot Activity -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Recent Honeypot Activity</h2>
-            {% if recent_honeypot %}
-            <div class="space-y-2 max-h-80 overflow-y-auto">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md flex flex-col">
+            <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Recent Honeypot Activity</h2>
+                    {% if honeypot_24h > 0 %}
+                    <span class="px-2 py-0.5 text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 rounded-full">{{ honeypot_24h }} today</span>
+                    {% endif %}
+                </div>
+                <a href="{% url 'admin_v2_honeypot_logs' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">All logs →</a>
+            </div>
+            <div class="flex-1 divide-y divide-gray-100 dark:divide-gray-700/50 max-h-80 overflow-y-auto">
                 {% for h in recent_honeypot %}
-                <div class="border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 rounded p-2">
-                    <div class="flex justify-between items-center">
-                        <code class="text-sm text-amber-800 dark:text-amber-200">{{ h.endpoint }}</code>
-                        <span class="text-xs text-gray-500">{{ h.accessed_at|timesince }} ago</span>
+                <div class="px-5 py-2.5 flex items-center justify-between gap-3">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-0.5">
+                            <code class="text-xs text-amber-700 dark:text-amber-300 truncate">{{ h.endpoint }}</code>
+                            <span class="flex-shrink-0 text-xs px-1.5 py-0.5 rounded font-bold
+                                {% if h.request_method == 'POST' %}bg-red-500 text-white{% else %}bg-blue-500 text-white{% endif %}">
+                                {{ h.request_method }}
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                            <a href="{% url 'admin_v2_honeypot_logs' %}?ip={{ h.ip_address }}" class="font-mono hover:underline" onclick="event.stopPropagation()">{{ h.ip_address }}</a>
+                            {% with geo=h.additional_data.geo %}{% if geo and not geo.geo_error %}{% if geo.country_code %}<span>{{ geo.country_code|country_flag }}</span>{% endif %}{% if geo.city %}<span>{{ geo.city }}</span>{% endif %}{% endif %}{% endwith %}
+                            <span>{{ h.accessed_at|timesince }} ago</span>
+                        </div>
                     </div>
-                    <div class="text-xs text-gray-600 dark:text-gray-400">
-                        {{ h.ip_address }} | {{ h.action_taken }}
-                    </div>
+                    {% if h.ip_address not in blacklisted_ips %}
+                    <form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}" class="flex-shrink-0">
+                        {% csrf_token %}
+                        <input type="hidden" name="ip_address" value="{{ h.ip_address }}">
+                        <input type="hidden" name="reason" value="Honeypot trigger: {{ h.endpoint }}">
+                        <button type="submit" onclick="return confirm('Block {{ h.ip_address }}?')"
+                            title="Block this IP"
+                            class="text-xs px-2 py-1 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 rounded font-medium">
+                            Block
+                        </button>
+                    </form>
+                    {% else %}
+                    <span class="flex-shrink-0 text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">blocked</span>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="px-5 py-8 text-center text-gray-400 dark:text-gray-500 text-sm">
+                    No honeypot activity recorded
                 </div>
                 {% endfor %}
             </div>
-            {% else %}
-            <p class="text-gray-500 dark:text-gray-400">No honeypot activity recorded</p>
-            {% endif %}
-            <a href="{% url 'admin_v2_honeypot_logs' %}" class="block mt-4 text-center text-blue-600 hover:underline">View All Logs</a>
+            <div class="px-5 py-3 border-t border-gray-100 dark:border-gray-700/50 flex gap-2">
+                <form method="post" action="{% url 'admin_v2_blacklist_all_honeypot_ips' %}">
+                    {% csrf_token %}
+                    <button type="submit" onclick="return confirm('Blacklist every unique honeypot IP not already blocked?')"
+                        class="text-xs px-3 py-1.5 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded font-medium">
+                        Blacklist All New IPs
+                    </button>
+                </form>
+                <a href="{% url 'admin_v2_honeypot_logs' %}" class="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded font-medium">
+                    Full Log →
+                </a>
+            </div>
         </div>
+
+        <!-- Recent Security Notifications -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md flex flex-col">
+            <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Email Notifications</h2>
+                    {% if critical_notifications > 0 %}
+                    <span class="px-2 py-0.5 text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 rounded-full">{{ critical_notifications }} critical today</span>
+                    {% endif %}
+                </div>
+                <a href="{% url 'admin_v2_security_notifications' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">View all →</a>
+            </div>
+            <div class="flex-1 divide-y divide-gray-100 dark:divide-gray-700/50 max-h-80 overflow-y-auto">
+                {% for n in recent_notifications %}
+                <div class="px-5 py-2.5">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
+                            <span class="text-xs font-bold px-1.5 py-0.5 rounded flex-shrink-0
+                                {% if n.severity == 'critical' %}bg-red-600 text-white
+                                {% elif n.severity == 'high' %}bg-orange-500 text-white
+                                {% elif n.severity == 'medium' %}bg-yellow-500 text-white
+                                {% else %}bg-gray-400 text-white{% endif %}">
+                                {{ n.severity|upper }}
+                            </span>
+                            <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ n.event_type }}</span>
+                        </div>
+                        <span class="text-xs text-gray-400 flex-shrink-0 whitespace-nowrap">{{ n.sent_at|timesince }} ago</span>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{{ n.details }}</p>
+                    {% if n.ip_address %}
+                    <span class="text-xs font-mono text-gray-400">{{ n.ip_address }}</span>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="px-5 py-8 text-center text-gray-400 dark:text-gray-500 text-sm">
+                    No security notifications sent
+                </div>
+                {% endfor %}
+            </div>
+            <div class="px-5 py-3 border-t border-gray-100 dark:border-gray-700/50">
+                <a href="{% url 'admin_v2_security_notifications' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                    Full notification history →
+                </a>
+            </div>
+        </div>
+
     </div>
 
-    <!-- Recent Security Notifications -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-6">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Recent Security Notifications</h2>
-        {% if recent_notifications %}
-        <div class="space-y-2">
-            {% for n in recent_notifications|slice:":10" %}
-            <div class="border {% if n.severity == 'critical' %}border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20{% elif n.severity == 'high' %}border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-900/20{% else %}border-gray-200 dark:border-gray-700{% endif %} rounded p-3">
-                <div class="flex justify-between items-start">
-                    <div class="flex items-center gap-2">
-                        <span class="px-2 py-0.5 text-xs font-bold rounded {% if n.severity == 'critical' %}bg-red-600 text-white{% elif n.severity == 'high' %}bg-orange-500 text-white{% elif n.severity == 'medium' %}bg-yellow-500 text-white{% else %}bg-gray-500 text-white{% endif %}">
-                            {{ n.severity|upper }}
-                        </span>
-                        <span class="font-medium text-gray-900 dark:text-gray-100">{{ n.event_type }}</span>
-                    </div>
-                    <span class="text-xs text-gray-500">{{ n.sent_at|timesince }} ago</span>
-                </div>
-                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ n.details|truncatechars:150 }}</p>
-                {% if n.ip_address %}
-                <span class="text-xs text-gray-500">IP: {{ n.ip_address }}</span>
-                {% endif %}
-            </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <p class="text-gray-500 dark:text-gray-400">No security notifications</p>
-        {% endif %}
-        <a href="{% url 'admin_v2_security_notifications' %}" class="block mt-4 text-center text-blue-600 hover:underline">View All Notifications</a>
-    </div>
 </div>
 {% endblock %}
