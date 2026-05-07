@@ -6,6 +6,7 @@ from django.shortcuts import render
 from django.http import HttpResponse
 from django.urls import reverse
 from django.conf import settings
+from src.utils.security_utils import get_client_ip as _get_client_ip
 import logging
 
 logger = logging.getLogger('admin_actions')
@@ -71,10 +72,5 @@ class EmergencyLockdownMiddleware:
         return self.get_response(request)
 
     def get_client_ip(self, request):
-        """Get the client's IP address from the request."""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[-1].strip()
-        else:
-            ip = request.META.get('REMOTE_ADDR', 'unknown')
-        return ip
+        """Get the client's IP address, respecting BEHIND_CLOUDFLARE setting."""
+        return _get_client_ip(request) or 'unknown'

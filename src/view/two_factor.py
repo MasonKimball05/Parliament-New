@@ -6,10 +6,12 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse
 from django.utils import timezone
+from django.core.cache import cache
 from django_otp import user_has_device, login as otp_login
 from django_otp.plugins.otp_totp.models import TOTPDevice
 from django_otp.plugins.otp_static.models import StaticDevice, StaticToken
 from django_otp.util import random_hex
+from src.utils.security_utils import get_client_ip
 from datetime import timedelta
 import secrets
 import qrcode
@@ -18,6 +20,11 @@ import io
 import logging
 
 logger = logging.getLogger(__name__)
+security_logger = logging.getLogger('security')
+
+# 2FA brute-force settings
+_2FA_MAX_FAILURES = 5       # failures before alert
+_2FA_WINDOW_SECONDS = 900   # 15-minute window
 
 # Number of backup codes to generate
 BACKUP_CODE_COUNT = 10
@@ -159,6 +166,60 @@ def two_factor_qrcode(request):
     return HttpResponse(stream.getvalue(), content_type='image/svg+xml')
 
 
+def _record_2fa_failure(request):
+    """
+    Track and log failed 2FA verification attempts.
+    Sends a critical alert after _2FA_MAX_FAILURES failures in the window.
+    """
+    ip_address = get_client_ip(request) or 'unknown'
+    user = request.user
+    fail_key = f'2fa_failures_{user.pk}'
+    fail_count = cache.get(fail_key, 0) + 1
+    cache.set(fail_key, fail_count, _2FA_WINDOW_SECONDS)
+
+    security_logger.warning(
+        f"[2FA] Failed verification for {user.username} from {ip_address} "
+        f"(attempt {fail_count} in {_2FA_WINDOW_SECONDS // 60}-minute window)"
+    )
+
+    if fail_count >= _2FA_MAX_FAILURES:
+        security_logger.critical(
+            f"[2FA] BRUTE FORCE: {user.username} failed 2FA {fail_count} times "
+            f"from {ip_address} — possible credential stuffing with stolen password"
+        )
+        try:
+            from src.security_notifications import send_security_alert
+            send_security_alert(
+                event_type='2FA_BRUTE_FORCE',
+                severity='critical',
+                details=(
+                    f"User {user.name} ({user.username}) has failed 2FA verification "
+                    f"{fail_count} times in {_2FA_WINDOW_SECONDS // 60} minutes.\n\n"
+                    f"This may indicate that the account password has been compromised "
+                    f"and an attacker is attempting to bypass 2FA."
+                ),
+                ip_address=ip_address,
+                user=user,
+            )
+        except Exception as e:
+            security_logger.error(f"Failed to send 2FA brute force alert: {e}")
+
+        try:
+            from src.models import ActivityLog
+            ActivityLog.log_activity(
+                action_type='security_alert',
+                user=user,
+                description=(
+                    f"Repeated 2FA failures: {fail_count} failed attempts in "
+                    f"{_2FA_WINDOW_SECONDS // 60} minutes from {ip_address}."
+                ),
+                ip_address=ip_address,
+                metadata={'severity': 'critical', 'fail_count': fail_count},
+            )
+        except Exception as e:
+            security_logger.error(f"Failed to write 2FA brute force ActivityLog: {e}")
+
+
 @login_required
 def two_factor_verify(request):
     """
@@ -208,11 +269,14 @@ def two_factor_verify(request):
                     messages.info(request, f'Backup code accepted. {remaining} backup code(s) remaining.')
 
         if verified:
+            # Clear failure counter on success
+            cache.delete(f'2fa_failures_{request.user.pk}')
             if not token or len(token) != 8:  # Only show generic success for TOTP
                 messages.success(request, 'Two-Factor Authentication verified successfully!')
             return redirect('home')
         else:
             messages.error(request, 'Invalid verification code. Please try again.')
+            _record_2fa_failure(request)
 
     backup_device = _get_backup_device(request.user)
     return render(request, 'two_factor/verify.html', {

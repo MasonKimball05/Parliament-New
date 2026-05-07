@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.core.cache import cache
 from datetime import timedelta
 from src.geo_utils import is_foreign_ip
+from src.utils.security_utils import get_client_ip
 import logging
 
 
@@ -16,18 +17,6 @@ import logging
 MAX_LOGIN_ATTEMPTS = 5  # Maximum failed attempts before lockout
 LOCKOUT_DURATION = 15 * 60  # Lockout duration in seconds (15 minutes)
 ATTEMPT_WINDOW = 15 * 60  # Window to count attempts in seconds (15 minutes)
-
-
-def get_client_ip(request):
-    """Get the client's IP address from the request.
-    Takes the rightmost XFF entry — nginx appends the real client IP there.
-    """
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[-1].strip()
-    else:
-        ip = request.META.get('REMOTE_ADDR', 'unknown')
-    return ip
 
 
 def get_rate_limit_key(ip_address):
@@ -167,9 +156,9 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
-            # Check if account is quarantined
+            # Check if account is quarantined — credentials are valid so don't
+            # count this as a failed login attempt (that would punish the IP).
             if hasattr(user, 'is_quarantined') and user.is_quarantined:
-                is_locked, remaining, lockout_until = record_failed_attempt(ip_address)
                 messages.error(
                     request,
                     "This account has been temporarily locked due to suspicious activity. "

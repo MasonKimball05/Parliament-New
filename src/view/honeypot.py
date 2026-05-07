@@ -10,6 +10,7 @@ from django.conf import settings
 from src.models import HoneypotAccess
 from src.security_notifications import alert_honeypot_triggered
 from src.geo_utils import get_ip_geo
+from src.utils.security_utils import get_client_ip as _get_client_ip
 import logging
 import json
 import threading
@@ -36,15 +37,8 @@ HONEYPOT_BAN_DURATION = 24 * 60 * 60  # 24 hours
 
 
 def get_client_ip(request):
-    """Get the client's IP address from the request.
-    Takes the rightmost XFF entry — nginx appends the real client IP there.
-    """
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[-1].strip()
-    else:
-        ip = request.META.get('REMOTE_ADDR', 'unknown')
-    return ip
+    """Get the client's IP address, respecting BEHIND_CLOUDFLARE setting."""
+    return _get_client_ip(request) or 'unknown'
 
 
 def log_and_block_honeypot_access(request, endpoint):
@@ -54,10 +48,30 @@ def log_and_block_honeypot_access(request, endpoint):
     """
     ip_address = get_client_ip(request)
 
-    # If this IP is already banned (honeypot ban or DB blacklist), return the fake
-    # response immediately without creating another log record.
+    # Fast path: honeypot-ban cache key set on first hit (24h TTL).
     ban_key = f'honeypot_ban_{ip_address}'
     if cache.get(ban_key):
+        return get_fake_response(endpoint)
+
+    # Slower path: cache expired but IP may still be in the DB blacklist.
+    # InputSanitizationMiddleware maintains ip_blacklisted_{ip}; check it
+    # before creating a new log record to avoid log spam on repeat hits.
+    db_ban_key = f'ip_blacklisted_{ip_address}'
+    db_ban_cached = cache.get(db_ban_key)
+    if db_ban_cached is None:
+        # Cache miss — do a DB lookup (cheap indexed query)
+        try:
+            from src.models import IPBlacklist
+            if IPBlacklist.objects.filter(ip_address=ip_address, is_active=True).exists():
+                # Re-warm both cache keys so subsequent requests are fast
+                cache.set(ban_key, True, HONEYPOT_BAN_DURATION)
+                cache.set(db_ban_key, True, 300)
+                return get_fake_response(endpoint)
+        except Exception as e:
+            logger.warning(f"Honeypot DB blacklist check failed for {ip_address}: {e}")
+    elif db_ban_cached:
+        # Already cached as blacklisted — short-circuit without a new log record
+        cache.set(ban_key, True, HONEYPOT_BAN_DURATION)
         return get_fake_response(endpoint)
 
     user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
@@ -192,6 +206,27 @@ def get_fake_response(endpoint):
             content_type='application/json',
             status=403
         )
+    elif '.git' in endpoint:
+        # Fake git config file
+        return HttpResponse(
+            "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n",
+            content_type='text/plain',
+            status=200
+        )
+    elif '.env' in endpoint or 'credentials' in endpoint or '.htaccess' in endpoint:
+        # Already handled above or fake file
+        return HttpResponse(
+            "# Configuration file\n",
+            content_type='text/plain',
+            status=200
+        )
+    elif 'server-status' in endpoint or 'server-info' in endpoint:
+        # Fake Apache server status
+        return HttpResponse(
+            '<html><body><h1>Apache Server Status</h1><p>Server Version: Apache/2.4.41</p></body></html>',
+            content_type='text/html',
+            status=200
+        )
     else:
         # Generic 404-ish response
         return HttpResponseForbidden(
@@ -267,3 +302,45 @@ def honeypot_shell(request, path=''):
 def honeypot_setup(request, path=''):
     """Fake setup/install endpoint."""
     return log_and_block_honeypot_access(request, f'/setup/{path}' if path else '/install.php')
+
+
+@csrf_exempt
+def honeypot_git(request, path=''):
+    """Fake .git directory endpoint — probing for exposed git repos."""
+    return log_and_block_honeypot_access(request, f'/.git/{path}' if path else '/.git/config')
+
+
+@csrf_exempt
+def honeypot_php_admin(request):
+    """Fake admin.php/login.php — generic PHP admin panel probe."""
+    return log_and_block_honeypot_access(request, request.path)
+
+
+@csrf_exempt
+def honeypot_wp_content(request, path=''):
+    """Fake WordPress content/includes directory."""
+    return log_and_block_honeypot_access(request, request.path)
+
+
+@csrf_exempt
+def honeypot_joomla(request, path=''):
+    """Fake Joomla administrator panel."""
+    return log_and_block_honeypot_access(request, f'/administrator/{path}' if path else '/administrator/')
+
+
+@csrf_exempt
+def honeypot_htaccess(request):
+    """Fake .htaccess file — Apache config probe."""
+    return log_and_block_honeypot_access(request, '/.htaccess')
+
+
+@csrf_exempt
+def honeypot_aws(request, path=''):
+    """Fake AWS credentials probe."""
+    return log_and_block_honeypot_access(request, request.path)
+
+
+@csrf_exempt
+def honeypot_server_status(request):
+    """Fake Apache server-status endpoint."""
+    return log_and_block_honeypot_access(request, '/server-status')

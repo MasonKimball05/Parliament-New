@@ -170,7 +170,9 @@ from src.view.csp_report import csp_report
 from src.view.honeypot import (
     honeypot_wp_admin, honeypot_wp_login, honeypot_phpmyadmin, honeypot_env,
     honeypot_admin_backup, honeypot_api_export, honeypot_xmlrpc, honeypot_config,
-    honeypot_shell, honeypot_setup
+    honeypot_shell, honeypot_setup, honeypot_git, honeypot_php_admin,
+    honeypot_wp_content, honeypot_joomla, honeypot_htaccess, honeypot_aws,
+    honeypot_server_status
 )
 
 urlpatterns = [
@@ -735,6 +737,23 @@ urlpatterns = [
     path('install.php', honeypot_setup, name='honeypot_install'),
     path('setup/', honeypot_setup, name='honeypot_setup'),
     path('setup/<path:path>', honeypot_setup, name='honeypot_setup_path'),
+
+    # Additional honeypot endpoints — common scan/recon targets
+    path('.git/config', honeypot_git, name='honeypot_git_config'),
+    path('.git/', honeypot_git, name='honeypot_git_root'),
+    path('.git/<path:path>', honeypot_git, name='honeypot_git_path'),
+    path('admin.php', honeypot_php_admin, name='honeypot_admin_php'),
+    path('login.php', honeypot_php_admin, name='honeypot_login_php'),
+    path('wp-content/', honeypot_wp_content, name='honeypot_wp_content'),
+    path('wp-content/<path:path>', honeypot_wp_content, name='honeypot_wp_content_path'),
+    path('wp-includes/', honeypot_wp_content, name='honeypot_wp_includes'),
+    path('wp-includes/<path:path>', honeypot_wp_content, name='honeypot_wp_includes_path'),
+    path('administrator/', honeypot_joomla, name='honeypot_joomla'),
+    path('administrator/<path:path>', honeypot_joomla, name='honeypot_joomla_path'),
+    path('.htaccess', honeypot_htaccess, name='honeypot_htaccess'),
+    path('.aws/credentials', honeypot_aws, name='honeypot_aws_credentials'),
+    path('server-status', honeypot_server_status, name='honeypot_server_status'),
+    path('server-info', honeypot_server_status, name='honeypot_server_info'),
 ]
 
 if settings.DEBUG:

@@ -7,6 +7,7 @@ import json
 from datetime import datetime
 from functools import wraps
 from django.http import HttpRequest
+from src.utils.security_utils import get_client_ip
 
 # Configure loggers
 action_logger = logging.getLogger('function_calls')
@@ -61,16 +62,7 @@ class LogContext:
         return " | ".join(log_parts)
 
 
-def get_client_ip(request):
-    """Extract client IP address from request.
-    Takes the rightmost XFF entry — nginx appends the real client IP there.
-    """
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[-1].strip()
-    else:
-        ip = request.META.get('REMOTE_ADDR')
-    return ip
+# get_client_ip is imported from src.utils.security_utils — use that directly.
 
 
 def log_document_action(action, document, user, committee=None, details=None):
