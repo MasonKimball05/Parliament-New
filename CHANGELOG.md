@@ -54,7 +54,7 @@ The original Parliament system with basic functionality but significant security
 ### v2.14.0 - UserPreferences JSON Consolidation (05-11-2026)
 20 boolean preference columns (`email_announcements`, `show_vote_menu`, `notify_announcements`, etc.) consolidated into a single `prefs` JSONField. Properties with identical names maintain the existing interface — templates, notification service, and most view code unchanged. New preferences now require only a default value, not a schema migration. `UserPreferencesForm` rewritten as a plain Form with `instance=` support and a `save()` method. ORM filter queries updated to use JSON path traversal. Migration `0158`.
 
-**Deployment Status:** Not yet deployed
+**Deployment Status:** Deployed
 
 **Type:** Feature / Code Quality
 
@@ -63,7 +63,7 @@ The original Parliament system with basic functionality but significant security
 ### v2.13.4 - JSON Storage Migration (05-11-2026)
 Three model fields migrated from comma-separated strings to `JSONField`: `KaiReport.tags`, `KaiReportTemplate.suggested_tags`, and `SystemLockdown.whitelisted_ips`. `is_ip_whitelisted()` simplified from a manual split to `return ip in self.whitelisted_ips`. `KaiReport.get_tags_list()` simplified to return the field directly. All write paths (views, forms) and display paths (templates, CSV exports) updated. Migration `0157` handles data conversion.
 
-**Deployment Status:** Not yet deployed
+**Deployment Status:** Deployed
 
 **Type:** Code Quality / Maintainability
 
