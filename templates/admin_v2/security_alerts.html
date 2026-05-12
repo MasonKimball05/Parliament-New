@@ -148,7 +148,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 const CSRF = '{{ csrf_token }}';
 
 async function dismissAlert(btn, alertId) {

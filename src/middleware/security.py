@@ -10,6 +10,7 @@ from src.utils.security_utils import get_client_ip as _get_client_ip
 import logging
 import re
 import html
+import secrets
 
 logger = logging.getLogger('admin_actions')
 
@@ -346,12 +347,16 @@ class InputSanitizationMiddleware:
         self.min_scan_length = 8
 
     def __call__(self, request):
+        # Generate a per-request CSP nonce. Must happen before get_response() so
+        # templates can reference {{ request.csp_nonce }} during rendering.
+        request.csp_nonce = secrets.token_urlsafe(16)
+
         ip_address = self.get_client_ip(request)
 
         # Skip checking for static files and certain paths
         if any(request.path.startswith(path) for path in self.skip_paths):
             response = self.get_response(request)
-            return self.add_security_headers(response)
+            return self.add_security_headers(response, request.csp_nonce)
 
         # Enforce IPBlacklist for all requests (cache result for 5 minutes to avoid per-request DB hits)
         blacklist_cache_key = f'ip_blacklisted_{ip_address}'
@@ -470,7 +475,7 @@ class InputSanitizationMiddleware:
                 }, status=403)
 
         response = self.get_response(request)
-        return self.add_security_headers(response)
+        return self.add_security_headers(response, request.csp_nonce)
 
     def check_for_attacks(self, value):
         """Check a value for various attack patterns."""
@@ -500,7 +505,7 @@ class InputSanitizationMiddleware:
 
         return None
 
-    def add_security_headers(self, response):
+    def add_security_headers(self, response, csp_nonce=None):
         """Add security headers to the response."""
         # Prevent MIME type sniffing
         response['X-Content-Type-Options'] = 'nosniff'
@@ -517,18 +522,27 @@ class InputSanitizationMiddleware:
         # Permissions policy (limit access to sensitive browser features)
         response['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
 
-        # Content Security Policy — all JS/CSS is self-hosted, no external CDNs.
+        # Content Security Policy
+        #
+        # script-src uses a per-request nonce instead of 'unsafe-inline'.
+        # Every inline <script> tag in templates carries nonce="{{ request.csp_nonce }}"
+        # so only scripts we wrote are executed — injected scripts have no nonce and
+        # are blocked even if they slip past input sanitization.
+        #
+        # style-src keeps 'unsafe-inline' because inline style= attributes are used
+        # throughout templates (Alpine.js, dynamic widths, etc.) and cannot be nonced.
+        # Inline styles can't execute code directly, so this is an acceptable trade-off.
+        #
         # Cloudflare injects beacon.min.js for Web Analytics; allow its domain
-        # when BEHIND_CLOUDFLARE is enabled so it doesn't spam CSP reports.
-        # CSP violations are reported to /csp-report/ and logged to
-        # SecurityNotificationLog for review in the Admin-v2 security dashboard.
+        # when BEHIND_CLOUDFLARE is enabled. CSP violations are reported to
+        # /csp-report/ and logged to SecurityNotificationLog for review.
         if not getattr(settings, 'DEBUG', False):
             behind_cf = getattr(settings, 'BEHIND_CLOUDFLARE', False)
-            # Cloudflare injects its beacon script; allow it when behind CF
             cf_beacon = ' https://static.cloudflareinsights.com' if behind_cf else ''
+            nonce_directive = f" 'nonce-{csp_nonce}'" if csp_nonce else ''
             csp_parts = [
                 "default-src 'self'",
-                f"script-src 'self' 'unsafe-inline'{cf_beacon}",
+                f"script-src 'self'{nonce_directive}{cf_beacon}",
                 "style-src 'self' 'unsafe-inline'",
                 "img-src 'self' data: https:",
                 "font-src 'self' data:",

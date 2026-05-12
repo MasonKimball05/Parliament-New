@@ -60,6 +60,7 @@ class KaiUserDashboardTestCase(TestCase):
         self.kai_committee = Committee.objects.create(
             name='Kai Committee',
             code='KAI',
+            is_kai_committee=True,
             is_active=True
         )
         self.kai_committee.chairs.add(self.kai_chair)

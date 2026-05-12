@@ -1551,7 +1551,7 @@ def test_email_targeting(request):
         users_with_email = all_targeted_users.filter(
             email__isnull=False
         ).filter(
-            Q(preferences__email_announcements=True) | Q(preferences__isnull=True)
+            Q(preferences__prefs__email__announcements=True) | Q(preferences__isnull=True)
         ).exclude(email='')
 
         # Users who match visibility but won't receive email (no email or notifications disabled)
@@ -1918,7 +1918,8 @@ def lockdown_control(request):
 
         if action == 'activate':
             reason = request.POST.get('reason', 'Emergency lockdown activated')
-            whitelisted_ips = request.POST.get('whitelisted_ips', '')
+            whitelisted_ips_str = request.POST.get('whitelisted_ips', '')
+            whitelisted_ips = [ip.strip() for ip in whitelisted_ips_str.split(',') if ip.strip()]
 
             lockdown.activate(request.user, reason, whitelisted_ips)
             messages.warning(request, 'EMERGENCY LOCKDOWN ACTIVATED. All non-whitelisted access is blocked.')
@@ -1938,8 +1939,8 @@ def lockdown_control(request):
             alert_lockdown_deactivated(request.user)
 
         elif action == 'update_whitelist':
-            whitelisted_ips = request.POST.get('whitelisted_ips', '')
-            lockdown.whitelisted_ips = whitelisted_ips
+            whitelisted_ips_str = request.POST.get('whitelisted_ips', '')
+            lockdown.whitelisted_ips = [ip.strip() for ip in whitelisted_ips_str.split(',') if ip.strip()]
             lockdown.save()
             messages.success(request, 'Whitelist updated')
             logger.info(f"Lockdown whitelist updated by {request.user.username}")

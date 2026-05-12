@@ -134,7 +134,7 @@ def confirm_announcement_email(request, announcement_id):
     active_with_email = targeted_users.filter(
         email__isnull=False
     ).filter(
-        Q(preferences__email_announcements=True) | Q(preferences__isnull=True)
+        Q(preferences__prefs__email__announcements=True) | Q(preferences__isnull=True)
     ).exclude(email='')
 
     # Individually-added inactive users (must have email, must want notifications)
@@ -145,7 +145,7 @@ def confirm_announcement_email(request, announcement_id):
         ).exclude(member_status='Active').exclude(member_status='Removed').filter(
             email__isnull=False
         ).filter(
-            Q(preferences__email_announcements=True) | Q(preferences__isnull=True)
+            Q(preferences__prefs__email__announcements=True) | Q(preferences__isnull=True)
         ).exclude(email='')
         extra_users = list(extra_qs)
 
@@ -448,13 +448,13 @@ def warmup_announcement_email(request, announcement_id):
         active_to_email = targeted_users.filter(
             email__isnull=False
         ).filter(
-            Q(preferences__email_announcements=True) | Q(preferences__isnull=True)
+            Q(preferences__prefs__email__announcements=True) | Q(preferences__isnull=True)
         ).exclude(email='')
 
         extra_to_email = extra_users_qs.filter(
             email__isnull=False
         ).filter(
-            Q(preferences__email_announcements=True) | Q(preferences__isnull=True)
+            Q(preferences__prefs__email__announcements=True) | Q(preferences__isnull=True)
         ).exclude(email='')
 
         users_to_email_count = active_to_email.count() + extra_to_email.count()

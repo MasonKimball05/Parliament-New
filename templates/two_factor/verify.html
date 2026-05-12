@@ -68,7 +68,7 @@
 </div>
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function updateModeHint(value) {
     const hint = document.getElementById('mode-hint');
     const input = document.getElementById('token');

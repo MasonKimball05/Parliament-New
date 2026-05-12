@@ -1,7 +1,9 @@
 from django.contrib.auth.decorators import login_required
-from src.models import *
+from django.db import models
 from django.shortcuts import render
+from src.models import ParliamentUser
 from src.decorators import officer_required
+from src.constants import MemberType, MemberStatus
 from src.utils.export_utils import export_to_csv
 from src.feature_flag_decorators import require_page_enabled
 from django.utils import timezone
@@ -24,16 +26,16 @@ def user_list(request):
 
     # Apply status filter - default to Active and Advisors
     if member_status_filter == 'active':
-        users = users.filter(member_status='Active') | users.filter(member_type='Advisor')
+        users = users.filter(member_status=MemberStatus.ACTIVE) | users.filter(member_type=MemberType.ADVISOR)
     elif member_status_filter == 'inactive':
-        users = users.filter(member_status='Inactive')
+        users = users.filter(member_status=MemberStatus.INACTIVE)
     elif member_status_filter == 'alumni':
-        users = users.filter(member_status='Alumni')
+        users = users.filter(member_status=MemberStatus.ALUMNI)
     elif member_status_filter == 'removed':
-        users = users.filter(member_status='Removed')
+        users = users.filter(member_status=MemberStatus.REMOVED)
     else:
         # 'all' shows everyone except Removed
-        users = users.exclude(member_status='Removed')
+        users = users.exclude(member_status=MemberStatus.REMOVED)
 
     # Apply member type filter
     if member_type_filter:
@@ -143,15 +145,15 @@ def export_user_list(request):
 
     # Get users based on filter - default to Active and Advisors
     if status_filter == 'active':
-        users = ParliamentUser.objects.filter(member_status='Active') | ParliamentUser.objects.filter(member_type='Advisor')
+        users = ParliamentUser.objects.filter(member_status=MemberStatus.ACTIVE) | ParliamentUser.objects.filter(member_type=MemberType.ADVISOR)
     elif status_filter == 'inactive':
-        users = ParliamentUser.objects.filter(member_status='Inactive')
+        users = ParliamentUser.objects.filter(member_status=MemberStatus.INACTIVE)
     elif status_filter == 'alumni':
-        users = ParliamentUser.objects.filter(member_status='Alumni')
+        users = ParliamentUser.objects.filter(member_status=MemberStatus.ALUMNI)
     elif status_filter == 'removed':
-        users = ParliamentUser.objects.filter(member_status='Removed')
+        users = ParliamentUser.objects.filter(member_status=MemberStatus.REMOVED)
     else:
-        users = ParliamentUser.objects.exclude(member_status='Removed')
+        users = ParliamentUser.objects.exclude(member_status=MemberStatus.REMOVED)
 
     users = users.order_by('name')
 

@@ -156,7 +156,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     const COMMITTEE_CODE = '{{ committee.code }}';
 
     // Add guest form submission

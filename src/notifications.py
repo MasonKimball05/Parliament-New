@@ -145,7 +145,7 @@ def send_announcement_notification(announcement, initiated_by=None):
         users_to_email = targeted_users.filter(
             email__isnull=False
         ).filter(
-            Q(preferences__email_announcements=True) | Q(preferences__isnull=True)
+            Q(preferences__prefs__email__announcements=True) | Q(preferences__isnull=True)
         ).exclude(email='')
 
         log(f"")

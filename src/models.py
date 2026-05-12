@@ -10,6 +10,7 @@ from django.conf import settings
 from django.utils import timezone
 from src.storage import DualLocationStorage
 from src.encrypted_fields import EncryptedCharField, EncryptedEmailField
+from src.constants import MemberType, MemberStatus
 import os
 
 logger = logging.getLogger('function_calls')
@@ -165,32 +166,32 @@ class ParliamentUser(AbstractBaseUser):
     @property
     def is_officer(self):
         """Check if user is an officer based on member_type"""
-        return self.member_type == 'Officer' or self.is_admin
+        return self.member_type == MemberType.OFFICER or self.is_admin
 
     @property
     def is_advisor(self):
         """Check if user is an advisor"""
-        return self.member_type == 'Advisor'
+        return self.member_type == MemberType.ADVISOR
 
     @property
     def is_pledge(self):
         """Check if user is a pledge"""
-        return self.member_type == 'Pledge'
+        return self.member_type == MemberType.PLEDGE
 
     @property
     def can_vote(self):
         """Check if user is allowed to vote (excludes pledges)"""
-        return self.member_type in ['Member', 'Chair', 'Officer'] and not self.is_pledge
+        return self.member_type in MemberType.CAN_VOTE and not self.is_pledge
 
     @property
     def can_view_officer_pages(self):
         """Check if user can view officer pages (Officers, Chairs, and Advisors)"""
-        return self.is_officer or self.is_advisor or self.member_type == 'Chair'
+        return self.is_officer or self.is_advisor or self.member_type == MemberType.CHAIR
 
     @property
     def can_manage_events(self):
         """Check if user can create/manage events (Officers and Chairs)"""
-        return self.is_officer or self.member_type == 'Chair'
+        return self.is_officer or self.member_type == MemberType.CHAIR
 
     def get_display_name(self):
         """Returns preferred name + last name if preferred name is set, otherwise full name"""
@@ -246,9 +247,58 @@ class ParliamentUser(AbstractBaseUser):
         ordering = ['user_id']
 
 
+def _default_user_prefs():
+    """Returns the full default preferences structure for a new user."""
+    return {
+        'email': {
+            'announcements': True,
+            'legislation': True,
+            'events': True,
+            'committee_updates': True,
+        },
+        'display': {
+            'compact_view': False,
+            'announcement_popups': True,
+            'home_layout': 'modern',
+            'landing_page': 'home',
+        },
+        'menu': {
+            'vote': True,
+            'committees': True,
+            'chats': False,
+            'documents': True,
+            'announcements': True,
+            'calendar': True,
+            'legislation': True,
+            'excuses': False,
+            'search': True,
+            'roberts_rules': False,
+        },
+        'notifications': {
+            'announcements': True,
+            'legislation': True,
+            'events': True,
+            'slating': True,
+        },
+    }
+
+
 class UserPreferences(models.Model):
     """
-    User preferences for customizing their Parliament experience
+    User preferences for customizing their Parliament experience.
+
+    All boolean preferences are stored in a single ``prefs`` JSONField with the structure:
+        {
+            "email":         { "announcements": bool, "legislation": bool, "events": bool, "committee_updates": bool },
+            "display":       { "compact_view": bool, "announcement_popups": bool },
+            "menu":          { "vote": bool, "committees": bool, "chats": bool, "documents": bool,
+                               "announcements": bool, "calendar": bool, "legislation": bool,
+                               "excuses": bool, "search": bool, "roberts_rules": bool },
+            "notifications": { "announcements": bool, "legislation": bool, "events": bool, "slating": bool },
+        }
+
+    Adding a new preference requires only a default value here and a UI change — no schema migration.
+    Named properties expose the individual keys so existing code and templates don't need to change.
     """
     THEME_CHOICES = (
         ('light', 'Light'),
@@ -258,38 +308,11 @@ class UserPreferences(models.Model):
 
     user = models.OneToOneField(ParliamentUser, on_delete=models.CASCADE, related_name='preferences', primary_key=True)
 
-    # Theme Preferences
+    # Theme is kept as its own field (non-boolean, has choices)
     theme = models.CharField(max_length=10, choices=THEME_CHOICES, default='light')
 
-    # Notification Preferences
-    email_announcements = models.BooleanField(default=True, help_text='Receive email notifications for new announcements')
-    email_legislation = models.BooleanField(default=True, help_text='Receive email notifications for new legislation')
-    email_events = models.BooleanField(default=True, help_text='Receive email notifications for upcoming events')
-    email_committee_updates = models.BooleanField(default=True, help_text='Receive email notifications for committee updates')
-
-    # In-app Notification Preferences
-    show_announcement_popups = models.BooleanField(default=True, help_text='Show in-app popups for announcements')
-
-    # Display Preferences
-    compact_view = models.BooleanField(default=False, help_text='Use compact view for lists and tables')
-
-    # Menu Customization (users can select up to 7 items)
-    show_vote_menu = models.BooleanField(default=True, help_text='Show Vote link in navigation menu')
-    show_committees_menu = models.BooleanField(default=True, help_text='Show Committees link in navigation menu')
-    show_chats_menu = models.BooleanField(default=False, help_text='Show Chats link in navigation menu')
-    show_documents_menu = models.BooleanField(default=True, help_text='Show Documents link in navigation menu')
-    show_announcements_menu = models.BooleanField(default=True, help_text='Show Announcements link in navigation menu')
-    show_calendar_menu = models.BooleanField(default=True, help_text='Show Calendar link in navigation menu')
-    show_legislation_menu = models.BooleanField(default=True, help_text='Show Legislation link in navigation menu')
-    show_excuses_menu = models.BooleanField(default=False, help_text='Show My Excuses link in navigation menu')
-    show_search_menu = models.BooleanField(default=True, help_text='Show Search link in navigation menu')
-    show_roberts_rules_menu = models.BooleanField(default=False, help_text='Show Robert\'s Rules link in navigation menu')
-
-    # In-App Notification Preferences
-    notify_announcements = models.BooleanField(default=True, help_text='Receive in-app notifications for announcements')
-    notify_legislation = models.BooleanField(default=True, help_text='Receive in-app notifications for legislation & voting')
-    notify_events = models.BooleanField(default=True, help_text='Receive in-app notifications for new events')
-    notify_slating = models.BooleanField(default=True, help_text='Receive in-app notifications for officer elections')
+    # All boolean preferences in a single JSON column
+    prefs = models.JSONField(default=_default_user_prefs)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -300,6 +323,107 @@ class UserPreferences(models.Model):
     class Meta:
         verbose_name = 'User Preferences'
         verbose_name_plural = 'User Preferences'
+
+    @staticmethod
+    def get_defaults():
+        """Return a fresh copy of the default preferences dict."""
+        return _default_user_prefs()
+
+    def _pref(self, section, key, default):
+        """Read a single preference value, falling back to default if not set."""
+        return (self.prefs or {}).get(section, {}).get(key, default)
+
+    # --- Email notification preferences ---
+    @property
+    def email_announcements(self):
+        return self._pref('email', 'announcements', True)
+
+    @property
+    def email_legislation(self):
+        return self._pref('email', 'legislation', True)
+
+    @property
+    def email_events(self):
+        return self._pref('email', 'events', True)
+
+    @property
+    def email_committee_updates(self):
+        return self._pref('email', 'committee_updates', True)
+
+    # --- Display preferences ---
+    @property
+    def show_announcement_popups(self):
+        return self._pref('display', 'announcement_popups', True)
+
+    @property
+    def compact_view(self):
+        return self._pref('display', 'compact_view', False)
+
+    @property
+    def home_layout(self):
+        return self._pref('display', 'home_layout', 'modern')
+
+    @property
+    def landing_page(self):
+        return self._pref('display', 'landing_page', 'home')
+
+    # --- Menu preferences ---
+    @property
+    def show_vote_menu(self):
+        return self._pref('menu', 'vote', True)
+
+    @property
+    def show_committees_menu(self):
+        return self._pref('menu', 'committees', True)
+
+    @property
+    def show_chats_menu(self):
+        return self._pref('menu', 'chats', False)
+
+    @property
+    def show_documents_menu(self):
+        return self._pref('menu', 'documents', True)
+
+    @property
+    def show_announcements_menu(self):
+        return self._pref('menu', 'announcements', True)
+
+    @property
+    def show_calendar_menu(self):
+        return self._pref('menu', 'calendar', True)
+
+    @property
+    def show_legislation_menu(self):
+        return self._pref('menu', 'legislation', True)
+
+    @property
+    def show_excuses_menu(self):
+        return self._pref('menu', 'excuses', False)
+
+    @property
+    def show_search_menu(self):
+        return self._pref('menu', 'search', True)
+
+    @property
+    def show_roberts_rules_menu(self):
+        return self._pref('menu', 'roberts_rules', False)
+
+    # --- In-app notification preferences ---
+    @property
+    def notify_announcements(self):
+        return self._pref('notifications', 'announcements', True)
+
+    @property
+    def notify_legislation(self):
+        return self._pref('notifications', 'legislation', True)
+
+    @property
+    def notify_events(self):
+        return self._pref('notifications', 'events', True)
+
+    @property
+    def notify_slating(self):
+        return self._pref('notifications', 'slating', True)
 
 
 # Signal to auto-create UserPreferences when a user is created
@@ -874,8 +998,10 @@ class Committee(models.Model):
     is_active = models.BooleanField(default=True)
 
     # Special committee flags
-    is_exec_board = models.BooleanField(default=False, help_text='If True, membership auto-syncs with exec role holders')
-    is_slating_committee = models.BooleanField(default=False, help_text='If True, has special visibility rules')
+    is_exec_board = models.BooleanField(default=False, help_text='If True, membership auto-syncs with exec role holders and all members have chair-level permissions')
+    is_slating_committee = models.BooleanField(default=False, help_text='If True, has special visibility rules and President is auto-assigned as admin')
+    is_kai_committee = models.BooleanField(default=False, help_text='If True, this is the conduct committee — enables Kai report management, form builder, and chair notifications')
+    is_chapter_committee = models.BooleanField(default=False, help_text='If True, this committee owns chapter-level documents (the chapter documents page)')
     is_ad_hoc = models.BooleanField(default=False, help_text='If True, this is a temporary ad-hoc committee')
     ad_hoc_expiration = models.DateField(
         null=True,
@@ -904,8 +1030,8 @@ class Committee(models.Model):
     chair_list.short_description = "Chairs"
 
     def is_chair(self, user):
-        # For EXEC committee specifically, all members have chair permissions
-        if self.code == 'EXEC' and self.members.filter(pk=user.pk).exists():
+        # Exec board members all carry chair-level permissions
+        if self.is_exec_board and self.members.filter(pk=user.pk).exists():
             return True
         return self.chairs.filter(pk=user.pk).exists()
 
@@ -2150,10 +2276,10 @@ class KaiReport(models.Model):
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
     # Tags and Notes
-    tags = models.CharField(
-        max_length=500,
+    tags = models.JSONField(
+        default=list,
         blank=True,
-        help_text="Comma-separated tags (e.g., 'urgent, follow-up, academic')"
+        help_text="List of tags (e.g., ['urgent', 'follow-up', 'academic'])"
     )
     chair_notes = models.TextField(blank=True, help_text="Notes from the Kai chair")
 
@@ -2211,9 +2337,7 @@ class KaiReport(models.Model):
 
     def get_tags_list(self):
         """Return tags as a list"""
-        if self.tags:
-            return [tag.strip() for tag in self.tags.split(',')]
-        return []
+        return self.tags or []
 
     def mark_as_reviewed(self, reviewer):
         """Mark the report as reviewed"""
@@ -2284,10 +2408,10 @@ class KaiReportTemplate(models.Model):
     description_template = models.TextField(
         help_text="Template for report description with guidelines and placeholders"
     )
-    suggested_tags = models.CharField(
-        max_length=500,
+    suggested_tags = models.JSONField(
+        default=list,
         blank=True,
-        help_text="Comma-separated suggested tags for this type of report"
+        help_text="List of suggested tags for this type of report"
     )
     is_active = models.BooleanField(default=True, help_text="Whether this template is currently available")
     created_by = models.ForeignKey(
@@ -5381,9 +5505,10 @@ class SystemLockdown(models.Model):
     """
     is_active = models.BooleanField(default=False)
     reason = models.TextField(help_text='Why lockdown was activated')
-    whitelisted_ips = models.TextField(
+    whitelisted_ips = models.JSONField(
+        default=list,
         blank=True,
-        help_text='Comma-separated list of IPs that can still log in'
+        help_text='List of IPs that can still log in'
     )
     activated_at = models.DateTimeField(null=True, blank=True)
     activated_by = models.ForeignKey(
@@ -5420,12 +5545,12 @@ class SystemLockdown(models.Model):
         instance, _ = cls.objects.get_or_create(pk=1)
         return instance
 
-    def activate(self, admin, reason, whitelisted_ips=''):
+    def activate(self, admin, reason, whitelisted_ips=None):
         """Activate emergency lockdown"""
         from django.utils import timezone
         self.is_active = True
         self.reason = reason
-        self.whitelisted_ips = whitelisted_ips
+        self.whitelisted_ips = whitelisted_ips if whitelisted_ips is not None else []
         self.activated_at = timezone.now()
         self.activated_by = admin
         self.deactivated_at = None
@@ -5442,10 +5567,7 @@ class SystemLockdown(models.Model):
 
     def is_ip_whitelisted(self, ip_address):
         """Check if an IP is whitelisted"""
-        if not self.whitelisted_ips:
-            return False
-        whitelist = [ip.strip() for ip in self.whitelisted_ips.split(',')]
-        return ip_address in whitelist
+        return ip_address in self.whitelisted_ips
 
 
 class SecurityNotificationLog(models.Model):

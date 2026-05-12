@@ -563,6 +563,16 @@ class ResolutionSectionImpactForm(forms.ModelForm):
 
 class KaiReportForm(forms.ModelForm):
     """Form for submitting Kai reports"""
+    tags = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors duration-200',
+            'placeholder': 'academic, urgent, follow-up, etc.'
+        }),
+        label='Tags (Optional)',
+        help_text='Add comma-separated tags to help categorize your report'
+    )
+
     class Meta:
         model = KaiReport
         fields = ['title', 'category', 'description', 'targeted_to', 'attachment', 'tags']
@@ -586,10 +596,6 @@ class KaiReportForm(forms.ModelForm):
                 'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors duration-200',
                 'accept': '.pdf,.docx,.doc,.xlsx,.xls,.jpg,.jpeg,.png'
             }),
-            'tags': forms.TextInput(attrs={
-                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors duration-200',
-                'placeholder': 'academic, urgent, follow-up, etc.'
-            })
         }
         labels = {
             'title': 'Report Title',
@@ -597,14 +603,12 @@ class KaiReportForm(forms.ModelForm):
             'description': 'Description',
             'targeted_to': 'Directed To (Optional)',
             'attachment': 'Attachment (Optional)',
-            'tags': 'Tags (Optional)'
         }
         help_texts = {
             'title': 'A brief, descriptive title for your report',
             'description': 'Provide all relevant details about what you\'re reporting',
             'targeted_to': 'Optionally select a specific person this report is directed to',
             'attachment': 'Upload supporting documents, images, or files (max 20MB)',
-            'tags': 'Add comma-separated tags to help categorize your report'
         }
 
     def clean_attachment(self):
@@ -646,133 +650,186 @@ class KaiReportForm(forms.ModelForm):
 
         return file
 
+    def clean_tags(self):
+        tags_str = self.cleaned_data.get('tags', '')
+        if not tags_str:
+            return []
+        return [t.strip() for t in tags_str.split(',') if t.strip()]
 
 
-class UserPreferencesForm(forms.ModelForm):
+class UserPreferencesForm(forms.Form):
     """
-    Form for users to update their preferences
+    Form for users to update their preferences.
+
+    Accepts an ``instance`` kwarg (a UserPreferences object) for compatibility
+    with the existing preferences_view, which calls:
+        UserPreferencesForm(request.POST, instance=preferences)
+        UserPreferencesForm(instance=preferences)
+    The ``save()`` method writes cleaned data back into instance.prefs and saves.
     """
-    class Meta:
-        model = UserPreferences
-        fields = [
-            "theme",
-            "email_announcements",
-            "email_legislation",
-            "email_events",
-            "email_committee_updates",
-            "show_announcement_popups",
-            "compact_view",
-            "show_vote_menu",
-            "show_committees_menu",
-            "show_chats_menu",
-            "show_documents_menu",
-            "show_announcements_menu",
-            "show_calendar_menu",
-            "show_legislation_menu",
-            "show_excuses_menu",
-            "show_search_menu",
-            "show_roberts_rules_menu",
-        ]
-        widgets = {
-            "theme": forms.Select(attrs={
-                "class": "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-            }),
-            "email_announcements": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
-            }),
-            "email_legislation": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
-            }),
-            "email_events": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
-            }),
-            "email_committee_updates": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
-            }),
-            "show_announcement_popups": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
-            }),
-            "compact_view": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
-            }),
-            "show_vote_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
-            }),
-            "show_committees_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
-            }),
-            "show_chats_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
-            }),
-            "show_documents_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
-            }),
-            "show_announcements_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
-            }),
-            "show_calendar_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
-            }),
-            "show_legislation_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
-            }),
-            "show_excuses_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
-            }),
-            "show_search_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
-            }),
-            "show_roberts_rules_menu": forms.CheckboxInput(attrs={
-                "class": "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
-            }),
-        }
-        labels = {
-            "theme": "Color Theme",
-            "email_announcements": "Announcements",
-            "email_legislation": "New Legislation",
-            "email_events": "Upcoming Events",
-            "email_committee_updates": "Committee Updates",
-            "show_announcement_popups": "Show announcement popups",
-            "compact_view": "Compact view mode",
-            "show_vote_menu": "Show Vote",
-            "show_committees_menu": "Show Committees",
-            "show_chats_menu": "Show Chats",
-            "show_documents_menu": "Show Documents",
-            "show_announcements_menu": "Show Announcements",
-            "show_calendar_menu": "Show Calendar",
-            "show_legislation_menu": "Show Legislation",
-            "show_excuses_menu": "Show My Excuses",
-            "show_search_menu": "Show Search",
-            "show_roberts_rules_menu": "Show Robert's Rules",
-        }
+    _CB = "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+    _CB_MENU = "h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 menu-checkbox"
+
+    # Theme
+    theme = forms.ChoiceField(
+        choices=UserPreferences.THEME_CHOICES,
+        label="Color Theme",
+        widget=forms.Select(attrs={
+            "class": "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+        }),
+    )
+
+    # Email notifications
+    email_announcements = forms.BooleanField(required=False, label="Announcements",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
+    email_legislation = forms.BooleanField(required=False, label="New Legislation",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
+    email_events = forms.BooleanField(required=False, label="Upcoming Events",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
+    email_committee_updates = forms.BooleanField(required=False, label="Committee Updates",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
+
+    # Display
+    show_announcement_popups = forms.BooleanField(required=False, label="Show announcement popups",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
+    compact_view = forms.BooleanField(required=False, label="Compact view mode",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
+    home_layout = forms.ChoiceField(
+        choices=[('modern', 'Modern (default)'), ('classic', 'Classic')],
+        label="Home Page Layout",
+        widget=forms.Select(attrs={
+            "class": "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+        }),
+    )
+    landing_page = forms.ChoiceField(
+        choices=[
+            ('home', 'Home'),
+            ('announcements', 'Announcements'),
+            ('calendar', 'Calendar'),
+            ('vote', 'Vote'),
+        ],
+        label="Landing Page After Login",
+        widget=forms.Select(attrs={
+            "class": "mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+        }),
+    )
+
+    # In-app notifications
+    notify_announcements = forms.BooleanField(required=False, label="Announcements",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
+    notify_legislation = forms.BooleanField(required=False, label="Legislation & Voting",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
+    notify_events = forms.BooleanField(required=False, label="Events",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
+    notify_slating = forms.BooleanField(required=False, label="Officer Elections (Slating)",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
+
+    # Menu
+    show_vote_menu = forms.BooleanField(required=False, label="Show Vote",
+        widget=forms.CheckboxInput(attrs={"class": _CB_MENU}))
+    show_committees_menu = forms.BooleanField(required=False, label="Show Committees",
+        widget=forms.CheckboxInput(attrs={"class": _CB_MENU}))
+    show_chats_menu = forms.BooleanField(required=False, label="Show Chats",
+        widget=forms.CheckboxInput(attrs={"class": _CB_MENU}))
+    show_documents_menu = forms.BooleanField(required=False, label="Show Documents",
+        widget=forms.CheckboxInput(attrs={"class": _CB_MENU}))
+    show_announcements_menu = forms.BooleanField(required=False, label="Show Announcements",
+        widget=forms.CheckboxInput(attrs={"class": _CB_MENU}))
+    show_calendar_menu = forms.BooleanField(required=False, label="Show Calendar",
+        widget=forms.CheckboxInput(attrs={"class": _CB_MENU}))
+    show_legislation_menu = forms.BooleanField(required=False, label="Show Legislation",
+        widget=forms.CheckboxInput(attrs={"class": _CB_MENU}))
+    show_excuses_menu = forms.BooleanField(required=False, label="Show My Excuses",
+        widget=forms.CheckboxInput(attrs={"class": _CB_MENU}))
+    show_search_menu = forms.BooleanField(required=False, label="Show Search",
+        widget=forms.CheckboxInput(attrs={"class": _CB_MENU}))
+    show_roberts_rules_menu = forms.BooleanField(required=False, label="Show Robert's Rules",
+        widget=forms.CheckboxInput(attrs={"class": _CB_MENU}))
+
+    def __init__(self, data=None, instance=None, **kwargs):
+        self._instance = instance
+        if instance is not None and data is None:
+            kwargs['initial'] = {
+                'theme': instance.theme,
+                'email_announcements': instance.email_announcements,
+                'email_legislation': instance.email_legislation,
+                'email_events': instance.email_events,
+                'email_committee_updates': instance.email_committee_updates,
+                'show_announcement_popups': instance.show_announcement_popups,
+                'compact_view': instance.compact_view,
+                'home_layout': instance.home_layout,
+                'landing_page': instance.landing_page,
+                'notify_announcements': instance.notify_announcements,
+                'notify_legislation': instance.notify_legislation,
+                'notify_events': instance.notify_events,
+                'notify_slating': instance.notify_slating,
+                'show_vote_menu': instance.show_vote_menu,
+                'show_committees_menu': instance.show_committees_menu,
+                'show_chats_menu': instance.show_chats_menu,
+                'show_documents_menu': instance.show_documents_menu,
+                'show_announcements_menu': instance.show_announcements_menu,
+                'show_calendar_menu': instance.show_calendar_menu,
+                'show_legislation_menu': instance.show_legislation_menu,
+                'show_excuses_menu': instance.show_excuses_menu,
+                'show_search_menu': instance.show_search_menu,
+                'show_roberts_rules_menu': instance.show_roberts_rules_menu,
+            }
+        super().__init__(data, **kwargs)
 
     def clean(self):
-        """Validate that no more than 9 menu items are selected"""
         cleaned_data = super().clean()
-
-        # Count how many menu items are selected
         menu_fields = [
-            "show_vote_menu",
-            "show_committees_menu",
-            "show_chats_menu",
-            "show_documents_menu",
-            "show_announcements_menu",
-            "show_calendar_menu",
-            "show_legislation_menu",
-            "show_excuses_menu",
-            "show_search_menu",
-            "show_roberts_rules_menu",
+            'show_vote_menu', 'show_committees_menu', 'show_chats_menu',
+            'show_documents_menu', 'show_announcements_menu', 'show_calendar_menu',
+            'show_legislation_menu', 'show_excuses_menu', 'show_search_menu',
+            'show_roberts_rules_menu',
         ]
-
-        selected_count = sum(1 for field in menu_fields if cleaned_data.get(field))
-
+        selected_count = sum(1 for f in menu_fields if cleaned_data.get(f))
         if selected_count > 9:
             raise forms.ValidationError(
-                f"You can select at most 9 menu items to display in the navigation bar. "
-                f"You have selected {selected_count}. Please deselect {selected_count - 9} item(s)."
+                f"You can select at most 9 menu items. "
+                f"You selected {selected_count}; please deselect {selected_count - 9}."
             )
-
         return cleaned_data
+
+    def save(self):
+        """Write cleaned data into instance.prefs and save. Returns the instance."""
+        p = self._instance
+        p.theme = self.cleaned_data['theme']
+        p.prefs = {
+            'email': {
+                'announcements': self.cleaned_data['email_announcements'],
+                'legislation': self.cleaned_data['email_legislation'],
+                'events': self.cleaned_data['email_events'],
+                'committee_updates': self.cleaned_data['email_committee_updates'],
+            },
+            'display': {
+                'compact_view': self.cleaned_data['compact_view'],
+                'announcement_popups': self.cleaned_data['show_announcement_popups'],
+                'home_layout': self.cleaned_data['home_layout'],
+                'landing_page': self.cleaned_data['landing_page'],
+            },
+            'menu': {
+                'vote': self.cleaned_data['show_vote_menu'],
+                'committees': self.cleaned_data['show_committees_menu'],
+                'chats': self.cleaned_data['show_chats_menu'],
+                'documents': self.cleaned_data['show_documents_menu'],
+                'announcements': self.cleaned_data['show_announcements_menu'],
+                'calendar': self.cleaned_data['show_calendar_menu'],
+                'legislation': self.cleaned_data['show_legislation_menu'],
+                'excuses': self.cleaned_data['show_excuses_menu'],
+                'search': self.cleaned_data['show_search_menu'],
+                'roberts_rules': self.cleaned_data['show_roberts_rules_menu'],
+            },
+            'notifications': {
+                'announcements': self.cleaned_data['notify_announcements'],
+                'legislation': self.cleaned_data['notify_legislation'],
+                'events': self.cleaned_data['notify_events'],
+                'slating': self.cleaned_data['notify_slating'],
+            },
+        }
+        p.save()
+        return p
 
 
 class AddMemberForm(forms.Form):

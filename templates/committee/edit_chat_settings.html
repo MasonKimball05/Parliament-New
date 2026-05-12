@@ -109,7 +109,7 @@
     </form>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     const iconInput = document.getElementById('icon');
     const colorInput = document.getElementById('color');
     const previewIcon = document.getElementById('preview-icon');

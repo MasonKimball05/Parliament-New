@@ -132,7 +132,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     function scrollToBottom() {
         const container = document.getElementById('logContainer');
         container.scrollTop = container.scrollHeight;

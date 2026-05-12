@@ -160,7 +160,7 @@
     </form>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     // Show/hide permissions section based on access type
     const accessTypeInputs = document.querySelectorAll('input[name="access_type"]');
     const permissionsSection = document.getElementById('permissions-section');

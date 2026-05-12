@@ -82,14 +82,14 @@
                     </div>
                     {% endif %}
 
-                    {% if report.tags %}
+                    {% if report.get_tags_list %}
                     <!-- Tags -->
                     <div>
                         <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Tags</label>
                         <div class="mt-1 flex flex-wrap gap-2">
-                            {% for tag in report.tags.split %}
+                            {% for tag in report.get_tags_list %}
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                                {{ tag|cut:"," }}
+                                {{ tag }}
                             </span>
                             {% endfor %}
                         </div>

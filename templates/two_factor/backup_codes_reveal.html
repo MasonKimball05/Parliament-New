@@ -55,7 +55,7 @@
 </div>
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function copyAllCodes() {
     const codes = {{ backup_codes|safe }};
     const text = codes.join('\n');

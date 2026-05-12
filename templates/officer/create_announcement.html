@@ -195,7 +195,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     // Pledge visibility warning
     const visibilityCheckboxes = document.getElementById('visibility-checkboxes');

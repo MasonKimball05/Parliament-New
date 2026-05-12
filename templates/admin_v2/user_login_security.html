@@ -52,7 +52,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
     function copyPassword() {
         const password = document.getElementById('temp-password').textContent;
         navigator.clipboard.writeText(password).then(() => {

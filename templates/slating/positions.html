@@ -206,7 +206,7 @@
 {% endblock %}
 
 {% block slating_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 const positionsList = document.getElementById('positionsList');
 if (positionsList) {
     let draggedItem = null;

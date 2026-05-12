@@ -1109,7 +1109,7 @@
 </div>
 
 <!-- JavaScript for Search and Navigation -->
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchInput');
     const searchResults = document.getElementById('searchResults');

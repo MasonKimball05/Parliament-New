@@ -207,7 +207,7 @@
 {% endblock %}
 
 {% block slating_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function openAssignModal(positionId, positionTitle) {
     document.getElementById('modalPositionId').value = positionId;
     document.getElementById('modalPositionTitle').textContent = positionTitle;

@@ -91,7 +91,7 @@ def submit_kai_report(request):
 
                 # Send email notification to Kai committee chair(s) only (NOT targeted person yet)
                 try:
-                    kai_committee = Committee.objects.get(code='KAI')
+                    kai_committee = Committee.objects.get(is_kai_committee=True)
                     kai_chairs = kai_committee.chairs.all()
 
                     # Collect Kai chair emails only
@@ -115,7 +115,7 @@ Submitted at: {localtime(report.submitted_at).strftime('%B %d, %Y at %I:%M %p %Z
 Description:
 {report.description}
 
-Tags: {report.tags if report.tags else 'None'}
+Tags: {', '.join(report.tags) if report.tags else 'None'}
 
 Please log in to the Kai Committee page to review this report.
                         """
@@ -213,7 +213,7 @@ def view_kai_reports(request):
     """View for Kai chairs to see all submitted reports"""
     # Check if user is a Kai chair
     try:
-        kai_committee = Committee.objects.get(code='KAI')
+        kai_committee = Committee.objects.get(is_kai_committee=True)
         if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can access this page.')
             return redirect('home')
@@ -333,7 +333,7 @@ def export_kai_reports_csv(request):
     """Export filtered Kai reports to CSV"""
     # Check if user is a Kai chair
     try:
-        kai_committee = Committee.objects.get(code='KAI')
+        kai_committee = Committee.objects.get(is_kai_committee=True)
         if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can export reports.')
             return redirect('home')
@@ -430,7 +430,7 @@ def export_kai_reports_csv(request):
                 'Yes' if report.closed_by_accused_request else 'No',
                 report.reviewed_by.name if report.reviewed_by else '',
                 localtime(report.reviewed_at).strftime('%Y-%m-%d %H:%M:%S') if report.reviewed_at else '',
-                report.tags,
+                ', '.join(report.tags),
                 report.description
             ])
 
@@ -454,7 +454,7 @@ def manage_kai_report(request, report_id):
 
     # Check if user is a Kai chair
     try:
-        kai_committee = Committee.objects.get(code='KAI')
+        kai_committee = Committee.objects.get(is_kai_committee=True)
         if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can manage reports.')
             return redirect('home')
@@ -545,7 +545,8 @@ You can view the full report details at the Kai Committee page.
             )
 
         elif action == 'update_tags':
-            report.tags = request.POST.get('tags', '')
+            tags_str = request.POST.get('tags', '')
+            report.tags = [t.strip() for t in tags_str.split(',') if t.strip()]
             report.save()
             messages.success(request, 'Tags updated successfully.')
 
@@ -554,7 +555,7 @@ You can view the full report details at the Kai Committee page.
                 report=report,
                 user=request.user,
                 action='tags_updated',
-                details=f'Tags updated to: {report.tags if report.tags else "none"}'
+                details=f'Tags updated to: {", ".join(report.tags) if report.tags else "none"}'
             )
 
         elif action == 'update_deliberation':
@@ -1106,7 +1107,7 @@ def print_kai_report(request, report_id):
 
     # Check if user is a Kai chair or admin
     try:
-        kai_committee = Committee.objects.get(code='KAI')
+        kai_committee = Committee.objects.get(is_kai_committee=True)
         if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can view report details.')
             return redirect('home')
@@ -1136,7 +1137,7 @@ def kai_dashboard(request):
     """Dashboard with statistics and charts for Kai reports"""
     # Check if user is a Kai chair or admin
     try:
-        kai_committee = Committee.objects.get(code='KAI')
+        kai_committee = Committee.objects.get(is_kai_committee=True)
         if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can access the dashboard.')
             return redirect('home')
@@ -1238,7 +1239,7 @@ def bulk_actions_kai_reports(request):
 
     # Check if user is a Kai chair or admin
     try:
-        kai_committee = Committee.objects.get(code='KAI')
+        kai_committee = Committee.objects.get(is_kai_committee=True)
         if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can perform bulk actions.')
             return redirect('home')
@@ -1334,7 +1335,7 @@ def bulk_actions_kai_reports(request):
                     'Yes' if report.closed_by_accused_request else 'No',
                     report.reviewed_by.name if report.reviewed_by else '',
                     report.reviewed_at.strftime('%Y-%m-%d %H:%M:%S') if report.reviewed_at else '',
-                    report.tags,
+                    ', '.join(report.tags),
                     report.description
                 ])
 
@@ -1355,7 +1356,7 @@ def manage_kai_templates(request):
     """Manage Kai report templates (for chairs only)"""
     # Check if user is a Kai chair or admin
     try:
-        kai_committee = Committee.objects.get(code='KAI')
+        kai_committee = Committee.objects.get(is_kai_committee=True)
         if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can manage templates.')
             return redirect('home')
@@ -1379,7 +1380,7 @@ def create_kai_template(request):
     """Create a new Kai report template"""
     # Check if user is a Kai chair or admin
     try:
-        kai_committee = Committee.objects.get(code='KAI')
+        kai_committee = Committee.objects.get(is_kai_committee=True)
         if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can create templates.')
             return redirect('home')
@@ -1393,7 +1394,8 @@ def create_kai_template(request):
         category = request.POST.get('category')
         title_template = request.POST.get('title_template')
         description_template = request.POST.get('description_template')
-        suggested_tags = request.POST.get('suggested_tags', '')
+        suggested_tags_str = request.POST.get('suggested_tags', '')
+        suggested_tags = [t.strip() for t in suggested_tags_str.split(',') if t.strip()]
         is_active = request.POST.get('is_active') == 'on'
 
         if name and description and category and title_template and description_template:
@@ -1426,7 +1428,7 @@ def edit_kai_template(request, template_id):
     """Edit an existing Kai report template"""
     # Check if user is a Kai chair or admin
     try:
-        kai_committee = Committee.objects.get(code='KAI')
+        kai_committee = Committee.objects.get(is_kai_committee=True)
         if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can edit templates.')
             return redirect('home')
@@ -1442,7 +1444,8 @@ def edit_kai_template(request, template_id):
         template.category = request.POST.get('category')
         template.title_template = request.POST.get('title_template')
         template.description_template = request.POST.get('description_template')
-        template.suggested_tags = request.POST.get('suggested_tags', '')
+        suggested_tags_str = request.POST.get('suggested_tags', '')
+        template.suggested_tags = [t.strip() for t in suggested_tags_str.split(',') if t.strip()]
         template.is_active = request.POST.get('is_active') == 'on'
         template.save()
 
@@ -1463,7 +1466,7 @@ def delete_kai_template(request, template_id):
     """Delete a Kai report template"""
     # Check if user is a Kai chair or admin
     try:
-        kai_committee = Committee.objects.get(code='KAI')
+        kai_committee = Committee.objects.get(is_kai_committee=True)
         if not kai_committee.is_chair(request.user):
             messages.error(request, 'Only Kai chairs can delete templates.')
             return redirect('home')

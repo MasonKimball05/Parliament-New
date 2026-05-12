@@ -6,8 +6,9 @@ from django.contrib import messages
 from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_http_methods
-from src.models import *
+from src.models import Committee, Role, ParliamentUser, CommitteeLegislation, CommitteeDocument, CommitteeMinutes
 from src.forms import CommitteeCreateForm
+from src.constants import MemberStatus
 from src.feature_flag_decorators import require_page_enabled
 from src.decorators import admin_required, officer_required
 import logging
@@ -110,7 +111,7 @@ def create_committee(request):
     roles = Role.objects.all().order_by('name')
 
     # Get active members for the multi-select
-    members = ParliamentUser.objects.filter(member_status='Active').order_by('name')
+    members = ParliamentUser.objects.filter(member_status=MemberStatus.ACTIVE).order_by('name')
 
     context = {
         'form': form,
@@ -141,7 +142,7 @@ def manage_committees(request):
     roles = Role.objects.all().order_by('name')
 
     # Get active members for the multi-select
-    members = ParliamentUser.objects.filter(member_status='Active').order_by('name')
+    members = ParliamentUser.objects.filter(member_status=MemberStatus.ACTIVE).order_by('name')
 
     context = {
         'committees_data': committees_data,

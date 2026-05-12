@@ -567,7 +567,7 @@
     {% endif %}
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Handle vote option selection visual feedback for radio buttons
 document.querySelectorAll('.vote-option input[type="radio"]').forEach(radio => {
     radio.addEventListener('change', function() {

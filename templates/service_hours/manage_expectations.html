@@ -190,7 +190,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Delete confirmation
 document.querySelectorAll('.delete-form').forEach(form => {
     form.addEventListener('submit', function(e) {

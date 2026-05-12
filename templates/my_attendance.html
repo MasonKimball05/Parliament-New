@@ -209,7 +209,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function updateRange() {
     const range = document.getElementById('rangeFilter').value;
     const url = new URL(window.location.href);

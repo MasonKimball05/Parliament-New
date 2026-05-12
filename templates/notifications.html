@@ -169,7 +169,7 @@
     {% endif %}
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Helper function to get CSRF token (meta tag first, then cookie fallback)
 function getCsrf() {
     const meta = document.querySelector('meta[name="csrf-token"]');

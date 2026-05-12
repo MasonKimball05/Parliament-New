@@ -165,20 +165,7 @@ def bug_report_detail(request, bug_id):
 
 
 # Bug Report Admin - Only accessible by user_id 73
-BUG_ADMIN_USER_ID = '73'
-
-def bug_admin_required(view_func):
-    """Decorator to restrict access to bug admin (user_id 73)"""
-    from functools import wraps
-    @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return redirect('login')
-        if str(request.user.user_id) != BUG_ADMIN_USER_ID:
-            messages.error(request, 'You do not have permission to access this page.')
-            return redirect('bug_tracker')
-        return view_func(request, *args, **kwargs)
-    return wrapper
+from src.decorators import bug_admin_required
 
 
 @bug_admin_required

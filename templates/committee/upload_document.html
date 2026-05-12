@@ -82,7 +82,7 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Accepted formats: PDF, DOCX, DOC, TXT</p>
             </div>
 
-            <script>
+            <script nonce="{{ request.csp_nonce }}">
                 function toggleMeetingDate(docType) {
                     const meetingDateField = document.getElementById('meeting_date_field');
                     if (docType === 'minutes' || docType === 'agenda') {
@@ -121,7 +121,7 @@
                 </div>
             </div>
 
-            <script>
+            <script nonce="{{ request.csp_nonce }}">
                 function toggleFolderSelection() {
                     const publishCheckbox = document.getElementById('publish_to_chapter');
                     const folderSelection = document.getElementById('folder_selection');

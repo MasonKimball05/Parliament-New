@@ -285,7 +285,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Display current date
 const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
 document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', dateOptions);

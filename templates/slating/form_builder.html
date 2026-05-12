@@ -248,7 +248,7 @@
 {% endblock %}
 
 {% block slating_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Field type change handler
 document.getElementById('field_type').addEventListener('change', function() {
     const optionsField = document.getElementById('optionsField');

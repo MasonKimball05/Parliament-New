@@ -186,7 +186,7 @@
         overflow: visible;
     }
 </style>
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     // Check each announcement content to see if it's truncated
     document.querySelectorAll('.announcement-content-wrapper').forEach(function(wrapper) {

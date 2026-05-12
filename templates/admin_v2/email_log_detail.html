@@ -113,7 +113,7 @@
             <pre class="text-green-400 text-sm font-mono whitespace-pre-wrap">{{ log.console_log }}</pre>
         </div>
     </div>
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
         function toggleConsole() {
             const content = document.getElementById('console-content');
             const btn = document.getElementById('console-toggle');

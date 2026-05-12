@@ -1,11 +1,9 @@
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, get_object_or_404
 from ..decorators import *
 from ..models import *
 from django.contrib import messages
 from django.http import HttpResponseForbidden
 
-@login_required
 @officer_required
 @log_function_call
 def reopen_legislation(request, legislation_id):

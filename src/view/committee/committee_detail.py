@@ -1,8 +1,10 @@
-from src.models import *
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.conf import settings
+from django.db.models import Q
+from src.models import Committee, CommitteePermissions, ParliamentUser, KaiReport, SlatingPeriod
+from src.constants import MemberType, MemberStatus
 
 @login_required
 def committee_detail(request, code):
@@ -55,7 +57,7 @@ def committee_detail(request, code):
 
     # Get filtered user lists for different roles
     # Members dropdown: only active members
-    eligible_members = ParliamentUser.objects.filter(member_status='Active').order_by('name')
+    eligible_members = ParliamentUser.objects.filter(member_status=MemberStatus.ACTIVE).order_by('name')
 
     # Chairs dropdown: only current committee members who are NOT already chairs
     eligible_chairs = committee.members.exclude(
@@ -65,7 +67,7 @@ def committee_detail(request, code):
     # Advisors dropdown: active members + advisor member_type
     from django.db.models import Q
     eligible_advisors = ParliamentUser.objects.filter(
-        Q(member_status='Active') | Q(member_type='Advisor')
+        Q(member_status=MemberStatus.ACTIVE) | Q(member_type=MemberType.ADVISOR)
     ).order_by('name')
 
     # Voting members dropdown: committee members/chairs NOT already voting members
@@ -91,7 +93,7 @@ def committee_detail(request, code):
     }
 
     # If this is the Kai committee and user is a chair, add Kai reports
-    if committee.code == 'KAI' and (is_chair or user.is_admin):
+    if committee.is_kai_committee and (is_chair or user.is_admin):
         try:
             from src.models import KaiReport
             # Try select_related for production

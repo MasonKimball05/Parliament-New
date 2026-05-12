@@ -27,7 +27,6 @@ from django.http import JsonResponse
 logger = logging.getLogger('function_calls')
 
 
-@login_required
 @vpp_required
 def service_dashboard(request):
     """
@@ -137,7 +136,6 @@ def service_dashboard(request):
     return render(request, 'service_hours/dashboard.html', context)
 
 
-@login_required
 @vpp_required
 def view_service_submissions(request):
     """
@@ -175,7 +173,6 @@ def view_service_submissions(request):
     return render(request, 'service_hours/view_submissions.html', context)
 
 
-@login_required
 @vpp_required
 def manage_service_submission(request, submission_id):
     """
@@ -247,7 +244,6 @@ def manage_service_submission(request, submission_id):
     return render(request, 'service_hours/manage_submission.html', context)
 
 
-@login_required
 @vpp_required
 def bulk_actions_service(request):
     """
@@ -307,7 +303,6 @@ def bulk_actions_service(request):
     return redirect('view_service_submissions')
 
 
-@login_required
 @vpp_required
 def export_service_csv(request):
     """
@@ -348,7 +343,6 @@ def export_service_csv(request):
     return response
 
 
-@login_required
 @vpp_required
 def manage_service_periods(request):
     """
@@ -395,7 +389,6 @@ def manage_service_periods(request):
     return render(request, 'service_hours/manage_periods.html', context)
 
 
-@login_required
 @vpp_required
 def edit_service_period(request, period_id):
     """
@@ -420,7 +413,6 @@ def edit_service_period(request, period_id):
     return render(request, 'service_hours/edit_period.html', context)
 
 
-@login_required
 @vpp_required
 def manage_member_expectations(request, period_id):
     """
@@ -481,7 +473,6 @@ def manage_member_expectations(request, period_id):
     return render(request, 'service_hours/manage_expectations.html', context)
 
 
-@login_required
 @vpp_required
 def add_service_adjustment(request):
     """
@@ -541,7 +532,6 @@ def add_service_adjustment(request):
     })
 
 
-@login_required
 @vpp_required
 def delete_service_adjustment(request, adjustment_id):
     """
@@ -565,7 +555,6 @@ def delete_service_adjustment(request, adjustment_id):
     })
 
 
-@login_required
 @vpp_required
 def get_member_adjustments(request, period_id, member_id):
     """

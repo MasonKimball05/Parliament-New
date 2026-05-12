@@ -204,7 +204,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     function showCreateFolderModal() {
         document.getElementById('createFolderModal').classList.remove('hidden');
         document.getElementById('createFolderModal').classList.add('flex');

@@ -1,9 +1,11 @@
-from src.models import *
+import logging
 from django.utils import timezone
-from src.decorators import *
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 from django.contrib import messages
+from src.models import Attendance, Committee, ParliamentUser
+from src.decorators import officer_required, log_function_call
+from src.constants import MemberType
 
 @login_required
 @officer_required
@@ -17,7 +19,7 @@ def attendance(request):
         committees = Committee.objects.filter(chairs=request.user).order_by('name')
 
     # Only show Members, Chairs, and Officers (exclude Advisors and Pledges from attendance)
-    users = ParliamentUser.objects.filter(member_type__in=['Member', 'Chair', 'Officer']).order_by('user_id')
+    users = ParliamentUser.objects.filter(member_type__in=MemberType.CAN_VOTE).order_by('user_id')
 
     committee_id = request.GET.get("committee_id")
     selected_committee = None
@@ -31,7 +33,7 @@ def attendance(request):
                 return redirect('attendance')
 
             # Filter users to members of the selected committee (excluding Advisors and Pledges)
-            users = selected_committee.members.filter(member_type__in=['Member', 'Chair', 'Officer']).order_by('user_id')
+            users = selected_committee.members.filter(member_type__in=MemberType.CAN_VOTE).order_by('user_id')
         except Committee.DoesNotExist:
             selected_committee = None
 
@@ -48,9 +50,9 @@ def attendance(request):
 
         # Determine which users to update based on selected committee (excluding Advisors and Pledges)
         if selected_committee:
-            users_to_update = selected_committee.members.filter(member_type__in=['Member', 'Chair', 'Officer'])
+            users_to_update = selected_committee.members.filter(member_type__in=MemberType.CAN_VOTE)
         else:
-            users_to_update = ParliamentUser.objects.filter(member_type__in=['Member', 'Chair', 'Officer'])
+            users_to_update = ParliamentUser.objects.filter(member_type__in=MemberType.CAN_VOTE)
 
         for user in users_to_update:
             is_present = str(user.user_id) in present_ids

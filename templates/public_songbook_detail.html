@@ -6,7 +6,7 @@
     <title>{{ song.title }} — Chapter Songbook</title>
     <link rel="icon" type="image/png" href="/exportable_media/am-coat-of-arms.png">
 
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
         (function() {
             const stored = localStorage.getItem('theme');
             if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -83,7 +83,7 @@
     Beta Theta Pi · Alpha Mu at Samford University
 </footer>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     const toggle = document.getElementById('theme-toggle');
     const iconSun = document.getElementById('icon-sun');
     const iconMoon = document.getElementById('icon-moon');

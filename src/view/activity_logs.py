@@ -1,7 +1,6 @@
 """
 Activity logs view for officers
 """
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.core.paginator import Paginator
 from src.models import ActivityLog, ParliamentUser
@@ -13,7 +12,6 @@ from django.utils.timezone import localtime
 from src.utils.export_utils import export_to_csv
 
 
-@login_required
 @officer_required
 def activity_logs_view(request):
     """
@@ -109,7 +107,6 @@ def activity_logs_view(request):
     return render(request, 'activity_logs.html', context)
 
 
-@login_required
 @officer_required
 def export_activity_logs(request):
     """

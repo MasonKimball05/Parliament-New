@@ -285,7 +285,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Wrap all tables in a scrollable container for mobile responsiveness
 document.addEventListener('DOMContentLoaded', function() {
     const tables = document.querySelectorAll('.changelog-content table');

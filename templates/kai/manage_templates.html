@@ -80,7 +80,7 @@
                 {% if template.suggested_tags %}
                 <div>
                   <span class="font-semibold text-gray-700 dark:text-gray-300">Suggested Tags:</span>
-                  <span class="text-gray-600 dark:text-gray-400 ml-2">{{ template.suggested_tags }}</span>
+                  <span class="text-gray-600 dark:text-gray-400 ml-2">{{ template.suggested_tags|join:', ' }}</span>
                 </div>
                 {% endif %}
 

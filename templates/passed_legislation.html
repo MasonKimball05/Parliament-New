@@ -568,7 +568,7 @@
 </div>
 {% endif %}
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     function closeAddLegislationModal() {
         document.getElementById('addLegislationModal').classList.add('hidden');
         document.getElementById('addLegislationForm').reset();

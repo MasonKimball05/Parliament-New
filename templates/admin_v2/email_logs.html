@@ -168,7 +168,7 @@
     {% endif %}
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Prevent double form submission for all "Send Now" buttons
 document.querySelectorAll('.send-now-form').forEach(function(form) {
     form.addEventListener('submit', function(e) {

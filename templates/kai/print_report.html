@@ -289,7 +289,7 @@
     {% if report.tags %}
     <div class="field-group">
       <span class="field-label">Tags:</span>
-      <span class="field-value">{{ report.tags }}</span>
+      <span class="field-value">{{ report.tags|join:', ' }}</span>
     </div>
     {% endif %}
   </div>

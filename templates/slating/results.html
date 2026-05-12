@@ -268,7 +268,7 @@
 
 {% if period.status == 'voting_open' and is_committee %}
 <!-- Auto-refresh for live updates while voting is open -->
-<script>
+<script nonce="{{ request.csp_nonce }}">
     // Refresh the page every 30 seconds to show live results
     setTimeout(function() {
         location.reload();

@@ -13,7 +13,7 @@ def manage_chapter_documents(request):
     """View for officers to see and manage all chapter documents"""
     # Get the Chapter committee
     try:
-        chapter_committee = Committee.objects.get(code='CHAPTER')
+        chapter_committee = Committee.objects.get(is_chapter_committee=True)
         documents = CommitteeDocument.objects.filter(committee=chapter_committee).select_related('uploaded_by', 'chapter_folder').order_by('-uploaded_at')
     except Committee.DoesNotExist:
         documents = CommitteeDocument.objects.none()

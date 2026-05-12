@@ -216,4 +216,6 @@ def home(request):
         'slating_slate_candidates': slating_slate_candidates,
     }
 
-    return render(request, 'home.html', context)
+    layout = getattr(request.user.preferences, 'home_layout', 'modern')
+    template = 'home_classic.html' if layout == 'classic' else 'home_modern.html'
+    return render(request, template, context)

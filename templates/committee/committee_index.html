@@ -161,7 +161,7 @@
     {% endif %}
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     function toggleDropdown() {
         const dropdown = document.getElementById('committeeDropdown');
         const overlay = document.getElementById('dropdownOverlay');

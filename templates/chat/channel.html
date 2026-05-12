@@ -186,7 +186,7 @@
     {% endif %}
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     const channelId = {{ channel.id }};
     const committeeCode = {% if committee_code %}"{{ committee_code }}"{% else %}null{% endif %};
     const currentUserId = {{ request.user.user_id }};

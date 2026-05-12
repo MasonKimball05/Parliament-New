@@ -190,7 +190,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function toggleRejectionReasons() {
     const rejectRadio = document.getElementById('vote_reject');
     const rejectionReasons = document.getElementById('rejection_reasons');

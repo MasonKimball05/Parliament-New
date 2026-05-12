@@ -252,7 +252,7 @@
     </form>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function togglePositionRow(checkbox, positionId) {
     const select = document.querySelector('.member-select-' + positionId);
     if (select) {

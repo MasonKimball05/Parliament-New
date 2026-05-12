@@ -494,7 +494,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Store filtered user lists for each role type
 const eligibleMembers = [
     {% for user in eligible_members %}

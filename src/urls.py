@@ -3,7 +3,29 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
-from src.view.officer import *
+from src.view.officer.officer_home import officer_home
+from src.view.officer.attendance import attendance
+from src.view.officer.user_list import user_list, export_user_list
+from src.view.officer.make_event import make_event
+from src.view.officer.manage_event import manage_event
+from src.view.officer.view_logs import view_logs
+from src.view.officer.upload_report import upload_report
+from src.view.officer.view_all_events import view_all_events
+from src.view.officer.view_all_reports import view_all_reports
+from src.view.officer.view_all_activity import view_all_activity
+from src.view.officer.view_archived_events import view_archived_events
+from src.view.officer.archive_event import archive_event, unarchive_event
+from src.view.officer.manage_resolutions import (
+    manage_resolutions, create_resolution, edit_resolution, delete_resolution,
+    manage_section_impacts, add_section_impact, edit_section_impact, delete_section_impact
+)
+from src.view.officer.manage_announcements import (
+    manage_announcements, create_announcement, edit_announcement, delete_announcement,
+    toggle_announcement_status, track_email_view, announcement_stats,
+    confirm_announcement_email, send_announcement_emails, skip_announcement_email,
+    warmup_announcement_email, cancel_warmup_announcement_email
+)
+from src.view.officer.edit_landing_page import edit_landing_page
 from src.view.officer.contact_submissions import contact_submissions_view, mark_contact_read, mark_all_contact_read
 from src.view.officer.event_attendance import event_attendance_list, mark_event_attendance, review_excuses
 from src.view.officer.attendance_dashboard import attendance_dashboard, member_attendance_detail
@@ -12,19 +34,39 @@ from src.view.officer.chapter_minutes import (
     save_minutes_data, save_minutes_attendance, publish_chapter_minutes,
     download_minutes_pdf, delete_chapter_minutes
 )
-from src.view.officer.manage_announcements import (
-    track_email_view, announcement_stats, confirm_announcement_email,
-    send_announcement_emails, skip_announcement_email,
-    warmup_announcement_email, cancel_warmup_announcement_email
+from src.view.committee.committee_index import (
+    committee_index, create_committee, manage_committees, committee_detail_api, delete_committee
 )
-from src.view.committee import *
+from src.view.committee.committee_home import committee_home
+from src.view.committee.committee_detail import committee_detail
+from src.view.committee.documents import committee_documents
+from src.view.committee.vote import committee_vote, create_committee_runoff
+from src.view.committee.vote_result import committee_vote_result
+from src.view.committee.delete_vote import delete_committee_vote
+from src.view.committee.manage_members import committee_manage_members
+from src.view.committee.upload_document import committee_upload_document
+from src.view.committee.add_member import committee_add_member
+from src.view.committee.remove_member import committee_remove_member
+from src.view.committee.create_vote import committee_create_vote
+from src.view.committee.push_to_chapter import committee_push_to_chapter, create_chapter_vote_from_committee
+from src.view.committee.unpush_from_chapter import committee_unpush_from_chapter, delete_chapter_vote_link
+from src.view.committee.recalculate_vote import recalculate_committee_vote
+from src.view.committee.toggle_document_publish import toggle_document_publish
+from src.view.committee.delete_document import delete_committee_document
+from src.view.committee.committee_attendance import committee_attendance, committee_attendance_history
+from src.view.committee.chat import committee_chat, get_chat_messages, send_chat_message, delete_chat_message, get_active_users
+from src.view.committee.edit_committee_chat import edit_committee_chat_settings
 from src.view.committee.committee_minutes_editor import (
     committee_minutes_list, create_committee_minutes, edit_committee_minutes,
     save_committee_minutes_data, save_committee_minutes_attendance,
     publish_committee_minutes, download_committee_minutes_pdf, delete_committee_minutes
 )
 from src.view.committee.manage_chat_permissions import manage_chat_permissions, add_guest_permission, update_guest_permission, remove_guest_permission
-from src.view.chat import *
+from src.view.chat import (
+    chat_index, channel_chat, get_channel_messages, send_channel_message,
+    edit_channel_message, delete_channel_message, get_channel_active_users,
+    create_channel, edit_channel, delete_channel,
+)
 from src.view.submit_excuse import my_excuses, submit_excuse, cancel_excuse, my_attendance
 from src.view.kai_reports import submit_kai_report, view_kai_reports, manage_kai_report, export_kai_reports_csv, print_kai_report, kai_dashboard, bulk_actions_kai_reports, manage_kai_templates, create_kai_template, edit_kai_template, delete_kai_template, track_kai_accused_email_view
 from src.view.kai_user_dashboard import user_kai_dashboard, user_view_report, request_closure, request_drop_case

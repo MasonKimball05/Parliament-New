@@ -228,7 +228,7 @@
 </div>
 
 {% if submission.status == 'pending' %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.getElementById('review-form').addEventListener('submit', function(e) {
     const action = e.submitter.value;
     const notes = document.getElementById('reviewer_notes').value.trim();

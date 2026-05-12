@@ -106,7 +106,7 @@
                                                 <div class="truncate text-[10px] sm:text-xs">{{ event.title }}</div>
                                             </div>
                                             <!-- Hidden event details modal trigger -->
-                                            <script>
+                                            <script nonce="{{ request.csp_nonce }}">
                                                 function showEventDetails{{ event.id }}() {
                                                     document.getElementById('eventModal{{ event.id }}').classList.remove('hidden');
                                                 }
@@ -301,7 +301,7 @@
     }
 </style>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     // Current month and year state
     let currentMonth = {{ month }};
     let currentYear = {{ year }};

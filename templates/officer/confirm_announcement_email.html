@@ -225,7 +225,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
         // Warmup state tracking
         let warmupStatus = 'pending';
         let warmupLogId = null;

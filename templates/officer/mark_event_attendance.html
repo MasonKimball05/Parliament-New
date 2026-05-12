@@ -416,7 +416,7 @@
     </form>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Toggle excuse preview dropdown
 function toggleExcusePreview(id) {
     const el = document.getElementById(id);

@@ -250,7 +250,7 @@
     </form>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     // Capture browser info
     document.getElementById('browser_info').value = navigator.userAgent;
 

@@ -17,7 +17,7 @@ The script will:
 - Clear warning when form is submitted
 {% endcomment %}
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 (function() {
     /**
      * Unsaved Changes Tracker

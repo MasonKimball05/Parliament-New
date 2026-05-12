@@ -231,7 +231,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Prevent double form submission
 document.getElementById('edit-form').addEventListener('submit', function(e) {
     const submitBtn = document.getElementById('submit-btn');

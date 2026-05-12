@@ -94,7 +94,6 @@ def _ensure_builtin_fields():
         )
 
 
-@login_required
 @vpp_required
 def service_form_builder(request):
     """
@@ -265,7 +264,6 @@ def reorder_service_fields(request):
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
 
 
-@login_required
 @vpp_required
 def get_service_field_details(request, field_id):
     """

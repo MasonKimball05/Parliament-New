@@ -51,6 +51,72 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.14.0 - UserPreferences JSON Consolidation (05-11-2026)
+20 boolean preference columns (`email_announcements`, `show_vote_menu`, `notify_announcements`, etc.) consolidated into a single `prefs` JSONField. Properties with identical names maintain the existing interface — templates, notification service, and most view code unchanged. New preferences now require only a default value, not a schema migration. `UserPreferencesForm` rewritten as a plain Form with `instance=` support and a `save()` method. ORM filter queries updated to use JSON path traversal. Migration `0158`.
+
+**Deployment Status:** Not yet deployed
+
+**Type:** Feature / Code Quality
+
+---
+
+### v2.13.4 - JSON Storage Migration (05-11-2026)
+Three model fields migrated from comma-separated strings to `JSONField`: `KaiReport.tags`, `KaiReportTemplate.suggested_tags`, and `SystemLockdown.whitelisted_ips`. `is_ip_whitelisted()` simplified from a manual split to `return ip in self.whitelisted_ips`. `KaiReport.get_tags_list()` simplified to return the field directly. All write paths (views, forms) and display paths (templates, CSV exports) updated. Migration `0157` handles data conversion.
+
+**Deployment Status:** Not yet deployed
+
+**Type:** Code Quality / Maintainability
+
+---
+
+### v2.13.3 - Decorator Hardening (05-10-2026)
+Four decorator layer fixes: (1) `@wraps(view_func)` added to all six decorators in `src/decorators.py` — without it, Django sees every decorated view as a function named `wrapper`. (2) `kai_chair_required` and `bug_admin_required` moved from view files into `src/decorators.py`; a weaker copy of `require_admin_v2_auth` in `notification_admin.py` replaced with an import of the real one from `admin_v2.py`. (3) Redundant `@login_required` removed from 17 views across 6 files — all custom decorators already check authentication. (4) Unused `login_required` imports removed.
+
+**Deployment Status:** Deployed
+
+**Type:** Code Quality / Maintainability
+
+**Migration required:** None
+
+**Changes:**
+- **`@wraps` added** — `log_function_call`, `committee_chair_required`, `officer_required`, `officer_or_advisor_required`, `admin_required`, `exclude_pledges`
+- **Decorator consolidation** — `kai_chair_required` and `bug_admin_required` moved to `src/decorators.py`; `notification_admin.py` now imports the full `require_admin_v2_auth` instead of its own weaker copy
+- **`@login_required` dead code removed** — 17 views across `service_hours.py`, `activity_logs.py`, `service_form_builder.py`, `submit_new_version.py`, `upload_legislation.py`, `reopen_legislation.py`
+
+---
+
+### v2.13.2 - Magic Strings, Wildcard Imports & Committee Flag Consistency (05-10-2026)
+Three code quality improvements: (1) `src/constants.py` added with `MemberType`, `MemberStatus`, and `CommitteeCode` — replaces bare string literals across models, views, and decorators. (2) All wildcard imports removed from `src/urls.py`, `src/decorators.py`, and five view files. (3) KAI and CHAPTER committees brought in line with EXEC/SLATING — now use `is_kai_committee` and `is_chapter_committee` boolean flags instead of hardcoded code comparisons; EXEC's one remaining code comparison in `is_chair()` also fixed.
+
+**Deployment Status:** Deployed
+
+**Type:** Code Quality / Maintainability
+
+**Migration required:** `0155_committee_kai_and_chapter_flags`
+
+**Changes:**
+- **`src/constants.py`** — `MemberType`, `MemberStatus`, `CommitteeCode` constant classes
+- **Magic strings eliminated** — member type/status comparisons in `src/models.py`, `src/decorators.py`, and four view files
+- **Wildcard imports removed** — `src/urls.py` (3 wildcards), `src/decorators.py`, 5 view files
+- **`is_kai_committee` flag** — added to `Committee` model; replaces 15+ `code='KAI'` comparisons across `kai_form_builder.py`, `kai_reports.py`, `kai_user_dashboard.py`, `global_search.py`, `committee_detail.py`
+- **`is_chapter_committee` flag** — added to `Committee` model; replaces `code='CHAPTER'` in `manage_chapter_documents.py`
+- **EXEC `is_chair()` fix** — `self.code == 'EXEC'` → `self.is_exec_board` (the flag already existed; this was a missed instance)
+
+---
+
+### v2.13.1 - CSP Nonce Hardening (05-10-2026)
+Removes `'unsafe-inline'` from `script-src` by replacing it with a per-request cryptographic nonce across all templates.
+
+**Deployment Status:** Deployed
+
+**Type:** Security Update
+
+**Security:**
+
+- **CSP `script-src` — Remove `unsafe-inline`**: A random nonce is generated per request (`secrets.token_urlsafe(16)`) and attached to `request.csp_nonce`. `InputSanitizationMiddleware` now emits `script-src 'self' 'nonce-{nonce}'` instead of `'unsafe-inline'`. All inline `<script>` tags across every template now carry `nonce="{{ request.csp_nonce }}"`. Any injected script without the nonce is blocked by the browser before it executes, even if it reaches the page
+
+---
+
 ### v2.13.0 - Security Patch (05-06-2026)
 Critical security fixes for IP spoofing, stored XSS, and honeypot ban propagation.
 

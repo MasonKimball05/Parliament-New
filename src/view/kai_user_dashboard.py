@@ -63,7 +63,7 @@ def user_kai_dashboard(request):
     # Check if user is Kai chair (to show admin link)
     is_kai_chair = False
     try:
-        kai_committee = Committee.objects.get(code='KAI')
+        kai_committee = Committee.objects.get(is_kai_committee=True)
         is_kai_chair = kai_committee.is_chair(user)
     except Committee.DoesNotExist:
         pass
@@ -202,7 +202,7 @@ def request_closure(request, report_id):
 
             # Notify Kai chair(s) via email
             try:
-                kai_committee = Committee.objects.get(code='KAI')
+                kai_committee = Committee.objects.get(is_kai_committee=True)
                 chair_emails = [
                     chair.email for chair in kai_committee.chairs.all()
                     if chair.email
@@ -292,7 +292,7 @@ def request_drop_case(request, report_id):
 
             # Notify Kai chair(s) via email
             try:
-                kai_committee = Committee.objects.get(code='KAI')
+                kai_committee = Committee.objects.get(is_kai_committee=True)
                 chair_emails = [
                     chair.email for chair in kai_committee.chairs.all()
                     if chair.email

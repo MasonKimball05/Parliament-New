@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
 
     <!-- Dark Mode Initialization - MUST run BEFORE styles apply -->
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
         (function() {
             const theme = '{{ user.preferences.theme|default:"light" }}';
             if (theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -433,7 +433,7 @@
     </div>
 
     <!-- Dev Tools JavaScript -->
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
     window.DevTools = (function() {
         const panel = document.getElementById('devtools-panel');
         const tabs = document.querySelectorAll('.devtools-tab');
@@ -943,7 +943,7 @@
     {% endif %}
 
     <!-- Mobile Menu Toggle Script -->
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
         const mobileMenuButton = document.getElementById('mobile-menu-button');
         const mobileMenu = document.getElementById('mobile-menu');
         const menuOpenIcon = document.getElementById('menu-open-icon');
@@ -1077,7 +1077,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
         function closeEmailModal() {
             if (window.ParliamentModal) {
                 ParliamentModal.close('emailModal');
@@ -1150,7 +1150,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
         function closeEmailFlaggedModal() {
             const modal = document.getElementById('emailFlaggedModal');
             if (modal) modal.style.display = 'none';
@@ -1270,7 +1270,7 @@
     </footer>
 
     <!-- Announcement Dismiss Script -->
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
         function dismissAnnouncement(announcementId) {
             fetch(`/api/dismiss-announcement/${announcementId}/`, {
                 method: 'POST',
@@ -1322,7 +1322,7 @@
 
     <!-- User Context for Quick Actions -->
     {% if user.is_authenticated %}
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
         window.userIsOfficer = {{ user.can_manage_events|yesno:"true,false" }};
         window.userIsAdmin = {{ user.is_admin|yesno:"true,false" }};
     </script>
@@ -1331,7 +1331,7 @@
     <script src="{% static 'js/quick-actions.js' %}"></script>
 
     <!-- Global Form Submit Protection (prevent double-clicks on slow connections) -->
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
     (function() {
         // Track forms that have been submitted
         const submittedForms = new WeakSet();
@@ -1381,7 +1381,7 @@
     </script>
 
     <!-- Notification Dropdown Script -->
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
     (function() {
         const bell = document.getElementById('notification-bell');
         const dropdown = document.getElementById('notification-dropdown');
@@ -1490,7 +1490,7 @@
     {% endif %}
 
     <!-- Modal Accessibility Utility -->
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
     /**
      * Modal Accessibility Helper
      * Provides Escape key handling, focus trapping, and ARIA support for modals.

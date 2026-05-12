@@ -273,7 +273,15 @@ def login_view(request):
                     next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
                 ):
                     return redirect(next_url)
-                return redirect('home')
+
+                # Respect user's preferred landing page
+                landing = getattr(getattr(user, 'preferences', None), 'landing_page', 'home')
+                landing_map = {
+                    'announcements': 'announcements',
+                    'calendar': 'calendar',
+                    'vote': 'vote',
+                }
+                return redirect(landing_map.get(landing, 'home'))
             else:
                 # Disabled account also counts as failed attempt
                 is_locked, remaining, lockout_until = record_failed_attempt(ip_address)

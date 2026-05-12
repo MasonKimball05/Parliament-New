@@ -321,7 +321,7 @@
                     </div>
                 </div>
             </div>
-            <script>
+            <script nonce="{{ request.csp_nonce }}">
                 // Show iOS PWA notice if applicable
                 if (window.navigator.standalone === true) {
                     document.getElementById('iosPwaNotice').classList.remove('hidden');
@@ -381,7 +381,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // iOS PWA standalone mode detection and link handling
 (function() {
     // Detect if running as iOS PWA (standalone mode)

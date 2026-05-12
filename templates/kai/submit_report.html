@@ -35,7 +35,7 @@
                   data-category="{{ template.category }}"
                   data-title="{{ template.title_template }}"
                   data-description="{{ template.description_template }}"
-                  data-tags="{{ template.suggested_tags }}">
+                  data-tags="{{ template.suggested_tags|join:', ' }}">
             {{ template.name }} ({{ template.get_category_display }})
           </option>
           {% endfor %}
@@ -295,7 +295,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function addTag(tag) {
   const tagsInput = document.getElementById('{{ form.tags.id_for_label }}');
   const currentTags = tagsInput.value.trim();

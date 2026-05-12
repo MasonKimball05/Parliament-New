@@ -85,7 +85,7 @@ Or for inline delete buttons with dynamic URLs:
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 (function() {
     // Initialize the modal with accessibility features
     if (window.ParliamentModal) {

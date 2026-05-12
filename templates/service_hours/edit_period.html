@@ -121,7 +121,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.getElementById('edit-form').addEventListener('submit', function(e) {
     const saveBtn = document.getElementById('save-btn');
     const saveText = document.getElementById('save-text');

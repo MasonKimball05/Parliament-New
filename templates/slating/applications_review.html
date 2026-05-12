@@ -171,7 +171,7 @@
 {% endblock %}
 
 {% block slating_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.getElementById('selectAll').addEventListener('change', function() {
     document.querySelectorAll('.app-checkbox').forEach(cb => cb.checked = this.checked);
 });

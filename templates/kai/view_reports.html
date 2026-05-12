@@ -247,7 +247,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
   // Bulk actions JavaScript
   const selectAllCheckbox = document.getElementById('selectAll');
   const reportCheckboxes = document.querySelectorAll('.report-checkbox');

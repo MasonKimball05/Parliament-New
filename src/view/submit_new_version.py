@@ -2,13 +2,11 @@ from ..models import *
 from ..decorators import *
 from ..forms import *
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core.exceptions import ValidationError
 from src.utils.file_validation import validate_uploaded_file
 
-@login_required
 @officer_required
 @log_function_call
 def submit_new_version(request, legislation_id):

@@ -333,7 +333,7 @@
 </div>
 
 {% block extra_js %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function toggleDetail(id) {
     const row = document.getElementById(id);
     if (row) row.classList.toggle('hidden');

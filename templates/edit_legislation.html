@@ -299,7 +299,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     const modeSelect = document.getElementById("vote_mode");
     const percentDiv = document.getElementById("percentage-section");
     const piecewiseDiv = document.getElementById("piecewise-section");

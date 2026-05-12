@@ -188,7 +188,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Default date to today
 document.addEventListener('DOMContentLoaded', function() {
     const dateInput = document.getElementById('createDate');

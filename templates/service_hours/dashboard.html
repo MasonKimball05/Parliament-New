@@ -282,7 +282,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function openAdjustModal(memberId, memberName) {
     document.getElementById('adjust-member-id').value = memberId;
     document.getElementById('adjust-member-name').textContent = memberName;

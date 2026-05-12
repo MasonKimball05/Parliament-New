@@ -118,10 +118,15 @@ def profile_view(request):
 
         elif notification_prefs_submitted:
             prefs, _ = UserPreferences.objects.get_or_create(user=user)
-            prefs.notify_announcements = request.POST.get('notify_announcements') == 'on'
-            prefs.notify_legislation = request.POST.get('notify_legislation') == 'on'
-            prefs.notify_events = request.POST.get('notify_events') == 'on'
-            prefs.save(update_fields=['notify_announcements', 'notify_legislation', 'notify_events'])
+            current_prefs = prefs.prefs or UserPreferences.get_defaults()
+            current_notifications = current_prefs.get('notifications', UserPreferences.get_defaults()['notifications'])
+            current_notifications.update({
+                'announcements': request.POST.get('notify_announcements') == 'on',
+                'legislation': request.POST.get('notify_legislation') == 'on',
+                'events': request.POST.get('notify_events') == 'on',
+            })
+            prefs.prefs = {**current_prefs, 'notifications': current_notifications}
+            prefs.save(update_fields=['prefs'])
             logger.info(f"{user.username} updated notification preferences")
             messages.success(request, "Notification preferences updated.")
             return redirect('profile')

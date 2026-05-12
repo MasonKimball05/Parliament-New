@@ -496,7 +496,7 @@
 <!-- ============================== -->
 <!-- JAVASCRIPT -->
 <!-- ============================== -->
-<script>
+<script nonce="{{ request.csp_nonce }}">
 const CSRF_TOKEN = '{{ csrf_token }}';
 const MINUTES_ID = {{ minutes.id }};
 {% if is_committee_minutes %}

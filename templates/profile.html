@@ -210,7 +210,7 @@
             </svg>
             Notification Preferences
         </h2>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Choose which in-app notifications you receive.</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Quick toggle for in-app notifications. For full preferences including email and display settings, visit <a href="{% url 'preferences' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Preferences</a>.</p>
 
         <form method="POST">
             {% csrf_token %}
@@ -241,6 +241,15 @@
                         <p class="text-xs text-gray-500 dark:text-gray-400">New events created by officers</p>
                     </div>
                     <input type="checkbox" name="notify_events" {% if notif_prefs.notify_events %}checked{% endif %}
+                           class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700">
+                </label>
+
+                <label class="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition cursor-pointer">
+                    <div>
+                        <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Officer Elections (Slating)</span>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">When nominations open, voting opens, and results are published</p>
+                    </div>
+                    <input type="checkbox" name="notify_slating" {% if notif_prefs.notify_slating %}checked{% endif %}
                            class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700">
                 </label>
             </div>
@@ -565,7 +574,7 @@
 <!-- Cropper.js JavaScript -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     const fileInput = document.getElementById('profile-picture-input');
     const cropModal = document.getElementById('crop-modal');

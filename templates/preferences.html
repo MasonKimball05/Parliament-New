@@ -179,13 +179,44 @@
                 </svg>
                 In-App Notifications
             </h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Choose which in-app notifications you receive.</p>
             <div class="space-y-4">
                 <div class="flex items-center">
-                    {{ form.show_announcement_popups }}
-                    <label for="{{ form.show_announcement_popups.id_for_label }}" class="ml-3 text-sm">
-                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.show_announcement_popups.label }}</span>
-                        <p class="text-gray-500 dark:text-gray-400">{{ form.show_announcement_popups.help_text }}</p>
+                    {{ form.notify_announcements }}
+                    <label for="{{ form.notify_announcements.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.notify_announcements.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">New announcements posted by officers</p>
                     </label>
+                </div>
+                <div class="flex items-center">
+                    {{ form.notify_legislation }}
+                    <label for="{{ form.notify_legislation.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.notify_legislation.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">New legislation available and vote results</p>
+                    </label>
+                </div>
+                <div class="flex items-center">
+                    {{ form.notify_events }}
+                    <label for="{{ form.notify_events.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.notify_events.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">New events created by officers</p>
+                    </label>
+                </div>
+                <div class="flex items-center">
+                    {{ form.notify_slating }}
+                    <label for="{{ form.notify_slating.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.notify_slating.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">Notifications when nominations open, voting opens, and results are published</p>
+                    </label>
+                </div>
+                <div class="border-t border-gray-100 dark:border-gray-700 pt-4">
+                    <div class="flex items-center">
+                        {{ form.show_announcement_popups }}
+                        <label for="{{ form.show_announcement_popups.id_for_label }}" class="ml-3 text-sm">
+                            <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.show_announcement_popups.label }}</span>
+                            <p class="text-gray-500 dark:text-gray-400">Show pop-up banners when new announcements are posted</p>
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -198,13 +229,30 @@
                 </svg>
                 Display Settings
             </h2>
-            <div class="space-y-4">
+            <div class="space-y-6">
                 <div class="flex items-center">
                     {{ form.compact_view }}
                     <label for="{{ form.compact_view.id_for_label }}" class="ml-3 text-sm">
                         <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.compact_view.label }}</span>
                         <p class="text-gray-500 dark:text-gray-400">{{ form.compact_view.help_text }}</p>
                     </label>
+                </div>
+                <div>
+                    <label for="{{ form.home_layout.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        {{ form.home_layout.label }}
+                    </label>
+                    {{ form.home_layout }}
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        <strong>Modern</strong> — stat strip, content grid, featured cards, quick links.
+                        <strong>Classic</strong> — card-based quick-action grid with announcement and event sections below.
+                    </p>
+                </div>
+                <div>
+                    <label for="{{ form.landing_page.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        {{ form.landing_page.label }}
+                    </label>
+                    {{ form.landing_page }}
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Where you land after logging in (overridden if you followed a direct link).</p>
                 </div>
             </div>
         </div>
@@ -291,7 +339,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
     // Menu checkbox limit validation (max 9 items)
     document.addEventListener('DOMContentLoaded', function() {
         const menuCheckboxes = document.querySelectorAll('.menu-checkbox');

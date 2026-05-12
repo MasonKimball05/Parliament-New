@@ -15,24 +15,9 @@ import json
 import logging
 
 from src.models import Committee, KaiFormField, KaiReportActivity
+from src.decorators import kai_chair_required
 
 logger = logging.getLogger('function_calls')
-
-
-def kai_chair_required(view_func):
-    """Decorator to check if user is Kai chair or admin."""
-    def wrapper(request, *args, **kwargs):
-        try:
-            kai_committee = Committee.objects.get(code='KAI')
-            if not kai_committee.is_chair(request.user) and not request.user.is_admin:
-                messages.error(request, 'Only Kai chairs can access the form builder.')
-                return redirect('home')
-        except Committee.DoesNotExist:
-            if not request.user.is_admin:
-                messages.error(request, 'Kai committee not found. Please contact an administrator.')
-                return redirect('home')
-        return view_func(request, *args, **kwargs)
-    return wrapper
 
 
 @login_required
@@ -71,7 +56,7 @@ def kai_form_builder(request):
 
     # Get Kai committee for context
     try:
-        kai_committee = Committee.objects.get(code='KAI')
+        kai_committee = Committee.objects.get(is_kai_committee=True)
     except Committee.DoesNotExist:
         kai_committee = None
 
@@ -258,7 +243,7 @@ def reorder_kai_fields(request):
     try:
         # Check permission
         try:
-            kai_committee = Committee.objects.get(code='KAI')
+            kai_committee = Committee.objects.get(is_kai_committee=True)
             if not kai_committee.is_chair(request.user) and not request.user.is_admin:
                 return JsonResponse({'status': 'error', 'message': 'Permission denied'}, status=403)
         except Committee.DoesNotExist:

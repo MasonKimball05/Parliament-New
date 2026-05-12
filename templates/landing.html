@@ -24,7 +24,7 @@
     <meta name="twitter:card" content="summary_large_image">
 
     <!-- Dark mode: read localStorage before Tailwind renders to avoid flash -->
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
         (function() {
             const stored = localStorage.getItem('theme');
             if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -429,7 +429,7 @@
 </footer>
 
 <!-- ── Scripts ────────────────────────────────────────────────────────────── -->
-<script>
+<script nonce="{{ request.csp_nonce }}">
     // Offset hero section by actual header height (accounts for optional banner)
     function adjustHeroPadding() {
         const header = document.querySelector('header');

@@ -896,7 +896,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // CSRF token helper
 function getCsrf() {
     const meta = document.querySelector('meta[name="csrf-token"]');

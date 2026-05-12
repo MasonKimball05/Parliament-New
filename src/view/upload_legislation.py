@@ -3,11 +3,9 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from ..forms import *
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
 from src.utils.file_validation import validate_uploaded_file
 from src.notification_service import notify_all_active_members
 
-@login_required
 @officer_required
 @log_function_call
 def upload_legislation(request):

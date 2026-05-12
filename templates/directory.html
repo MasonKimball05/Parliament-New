@@ -316,7 +316,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Export dropdown toggle
 function toggleExportMenu() {
     const menu = document.getElementById('exportMenu');

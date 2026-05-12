@@ -302,7 +302,7 @@
 }
 </style>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 // Global function for tier selection - called by onclick
 function selectTier(btn, tier) {
     var tierInputNames = {

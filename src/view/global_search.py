@@ -241,7 +241,7 @@ def global_search(request):
             results['slating_periods'] = slating_periods
 
     # Search Kai Reports (for Kai committee members and admins)
-    if request.user.is_admin or request.user.committees.filter(code='KAI').exists():
+    if request.user.is_admin or request.user.committees.filter(is_kai_committee=True).exists():
         kai_reports = KaiReport.objects.filter(
             Q(title__icontains=query) | Q(description__icontains=query)
         ).order_by('-submitted_at')[:10]

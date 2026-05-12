@@ -14,16 +14,7 @@ import json
 
 from src.models import NotificationSchedule, NotificationLog, Committee
 from src.decorators import admin_required
-
-
-def require_admin_v2_auth(view_func):
-    """Decorator to require Admin v2 authentication"""
-    def wrapper(request, *args, **kwargs):
-        if not request.session.get('admin_v2_authenticated'):
-            messages.warning(request, 'Please authenticate with Admin v2 first.')
-            return redirect('admin_v2_login')
-        return view_func(request, *args, **kwargs)
-    return wrapper
+from src.view.admin_v2 import require_admin_v2_auth
 
 
 @login_required

@@ -7,7 +7,7 @@
     <title>{% block title %}Admin Portal{% endblock %}</title>
 
     <!-- Dark Mode Initialization - MUST run BEFORE Tailwind loads -->
-    <script>
+    <script nonce="{{ request.csp_nonce }}">
         (function() {
             const theme = localStorage.getItem('theme') || 'light';
             if (theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
