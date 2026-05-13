@@ -51,6 +51,13 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.14.1 - Archive Detail Pages (05-12-2026)
+7 standalone detail pages (Officer Duties, Committee Details, Kai Procedures, Slating & Elections, Advisors, Academic Standards, Passed Resolutions) archived and removed from routing. All links to these pages removed from `constitution_bylaws.html`, `roberts_rules.html`, and `manage_resolutions.html`. No migration required.
+
+**Deployment Status:** Not yet deployed
+
+**Type:** Cleanup
+
 ### v2.14.0 - UserPreferences JSON Consolidation (05-11-2026)
 20 boolean preference columns (`email_announcements`, `show_vote_menu`, `notify_announcements`, etc.) consolidated into a single `prefs` JSONField. Properties with identical names maintain the existing interface — templates, notification service, and most view code unchanged. New preferences now require only a default value, not a schema migration. `UserPreferencesForm` rewritten as a plain Form with `instance=` support and a `save()` method. ORM filter queries updated to use JSON path traversal. Migration `0158`.
 

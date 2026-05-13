@@ -159,13 +159,6 @@ from src.view.submit_new_version import submit_new_version
 from src.view.login_as_view import login_as_view, login_as_user
 from src.view.roberts_rules import roberts_rules
 from src.view.constitution_bylaws import constitution_bylaws
-from src.view.passed_resolutions import passed_resolutions
-from src.view.officer_duties_detail import officer_duties_detail
-from src.view.committee_details import committee_details
-from src.view.kai_procedures_detail import kai_procedures_detail
-from src.view.slating_elections_detail import slating_elections_detail
-from src.view.advisors_detail import advisors_detail
-from src.view.academic_standards_detail import academic_standards_detail
 from src.view.view_document import (
     view_legislation_document, view_chapter_document,
     view_committee_document, view_passed_legislation_document,
@@ -229,13 +222,6 @@ urlpatterns = [
     path('roberts-rules/', roberts_rules, name='roberts_rules'),
     path('constitution-bylaws/', constitution_bylaws, name='constitution_bylaws'),
     path('reference-document/<str:doc_slug>/', view_reference_document, name='view_reference_document'),
-    path('constitution-bylaws/passed-resolutions/', passed_resolutions, name='passed_resolutions_detail'),
-    path('constitution-bylaws/officer-duties/', officer_duties_detail, name='officer_duties_detail'),
-    path('constitution-bylaws/committees/', committee_details, name='committee_details'),
-    path('constitution-bylaws/kai-procedures/', kai_procedures_detail, name='kai_procedures_detail'),
-    path('constitution-bylaws/slating-elections/', slating_elections_detail, name='slating_elections_detail'),
-    path('constitution-bylaws/advisors/', advisors_detail, name='advisors_detail'),
-    path('constitution-bylaws/academic-standards/', academic_standards_detail, name='academic_standards_detail'),
 
     # Password Reset URLs
     path('password-reset/', auth_views.PasswordResetView.as_view(template_name='registration/password_reset.html'), name='password_reset'),

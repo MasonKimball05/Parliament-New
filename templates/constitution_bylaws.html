@@ -167,49 +167,6 @@
                         <a href="#appendix-gpa" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">GPA Levels</a>
                         <a href="#appendix-terms" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">Common Terms</a>
 
-                        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-4 mb-1">Detail Pages</p>
-                        <a href="{% url 'passed_resolutions_detail' %}" class="block px-3 py-2 rounded hover:bg-emerald-50 dark:hover:bg-gray-700 text-sm text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 font-semibold">
-                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            Passed Resolutions →
-                        </a>
-                        <a href="{% url 'officer_duties_detail' %}" class="block px-3 py-2 rounded hover:bg-green-50 dark:hover:bg-gray-700 text-sm text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
-                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                            </svg>
-                            Officer Duties →
-                        </a>
-                        <a href="{% url 'committee_details' %}" class="block px-3 py-2 rounded hover:bg-purple-50 dark:hover:bg-gray-700 text-sm text-purple-700 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300">
-                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                            </svg>
-                            Committee Details →
-                        </a>
-                        <a href="{% url 'kai_procedures_detail' %}" class="block px-3 py-2 rounded hover:bg-yellow-50 dark:hover:bg-gray-700 text-sm text-yellow-700 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-300">
-                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                            </svg>
-                            Kai Procedures →
-                        </a>
-                        <a href="{% url 'slating_elections_detail' %}" class="block px-3 py-2 rounded hover:bg-red-50 dark:hover:bg-gray-700 text-sm text-red-700 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
-                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                            </svg>
-                            Slating & Elections →
-                        </a>
-                        <a href="{% url 'advisors_detail' %}" class="block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-blue-700 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
-                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                            </svg>
-                            Chapter Advisors →
-                        </a>
-                        <a href="{% url 'academic_standards_detail' %}" class="block px-3 py-2 rounded hover:bg-orange-50 dark:hover:bg-gray-700 text-sm text-orange-700 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300">
-                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                            </svg>
-                            Academic Standards →
-                        </a>
                     </nav>
                 </div>
             </div>
@@ -227,26 +184,6 @@
                             <p class="text-sm text-gray-600 dark:text-gray-400 mb-2"><strong>Note:</strong> All chapter meetings are governed by <a href="{% url 'roberts_rules' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Robert's Rules of Order</a>.</p>
                         </div>
 
-                        <!-- Passed Resolutions Link -->
-                        <div class="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border-l-4 border-green-500 dark:border-green-400 p-6 mb-6 rounded-r-lg">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center flex-1">
-                                    <svg class="w-6 h-6 text-green-600 dark:text-green-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    <div>
-                                        <h3 class="text-lg font-bold text-green-900 dark:text-green-100">Passed Resolutions & Amendments</h3>
-                                        <p class="text-sm text-gray-700 dark:text-gray-300">View all legislation that has impacted this document</p>
-                                    </div>
-                                </div>
-                                <a href="{% url 'passed_resolutions_detail' %}" class="ml-4 inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white font-semibold rounded-lg shadow transition-colors">
-                                    View Resolutions
-                                    <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                    </svg>
-                                </a>
-                            </div>
-                        </div>
                     </section>
 
                     <!-- CONSTITUTION -->
@@ -336,10 +273,6 @@
                                 </ul>
                             </div>
 
-                            <div class="bg-green-50 dark:bg-green-900/30 border-l-4 border-green-500 dark:border-green-400 p-4 mb-4">
-                                <p class="text-sm font-semibold text-green-900 dark:text-green-200 mb-2">📋 Detailed Officer Information</p>
-                                <p class="text-sm text-gray-700 dark:text-gray-300">For comprehensive duties, responsibilities, and expectations for each officer position, see our <a href="{% url 'officer_duties_detail' %}" class="text-blue-600 hover:underline font-semibold">Officer Duties Reference Guide</a>.</p>
-                            </div>
 
                             <p class="text-gray-700 dark:text-gray-300 mb-4">No member of the chapter may hold a title or office without first being elected to that position by the chapter.</p>
                         </section>
@@ -489,10 +422,6 @@
                                 </ul>
                             </div>
 
-                            <div class="bg-purple-50 dark:bg-purple-900/30 border-l-4 border-purple-500 dark:border-purple-400 p-4 mb-4">
-                                <p class="text-sm font-semibold text-purple-900 dark:text-purple-200 mb-2">📋 Detailed Committee Information</p>
-                                <p class="text-sm text-gray-700 dark:text-gray-300">For complete information on committee composition, meetings, responsibilities, and chair duties, see our <a href="{% url 'committee_details' %}" class="text-blue-600 dark:text-blue-400 hover:underline font-semibold">Committee Details Reference Guide</a>.</p>
-                            </div>
                         </section>
 
                         <!-- Article VI: Amendments to the Constitution -->
@@ -537,7 +466,7 @@
                                 <ul class="space-y-3 text-gray-700 dark:text-gray-300">
                                     <li><strong>Cultivation of the Intellect:</strong>
                                         <ul class="list-disc pl-6 mt-1 text-sm">
-                                            <li>Maintain GPA at or above All Men's Average or 3.0 (whichever is higher) - <a href="{% url 'academic_standards_detail' %}" class="text-blue-600 hover:underline font-semibold">See Academic Standards Guide</a></li>
+                                            <li>Maintain GPA at or above All Men's Average or 3.0 (whichever is higher)</li>
                                             <li>No cheating, plagiarism, or academic dishonesty</li>
                                         </ul>
                                     </li>
@@ -643,10 +572,6 @@
                                 <li>If slate fails 3 times, individual office votes occur</li>
                             </ul>
 
-                            <div class="bg-red-50 dark:bg-red-900/30 border-l-4 border-red-500 dark:border-red-400 p-4 mb-4">
-                                <p class="text-sm font-semibold text-red-900 dark:text-red-200 mb-2">🗳️ Complete Election Process</p>
-                                <p class="text-sm text-gray-700 dark:text-gray-300">For the complete officer slating and election process, including eligibility requirements, timelines, voting methods, and post-election procedures, see our <a href="{% url 'slating_elections_detail' %}" class="text-blue-600 dark:text-blue-400 hover:underline font-semibold">Officer Slating & Elections Guide</a>.</p>
-                            </div>
                         </section>
 
                         <!-- Article III: Self-Governance -->
@@ -656,7 +581,6 @@
                             <div class="bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-500 dark:border-yellow-400 p-4 mb-4">
                                 <p class="text-sm font-semibold text-yellow-900 dark:text-yellow-200 mb-2">📚 Reference Documents & Resources</p>
                                 <div class="text-sm text-gray-700 dark:text-gray-300 space-y-1">
-                                    <p>• <a href="{% url 'kai_procedures_detail' %}" class="text-blue-600 dark:text-blue-400 hover:underline font-semibold">Kai Procedures Detail Page</a> - Interactive guide to the complete Kai process, violations, sanctions, and member rights</p>
                                     <p>• <a href="/media/legislation_docs/Kai-Binder.pdf" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Kai Committee Binder</a> - Complete procedures and guidelines for Kai Committee operations</p>
                                     <p>• <a href="/media/legislation_docs/Trial-By-Chapter-Overview.pdf" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Trial by Chapter Overview</a> - Process for severe violations requiring expulsion consideration</p>
                                 </div>
@@ -725,10 +649,6 @@
                                 </tbody>
                             </table>
 
-                            <div class="bg-orange-50 dark:bg-orange-900/30 border-l-4 border-orange-500 dark:border-orange-400 p-4 mb-4">
-                                <p class="text-sm font-semibold text-orange-900 dark:text-orange-200 mb-2">📚 Comprehensive Academic Standards Information</p>
-                                <p class="text-sm text-gray-700 dark:text-gray-300">For detailed information on each academic standing level, support resources available, officer GPA requirements, academic integrity expectations, and frequently asked questions, see our <a href="{% url 'academic_standards_detail' %}" class="text-blue-600 dark:text-blue-400 hover:underline font-semibold">Academic Standards Reference Guide</a>.</p>
-                            </div>
                         </section>
 
                         <!-- Article IV: Financial -->
@@ -911,10 +831,6 @@
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Purpose</h3>
                             <p class="text-gray-700 dark:text-gray-300 mb-4">Provide advice and assistance in chapter operations and development of culture and identity, as well as a sustained link between multiple Executive Boards.</p>
 
-                            <div class="bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500 dark:border-blue-400 p-4 mb-4">
-                                <p class="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-2">👥 Detailed Advisor Information</p>
-                                <p class="text-sm text-gray-700 dark:text-gray-300">For comprehensive information on advisor roles, responsibilities, how they help, when to contact them, and the advisor selection process, see our <a href="{% url 'advisors_detail' %}" class="text-blue-600 dark:text-blue-400 hover:underline font-semibold">Chapter Advisors Reference Guide</a>.</p>
-                            </div>
                         </section>
 
                         <!-- Article X: Amendments to the Bylaws -->
