@@ -397,13 +397,13 @@ See the [changelogs/](changelogs/) directory for detailed per-version release no
 
 | Version | Status | Summary |
 |---------|--------|---------|
-| [v2.12.0](changelogs/v2.12.0-landing-page-overhaul.md) | In Development | Landing page officer editor, contact form routing, photo library, SEO |
+| [v2.12.0](changelogs/v2.12.0.md) | In Development | Landing page officer editor, contact form routing, photo library, SEO |
 | [v2.11.1](changelogs/v2.11.1.md) | Deployed | Timezone fixes, announcement inactive members, co-authors, legislation bugs |
 | [v2.11.0](changelogs/v2.11.0.md) | Deployed | Attack mitigation (quarantine, honeypots, lockdown), admin v2 redesign |
 | [v2.10.0](changelogs/v2.10.0.md) | Deployed | Songbook lyrics, pledge initiation fixes |
 | [v2.9.0](changelogs/v2.9.0.md) | Deployed | Login rate limiting, SQL injection/XSS middleware, IP blacklisting |
 | [v2.8.x](changelogs/v2.8.6.md) | Deployed | Service hours system, directory export, chat, calendar subscriptions |
-| [v2.7.x](changelogs/v2.7.0-slating-system.md) | Deployed | Officer slating/election system |
+| [v2.7.x](changelogs/v2.7.0.md) | Deployed | Officer slating/election system |
 | [v2.6.x](changelogs/v2.6.4.md) | Deployed | Admin v2 dashboard, feature flags, page toggles |
 
 ---
