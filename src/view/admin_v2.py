@@ -936,7 +936,7 @@ def toggle_watch_flag(request, user_id):
     """Add, update, or remove a watch flag on a user."""
     from django.views.decorators.http import require_POST as _require_POST
     if request.method != 'POST':
-        return redirect('user_login_security', user_id=user_id)
+        return redirect('admin_v2_user_login_security', user_id=user_id)
 
     target_user = get_object_or_404(ParliamentUser, user_id=user_id)
     action = request.POST.get('action')
@@ -948,7 +948,7 @@ def toggle_watch_flag(request, user_id):
         notes = request.POST.get('notes', '').strip()
         if not reason:
             messages.error(request, "A reason is required to place a watch flag.")
-            return redirect('user_login_security', user_id=user_id)
+            return redirect('admin_v2_user_login_security', user_id=user_id)
         flag, created = UserWatchFlag.objects.update_or_create(
             user=target_user,
             defaults={
@@ -1002,7 +1002,7 @@ def toggle_watch_flag(request, user_id):
         else:
             messages.warning(request, "No watch flag found.")
 
-    return redirect('user_login_security', user_id=user_id)
+    return redirect('admin_v2_user_login_security', user_id=user_id)
 
 
 @require_admin_v2_auth
