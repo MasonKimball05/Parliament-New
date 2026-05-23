@@ -356,7 +356,7 @@ class InputSanitizationMiddleware:
         # Skip checking for static files and certain paths
         if any(request.path.startswith(path) for path in self.skip_paths):
             response = self.get_response(request)
-            return self.add_security_headers(response, request.csp_nonce)
+            return self.add_security_headers(response, request.csp_nonce, path=request.path)
 
         # Enforce IPBlacklist for all requests (cache result for 5 minutes to avoid per-request DB hits)
         blacklist_cache_key = f'ip_blacklisted_{ip_address}'
@@ -475,7 +475,7 @@ class InputSanitizationMiddleware:
                 }, status=403)
 
         response = self.get_response(request)
-        return self.add_security_headers(response, request.csp_nonce)
+        return self.add_security_headers(response, request.csp_nonce, path=request.path)
 
     def check_for_attacks(self, value):
         """Check a value for various attack patterns."""
@@ -505,7 +505,7 @@ class InputSanitizationMiddleware:
 
         return None
 
-    def add_security_headers(self, response, csp_nonce=None):
+    def add_security_headers(self, response, csp_nonce=None, path=None):
         """Add security headers to the response."""
         # Prevent MIME type sniffing
         response['X-Content-Type-Options'] = 'nosniff'
@@ -529,6 +529,12 @@ class InputSanitizationMiddleware:
         # so only scripts we wrote are executed — injected scripts have no nonce and
         # are blocked even if they slip past input sanitization.
         #
+        # Admin-v2 exception: /admin-v2/ uses 'unsafe-inline' instead of a nonce
+        # because its templates use inline onclick= handlers extensively. These pages
+        # are behind authentication so the XSS risk is significantly lower.
+        # Per the CSP spec, 'unsafe-inline' is ignored when a nonce is also present,
+        # so the two approaches cannot be combined — admin-v2 omits the nonce.
+        #
         # style-src keeps 'unsafe-inline' because inline style= attributes are used
         # throughout templates (Alpine.js, dynamic widths, etc.) and cannot be nonced.
         # Inline styles can't execute code directly, so this is an acceptable trade-off.
@@ -539,10 +545,15 @@ class InputSanitizationMiddleware:
         if not getattr(settings, 'DEBUG', False):
             behind_cf = getattr(settings, 'BEHIND_CLOUDFLARE', False)
             cf_beacon = ' https://static.cloudflareinsights.com' if behind_cf else ''
-            nonce_directive = f" 'nonce-{csp_nonce}'" if csp_nonce else ''
+            is_admin_v2 = path and path.startswith('/admin-v2/')
+            if is_admin_v2:
+                script_src = f"script-src 'self' 'unsafe-inline'{cf_beacon}"
+            else:
+                nonce_directive = f" 'nonce-{csp_nonce}'" if csp_nonce else ''
+                script_src = f"script-src 'self'{nonce_directive}{cf_beacon}"
             csp_parts = [
                 "default-src 'self'",
-                f"script-src 'self'{nonce_directive}{cf_beacon}",
+                script_src,
                 "style-src 'self' 'unsafe-inline'",
                 "img-src 'self' data: https:",
                 "font-src 'self' data:",
