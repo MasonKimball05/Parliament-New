@@ -22,7 +22,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write('Starting cleanup...')
 
-        # Clean up expired sessions
+        # Clean up expired Django sessions
         expired_sessions = Session.objects.filter(expire_date__lt=timezone.now())
         session_count = expired_sessions.count()
         expired_sessions.delete()
@@ -34,6 +34,49 @@ class Command(BaseCommand):
             logger.info(f'Cleanup: Deleted {session_count} expired sessions')
         else:
             self.stdout.write('No expired sessions to delete')
+
+        # Clean up stale UserSession records
+        # Note: production uses the cache session backend so the Django Session DB table
+        # is empty — we cannot cross-reference session_key against it. Instead we use
+        # two time/count-based strategies that work regardless of session backend:
+        try:
+            from django.conf import settings
+            from src.models import UserSession
+
+            # 1. Delete UserSessions inactive longer than SESSION_COOKIE_AGE (default 30 days).
+            #    If the cookie is expired the session is definitely gone.
+            max_age_seconds = getattr(settings, 'SESSION_COOKIE_AGE', 2592000)
+            cutoff = timezone.now() - timezone.timedelta(seconds=max_age_seconds)
+            expired_user_sessions = UserSession.objects.filter(last_activity__lt=cutoff)
+            expired_count = expired_user_sessions.count()
+            expired_user_sessions.delete()
+
+            # 2. Per-user cap — keep only the 10 most recent sessions per user.
+            #    Prevents accumulation even when sessions are still within the cookie window.
+            keep_limit = 10
+            per_user_capped = 0
+            for user_id in UserSession.objects.values_list('user_id', flat=True).distinct():
+                to_delete_ids = list(
+                    UserSession.objects.filter(user_id=user_id)
+                    .order_by('-last_activity')
+                    .values_list('pk', flat=True)[keep_limit:]
+                )
+                if to_delete_ids:
+                    deleted, _ = UserSession.objects.filter(pk__in=to_delete_ids).delete()
+                    per_user_capped += deleted
+
+            total = expired_count + per_user_capped
+            if total > 0:
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f'Deleted {expired_count} expired + {per_user_capped} excess UserSession records'
+                    )
+                )
+                logger.info(f'Cleanup: Deleted {total} stale UserSession records')
+            else:
+                self.stdout.write('No stale UserSession records to delete')
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f'Could not clean UserSession records: {e}'))
 
         # Clean up old notification records (older than 90 days and read)
         try:
@@ -121,16 +164,6 @@ class Command(BaseCommand):
         except Exception as e:
             self.stdout.write(
                 self.style.WARNING(f'Could not clear performance metrics: {e}')
-            )
-
-        # Clear the Django cache (helps with LocMemCache bloat)
-        try:
-            from django.core.cache import cache
-            cache.clear()
-            self.stdout.write(self.style.SUCCESS('Cleared Django cache'))
-        except Exception as e:
-            self.stdout.write(
-                self.style.WARNING(f'Could not clear cache: {e}')
             )
 
         # Run garbage collection
