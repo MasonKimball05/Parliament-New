@@ -1,7 +1,16 @@
 from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
 from .decorators import log_function_call
-from .models import Committee, ParliamentUser, Legislation, Vote, Attendance, AttendanceExcuse, CommitteeDocument, Role, Announcement, ChatChannel, ChatChannelPermission, ChatMessage, ChatReadReceipt, UserAnnouncementView, DocumentTag, DocumentVersion, Event, ActivityLog, LoginHistory, LoginAlert, BugReport, Notification, IPWhitelist, IPBlacklist, QuarantinedAccount, HoneypotAccess, SystemLockdown, SecurityNotificationLog
+from .models import (
+    Committee, ParliamentUser, Legislation, Vote, Attendance, AttendanceExcuse,
+    CommitteeDocument, Role, Announcement, ChatChannel, ChatChannelPermission,
+    ChatMessage, ChatReadReceipt, UserAnnouncementView, DocumentTag, DocumentVersion,
+    Event, ActivityLog, LoginHistory, LoginAlert, BugReport, Notification,
+    IPWhitelist, IPBlacklist, QuarantinedAccount, HoneypotAccess, SystemLockdown,
+    SecurityNotificationLog, UserWatchFlag, LoginLockout, KaiReport, KaiReportTemplate,
+    PassedResolution, UserSession, AnnouncementEmailLog, ChapterMinutes,
+    SlatingPeriod, SlatingApplication,
+)
 from .models_feature_flags import FeatureFlag, PageToggle, ScheduledMaintenance
 import logging
 from django.db.models.signals import post_save, pre_delete
@@ -193,7 +202,7 @@ class ParliamentUserAdmin(admin.ModelAdmin):
     list_display = ('name', 'user_id', 'role_number', 'email', 'member_type', 'is_admin', 'member_status', 'role_list', 'last_login_display', 'login_as_link')
     search_fields = ('name', 'user_id', 'email', 'username', 'role_number')  # Enable autocomplete
     filter_horizontal = ('roles',)
-    list_filter = ('member_type', 'member_status', 'is_admin', 'roles')
+    list_filter = ('member_type', 'member_status', 'is_admin', 'roles', 'has_default_password', 'email_flagged', 'is_quarantined')
     list_per_page = 50
     readonly_fields = ('user_id',)
 
@@ -215,7 +224,7 @@ class ParliamentUserAdmin(admin.ModelAdmin):
             'fields': ('username', 'name', 'preferred_name', 'user_id', 'email', 'phone_number',)
         }),
         ('Member Information', {
-            'fields': ('member_type', 'member_status', 'role_number', 'is_admin', 'is_active')
+            'fields': ('member_type', 'member_status', 'role_number', 'is_admin', 'is_active', 'anonymous_vote', 'allow_abstain')
         }),
         ('Profile Picture', {
             'fields': ('profile_picture', 'profile_picture_removed_by_admin'),
@@ -226,7 +235,16 @@ class ParliamentUserAdmin(admin.ModelAdmin):
             'description': 'Assign officer roles to this member (e.g., Vice President of Brotherhood)'
         }),
         ('Account Details', {
-            'fields': ('last_login', 'password', 'force_password_change'),
+            'fields': ('last_login', 'password', 'force_password_change', 'has_default_password'),
+            'classes': ('collapse',)
+        }),
+        ('Email Status', {
+            'fields': ('email_flagged', 'email_flagged_reason', 'email_flagged_at'),
+            'classes': ('collapse',),
+            'description': 'Fields set automatically when email delivery fails.'
+        }),
+        ('Security', {
+            'fields': ('is_quarantined',),
             'classes': ('collapse',)
         }),
     )
@@ -338,7 +356,11 @@ class ParliamentUserAdmin(admin.ModelAdmin):
                             allow_abstain=old_user.allow_abstain,
                             member_status=old_user.member_status,
                             force_password_change=old_user.force_password_change,
+                            has_default_password=old_user.has_default_password,
                             is_quarantined=old_user.is_quarantined,
+                            email_flagged=old_user.email_flagged,
+                            email_flagged_reason=old_user.email_flagged_reason,
+                            email_flagged_at=old_user.email_flagged_at,
                             role_number=real_role_number,
                             last_login=old_user.last_login,
                             password=old_user.password,  # raw hashed password — no re-hashing
@@ -748,10 +770,10 @@ class DocumentVersionAdmin(admin.ModelAdmin):
 
 @admin.register(Announcement, site=admin_site)
 class AnnouncementAdmin(admin.ModelAdmin):
-    list_display = ('title', 'posted_by', 'posted_at', 'publish_at', 'event_date', 'is_active_badge', 'view_count')
-    list_filter = ('is_active', 'posted_at', 'event_date')
+    list_display = ('title', 'posted_by', 'posted_at', 'publish_at', 'event_date', 'is_active_badge', 'send_email_on_publish', 'view_count')
+    list_filter = ('is_active', 'send_email_on_publish', 'posted_at', 'event_date')
     search_fields = ('title', 'content', 'posted_by__name')
-    readonly_fields = ('posted_at',)
+    readonly_fields = ('posted_at', 'email_sent_at')
     ordering = ('-posted_at',)
     list_per_page = 25
     date_hierarchy = 'posted_at'
@@ -773,12 +795,22 @@ class AnnouncementAdmin(admin.ModelAdmin):
         ('Announcement Details', {
             'fields': ('title', 'content', 'posted_by')
         }),
+        ('Visibility & Scheduling', {
+            'fields': ('visible_to', 'publish_at', 'is_active'),
+            'description': 'Control who sees this announcement and when it publishes. Leave visibility empty for all members.'
+        }),
         ('Event Information', {
             'fields': ('event_date',),
             'description': 'Optional: Set a date/time if this announcement is for a specific event'
         }),
-        ('Settings', {
-            'fields': ('is_active', 'posted_at'),
+        ('Email Notifications', {
+            'fields': ('send_email_on_publish', 'email_sent_at'),
+            'classes': ('collapse',),
+            'description': 'Email status — sent_at is set automatically when notifications are dispatched.'
+        }),
+        ('Metadata', {
+            'fields': ('posted_at',),
+            'classes': ('collapse',)
         }),
     )
 
@@ -2014,6 +2046,490 @@ class SecurityNotificationLogAdmin(admin.ModelAdmin):
         )
     severity_badge.short_description = 'Severity'
     severity_badge.admin_order_field = 'severity'
+
+    def has_add_permission(self, request):
+        return False
+
+
+
+# === SECURITY — USER WATCH FLAG ===
+
+@admin.register(UserWatchFlag, site=admin_site)
+class UserWatchFlagAdmin(admin.ModelAdmin):
+    list_display = ('user', 'active_badge', 'reason_short', 'created_by', 'created_at', 'updated_at')
+    list_filter = ('is_active', 'created_at')
+    search_fields = ('user__name', 'user__username', 'reason', 'notes', 'created_by__name')
+    ordering = ('-created_at',)
+    readonly_fields = ('created_at', 'updated_at')
+    autocomplete_fields = ['user', 'created_by']
+
+    fieldsets = (
+        ('Watched User', {
+            'fields': ('user', 'is_active')
+        }),
+        ('Flag Details', {
+            'fields': ('reason', 'notes')
+        }),
+        ('Metadata', {
+            'fields': ('created_by', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def active_badge(self, obj):
+        if obj.is_active:
+            return format_html('<span style="background-color: #ef4444; color: white; padding: 3px 8px; border-radius: 4px; font-weight: bold;">ACTIVE</span>')
+        return format_html('<span style="background-color: #f59e0b; color: white; padding: 3px 8px; border-radius: 4px;">PAUSED</span>')
+    active_badge.short_description = 'Status'
+    active_badge.admin_order_field = 'is_active'
+
+    def reason_short(self, obj):
+        return obj.reason[:60] + '...' if len(obj.reason) > 60 else obj.reason
+    reason_short.short_description = 'Reason'
+
+
+# === SECURITY — LOGIN LOCKOUT ===
+
+@admin.register(LoginLockout, site=admin_site)
+class LoginLockoutAdmin(admin.ModelAdmin):
+    list_display = ('ip_address', 'username', 'source_badge', 'active_badge', 'locked_at', 'expires_at', 'cleared_by')
+    list_filter = ('source', 'is_cleared', 'locked_at')
+    search_fields = ('ip_address', 'username')
+    ordering = ('-locked_at',)
+    readonly_fields = ('locked_at', 'is_active_display')
+    list_per_page = 50
+
+    fieldsets = (
+        ('Lockout Details', {
+            'fields': ('ip_address', 'username', 'source', 'locked_at', 'expires_at', 'is_active_display')
+        }),
+        ('Resolution', {
+            'fields': ('is_cleared', 'cleared_at', 'cleared_by')
+        }),
+    )
+
+    def source_badge(self, obj):
+        colors = {
+            'ip': '#3b82f6',
+            'middleware_ip': '#8b5cf6',
+            'middleware_user': '#f97316',
+        }
+        color = colors.get(obj.source, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 2px 7px; border-radius: 4px; font-size: 11px;">{}</span>',
+            color,
+            obj.get_source_display()
+        )
+    source_badge.short_description = 'Source'
+    source_badge.admin_order_field = 'source'
+
+    def active_badge(self, obj):
+        if obj.is_active:
+            return format_html('<span style="color: #ef4444; font-weight: bold;">● Active</span>')
+        if obj.is_cleared:
+            return format_html('<span style="color: #10b981;">✓ Cleared</span>')
+        return format_html('<span style="color: #6b7280;">Expired</span>')
+    active_badge.short_description = 'State'
+
+    def is_active_display(self, obj):
+        return 'Yes — lockout is currently enforced' if obj.is_active else 'No — expired or manually cleared'
+    is_active_display.short_description = 'Currently Active'
+
+    def has_add_permission(self, request):
+        return False
+
+
+# === KAI COMMITTEE ===
+
+@admin.register(KaiReport, site=admin_site)
+class KaiReportAdmin(admin.ModelAdmin):
+    list_display = ('title', 'category_badge', 'status_badge', 'deliberation_badge', 'submitted_by', 'targeted_to', 'submitted_at', 'accused_notified')
+    list_filter = ('status', 'category', 'deliberation_outcome', 'accused_notified', 'submitted_at')
+    search_fields = ('title', 'description', 'submitted_by__name', 'targeted_to__name', 'chair_notes')
+    ordering = ('-submitted_at',)
+    readonly_fields = ('submitted_at',)
+    list_per_page = 50
+    date_hierarchy = 'submitted_at'
+    autocomplete_fields = ['submitted_by', 'targeted_to', 'reviewed_by']
+    filter_horizontal = ('related_reports',)
+
+    fieldsets = (
+        ('Report Information', {
+            'fields': ('title', 'category', 'description', 'attachment')
+        }),
+        ('Submission', {
+            'fields': ('submitted_by', 'submitted_at', 'targeted_to')
+        }),
+        ('Status & Review', {
+            'fields': ('status', 'reviewed_by', 'reviewed_at', 'tags', 'chair_notes')
+        }),
+        ('Deliberation', {
+            'fields': ('deliberation_outcome', 'committee_notes', 'closed_by_accused_request'),
+            'classes': ('collapse',)
+        }),
+        ('Accused Notification', {
+            'fields': ('accused_notified', 'accused_notified_at', 'accused_notification_message', 'accused_email_viewed_at'),
+            'classes': ('collapse',)
+        }),
+        ('Related Reports', {
+            'fields': ('related_reports',),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def category_badge(self, obj):
+        colors = {
+            'academic': '#3b82f6',
+            'behavioral': '#f59e0b',
+            'hazing': '#dc2626',
+            'social': '#8b5cf6',
+            'financial': '#10b981',
+            'other': '#6b7280',
+        }
+        color = colors.get(obj.category, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 2px 7px; border-radius: 4px; font-size: 11px;">{}</span>',
+            color,
+            obj.get_category_display()
+        )
+    category_badge.short_description = 'Category'
+    category_badge.admin_order_field = 'category'
+
+    def status_badge(self, obj):
+        colors = {'pending': '#f59e0b', 'reviewed': '#3b82f6', 'archived': '#6b7280'}
+        color = colors.get(obj.status, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 2px 7px; border-radius: 4px; font-size: 11px;">{}</span>',
+            color,
+            obj.get_status_display()
+        )
+    status_badge.short_description = 'Status'
+    status_badge.admin_order_field = 'status'
+
+    def deliberation_badge(self, obj):
+        colors = {
+            'pending': '#6b7280',
+            'under_investigation': '#f59e0b',
+            'scheduled': '#3b82f6',
+            'heard': '#8b5cf6',
+            'warning_issued': '#f97316',
+            'sanctions_applied': '#ef4444',
+            'mediation': '#06b6d4',
+            'referred': '#dc2626',
+            'dismissed': '#10b981',
+            'thrown_out': '#6b7280',
+        }
+        color = colors.get(obj.deliberation_outcome, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 2px 7px; border-radius: 4px; font-size: 11px;">{}</span>',
+            color,
+            obj.get_deliberation_outcome_display()
+        )
+    deliberation_badge.short_description = 'Deliberation'
+    deliberation_badge.admin_order_field = 'deliberation_outcome'
+
+
+@admin.register(KaiReportTemplate, site=admin_site)
+class KaiReportTemplateAdmin(admin.ModelAdmin):
+    list_display = ('name', 'category', 'active_badge', 'created_by', 'created_at', 'updated_at')
+    list_filter = ('is_active', 'category')
+    search_fields = ('name', 'description', 'title_template')
+    ordering = ('category', 'name')
+    readonly_fields = ('created_at', 'updated_at')
+    autocomplete_fields = ['created_by']
+
+    fieldsets = (
+        ('Template Info', {
+            'fields': ('name', 'description', 'category', 'is_active')
+        }),
+        ('Template Content', {
+            'fields': ('title_template', 'description_template', 'suggested_tags')
+        }),
+        ('Metadata', {
+            'fields': ('created_by', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def active_badge(self, obj):
+        if obj.is_active:
+            return format_html('<span style="color: #10b981; font-weight: bold;">✓ Active</span>')
+        return format_html('<span style="color: #6b7280;">✗ Inactive</span>')
+    active_badge.short_description = 'Status'
+    active_badge.admin_order_field = 'is_active'
+
+
+# === PASSED RESOLUTIONS ===
+
+@admin.register(PassedResolution, site=admin_site)
+class PassedResolutionAdmin(admin.ModelAdmin):
+    list_display = ('title', 'date_passed', 'border_color', 'display_order', 'active_badge', 'created_by', 'created_at')
+    list_filter = ('is_active', 'border_color', 'date_passed')
+    search_fields = ('title', 'description', 'impact_summary')
+    ordering = ('display_order', '-date_passed')
+    readonly_fields = ('created_at', 'updated_at')
+    autocomplete_fields = ['created_by']
+    list_per_page = 50
+
+    fieldsets = (
+        ('Resolution Details', {
+            'fields': ('title', 'description', 'date_passed')
+        }),
+        ('Document', {
+            'fields': ('legislation', 'document'),
+            'description': 'Link to existing legislation OR upload a document directly.'
+        }),
+        ('Display', {
+            'fields': ('border_color', 'impact_summary', 'display_order', 'is_active')
+        }),
+        ('Metadata', {
+            'fields': ('created_by', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def active_badge(self, obj):
+        if obj.is_active:
+            return format_html('<span style="color: #10b981; font-weight: bold;">✓ Visible</span>')
+        return format_html('<span style="color: #6b7280;">✗ Hidden</span>')
+    active_badge.short_description = 'Visible'
+    active_badge.admin_order_field = 'is_active'
+
+
+# === CHAPTER MINUTES ===
+
+@admin.register(ChapterMinutes, site=admin_site)
+class ChapterMinutesAdmin(admin.ModelAdmin):
+    list_display = ('title', 'date', 'status_badge', 'committee', 'created_by', 'attendance_taken', 'edited_after_publish')
+    list_filter = ('status', 'attendance_taken', 'edited_after_publish', 'date')
+    search_fields = ('title', 'created_by__name')
+    ordering = ('-date', '-start_time')
+    readonly_fields = ('created_at', 'updated_at')
+    autocomplete_fields = ['created_by', 'last_edit_by', 'event']
+    list_per_page = 50
+    date_hierarchy = 'date'
+
+    fieldsets = (
+        ('Minutes Info', {
+            'fields': ('title', 'date', 'start_time', 'end_time', 'committee', 'event', 'status')
+        }),
+        ('Attendance', {
+            'fields': ('attendance_taken',)
+        }),
+        ('Visibility', {
+            'fields': ('publish_visibility', 'published_document')
+        }),
+        ('Edit History', {
+            'fields': ('edited_after_publish', 'last_edit_at', 'last_edit_by', 'last_edit_reason'),
+            'classes': ('collapse',)
+        }),
+        ('Metadata', {
+            'fields': ('created_by', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def status_badge(self, obj):
+        colors = {'draft': '#6b7280', 'finalized': '#f59e0b', 'published': '#10b981'}
+        color = colors.get(obj.status, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">{}</span>',
+            color,
+            obj.get_status_display()
+        )
+    status_badge.short_description = 'Status'
+    status_badge.admin_order_field = 'status'
+
+
+# === SLATING ===
+
+@admin.register(SlatingPeriod, site=admin_site)
+class SlatingPeriodAdmin(admin.ModelAdmin):
+    list_display = ('name', 'academic_term', 'status_badge', 'required_approval_percentage', 'slating_committee', 'created_by', 'created_at')
+    list_filter = ('status', 'academic_term')
+    search_fields = ('name', 'description', 'academic_term')
+    ordering = ('-created_at',)
+    readonly_fields = ('created_at', 'updated_at')
+    autocomplete_fields = ['created_by']
+    list_per_page = 25
+
+    fieldsets = (
+        ('Period Info', {
+            'fields': ('name', 'description', 'academic_term', 'status', 'slating_committee')
+        }),
+        ('Schedule', {
+            'fields': ('nominations_open_at', 'nominations_close_at', 'deliberation_start_at', 'voting_open_at', 'voting_close_at', 'results_publish_at')
+        }),
+        ('Voting Configuration', {
+            'fields': ('required_approval_percentage', 'max_slate_voting_attempts', 'current_voting_attempt', 'allow_abstain')
+        }),
+        ('GPA Configuration', {
+            'fields': ('min_gpa_requirement', 'gpa_level_2_threshold')
+        }),
+        ('Settings', {
+            'fields': ('extra_settings', 'admin_transferred'),
+            'classes': ('collapse',)
+        }),
+        ('Metadata', {
+            'fields': ('created_by', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def status_badge(self, obj):
+        colors = {
+            'setup': '#6b7280',
+            'nominations_open': '#10b981',
+            'nominations_closed': '#f59e0b',
+            'deliberation': '#8b5cf6',
+            'voting_open': '#3b82f6',
+            'voting_closed': '#f97316',
+            'results_published': '#10b981',
+            'archived': '#9ca3af',
+        }
+        color = colors.get(obj.status, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">{}</span>',
+            color,
+            obj.get_status_display()
+        )
+    status_badge.short_description = 'Status'
+    status_badge.admin_order_field = 'status'
+
+
+@admin.register(SlatingApplication, site=admin_site)
+class SlatingApplicationAdmin(admin.ModelAdmin):
+    list_display = ('applicant', 'period', 'status_badge', 'gpa_level', 'reported_gpa', 'gpa_verified', 'submitted_at', 'reviewer')
+    list_filter = ('status', 'gpa_level', 'gpa_verified', 'period')
+    search_fields = ('applicant__name', 'period__name', 'review_notes')
+    ordering = ('-submitted_at', '-created_at')
+    readonly_fields = ('created_at', 'updated_at', 'submitted_at')
+    autocomplete_fields = ['applicant', 'reviewer']
+    list_per_page = 50
+
+    fieldsets = (
+        ('Application', {
+            'fields': ('period', 'applicant', 'status', 'submitted_at')
+        }),
+        ('Position Preferences', {
+            'fields': ('position_preferences',)
+        }),
+        ('GPA', {
+            'fields': ('reported_gpa', 'gpa_level', 'gpa_verified', 'gpa_screenshot')
+        }),
+        ('Review', {
+            'fields': ('reviewer', 'review_notes')
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def status_badge(self, obj):
+        colors = {
+            'draft': '#6b7280',
+            'submitted': '#3b82f6',
+            'under_review': '#f59e0b',
+            'interview_scheduled': '#8b5cf6',
+            'interviewed': '#06b6d4',
+            'recommended': '#10b981',
+            'not_recommended': '#ef4444',
+            'withdrawn': '#9ca3af',
+            'slated': '#059669',
+        }
+        color = colors.get(obj.status, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">{}</span>',
+            color,
+            obj.get_status_display()
+        )
+    status_badge.short_description = 'Status'
+    status_badge.admin_order_field = 'status'
+
+
+# === ANNOUNCEMENT EMAIL LOG ===
+
+@admin.register(AnnouncementEmailLog, site=admin_site)
+class AnnouncementEmailLogAdmin(admin.ModelAdmin):
+    list_display = ('announcement', 'status_badge', 'emails_sent', 'emails_failed', 'users_matching_visibility', 'initiated_by', 'created_at', 'completed_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('announcement__title', 'initiated_by__name', 'error_message')
+    ordering = ('-created_at',)
+    readonly_fields = ('created_at', 'completed_at', 'announcement', 'initiated_by',
+                       'total_active_users', 'users_matching_visibility', 'users_with_valid_email',
+                       'emails_sent', 'emails_failed', 'visible_to_raw', 'expanded_member_types',
+                       'error_message', 'console_log')
+    list_per_page = 50
+    date_hierarchy = 'created_at'
+
+    fieldsets = (
+        ('Send Details', {
+            'fields': ('announcement', 'initiated_by', 'status', 'created_at', 'completed_at')
+        }),
+        ('Targeting', {
+            'fields': ('visible_to_raw', 'expanded_member_types', 'total_active_users', 'users_matching_visibility', 'users_with_valid_email')
+        }),
+        ('Results', {
+            'fields': ('emails_sent', 'emails_failed', 'error_message')
+        }),
+        ('Debug Log', {
+            'fields': ('console_log',),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def status_badge(self, obj):
+        colors = {
+            'warming_up': '#6b7280',
+            'pending': '#6b7280',
+            'started': '#3b82f6',
+            'completed': '#10b981',
+            'partial': '#f59e0b',
+            'failed': '#ef4444',
+            'cancelled': '#6b7280',
+        }
+        color = colors.get(obj.status, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">{}</span>',
+            color,
+            obj.get_status_display()
+        )
+    status_badge.short_description = 'Status'
+    status_badge.admin_order_field = 'status'
+
+    def has_add_permission(self, request):
+        return False
+
+
+# === USER SESSION ===
+
+@admin.register(UserSession, site=admin_site)
+class UserSessionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'device_type', 'browser', 'operating_system', 'ip_address', 'location', 'last_activity', 'is_current')
+    list_filter = ('device_type', 'is_current', 'last_activity')
+    search_fields = ('user__name', 'ip_address', 'browser', 'operating_system', 'location')
+    ordering = ('-last_activity',)
+    readonly_fields = ('session_key', 'created_at', 'last_activity')
+    list_per_page = 100
+    date_hierarchy = 'last_activity'
+    autocomplete_fields = ['user']
+
+    fieldsets = (
+        ('Session', {
+            'fields': ('user', 'session_key', 'is_current')
+        }),
+        ('Device & Browser', {
+            'fields': ('device_type', 'browser', 'operating_system', 'user_agent')
+        }),
+        ('Network', {
+            'fields': ('ip_address', 'location')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'last_activity'),
+            'classes': ('collapse',)
+        }),
+    )
 
     def has_add_permission(self, request):
         return False

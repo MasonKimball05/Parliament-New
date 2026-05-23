@@ -51,6 +51,13 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.15.0 - User Watch Flag + Performance Improvements (05-23-2026)
+New `UserWatchFlag` model allows admins to secretly flag a user for monitoring. When active, any successful login or ≥2 repeated failed login attempts trigger an immediate alert email (HTML, with geo/IP/device/risk details) to the security alert address and create a `LoginAlert` record. Managed from the Admin-v2 Login Security page with add/edit/pause/remove controls. Also replaces the bcrypt-based `has_default_password()` method with a cached `BooleanField`, eliminating the slow popup load on the officer manage users page. Migration required (backfills existing users via one-time bcrypt check).
+
+**Deployment Status:** Not yet deployed
+
+**Type:** Feature / Security
+
 ### v2.14.1 - Archive Detail Pages (05-12-2026)
 7 standalone detail pages (Officer Duties, Committee Details, Kai Procedures, Slating & Elections, Advisors, Academic Standards, Passed Resolutions) archived and removed from routing. All links to these pages removed from `constitution_bylaws.html`, `roberts_rules.html`, and `manage_resolutions.html`. No migration required.
 

@@ -103,7 +103,7 @@ from src.view.admin_v2 import (
     manage_users, toggle_user_admin, remove_user_profile_picture, manage_login_history,
     manage_announcements as admin_v2_manage_announcements_view,
     delete_announcement as admin_v2_delete_announcement_view,
-    user_login_security, force_password_reset,
+    user_login_security, force_password_reset, toggle_watch_flag,
     add_ip_to_whitelist, add_ip_to_blacklist,
     remove_ip_from_whitelist, remove_ip_from_blacklist,
     manage_ip_whitelist, manage_ip_blacklist, manage_security_alerts,
@@ -631,6 +631,7 @@ urlpatterns = [
 
     # Admin v2 - User Login Security
     path('admin-v2/users/<str:user_id>/login-security/', user_login_security, name='admin_v2_user_login_security'),
+    path('admin-v2/users/<str:user_id>/watch-flag/', toggle_watch_flag, name='admin_v2_toggle_watch_flag'),
     path('admin-v2/users/<str:user_id>/force-password-reset/', force_password_reset, name='admin_v2_force_password_reset'),
 
     # Admin v2 - IP Management

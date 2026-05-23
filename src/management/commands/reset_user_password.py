@@ -48,6 +48,7 @@ class Command(BaseCommand):
         # Set the new password
         user.set_password(new_password)
         user.force_password_change = True
+        user.has_default_password = True
         user.save()
 
         self.stdout.write(

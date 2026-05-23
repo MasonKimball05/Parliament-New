@@ -106,9 +106,9 @@ class Command(BaseCommand):
                 user.set_password(new_password)
 
                 # Mark that password change is required
-                # Use the force_password_change field from the ParliamentUser model
                 if hasattr(user, 'force_password_change'):
                     user.force_password_change = True
+                user.has_default_password = True
 
                 # Save the user
                 user.save()

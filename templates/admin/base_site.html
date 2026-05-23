@@ -14,6 +14,10 @@
 
 {% block extrahead %}
 {{ block.super }}
+<script>
+    // Force dark mode — override theme.js which reads system/localStorage preference
+    document.documentElement.dataset.theme = 'dark';
+</script>
 <style>
     body {
         background-color: #1f2937; /* Darker background */

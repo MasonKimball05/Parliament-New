@@ -376,6 +376,131 @@ Consider investigating and potentially requiring password change.
     )
 
 
+def send_watch_flag_alert(watched_user, event_type, ip_address, geo, user_agent,
+                          is_whitelisted, is_blacklisted, is_rate_limited,
+                          risk_level, risk_factors, is_foreign, watch_reason,
+                          failed_attempts=None, login_history=None):
+    """
+    Send a watch flag alert email and create a LoginAlert for the flagged user.
+
+    Args:
+        watched_user:    The ParliamentUser being watched
+        event_type:      'success' or 'failed'
+        ip_address:      Plain-text IP string
+        geo:             Dict from is_foreign_ip (may be None)
+        user_agent:      Raw user agent string
+        is_whitelisted:  bool
+        is_blacklisted:  bool
+        is_rate_limited: bool
+        risk_level:      'low'|'medium'|'high'|'critical'
+        risk_factors:    list of strings
+        is_foreign:      bool
+        watch_reason:    The reason stored on the UserWatchFlag
+        failed_attempts: int — number of failed attempts (for failed-login triggers)
+        login_history:   LoginHistory instance to link to the alert (may be None)
+    """
+    from src.models import LoginAlert, UserSession
+    from django.core.mail import EmailMultiAlternatives
+    from django.template.loader import render_to_string
+
+    email_to = get_security_alert_email()
+    site_url = get_site_url()
+    timestamp = localtime(timezone.now()).strftime('%Y-%m-%d %H:%M:%S %Z')
+
+    trigger_label = (
+        'Successful login' if event_type == 'success'
+        else f'Repeated failed login ({failed_attempts} attempts)'
+    )
+
+    # Parse device info from user agent
+    device_type, browser, os = UserSession.parse_user_agent(user_agent)
+
+    location_parts = []
+    if geo:
+        location_parts = [geo.get('city', ''), geo.get('region', ''), geo.get('country', '')]
+    location = ', '.join(p for p in location_parts if p) or 'Unknown'
+
+    context = {
+        'watched_user': watched_user,
+        'event_type': event_type,
+        'trigger_label': trigger_label,
+        'timestamp': timestamp,
+        'watch_reason': watch_reason,
+        'ip_address': ip_address,
+        'location': location,
+        'isp': geo.get('isp', '') if geo else '',
+        'lat': geo.get('lat') if geo else None,
+        'lon': geo.get('lon') if geo else None,
+        'is_whitelisted': is_whitelisted,
+        'is_blacklisted': is_blacklisted,
+        'is_rate_limited': is_rate_limited,
+        'user_agent': user_agent,
+        'browser': browser,
+        'os': os,
+        'device_type': device_type,
+        'risk_level': risk_level,
+        'risk_factors': risk_factors,
+        'is_foreign': is_foreign,
+        'failed_attempts': failed_attempts,
+        'site_url': site_url,
+    }
+
+    # Create LoginAlert record
+    try:
+        severity = risk_level if risk_level in ('low', 'medium', 'high', 'critical') else 'medium'
+        if event_type == 'failed':
+            severity = 'high'
+        description = (
+            f'{trigger_label} for watched user {watched_user.name} ({watched_user.username}).\n\n'
+            f'IP: {ip_address}\n'
+            f'Location: {location}\n'
+            f'ISP: {geo.get("isp", "Unknown") if geo else "Unknown"}\n'
+            f'Device: {device_type} / {browser} / {os}\n'
+            f'Whitelisted: {is_whitelisted} | Blacklisted: {is_blacklisted} | Rate limited: {is_rate_limited}\n'
+            f'Risk: {risk_level} — {", ".join(risk_factors) if risk_factors else "none"}\n'
+            f'Watch reason: {watch_reason}'
+        )
+        LoginAlert.objects.create(
+            user=watched_user,
+            login_history=login_history,
+            alert_type='other',
+            severity=severity,
+            status='new',
+            title=f'Watch flag: {trigger_label} — {watched_user.name}',
+            description=description,
+        )
+    except Exception as e:
+        logger.error(f"Failed to create LoginAlert for watch flag: {e}")
+
+    # Send email
+    if not email_to:
+        logger.warning("WATCH FLAG: No alert email configured — skipping email")
+        return
+
+    try:
+        subject = f"[WATCH FLAG] {trigger_label} — {watched_user.name} ({watched_user.username})"
+        html_body = render_to_string('emails/watch_flag_alert.html', context)
+        plain_body = (
+            f"{trigger_label} for watched user {watched_user.name} ({watched_user.username})\n"
+            f"Time: {timestamp}\n"
+            f"IP: {ip_address} | Location: {location}\n"
+            f"Risk: {risk_level}\n"
+            f"Watch reason: {watch_reason}\n\n"
+            f"View in admin: {site_url}/admin-v2/users/{watched_user.user_id}/login-security/"
+        )
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=plain_body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[email_to],
+        )
+        msg.attach_alternative(html_body, "text/html")
+        msg.send()
+        logger.info(f"Watch flag alert email sent for {watched_user.username} ({event_type})")
+    except Exception as e:
+        logger.error(f"Failed to send watch flag alert email: {e}")
+
+
 def alert_ip_blacklisted(ip_address, reason, added_by=None):
     """Send alert when an IP is added to the blacklist."""
     by_text = f"by {added_by.name}" if added_by else "automatically"

@@ -10,6 +10,7 @@ from django.core.cache import cache
 from datetime import timedelta
 from src.geo_utils import is_foreign_ip
 from src.utils.security_utils import get_client_ip
+from src.security_notifications import send_watch_flag_alert
 import logging
 
 
@@ -258,6 +259,28 @@ def login_view(request):
                         f"LOGIN SUCCESS: User '{username}' (ID: {user.user_id}) from IP {ip_address}"
                     )
 
+                # --- Watch flag alert ---
+                try:
+                    watch_flag = getattr(user, 'watch_flag', None)
+                    if watch_flag and watch_flag.is_active:
+                        send_watch_flag_alert(
+                            watched_user=user,
+                            event_type='success',
+                            ip_address=ip_address,
+                            geo=geo,
+                            user_agent=user_agent,
+                            is_whitelisted=is_ip_whitelisted(ip_address),
+                            is_blacklisted=IPBlacklist.objects.filter(ip_address=ip_address, is_active=True).exists(),
+                            is_rate_limited=is_rate_limited(ip_address)[0],
+                            risk_level='medium' if is_foreign else 'low',
+                            risk_factors=risk_factors,
+                            is_foreign=is_foreign,
+                            watch_reason=watch_flag.reason,
+                            login_history=login_record,
+                        )
+                except Exception as _wf_err:
+                    logging.getLogger('admin_actions').error(f"Watch flag alert error (success): {_wf_err}")
+
                 messages.success(request, f"Welcome, {user.get_display_name() if hasattr(user, 'get_display_name') else user.name}!")
 
                 # Warn user if their email address has been flagged as undeliverable
@@ -324,6 +347,37 @@ def login_view(request):
                 f"LOGIN FAILED: Invalid credentials for username '{username}' from IP {ip_address} "
                 f"(Attempts remaining: {remaining})"
             )
+
+            # --- Watch flag alert (failed logins) ---
+            # Trigger when ≥2 failed attempts and the username belongs to a watched user.
+            attempts_so_far = MAX_LOGIN_ATTEMPTS - remaining
+            if attempts_so_far >= 2:
+                try:
+                    from django.contrib.auth import get_user_model
+                    User = get_user_model()
+                    target_user = User.objects.filter(username=username).first()
+                    if target_user:
+                        watch_flag = getattr(target_user, 'watch_flag', None)
+                        if watch_flag and watch_flag.is_active:
+                            is_foreign_fail, geo_fail = is_foreign_ip(ip_address)
+                            send_watch_flag_alert(
+                                watched_user=target_user,
+                                event_type='failed',
+                                ip_address=ip_address,
+                                geo=geo_fail,
+                                user_agent=user_agent,
+                                is_whitelisted=is_ip_whitelisted(ip_address),
+                                is_blacklisted=IPBlacklist.objects.filter(ip_address=ip_address, is_active=True).exists(),
+                                is_rate_limited=is_rate_limited(ip_address)[0],
+                                risk_level='high',
+                                risk_factors=['repeated_failed_logins'],
+                                is_foreign=is_foreign_fail,
+                                watch_reason=watch_flag.reason,
+                                failed_attempts=attempts_so_far,
+                                login_history=None,
+                            )
+                except Exception as _wf_err:
+                    logging.getLogger('admin_actions').error(f"Watch flag alert error (failed): {_wf_err}")
 
             return redirect('login')
 

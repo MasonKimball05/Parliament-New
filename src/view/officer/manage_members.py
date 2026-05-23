@@ -103,6 +103,7 @@ def add_member(request):
     if form.cleaned_data.get('email'):
         user.email = form.cleaned_data['email']
     user.force_password_change = True
+    user.has_default_password = True
     user.save()
 
     # Set roles
@@ -183,7 +184,7 @@ def edit_member(request, user_id):
                 'is_admin': member.is_admin,
                 'role_number': member.role_number or '',
                 'last_login': last_login_display,
-                'has_default_password': member.has_default_password(),
+                'has_default_password': member.has_default_password,
             }
         })
 

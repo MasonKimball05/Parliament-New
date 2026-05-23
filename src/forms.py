@@ -437,6 +437,7 @@ class ForcedPasswordChangeForm(forms.Form):
 
         self.user.set_password(password)
         self.user.force_password_change = False
+        self.user.has_default_password = False
         self.user.save()
         return self.user
 

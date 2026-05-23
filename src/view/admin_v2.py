@@ -16,7 +16,7 @@ from src.models import (
     ParliamentUser, Legislation, Event, Committee,
     Announcement, ActivityLog, LoginHistory, LoginAlert,
     IPWhitelist, IPBlacklist, AnnouncementEmailLog, AnnouncementEmailRecipient,
-    QuarantinedAccount, HoneypotAccess, SecurityNotificationLog
+    QuarantinedAccount, HoneypotAccess, SecurityNotificationLog, UserWatchFlag
 )
 import os
 import secrets
@@ -912,16 +912,97 @@ def user_login_security(request, user_id):
     # Check if there's a temporary password to display from session
     temp_password_data = request.session.pop('temp_password_display', None)
 
+    # Watch flag
+    try:
+        watch_flag = UserWatchFlag.objects.get(user=user)
+    except UserWatchFlag.DoesNotExist:
+        watch_flag = None
+
     context = {
         'target_user': user,
         'login_history': login_history,
         'alerts': alerts,
         'ip_info': ip_info,
         'stats': stats,
-        'temp_password_data': temp_password_data,  # Will be None if not present
+        'temp_password_data': temp_password_data,
+        'watch_flag': watch_flag,
     }
 
     return render(request, 'admin_v2/user_login_security.html', context)
+
+
+@require_admin_v2_auth
+def toggle_watch_flag(request, user_id):
+    """Add, update, or remove a watch flag on a user."""
+    from django.views.decorators.http import require_POST as _require_POST
+    if request.method != 'POST':
+        return redirect('user_login_security', user_id=user_id)
+
+    target_user = get_object_or_404(ParliamentUser, user_id=user_id)
+    action = request.POST.get('action')
+    admin = request.user
+    security_logger = logging.getLogger('admin_actions')
+
+    if action == 'add':
+        reason = request.POST.get('reason', '').strip()
+        notes = request.POST.get('notes', '').strip()
+        if not reason:
+            messages.error(request, "A reason is required to place a watch flag.")
+            return redirect('user_login_security', user_id=user_id)
+        flag, created = UserWatchFlag.objects.update_or_create(
+            user=target_user,
+            defaults={
+                'reason': reason,
+                'notes': notes,
+                'is_active': True,
+                'created_by': admin,
+            }
+        )
+        verb = 'placed' if created else 'updated'
+        messages.success(request, f"Watch flag {verb} on {target_user.name}.")
+        security_logger.warning(
+            f"WATCH FLAG {verb.upper()}: {admin.name} ({admin.username}) {verb} watch flag on "
+            f"{target_user.name} ({target_user.username}). Reason: {reason}"
+        )
+        ActivityLog.log_activity(
+            action_type='admin_action',
+            user=admin,
+            description=f"Watch flag {verb} on {target_user.name} ({target_user.username}). Reason: {reason}",
+            request=request,
+        )
+
+    elif action == 'remove':
+        deleted, _ = UserWatchFlag.objects.filter(user=target_user).delete()
+        if deleted:
+            messages.success(request, f"Watch flag removed from {target_user.name}.")
+            security_logger.warning(
+                f"WATCH FLAG REMOVED: {admin.name} ({admin.username}) removed watch flag from "
+                f"{target_user.name} ({target_user.username})"
+            )
+            ActivityLog.log_activity(
+                action_type='admin_action',
+                user=admin,
+                description=f"Watch flag removed from {target_user.name} ({target_user.username})",
+                request=request,
+            )
+        else:
+            messages.warning(request, "No active watch flag found.")
+
+    elif action == 'deactivate':
+        updated = UserWatchFlag.objects.filter(user=target_user).update(is_active=False)
+        if updated:
+            messages.success(request, f"Watch flag deactivated for {target_user.name} (alerts paused).")
+        else:
+            messages.warning(request, "No watch flag found.")
+
+    elif action == 'activate':
+        updated = UserWatchFlag.objects.filter(user=target_user).update(is_active=True)
+        if updated:
+            messages.success(request, f"Watch flag reactivated for {target_user.name}.")
+        else:
+            messages.warning(request, "No watch flag found.")
+
+    return redirect('user_login_security', user_id=user_id)
 
 
 @require_admin_v2_auth
@@ -953,6 +1034,7 @@ def force_password_reset(request, user_id):
     # Set the new password
     user.set_password(temp_password)
     user.force_password_change = False  # Allow them to use this password
+    user.has_default_password = False
     user.save()
 
     # Log the action

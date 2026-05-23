@@ -132,6 +132,7 @@ class ParliamentUser(AbstractBaseUser):
 
     member_status = models.CharField(max_length=20, choices=MEMBER_STATUS, default='Active')
     force_password_change = models.BooleanField(default=False, help_text='User must change password on next login')
+    has_default_password = models.BooleanField(default=False, help_text='Password is still the system-assigned default — set False when user changes it')
     is_quarantined = models.BooleanField(default=False, help_text='Account quarantined due to suspicious activity')
     email_flagged = models.BooleanField(default=False, help_text='Email address flagged as undeliverable — user prompted to update it')
     email_flagged_reason = models.TextField(blank=True, help_text='Reason the email address was flagged (e.g. delivery error message)')
@@ -206,9 +207,10 @@ class ParliamentUser(AbstractBaseUser):
                 return self.preferred_name
         return self.name
 
-    def has_default_password(self):
+    def check_is_default_password(self):
         """
-        Check if the user's password is still set to a default value.
+        Bcrypt-based check — used only in the data migration to backfill
+        has_default_password for existing users. Do not call at request time.
         Default password pattern: first initial + last name + user_id (lowercase)
         e.g., "Adam C. Boggs" with user_id 69 -> "aboggs69"
         Returns True if password matches any default pattern, False otherwise.
@@ -3030,6 +3032,47 @@ class LoginAlert(models.Model):
 
     def __str__(self):
         return f"{self.get_alert_type_display()} - {self.user.name} - {self.get_severity_display()}"
+
+
+class UserWatchFlag(models.Model):
+    """
+    Admin-placed watch flag on a specific user. When active, any successful login
+    or repeated failed login attempts for that user trigger an immediate alert email
+    to the site administrator and create a LoginAlert record.
+    """
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='watch_flag',
+        help_text='User being watched',
+    )
+    reason = models.TextField(
+        help_text='Why this user is being watched',
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text='Additional admin notes',
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text='Uncheck to disable alerts without removing the flag',
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='watch_flags_created',
+        help_text='Admin who placed this flag',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'User Watch Flag'
+        verbose_name_plural = 'User Watch Flags'
+
+    def __str__(self):
+        return f"Watch: {self.user.name} ({'active' if self.is_active else 'inactive'})"
 
 
 class IPWhitelist(models.Model):
