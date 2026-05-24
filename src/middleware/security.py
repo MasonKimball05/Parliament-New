@@ -545,17 +545,16 @@ class InputSanitizationMiddleware:
         if not getattr(settings, 'DEBUG', False):
             behind_cf = getattr(settings, 'BEHIND_CLOUDFLARE', False)
             cf_beacon = ' https://static.cloudflareinsights.com' if behind_cf else ''
-            # Authenticated-only paths that use inline onclick= handlers extensively.
-            # 'unsafe-inline' is safe here because these pages are behind login/officer checks.
-            _unsafe_inline_paths = ('/admin-v2/', '/officers/')
-            if path and any(path.startswith(p) for p in _unsafe_inline_paths):
-                script_src = f"script-src 'self' 'unsafe-inline'{cf_beacon}"
-            else:
-                nonce_directive = f" 'nonce-{csp_nonce}'" if csp_nonce else ''
-                script_src = f"script-src 'self'{nonce_directive}{cf_beacon}"
+            # 'unsafe-inline' is used for both script-src and style-src.
+            # A nonce-based approach was previously attempted but nonces never cover
+            # inline event handlers (onclick=, onchange=, etc.) — only <script> blocks.
+            # Since onclick= is used throughout nearly every template, the nonce gave
+            # no real protection while breaking large portions of the site's UI.
+            # The meaningful XSS protections here are: Django's template auto-escaping,
+            # the InputSanitizationMiddleware attack detection, and form-action/frame-ancestors.
             csp_parts = [
                 "default-src 'self'",
-                script_src,
+                f"script-src 'self' 'unsafe-inline'{cf_beacon}",
                 "style-src 'self' 'unsafe-inline'",
                 "img-src 'self' data: https:",
                 "font-src 'self' data:",
