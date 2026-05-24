@@ -12,7 +12,7 @@ backlog = 2048
 # Worker processes - optimized for low memory
 # Use 1 worker with threads for low-traffic applications
 # Formula for higher traffic: (2 x $num_cores) + 1
-workers = int(os.getenv('GUNICORN_WORKERS', '2'))
+workers = int(os.getenv('GUNICORN_WORKERS', '1'))
 
 # Worker class - sync workers for maximum Django compatibility
 # Note: gevent workers have thread-safety issues with Django's database connections
@@ -21,8 +21,9 @@ worker_class = 'sync'
 # worker_connections only applies to async workers like gevent
 
 # Threading - adds threads to workers for handling concurrent requests
-# Only use with sync workers, not with gevent
-# threads = 2
+# Each worker can handle 2 concurrent requests without spawning extra processes.
+# More throughput from the same memory footprint. Safe with sync workers + preload_app.
+threads = 2
 
 # Worker lifecycle management
 max_requests = 500  # Recycle workers after N requests to prevent memory leaks (reduced from 1000)
@@ -113,13 +114,9 @@ def child_exit(server, worker):
         connections.close_all()
     except Exception:
         pass
-
-    try:
-        # Clear Django cache for this worker
-        from django.core.cache import cache
-        cache.clear()
-    except Exception:
-        pass
+    # NOTE: Do NOT call cache.clear() here — Redis cache is shared across all workers
+    # and contains active sessions. Clearing it would log all users out on every
+    # worker recycle (every 500 requests).
 
 
 def worker_exit(server, worker):

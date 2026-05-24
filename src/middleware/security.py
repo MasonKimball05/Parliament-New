@@ -545,8 +545,10 @@ class InputSanitizationMiddleware:
         if not getattr(settings, 'DEBUG', False):
             behind_cf = getattr(settings, 'BEHIND_CLOUDFLARE', False)
             cf_beacon = ' https://static.cloudflareinsights.com' if behind_cf else ''
-            is_admin_v2 = path and path.startswith('/admin-v2/')
-            if is_admin_v2:
+            # Authenticated-only paths that use inline onclick= handlers extensively.
+            # 'unsafe-inline' is safe here because these pages are behind login/officer checks.
+            _unsafe_inline_paths = ('/admin-v2/', '/officers/')
+            if path and any(path.startswith(p) for p in _unsafe_inline_paths):
                 script_src = f"script-src 'self' 'unsafe-inline'{cf_beacon}"
             else:
                 nonce_directive = f" 'nonce-{csp_nonce}'" if csp_nonce else ''

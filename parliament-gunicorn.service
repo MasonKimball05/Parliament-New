@@ -31,11 +31,11 @@ NoNewPrivileges=true
 PrivateTmp=true
 
 # Resource limits (optional but recommended)
-# Limit each worker to ~256MB (2 workers = ~512MB total)
-# This prevents memory bloat
-LimitAS=536870912
-# 512MB in bytes
-MemoryLimit=512M
+# 1 worker with 2 threads handles 2 concurrent requests at ~half the memory of 2 workers.
+# Increase GUNICORN_WORKERS env var if traffic grows and latency becomes an issue.
+LimitAS=268435456
+# 256MB in bytes
+MemoryLimit=256M
 # Systemd cgroup memory limit
 
 # Logging
