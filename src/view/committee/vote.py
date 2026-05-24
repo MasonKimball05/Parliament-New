@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.contrib import messages
 from django.contrib.auth import authenticate
 from datetime import timedelta
-from src.models import Committee, CommitteeLegislation, CommitteeVote, Attendance
+from src.models import Committee, CommitteeLegislation, CommitteeVote, Attendance, ActivityLog
 import logging
 
 logger = logging.getLogger('function_calls')
@@ -120,6 +120,16 @@ def committee_vote(request, code):
                 legislation.save()
                 result_text = "passed" if legislation.passed else "did not pass"
                 logger.info(f"{user.username} recalculated vote result for '{legislation.title}' (ID: {legislation.id}) - {result_text}")
+                ActivityLog.log_activity(
+                    action_type='vote_ended',
+                    user=user,
+                    description=f'{user.name} recalculated committee vote result for "{legislation.title}" — {result_text}',
+                    request=request,
+                    object_type='CommitteeLegislation',
+                    object_id=legislation.id,
+                    object_repr=legislation.title,
+                    metadata={'action': 'recalculate', 'result': result_text, 'committee': committee.code, 'total_votes': total_votes},
+                )
                 messages.success(request, f"Vote result recalculated. The vote {result_text}.")
             else:
                 messages.warning(request, "No votes to calculate result from.")
@@ -170,6 +180,25 @@ def committee_vote(request, code):
 
                 result_text = "passed" if legislation.passed else "did not pass"
                 logger.info(f"{user.username} ended voting on '{legislation.title}' (ID: {legislation.id}) - {result_text}")
+                _end_meta = {
+                    'result': result_text,
+                    'vote_mode': legislation.vote_mode,
+                    'anonymous': legislation.anonymous_vote,
+                    'committee': committee.code,
+                    'total_votes': tally['total'],
+                }
+                if not legislation.anonymous_vote:
+                    _end_meta['vote_tally'] = {k: v for k, v in tally.items() if k != 'total'}
+                ActivityLog.log_activity(
+                    action_type='vote_ended',
+                    user=user,
+                    description=f'{user.name} ended committee vote on "{legislation.title}" — {result_text}',
+                    request=request,
+                    object_type='CommitteeLegislation',
+                    object_id=legislation.id,
+                    object_repr=legislation.title,
+                    metadata=_end_meta,
+                )
                 messages.success(request, f"Voting on '{legislation.title}' has been ended. The vote {result_text}.")
             else:
                 messages.warning(request, "Voting has already been closed.")
@@ -217,6 +246,22 @@ def committee_vote(request, code):
 
                 logger.info(
                     f"{user.username} voted for {vote_choices} on committee legislation '{legislation.title}' (ID: {legislation.id})")
+                if legislation.anonymous_vote:
+                    _cvote_desc = f'{user.name} cast {len(vote_choices)} vote(s) on committee legislation "{legislation.title}" (anonymous)'
+                    _cvote_meta = {'legislation_id': legislation.id, 'vote_mode': legislation.vote_mode, 'anonymous': True, 'choices_count': len(vote_choices), 'committee': committee.code}
+                else:
+                    _cvote_desc = f'{user.name} voted for {vote_choices} on committee legislation "{legislation.title}"'
+                    _cvote_meta = {'legislation_id': legislation.id, 'vote_mode': legislation.vote_mode, 'anonymous': False, 'vote_choices': vote_choices, 'committee': committee.code}
+                ActivityLog.log_activity(
+                    action_type='vote_cast',
+                    user=user,
+                    description=_cvote_desc,
+                    request=request,
+                    object_type='CommitteeLegislation',
+                    object_id=legislation.id,
+                    object_repr=legislation.title,
+                    metadata=_cvote_meta,
+                )
                 messages.success(request, f"Your {len(vote_choices)} vote(s) have been submitted.")
             else:
                 # Single-select voting (percentage, piecewise, or plurality with 1 vote)
@@ -229,6 +274,22 @@ def committee_vote(request, code):
 
                 logger.info(
                     f"{user.username} voted '{vote_choice}' on committee legislation '{legislation.title}' (ID: {legislation.id})")
+                if legislation.anonymous_vote:
+                    _cvote_desc = f'{user.name} cast a vote on committee legislation "{legislation.title}" (anonymous)'
+                    _cvote_meta = {'legislation_id': legislation.id, 'vote_mode': legislation.vote_mode, 'anonymous': True, 'committee': committee.code}
+                else:
+                    _cvote_desc = f'{user.name} voted "{vote_choice}" on committee legislation "{legislation.title}"'
+                    _cvote_meta = {'legislation_id': legislation.id, 'vote_mode': legislation.vote_mode, 'anonymous': False, 'vote_choice': vote_choice, 'committee': committee.code}
+                ActivityLog.log_activity(
+                    action_type='vote_cast',
+                    user=user,
+                    description=_cvote_desc,
+                    request=request,
+                    object_type='CommitteeLegislation',
+                    object_id=legislation.id,
+                    object_repr=legislation.title,
+                    metadata=_cvote_meta,
+                )
                 messages.success(request, "Your vote has been submitted.")
 
             return redirect('committee_vote', code=code)
@@ -346,5 +407,21 @@ def create_committee_runoff(request, code, legislation_id):
     )
 
     logger.info(f"{user.username} created runoff vote for committee legislation '{original.title}' (ID: {original.id})")
+    ActivityLog.log_activity(
+        action_type='legislation_created',
+        user=user,
+        description=f'{user.name} created committee runoff vote for "{original.title}" in {committee.code}',
+        request=request,
+        object_type='CommitteeLegislation',
+        object_id=runoff.id,
+        object_repr=runoff.title,
+        metadata={
+            'is_runoff': True,
+            'parent_legislation_id': original.id,
+            'parent_title': original.title,
+            'runoff_options': top_options,
+            'committee': committee.code,
+        },
+    )
     messages.success(request, f"Runoff vote created with top {len(top_options)} options: {', '.join(top_options)}")
     return redirect('committee_vote', code=code)

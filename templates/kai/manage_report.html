@@ -404,25 +404,47 @@
             <!-- Notify Submitter -->
             {% if not report.closed_by_accused_request %}
             <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
-              <div class="flex items-center justify-between">
-                <div>
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
                   <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Notify Submitter</h3>
-                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
                     Send outcome to {{ report.submitted_by.name }}
                     {% if report.submitted_by.email %}({{ report.submitted_by.email }}){% endif %}
                   </p>
                 </div>
-                <form method="post" class="inline">
+                <form method="post" class="shrink-0">
                   {% csrf_token %}
                   <input type="hidden" name="action" value="notify_submitter">
                   <button type="submit"
                           {% if not report.submitted_by.email %}disabled{% endif %}
-                          class="px-4 py-2 {% if report.submitted_by.email %}bg-orange-600 hover:bg-orange-700{% else %}bg-gray-400 cursor-not-allowed{% endif %} text-white rounded-lg transition font-medium text-sm"
+                          class="px-4 py-2 {% if report.submitted_by.email %}bg-orange-600 hover:bg-orange-700{% else %}bg-gray-400 cursor-not-allowed{% endif %} text-white rounded-lg transition font-medium text-sm whitespace-nowrap"
                           onclick="return confirm('Send notification to {{ report.submitted_by.name }}?')">
-                    Send Email
+                    {% if report.submitter_notified_at %}Send Again{% else %}Send Email{% endif %}
                   </button>
                 </form>
               </div>
+              {% if report.submitter_notified_at %}
+              <div class="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg flex items-center gap-3 text-xs flex-wrap">
+                <span class="font-semibold text-green-700 dark:text-green-300">
+                  Notified {{ report.submitter_notified_at|date:"M d, Y" }}
+                </span>
+                {% if report.submitter_email_viewed_at %}
+                <span class="flex items-center text-blue-600 dark:text-blue-400" title="Email opened on {{ report.submitter_email_viewed_at|date:'M d, Y g:i A' }}">
+                  <svg class="w-3 h-3 mr-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                  </svg>
+                  Opened {{ report.submitter_email_viewed_at|date:"M d" }}
+                </span>
+                {% else %}
+                <span class="flex items-center text-yellow-600 dark:text-yellow-400 cursor-help" title="Some email clients block tracking pixels. This may not be accurate.">
+                  <svg class="w-3 h-3 mr-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  Awaiting read*
+                </span>
+                {% endif %}
+              </div>
+              {% endif %}
             </div>
             {% endif %}
           </div>

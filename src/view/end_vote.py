@@ -80,6 +80,25 @@ def end_vote(request, legislation_id):
         legislation.status = 'removed'
     legislation.save()
 
+    _end_meta = {
+        'result': 'passed' if vote_passed else 'failed',
+        'vote_mode': legislation.vote_mode,
+        'anonymous': legislation.anonymous_vote,
+        'total_votes': total_votes,
+    }
+    if not legislation.anonymous_vote:
+        _end_meta['vote_breakdown'] = vote_breakdown
+    ActivityLog.log_activity(
+        action_type='vote_ended',
+        user=request.user,
+        description=f'{request.user.name} ended voting on "{legislation.title}" — {"Passed" if vote_passed else "Did Not Pass"}',
+        request=request,
+        object_type='Legislation',
+        object_id=legislation.id,
+        object_repr=legislation.title,
+        metadata=_end_meta,
+    )
+
     # Send in-app notification to all users who voted
     try:
         voter_user_ids = votes.values_list('user', flat=True)
@@ -196,5 +215,20 @@ def create_runoff(request, legislation_id):
         plurality_parent=original,
     )
 
+    ActivityLog.log_activity(
+        action_type='legislation_created',
+        user=request.user,
+        description=f'{request.user.name} created runoff vote for "{original.title}"',
+        request=request,
+        object_type='Legislation',
+        object_id=runoff.id,
+        object_repr=runoff.title,
+        metadata={
+            'is_runoff': True,
+            'parent_legislation_id': original.id,
+            'parent_title': original.title,
+            'runoff_options': top_options,
+        },
+    )
     messages.success(request, f"Runoff vote created with top {len(top_options)} options: {', '.join(top_options)}")
     return redirect('vote')

@@ -416,6 +416,103 @@
         </div>
     </div>
 
+    <!-- Activity History -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">
+                🗂 Activity History
+                <span class="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">({{ activity_total }} total recorded actions)</span>
+            </h2>
+            <!-- Filters -->
+            <form method="get" class="flex flex-wrap items-center gap-2">
+                <select name="activity_category"
+                        class="text-sm px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                    <option value="">All Categories</option>
+                    {% for code, label in activity_categories %}
+                    <option value="{{ code }}" {% if selected_activity_category == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <select name="activity_date"
+                        class="text-sm px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                    <option value="1" {% if selected_activity_date == '1' %}selected{% endif %}>Last 24h</option>
+                    <option value="7" {% if selected_activity_date == '7' %}selected{% endif %}>Last 7 days</option>
+                    <option value="30" {% if selected_activity_date == '30' %}selected{% endif %}>Last 30 days</option>
+                    <option value="90" {% if selected_activity_date == '90' %}selected{% endif %}>Last 90 days</option>
+                    <option value="all" {% if selected_activity_date == 'all' %}selected{% endif %}>All time</option>
+                </select>
+                <button type="submit" class="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded">Filter</button>
+            </form>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Time</th>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Category</th>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Action</th>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Description</th>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">IP Address</th>
+                        <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Details</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for entry in user_activity %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                        <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                            {{ entry.timestamp|date:"M d, Y" }}<br>
+                            <span class="text-xs">{{ entry.timestamp|date:"h:i A" }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-sm">
+                            <span class="px-2 py-0.5 text-xs rounded-full
+                                {% if entry.action_category == 'auth' %}bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200
+                                {% elif entry.action_category == 'user' %}bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200
+                                {% elif entry.action_category == 'settings' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                                {% elif entry.action_category == 'document' %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+                                {% elif entry.action_category == 'announcement' %}bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200
+                                {% elif entry.action_category == 'vote' or entry.action_category == 'legislation' %}bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200
+                                {% else %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                                {{ entry.get_action_category_display }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                            {{ entry.get_action_type_display }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 max-w-xs">
+                            {{ entry.description }}
+                            {% if entry.object_repr %}
+                            <div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Object: {{ entry.object_repr }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
+                            {{ entry.ip_address|default:"—" }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                            {% if entry.metadata %}
+                            <button type="button"
+                                    onclick="toggleMeta(this)"
+                                    data-meta="{{ entry.metadata|default:'' }}"
+                                    class="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                                Show
+                            </button>
+                            <pre class="hidden mt-1 text-xs bg-gray-100 dark:bg-gray-700 rounded p-2 whitespace-pre-wrap max-w-xs overflow-auto"></pre>
+                            {% else %}
+                            <span class="text-gray-400">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No activity recorded for this user{% if selected_activity_category or selected_activity_date != 'all' %} with the current filters{% endif %}.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if user_activity|length == 100 %}
+        <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">Showing 100 most recent entries. Use filters or the <a href="{% url 'activity_logs' %}?user={{ target_user.user_id }}" class="text-blue-600 dark:text-blue-400 hover:underline">Activity Logs page</a> for more.</p>
+        {% endif %}
+    </div>
+
     <!-- Login History -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
         <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">📋 Recent Login History (Last 50)</h2>
@@ -485,5 +582,23 @@
         document.getElementById('watch-flag-edit-form').classList.toggle('hidden');
     });
 })();
+
+function toggleMeta(btn) {
+    var pre = btn.nextElementSibling;
+    if (pre.classList.contains('hidden')) {
+        try {
+            var raw = btn.getAttribute('data-meta');
+            var parsed = JSON.parse(raw.replace(/'/g, '"'));
+            pre.textContent = JSON.stringify(parsed, null, 2);
+        } catch(e) {
+            pre.textContent = btn.getAttribute('data-meta');
+        }
+        pre.classList.remove('hidden');
+        btn.textContent = 'Hide';
+    } else {
+        pre.classList.add('hidden');
+        btn.textContent = 'Show';
+    }
+}
 </script>
 {% endblock %}

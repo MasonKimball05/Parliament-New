@@ -17,7 +17,7 @@ import logging
 
 from src.models import (
     Committee, KaiReport, KaiReportActivity, KaiClosureRequest,
-    KaiFormField, KaiReportFieldResponse
+    KaiFormField, KaiReportFieldResponse, ActivityLog
 )
 
 logger = logging.getLogger('function_calls')
@@ -199,6 +199,16 @@ def request_closure(request, report_id):
                 action='closure_requested',
                 details=f'{role} requested case closure. Reason: {reason[:100]}...' if len(reason) > 100 else f'{role} requested case closure. Reason: {reason}'
             )
+            ActivityLog.log_activity(
+                action_type='kai_action',
+                user=user,
+                description=f'{user.name} requested closure of Kai case #{report.id}',
+                request=request,
+                object_type='KaiReport',
+                object_id=report.id,
+                object_repr=f'Case #{report.id}',
+                metadata={'action': 'request_closure'},
+            )
 
             # Notify Kai chair(s) via email
             try:
@@ -288,6 +298,16 @@ def request_drop_case(request, report_id):
                 user=user,
                 action='closure_requested',
                 details=f'Submitter requested to drop/withdraw case. Reason: {reason[:100]}...' if len(reason) > 100 else f'Submitter requested to drop/withdraw case. Reason: {reason}'
+            )
+            ActivityLog.log_activity(
+                action_type='kai_action',
+                user=user,
+                description=f'{user.name} requested to drop Kai case #{report.id}',
+                request=request,
+                object_type='KaiReport',
+                object_id=report.id,
+                object_repr=f'Case #{report.id}',
+                metadata={'action': 'request_drop'},
             )
 
             # Notify Kai chair(s) via email

@@ -97,7 +97,7 @@ def vote_view(request):
             required_number = int(required_number)
 
         if title and description and available_at and (document or vote_mode == 'plurality'):
-            Legislation.objects.create(
+            new_legislation = Legislation.objects.create(
                 title=title,
                 description=description,
                 document=document if vote_mode != 'plurality' else None,
@@ -118,6 +118,22 @@ def vote_view(request):
 
             logger = logging.getLogger('function_calls')
             logger.info(f"{user.username} uploaded legislation titled '{title}' (mode: {vote_mode}, required %: {required_percentage})")
+            ActivityLog.log_activity(
+                action_type='legislation_created',
+                user=user,
+                description=f'{user.name} created legislation "{title}" ({vote_mode} vote, {"anonymous" if anonymous else "non-anonymous"})',
+                request=request,
+                object_type='Legislation',
+                object_id=new_legislation.id,
+                object_repr=title,
+                metadata={
+                    'vote_mode': vote_mode,
+                    'anonymous': anonymous,
+                    'required_percentage': required_percentage if vote_mode == 'percentage' else None,
+                    'required_number': required_number if vote_mode == 'piecewise' else None,
+                    'plurality_options': plurality_options if vote_mode == 'plurality' else None,
+                },
+            )
 
             messages.success(request, "Legislation uploaded successfully.")
             return redirect('vote')
@@ -175,6 +191,22 @@ def vote_view(request):
                     Vote.objects.create(user=user, legislation=legislation, vote_choice=choice)
 
                 logger.info(f"{user.username} voted for {vote_choices} on '{legislation.title}' (ID: {legislation.id}) at {timezone.now()}")
+                if legislation.anonymous_vote:
+                    _vote_desc = f'{user.name} cast {len(vote_choices)} vote(s) on "{legislation.title}" (anonymous)'
+                    _vote_meta = {'legislation_id': legislation.id, 'vote_mode': legislation.vote_mode, 'anonymous': True, 'choices_count': len(vote_choices)}
+                else:
+                    _vote_desc = f'{user.name} voted for {vote_choices} on "{legislation.title}"'
+                    _vote_meta = {'legislation_id': legislation.id, 'vote_mode': legislation.vote_mode, 'anonymous': False, 'vote_choices': vote_choices}
+                ActivityLog.log_activity(
+                    action_type='vote_cast',
+                    user=user,
+                    description=_vote_desc,
+                    request=request,
+                    object_type='Legislation',
+                    object_id=legislation.id,
+                    object_repr=legislation.title,
+                    metadata=_vote_meta,
+                )
                 messages.success(request, f"Your {len(vote_choices)} vote(s) have been submitted.")
             else:
                 # Single-select voting (percentage, piecewise, or plurality with 1 vote)
@@ -192,6 +224,22 @@ def vote_view(request):
 
                 Vote.objects.create(user=user, legislation=legislation, vote_choice=vote_choice)
                 logger.info(f"{user.username} voted '{vote_choice}' on '{legislation.title}' (ID: {legislation.id}) at {timezone.now()}")
+                if legislation.anonymous_vote:
+                    _vote_desc = f'{user.name} cast a vote on "{legislation.title}" (anonymous)'
+                    _vote_meta = {'legislation_id': legislation.id, 'vote_mode': legislation.vote_mode, 'anonymous': True}
+                else:
+                    _vote_desc = f'{user.name} voted "{vote_choice}" on "{legislation.title}"'
+                    _vote_meta = {'legislation_id': legislation.id, 'vote_mode': legislation.vote_mode, 'anonymous': False, 'vote_choice': vote_choice}
+                ActivityLog.log_activity(
+                    action_type='vote_cast',
+                    user=user,
+                    description=_vote_desc,
+                    request=request,
+                    object_type='Legislation',
+                    object_id=legislation.id,
+                    object_repr=legislation.title,
+                    metadata=_vote_meta,
+                )
                 messages.success(request, "Your vote has been submitted.")
 
             return redirect('vote')

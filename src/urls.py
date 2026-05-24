@@ -68,7 +68,7 @@ from src.view.chat import (
     create_channel, edit_channel, delete_channel,
 )
 from src.view.submit_excuse import my_excuses, submit_excuse, cancel_excuse, my_attendance
-from src.view.kai_reports import submit_kai_report, view_kai_reports, manage_kai_report, export_kai_reports_csv, print_kai_report, kai_dashboard, bulk_actions_kai_reports, manage_kai_templates, create_kai_template, edit_kai_template, delete_kai_template, track_kai_accused_email_view
+from src.view.kai_reports import submit_kai_report, view_kai_reports, manage_kai_report, export_kai_reports_csv, print_kai_report, kai_dashboard, bulk_actions_kai_reports, manage_kai_templates, create_kai_template, edit_kai_template, delete_kai_template, track_kai_accused_email_view, track_kai_submitter_email_view
 from src.view.kai_user_dashboard import user_kai_dashboard, user_view_report, request_closure, request_drop_case
 from src.view.kai_form_builder import kai_form_builder, reorder_kai_fields, get_kai_field_details
 from src.view.service_user_dashboard import (
@@ -499,6 +499,7 @@ urlpatterns = [
     path('kai/templates/<int:template_id>/edit/', edit_kai_template, name='edit_kai_template'),
     path('kai/templates/<int:template_id>/delete/', delete_kai_template, name='delete_kai_template'),
     path('kai/track-email/<int:report_id>.gif', track_kai_accused_email_view, name='track_kai_accused_email'),
+    path('kai/track-submitter-email/<int:report_id>.gif', track_kai_submitter_email_view, name='track_kai_submitter_email'),
 
     # Service Hours Member URLs
     path('service-hours/', user_service_dashboard, name='user_service_dashboard'),

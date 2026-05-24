@@ -918,6 +918,30 @@ def user_login_security(request, user_id):
     except UserWatchFlag.DoesNotExist:
         watch_flag = None
 
+    # Activity log for this user with optional filters
+    activity_category = request.GET.get('activity_category', '')
+    activity_date_range = request.GET.get('activity_date', '30')
+
+    user_activity = ActivityLog.objects.filter(user=user).order_by('-timestamp')
+
+    if activity_category:
+        user_activity = user_activity.filter(action_category=activity_category)
+
+    now_ts = timezone.now()
+    if activity_date_range == '1':
+        user_activity = user_activity.filter(timestamp__gte=now_ts - timedelta(days=1))
+    elif activity_date_range == '7':
+        user_activity = user_activity.filter(timestamp__gte=now_ts - timedelta(days=7))
+    elif activity_date_range == '30':
+        user_activity = user_activity.filter(timestamp__gte=now_ts - timedelta(days=30))
+    elif activity_date_range == '90':
+        user_activity = user_activity.filter(timestamp__gte=now_ts - timedelta(days=90))
+    # 'all' shows everything
+
+    user_activity = user_activity[:100]
+
+    activity_total = ActivityLog.objects.filter(user=user).count()
+
     context = {
         'target_user': user,
         'login_history': login_history,
@@ -926,6 +950,11 @@ def user_login_security(request, user_id):
         'stats': stats,
         'temp_password_data': temp_password_data,
         'watch_flag': watch_flag,
+        'user_activity': user_activity,
+        'activity_total': activity_total,
+        'activity_categories': ActivityLog.ACTION_CATEGORIES,
+        'selected_activity_category': activity_category,
+        'selected_activity_date': activity_date_range,
     }
 
     return render(request, 'admin_v2/user_login_security.html', context)

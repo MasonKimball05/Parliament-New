@@ -10,7 +10,7 @@ from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
-from src.models import BugReport
+from src.models import BugReport, ActivityLog
 
 
 @login_required
@@ -49,6 +49,22 @@ def submit_bug_report(request):
 
         # Send email notification (if email is configured)
         send_bug_report_notification(bug_report, request)
+
+        ActivityLog.log_activity(
+            action_type='bug_report_submitted',
+            user=request.user,
+            description=f'{request.user.name} submitted bug report #{bug_report.id}: {bug_report.issue_type} ({bug_report.priority} priority)',
+            request=request,
+            object_type='BugReport',
+            object_id=bug_report.id,
+            object_repr=f'Bug #{bug_report.id}',
+            metadata={
+                'issue_type': bug_report.issue_type,
+                'priority': bug_report.priority,
+                'page': bug_report.page or '',
+                'page_url': bug_report.page_url or '',
+            },
+        )
 
         messages.success(request, 'Thank you! Your bug report has been submitted successfully.')
         return redirect('bug_report_success', bug_id=bug_report.id)

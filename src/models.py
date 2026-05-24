@@ -2321,6 +2321,18 @@ class KaiReport(models.Model):
         help_text="When the accused viewed the notification email (tracked via pixel)"
     )
 
+    # Submitter Notification
+    submitter_notified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the submitter was last notified of case outcome"
+    )
+    submitter_email_viewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the submitter viewed the outcome notification email (tracked via pixel)"
+    )
+
     # Related Reports
     related_reports = models.ManyToManyField(
         'self',
@@ -2680,6 +2692,7 @@ class ActivityLog(models.Model):
         ('event', 'Event'),
         ('user', 'User Management'),
         ('settings', 'Settings'),
+        ('kai', 'Kai Committee'),
         ('other', 'Other'),
     )
 
@@ -2733,13 +2746,20 @@ class ActivityLog(models.Model):
         ('user_edited', 'User Profile Edited'),
         ('user_role_changed', 'User Role Changed'),
         ('login_as_user', 'Admin Logged In As User'),
-        
+        ('profile_updated', 'Profile Updated'),
+        ('profile_picture_changed', 'Profile Picture Changed'),
+
         # Settings
         ('preferences_updated', 'Preferences Updated'),
         ('settings_changed', 'System Settings Changed'),
         
+        # Kai Committee
+        ('kai_action', 'Kai Report Action'),
+
         # Other
         ('other', 'Other Action'),
+        ('bug_report_submitted', 'Bug Report Submitted'),
+        ('email_sent', 'Email Sent'),
     )
 
     # Core fields
@@ -2817,7 +2837,10 @@ class ActivityLog(models.Model):
             'event_deleted': 'event', 'attendance_taken': 'event',
             'user_created': 'user', 'user_edited': 'user',
             'user_role_changed': 'user', 'login_as_user': 'user',
+            'profile_updated': 'user', 'profile_picture_changed': 'user',
             'preferences_updated': 'settings', 'settings_changed': 'settings',
+            'bug_report_submitted': 'other', 'email_sent': 'other',
+            'kai_action': 'kai',
         }
         action_category = category_map.get(action_type, 'other')
         
@@ -2962,6 +2985,7 @@ class LoginAlert(models.Model):
         ('multiple_failures', 'Multiple Failed Attempts'),
         ('unusual_time', 'Unusual Login Time'),
         ('vpn_detected', 'VPN/Proxy Detected'),
+        ('watch_flag', 'Watch Flag Alert'),
         ('other', 'Other Suspicious Activity'),
     )
 

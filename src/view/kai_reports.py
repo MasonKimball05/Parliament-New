@@ -8,7 +8,7 @@ from django.utils.timezone import localtime
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError
 import csv
-from src.models import KaiReport, Committee, ParliamentUser, KaiReportActivity, KaiReportTemplate, KaiFormField, KaiReportFieldResponse, KaiClosureRequest
+from src.models import KaiReport, Committee, ParliamentUser, KaiReportActivity, KaiReportTemplate, KaiFormField, KaiReportFieldResponse, KaiClosureRequest, ActivityLog
 from src.forms import KaiReportForm
 from src.decorators import log_function_call
 from src.utils.file_validation import validate_uploaded_file
@@ -87,6 +87,16 @@ def submit_kai_report(request):
                     user=request.user,
                     action='created',
                     details=f'Report created with category: {report.get_category_display()}'
+                )
+                ActivityLog.log_activity(
+                    action_type='kai_action',
+                    user=request.user,
+                    description=f'{request.user.name} submitted Kai case #{report.id}',
+                    request=request,
+                    object_type='KaiReport',
+                    object_id=report.id,
+                    object_repr=f'Case #{report.id}',
+                    metadata={'action': 'submitted'},
                 )
 
                 # Send email notification to Kai committee chair(s) only (NOT targeted person yet)
@@ -434,6 +444,15 @@ def export_kai_reports_csv(request):
                 report.description
             ])
 
+        ActivityLog.log_activity(
+            action_type='kai_action',
+            user=request.user,
+            description=f'{request.user.name} exported Kai reports CSV ({len(reports)} records)',
+            request=request,
+            object_type='KaiReport',
+            metadata={'action': 'export_csv', 'record_count': len(reports)},
+        )
+
         return response
 
     except Exception as e:
@@ -476,6 +495,16 @@ def manage_kai_report(request, report_id):
                 action='status_changed',
                 details=f'Status changed from pending to reviewed'
             )
+            ActivityLog.log_activity(
+                action_type='kai_action',
+                user=request.user,
+                description=f'{request.user.name} marked Kai case #{report.id} as reviewed',
+                request=request,
+                object_type='KaiReport',
+                object_id=report.id,
+                object_repr=f'Case #{report.id}',
+                metadata={'action': 'mark_reviewed'},
+            )
 
             # Send email notification to submitter
             try:
@@ -517,6 +546,16 @@ You can view the full report details at the Kai Committee page.
                 action='status_changed',
                 details='Status changed back to pending'
             )
+            ActivityLog.log_activity(
+                action_type='kai_action',
+                user=request.user,
+                description=f'{request.user.name} set Kai case #{report.id} back to pending',
+                request=request,
+                object_type='KaiReport',
+                object_id=report.id,
+                object_repr=f'Case #{report.id}',
+                metadata={'action': 'mark_pending'},
+            )
 
         elif action == 'archive':
             report.status = 'archived'
@@ -529,6 +568,16 @@ You can view the full report details at the Kai Committee page.
                 user=request.user,
                 action='archived',
                 details='Report manually archived'
+            )
+            ActivityLog.log_activity(
+                action_type='kai_action',
+                user=request.user,
+                description=f'{request.user.name} archived Kai case #{report.id}',
+                request=request,
+                object_type='KaiReport',
+                object_id=report.id,
+                object_repr=f'Case #{report.id}',
+                metadata={'action': 'archived'},
             )
 
         elif action == 'update_notes':
@@ -543,6 +592,16 @@ You can view the full report details at the Kai Committee page.
                 action='notes_updated',
                 details='Chair notes updated'
             )
+            ActivityLog.log_activity(
+                action_type='kai_action',
+                user=request.user,
+                description=f'{request.user.name} updated chair notes on Kai case #{report.id}',
+                request=request,
+                object_type='KaiReport',
+                object_id=report.id,
+                object_repr=f'Case #{report.id}',
+                metadata={'action': 'update_notes'},
+            )
 
         elif action == 'update_tags':
             tags_str = request.POST.get('tags', '')
@@ -556,6 +615,16 @@ You can view the full report details at the Kai Committee page.
                 user=request.user,
                 action='tags_updated',
                 details=f'Tags updated to: {", ".join(report.tags) if report.tags else "none"}'
+            )
+            ActivityLog.log_activity(
+                action_type='kai_action',
+                user=request.user,
+                description=f'{request.user.name} updated tags on Kai case #{report.id}',
+                request=request,
+                object_type='KaiReport',
+                object_id=report.id,
+                object_repr=f'Case #{report.id}',
+                metadata={'action': 'update_tags'},
             )
 
         elif action == 'update_deliberation':
@@ -611,6 +680,17 @@ You can view the full report details at the Kai Committee page.
                         action='minutes_closed',
                         details='Minutes closed at the request of the accused'
                     )
+
+                ActivityLog.log_activity(
+                    action_type='kai_action',
+                    user=request.user,
+                    description=f'{request.user.name} updated deliberation on Kai case #{report.id}',
+                    request=request,
+                    object_type='KaiReport',
+                    object_id=report.id,
+                    object_repr=f'Case #{report.id}',
+                    metadata={'action': 'update_deliberation'},
+                )
 
                 # Send email notifications about outcome (ONLY to targeted person, NOT submitter)
                 if old_outcome != deliberation_outcome and report.targeted_to and report.targeted_to.email:
@@ -668,13 +748,20 @@ Updated at: {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}
                 # Send notification to submitter with deliberation outcome and notes
                 try:
                     if report.submitted_by.email:
+                        from django.core.mail import EmailMultiAlternatives
+                        from django.urls import reverse
+                        from django.utils.html import escape
+
                         outcome_display = dict(report.DELIBERATION_CHOICES).get(report.deliberation_outcome, 'Pending')
+                        notify_time = localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')
 
                         subject = f'Kai Report Update: {report.title}'
-                        message = f"""
-This is a notification regarding your Kai report.
 
-Report Title: {report.title}
+                        # Plain text version
+                        text_message = f"""
+This is a notification regarding your Kai report submission.
+
+Case Number: #{report.id}
 Deliberation Outcome: {outcome_display}
 
 Committee Notes:
@@ -682,28 +769,90 @@ Committee Notes:
 
 If you have any questions, please contact the Kai Committee chair(s).
 
-Notified at: {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}
+Notified at: {notify_time}
                         """
 
-                        send_mail(
-                            subject,
-                            message,
-                            settings.DEFAULT_FROM_EMAIL,
-                            [report.submitted_by.email],
-                            fail_silently=False,
+                        # Build tracking pixel URL
+                        tracking_url = request.build_absolute_uri(
+                            reverse('track_kai_submitter_email', kwargs={'report_id': report.id})
                         )
+
+                        escaped_notes = escape(report.committee_notes or 'No additional notes provided.').replace('\n', '<br>')
+
+                        # HTML version with tracking pixel
+                        html_message = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%); padding: 30px; border-radius: 8px 8px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 24px;">Kai Committee Notification</h1>
+        <p style="color: #a0c4e8; margin: 10px 0 0 0; font-size: 14px;">Case Update — Case #{report.id}</p>
+    </div>
+
+    <div style="background: #ffffff; padding: 30px; border: 1px solid #e2e8f0; border-top: none;">
+        <p style="margin-top: 0;">This is a notification regarding your Kai report submission.</p>
+
+        <div style="background: #f7fafc; border-left: 4px solid #4299e1; padding: 15px 20px; margin: 20px 0; border-radius: 0 4px 4px 0;">
+            <p style="margin: 0;"><strong>Deliberation Outcome:</strong> {escape(outcome_display)}</p>
+        </div>
+
+        <h3 style="font-size: 16px; color: #2d3748;">Committee Notes</h3>
+        <p style="margin: 0; white-space: pre-wrap;">{escaped_notes}</p>
+
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
+
+        <p style="color: #718096; font-size: 12px; margin-bottom: 0;">
+            If you have any questions, please contact the Kai Committee chair(s).<br>
+            Notified at: {notify_time}<br>
+            Kai Committee &bull; Beta Theta Pi - Samford Chapter
+        </p>
+    </div>
+
+    <!-- Tracking pixel -->
+    <img src="{tracking_url}" width="1" height="1" alt="" style="display:none;">
+</body>
+</html>
+                        """
+
+                        email = EmailMultiAlternatives(
+                            subject=subject,
+                            body=text_message,
+                            from_email=settings.DEFAULT_FROM_EMAIL,
+                            to=[report.submitted_by.email],
+                        )
+                        email.attach_alternative(html_message, "text/html")
+                        email.send(fail_silently=False)
+
+                        # Update report tracking fields — reset viewed on new send
+                        report.submitter_notified_at = timezone.now()
+                        report.submitter_email_viewed_at = None
+                        report.save()
 
                         # Log activity
                         KaiReportActivity.objects.create(
                             report=report,
                             user=request.user,
                             action='status_changed',
-                            details=f'Submitter ({report.submitted_by.name}) notified of deliberation outcome'
+                            details=f'Submitter notified of deliberation outcome'
+                        )
+                        ActivityLog.log_activity(
+                            action_type='kai_action',
+                            user=request.user,
+                            description=f'{request.user.name} notified submitter of Kai case #{report.id}',
+                            request=request,
+                            object_type='KaiReport',
+                            object_id=report.id,
+                            object_repr=f'Case #{report.id}',
+                            metadata={'action': 'notify_submitter'},
                         )
 
-                        messages.success(request, f'Submitter ({report.submitted_by.name}) has been notified via email.')
+                        messages.success(request, f'Submitter has been notified via email.')
                     else:
-                        messages.warning(request, f'Submitter ({report.submitted_by.name}) does not have an email address on file.')
+                        messages.warning(request, f'Submitter does not have an email address on file.')
                 except Exception as e:
                     import logging
                     logger = logging.getLogger('function_calls')
@@ -724,6 +873,16 @@ Notified at: {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}
                         user=request.user,
                         action='status_changed',
                         details=f'Linked to related report: {related_report.title} (#{related_report.id})'
+                    )
+                    ActivityLog.log_activity(
+                        action_type='kai_action',
+                        user=request.user,
+                        description=f'{request.user.name} linked Kai case #{report.id} to case #{related_report.id}',
+                        request=request,
+                        object_type='KaiReport',
+                        object_id=report.id,
+                        object_repr=f'Case #{report.id}',
+                        metadata={'action': 'link_report', 'linked_case_id': related_report.id},
                     )
 
                     messages.success(request, f'Linked to report: {related_report.title}')
@@ -746,6 +905,16 @@ Notified at: {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}
                         user=request.user,
                         action='status_changed',
                         details=f'Unlinked from related report: {related_report.title} (#{related_report.id})'
+                    )
+                    ActivityLog.log_activity(
+                        action_type='kai_action',
+                        user=request.user,
+                        description=f'{request.user.name} unlinked Kai case #{report.id} from case #{related_report.id}',
+                        request=request,
+                        object_type='KaiReport',
+                        object_id=report.id,
+                        object_repr=f'Case #{report.id}',
+                        metadata={'action': 'unlink_report', 'unlinked_case_id': related_report.id},
                     )
 
                     messages.success(request, f'Unlinked from report: {related_report.title}')
@@ -780,6 +949,16 @@ Notified at: {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}
                             action='status_changed',
                             details=f'Accused person set to: {accused_user.name}'
                         )
+                        ActivityLog.log_activity(
+                            action_type='kai_action',
+                            user=request.user,
+                            description=f'{request.user.name} updated accused person on Kai case #{report.id}',
+                            request=request,
+                            object_type='KaiReport',
+                            object_id=report.id,
+                            object_repr=f'Case #{report.id}',
+                            metadata={'action': 'update_accused'},
+                        )
 
                     messages.success(request, f'Accused person updated to {accused_user.name}.')
                 except ParliamentUser.DoesNotExist:
@@ -796,6 +975,16 @@ Notified at: {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}
                         user=request.user,
                         action='status_changed',
                         details=f'Accused person removed (was: {old_name})'
+                    )
+                    ActivityLog.log_activity(
+                        action_type='kai_action',
+                        user=request.user,
+                        description=f'{request.user.name} removed accused person from Kai case #{report.id}',
+                        request=request,
+                        object_type='KaiReport',
+                        object_id=report.id,
+                        object_repr=f'Case #{report.id}',
+                        metadata={'action': 'update_accused', 'cleared': True},
                     )
                     messages.success(request, 'Accused person removed from report.')
 
@@ -924,6 +1113,16 @@ Beta Theta Pi - Samford Chapter
                         action='status_changed',
                         details=f'Accused ({report.targeted_to.name}) notified of the case'
                     )
+                    ActivityLog.log_activity(
+                        action_type='kai_action',
+                        user=request.user,
+                        description=f'{request.user.name} notified accused on Kai case #{report.id}',
+                        request=request,
+                        object_type='KaiReport',
+                        object_id=report.id,
+                        object_repr=f'Case #{report.id}',
+                        metadata={'action': 'notify_accused'},
+                    )
 
                     messages.success(request, f'{report.targeted_to.name} has been notified of the case via email.')
 
@@ -958,6 +1157,16 @@ Beta Theta Pi - Samford Chapter
                             user=request.user,
                             action='closure_approved',
                             details=f'Closure request approved. Report archived.'
+                        )
+                        ActivityLog.log_activity(
+                            action_type='kai_action',
+                            user=request.user,
+                            description=f'{request.user.name} approved closure request on Kai case #{report.id}',
+                            request=request,
+                            object_type='KaiReport',
+                            object_id=report.id,
+                            object_repr=f'Case #{report.id}',
+                            metadata={'action': 'approve_closure'},
                         )
 
                         # Notify the requester
@@ -1012,6 +1221,16 @@ The case has been archived.
                                 user=request.user,
                                 action='closure_denied',
                                 details=f'Closure request denied. Reason: {review_notes[:100]}...' if len(review_notes) > 100 else f'Closure request denied. Reason: {review_notes}'
+                            )
+                            ActivityLog.log_activity(
+                                action_type='kai_action',
+                                user=request.user,
+                                description=f'{request.user.name} denied closure request on Kai case #{report.id}',
+                                request=request,
+                                object_type='KaiReport',
+                                object_id=report.id,
+                                object_repr=f'Case #{report.id}',
+                                metadata={'action': 'deny_closure'},
                             )
 
                             # Notify the requester
@@ -1120,6 +1339,17 @@ def print_kai_report(request, report_id):
         activity_log = list(report.activity_log.all().select_related('user'))
     except:
         activity_log = []
+
+    ActivityLog.log_activity(
+        action_type='kai_action',
+        user=request.user,
+        description=f'{request.user.name} printed/exported Kai case #{report.id}',
+        request=request,
+        object_type='KaiReport',
+        object_id=report.id,
+        object_repr=f'Case #{report.id}',
+        metadata={'action': 'print_report'},
+    )
 
     context = {
         'report': report,
@@ -1278,6 +1508,14 @@ def bulk_actions_kai_reports(request):
                         details='Bulk action: Status changed to reviewed'
                     )
 
+            ActivityLog.log_activity(
+                action_type='kai_action',
+                user=request.user,
+                description=f'{request.user.name} bulk marked {count} Kai case(s) as reviewed',
+                request=request,
+                object_type='KaiReport',
+                metadata={'action': 'bulk_mark_reviewed', 'count': count},
+            )
             messages.success(request, f'{count} report(s) marked as reviewed.')
 
         elif action == 'archive':
@@ -1293,6 +1531,14 @@ def bulk_actions_kai_reports(request):
                     details='Bulk action: Report archived'
                 )
 
+            ActivityLog.log_activity(
+                action_type='kai_action',
+                user=request.user,
+                description=f'{request.user.name} bulk archived {updated} Kai case(s)',
+                request=request,
+                object_type='KaiReport',
+                metadata={'action': 'bulk_archive', 'count': updated},
+            )
             messages.success(request, f'{updated} report(s) archived.')
 
         elif action == 'mark_pending':
@@ -1308,6 +1554,14 @@ def bulk_actions_kai_reports(request):
                     details='Bulk action: Status changed to pending'
                 )
 
+            ActivityLog.log_activity(
+                action_type='kai_action',
+                user=request.user,
+                description=f'{request.user.name} bulk marked {updated} Kai case(s) as pending',
+                request=request,
+                object_type='KaiReport',
+                metadata={'action': 'bulk_mark_pending', 'count': updated},
+            )
             messages.success(request, f'{updated} report(s) marked as pending.')
 
         elif action == 'export_csv':
@@ -1525,5 +1779,49 @@ def track_kai_accused_email_view(request, report_id):
         logger.warning(f"Kai email tracking: Report {report_id} not found")
     except Exception as e:
         logger.error(f"Kai email tracking error for report {report_id}: {e}")
+
+    return HttpResponse(PIXEL_GIF, content_type='image/gif')
+
+
+def track_kai_submitter_email_view(request, report_id):
+    """
+    Track when a submitter views their outcome notification email.
+    Returns a 1x1 transparent pixel.
+    This view does not require login since it's loaded as an image in emails.
+    """
+    import base64
+    import logging
+
+    logger = logging.getLogger('function_calls')
+
+    # 1x1 transparent GIF
+    PIXEL_GIF = base64.b64decode(
+        'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+    )
+
+    try:
+        report = KaiReport.objects.get(id=report_id)
+        logger.info(f"Kai submitter email tracking pixel accessed for report {report_id}")
+
+        # Only update if notified and not already viewed
+        if report.submitter_notified_at:
+            if not report.submitter_email_viewed_at:
+                report.submitter_email_viewed_at = timezone.now()
+                report.save()
+                logger.info(f"Marked Kai report {report_id} submitter email as viewed")
+
+                try:
+                    KaiReportActivity.objects.create(
+                        report=report,
+                        user=None,  # System action
+                        action='status_changed',
+                        details='Submitter viewed outcome notification email'
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to log activity for report {report_id}: {e}")
+    except KaiReport.DoesNotExist:
+        logger.warning(f"Kai submitter email tracking: Report {report_id} not found")
+    except Exception as e:
+        logger.error(f"Kai submitter email tracking error for report {report_id}: {e}")
 
     return HttpResponse(PIXEL_GIF, content_type='image/gif')

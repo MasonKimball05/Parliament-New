@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from src.forms import ForcedPasswordChangeForm
 from django.core.exceptions import ValidationError
+from src.models import ActivityLog
 
 
 @login_required
@@ -26,10 +27,33 @@ def forced_password_change(request):
                 form.save()
                 # Keep user logged in after password change
                 update_session_auth_hash(request, request.user)
+                ActivityLog.log_activity(
+                    action_type='password_changed',
+                    user=request.user,
+                    description=f'{request.user.name} completed a forced password change (admin-initiated reset)',
+                    request=request,
+                    object_type='ParliamentUser',
+                    object_id=request.user.pk,
+                    object_repr=request.user.name,
+                    metadata={'forced': True},
+                )
                 messages.success(
                     request,
                     'Password changed successfully! You can now access the system.'
                 )
+                try:
+                    watch_flag = getattr(request.user, 'watch_flag', None)
+                    if watch_flag and watch_flag.is_active:
+                        from src.security_notifications import send_watch_flag_password_change_alert
+                        from src.utils.security_utils import get_client_ip
+                        send_watch_flag_password_change_alert(
+                            watched_user=request.user,
+                            changed_by_user=request.user,
+                            ip_address=get_client_ip(request) or 'unknown',
+                            watch_reason=watch_flag.reason,
+                        )
+                except Exception:
+                    pass
                 return redirect('home')
             except ValidationError as e:
                 # Display password validation errors

@@ -44,6 +44,16 @@ def profile_view(request):
                     user.profile_picture.delete()
                     user.save()
                     logger.info(f"{user.username} removed their profile picture")
+                    ActivityLog.log_activity(
+                        action_type='profile_picture_changed',
+                        user=request.user,
+                        description=f'{user.name} removed their profile picture',
+                        request=request,
+                        object_type='ParliamentUser',
+                        object_id=user.pk,
+                        object_repr=user.name,
+                        metadata={'action': 'removed'},
+                    )
                     messages.success(request, "Profile picture removed successfully.")
                 else:
                     messages.info(request, "No profile picture to remove.")
@@ -59,6 +69,16 @@ def profile_view(request):
                     user.profile_picture = request.FILES['profile_picture']
                     user.save()
                     logger.info(f"{user.username} uploaded a new profile picture")
+                    ActivityLog.log_activity(
+                        action_type='profile_picture_changed',
+                        user=request.user,
+                        description=f'{user.name} uploaded a new profile picture',
+                        request=request,
+                        object_type='ParliamentUser',
+                        object_id=user.pk,
+                        object_repr=user.name,
+                        metadata={'action': 'uploaded', 'filename': request.FILES['profile_picture'].name},
+                    )
                     messages.success(request, "Profile picture uploaded successfully.")
                 except ValidationError as e:
                     messages.error(request, str(e))
@@ -74,9 +94,11 @@ def profile_view(request):
             new_phone = request.POST.get('phone_number', '').strip()
 
             changes_made = False
+            changes_list = []  # audit trail
 
             # Update username if changed
             if new_username and new_username != user.username:
+                changes_list.append({'field': 'username', 'old': user.username, 'new': new_username})
                 logger.info(f"{user.username} changed username to {new_username}")
                 user.username = new_username
                 changes_made = True
@@ -84,6 +106,7 @@ def profile_view(request):
             # Update preferred name if changed (allow empty string to clear it)
             if new_preferred_name != user.preferred_name:
                 old_preferred = user.preferred_name or "(not set)"
+                changes_list.append({'field': 'preferred_name', 'old': user.preferred_name or '', 'new': new_preferred_name})
                 logger.info(f"{user.username} changed preferred name from '{old_preferred}' to '{new_preferred_name or '(not set)'}'")
                 user.preferred_name = new_preferred_name if new_preferred_name else None
                 changes_made = True
@@ -96,6 +119,7 @@ def profile_view(request):
                     messages.error(request, "This email address is already in use by another user.")
                     return redirect('profile')
 
+                changes_list.append({'field': 'email', 'old': user.email or '', 'new': new_email})
                 old_email = user.email or "(not set)"
                 logger.info(f"{user.username} changed email from '{old_email}' to '{new_email or '(not set)'}'")
                 user.email = new_email if new_email else None
@@ -104,12 +128,23 @@ def profile_view(request):
             # Update phone number if changed (allow empty string to clear it)
             current_phone = user.phone_number or ''
             if new_phone != current_phone:
+                changes_list.append({'field': 'phone', 'old': user.phone_number or '', 'new': new_phone})
                 logger.info(f"{user.username} updated phone number")
                 user.phone_number = new_phone if new_phone else ''
                 changes_made = True
 
             if changes_made:
                 user.save()
+                ActivityLog.log_activity(
+                    action_type='profile_updated',
+                    user=request.user,
+                    description=f'{user.name} updated their profile ({", ".join(c["field"] for c in changes_list)})',
+                    request=request,
+                    object_type='ParliamentUser',
+                    object_id=user.pk,
+                    object_repr=user.name,
+                    metadata={'changes': changes_list},
+                )
                 messages.success(request, "Profile updated successfully.")
             else:
                 messages.info(request, "No changes were made.")
@@ -120,26 +155,57 @@ def profile_view(request):
             prefs, _ = UserPreferences.objects.get_or_create(user=user)
             current_prefs = prefs.prefs or UserPreferences.get_defaults()
             current_notifications = current_prefs.get('notifications', UserPreferences.get_defaults()['notifications'])
-            current_notifications.update({
+            new_notifications = {
                 'announcements': request.POST.get('notify_announcements') == 'on',
                 'legislation': request.POST.get('notify_legislation') == 'on',
                 'events': request.POST.get('notify_events') == 'on',
-            })
+            }
+            current_notifications.update(new_notifications)
             prefs.prefs = {**current_prefs, 'notifications': current_notifications}
             prefs.save(update_fields=['prefs'])
             logger.info(f"{user.username} updated notification preferences")
+            ActivityLog.log_activity(
+                action_type='preferences_updated',
+                user=request.user,
+                description=f'{user.name} updated notification preferences',
+                request=request,
+                object_type='ParliamentUser',
+                object_id=user.pk,
+                object_repr=user.name,
+                metadata={'notifications': new_notifications},
+            )
             messages.success(request, "Notification preferences updated.")
             return redirect('profile')
 
         elif password_form_submitted:
             password_form = PasswordChangeForm(user, request.POST)
             if password_form.is_valid():
-                # Logs new changes
                 logger.info(f"{request.user.username} changed their password")
-
                 user = password_form.save()
                 update_session_auth_hash(request, user)
+                ActivityLog.log_activity(
+                    action_type='password_changed',
+                    user=request.user,
+                    description=f'{request.user.name} changed their password via profile page',
+                    request=request,
+                    object_type='ParliamentUser',
+                    object_id=request.user.pk,
+                    object_repr=request.user.name,
+                )
                 messages.success(request, "Password changed successfully.")
+                try:
+                    watch_flag = getattr(request.user, 'watch_flag', None)
+                    if watch_flag and watch_flag.is_active:
+                        from src.security_notifications import send_watch_flag_password_change_alert
+                        from src.utils.security_utils import get_client_ip
+                        send_watch_flag_password_change_alert(
+                            watched_user=request.user,
+                            changed_by_user=request.user,
+                            ip_address=get_client_ip(request) or 'unknown',
+                            watch_reason=watch_flag.reason,
+                        )
+                except Exception:
+                    pass
                 return redirect('profile')
             else:
                 messages.error(request, "Please correct the errors below.")

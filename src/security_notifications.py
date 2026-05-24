@@ -402,6 +402,17 @@ def send_watch_flag_alert(watched_user, event_type, ip_address, geo, user_agent,
     from src.models import LoginAlert, UserSession
     from django.core.mail import EmailMultiAlternatives
     from django.template.loader import render_to_string
+    from django.core.cache import cache
+
+    # Cooldown: suppress duplicate alerts for the same user+event within 15 minutes.
+    # Prevents alert spam when someone hammers failed logins or re-authenticates rapidly.
+    cooldown_key = f'watch_flag_alerted_{watched_user.pk}_{event_type}'
+    if cache.get(cooldown_key):
+        logger.info(
+            f"WATCH FLAG: Cooldown active for {watched_user.username} ({event_type}) — suppressing duplicate alert"
+        )
+        return
+    cache.set(cooldown_key, True, 60 * 15)  # 15-minute cooldown
 
     email_to = get_security_alert_email()
     site_url = get_site_url()
@@ -463,7 +474,7 @@ def send_watch_flag_alert(watched_user, event_type, ip_address, geo, user_agent,
         LoginAlert.objects.create(
             user=watched_user,
             login_history=login_history,
-            alert_type='other',
+            alert_type='watch_flag',
             severity=severity,
             status='new',
             title=f'Watch flag: {trigger_label} — {watched_user.name}',
@@ -499,6 +510,68 @@ def send_watch_flag_alert(watched_user, event_type, ip_address, geo, user_agent,
         logger.info(f"Watch flag alert email sent for {watched_user.username} ({event_type})")
     except Exception as e:
         logger.error(f"Failed to send watch flag alert email: {e}")
+
+
+def send_watch_flag_password_change_alert(watched_user, changed_by_user, ip_address, watch_reason):
+    """
+    Send a watch flag alert when a watched user changes their own password.
+    Uses the same 15-minute cooldown key as login alerts to avoid overlap.
+    """
+    from src.models import LoginAlert
+    from django.core.cache import cache
+
+    cooldown_key = f'watch_flag_alerted_{watched_user.pk}_password_change'
+    if cache.get(cooldown_key):
+        logger.info(f"WATCH FLAG: Cooldown active for {watched_user.username} (password_change) — suppressing duplicate")
+        return
+    cache.set(cooldown_key, True, 60 * 15)
+
+    email_to = get_security_alert_email()
+    site_url = get_site_url()
+    timestamp = localtime(timezone.now()).strftime('%Y-%m-%d %H:%M:%S %Z')
+
+    # Create LoginAlert record
+    try:
+        description = (
+            f'Password changed for watched user {watched_user.name} ({watched_user.username}).\n\n'
+            f'IP: {ip_address}\n'
+            f'Watch reason: {watch_reason}'
+        )
+        LoginAlert.objects.create(
+            user=watched_user,
+            alert_type='watch_flag',
+            severity='medium',
+            status='new',
+            title=f'Watch flag: Password changed — {watched_user.name}',
+            description=description,
+        )
+    except Exception as e:
+        logger.error(f"Failed to create LoginAlert for watch flag password change: {e}")
+
+    if not email_to:
+        return
+
+    try:
+        from django.core.mail import EmailMultiAlternatives
+        subject = f"[WATCH FLAG] Password changed — {watched_user.name} ({watched_user.username})"
+        plain_body = (
+            f"A watched user changed their password.\n\n"
+            f"User: {watched_user.name} ({watched_user.username})\n"
+            f"Time: {timestamp}\n"
+            f"IP: {ip_address}\n"
+            f"Watch reason: {watch_reason}\n\n"
+            f"View in admin: {site_url}/admin-v2/users/{watched_user.user_id}/login-security/"
+        )
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=plain_body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[email_to],
+        )
+        msg.send()
+        logger.info(f"Watch flag password change alert sent for {watched_user.username}")
+    except Exception as e:
+        logger.error(f"Failed to send watch flag password change alert: {e}")
 
 
 def alert_ip_blacklisted(ip_address, reason, added_by=None):
