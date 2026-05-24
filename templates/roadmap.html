@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}3.0 Roadmap - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+                <span class="inline-block mb-2 px-3 py-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-xs font-bold tracking-widest uppercase rounded-full">Version 3.0 &mdash; Planning</span>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Parliament 3.0 Roadmap</h1>
+                <p class="text-gray-600 dark:text-gray-400 max-w-xl">&ldquo;Parliament becomes self-sustaining.&rdquo; Real-time, mobile-ready, and operable by the next person without touching the codebase.</p>
+            </div>
+            <a href="{% url 'changelog' %}" class="shrink-0 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                Back to Changelog
+            </a>
+        </div>
+    </div>
+
+    <!-- Pillars grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+
+        <!-- Pillar 1: Real-Time & Async -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+            <div class="h-1 bg-gradient-to-r from-indigo-500 to-violet-500"></div>
+            <div class="p-6">
+                <div class="flex items-start gap-4 mb-5">
+                    <div class="w-11 h-11 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-xl shrink-0">⚡</div>
+                    <div>
+                        <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Real-Time &amp; Async Infrastructure</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">The foundation everything else builds on &mdash; Celery + Redis</p>
+                    </div>
+                </div>
+                <ul class="space-y-3">
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">Celery + Redis</span> &mdash; async email, background jobs, scheduled tasks</span>
+                    </li>
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">Scheduled vote open/close</span> &mdash; no page load needed to trigger</span>
+                    </li>
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">Live vote result updates</span> &mdash; counts refresh without a full page reload</span>
+                    </li>
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">Async email sending</span> &mdash; emails no longer block server threads</span>
+                    </li>
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">Scheduled announcements</span> &mdash; timezone-aware future posting</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Pillar 2: Mobile & PWA -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+            <div class="h-1 bg-gradient-to-r from-cyan-500 to-sky-500"></div>
+            <div class="p-6">
+                <div class="flex items-start gap-4 mb-5">
+                    <div class="w-11 h-11 rounded-xl bg-cyan-100 dark:bg-cyan-900/40 flex items-center justify-center text-xl shrink-0">📱</div>
+                    <div>
+                        <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Mobile &amp; Push Notifications</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Native-feeling app on every member's phone &mdash; no app store required</p>
+                    </div>
+                </div>
+                <ul class="space-y-3">
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">Web Push notifications</span> &mdash; native alerts even with browser closed</span>
+                    </li>
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">PWA install</span> &mdash; add to home screen, full-screen launch, app icon</span>
+                    </li>
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">Notification types</span> &mdash; votes, announcements, Kai updates, attendance</span>
+                    </li>
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">Per-device subscriptions</span> &mdash; one account, notifications on any device</span>
+                    </li>
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">iOS 16.4+ support</span> &mdash; works via home screen install (Android works in any browser)</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Pillar 3: Member Experience -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+            <div class="h-1 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
+            <div class="p-6">
+                <div class="flex items-start gap-4 mb-5">
+                    <div class="w-11 h-11 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-xl shrink-0">✨</div>
+                    <div>
+                        <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Member Experience Overhaul</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Members and officers can use Parliament without asking how it works</p>
+                    </div>
+                </div>
+                <ul class="space-y-3">
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">Slating rework</span> &mdash; simplified forms and cleaner voting flow <span class="ml-1 px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold rounded">Early</span></span>
+                    </li>
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">Pledge onboarding redesign</span> &mdash; welcome emails, progress feedback <span class="ml-1 px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold rounded">Early</span></span>
+                    </li>
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">Officer transition tools</span> &mdash; guided handoff checklist for outgoing/incoming officers</span>
+                    </li>
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">Notification center</span> &mdash; bell icon with unread count + push opt-in settings</span>
+                    </li>
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">Service hours portal</span> &mdash; members view own submissions without asking an officer</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Pillar 4: Handoff Readiness -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+            <div class="h-1 bg-gradient-to-r from-amber-500 to-orange-400"></div>
+            <div class="p-6">
+                <div class="flex items-start gap-4 mb-5">
+                    <div class="w-11 h-11 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-xl shrink-0">🔧</div>
+                    <div>
+                        <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Handoff Readiness</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">The next person manages Parliament from the UI, not the codebase</p>
+                    </div>
+                </div>
+                <ul class="space-y-3">
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">Self-service admin UI</span> &mdash; feature flags, page toggles, and settings in admin without code changes</span>
+                    </li>
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">Admin dashboard</span> &mdash; at-a-glance chapter health (users, flags, votes, Kai)</span>
+                    </li>
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">Automated DB backups</span> &mdash; verified offsite backups with failure alerting</span>
+                    </li>
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">Staging environment</span> &mdash; test migrations safely before they hit production</span>
+                    </li>
+                    <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                        <span><span class="font-semibold text-gray-800 dark:text-gray-200">Codebase split</span> &mdash; break models.py (5700+ lines) into maintainable sub-apps</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Bottom row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        <!-- Ships before 3.0 -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-colors duration-200">
+            <h3 class="text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-4">Ships Before 3.0 (2.x releases)</h3>
+            <ul class="space-y-3">
+                {% for item in ships_before %}
+                <li class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                    <div class="w-4 h-4 rounded border border-gray-300 dark:border-gray-600 shrink-0"></div>
+                    {{ item }}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- Technical prerequisites -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 transition-colors duration-200">
+            <h3 class="text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-4">Technical Prerequisites (in order)</h3>
+            <ul class="space-y-3">
+                {% for prereq in prerequisites %}
+                <li class="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
+                    <div class="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">{{ forloop.counter }}</div>
+                    <span><span class="font-semibold text-gray-800 dark:text-gray-200">{{ prereq.name }}</span> &mdash; {{ prereq.detail }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+    </div>
+
+    <p class="text-center text-xs text-gray-400 dark:text-gray-600 mt-8">Parliament &bull; Beta Theta Pi - Samford Chapter &bull; Roadmap drafted May 2026</p>
+
+</div>
+{% endblock %}

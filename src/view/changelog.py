@@ -126,3 +126,25 @@ def changelog_detail(request, version):
     }
 
     return render(request, 'changelog_detail.html', context)
+
+
+def roadmap(request):
+    """Display the Parliament 3.0 roadmap page."""
+    context = {
+        'ships_before': [
+            'Middleware false-positive tuning (allowlist approach)',
+            'Slating process rework',
+            'Admin-v2 UI redesign',
+            'Attack mitigation phases 1–3',
+            'iCal feed, bulk member import, changelog viewer',
+            'Audit log retention policy',
+        ],
+        'prerequisites': [
+            {'name': 'Redis', 'detail': 'must be running on server — install_redis.sh already in repo'},
+            {'name': 'Celery worker + beat', 'detail': 'two new systemd units alongside gunicorn'},
+            {'name': 'VAPID keys', 'detail': 'generated once, stored in .env for push notifications'},
+            {'name': 'HTTPS', 'detail': 'already done via Cloudflare ✓'},
+            {'name': 'models.py split', 'detail': 'ideally done before building new features on top'},
+        ],
+    }
+    return render(request, 'roadmap.html', context)
