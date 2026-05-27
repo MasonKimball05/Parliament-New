@@ -49,8 +49,8 @@ def officer_home(request):
         status__in=['nominations_open', 'voting_open', 'results_published']
     ).first()
 
-    # Officers always have slating visibility; check committee access for management actions
-    slating_committee = Committee.objects.filter(is_slating_committee=True).first()
+    # Officers always have slating visibility; check active period's committee for management actions
+    slating_committee = active_slating_period.slating_committee if active_slating_period else None
     has_slating_access = request.user.is_admin or bool(
         slating_committee and (
             slating_committee.admin == request.user or

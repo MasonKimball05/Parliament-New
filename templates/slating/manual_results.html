@@ -1,0 +1,162 @@
+{% extends 'slating/base_slating.html' %}
+
+{% block breadcrumbs %}
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <span class="text-gray-700 dark:text-gray-300">{{ period.name }}</span>
+</li>
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <span class="text-gray-700 dark:text-gray-300">Record Manual Results</span>
+</li>
+{% endblock %}
+
+{% block page_header %}
+<div>
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Record Manual Results</h1>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
+</div>
+{% endblock %}
+
+{% block slating_content %}
+<div class="max-w-3xl mx-auto space-y-5">
+
+    <div class="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+        <div class="flex gap-3">
+            <svg class="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+            <div class="text-sm text-amber-800 dark:text-amber-200">
+                <p class="font-medium">Bypassing online voting</p>
+                <p class="mt-0.5">This records results from an in-person session. The period will move directly to results — no online votes will be collected. This cannot be undone.</p>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" id="manual-results-form">
+        {% csrf_token %}
+
+        <!-- Vote mode selection -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden mb-4">
+            <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">Vote Records</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Optionally record the vote counts from the in-person session.</p>
+            </div>
+            <div class="px-5 py-4 space-y-3">
+                <label class="flex items-start gap-3 cursor-pointer">
+                    <input type="radio" name="vote_mode" value="none" checked onchange="setVoteMode('none')"
+                        class="mt-0.5 h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500">
+                    <div>
+                        <p class="text-sm font-medium text-gray-800 dark:text-gray-200">No vote records</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Just record who won each position. All positions marked as passed.</p>
+                    </div>
+                </label>
+                <label class="flex items-start gap-3 cursor-pointer">
+                    <input type="radio" name="vote_mode" value="overall" onchange="setVoteMode('overall')"
+                        class="mt-0.5 h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500">
+                    <div>
+                        <p class="text-sm font-medium text-gray-800 dark:text-gray-200">Overall vote (full slate)</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">One approve/reject/abstain count for the entire slate.</p>
+                    </div>
+                </label>
+                <label class="flex items-start gap-3 cursor-pointer">
+                    <input type="radio" name="vote_mode" value="per_position" onchange="setVoteMode('per_position')"
+                        class="mt-0.5 h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500">
+                    <div>
+                        <p class="text-sm font-medium text-gray-800 dark:text-gray-200">Per-position votes</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Separate approve/reject/abstain count for each position.</p>
+                    </div>
+                </label>
+            </div>
+
+            <!-- Overall vote inputs -->
+            <div id="overall-vote-inputs" class="hidden px-5 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Overall Vote Counts</p>
+                <div class="flex flex-wrap gap-4">
+                    <label class="flex flex-col gap-1">
+                        <span class="text-xs font-medium text-green-700 dark:text-green-400">Approve</span>
+                        <input type="number" name="overall_approve" min="0" value="0"
+                            class="w-24 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    </label>
+                    <label class="flex flex-col gap-1">
+                        <span class="text-xs font-medium text-red-700 dark:text-red-400">Reject</span>
+                        <input type="number" name="overall_reject" min="0" value="0"
+                            class="w-24 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    </label>
+                    <label class="flex flex-col gap-1">
+                        <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Abstain</span>
+                        <input type="number" name="overall_abstain" min="0" value="0"
+                            class="w-24 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Per-position winners -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden">
+            <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">Winners</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Select who was elected to each position.</p>
+            </div>
+            <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for row in rows %}
+                <li class="px-5 py-4 space-y-3">
+                    <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ row.position.title }}</p>
+                    <select name="winner_{{ row.position.id }}" required
+                        class="block w-full text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500">
+                        <option value="">-- Select winner --</option>
+                        {% for member in all_members %}
+                        <option value="{{ member.pk }}">{{ member.name }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <!-- Per-position vote inputs (hidden until per_position mode) -->
+                    <div class="per-position-votes hidden">
+                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Vote counts for this position</p>
+                        <div class="flex flex-wrap gap-3">
+                            <label class="flex flex-col gap-1">
+                                <span class="text-xs text-green-700 dark:text-green-400">Approve</span>
+                                <input type="number" name="approve_{{ row.position.id }}" min="0" value="0"
+                                    class="w-20 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                            </label>
+                            <label class="flex flex-col gap-1">
+                                <span class="text-xs text-red-700 dark:text-red-400">Reject</span>
+                                <input type="number" name="reject_{{ row.position.id }}" min="0" value="0"
+                                    class="w-20 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                            </label>
+                            <label class="flex flex-col gap-1">
+                                <span class="text-xs text-gray-500 dark:text-gray-400">Abstain</span>
+                                <input type="number" name="abstain_{{ row.position.id }}" min="0" value="0"
+                                    class="w-20 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                            </label>
+                        </div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <a href="{% url 'slating_period_setup' period_id=period.id %}"
+                class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+                ← Back to Setup
+            </a>
+            <button type="submit"
+                onclick="return confirm('Record these results and close voting? This cannot be undone.')"
+                class="inline-flex items-center px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                Record Results &amp; Close
+            </button>
+        </div>
+    </form>
+
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+function setVoteMode(mode) {
+    document.getElementById('overall-vote-inputs').classList.toggle('hidden', mode !== 'overall');
+    document.querySelectorAll('.per-position-votes').forEach(function(el) {
+        el.classList.toggle('hidden', mode !== 'per_position');
+    });
+}
+</script>
+{% endblock %}

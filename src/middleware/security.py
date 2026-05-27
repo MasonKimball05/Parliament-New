@@ -379,6 +379,7 @@ class InputSanitizationMiddleware:
         # Check all input sources for malicious patterns
         attack_detected = False
         attack_type = None
+        attack_pattern = None
         attack_payload = None
 
         # Check GET parameters
@@ -389,6 +390,7 @@ class InputSanitizationMiddleware:
             if result:
                 attack_detected = True
                 attack_type = result['type']
+                attack_pattern = result['pattern']
                 attack_payload = f"GET[{key}]={self.truncate(value)}"
                 break
 
@@ -402,6 +404,7 @@ class InputSanitizationMiddleware:
                     if result:
                         attack_detected = True
                         attack_type = result['type']
+                        attack_pattern = result['pattern']
                         attack_payload = f"POST[{key}]={self.truncate(value)}"
                         break
             except Exception:
@@ -413,6 +416,7 @@ class InputSanitizationMiddleware:
             if result:
                 attack_detected = True
                 attack_type = result['type']
+                attack_pattern = result['pattern']
                 attack_payload = f"PATH={self.truncate(request.path)}"
 
         # If attack detected, log and potentially block
@@ -422,6 +426,7 @@ class InputSanitizationMiddleware:
                          else "Unauthenticated")
             logger.warning(
                 f"ATTACK DETECTED [{attack_type}]: {attack_payload} | "
+                f"Pattern: {attack_pattern} | "
                 f"IP: {ip_address} | {user_info} | "
                 f"Path: {request.path} | UA: {request.META.get('HTTP_USER_AGENT', 'unknown')[:100]}"
             )

@@ -54,6 +54,152 @@
     </div>
     {% endif %}
 
+    <!-- Progress Stepper (only shown on period pages) -->
+    {% if period %}
+    <div class="mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <nav aria-label="Election progress" class="overflow-x-auto">
+                <ol class="flex items-center w-full py-4 px-5 min-w-max">
+                    {% with s=period.status %}
+
+                    <!-- Step 1: Setup -->
+                    <li class="flex items-center flex-shrink-0">
+                        {% if s != 'setup' %}
+                        {# Completed #}
+                        <span class="flex items-center justify-center w-7 h-7 bg-green-100 dark:bg-green-900/40 rounded-full ring-2 ring-green-500 dark:ring-green-400 flex-shrink-0">
+                            <svg class="w-3.5 h-3.5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                        </span>
+                        <span class="ml-2 text-sm font-medium text-green-600 dark:text-green-400 whitespace-nowrap">Setup</span>
+                        {% else %}
+                        {# Current #}
+                        <span class="flex items-center justify-center w-7 h-7 bg-primary-600 rounded-full flex-shrink-0">
+                            <span class="text-xs font-bold text-white">1</span>
+                        </span>
+                        <span class="ml-2 text-sm font-semibold text-primary-600 dark:text-primary-400 whitespace-nowrap">Setup</span>
+                        {% endif %}
+                    </li>
+
+                    <!-- Connector -->
+                    <li class="flex-1 mx-2 min-w-[1.5rem]">
+                        <div class="h-0.5 {% if s != 'setup' %}bg-green-400 dark:bg-green-600{% else %}bg-gray-200 dark:bg-gray-600{% endif %}"></div>
+                    </li>
+
+                    <!-- Step 2: Nominations -->
+                    <li class="flex items-center flex-shrink-0">
+                        {% if s in 'deliberation,voting_open,voting_closed,results_published,archived' %}
+                        {# Completed #}
+                        <span class="flex items-center justify-center w-7 h-7 bg-green-100 dark:bg-green-900/40 rounded-full ring-2 ring-green-500 dark:ring-green-400 flex-shrink-0">
+                            <svg class="w-3.5 h-3.5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                        </span>
+                        <span class="ml-2 text-sm font-medium text-green-600 dark:text-green-400 whitespace-nowrap">Nominations</span>
+                        {% elif s == 'nominations_open' or s == 'nominations_closed' %}
+                        {# Current #}
+                        <span class="flex items-center justify-center w-7 h-7 bg-primary-600 rounded-full flex-shrink-0">
+                            <span class="text-xs font-bold text-white">2</span>
+                        </span>
+                        <span class="ml-2 text-sm font-semibold text-primary-600 dark:text-primary-400 whitespace-nowrap">Nominations</span>
+                        {% else %}
+                        {# Upcoming #}
+                        <span class="flex items-center justify-center w-7 h-7 bg-gray-100 dark:bg-gray-700 rounded-full flex-shrink-0">
+                            <span class="text-xs font-medium text-gray-400 dark:text-gray-500">2</span>
+                        </span>
+                        <span class="ml-2 text-sm text-gray-400 dark:text-gray-500 whitespace-nowrap">Nominations</span>
+                        {% endif %}
+                    </li>
+
+                    <!-- Connector -->
+                    <li class="flex-1 mx-2 min-w-[1.5rem]">
+                        <div class="h-0.5 {% if s == 'deliberation' or s == 'voting_open' or s == 'voting_closed' or s == 'results_published' or s == 'archived' %}bg-green-400 dark:bg-green-600{% else %}bg-gray-200 dark:bg-gray-600{% endif %}"></div>
+                    </li>
+
+                    <!-- Step 3: Deliberation -->
+                    <li class="flex items-center flex-shrink-0">
+                        {% if s == 'voting_open' or s == 'voting_closed' or s == 'results_published' or s == 'archived' %}
+                        {# Completed #}
+                        <span class="flex items-center justify-center w-7 h-7 bg-green-100 dark:bg-green-900/40 rounded-full ring-2 ring-green-500 dark:ring-green-400 flex-shrink-0">
+                            <svg class="w-3.5 h-3.5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                        </span>
+                        <span class="ml-2 text-sm font-medium text-green-600 dark:text-green-400 whitespace-nowrap">Deliberation</span>
+                        {% elif s == 'deliberation' %}
+                        {# Current #}
+                        <span class="flex items-center justify-center w-7 h-7 bg-primary-600 rounded-full flex-shrink-0">
+                            <span class="text-xs font-bold text-white">3</span>
+                        </span>
+                        <span class="ml-2 text-sm font-semibold text-primary-600 dark:text-primary-400 whitespace-nowrap">Deliberation</span>
+                        {% else %}
+                        {# Upcoming #}
+                        <span class="flex items-center justify-center w-7 h-7 bg-gray-100 dark:bg-gray-700 rounded-full flex-shrink-0">
+                            <span class="text-xs font-medium text-gray-400 dark:text-gray-500">3</span>
+                        </span>
+                        <span class="ml-2 text-sm text-gray-400 dark:text-gray-500 whitespace-nowrap">Deliberation</span>
+                        {% endif %}
+                    </li>
+
+                    <!-- Connector -->
+                    <li class="flex-1 mx-2 min-w-[1.5rem]">
+                        <div class="h-0.5 {% if s == 'voting_open' or s == 'voting_closed' or s == 'results_published' or s == 'archived' %}bg-green-400 dark:bg-green-600{% else %}bg-gray-200 dark:bg-gray-600{% endif %}"></div>
+                    </li>
+
+                    <!-- Step 4: Voting -->
+                    <li class="flex items-center flex-shrink-0">
+                        {% if s == 'results_published' or s == 'archived' %}
+                        {# Completed #}
+                        <span class="flex items-center justify-center w-7 h-7 bg-green-100 dark:bg-green-900/40 rounded-full ring-2 ring-green-500 dark:ring-green-400 flex-shrink-0">
+                            <svg class="w-3.5 h-3.5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                        </span>
+                        <span class="ml-2 text-sm font-medium text-green-600 dark:text-green-400 whitespace-nowrap">Voting</span>
+                        {% elif s == 'voting_open' or s == 'voting_closed' %}
+                        {# Current #}
+                        <span class="flex items-center justify-center w-7 h-7 bg-primary-600 rounded-full flex-shrink-0">
+                            <span class="text-xs font-bold text-white">4</span>
+                        </span>
+                        <span class="ml-2 text-sm font-semibold text-primary-600 dark:text-primary-400 whitespace-nowrap">Voting</span>
+                        {% else %}
+                        {# Upcoming #}
+                        <span class="flex items-center justify-center w-7 h-7 bg-gray-100 dark:bg-gray-700 rounded-full flex-shrink-0">
+                            <span class="text-xs font-medium text-gray-400 dark:text-gray-500">4</span>
+                        </span>
+                        <span class="ml-2 text-sm text-gray-400 dark:text-gray-500 whitespace-nowrap">Voting</span>
+                        {% endif %}
+                    </li>
+
+                    <!-- Connector -->
+                    <li class="flex-1 mx-2 min-w-[1.5rem]">
+                        <div class="h-0.5 {% if s == 'results_published' or s == 'archived' %}bg-green-400 dark:bg-green-600{% else %}bg-gray-200 dark:bg-gray-600{% endif %}"></div>
+                    </li>
+
+                    <!-- Step 5: Complete -->
+                    <li class="flex items-center flex-shrink-0">
+                        {% if s == 'results_published' or s == 'archived' %}
+                        {# Current/Done #}
+                        <span class="flex items-center justify-center w-7 h-7 bg-primary-600 rounded-full flex-shrink-0">
+                            <span class="text-xs font-bold text-white">5</span>
+                        </span>
+                        <span class="ml-2 text-sm font-semibold text-primary-600 dark:text-primary-400 whitespace-nowrap">Complete</span>
+                        {% else %}
+                        {# Upcoming #}
+                        <span class="flex items-center justify-center w-7 h-7 bg-gray-100 dark:bg-gray-700 rounded-full flex-shrink-0">
+                            <span class="text-xs font-medium text-gray-400 dark:text-gray-500">5</span>
+                        </span>
+                        <span class="ml-2 text-sm text-gray-400 dark:text-gray-500 whitespace-nowrap">Complete</span>
+                        {% endif %}
+                    </li>
+
+                    {% endwith %}
+                </ol>
+            </nav>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Main Content -->
     {% block slating_content %}{% endblock %}
 </div>

@@ -102,6 +102,8 @@ def add_position(request, period_id):
     if eligible_years:
         position_data['eligible_class_years'] = eligible_years
 
+    position_data['allow_abstain'] = request.POST.get('allow_abstain') != 'off'
+
     # Create position
     position = SlatingPosition.objects.create(period=period, **position_data)
 
@@ -142,6 +144,7 @@ def edit_position(request, period_id, position_id):
             'eligible_member_types': position.eligible_member_types,
             'eligible_class_years': position.eligible_class_years,
             'is_active': position.is_active,
+            'allow_abstain': position.allow_abstain,
         }
         return JsonResponse(data)
 
@@ -183,6 +186,7 @@ def edit_position(request, period_id, position_id):
     # Eligibility restrictions
     position.eligible_member_types = request.POST.getlist('eligible_member_types')
     position.eligible_class_years = request.POST.getlist('eligible_class_years')
+    position.allow_abstain = request.POST.get('allow_abstain') != 'off'
 
     position.save()
 

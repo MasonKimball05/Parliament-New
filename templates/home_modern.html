@@ -153,7 +153,11 @@
             <span class="text-xs text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 px-2.5 py-1 rounded-full">You have voted</span>
             {% else %}
             <span class="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 px-2.5 py-1 rounded-full">You have not voted yet</span>
+            {% if active_slating_period.vote_type == 'individual' %}
+            <a href="{% url 'slating_vote_individual' period_id=active_slating_period.id %}" class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm">Vote Now</a>
+            {% else %}
             <a href="{% url 'slating_vote' period_id=active_slating_period.id %}" class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm">Vote Now</a>
+            {% endif %}
             {% endif %}
             {% if has_slating_access %}
             <a href="{% url 'slating_dashboard' %}" class="sm:hidden text-xs text-purple-600 dark:text-purple-400 hover:underline">Manage Slating →</a>

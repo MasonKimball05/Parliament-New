@@ -102,7 +102,7 @@ def period_status(request, period_id):
 
         data['voting'] = {
             'attempt': period.current_voting_attempt,
-            'max_attempts': period.max_slate_voting_attempts,
+            'vote_type': period.vote_type,
             'total_ballots': total_ballots,
         }
 
@@ -265,8 +265,16 @@ def voting_status(request, period_id):
         'can_vote': period.can_vote(),
         'status': period.status,
         'voting_attempt': period.current_voting_attempt,
-        'max_attempts': period.max_slate_voting_attempts,
+        'vote_type': period.vote_type,
     }
+
+    # Include a lightweight slate fingerprint so clients can detect changes
+    from src.models import Slate
+    slate = Slate.objects.filter(
+        period=period, is_approved=True, slate_type='primary'
+    ).first()
+    if slate:
+        data['slate_candidate_count'] = slate.candidates.count()
 
     # Check if user has voted
     if period.status == 'voting_open':

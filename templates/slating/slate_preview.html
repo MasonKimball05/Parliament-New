@@ -3,7 +3,11 @@
 {% block breadcrumbs %}
 <li>
     <span class="mx-2 text-gray-400">/</span>
+    {% if public_view %}
+    <span class="text-gray-500 dark:text-gray-400">{{ period.name }}</span>
+    {% else %}
     <a href="{% url 'slating_period_setup' period_id=period.id %}" class="text-gray-500 dark:text-gray-400 hover:text-primary-600">{{ period.name }}</a>
+    {% endif %}
 </li>
 <li>
     <span class="mx-2 text-gray-400">/</span>
@@ -20,6 +24,7 @@
             {% if slate.is_approved %}&middot; Approved {{ slate.approved_at|date:"M j, Y" }}{% endif %}
         </p>
     </div>
+    {% if not public_view %}
     <div class="flex space-x-3">
         {% if not slate.is_approved %}
         <form method="post" action="{% url 'slating_approve_slate_id' period_id=period.id slate_id=slate.id %}">
@@ -39,6 +44,12 @@
             </button>
         </form>
     </div>
+    {% else %}
+    <a href="{% url 'slating_vote' period_id=period.id %}"
+        class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+        Back to Voting
+    </a>
+    {% endif %}
 </div>
 {% endblock %}
 
@@ -64,10 +75,10 @@
                     </div>
                     <div class="text-right">
                         <p class="text-sm font-medium text-primary-600 dark:text-primary-400">
-                            {{ candidate.application.applicant.name }}
+                            {{ candidate.candidate_name }}
                         </p>
                         <p class="text-xs text-gray-500 dark:text-gray-400">
-                            {{ candidate.application.applicant.user_id }}
+                            {% if candidate.application %}{{ candidate.application.applicant.user_id }}{% else %}Write-in{% endif %}
                         </p>
                     </div>
                 </div>

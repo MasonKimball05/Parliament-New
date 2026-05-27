@@ -11,7 +11,7 @@ from django.contrib import messages
 from django.http import HttpResponseForbidden
 from django.utils import timezone
 
-from src.models import SlatingPeriod, SlatingActivity, Committee, ParliamentUser
+from src.models import SlatingPeriod, SlatingActivity, ParliamentUser
 
 
 @login_required
@@ -21,7 +21,7 @@ def transfer_admin(request, period_id):
     Only the current admin or site admin can perform this action.
     """
     period = get_object_or_404(SlatingPeriod, id=period_id)
-    slating_committee = Committee.objects.filter(is_slating_committee=True).first()
+    slating_committee = period.slating_committee
 
     if not slating_committee:
         messages.error(request, 'Slating Committee not configured.')
@@ -85,7 +85,7 @@ def transfer_admin(request, period_id):
         member_status='Active'
     ).exclude(
         pk=slating_committee.admin.pk if slating_committee.admin else None
-    ).order_by('last_name', 'first_name')
+    ).order_by('name')
 
     context = {
         'period': period,

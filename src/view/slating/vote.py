@@ -12,9 +12,9 @@ from django.contrib.auth import authenticate
 from django.utils import timezone
 from src.models import (
     SlatingPeriod, Slate, SlatingBallot, SlatingVote,
-    SlateCandidate, SlatingActivity
+    SlateCandidate, SlatingActivity, SlatingAttendance
 )
-from .permissions import voting_member_required, slating_chair_required
+from .permissions import voting_member_required, slating_chair_required, can_view_applications
 import hashlib
 import secrets
 
@@ -29,11 +29,16 @@ def slating_vote(request, period_id):
     period = get_object_or_404(SlatingPeriod, id=period_id)
     user = request.user
 
-    if not period.can_vote():
-        messages.error(request, 'Voting is not currently open.')
-        return redirect('slating_dashboard')
+    is_committee = can_view_applications(user, period)
+    voting_paused = period.status == 'deliberation' and period.current_voting_attempt > 0
 
-    # Get current slate for voting
+    # Committee members can see the paused-voting state; everyone else needs voting_open
+    if not period.can_vote():
+        if not (is_committee and voting_paused):
+            messages.error(request, 'Voting is not currently open.')
+            return redirect('slating_dashboard')
+
+    # Get current slate
     current_attempt = period.current_voting_attempt
     slate = Slate.objects.filter(
         period=period,
@@ -43,6 +48,34 @@ def slating_vote(request, period_id):
 
     if not slate:
         messages.error(request, 'No slate available for voting.')
+        return redirect('slating_dashboard')
+
+    candidates = slate.candidates.select_related(
+        'position', 'application__applicant'
+    ).order_by('display_order')
+
+    # If vote type is individual, redirect to individual voting
+    if not voting_paused and period.vote_type == 'individual':
+        return redirect('slating_vote_individual', period_id=period_id)
+
+    # Paused state: committee sees control panel, no vote logic runs
+    if voting_paused:
+        context = {
+            'period': period,
+            'slate': slate,
+            'candidates': candidates,
+            'current_attempt': current_attempt,
+            'voting_paused': True,
+            'is_committee': is_committee,
+            'required_percentage': period.required_approval_percentage,
+        }
+        return render(request, 'slating/vote.html', context)
+
+    # --- Live voting path ---
+
+    # Check if member is marked present
+    if not SlatingAttendance.objects.filter(period=period, member=user).exists():
+        messages.error(request, 'You are not marked present for this session. Contact the slating chair.')
         return redirect('slating_dashboard')
 
     # Check if already voted this attempt
@@ -58,9 +91,7 @@ def slating_vote(request, period_id):
             messages.error(request, 'You have already voted in this round.')
             return redirect('slating_vote', period_id=period_id)
 
-        # Verify password for vote authentication
         password = request.POST.get('password')
-
         if not user.check_password(password):
             messages.error(request, 'Incorrect password. Please try again.')
             return redirect('slating_vote', period_id=period_id)
@@ -73,17 +104,14 @@ def slating_vote(request, period_id):
             messages.error(request, 'Invalid vote choice.')
             return redirect('slating_vote', period_id=period_id)
 
-        # Get rejected positions if rejecting
         rejected_positions = []
         if vote_choice == 'reject':
             rejected_positions = request.POST.getlist('rejected_positions')
             if not rejected_positions:
                 messages.error(request, 'Please select at least one position you are objecting to.')
                 return redirect('slating_vote', period_id=period_id)
-            # Convert to integers
             rejected_positions = [int(p) for p in rejected_positions]
 
-        # Create ballot (tracks who voted - for audit)
         ballot_hash = hashlib.sha256(
             f"{user.user_id}:{period_id}:{current_attempt}:{secrets.token_hex(16)}".encode()
         ).hexdigest()
@@ -96,7 +124,6 @@ def slating_vote(request, period_id):
             ballot_hash=ballot_hash
         )
 
-        # Create anonymous vote
         vote_hash = hashlib.sha256(
             f"{secrets.token_hex(32)}:{timezone.now().isoformat()}".encode()
         ).hexdigest()
@@ -110,7 +137,6 @@ def slating_vote(request, period_id):
             vote_hash=vote_hash
         )
 
-        # Log activity (without revealing vote)
         SlatingActivity.objects.create(
             period=period,
             user=user,
@@ -122,20 +148,12 @@ def slating_vote(request, period_id):
         messages.success(request, 'Your vote has been recorded. Thank you for participating!')
         return redirect('slating_dashboard')
 
-    # GET - Show voting form
-    candidates = slate.candidates.select_related(
-        'position', 'application__applicant'
-    ).order_by('display_order')
-
-    # Get vote counts (only show after user has voted or voting closed)
+    # GET - show voting form
     show_tally = existing_ballot is not None
-
     vote_tally = None
     if show_tally:
         votes = SlatingVote.objects.filter(
-            period=period,
-            slate=slate,
-            voting_attempt=current_attempt
+            period=period, slate=slate, voting_attempt=current_attempt
         )
         vote_tally = {
             'total': votes.count(),
@@ -144,34 +162,21 @@ def slating_vote(request, period_id):
             'abstain': votes.filter(vote_choice='abstain').count(),
         }
 
-    # Get total eligible voters and who has voted
     total_ballots = SlatingBallot.objects.filter(
-        period=period,
-        voting_attempt=current_attempt,
-        vote_type='slate'
+        period=period, voting_attempt=current_attempt, vote_type='slate'
     ).count()
-
-    # Check if user is committee member (can see live tally)
-    is_committee = (
-        user.is_admin or
-        (period.slating_committee and (
-            period.slating_committee.is_chair(user) or
-            period.slating_committee.is_member(user) or
-            period.slating_committee.admin == user
-        ))
-    )
 
     context = {
         'period': period,
         'slate': slate,
         'candidates': candidates,
         'current_attempt': current_attempt,
-        'max_attempts': period.max_slate_voting_attempts,
         'has_voted': existing_ballot is not None,
         'total_ballots': total_ballots,
         'vote_tally': vote_tally,
         'required_percentage': period.required_approval_percentage,
         'is_committee': is_committee,
+        'voting_paused': False,
     }
 
     return render(request, 'slating/vote.html', context)
@@ -190,9 +195,14 @@ def individual_vote(request, period_id):
         messages.error(request, 'Voting is not currently open.')
         return redirect('slating_dashboard')
 
+    # Check if member is marked present
+    if not SlatingAttendance.objects.filter(period=period, member=user).exists():
+        messages.error(request, 'You are not marked present for this session. Contact the slating chair.')
+        return redirect('slating_dashboard')
+
     # Check if we're in individual voting mode
-    if period.current_voting_attempt < period.max_slate_voting_attempts:
-        messages.error(request, 'Individual voting is not yet available.')
+    if period.vote_type != 'individual':
+        messages.error(request, 'Individual voting is not available for this session.')
         return redirect('slating_vote', period_id=period_id)
 
     slate = Slate.objects.filter(
@@ -205,37 +215,56 @@ def individual_vote(request, period_id):
         messages.error(request, 'No slate available for voting.')
         return redirect('slating_dashboard')
 
-    # Get candidates that need individual votes
-    candidates = slate.candidates.filter(
-        individual_passed__isnull=True
-    ).select_related('position', 'application__applicant')
+    # All primary candidates ordered for display
+    all_candidates = list(
+        slate.candidates.filter(is_runoff=False)
+        .select_related('position', 'application__applicant', 'write_in_member')
+        .order_by('display_order')
+    )
+
+    # Separate already-decided positions from ones still needing a vote
+    decided_candidates = [c for c in all_candidates if c.individual_passed is not None]
+    pending_candidates = [c for c in all_candidates if c.individual_passed is None]
+
+    # Which pending positions this user has already voted on in this round
+    voted_position_ids = set(
+        SlatingBallot.objects.filter(
+            period=period,
+            voter=user,
+            vote_type='individual',
+            position_id__in=[c.position_id for c in pending_candidates]
+        ).values_list('position_id', flat=True)
+    )
 
     if request.method == 'POST':
-        # Verify password
         password = request.POST.get('password')
-
         if not user.check_password(password):
             messages.error(request, 'Incorrect password. Please try again.')
             return redirect('slating_vote_individual', period_id=period_id)
 
-        # Process votes for each candidate
-        for candidate in candidates:
-            # Check if already voted for this candidate
-            existing = SlatingBallot.objects.filter(
-                period=period,
-                voter=user,
-                vote_type='individual',
-                position=candidate.position
-            ).exists()
+        # Validate: every unvoted pending position must have a selection
+        unvoted = [c for c in pending_candidates if c.position_id not in voted_position_ids]
+        valid_choices_per = {}
+        errors = []
+        for candidate in unvoted:
+            choice = request.POST.get(f'vote_{candidate.id}')
+            allowed = ['approve', 'reject']
+            if candidate.position.allow_abstain:
+                allowed.append('abstain')
+            if choice not in allowed:
+                errors.append(f'Please select a valid vote for {candidate.position.title}.')
+            else:
+                valid_choices_per[candidate.id] = choice
 
-            if existing:
-                continue
+        if errors:
+            for e in errors:
+                messages.error(request, e)
+            return redirect('slating_vote_individual', period_id=period_id)
 
-            vote_choice = request.POST.get(f'vote_{candidate.id}')
-            if vote_choice not in ['approve', 'reject', 'abstain']:
-                continue
+        # Record votes
+        for candidate in unvoted:
+            choice = valid_choices_per[candidate.id]
 
-            # Create ballot
             ballot_hash = hashlib.sha256(
                 f"{user.user_id}:{period_id}:{candidate.id}:{secrets.token_hex(16)}".encode()
             ).hexdigest()
@@ -248,7 +277,6 @@ def individual_vote(request, period_id):
                 ballot_hash=ballot_hash
             )
 
-            # Create anonymous vote
             vote_hash = hashlib.sha256(
                 f"{secrets.token_hex(32)}:{timezone.now().isoformat()}".encode()
             ).hexdigest()
@@ -256,26 +284,38 @@ def individual_vote(request, period_id):
             SlatingVote.objects.create(
                 period=period,
                 slate_candidate=candidate,
-                vote_choice=vote_choice,
+                vote_choice=choice,
                 vote_hash=vote_hash
             )
+
+        SlatingActivity.objects.create(
+            period=period,
+            user=user,
+            action='vote_cast',
+            details='Individual position votes recorded',
+            ip_address=request.META.get('REMOTE_ADDR')
+        )
 
         messages.success(request, 'Your votes have been recorded.')
         return redirect('slating_dashboard')
 
-    # GET - show individual voting form
-    # Check which candidates user has already voted on
-    voted_positions = SlatingBallot.objects.filter(
-        period=period,
-        voter=user,
-        vote_type='individual'
-    ).values_list('position_id', flat=True)
+    # GET — build rows for pending positions only; decided positions shown separately
+    rows = []
+    for candidate in pending_candidates:
+        rows.append({
+            'candidate': candidate,
+            'voted': candidate.position_id in voted_position_ids,
+            'allow_abstain': candidate.position.allow_abstain,
+        })
+
+    all_voted = all(r['voted'] for r in rows) if rows else True
 
     context = {
         'period': period,
         'slate': slate,
-        'candidates': candidates,
-        'voted_positions': list(voted_positions),
+        'rows': rows,
+        'decided_candidates': decided_candidates,
+        'all_voted': all_voted,
         'required_percentage': period.required_approval_percentage,
     }
 
@@ -307,82 +347,168 @@ def close_voting(request, period_id):
         messages.error(request, 'No slate found.')
         return redirect('slating_period_setup', period_id=period_id)
 
-    # Calculate results
-    slate.calculate_results()
-
     current_attempt = period.current_voting_attempt
 
-    if slate.passed:
-        # Slate passed!
-        period.status = 'voting_closed'
-        period.save()
+    if period.vote_type == 'individual':
+        # Calculate per-position results
+        candidates = slate.candidates.filter(is_runoff=False).select_related('position')
+        passed_count = 0
+        failed_count = 0
+        for candidate in candidates:
+            if candidate.individual_passed is not None:
+                # Already decided in a previous round — don't recalculate
+                if candidate.individual_passed:
+                    passed_count += 1
+                else:
+                    failed_count += 1
+                continue
+            ind_votes = SlatingVote.objects.filter(slate_candidate=candidate)
+            approve = ind_votes.filter(vote_choice='approve').count()
+            reject = ind_votes.filter(vote_choice='reject').count()
+            counted = approve + reject
+            if counted > 0:
+                pct = (approve / counted) * 100
+                candidate.individual_passed = pct >= period.required_approval_percentage
+            else:
+                candidate.individual_passed = False
+            candidate.individual_votes_for = approve
+            candidate.individual_votes_against = reject
+            candidate.save(update_fields=['individual_passed', 'individual_votes_for', 'individual_votes_against'])
+            if candidate.individual_passed:
+                passed_count += 1
+            else:
+                failed_count += 1
 
-        SlatingActivity.objects.create(
-            period=period,
-            user=request.user,
-            action='voting_closed',
-            details=f'Slate passed with {slate.approval_percentage:.1f}% approval',
-            metadata={
-                'attempt': current_attempt,
-                'approval_percentage': float(slate.approval_percentage),
-                'passed': True
-            },
-            ip_address=request.META.get('REMOTE_ADDR')
-        )
+        if failed_count > 0:
+            # Some positions failed — return to deliberation for re-vote on failing positions
+            period.status = 'deliberation'
+            period.save()
 
-        messages.success(request, f'Voting closed. Slate passed with {slate.approval_percentage:.1f}% approval!')
+            SlatingActivity.objects.create(
+                period=period,
+                user=request.user,
+                action='voting_closed',
+                details=f'Individual voting: {passed_count} passed, {failed_count} failed. Returned to deliberation.',
+                metadata={'passed': passed_count, 'failed': failed_count, 'individual_voting': True},
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
 
-    elif current_attempt >= period.max_slate_voting_attempts:
-        # Max attempts reached, move to individual voting
-        period.status = 'voting_open'  # Keep voting open for individual votes
-        period.save()
+            messages.warning(
+                request,
+                f'{passed_count} position(s) passed, {failed_count} did not. '
+                'Passed positions are locked. Re-open voting to vote on the remaining positions.'
+            )
+        else:
+            # All positions passed
+            period.status = 'voting_closed'
+            period.save()
 
-        SlatingActivity.objects.create(
-            period=period,
-            user=request.user,
-            action='voting_closed',
-            details=f'Slate failed after {current_attempt} attempts. Moving to individual position votes.',
-            metadata={
-                'attempt': current_attempt,
-                'approval_percentage': float(slate.approval_percentage) if slate.approval_percentage else 0,
-                'passed': False,
-                'individual_voting': True
-            },
-            ip_address=request.META.get('REMOTE_ADDR')
-        )
+            SlatingActivity.objects.create(
+                period=period,
+                user=request.user,
+                action='voting_closed',
+                details=f'Individual voting complete — all {passed_count} positions passed.',
+                metadata={'passed': passed_count, 'individual_voting': True},
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
 
-        messages.warning(
-            request,
-            f'Slate failed with {slate.approval_percentage:.1f}% approval after {current_attempt} attempts. '
-            'Moving to individual position votes.'
-        )
+            messages.success(request, f'All {passed_count} positions passed. Review the results below.')
 
     else:
-        # Slate failed, but more attempts available
-        # Reset for next attempt
-        slate.total_votes = 0
-        slate.approval_votes = 0
-        slate.rejection_votes = 0
-        slate.abstain_votes = 0
-        slate.approval_percentage = None
-        slate.passed = None
-        slate.save()
+        # Full slate vote — calculate and check pass/fail
+        slate.calculate_results()
 
-        SlatingActivity.objects.create(
-            period=period,
-            user=request.user,
-            action='voting_closed',
-            details=f'Slate failed attempt {current_attempt}. {period.max_slate_voting_attempts - current_attempt} attempts remaining.',
-            metadata={
-                'attempt': current_attempt,
-                'passed': False
-            },
-            ip_address=request.META.get('REMOTE_ADDR')
-        )
+        if slate.passed:
+            period.status = 'voting_closed'
+            period.save()
 
-        messages.warning(
-            request,
-            f'Slate did not pass. {period.max_slate_voting_attempts - current_attempt} voting attempts remaining.'
-        )
+            SlatingActivity.objects.create(
+                period=period,
+                user=request.user,
+                action='voting_closed',
+                details=f'Slate passed with {slate.approval_percentage:.1f}% approval',
+                metadata={
+                    'attempt': current_attempt,
+                    'approval_percentage': float(slate.approval_percentage),
+                    'passed': True
+                },
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+
+            messages.success(request, f'Voting closed. Slate passed with {slate.approval_percentage:.1f}% approval!')
+
+        else:
+            # Slate failed — reset and return to deliberation
+            slate.total_votes = 0
+            slate.approval_votes = 0
+            slate.rejection_votes = 0
+            slate.abstain_votes = 0
+            slate.approval_percentage = None
+            slate.passed = None
+            slate.save()
+
+            period.status = 'deliberation'
+            period.save()
+
+            SlatingActivity.objects.create(
+                period=period,
+                user=request.user,
+                action='voting_closed',
+                details=f'Slate failed attempt {current_attempt}. Returned to deliberation.',
+                metadata={'attempt': current_attempt, 'passed': False},
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+
+            messages.warning(
+                request,
+                'Slate did not pass. You can re-open voting as full slate or switch to individual position votes.'
+            )
 
     return redirect('slating_results', period_id=period_id)
+
+
+@login_required
+@slating_chair_required
+def reset_votes(request, period_id):
+    """
+    Clear all ballots and votes for the most recent voting attempt and
+    decrement the attempt counter. Only available during deliberation
+    (i.e. after a vote has been paused). Requires double confirmation.
+    """
+    if request.method != 'POST':
+        return redirect('slating_period_setup', period_id=period_id)
+
+    period = get_object_or_404(SlatingPeriod, id=period_id)
+
+    if period.status != 'deliberation' or period.current_voting_attempt == 0:
+        messages.error(request, 'No paused vote to reset.')
+        return redirect('slating_period_setup', period_id=period_id)
+
+    attempt = period.current_voting_attempt
+
+    # Delete all ballots and votes for this attempt
+    deleted_ballots, _ = SlatingBallot.objects.filter(
+        period=period,
+        voting_attempt=attempt
+    ).delete()
+
+    deleted_votes, _ = SlatingVote.objects.filter(
+        period=period,
+        voting_attempt=attempt
+    ).delete()
+
+    # Reset attempt counter so re-opening doesn't skip a slot
+    period.current_voting_attempt = max(0, attempt - 1)
+    period.save()
+
+    SlatingActivity.objects.create(
+        period=period,
+        user=request.user,
+        action='voting_closed',
+        details=f'Votes reset: attempt {attempt} cleared ({deleted_ballots} ballots, {deleted_votes} votes deleted)',
+        metadata={'attempt': attempt, 'reset': True},
+        ip_address=request.META.get('REMOTE_ADDR')
+    )
+
+    messages.success(request, f'All {deleted_ballots} ballots from attempt {attempt} have been cleared. Voting can be re-opened fresh.')
+    return redirect('slating_period_setup', period_id=period_id)

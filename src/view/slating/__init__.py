@@ -11,11 +11,12 @@ from .position_manager import manage_positions, add_position, edit_position, del
 from .apply import apply_view, my_applications, withdraw_application
 from .applications_review import applications_list, application_detail, submit_review, bulk_update_status
 from .interview_manager import interview_list, schedule_interview, complete_interview, destroy_interview_notes
-from .slate_builder import build_slate, approve_slate, slate_preview, copy_slate
-from .vote import slating_vote, individual_vote, close_voting
+from .slate_builder import build_slate, approve_slate, slate_preview, view_approved_slate, copy_slate, assign_write_in, remove_write_in, edit_approved_slate, manual_results
+from .vote import slating_vote, individual_vote, close_voting, reset_votes
 from .results import view_results, publish_results, results_summary
 from .transfer_admin import transfer_admin
 from .transition import transition_officers
+from .attendance import manage_attendance
 from .api import (
     reorder_fields, reorder_positions, period_status,
     check_eligibility, application_summary, slate_candidates,
@@ -62,12 +63,18 @@ __all__ = [
     'build_slate',
     'approve_slate',
     'slate_preview',
+    'view_approved_slate',
+    'edit_approved_slate',
+    'manual_results',
     'copy_slate',
+    'assign_write_in',
+    'remove_write_in',
 
     # Voting
     'slating_vote',
     'individual_vote',
     'close_voting',
+    'reset_votes',
 
     # Results
     'view_results',
@@ -79,6 +86,9 @@ __all__ = [
 
     # Officer Transition
     'transition_officers',
+
+    # Attendance
+    'manage_attendance',
 
     # API
     'reorder_fields',

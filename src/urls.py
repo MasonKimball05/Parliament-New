@@ -178,10 +178,10 @@ from src.view.slating import (
     apply_view, my_applications, withdraw_application,
     applications_list, application_detail, submit_review, bulk_update_status,
     interview_list, schedule_interview, complete_interview, destroy_interview_notes,
-    build_slate, approve_slate, slate_preview, copy_slate,
-    slating_vote, individual_vote, close_voting,
+    build_slate, approve_slate, slate_preview, view_approved_slate, edit_approved_slate, manual_results, copy_slate, assign_write_in, remove_write_in,
+    slating_vote, individual_vote, close_voting, reset_votes,
     view_results, publish_results, results_summary,
-    transfer_admin, transition_officers,
+    transfer_admin, transition_officers, manage_attendance,
     reorder_fields, reorder_positions, period_status,
     check_eligibility, application_summary, slate_candidates,
     voting_status, toggle_field_active, toggle_position_active
@@ -725,12 +725,21 @@ urlpatterns = [
     path('slating/period/<int:period_id>/slate/approve/', approve_slate, name='slating_approve_slate'),
     path('slating/period/<int:period_id>/slate/<int:slate_id>/approve/', approve_slate, name='slating_approve_slate_id'),
     path('slating/period/<int:period_id>/slate/<int:slate_id>/preview/', slate_preview, name='slating_slate_preview'),
+    path('slating/period/<int:period_id>/slate/view/', view_approved_slate, name='slating_view_approved_slate'),
+    path('slating/period/<int:period_id>/slate/edit/', edit_approved_slate, name='slating_edit_approved_slate'),
+    path('slating/period/<int:period_id>/manual-results/', manual_results, name='slating_manual_results'),
     path('slating/period/<int:period_id>/slate/<int:slate_id>/copy/', copy_slate, name='slating_copy_slate'),
+    path('slating/period/<int:period_id>/slate/write-in/assign/', assign_write_in, name='slating_assign_write_in'),
+    path('slating/period/<int:period_id>/slate/write-in/remove/', remove_write_in, name='slating_remove_write_in'),
+
+    # Slating Attendance
+    path('slating/period/<int:period_id>/attendance/', manage_attendance, name='slating_attendance'),
 
     # Slating Voting
     path('slating/period/<int:period_id>/vote/', slating_vote, name='slating_vote'),
     path('slating/period/<int:period_id>/vote/individual/', individual_vote, name='slating_vote_individual'),
     path('slating/period/<int:period_id>/close-voting/', close_voting, name='slating_close_voting'),
+    path('slating/period/<int:period_id>/reset-votes/', reset_votes, name='slating_reset_votes'),
 
     # Slating Results
     path('slating/period/<int:period_id>/results/', view_results, name='slating_results'),

@@ -224,7 +224,7 @@
                 </div>
                 <div class="flex justify-between">
                     <dt class="text-sm text-gray-500 dark:text-gray-400">GPA Level</dt>
-                    <dd class="text-sm font-medium {% if application.gpa_level == 1 %}text-green-600{% elif application.gpa_level == 2 %}text-yellow-600{% else %}text-red-600{% endif %}">
+                    <dd class="text-sm font-medium {% if application.gpa_level == 1 %}text-green-600 dark:text-green-400{% elif application.gpa_level == 2 %}text-yellow-600 dark:text-yellow-400{% else %}text-red-600 dark:text-red-400{% endif %}">
                         Level {{ application.gpa_level }}
                         {% if application.gpa_verified %}
                         <svg class="inline h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">

@@ -1,4 +1,5 @@
 {% extends 'slating/base_slating.html' %}
+{% load tz %}
 
 {% block breadcrumbs %}
 <li>
@@ -8,280 +9,700 @@
 {% endblock %}
 
 {% block page_header %}
-<div class="flex items-center justify-between">
+<div class="flex items-center justify-between flex-wrap gap-3">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             {% if period %}{{ period.name }}{% else %}Create Election Period{% endif %}
         </h1>
         {% if period %}
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Status: <span class="font-medium">{{ period.get_status_display }}</span>
-        </p>
+        <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ period.academic_term }}</p>
         {% endif %}
     </div>
+    {% if period %}
+    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+        {% if period.status == 'nominations_open' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300
+        {% elif period.status == 'voting_open' %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300
+        {% elif period.status == 'deliberation' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300
+        {% elif period.status == 'results_published' %}bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300
+        {% elif period.status == 'archived' %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300
+        {% else %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+        {{ period.get_status_display }}
+    </span>
+    {% endif %}
 </div>
 {% endblock %}
 
 {% block slating_content %}
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Main Form -->
-    <div class="lg:col-span-2">
-        <form method="post" class="space-y-6">
-            {% csrf_token %}
 
-            <!-- Basic Information -->
-            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-                <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">Basic Information</h3>
+{# ─── Status Command Banner (period pages only) ─── #}
+{% if period %}
+<div class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div class="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
+        <div class="flex-1 min-w-0">
+            {% if period.status == 'setup' %}
+            <p class="text-sm font-semibold text-gray-900 dark:text-white">Setting up the election</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Add positions and build the application form, then open nominations when ready.</p>
+            {% elif period.status == 'nominations_open' %}
+            <p class="text-sm font-semibold text-gray-900 dark:text-white">Nominations are open</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Members can submit applications. Close nominations when the application window ends.</p>
+            {% elif period.status == 'nominations_closed' %}
+            <p class="text-sm font-semibold text-gray-900 dark:text-white">Nominations closed</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Review applications and schedule interviews. Start deliberation when the committee is ready.</p>
+            {% elif period.status == 'deliberation' %}
+            <p class="text-sm font-semibold text-gray-900 dark:text-white">Deliberation in progress</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Conduct interviews, review candidates, and build the slate. Open voting when the slate is approved.</p>
+            {% elif period.status == 'voting_open' %}
+            <p class="text-sm font-semibold text-gray-900 dark:text-white">Chapter voting is open</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Members are casting their votes. Monitor results below and close voting when participation is sufficient.</p>
+            {% elif period.status == 'voting_closed' %}
+            <p class="text-sm font-semibold text-gray-900 dark:text-white">Voting has closed</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Review the final tally and publish results to notify the chapter.</p>
+            {% elif period.status == 'results_published' %}
+            <p class="text-sm font-semibold text-gray-900 dark:text-white">Results published</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">The chapter can view election results. Archive this period after the officer transition is complete.</p>
+            {% elif period.status == 'archived' %}
+            <p class="text-sm font-semibold text-gray-900 dark:text-white">Election archived</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">This election period is complete and archived for records.</p>
+            {% endif %}
+        </div>
+
+        {# Next Stage button — contextual per status #}
+        <div class="flex-shrink-0 flex flex-wrap items-center gap-3">
+            {% if period.status == 'setup' %}
+            <form method="post" action="{% url 'slating_change_status' period_id=period.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="status" value="nominations_open">
+                <button type="submit" onclick="return confirm('Open nominations? Members will be able to submit applications.')"
+                    class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                    Open Nominations
+                </button>
+            </form>
+            {% elif period.status == 'nominations_open' %}
+            <form method="post" action="{% url 'slating_change_status' period_id=period.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="status" value="nominations_closed">
+                <button type="submit" onclick="return confirm('Close nominations? No new applications will be accepted.')"
+                    class="inline-flex items-center px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                    Close Nominations
+                </button>
+            </form>
+            {% elif period.status == 'nominations_closed' %}
+            <form method="post" action="{% url 'slating_change_status' period_id=period.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="status" value="deliberation">
+                <button type="submit"
+                    class="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                    Start Deliberation
+                </button>
+            </form>
+            {% elif period.status == 'deliberation' and period.current_voting_attempt == 0 %}
+            <form id="openVotingForm" method="post" action="{% url 'slating_change_status' period_id=period.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="status" value="voting_open">
+                <input type="hidden" name="vote_type" id="voteTypeInput" value="">
+                <div class="flex flex-col gap-2">
+                    <div class="flex items-center gap-3">
+                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Vote type</p>
+                        <button type="button" id="clearVoteType" onclick="resetVoteType()" style="display:none"
+                            class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                            × clear
+                        </button>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" id="voteType-slate" onclick="selectVoteType('slate')"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400 transition-colors">
+                            <svg id="check-slate" class="w-3 h-3" style="display:none" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            Full Slate
+                        </button>
+                        <button type="button" id="voteType-individual" onclick="selectVoteType('individual')"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400 transition-colors">
+                            <svg id="check-individual" class="w-3 h-3" style="display:none" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            Individual
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="quorumInput" class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Quorum (optional):</label>
+                        <input type="number" name="quorum" id="quorumInput" min="1" placeholder="e.g. 15"
+                            class="w-20 text-xs border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    </div>
+                    <button type="button" id="openVotingBtn" onclick="submitOpenVoting()" disabled
+                        class="inline-flex items-center px-4 py-2 text-white text-sm font-medium rounded-lg shadow-sm transition-colors opacity-50 cursor-not-allowed" style="background:#9ca3af">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                        Open Voting
+                    </button>
                 </div>
-                <div class="px-4 py-5 sm:p-6 space-y-4">
-                    <div>
-                        <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Election Name</label>
-                        <input type="text" name="name" id="name" value="{{ period.name|default:'' }}" required
-                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
-                            placeholder="e.g., Fall 2024 Officer Elections">
-                    </div>
+            </form>
+            {% elif period.status == 'deliberation' and period.current_voting_attempt > 0 %}
+            {# Voting was paused — show resume or reset options #}
+            <div class="flex flex-col gap-3">
+                <div class="flex items-center gap-2 flex-wrap">
+                    {% if period.vote_type == 'individual' %}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                        Individual Position Voting — Paused
+                    </span>
+                    {% else %}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        Full Slate Vote — Paused (Attempt {{ period.current_voting_attempt }})
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="flex flex-wrap gap-2 items-center">
+                    <form id="openVotingForm" method="post" action="{% url 'slating_change_status' period_id=period.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="status" value="voting_open">
+                        <input type="hidden" name="vote_type" id="pausedVoteTypeInput" value="{{ period.vote_type }}">
+                        <button type="submit" onclick="return confirm('Re-open voting? Previous paused votes will be included in the tally.')"
+                            class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">
+                            Resume Voting
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'slating_reset_votes' period_id=period.id %}">
+                        {% csrf_token %}
+                        <button type="submit"
+                            onclick="return confirm('CLEAR ALL VOTES?\n\nThis will permanently delete all ballots cast so far and reset the counter. This cannot be undone.') && confirm('Are you absolutely sure? All vote data for attempt {{ period.current_voting_attempt }} will be erased.')"
+                            class="inline-flex items-center px-4 py-2 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 bg-white dark:bg-gray-800 text-sm font-medium rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                            Clear &amp; Reset Votes
+                        </button>
+                    </form>
+                    <button type="button" onclick="togglePausedVoteType()"
+                        class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 text-xs font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        title="Switch vote type for when voting resumes">
+                        <svg class="h-3.5 w-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                        Switch to <span id="pausedVoteTypeLabel">{% if period.vote_type == 'individual' %}Full Slate{% else %}Individual{% endif %}</span>
+                    </button>
+                </div>
+                <p class="text-xs text-gray-400 dark:text-gray-500">Voting was paused. Reset votes first to change the vote type.</p>
+            </div>
+            {% elif period.status == 'voting_open' %}
+            <div class="mb-2">
+                {% if period.vote_type == 'individual' %}
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                    Individual Position Voting
+                </span>
+                {% else %}
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Full Slate Vote — Attempt {{ period.current_voting_attempt }}
+                </span>
+                {% endif %}
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <form method="post" action="{% url 'slating_change_status' period_id=period.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="status" value="deliberation">
+                    <button type="submit" onclick="return confirm('Pause voting and return to deliberation? Votes already cast will be preserved but voting will stop.')"
+                        class="inline-flex items-center px-4 py-2 border border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 text-sm font-medium rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-colors">
+                        Pause Voting
+                    </button>
+                </form>
+                <form method="post" action="{% url 'slating_close_voting' period_id=period.id %}">
+                    {% csrf_token %}
+                    <button type="submit" onclick="return confirm('Close voting now and calculate results? This cannot be undone.')"
+                        class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">
+                        Close Voting
+                    </button>
+                </form>
+            </div>
+            {% elif period.status == 'voting_closed' %}
+            <form method="post" action="{% url 'slating_change_status' period_id=period.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="status" value="results_published">
+                <button type="submit" onclick="return confirm('Publish results? All members will be able to view the outcome.')"
+                    class="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                    Publish Results
+                </button>
+            </form>
+            {% elif period.status == 'results_published' %}
+            <a href="{% url 'slating_results' period_id=period.id %}"
+                class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+                View Results
+            </a>
+            {% endif %}
 
-                    <div>
-                        <label for="academic_term" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Academic Term</label>
-                        <input type="text" name="academic_term" id="academic_term" value="{{ period.academic_term|default:'' }}" required
-                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
-                            placeholder="e.g., Fall 2024">
-                    </div>
+            {% if period.status not in 'voting_closed,results_published,archived' %}
+            <a href="{% url 'slating_manual_results' period_id=period.id %}"
+                class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 text-xs font-medium rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                title="Record results from an in-person session without online voting">
+                <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                </svg>
+                Record In-Person Results
+            </a>
+            {% endif %}
+        </div>
+    </div>
 
-                    <div>
-                        <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
-                        <textarea name="description" id="description" rows="3"
-                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
-                            placeholder="Optional description or notes">{{ period.description|default:'' }}</textarea>
-                    </div>
+    {# Sub-action hint strip for deliberation stage #}
+    {% if period.status == 'deliberation' %}
+    <div class="px-5 py-2.5 bg-yellow-50 dark:bg-yellow-900/20 border-t border-yellow-100 dark:border-yellow-900/40 flex flex-wrap gap-4 text-sm">
+        <a href="{% url 'slating_applications' period_id=period.id %}" class="text-yellow-800 dark:text-yellow-300 hover:underline font-medium">
+            Review Applications ({{ application_count }})
+        </a>
+        <a href="{% url 'slating_interviews' period_id=period.id %}" class="text-yellow-800 dark:text-yellow-300 hover:underline font-medium">
+            Interviews
+        </a>
+        <a href="{% url 'slating_build_slate' period_id=period.id %}" class="text-yellow-800 dark:text-yellow-300 hover:underline font-medium">
+            Build Slate →
+        </a>
+    </div>
+    {% elif period.status == 'setup' %}
+    <div class="px-5 py-3 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700 flex flex-col gap-3 text-sm">
+        <div class="flex flex-wrap gap-y-2 items-center">
+            <a href="{% url 'slating_positions' period_id=period.id %}" class="text-primary-600 dark:text-primary-400 hover:underline font-medium whitespace-nowrap pr-4">
+                Manage Positions ({{ position_count }})
+            </a>
+            <span class="text-gray-300 dark:text-gray-600 pr-4 select-none">·</span>
+            <a href="{% url 'slating_form_builder' period_id=period.id %}" class="text-primary-600 dark:text-primary-400 hover:underline font-medium whitespace-nowrap">
+                Application Form ({{ field_count }} fields)
+            </a>
+        </div>
+        <div class="flex flex-wrap gap-y-2 items-center">
 
+        {# Default Positions quick action #}
+        <div class="pr-4">
+            <button type="button" onclick="document.getElementById('positionsModal').style.display='flex'"
+                class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium whitespace-nowrap transition-colors">
+                + Default Positions
+            </button>
+            <div id="positionsModal" style="display:none" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/50" onclick="document.getElementById('positionsModal').style.display='none'"></div>
+                <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm p-6">
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-1">Add Default Positions</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">The following positions will be added. Any that already exist will be skipped.</p>
+                    <ul class="space-y-1.5 mb-5">
+                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>President</li>
+                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Executive Vice President</li>
+                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Vice President of Brotherhood</li>
+                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Vice President of Risk Management</li>
+                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Vice President of Education</li>
+                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Vice President of Recruitment</li>
+                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Vice President of Programming</li>
+                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Vice President of Finance</li>
+                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Vice President of Administration</li>
+                    </ul>
+                    <div class="flex gap-3 justify-end">
+                        <button type="button" onclick="document.getElementById('positionsModal').style.display='none'"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+                            Cancel
+                        </button>
+                        <form method="post" action="{% url 'slating_copy_default_positions' period_id=period.id %}">
+                            {% csrf_token %}
+                            <button type="submit"
+                                class="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
+                                Add Positions
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <span class="text-gray-300 dark:text-gray-600 px-4 select-none">·</span>
+
+        {# Default Form Fields quick action #}
+        <div>
+            <button type="button" onclick="document.getElementById('fieldsModal').style.display='flex'"
+                class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium whitespace-nowrap transition-colors">
+                + Default Form Fields
+            </button>
+            <div id="fieldsModal" style="display:none" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/50" onclick="document.getElementById('fieldsModal').style.display='none'"></div>
+                <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm p-6">
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-1">Add Default Form Fields</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">The following fields will be added to the application form. Only works if the form has no existing fields.</p>
+                    <ul class="space-y-1.5 mb-5">
+                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Position Preference <span class="text-xs text-gray-400">(required)</span></li>
+                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Current GPA <span class="text-xs text-gray-400">(required)</span></li>
+                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Why are you interested in this position? <span class="text-xs text-gray-400">(required)</span></li>
+                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Qualifications and experience <span class="text-xs text-gray-400">(required)</span></li>
+                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Goals for the position <span class="text-xs text-gray-400">(required)</span></li>
+                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Time commitment confirmation <span class="text-xs text-gray-400">(required)</span></li>
+                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Other commitments <span class="text-xs text-gray-400">(optional)</span></li>
+                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Additional information <span class="text-xs text-gray-400">(optional)</span></li>
+                    </ul>
+                    <div class="flex gap-3 justify-end">
+                        <button type="button" onclick="document.getElementById('fieldsModal').style.display='none'"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+                            Cancel
+                        </button>
+                        <form method="post" action="{% url 'slating_form_builder' period_id=period.id %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="add_default_fields">
+                            <button type="submit"
+                                class="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
+                                Add Fields
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>{# end defaults row #}
+    </div>
+    {% elif period.status == 'nominations_open' or period.status == 'nominations_closed' %}
+    <div class="px-5 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700 flex flex-wrap gap-4 text-sm">
+        <a href="{% url 'slating_applications' period_id=period.id %}" class="text-primary-600 dark:text-primary-400 hover:underline font-medium">
+            View Applications ({{ application_count }})
+        </a>
+    </div>
+    {% elif period.status == 'voting_open' or period.status == 'voting_closed' or period.status == 'deliberation' and period.current_voting_attempt > 0 %}
+    <div class="px-5 py-2.5 bg-blue-50 dark:bg-blue-900/20 border-t border-blue-100 dark:border-blue-900/40 flex flex-wrap gap-4 text-sm">
+        {% if period.status == 'voting_open' or period.status == 'voting_closed' %}
+        <a href="{% url 'slating_results' period_id=period.id %}" class="text-blue-700 dark:text-blue-300 hover:underline font-medium">
+            View Live Results
+        </a>
+        {% endif %}
+        {% if period.status == 'voting_open' or period.status == 'deliberation' %}
+        <a href="{% url 'slating_edit_approved_slate' period_id=period.id %}" class="text-blue-700 dark:text-blue-300 hover:underline font-medium">
+            Edit Slate
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    {# ─── Main: Settings Form ─── #}
+    <div class="lg:col-span-2">
+        <form method="post" class="space-y-5">
+            {% csrf_token %}
+            {% if period %}<input type="hidden" name="action" value="save">{% endif %}
+
+            {# Basic Information #}
+            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Basic Information</h3>
+                </div>
+                <div class="px-5 py-5 space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Election Name</label>
+                            <input type="text" name="name" id="name" value="{{ period.name|default:'' }}" required
+                                class="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm"
+                                placeholder="e.g., Fall 2025 Officer Elections">
+                        </div>
+                        <div>
+                            <label for="academic_term" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Academic Term</label>
+                            <input type="text" name="academic_term" id="academic_term" value="{{ period.academic_term|default:'' }}" required
+                                class="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm"
+                                placeholder="e.g., Fall 2025">
+                        </div>
+                    </div>
+                    {% if user.is_admin %}
                     <div>
-                        <label for="slating_committee" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Slating Committee</label>
-                        <select name="slating_committee" id="slating_committee"
-                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
-                            <option value="">-- Select Committee --</option>
-                            {% for committee in committees %}
-                            <option value="{{ committee.id }}" {% if period.slating_committee_id == committee.id %}selected{% endif %}>
-                                {{ committee.name }}
+                        <label for="slating_manager" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Slating Manager
+                            <span class="font-normal text-gray-400">(has full setup access)</span>
+                        </label>
+                        <select name="slating_manager" id="slating_manager"
+                            class="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm">
+                            <option value="">-- None (admin only) --</option>
+                            {% for m in eligible_managers %}
+                            <option value="{{ m.user_id }}" {% if period.slating_manager_id == m.pk %}selected{% endif %}>
+                                {{ m.name }} ({{ m.get_member_type_display }})
                             </option>
                             {% endfor %}
                         </select>
                     </div>
+                    {% endif %}
+                    <div>
+                        <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Description <span class="font-normal text-gray-400">(optional)</span>
+                        </label>
+                        <textarea name="description" id="description" rows="2"
+                            class="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm"
+                            placeholder="Internal notes or description">{{ period.description|default:'' }}</textarea>
+                    </div>
                 </div>
             </div>
 
-            <!-- Dates -->
-            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-                <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">Schedule</h3>
+            {# Schedule #}
+            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Schedule</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Dates trigger automatic status transitions. Leave blank to advance manually.</p>
                 </div>
-                <div class="px-4 py-5 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="px-5 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label for="nominations_open_at" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nominations Open</label>
+                        <label for="nominations_open_at" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nominations Open</label>
                         <input type="datetime-local" name="nominations_open_at" id="nominations_open_at"
-                            value="{{ period.nominations_open_at|date:'Y-m-d\\TH:i'|default:'' }}"
-                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+                            value="{{ period.nominations_open_at|localtime|date:'Y-m-d\\TH:i'|default:'' }}"
+                            class="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm">
                     </div>
-
                     <div>
-                        <label for="nominations_close_at" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nominations Close</label>
+                        <label for="nominations_close_at" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nominations Close</label>
                         <input type="datetime-local" name="nominations_close_at" id="nominations_close_at"
-                            value="{{ period.nominations_close_at|date:'Y-m-d\\TH:i'|default:'' }}"
-                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+                            value="{{ period.nominations_close_at|localtime|date:'Y-m-d\\TH:i'|default:'' }}"
+                            class="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm">
                     </div>
-
                     <div>
-                        <label for="voting_open_at" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Voting Opens <span class="text-gray-400 dark:text-gray-500 font-normal">(optional)</span>
+                        <label for="voting_open_at" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Voting Opens <span class="font-normal text-gray-400">(optional)</span>
                         </label>
                         <input type="datetime-local" name="voting_open_at" id="voting_open_at"
-                            value="{{ period.voting_open_at|date:'Y-m-d\\TH:i'|default:'' }}"
-                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+                            value="{{ period.voting_open_at|localtime|date:'Y-m-d\\TH:i'|default:'' }}"
+                            class="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm">
                     </div>
-
                     <div>
-                        <label for="voting_close_at" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Voting Closes <span class="text-gray-400 dark:text-gray-500 font-normal">(optional)</span>
+                        <label for="voting_close_at" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Voting Closes <span class="font-normal text-gray-400">(optional)</span>
                         </label>
                         <input type="datetime-local" name="voting_close_at" id="voting_close_at"
-                            value="{{ period.voting_close_at|date:'Y-m-d\\TH:i'|default:'' }}"
-                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+                            value="{{ period.voting_close_at|localtime|date:'Y-m-d\\TH:i'|default:'' }}"
+                            class="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm">
                     </div>
                 </div>
             </div>
 
-            <!-- Voting Configuration -->
-            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-                <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">Voting Configuration</h3>
+            {# Voting Configuration #}
+            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Voting Configuration</h3>
                 </div>
-                <div class="px-4 py-5 sm:p-6 space-y-4">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label for="required_approval_percentage" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Required Approval %</label>
-                            <input type="number" name="required_approval_percentage" id="required_approval_percentage"
-                                value="{{ period.required_approval_percentage|default:60 }}" min="1" max="100" required
-                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
-                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Per bylaws: 60%</p>
-                        </div>
+                <div class="px-5 py-5 space-y-5">
 
-                        <div>
-                            <label for="max_slate_voting_attempts" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Max Slate Voting Attempts</label>
-                            <input type="number" name="max_slate_voting_attempts" id="max_slate_voting_attempts"
-                                value="{{ period.max_slate_voting_attempts|default:3 }}" min="1" max="10" required
-                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
-                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Per bylaws: 3 attempts before individual voting</p>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <div>
-                            <label for="allow_abstain" class="text-sm font-medium text-gray-700 dark:text-gray-300">Allow Abstain Option</label>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">When disabled, members must vote Approve or Reject</p>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" name="allow_abstain" id="allow_abstain" class="sr-only peer"
-                                {% if period.allow_abstain or period.allow_abstain is None %}checked{% endif %}>
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-500 peer-checked:bg-primary-600"></div>
-                        </label>
+                    {# Approval % #}
+                    <div class="max-w-xs">
+                        <label for="required_approval_percentage" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Required Approval %</label>
+                        <input type="number" name="required_approval_percentage" id="required_approval_percentage"
+                            value="{{ period.required_approval_percentage|default:60 }}" min="1" max="100" required
+                            class="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm">
+                        <p class="mt-1 text-xs text-gray-400">Bylaws default: 60%</p>
                     </div>
                 </div>
             </div>
 
-            <!-- GPA Configuration -->
-            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-                <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">GPA Requirements</h3>
+            {# GPA Requirements #}
+            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">GPA Requirements</h3>
                 </div>
-                <div class="px-4 py-5 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="px-5 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label for="min_gpa_requirement" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Minimum GPA (Level 1)</label>
+                        <label for="min_gpa_requirement" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Minimum GPA (Level 1)</label>
                         <input type="number" name="min_gpa_requirement" id="min_gpa_requirement"
                             value="{{ period.min_gpa_requirement|default:'2.50' }}" min="0" max="4" step="0.01" required
-                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+                            class="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm">
                     </div>
-
                     <div>
-                        <label for="gpa_level_2_threshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Level 2 Threshold (below min)</label>
+                        <label for="gpa_level_2_threshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Level 2 Threshold</label>
                         <input type="number" name="gpa_level_2_threshold" id="gpa_level_2_threshold"
                             value="{{ period.gpa_level_2_threshold|default:'0.20' }}" min="0" max="1" step="0.01" required
-                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Level 2 = within this amount below minimum</p>
+                            class="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm">
+                        <p class="mt-1 text-xs text-gray-400">Bylaws: 0.20 below minimum</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Submit Buttons -->
-            <div class="flex justify-end space-x-3">
-                <a href="{% url 'slating_dashboard' %}" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+            {# Save / Cancel #}
+            <div class="flex justify-end gap-3 pb-2">
+                <a href="{% url 'slating_dashboard' %}"
+                    class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
                     Cancel
                 </a>
-                <button type="submit" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                <button type="submit"
+                    class="px-5 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors shadow-sm">
                     {% if period %}Save Changes{% else %}Create Period{% endif %}
                 </button>
             </div>
         </form>
-    </div>
 
-    <!-- Sidebar -->
-    <div class="space-y-6">
+        {# Committee Members — who can view applications/interview notes #}
         {% if period %}
-        <!-- Status & Actions -->
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Actions</h3>
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Committee Members</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">These members can view applications and interview notes.</p>
             </div>
-            <div class="px-4 py-5 sm:p-6 space-y-3">
-                <a href="{% url 'slating_form_builder' period_id=period.id %}" class="block w-full text-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                    Form Builder
-                </a>
-                <a href="{% url 'slating_positions' period_id=period.id %}" class="block w-full text-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                    Manage Positions
-                </a>
-                <a href="{% url 'slating_applications' period_id=period.id %}" class="block w-full text-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                    View Applications
-                </a>
-                <a href="{% url 'slating_interviews' period_id=period.id %}" class="block w-full text-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                    Interviews
-                </a>
-                <a href="{% url 'slating_build_slate' period_id=period.id %}" class="block w-full text-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                    Build Slate
-                </a>
-            </div>
-        </div>
+            <div class="px-5 py-4 space-y-3">
+                {% if committee_members %}
+                <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for member in committee_members %}
+                    <li class="flex items-center justify-between py-2">
+                        <span class="text-sm text-gray-800 dark:text-gray-200">{{ member.name }}</span>
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="remove_committee_member">
+                            <input type="hidden" name="member_id" value="{{ member.user_id }}">
+                            <button type="submit" class="text-xs text-red-500 dark:text-red-400 hover:underline">Remove</button>
+                        </form>
+                    </li>
+                {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-sm text-gray-400 dark:text-gray-500 italic">No committee members assigned.</p>
+                {% endif %}
 
-        <!-- Status Transitions -->
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Status Transitions</h3>
-            </div>
-            <div class="px-4 py-5 sm:p-6">
-                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Current: <span class="font-medium text-gray-900 dark:text-white">{{ period.get_status_display }}</span></p>
-                <form method="post" action="{% url 'slating_change_status' period_id=period.id %}" class="space-y-3">
+                {% if period.slating_committee %}
+                <form method="post" class="flex gap-2">
                     {% csrf_token %}
-                    <div>
-                        <label for="status_select" class="sr-only">Change Status</label>
-                        <select name="status" id="status_select"
-                            class="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm">
-                            <option value="setup" {% if period.status == 'setup' %}selected{% endif %}>Setup</option>
-                            <option value="nominations_open" {% if period.status == 'nominations_open' %}selected{% endif %}>Nominations Open</option>
-                            <option value="nominations_closed" {% if period.status == 'nominations_closed' %}selected{% endif %}>Nominations Closed</option>
-                            <option value="deliberation" {% if period.status == 'deliberation' %}selected{% endif %}>Deliberation</option>
-                            <option value="voting_open" {% if period.status == 'voting_open' %}selected{% endif %}>Voting Open</option>
-                            <option value="voting_closed" {% if period.status == 'voting_closed' %}selected{% endif %}>Voting Closed</option>
-                            <option value="results_published" {% if period.status == 'results_published' %}selected{% endif %}>Results Published</option>
-                            <option value="archived" {% if period.status == 'archived' %}selected{% endif %}>Archived</option>
-                        </select>
-                    </div>
-                    <button type="submit"
-                        class="w-full px-3 py-2 text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                        Change Status
+                    <input type="hidden" name="action" value="add_committee_member">
+                    <select name="member_id" class="flex-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        <option value="">-- Add a member --</option>
+                        {% for m in eligible_managers %}
+                        <option value="{{ m.user_id }}">{{ m.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="px-3 py-2 text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
+                        Add
                     </button>
                 </form>
+                {% else %}
+                <p class="text-xs text-amber-600 dark:text-amber-400">No committee linked to this period. This may indicate a setup issue — try re-saving the period or contact your site administrator.</p>
+                {% endif %}
             </div>
         </div>
+        {% endif %}
+    </div>
 
-        <!-- Stats -->
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Statistics</h3>
+    {# ─── Sidebar ─── #}
+    <div class="space-y-5">
+
+        {% if period %}
+        {# Combined overview + quick links #}
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Overview</h3>
             </div>
-            <div class="px-4 py-5 sm:p-6">
-                <dl class="space-y-3">
-                    <div class="flex justify-between">
-                        <dt class="text-sm text-gray-500 dark:text-gray-400">Applications</dt>
-                        <dd class="text-sm font-medium text-gray-900 dark:text-white">{{ period.applications.count }}</dd>
-                    </div>
-                    <div class="flex justify-between">
-                        <dt class="text-sm text-gray-500 dark:text-gray-400">Positions</dt>
-                        <dd class="text-sm font-medium text-gray-900 dark:text-white">{{ position_count }}</dd>
-                    </div>
-                    <div class="flex justify-between">
-                        <dt class="text-sm text-gray-500 dark:text-gray-400">Form Fields</dt>
-                        <dd class="text-sm font-medium text-gray-900 dark:text-white">{{ period.form_fields.count }}</dd>
-                    </div>
-                </dl>
+            {# Counts row #}
+            <div class="px-4 py-3 grid grid-cols-3 gap-1 text-center border-b border-gray-100 dark:border-gray-700">
+                <a href="{% url 'slating_positions' period_id=period.id %}" class="group py-1">
+                    <p class="text-xl font-bold text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{{ position_count }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Positions</p>
+                </a>
+                <a href="{% url 'slating_form_builder' period_id=period.id %}" class="group py-1">
+                    <p class="text-xl font-bold text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{{ field_count }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Fields</p>
+                </a>
+                <a href="{% url 'slating_applications' period_id=period.id %}" class="group py-1">
+                    <p class="text-xl font-bold text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{{ application_count }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Applications</p>
+                </a>
             </div>
+            {# Compact link list #}
+            <nav class="px-2 py-2 space-y-0.5">
+                <a href="{% url 'slating_positions' period_id=period.id %}"
+                    class="flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {% if period.status == 'setup' %}font-medium{% endif %}">
+                    Positions
+                    {% if period.status == 'setup' %}<span class="text-xs bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300 px-1.5 py-0.5 rounded">Now</span>{% endif %}
+                </a>
+                <a href="{% url 'slating_form_builder' period_id=period.id %}"
+                    class="flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {% if period.status == 'setup' %}font-medium{% endif %}">
+                    Application Form
+                    {% if period.status == 'setup' %}<span class="text-xs bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300 px-1.5 py-0.5 rounded">Now</span>{% endif %}
+                </a>
+                <a href="{% url 'slating_applications' period_id=period.id %}"
+                    class="flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    Applications
+                    {% if period.status == 'deliberation' or period.status == 'nominations_closed' %}<span class="text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300 px-1.5 py-0.5 rounded">Now</span>{% endif %}
+                </a>
+                <a href="{% url 'slating_interviews' period_id=period.id %}"
+                    class="flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    Interviews
+                </a>
+                <a href="{% url 'slating_build_slate' period_id=period.id %}"
+                    class="flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {% if period.status == 'deliberation' %}font-medium{% endif %}">
+                    Build Slate
+                    {% if period.status == 'deliberation' %}<span class="text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300 px-1.5 py-0.5 rounded">Now</span>{% endif %}
+                </a>
+                {% if period.status in 'deliberation,voting_open' %}
+                <a href="{% url 'slating_attendance' period_id=period.id %}"
+                    class="flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {% if period.status == 'voting_open' %}font-medium{% endif %}">
+                    Attendance
+                    {% if not quorum_met %}<span class="text-xs bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 px-1.5 py-0.5 rounded">No Quorum</span>{% else %}<span class="text-xs text-gray-400 dark:text-gray-500">{{ attendance_count }} present</span>{% endif %}
+                </a>
+                {% endif %}
+                {% if period.status in 'voting_open,voting_closed,results_published,archived' %}
+                <a href="{% url 'slating_results' period_id=period.id %}"
+                    class="flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-medium">
+                    Results
+                    {% if period.status == 'voting_open' %}<span class="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-1.5 py-0.5 rounded animate-pulse">Live</span>{% endif %}
+                </a>
+                {% endif %}
+                {% if period.status == 'voting_open' %}
+                {% if period.vote_type == 'individual' %}
+                <a href="{% url 'slating_vote_individual' period_id=period.id %}"
+                    class="flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
+                    Go Vote (Individual) →
+                </a>
+                {% else %}
+                <a href="{% url 'slating_vote' period_id=period.id %}"
+                    class="flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
+                    Go Vote →
+                </a>
+                {% endif %}
+                {% endif %}
+            </nav>
         </div>
 
+        {# Live Voting Stats #}
         {% if vote_stats %}
-        <!-- Live Voting Status -->
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">Live Voting Status</h3>
-                    {% if period.status == 'voting_open' %}
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                        <span class="w-2 h-2 mr-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                        Live
-                    </span>
-                    {% endif %}
-                </div>
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Live Voting</h3>
+                {% if period.status == 'voting_open' %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                    <span class="w-1.5 h-1.5 mr-1 bg-green-500 rounded-full animate-pulse"></span>Live
+                </span>
+                {% endif %}
             </div>
-            <div class="px-4 py-5 sm:p-6">
-                <!-- Vote Counts -->
-                <div class="grid grid-cols-2 gap-4 mb-4">
+            <div class="px-5 py-4 space-y-4">
+
+                {% if vote_stats.vote_type == 'individual' %}
+                {# Individual position voting stats #}
+                <div class="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ vote_stats.total_ballots }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Members Voted</p>
+                </div>
+                {% if vote_stats.position_breakdown %}
+                <div class="space-y-3">
+                    <p class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">By Position</p>
+                    {% for item in vote_stats.position_breakdown %}
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-medium text-gray-700 dark:text-gray-300 truncate pr-2">{{ item.position }}</span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{{ item.approval_percentage|floatformat:0 }}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5 relative">
+                            <div class="h-1.5 rounded-full {% if item.approval_percentage >= period.required_approval_percentage %}bg-green-500{% else %}bg-red-500{% endif %}"
+                                style="width: {{ item.approval_percentage|default:0 }}%"></div>
+                            <div class="absolute top-0 h-1.5 w-0.5 bg-gray-800 dark:bg-white opacity-40" style="left: {{ period.required_approval_percentage }}%"></div>
+                        </div>
+                        <div class="flex gap-3 mt-1 text-xs text-gray-400 dark:text-gray-500">
+                            <span class="text-green-600 dark:text-green-400">✓ {{ item.approve }}</span>
+                            <span class="text-red-600 dark:text-red-400">✗ {{ item.reject }}</span>
+                            {% if item.abstain %}<span>— {{ item.abstain }}</span>{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% else %}
+                {# Full slate vote stats #}
+                <div class="grid grid-cols-2 gap-3">
                     <div class="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                         <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ vote_stats.total_ballots }}</p>
                         <p class="text-xs text-gray-500 dark:text-gray-400">Voters</p>
@@ -294,45 +715,40 @@
                     </div>
                 </div>
 
-                <!-- Vote Breakdown -->
-                <dl class="space-y-2 mb-4">
-                    <div class="flex justify-between items-center">
-                        <dt class="text-sm text-green-600 dark:text-green-400">Approve</dt>
-                        <dd class="text-sm font-medium text-green-600 dark:text-green-400">{{ vote_stats.approve }}</dd>
+                <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 relative">
+                    <div class="h-2 rounded-full {% if vote_stats.approval_percentage >= period.required_approval_percentage %}bg-green-500{% else %}bg-red-500{% endif %}"
+                         style="width: {{ vote_stats.approval_percentage|default:0 }}%"></div>
+                    <div class="absolute top-0 h-2 w-0.5 bg-gray-800 dark:bg-white opacity-60" style="left: {{ period.required_approval_percentage }}%"></div>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 -mt-2">Required: {{ period.required_approval_percentage }}%</p>
+
+                <dl class="space-y-1.5">
+                    <div class="flex justify-between items-center text-sm">
+                        <dt class="text-green-600 dark:text-green-400">Approve</dt>
+                        <dd class="font-medium text-green-600 dark:text-green-400">{{ vote_stats.approve }}</dd>
                     </div>
-                    <div class="flex justify-between items-center">
-                        <dt class="text-sm text-red-600 dark:text-red-400">Reject</dt>
-                        <dd class="text-sm font-medium text-red-600 dark:text-red-400">{{ vote_stats.reject }}</dd>
+                    <div class="flex justify-between items-center text-sm">
+                        <dt class="text-red-600 dark:text-red-400">Reject</dt>
+                        <dd class="font-medium text-red-600 dark:text-red-400">{{ vote_stats.reject }}</dd>
                     </div>
-                    <div class="flex justify-between items-center">
-                        <dt class="text-sm text-gray-500 dark:text-gray-400">Abstain</dt>
-                        <dd class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ vote_stats.abstain }}</dd>
+                    <div class="flex justify-between items-center text-sm">
+                        <dt class="text-gray-500 dark:text-gray-400">Abstain</dt>
+                        <dd class="font-medium text-gray-500 dark:text-gray-400">{{ vote_stats.abstain }}</dd>
                     </div>
                 </dl>
 
-                <!-- Progress Bar -->
-                <div class="mb-4">
-                    <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 relative">
-                        <div class="h-2 rounded-full {% if vote_stats.approval_percentage >= period.required_approval_percentage %}bg-green-500{% else %}bg-red-500{% endif %}"
-                             style="width: {{ vote_stats.approval_percentage|default:0 }}%"></div>
-                        <div class="absolute top-0 h-2 w-0.5 bg-gray-800 dark:bg-white" style="left: {{ period.required_approval_percentage }}%"></div>
-                    </div>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Required: {{ period.required_approval_percentage }}%</p>
-                </div>
-
                 {% if vote_stats.rejection_breakdown %}
-                <!-- Rejection Breakdown -->
-                <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-                    <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Objections by Position</h4>
-                    <div class="space-y-2">
+                <div class="border-t border-gray-100 dark:border-gray-700 pt-3">
+                    <p class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">Objections by Position</p>
+                    <div class="space-y-1.5">
                         {% for item in vote_stats.rejection_breakdown %}
-                        <div class="flex justify-between items-center text-sm">
-                            <div>
-                                <span class="text-gray-900 dark:text-white font-medium">{{ item.position }}</span>
-                                <span class="text-gray-500 dark:text-gray-400"> - {{ item.candidate_name }}</span>
+                        <div class="flex items-center justify-between text-xs">
+                            <div class="min-w-0 pr-2">
+                                <span class="font-medium text-gray-900 dark:text-white">{{ item.position }}</span>
+                                <span class="text-gray-400"> — {{ item.candidate_name }}</span>
                             </div>
-                            <span class="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded text-xs font-medium">
-                                {{ item.count }} objection{{ item.count|pluralize }}
+                            <span class="flex-shrink-0 px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded font-medium">
+                                {{ item.count }}
                             </span>
                         </div>
                         {% endfor %}
@@ -340,69 +756,280 @@
                 </div>
                 {% endif %}
 
-                <!-- Actions -->
-                <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4 space-y-2">
-                    <a href="{% url 'slating_results' period_id=period.id %}"
-                       class="block w-full text-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                        View Full Results
-                    </a>
-                    {% if period.status == 'voting_open' %}
-                    <form method="post" action="{% url 'slating_close_voting' period_id=period.id %}">
+                {% endif %}{# end vote_type == individual / else #}
+
+                <a href="{% url 'slating_results' period_id=period.id %}"
+                   class="block w-full text-center px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    View Full Results
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        {# Write-in / Blank Position Assignment #}
+        {% if blank_positions or write_in_candidates %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Blank Positions</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Assign members to unfilled slots for individual voting.</p>
+            </div>
+            <div class="px-5 py-4 space-y-4">
+
+                {% if write_in_candidates %}
+                <div>
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Assigned Write-ins</p>
+                    <ul class="space-y-2">
+                    {% for wc in write_in_candidates %}
+                        <li class="flex items-center justify-between text-sm">
+                            <div>
+                                <span class="font-medium text-gray-900 dark:text-white">{{ wc.write_in_member.name }}</span>
+                                <span class="text-gray-500 dark:text-gray-400"> — {{ wc.position.title }}</span>
+                            </div>
+                            <form method="post" action="{% url 'slating_remove_write_in' period_id=period.id %}" class="inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="candidate_id" value="{{ wc.id }}">
+                                <button type="submit"
+                                    onclick="return confirm('Remove {{ wc.write_in_member.name }} from {{ wc.position.title }}?')"
+                                    class="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
+                                    Remove
+                                </button>
+                            </form>
+                        </li>
+                    {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                {% if blank_positions %}
+                <div>
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Unfilled Positions</p>
+                    <form method="post" action="{% url 'slating_assign_write_in' period_id=period.id %}">
                         {% csrf_token %}
-                        <button type="submit" onclick="return confirm('Are you sure you want to close voting?')"
-                            class="block w-full text-center px-4 py-2 border border-red-300 dark:border-red-600 rounded-md shadow-sm text-sm font-medium text-red-700 dark:text-red-300 bg-white dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-red-900/30">
-                            Close Voting
-                        </button>
+                        <div class="space-y-2">
+                            <div>
+                                <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Position</label>
+                                <select name="position_id" id="writeInPositionSelect"
+                                    onchange="updateWriteInMembers(this.value)"
+                                    class="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                                    <option value="">-- Select position --</option>
+                                    {% for pos in blank_positions %}
+                                    <option value="{{ pos.id }}">{{ pos.title }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                                    Member
+                                    <span class="font-normal text-gray-400 ml-1">★ applied &nbsp;● on slate</span>
+                                </label>
+                                <select name="member_id" id="writeInMemberSelect" disabled
+                                    class="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <option value="">-- Select a position first --</option>
+                                </select>
+                            </div>
+                            <button type="submit"
+                                class="w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+                                Assign Write-in
+                            </button>
+                        </div>
                     </form>
-                    {% endif %}
                 </div>
+                {% endif %}
+
             </div>
         </div>
         {% endif %}
-        {% endif %}
 
-        <!-- Help -->
-        <div class="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-                    </svg>
-                </div>
-                <div class="ml-3">
-                    <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">Setting Up Elections</h3>
-                    <div class="mt-2 text-sm text-blue-700 dark:text-blue-300">
-                        <ol class="list-decimal list-inside space-y-1">
-                            <li>Configure basic information</li>
-                            <li>Add positions to elect</li>
-                            <li>Build application form</li>
-                            <li>Open nominations</li>
-                        </ol>
-                    </div>
-                </div>
+        {# Danger Zone (admin only) #}
+        {% if user.is_admin %}
+        <div class="bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800 overflow-hidden">
+            <div class="px-5 py-3.5 border-b border-red-200 dark:border-red-800">
+                <h3 class="text-sm font-semibold text-red-800 dark:text-red-200">Danger Zone</h3>
             </div>
-        </div>
-
-        {% if period and user.is_admin %}
-        <!-- Danger Zone (Admin Only) -->
-        <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg overflow-hidden">
-            <div class="px-4 py-3 border-b border-red-200 dark:border-red-800">
-                <h3 class="text-sm font-medium text-red-800 dark:text-red-200">Danger Zone</h3>
-            </div>
-            <div class="px-4 py-4">
-                <p class="text-sm text-red-600 dark:text-red-400 mb-3">
-                    Deleting this period will permanently remove all associated applications, positions, slates, and votes.
+            <div class="px-5 py-4">
+                <p class="text-xs text-red-600 dark:text-red-400 mb-3">
+                    Permanently removes all applications ({{ period.applications.count }}), positions, slates, and votes.
                 </p>
-                <form method="post" onsubmit="return confirm('Are you sure you want to delete this slating period?\n\nThis will permanently delete:\n- All applications ({{ period.applications.count }})\n- All positions ({{ period.positions.count }})\n- All form fields ({{ period.form_fields.count }})\n- All slates and votes\n\nThis action cannot be undone.');">
+                <form method="post" onsubmit="return confirm('Delete this slating period and ALL associated data?\n\nThis cannot be undone.');">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="delete">
-                    <button type="submit" class="w-full px-4 py-2 border border-red-300 dark:border-red-700 rounded-md shadow-sm text-sm font-medium text-red-700 dark:text-red-300 bg-white dark:bg-red-900/30 hover:bg-red-50 dark:hover:bg-red-900/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                    <button type="submit"
+                        class="w-full px-4 py-2 border border-red-300 dark:border-red-700 rounded-lg text-sm font-medium text-red-700 dark:text-red-300 bg-white dark:bg-red-900/30 hover:bg-red-50 dark:hover:bg-red-900/50 transition-colors">
                         Delete Period
                     </button>
                 </form>
             </div>
         </div>
         {% endif %}
+
+        {% else %}
+        {# Help card for new period creation #}
+        <div class="bg-blue-50 dark:bg-blue-900/30 rounded-xl border border-blue-200 dark:border-blue-800 p-5">
+            <div class="flex gap-3">
+                <svg class="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                </svg>
+                <div>
+                    <h3 class="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-2">Getting Started</h3>
+                    <ol class="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-decimal list-inside">
+                        <li>Name your election and set the term</li>
+                        <li>Add positions after creation</li>
+                        <li>Build the application form</li>
+                        <li>Open nominations when ready</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block slating_js %}
+<script>
+function selectVoteType(type) {
+    document.getElementById('voteTypeInput').value = type;
+
+    ['slate', 'individual'].forEach(function(t) {
+        var btn = document.getElementById('voteType-' + t);
+        var check = document.getElementById('check-' + t);
+        if (t === type) {
+            btn.style.backgroundColor = '#2563eb';
+            btn.style.borderColor = '#2563eb';
+            btn.style.color = '#ffffff';
+            check.style.display = 'inline';
+        } else {
+            btn.style.backgroundColor = '';
+            btn.style.borderColor = '';
+            btn.style.color = '';
+            check.style.display = 'none';
+        }
+    });
+
+    var openBtn = document.getElementById('openVotingBtn');
+    openBtn.disabled = false;
+    openBtn.style.backgroundColor = '#2563eb';
+    openBtn.style.opacity = '1';
+    openBtn.style.cursor = 'pointer';
+
+    document.getElementById('clearVoteType').style.display = 'inline';
+}
+
+function resetVoteType() {
+    document.getElementById('voteTypeInput').value = '';
+
+    ['slate', 'individual'].forEach(function(t) {
+        var btn = document.getElementById('voteType-' + t);
+        var check = document.getElementById('check-' + t);
+        btn.style.backgroundColor = '';
+        btn.style.borderColor = '';
+        btn.style.color = '';
+        check.style.display = 'none';
+    });
+
+    var openBtn = document.getElementById('openVotingBtn');
+    openBtn.disabled = true;
+    openBtn.style.backgroundColor = '#9ca3af';
+    openBtn.style.opacity = '0.5';
+    openBtn.style.cursor = 'not-allowed';
+
+    document.getElementById('clearVoteType').style.display = 'none';
+}
+
+function submitOpenVoting() {
+    if (!document.getElementById('voteTypeInput').value) return;
+    if (confirm('Open chapter voting? The slate must be approved first.')) {
+        document.getElementById('openVotingForm').submit();
+    }
+}
+
+function togglePausedVoteType() {
+    var input = document.getElementById('pausedVoteTypeInput');
+    var label = document.getElementById('pausedVoteTypeLabel');
+    if (!input || !label) return;
+    if (input.value === 'individual') {
+        input.value = 'slate';
+        label.textContent = 'Individual';
+    } else {
+        input.value = 'individual';
+        label.textContent = 'Full Slate';
+    }
+}
+
+var _writeInData = {{ write_in_js_data|safe }};
+
+function updateWriteInMembers(posId) {
+    var select = document.getElementById('writeInMemberSelect');
+    select.innerHTML = '';
+
+    if (!posId) {
+        select.disabled = true;
+        var opt = document.createElement('option');
+        opt.value = '';
+        opt.text = '-- Select a position first --';
+        select.appendChild(opt);
+        return;
+    }
+
+    var data = _writeInData || {};
+    var members = data.members || [];
+    var posApplicants = (data.pos_applicants || {})[posId] || [];
+    var slatedIds = data.slated_ids || [];
+
+    // Build lookup: user_id -> tier
+    var applicantTiers = {};
+    posApplicants.forEach(function(a) { applicantTiers[a.id] = a.tier; });
+
+    var slatedSet = {};
+    slatedIds.forEach(function(id) { slatedSet[id] = true; });
+
+    var blank = document.createElement('option');
+    blank.value = '';
+    blank.text = '-- Select member --';
+    select.appendChild(blank);
+
+    var applied = [], onSlate = [], others = [];
+
+    members.forEach(function(m) {
+        var tier = applicantTiers[m.id];
+        var isSlated = slatedSet[m.id];
+        var label = m.name;
+        if (tier) {
+            var tierLabel = tier === 'first_choice' ? '1st' : tier === 'second_choice' ? '2nd' : '3rd';
+            label = '\u2605 ' + m.name + ' (' + tierLabel + ' choice)';
+        }
+        if (isSlated) {
+            label = '\u25CF ' + (tier ? '' : '') + m.name + (tier ? ' (\u2605 applied, on slate)' : ' (on slate)');
+        }
+        var opt = document.createElement('option');
+        opt.value = m.id;
+        opt.text = label;
+        if (tier && !isSlated) applied.push(opt);
+        else if (isSlated) onSlate.push(opt);
+        else others.push(opt);
+    });
+
+    // Group: applied first, then others, then already-slated last
+    if (applied.length) {
+        var g1 = document.createElement('optgroup');
+        g1.label = 'Applied for this position';
+        applied.forEach(function(o) { g1.appendChild(o); });
+        select.appendChild(g1);
+    }
+    if (others.length) {
+        var g2 = document.createElement('optgroup');
+        g2.label = 'Other members';
+        others.forEach(function(o) { g2.appendChild(o); });
+        select.appendChild(g2);
+    }
+    if (onSlate.length) {
+        var g3 = document.createElement('optgroup');
+        g3.label = 'Already on slate';
+        onSlate.forEach(function(o) { g3.appendChild(o); });
+        select.appendChild(g3);
+    }
+
+    select.disabled = false;
+}
+</script>
 {% endblock %}

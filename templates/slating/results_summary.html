@@ -31,7 +31,7 @@
             <p class="text-sm text-gray-500 dark:text-gray-400">Voters Participated</p>
         </div>
         <div class="bg-white dark:bg-gray-800 shadow rounded-lg px-4 py-5 sm:p-6 text-center">
-            <p class="text-3xl font-bold {% if participation_rate >= 50 %}text-green-600{% else %}text-yellow-600{% endif %}">{{ participation_rate|floatformat:1 }}%</p>
+            <p class="text-3xl font-bold {% if participation_rate >= 50 %}text-green-600 dark:text-green-400{% else %}text-yellow-600 dark:text-yellow-400{% endif %}">{{ participation_rate|floatformat:1 }}%</p>
             <p class="text-sm text-gray-500 dark:text-gray-400">Participation Rate</p>
         </div>
     </div>
@@ -61,10 +61,10 @@
                             Attempt {{ record.attempt }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ record.total }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600">{{ record.approve }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600">{{ record.reject }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 dark:text-green-400">{{ record.approve }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600 dark:text-red-400">{{ record.reject }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ record.abstain }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm {% if record.percentage >= period.required_approval_percentage %}text-green-600{% else %}text-red-600{% endif %}">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm {% if record.percentage >= period.required_approval_percentage %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
                             {{ record.percentage|floatformat:1 }}%
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
@@ -103,19 +103,19 @@
                     <p class="text-sm text-gray-500 dark:text-gray-400">Total</p>
                 </div>
                 <div class="text-center">
-                    <p class="text-2xl font-bold text-blue-600">{{ app_stats.submitted }}</p>
+                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ app_stats.submitted }}</p>
                     <p class="text-sm text-gray-500 dark:text-gray-400">Submitted</p>
                 </div>
                 <div class="text-center">
-                    <p class="text-2xl font-bold text-purple-600">{{ app_stats.interviewed }}</p>
+                    <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ app_stats.interviewed }}</p>
                     <p class="text-sm text-gray-500 dark:text-gray-400">Interviewed</p>
                 </div>
                 <div class="text-center">
-                    <p class="text-2xl font-bold text-green-600">{{ app_stats.slated }}</p>
+                    <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ app_stats.slated }}</p>
                     <p class="text-sm text-gray-500 dark:text-gray-400">Slated</p>
                 </div>
                 <div class="text-center">
-                    <p class="text-2xl font-bold text-red-600">{{ app_stats.withdrawn }}</p>
+                    <p class="text-2xl font-bold text-red-600 dark:text-red-400">{{ app_stats.withdrawn }}</p>
                     <p class="text-sm text-gray-500 dark:text-gray-400">Withdrawn</p>
                 </div>
             </div>
@@ -141,7 +141,7 @@
                     </div>
                     <div class="text-right">
                         {% if slate.approval_percentage is not None %}
-                        <p class="text-sm font-medium {% if slate.passed %}text-green-600{% else %}text-red-600{% endif %}">
+                        <p class="text-sm font-medium {% if slate.passed %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
                             {{ slate.approval_percentage|floatformat:1 }}% approval
                         </p>
                         {% endif %}

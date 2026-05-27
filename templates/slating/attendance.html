@@ -1,0 +1,114 @@
+{% extends 'slating/base_slating.html' %}
+
+{% block breadcrumbs %}
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <a href="{% url 'slating_period_setup' period_id=period.id %}" class="text-gray-500 dark:text-gray-400 hover:text-primary-600">{{ period.name }}</a>
+</li>
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <span class="text-gray-700 dark:text-gray-300">Attendance</span>
+</li>
+{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Attendance</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ period.name }} — Mark members present to allow them to vote</p>
+    </div>
+    <a href="{% url 'slating_period_setup' period_id=period.id %}"
+        class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+        Back to Setup
+    </a>
+</div>
+{% endblock %}
+
+{% block slating_content %}
+<div class="space-y-5">
+
+    {# Quorum / count summary #}
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-4 flex flex-wrap items-center gap-6">
+        <div class="text-center">
+            <p class="text-3xl font-bold text-gray-900 dark:text-white">{{ present_count }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Present</p>
+        </div>
+        <div class="text-center">
+            <p class="text-3xl font-bold text-gray-900 dark:text-white">{{ total_eligible }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Eligible</p>
+        </div>
+        {% if period.quorum %}
+        <div class="text-center">
+            <p class="text-3xl font-bold {% if quorum_met %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">{{ period.quorum }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Quorum</p>
+        </div>
+        <div>
+            {% if quorum_met %}
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                Quorum Met
+            </span>
+            {% else %}
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                Quorum Not Met &mdash; {{ quorum_needed }} more needed
+            </span>
+            {% endif %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-500 dark:text-gray-400 italic">No quorum requirement set.</p>
+        {% endif %}
+    </div>
+
+    {# Member list #}
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Members</h2>
+            <div class="flex gap-2">
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="mark_all_present">
+                    {# bulk mark all — we'll do this per-row only for now #}
+                </form>
+            </div>
+        </div>
+
+        <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for entry in members_with_status %}
+            <li class="flex items-center justify-between px-5 py-3">
+                <div class="flex items-center gap-3">
+                    {% if entry.is_present %}
+                    <span class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></span>
+                    {% else %}
+                    <span class="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0"></span>
+                    {% endif %}
+                    <div>
+                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ entry.member.name }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ entry.member.get_member_type_display }} &middot; {{ entry.member.member_status }}</p>
+                    </div>
+                </div>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="member_id" value="{{ entry.member.user_id }}">
+                    {% if entry.is_present %}
+                    <input type="hidden" name="action" value="mark_absent">
+                    <button type="submit"
+                        class="text-xs px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        Mark Absent
+                    </button>
+                    {% else %}
+                    <input type="hidden" name="action" value="mark_present">
+                    <button type="submit"
+                        class="text-xs px-3 py-1.5 rounded-md border border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors">
+                        Mark Present
+                    </button>
+                    {% endif %}
+                </form>
+            </li>
+        {% empty %}
+            <li class="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No eligible members found.</li>
+        {% endfor %}
+        </ul>
+    </div>
+
+</div>
+{% endblock %}

@@ -48,7 +48,7 @@ def transition_officers(request, period_id):
     # Get all active members who could be assigned
     all_members = ParliamentUser.objects.filter(
         member_status='Active'
-    ).order_by('last_name', 'first_name')
+    ).order_by('name')
 
     # Build the auto-filled assignments from slate
     auto_assignments = build_auto_assignments(period)

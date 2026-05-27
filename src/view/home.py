@@ -141,15 +141,17 @@ def home(request):
         status__in=['nominations_open', 'voting_open', 'results_published']
     ).first()
 
-    # Check if user has access to slating committee
-    slating_committee = Committee.objects.filter(is_slating_committee=True).first()
+    # Check if user has access to the active period's slating committee
     has_slating_access = False
-    if slating_committee and not request.user.is_pledge:
+    if active_slating_period and not request.user.is_pledge:
+        slating_committee = active_slating_period.slating_committee
         has_slating_access = (
             request.user.is_admin or
-            slating_committee.admin == request.user or
-            slating_committee.members.filter(pk=request.user.pk).exists() or
-            slating_committee.chairs.filter(pk=request.user.pk).exists()
+            bool(slating_committee and (
+                slating_committee.admin == request.user or
+                slating_committee.members.filter(pk=request.user.pk).exists() or
+                slating_committee.chairs.filter(pk=request.user.pk).exists()
+            ))
         )
 
     # Show slating card if user has committee access OR there's an active period

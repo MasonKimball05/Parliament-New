@@ -123,7 +123,7 @@
                                 <div class="mt-1 flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
                                     <span>Submitted {{ app.submitted_at|date:"M j, Y"|default:"Draft" }}</span>
                                     {% if app.gpa_level %}
-                                    <span class="{% if app.gpa_level == 1 %}text-green-600{% elif app.gpa_level == 2 %}text-yellow-600{% else %}text-red-600{% endif %}">
+                                    <span class="{% if app.gpa_level == 1 %}text-green-600 dark:text-green-400{% elif app.gpa_level == 2 %}text-yellow-600 dark:text-yellow-400{% else %}text-red-600 dark:text-red-400{% endif %}">
                                         GPA Level {{ app.gpa_level }}
                                     </span>
                                     {% endif %}

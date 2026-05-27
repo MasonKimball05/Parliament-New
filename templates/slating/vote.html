@@ -12,15 +12,97 @@
 {% endblock %}
 
 {% block page_header %}
-<div>
-    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Officer Election - Vote</h1>
-    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
+<div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Officer Election - Vote</h1>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
+    </div>
+    <div class="flex items-center gap-2">
+        {% if not is_committee %}
+        <a href="{% url 'slating_view_approved_slate' period_id=period.id %}"
+            class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+            View Slate
+        </a>
+        {% endif %}
+        {% if is_committee %}
+        <a href="{% url 'slating_period_setup' period_id=period.id %}"
+            class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+            Back to Setup
+        </a>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}
 
 {% block slating_content %}
 <div class="max-w-3xl mx-auto space-y-6">
-    <!-- Voting Info Banner -->
+
+{% if voting_paused %}
+<!-- Voting Paused State (committee only) -->
+<div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-xl p-6">
+    <div class="flex items-start gap-4">
+        <svg class="h-6 w-6 text-yellow-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div class="flex-1">
+            <h3 class="text-base font-semibold text-yellow-900 dark:text-yellow-200">Voting Paused</h3>
+            <p class="mt-1 text-sm text-yellow-800 dark:text-yellow-300">
+                Attempt {{ current_attempt }} was paused. Members cannot vote until you reopen the session.
+                You can also clear all votes from this attempt and start fresh.
+            </p>
+            <div class="mt-4 flex flex-wrap gap-3">
+                <form method="post" action="{% url 'slating_change_status' period_id=period.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="status" value="voting_open">
+                    <button type="submit"
+                        class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors">
+                        Reopen Voting
+                    </button>
+                </form>
+                <form method="post" action="{% url 'slating_reset_votes' period_id=period.id %}"
+                    onsubmit="return confirm('Clear all {{ current_attempt }} attempt votes? This cannot be undone.')">
+                    {% csrf_token %}
+                    <button type="submit"
+                        class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors">
+                        Clear &amp; Reset Votes
+                    </button>
+                </form>
+                <a href="{% url 'slating_edit_approved_slate' period_id=period.id %}"
+                    class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+                    Edit Slate
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slate List (reference during pause) -->
+<div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+    <div class="px-4 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-base font-medium text-gray-900 dark:text-white">{{ slate.name }}</h3>
+    </div>
+    <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+        {% for candidate in candidates %}
+        <li class="px-4 py-3 flex items-center justify-between">
+            <span class="text-sm font-medium text-gray-900 dark:text-white">{{ candidate.position.title }}</span>
+            <span class="text-sm text-gray-500 dark:text-gray-400">{{ candidate.candidate_name }}</span>
+        </li>
+        {% empty %}
+        <li class="px-4 py-4 text-center text-sm text-gray-400">No candidates on slate.</li>
+        {% endfor %}
+    </ul>
+</div>
+
+{% else %}
+<!-- Slate update notification (hidden until JS detects a change) -->
+<div id="slate-update-banner" class="hidden bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-lg p-3 flex items-center justify-between gap-3">
+    <p class="text-sm text-amber-800 dark:text-amber-200 font-medium">The slate has been updated by the committee.</p>
+    <button onclick="window.location.reload()" class="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-amber-900 dark:text-amber-100 bg-amber-100 dark:bg-amber-800 border border-amber-300 dark:border-amber-600 rounded-md hover:bg-amber-200 dark:hover:bg-amber-700 transition-colors">
+        Refresh
+    </button>
+</div>
+
+<!-- Normal Voting Info Banner -->
     <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
         <div class="flex">
             <div class="flex-shrink-0">
@@ -52,7 +134,7 @@
                 <div class="flex items-center justify-between">
                     <div class="flex-1 min-w-0">
                         <p class="text-sm font-medium text-gray-900 dark:text-white">{{ candidate.position.title }}</p>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ candidate.application.applicant.name }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ candidate.candidate_name }}</p>
                     </div>
                 </div>
             </li>
@@ -139,7 +221,7 @@
                                 <input type="checkbox" name="rejected_positions" value="{{ candidate.position.id }}"
                                     class="h-4 w-4 border-gray-300 text-red-600 focus:ring-red-500 rounded rejected-position-checkbox">
                                 <span class="ml-3 text-sm text-gray-900 dark:text-white">
-                                    <strong>{{ candidate.position.title }}</strong> - {{ candidate.application.applicant.name }}
+                                    <strong>{{ candidate.position.title }}</strong> - {{ candidate.candidate_name }}
                                 </span>
                             </label>
                             {% endfor %}
@@ -188,6 +270,8 @@
             </p>
         </div>
     </div>
+
+{% endif %}{# end voting_paused / normal voting else block #}
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
@@ -226,6 +310,34 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // Poll for slate changes every 30 seconds and prompt a refresh if the slate updates
+    {% if not voting_paused %}
+    const initialCandidateCount = {{ candidates|length }};
+    let slateUpdateBannerShown = false;
+
+    function checkSlateUpdates() {
+        fetch('{% url "slating_api_voting_status" period_id=period.id %}')
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                if (!data) return;
+                // Status changed (e.g. voting paused) — reload to show correct state
+                if (data.status !== '{{ period.status }}') {
+                    window.location.reload();
+                    return;
+                }
+                // Slate candidate list changed
+                if (!slateUpdateBannerShown && data.slate_candidate_count !== undefined && data.slate_candidate_count !== initialCandidateCount) {
+                    slateUpdateBannerShown = true;
+                    const banner = document.getElementById('slate-update-banner');
+                    if (banner) banner.classList.remove('hidden');
+                }
+            })
+            .catch(() => {});
+    }
+
+    setInterval(checkSlateUpdates, 30000);
+    {% endif %}
 });
 </script>
 {% endblock %}

@@ -3530,6 +3530,11 @@ class SlatingPeriod(models.Model):
         ('archived', 'Archived'),
     ]
 
+    VOTE_TYPE_CHOICES = [
+        ('slate', 'Full Slate Vote'),
+        ('individual', 'Individual Position Votes'),
+    ]
+
     name = models.CharField(max_length=200, help_text='e.g., "Fall 2022 Officer Elections"')
     description = models.TextField(blank=True)
     academic_term = models.CharField(max_length=50, help_text='e.g., "Fall 2022"')
@@ -3548,14 +3553,20 @@ class SlatingPeriod(models.Model):
         default=60,
         help_text='Percentage needed to approve slate (bylaws: 60%)'
     )
-    max_slate_voting_attempts = models.IntegerField(
-        default=3,
-        help_text='Max full slate votes before individual position votes'
-    )
     current_voting_attempt = models.IntegerField(default=0)
     allow_abstain = models.BooleanField(
         default=True,
         help_text='Allow members to abstain from voting'
+    )
+    vote_type = models.CharField(
+        max_length=20,
+        choices=VOTE_TYPE_CHOICES,
+        default='slate',
+        help_text='Whether to vote on the full slate or individual positions'
+    )
+    quorum = models.IntegerField(
+        null=True, blank=True,
+        help_text='Minimum number of members required present to hold a valid vote (optional)'
     )
 
     # GPA configuration
@@ -3575,6 +3586,15 @@ class SlatingPeriod(models.Model):
         null=True, blank=True,
         related_name='slating_periods',
         help_text='Committee managing this election'
+    )
+
+    # Designated manager for this specific slating period (can be different from committee chair)
+    slating_manager = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='managed_slating_periods',
+        help_text='Member responsible for running this slating period (has full setup access)'
     )
 
     # Flexible settings as JSON
@@ -3757,6 +3777,10 @@ class SlatingPosition(models.Model):
 
     display_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    allow_abstain = models.BooleanField(
+        default=True,
+        help_text='Allow members to abstain when voting on this position individually'
+    )
 
     class Meta:
         ordering = ['display_order', 'title']
@@ -4216,7 +4240,15 @@ class SlateCandidate(models.Model):
     application = models.ForeignKey(
         SlatingApplication,
         on_delete=models.CASCADE,
+        null=True, blank=True,
         related_name='slate_assignments'
+    )
+    write_in_member = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='write_in_slate_assignments',
+        help_text='Active member assigned directly without an application (write-in)'
     )
 
     # For individual position voting (fallback)
@@ -4224,15 +4256,64 @@ class SlateCandidate(models.Model):
     individual_votes_against = models.IntegerField(default=0)
     individual_passed = models.BooleanField(null=True)
 
+    is_runoff = models.BooleanField(
+        default=False,
+        help_text='True if this candidate is a runoff option alongside the primary candidate'
+    )
+
     display_order = models.IntegerField(default=0)
     notes = models.TextField(blank=True, help_text='Public notes about this assignment')
 
     class Meta:
-        ordering = ['display_order']
-        unique_together = ['slate', 'position']  # One candidate per position per slate
+        ordering = ['display_order', 'is_runoff']
+        unique_together = ['slate', 'position', 'is_runoff']  # One primary + one optional runoff per position
+
+    @property
+    def candidate_name(self):
+        if self.application_id:
+            return self.application.applicant.name
+        if self.write_in_member_id:
+            return self.write_in_member.name
+        return 'Unknown'
+
+    @property
+    def is_write_in(self):
+        return self.write_in_member_id is not None
 
     def __str__(self):
-        return f"{self.application.applicant.name} for {self.position.title}"
+        suffix = ' (runoff)' if self.is_runoff else ''
+        return f"{self.candidate_name} for {self.position.title}{suffix}"
+
+
+class SlatingAttendance(models.Model):
+    """
+    Tracks which members are marked present for a slating period's voting session.
+    A member must be present to cast a vote.
+    """
+    period = models.ForeignKey(
+        SlatingPeriod,
+        on_delete=models.CASCADE,
+        related_name='attendance'
+    )
+    member = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.CASCADE,
+        related_name='slating_attendance'
+    )
+    marked_at = models.DateTimeField(auto_now_add=True)
+    marked_by = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='slating_attendance_marked'
+    )
+
+    class Meta:
+        unique_together = ['period', 'member']
+        ordering = ['member__name']
+
+    def __str__(self):
+        return f"{self.member.name} present at {self.period.name}"
 
 
 class SlatingBallot(models.Model):

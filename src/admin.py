@@ -2361,7 +2361,7 @@ class SlatingPeriodAdmin(admin.ModelAdmin):
             'fields': ('nominations_open_at', 'nominations_close_at', 'deliberation_start_at', 'voting_open_at', 'voting_close_at', 'results_publish_at')
         }),
         ('Voting Configuration', {
-            'fields': ('required_approval_percentage', 'max_slate_voting_attempts', 'current_voting_attempt', 'allow_abstain')
+            'fields': ('required_approval_percentage', 'vote_type', 'current_voting_attempt', 'allow_abstain')
         }),
         ('GPA Configuration', {
             'fields': ('min_gpa_requirement', 'gpa_level_2_threshold')

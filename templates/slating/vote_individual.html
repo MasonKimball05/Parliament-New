@@ -19,116 +19,155 @@
 {% endblock %}
 
 {% block slating_content %}
-<div class="max-w-3xl mx-auto space-y-6">
-    <!-- Info Banner -->
+<div class="max-w-3xl mx-auto space-y-4">
+
     <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                </svg>
-            </div>
-            <div class="ml-3">
-                <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Individual Position Voting</h3>
-                <div class="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
-                    <p>The slate did not receive {{ required_percentage }}% approval after {{ period.max_slate_voting_attempts }} attempts.</p>
-                    <p class="mt-1">You are now voting on each position individually. Requires {{ required_percentage }}% approval per position.</p>
-                </div>
+        <div class="flex gap-3">
+            <svg class="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+            <div class="text-sm text-yellow-800 dark:text-yellow-200">
+                <p class="font-medium">Individual Position Voting</p>
+                <p class="mt-0.5">This session is using individual position voting. Vote on each position separately. Requires {{ required_percentage }}% approval per position.</p>
             </div>
         </div>
     </div>
 
-    <!-- Vote Form -->
-    <form method="post" class="space-y-4">
-        {% csrf_token %}
-
-        {% for candidate in candidates %}
-        {% if candidate.position.id not in voted_positions %}
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ candidate.position.title }}</h3>
-                <p class="text-sm text-gray-500 dark:text-gray-400">
-                    Candidate: <span class="font-medium text-gray-900 dark:text-white">{{ candidate.application.applicant.name }}</span>
-                </p>
-            </div>
-            <div class="px-4 py-5 sm:p-6">
-                <div class="flex flex-wrap gap-4">
-                    <label class="flex items-center space-x-2 cursor-pointer">
-                        <input type="radio" name="vote_{{ candidate.id }}" value="approve" required
-                            class="h-4 w-4 border-gray-300 text-green-600 focus:ring-green-500">
-                        <span class="text-sm text-gray-700 dark:text-gray-300">Approve</span>
-                    </label>
-                    <label class="flex items-center space-x-2 cursor-pointer">
-                        <input type="radio" name="vote_{{ candidate.id }}" value="reject"
-                            class="h-4 w-4 border-gray-300 text-red-600 focus:ring-red-500">
-                        <span class="text-sm text-gray-700 dark:text-gray-300">Reject</span>
-                    </label>
-                    <label class="flex items-center space-x-2 cursor-pointer">
-                        <input type="radio" name="vote_{{ candidate.id }}" value="abstain"
-                            class="h-4 w-4 border-gray-300 text-gray-600 focus:ring-gray-500">
-                        <span class="text-sm text-gray-700 dark:text-gray-300">Abstain</span>
-                    </label>
-                </div>
-            </div>
+    {% if decided_candidates %}
+    <div class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden">
+        <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Already Decided</p>
         </div>
-        {% else %}
-        <div class="bg-gray-50 dark:bg-gray-700/50 shadow rounded-lg px-4 py-4">
-            <div class="flex items-center justify-between">
+        <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+            {% for candidate in decided_candidates %}
+            <li class="px-5 py-3 flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ candidate.position.title }}</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ candidate.application.applicant.name }}</p>
+                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ candidate.position.title }}</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ candidate.candidate_name }}</p>
                 </div>
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                    Voted
+                {% if candidate.individual_passed %}
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    Passed
                 </span>
-            </div>
-        </div>
-        {% endif %}
-        {% empty %}
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg px-6 py-12 text-center">
-            <svg class="mx-auto h-12 w-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">All Votes Cast</h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                You have voted on all positions.
-            </p>
-        </div>
-        {% endfor %}
+                {% else %}
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    Failed
+                </span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
 
-        {% if candidates %}
-        {% with has_unvoted=False %}
-        {% for candidate in candidates %}
-        {% if candidate.position.id not in voted_positions %}
-        <!-- Password & Submit -->
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-            <div class="px-4 py-5 sm:p-6">
-                <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Confirm with Password</label>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Enter your account password to verify your identity.</p>
-                <input type="password" name="password" id="password" required
-                    class="mt-2 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
-                    placeholder="Your password">
-            </div>
-            <div class="bg-gray-50 dark:bg-gray-700 px-4 py-4 sm:px-6">
-                <button type="submit"
-                    class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                    <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    Submit Votes
-                </button>
-            </div>
-        </div>
-        {% endif %}
-        {% endfor %}
-        {% endwith %}
-        {% endif %}
-    </form>
-
-    <div class="text-center">
-        <a href="{% url 'slating_dashboard' %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">
+    {% if all_voted %}
+    <div class="bg-white dark:bg-gray-800 shadow rounded-xl px-6 py-12 text-center">
+        <svg class="mx-auto h-12 w-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <h3 class="mt-2 text-sm font-semibold text-gray-900 dark:text-white">All votes recorded</h3>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Thank you for participating.</p>
+        <a href="{% url 'slating_dashboard' %}" class="mt-4 inline-flex items-center text-sm text-primary-600 dark:text-primary-400 hover:underline">
             Back to Dashboard
         </a>
     </div>
+    {% elif not rows %}
+    <div class="bg-white dark:bg-gray-800 shadow rounded-xl px-6 py-12 text-center">
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">No positions pending a vote</h3>
+        <a href="{% url 'slating_dashboard' %}" class="mt-4 inline-flex items-center text-sm text-primary-600 dark:text-primary-400 hover:underline">
+            Back to Dashboard
+        </a>
+    </div>
+    {% else %}
+    <form method="post" id="individual-vote-form">
+        {% csrf_token %}
+        <div class="space-y-3">
+            {% for row in rows %}
+            {% if row.voted %}
+            <div class="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-xl px-5 py-4 flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ row.candidate.position.title }}</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ row.candidate.candidate_name }}</p>
+                </div>
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    Voted
+                </span>
+            </div>
+            {% else %}
+            <div class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ row.candidate.position.title }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ row.candidate.candidate_name }}{% if row.candidate.is_write_in %} <span class="text-purple-500">(write-in)</span>{% endif %}</p>
+                </div>
+                <div class="px-5 py-4">
+                    <div class="flex flex-wrap gap-3" role="radiogroup" aria-label="{{ row.candidate.position.title }}">
+                        <label class="flex-1 min-w-[90px] flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:border-green-400 dark:hover:border-green-500 has-[:checked]:border-green-500 has-[:checked]:bg-green-50 dark:has-[:checked]:bg-green-900/20 transition-colors">
+                            <input type="radio" name="vote_{{ row.candidate.id }}" value="approve" required
+                                class="h-4 w-4 text-green-600 border-gray-300 focus:ring-green-500">
+                            <span class="text-sm font-medium text-gray-800 dark:text-gray-200">Approve</span>
+                        </label>
+                        <label class="flex-1 min-w-[90px] flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:border-red-400 dark:hover:border-red-500 has-[:checked]:border-red-500 has-[:checked]:bg-red-50 dark:has-[:checked]:bg-red-900/20 transition-colors">
+                            <input type="radio" name="vote_{{ row.candidate.id }}" value="reject"
+                                class="h-4 w-4 text-red-600 border-gray-300 focus:ring-red-500">
+                            <span class="text-sm font-medium text-gray-800 dark:text-gray-200">Reject</span>
+                        </label>
+                        {% if row.allow_abstain %}
+                        <label class="flex-1 min-w-[90px] flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:border-gray-400 dark:hover:border-gray-400 has-[:checked]:border-gray-400 has-[:checked]:bg-gray-50 dark:has-[:checked]:bg-gray-700/50 transition-colors">
+                            <input type="radio" name="vote_{{ row.candidate.id }}" value="abstain"
+                                class="h-4 w-4 text-gray-500 border-gray-300 focus:ring-gray-400">
+                            <span class="text-sm font-medium text-gray-800 dark:text-gray-200">Abstain</span>
+                        </label>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+
+        <div class="mt-4 bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden">
+            <div class="px-5 py-4">
+                <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Confirm with Password</label>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Enter your account password to verify your identity and cast your votes.</p>
+                <input type="password" name="password" id="password" required
+                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm"
+                    placeholder="Your password">
+            </div>
+            <div class="bg-gray-50 dark:bg-gray-700/50 px-5 py-4">
+                <button type="submit"
+                    class="w-full inline-flex justify-center items-center px-4 py-2.5 border border-transparent rounded-lg text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
+                    <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Submit All Votes
+                </button>
+            </div>
+        </div>
+    </form>
+    {% endif %}
+
 </div>
+
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('individual-vote-form');
+    if (!form) return;
+    form.addEventListener('submit', function(e) {
+        const radios = form.querySelectorAll('[type="radio"]');
+        const groups = {};
+        radios.forEach(r => {
+            if (!groups[r.name]) groups[r.name] = false;
+            if (r.checked) groups[r.name] = true;
+        });
+        const missing = Object.values(groups).some(v => !v);
+        if (missing) {
+            e.preventDefault();
+            alert('Please select a vote for every position before submitting.');
+        }
+    });
+});
+</script>
 {% endblock %}

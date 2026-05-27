@@ -51,6 +51,202 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.16.9 - Slating Results Bug Fixes (05-26-2026)
+Fixes several bugs across the slating results flow: transition officer crash, dark mode home page banner, individual vote summary display, and election results document not saving to chapter documents.
+
+**Deployment Status:** Not yet deployed
+
+**Type:** Bug Fix
+
+**Migration required:** None
+
+**Changes:**
+
+- **Transition officers `FieldError` fixed** — `transition.py` was calling `.order_by('last_name', 'first_name')` on `ParliamentUser`, which uses a single `name` field. Changed to `.order_by('name')`.
+- **Dark mode slating banner fixed** — Dark gradient classes (`dark:from-purple-900/20`, etc.) were absent from the compiled `tailwind.css` bundle. Rebuilt CSS with the Tailwind CLI so dark mode gradients render correctly on the home page slating card.
+- **Individual vote summary on results page** — The results page was showing "Slate vote failed" (0% approval) for individual-mode elections because it always rendered the slate vote section. Now branches on `period.vote_type`: individual mode shows an "X of Y Position(s) Passed" summary grid with a green/amber status banner; slate mode shows the original approve/reject/abstain breakdown.
+- **Individual vote button on home page** — The "Vote Now" button in the home page slating banner now routes to `slating_vote_individual` for individual-mode elections instead of always pointing to `slating_vote`.
+- **"Published on" date on results page** — The published banner now shows the publish date and time when `results_publish_at` is set, with a fallback text when it isn't.
+- **Election results document saved to chapter documents** — `_save_results_to_documents` was filing under `period.slating_committee` instead of the chapter committee, and the write-in candidate path crashed (`application.applicant.name` on a `None` application). Fixed to use `Committee.objects.get(is_chapter_committee=True)` and `candidate.candidate_name`. Added update-in-place logic so republishing overwrites the existing document instead of creating duplicates.
+- **`change_period_status` now saves results document** — Publishing via the period setup page bypassed `_save_results_to_documents` entirely. Now `change_period_status` calls it when transitioning to `results_published`, so the document saves regardless of which publish path is used.
+- **Unpublish/republish redirects to results page** — `change_period_status` now redirects to `slating_results` for any results-related status transition, keeping the user in context instead of dropping them on the setup page.
+
+---
+
+### v2.16.8 - Individual Position Voting Overhaul & Per-Position Abstain Toggle (05-26-2026)
+Rewrote individual position voting with a card-per-position UI, added per-position abstain control, and added individual vote breakdowns to the results page.
+
+**Deployment Status:** Not yet deployed
+
+**Type:** Feature
+
+**Migration required:** Yes — `0170_slatingposition_allow_abstain`
+
+**Changes:**
+
+- **Per-position abstain toggle** — `SlatingPosition` now has an `allow_abstain` boolean field (default `True`). Chairs can enable/disable abstain per position in the positions manager. Migration `0170` adds the column.
+- **Individual voting UI rewrite** — `vote_individual.html` replaced with a card-per-position layout. Each position shows Approve / Reject / (Abstain if enabled) radio buttons and a "Voted" badge once submitted. A single password field sits at the bottom. JS guards the submit button if any position is missing a selection.
+- **`individual_vote` view rewrite** — Now builds a `rows` list (all primary candidates) with `voted` and `allow_abstain` per row. Validates every unvoted position has a valid selection before recording any ballot. Enforces `allow_abstain` server-side. Records one `SlatingBallot(vote_type='individual', position=...)` and one `SlatingVote(slate_candidate=...)` per position.
+- **Individual vote results on results page** — New "Individual Position Results" card on `results.html` shows per-position approve/reject/abstain counts, a progress bar, and a pass/fail indicator (uses `required_approval_percentage`). Uses the `|get_item` custom template filter to look up per-candidate vote counts from `individual_results`.
+- **`allow_abstain` in position forms** — Add and edit position forms in `positions.html` include the abstain checkbox. Position JSON endpoint returns `allow_abstain` for the edit modal.
+
+---
+
+### v2.16.7 - Edit Approved Slate During Voting (05-26-2026)
+Chairs and admins can now replace any candidate on the approved slate during voting.
+
+**Deployment Status:** Not yet deployed
+
+**Type:** Feature
+
+**Migration required:** None
+
+**Changes:**
+
+- **New `edit_approved_slate` view** — `/slating/period/<id>/slate/edit/` lets any chair-level user replace any candidate on the approved slate during `voting_open` or paused voting (`deliberation` + attempt > 0). Supports both applicant-to-applicant swaps and write-in assignments.
+- **Replace form per position** — Each position row shows the current candidate and a replace form. Two radio buttons switch between an applicant dropdown (all non-withdrawn period applications) and a write-in dropdown (all active/inactive members). JS confirm prompt shows old → new name before submitting.
+- **Immediate effect** — Replaces the `SlateCandidate` record in-place; votes already cast are not invalidated. A warning banner on the page makes this clear.
+- **Activity logged** — Every replacement is recorded in `SlatingActivity` with `action='slate_edited'` and a `{position}: {old} → {new}` detail.
+- **"Edit Slate" entry points** — Link added in the setup page action strip during `voting_open` and paused voting. Also shown as a button on the paused voting screen alongside Reopen/Reset.
+
+---
+
+### v2.16.6 - Slating Publish/Unpublish & Slate Change Detection (05-26-2026)
+Fixes access control on the results page, adds unpublish capability, and adds a live-change notification when the slate is updated during voting.
+
+**Deployment Status:** Not yet deployed
+
+**Type:** Feature / Bug Fix
+
+**Migration required:** None
+
+**Changes:**
+
+- **Results page access fixed for slating manager** — `view_results` was checking `is_admin` or `is_chair` directly, excluding the `slating_manager` role. Both `can_view` and `can_publish` now use `can_manage_period()` which correctly covers admin, committee admin, committee chair, and slating manager.
+- **Unpublish button** — When results are published, a small "Unpublish" button appears in the published banner on the results page. Posts to `change_period_status` with `status=voting_closed`. Only visible to users with manage-level access.
+- **Slate change detection on vote page** — The vote page now polls `voting_status` API every 30 seconds. If `slate_candidate_count` changes (write-in added/removed), an amber "The slate has been updated" banner appears with a Refresh button. If the period status changes (e.g. voting paused), the page auto-reloads. Polling only runs during live voting, not on the paused screen.
+- **`voting_status` API extended** — Now returns `slate_candidate_count` for the approved primary slate, enabling the client-side change detection above.
+
+---
+
+### v2.16.5 - Slating Pause UX & Public Slate View (05-26-2026)
+Improves the pause-voting flow and adds a way for voting members to view the approved slate.
+
+**Deployment Status:** Not yet deployed
+
+**Type:** Feature / UX
+
+**Migration required:** None
+
+**Changes:**
+
+- **Pause voting stays on vote page** — Pausing voting now redirects the chair to the vote page instead of the setup page, where they see a yellow "Voting Paused" banner with Attempt #, a "Reopen Voting" button, and a "Clear & Reset Votes" button. The committee no longer has to navigate back to setup just to restart.
+- **Reopen voting from vote page** — A `Reopen Voting` form on the paused vote page posts to `change_period_status` with `status=voting_open`, seamlessly incrementing the attempt counter.
+- **`slating_vote` committee access during `deliberation`** — The view now lets committee members through when status is `deliberation` and `current_voting_attempt > 0` (paused state). Non-committee members are still blocked from voting until status returns to `voting_open`.
+- **Public slate view** — New `view_approved_slate` view (`/slating/period/<id>/slate/view/`) accessible to any `voting_member_required` user during `voting_open`, `voting_closed`, or `results_published`. Shows the same `slate_preview` template with committee-only controls hidden.
+- **"View Slate" button on vote page** — Non-committee members see a "View Slate" button in the page header during voting, linking to the public slate view.
+- **`slate_preview.html` public mode** — Committee action buttons (Approve, Copy to Draft) are hidden when `public_view=True`; breadcrumb link to setup page is replaced with plain text; a "Back to Voting" button replaces the committee actions.
+
+---
+
+### v2.16.4 - Slating Auto-Created Ad Hoc Committee (05-26-2026)
+Each slating period now automatically creates its own invisible ad hoc committee instead of being linked to a pre-existing one.
+
+**Deployment Status:** Not yet deployed
+
+**Type:** Feature
+
+**Migration required:** None (existing periods with an existing slating_committee link are unaffected; new periods get the auto-committee on creation)
+
+**Changes:**
+
+- **Auto-created ad hoc committee** — `create_period` now creates a `Committee` with `is_slating_committee=True`, `is_ad_hoc=True`, and a unique generated name (`Slating — <name> [<id>]`) immediately after creating the period, and links it as `period.slating_committee`. No committee selection is required or available.
+- **Removed committee dropdown** — The "Slating Committee" select from the Basic Information form has been removed. Committee membership is now managed exclusively through the Committee Members card.
+- **Period delete cleans up committee** — When a period is deleted, if its linked committee is an ad hoc committee, it is also deleted.
+- **Fixed `home.py` / `officer_home.py` committee lookup** — These views were using `Committee.objects.filter(is_slating_committee=True).first()`, which would have returned an arbitrary committee with multiple ad hoc committees. Now they use `active_slating_period.slating_committee` directly.
+- **Fixed `results.py` / `transfer_admin.py` committee lookup** — Same fix; these views now use `period.slating_committee` directly.
+
+---
+
+### v2.16.3 - Slating Committee Member & Template Fixes (05-26-2026)
+Bug fixes for the committee member card and a template syntax error.
+
+**Deployment Status:** Not yet deployed
+
+**Type:** Bug Fix
+
+**Migration required:** None
+
+**Changes:**
+
+- **`TemplateSyntaxError` fix** — The "Clear & Reset Votes" `onclick` contained a `|yesno:` filter expression inside a JS string, which Django's template parser cannot handle. Replaced with plain text; the attempt number is interpolated normally via `{{ period.current_voting_attempt }}`.
+- **Committee admin shown in member list** — `committee.admin` is a FK field separate from the `members` M2M. The view now prepends the committee admin to `committee_members` if they are not already in the M2M list, so they appear in the display correctly.
+- **`_user_can_view` recognizes committee admin** — `can_view_applications()` and `slating_committee_required` now check `committee.admin_id == user.pk` in addition to `is_member()`, so the committee admin can access applications and interview notes without needing to also be in the members M2M.
+- **Clearer no-committee warning** — When `period.slating_committee` is not set, the Committee Members card now shows an amber note explaining a committee must be linked via the Basic Information form first, instead of a generic grey message.
+- **Dropdown duplicate filter removed** — The `{% if m not in committee_members %}` check on the Add dropdown was an unreliable Django template object comparison. Removed; the M2M silently ignores re-adds so it is safe to show all eligible members.
+
+---
+
+### v2.16.2 - Slating Write-in Markers, Vote Reset & Minor Fixes (05-26-2026)
+Three additions to the slating voting and write-in flows.
+
+**Deployment Status:** Not yet deployed
+
+**Type:** Feature / Bug Fix
+
+**Migration required:** None
+
+**Changes:**
+
+- **Write-in member markers** — The member dropdown in the Blank Positions card is now disabled until a position is selected. Once a position is chosen, JS rebuilds the dropdown with optgroups and markers: applicants who listed the position as a preference are shown first with a ★ and their choice tier (1st/2nd/3rd choice); members already on the slate in any capacity show a ● marker and are grouped last. Data (applicants-by-position, already-slated IDs, full member list) is embedded as a JSON blob via `write_in_js_data` context variable built in `edit_period`.
+- **Vote reset** — New `reset_votes` view (POST, chair-only) deletes all `SlatingBallot` and `SlatingVote` records for the current paused attempt and decrements `current_voting_attempt`. Accessible via a "Clear & Reset Votes" button that appears in the action banner during `deliberation` when `current_voting_attempt > 0`. Requires double confirmation. URL: `slating/period/<id>/reset-votes/`.
+- **Paused-voting banner** — When voting has been paused (`deliberation` + `current_voting_attempt > 0`), the banner now shows "Resume Voting" (re-opens with the same vote type) and "Clear & Reset Votes" side by side, plus a note showing the current attempt number. The original "Open Voting" form (with vote type selector and quorum) only shows when `current_voting_attempt == 0`.
+- **`import json` moved inline** — The `json` import inside `edit_period` for building `write_in_js_data` is a local inline import to avoid polluting the module namespace; all model imports remain at the top level.
+
+---
+
+### v2.16.1 - Slating Confidentiality & Voting Controls (05-26-2026)
+Three targeted fixes to the slating module: pause voting, committee access via the admin FK, and full confidentiality enforcement.
+
+**Deployment Status:** Not yet deployed
+
+**Type:** Feature / Security
+
+**Migration required:** None
+
+**Changes:**
+
+- **Pause Voting button** — During `voting_open`, the setup banner now shows two buttons: "Pause Voting" (reverts to `deliberation`, decrements `current_voting_attempt` so re-opening doesn't double-count) and "Close Voting" (permanent, triggers result calculation). Pause is styled yellow; Close remains red.
+- **Committee admin access** — `slating_chair_required` and `can_manage_period` now recognize `Committee.admin` FK in addition to `Committee.chairs` M2M. Previously, being set as committee admin granted no access to the period setup page.
+- **Confidentiality enforcement** — Permissions rewritten with a "locked" mode. Once a period has a `slating_manager` or a committee admin assigned, site admin status alone no longer grants access. Only explicitly authorized roles (committee admin, committee chair, slating_manager, committee members for read access) are permitted. Unlocked periods (no manager/admin set) retain the site admin fallback so initial setup still works. `is_committee` checks in `vote.py` and `results.py` updated to use `can_view_applications()` helper, which respects the same locked/unlocked logic.
+
+---
+
+### v2.16.0 - Slating Voting Session & Attendance System (05-26-2026)
+Major additions to the officer slating module: attendance tracking for voting sessions, quorum enforcement, a designated slating manager role, committee member management, and several UX improvements to the period setup page.
+
+**Deployment Status:** Not yet deployed
+
+**Type:** Feature
+
+**Migrations required:** `0167_slatingperiod_quorum_slatingattendance`, `0168_slatingperiod_slating_manager`
+
+**Changes:**
+
+- **Attendance system** — New `SlatingAttendance` model tracks which members are present for a slating voting session. Members not marked present are blocked from voting with a clear error message. Managed via a dedicated `/slating/period/<id>/attendance/` page (chair-only) showing all eligible members with mark present / mark absent toggles.
+- **Quorum** — Optional `quorum` integer field on `SlatingPeriod`. Set when "Open Voting" is triggered from the deliberation banner. Attendance page shows a live quorum badge (met / not met, how many more needed). Sidebar attendance link shows a red "No Quorum" badge when quorum is not met.
+- **Slating manager** — New `slating_manager` FK on `SlatingPeriod`. Designated manager has full setup access (equivalent to committee chair) without needing to be a site admin. Assignable by admins only via a dropdown in the Basic Information form. `slating_chair_required` decorator and `can_manage_period()` helper both updated to recognize this role.
+- **Committee member management** — Slating manager/chair can add and remove committee members directly from the period setup page. Committee members retain access to view applications and interview notes. Separate card in the main content area with a dropdown to add eligible members.
+- **"Go Vote" button** — Shown in the sidebar Quick Actions during `voting_open` so the slating chair can navigate to the vote page without leaving setup context.
+- **"Back to Setup" button** — Shown on the vote page header for committee members, allowing quick return to the setup page while voting is open.
+- **Write-in eligible members** — Write-in candidate selector now correctly limits to `member_status__in=['Active', 'Inactive']` and `member_type__in=['Member', 'Chair', 'Officer']` — excludes pledges, advisors, alumni, and removed members.
+- **Runoff & write-in template fixes** — All slating templates (`vote.html`, `vote_individual.html`, `slate_builder.html`, `slate_preview.html`, `results.html`, `period_setup.html`) updated to use `candidate.candidate_name` instead of `candidate.application.applicant.name`, preventing crashes when a `SlateCandidate` is a write-in with no application.
+- **Date fields now display saved values** — Added `{% load tz %}` and `|localtime|date:` to all `datetime-local` inputs in the period setup form. Also fixed `parse_datetime` to call `make_aware()` for naive datetimes on save, preventing dates from silently being stored as UTC and then appearing blank on re-load.
+- **Sidebar condensed** — Stats and Quick Actions merged into a single compact card with smaller counts and no icons. Reduces vertical height significantly.
+- **`period_setup.py` import cleanup** — All inline `from src.models import ...` statements inside view functions replaced with top-level imports, fixing `UnboundLocalError` caused by Python's function-scope variable hoisting.
+
+---
+
 ### v2.15.0 - User Watch Flag + Performance Improvements (05-23-2026)
 New `UserWatchFlag` model allows admins to secretly flag a user for monitoring. When active, any successful login or ≥2 repeated failed login attempts trigger an immediate alert email (HTML, with geo/IP/device/risk details) to the security alert address and create a `LoginAlert` record. Managed from the Admin-v2 Login Security page with add/edit/pause/remove controls. Also replaces the bcrypt-based `has_default_password()` method with a cached `BooleanField`, eliminating the slow popup load on the officer manage users page. Migration required (backfills existing users via one-time bcrypt check).
 

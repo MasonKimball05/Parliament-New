@@ -19,7 +19,6 @@
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
     </div>
     <div class="flex space-x-3">
-        {% if slate.candidates.count == positions.count %}
         <form method="post" action="{% url 'slating_approve_slate' period_id=period.id %}">
             {% csrf_token %}
             <input type="hidden" name="slate_type" value="primary">
@@ -31,7 +30,6 @@
                 Approve Slate
             </button>
         </form>
-        {% endif %}
     </div>
 </div>
 {% endblock %}
@@ -44,44 +42,72 @@
             <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ slate.name }}</h3>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    {{ slate.candidates.count }} of {{ positions.count }} positions filled
+                    {{ slate.candidates.filter.is_runoff.False.count|default:slate.candidates.count }} of {{ positions.count }} positions filled
                 </p>
             </div>
 
             <ul class="divide-y divide-gray-200 dark:divide-gray-700">
                 {% for position in positions %}
-                {% with assignment=assignments|dict_get:position.id %}
+                {% with entry=assignments|dict_get:position.id %}
+                {% with primary=entry.primary runoff=entry.runoff %}
                 <li class="px-4 py-4 sm:px-6">
-                    <div class="flex items-center justify-between">
-                        <div class="flex-1 min-w-0">
-                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ position.title }}</p>
-                            {% if assignment %}
-                            <p class="text-sm text-primary-600 dark:text-primary-400">
-                                {{ assignment.application.applicant.name }}
-                            </p>
+                    <p class="text-sm font-semibold text-gray-900 dark:text-white mb-2">{{ position.title }}</p>
+
+                    {# Primary slot #}
+                    <div class="flex items-center justify-between mb-1.5">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-medium text-gray-400 dark:text-gray-500 w-14">Primary</span>
+                            {% if primary %}
+                            <span class="text-sm text-primary-600 dark:text-primary-400">{{ primary.candidate_name }}</span>
                             {% else %}
-                            <p class="text-sm text-gray-400 dark:text-gray-500 italic">Not assigned</p>
+                            <span class="text-sm text-gray-400 dark:text-gray-500 italic">Not assigned</span>
                             {% endif %}
                         </div>
-                        <div class="flex items-center space-x-2">
-                            {% if assignment %}
-                            <form method="post" class="inline">
+                        <div class="flex items-center gap-3">
+                            {% if primary %}
+                            <form method="post" class="inline flex items-center">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="unassign">
-                                <input type="hidden" name="assignment_id" value="{{ assignment.id }}">
-                                <button type="submit" class="text-sm text-red-600 dark:text-red-400 hover:underline">
-                                    Remove
-                                </button>
+                                <input type="hidden" name="assignment_id" value="{{ primary.id }}">
+                                <button type="submit" class="text-xs text-red-500 dark:text-red-400 hover:underline">Remove</button>
                             </form>
-                            {% else %}
-                            <button type="button" onclick="openAssignModal({{ position.id }}, '{{ position.title }}')"
-                                class="text-sm text-primary-600 dark:text-primary-400 hover:underline">
-                                Assign
-                            </button>
                             {% endif %}
+                            <button type="button" onclick="openAssignModal({{ position.id }}, '{{ position.title }}', 'assign')"
+                                class="text-xs text-primary-600 dark:text-primary-400 hover:underline">
+                                {% if primary %}Change{% else %}Assign{% endif %}
+                            </button>
                         </div>
                     </div>
+
+                    {# Runoff slot — only show if primary is assigned #}
+                    {% if primary %}
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-medium text-gray-400 dark:text-gray-500 w-14">Runoff</span>
+                            {% if runoff %}
+                            <span class="text-sm text-yellow-600 dark:text-yellow-400">{{ runoff.candidate_name }}</span>
+                            {% else %}
+                            <span class="text-sm text-gray-300 dark:text-gray-600 italic">None</span>
+                            {% endif %}
+                        </div>
+                        <div class="flex items-center gap-3">
+                            {% if runoff %}
+                            <form method="post" class="inline flex items-center">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="unassign">
+                                <input type="hidden" name="assignment_id" value="{{ runoff.id }}">
+                                <button type="submit" class="text-xs text-red-500 dark:text-red-400 hover:underline">Remove</button>
+                            </form>
+                            {% endif %}
+                            <button type="button" onclick="openAssignModal({{ position.id }}, '{{ position.title }}', 'assign_runoff')"
+                                class="text-xs text-yellow-600 dark:text-yellow-400 hover:underline">
+                                {% if runoff %}Change{% else %}+ Add Runoff{% endif %}
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
                 </li>
+                {% endwith %}
                 {% endwith %}
                 {% endfor %}
             </ul>
@@ -169,13 +195,12 @@
         <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
             <form method="post">
                 {% csrf_token %}
-                <input type="hidden" name="action" value="assign">
+                <input type="hidden" name="action" id="modalAction" value="assign">
                 <input type="hidden" name="position_id" id="modalPositionId" value="">
 
                 <div class="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                        Assign to <span id="modalPositionTitle"></span>
-                    </h3>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-1" id="modalTitle">Assign Candidate</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4" id="modalSubtitle"></p>
 
                     <div>
                         <label for="application_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Select Candidate</label>
@@ -208,9 +233,17 @@
 
 {% block slating_js %}
 <script nonce="{{ request.csp_nonce }}">
-function openAssignModal(positionId, positionTitle) {
+function openAssignModal(positionId, positionTitle, action) {
     document.getElementById('modalPositionId').value = positionId;
-    document.getElementById('modalPositionTitle').textContent = positionTitle;
+    document.getElementById('modalAction').value = action;
+    document.getElementById('application_id').value = '';
+    var isRunoff = action === 'assign_runoff';
+    document.getElementById('modalTitle').textContent = isRunoff
+        ? 'Assign Runoff Candidate — ' + positionTitle
+        : 'Assign Primary Candidate — ' + positionTitle;
+    document.getElementById('modalSubtitle').textContent = isRunoff
+        ? 'This candidate will appear alongside the primary as a runoff option.'
+        : '';
     document.getElementById('assignModal').classList.remove('hidden');
 }
 

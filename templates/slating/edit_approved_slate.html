@@ -1,0 +1,173 @@
+{% extends 'slating/base_slating.html' %}
+
+{% block breadcrumbs %}
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <a href="{% url 'slating_period_setup' period_id=period.id %}" class="text-gray-500 dark:text-gray-400 hover:text-primary-600">{{ period.name }}</a>
+</li>
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <span class="text-gray-700 dark:text-gray-300">Edit Slate</span>
+</li>
+{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Edit Approved Slate</h1>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}
+            {% if voting_paused %}
+            &middot; <span class="text-yellow-600 dark:text-yellow-400 font-medium">Voting paused</span>
+            {% else %}
+            &middot; <span class="text-blue-600 dark:text-blue-400 font-medium">Voting open — changes are live</span>
+            {% endif %}
+        </p>
+    </div>
+    <a href="{% url 'slating_period_setup' period_id=period.id %}"
+        class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+        Back to Setup
+    </a>
+</div>
+{% endblock %}
+
+{% block slating_content %}
+<div class="max-w-3xl mx-auto space-y-4">
+
+    <!-- Warning banner -->
+    <div class="bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-lg p-4">
+        <div class="flex gap-3">
+            <svg class="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            </svg>
+            <div class="text-sm text-amber-800 dark:text-amber-200">
+                <p class="font-medium">Changes take effect immediately.</p>
+                <p class="mt-0.5">Replacing a candidate does not invalidate votes already cast. Use this only for corrections — members currently on the vote page will see an update prompt within 30 seconds.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slate positions -->
+    <div class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ slate.name }}</h2>
+        </div>
+
+        <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+            {% for row in rows %}
+            <li class="px-5 py-4">
+                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <!-- Position + current candidate -->
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ row.position.title }}</p>
+                        {% if row.current %}
+                        <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                            Currently: <span class="font-medium text-gray-700 dark:text-gray-200">{{ row.current.candidate_name }}</span>
+                            {% if row.current.is_write_in %}<span class="ml-1 text-xs text-purple-600 dark:text-purple-400">(write-in)</span>{% endif %}
+                        </p>
+                        {% else %}
+                        <p class="mt-0.5 text-sm text-gray-400 dark:text-gray-500 italic">No candidate assigned</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Replace form -->
+                    <form method="post" class="flex flex-col sm:flex-row sm:items-end gap-2 flex-wrap w-full sm:w-auto"
+                        onsubmit="return confirmReplace(this, '{{ row.position.title|escapejs }}', '{{ row.current.candidate_name|default:"(vacant)"|escapejs }}')">
+                        {% csrf_token %}
+                        <input type="hidden" name="position_id" value="{{ row.position.id }}">
+
+                        <!-- Candidate type radio -->
+                        <div class="flex flex-col gap-1">
+                            <div class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                                <label class="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="radio" name="candidate_type_{{ row.position.id }}" value="applicant"
+                                        form=""
+                                        onchange="toggleCandidateType({{ row.position.id }}, 'applicant')"
+                                        class="h-3.5 w-3.5 text-primary-600">
+                                    Applicant
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="radio" name="candidate_type_{{ row.position.id }}" value="write_in"
+                                        form=""
+                                        onchange="toggleCandidateType({{ row.position.id }}, 'write_in')"
+                                        class="h-3.5 w-3.5 text-primary-600">
+                                    Write-in
+                                </label>
+                            </div>
+
+                            <!-- Applicant dropdown (default visible) -->
+                            <div id="applicant_{{ row.position.id }}" class="candidate-select">
+                                <select name="application_id" id="app_select_{{ row.position.id }}"
+                                    class="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white w-full sm:min-w-[200px]">
+                                    <option value="">-- Select applicant --</option>
+                                    {% for app in applications %}
+                                    <option value="{{ app.id }}">{{ app.applicant.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Member (write-in) dropdown (hidden by default) -->
+                            <div id="writein_{{ row.position.id }}" class="candidate-select hidden">
+                                <select name="member_id" id="member_select_{{ row.position.id }}"
+                                    class="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white w-full sm:min-w-[200px]">
+                                    <option value="">-- Select member --</option>
+                                    {% for m in active_members %}
+                                    <option value="{{ m.user_id }}">{{ m.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Hidden candidate_type field driven by radio -->
+                        <input type="hidden" name="candidate_type" id="type_hidden_{{ row.position.id }}" value="applicant">
+
+                        <button type="submit"
+                            class="self-end px-3 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors whitespace-nowrap">
+                            Replace
+                        </button>
+                    </form>
+                </div>
+            </li>
+            {% empty %}
+            <li class="px-5 py-6 text-center text-sm text-gray-400">No positions on this slate.</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+function toggleCandidateType(posId, type) {
+    const applicantDiv = document.getElementById('applicant_' + posId);
+    const writeinDiv   = document.getElementById('writein_' + posId);
+    const hidden       = document.getElementById('type_hidden_' + posId);
+
+    if (type === 'applicant') {
+        applicantDiv.classList.remove('hidden');
+        writeinDiv.classList.add('hidden');
+        hidden.value = 'applicant';
+    } else {
+        applicantDiv.classList.add('hidden');
+        writeinDiv.classList.remove('hidden');
+        hidden.value = 'write_in';
+    }
+}
+
+function confirmReplace(form, posTitle, currentName) {
+    const typeHidden = form.querySelector('[name="candidate_type"]');
+    const type = typeHidden ? typeHidden.value : 'applicant';
+
+    let newName = '(none selected)';
+    if (type === 'applicant') {
+        const sel = form.querySelector('[name="application_id"]');
+        newName = sel && sel.selectedOptions[0] ? sel.selectedOptions[0].text : '(none selected)';
+        if (!sel || !sel.value) { alert('Please select an applicant.'); return false; }
+    } else {
+        const sel = form.querySelector('[name="member_id"]');
+        newName = sel && sel.selectedOptions[0] ? sel.selectedOptions[0].text : '(none selected)';
+        if (!sel || !sel.value) { alert('Please select a member.'); return false; }
+    }
+
+    return confirm('Replace "' + currentName + '" with "' + newName + '" for ' + posTitle + '?\n\nThis takes effect immediately. Votes already cast are not affected.');
+}
+</script>
+{% endblock %}

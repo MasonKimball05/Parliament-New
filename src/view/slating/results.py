@@ -14,7 +14,7 @@ from collections import Counter
 from src.models import (
     SlatingPeriod, Slate, SlatingBallot, SlatingVote, SlatingActivity, SlatingPosition
 )
-from .permissions import slating_chair_required
+from .permissions import slating_chair_required, can_view_applications
 from src.decorators import exclude_pledges
 
 
@@ -26,12 +26,10 @@ def view_results(request, period_id):
     """
     period = get_object_or_404(SlatingPeriod, id=period_id)
 
-    # Check if results are published or user is admin/chair
-    can_view = (
-        period.status == 'results_published' or
-        request.user.is_admin or
-        (period.slating_committee and period.slating_committee.is_chair(request.user))
-    )
+    # Check if results are published or user is committee/admin
+    from .permissions import can_manage_period
+    user_can_manage = can_manage_period(request.user, period)
+    can_view = period.status == 'results_published' or user_can_manage
 
     if not can_view:
         messages.error(request, 'Results are not yet published.')
@@ -50,7 +48,7 @@ def view_results(request, period_id):
 
     # Get candidates
     candidates = slate.candidates.select_related(
-        'position', 'application__applicant'
+        'position', 'application__applicant', 'write_in_member'
     ).order_by('display_order')
 
     # Calculate final results
@@ -82,7 +80,11 @@ def view_results(request, period_id):
 
     # Individual vote results (if applicable)
     individual_results = {}
-    if period.current_voting_attempt >= period.max_slate_voting_attempts:
+    individual_summary = None
+    if period.vote_type == 'individual':
+        passed_count = 0
+        failed_count = 0
+        pending_count = 0
         for candidate in candidates:
             ind_votes = SlatingVote.objects.filter(slate_candidate=candidate)
             individual_results[candidate.id] = {
@@ -90,22 +92,25 @@ def view_results(request, period_id):
                 'reject': ind_votes.filter(vote_choice='reject').count(),
                 'abstain': ind_votes.filter(vote_choice='abstain').count(),
             }
+            if candidate.individual_passed is True:
+                passed_count += 1
+            elif candidate.individual_passed is False:
+                failed_count += 1
+            else:
+                pending_count += 1
+        individual_summary = {
+            'passed': passed_count,
+            'failed': failed_count,
+            'pending': pending_count,
+            'total': passed_count + failed_count + pending_count,
+            'all_passed': failed_count == 0 and pending_count == 0,
+        }
 
-    # Check if user can publish
-    can_publish = (
-        request.user.is_admin or
-        (period.slating_committee and period.slating_committee.is_chair(request.user))
-    )
+    # Check if user can publish/unpublish
+    can_publish = user_can_manage
 
     # Check if user is committee member (can see rejection details)
-    is_committee = (
-        request.user.is_admin or
-        (period.slating_committee and (
-            period.slating_committee.is_chair(request.user) or
-            period.slating_committee.is_member(request.user) or
-            period.slating_committee.admin == request.user
-        ))
-    )
+    is_committee = can_view_applications(request.user, period)
 
     # Get rejection analysis for committee members
     rejection_analysis = None
@@ -127,7 +132,7 @@ def view_results(request, period_id):
                     candidate = candidates.filter(position_id=pos_id).first()
                     rejection_analysis.append({
                         'position': pos.title,
-                        'candidate_name': candidate.application.applicant.name if candidate else 'Unknown',
+                        'candidate_name': candidate.candidate_name if candidate else 'Unknown',
                         'objection_count': count,
                     })
 
@@ -138,6 +143,7 @@ def view_results(request, period_id):
         'total_ballots': total_ballots,
         'vote_tally': vote_tally,
         'individual_results': individual_results,
+        'individual_summary': individual_summary,
         'can_publish': can_publish,
         'is_published': period.status == 'results_published',
         'is_committee': is_committee,
@@ -184,7 +190,8 @@ def publish_results(request, period_id):
         except Exception as e:
             import logging
             logger = logging.getLogger(__name__)
-            logger.error(f'Failed to save results to documents: {e}')
+            logger.error(f'Failed to save results to documents: {e}', exc_info=True)
+            messages.warning(request, f'Could not save to Chapter Documents: {e}')
 
     # Send notifications
     try:
@@ -212,7 +219,7 @@ def _save_results_to_documents(period, uploaded_by):
     Generate and save election results as a document to chapter documents.
     """
     from django.core.files.base import ContentFile
-    from src.models import CommitteeDocument, Committee, ChapterFolder
+    from src.models import CommitteeDocument, ChapterFolder
 
     # Get vote data
     slate = Slate.objects.filter(
@@ -226,7 +233,7 @@ def _save_results_to_documents(period, uploaded_by):
 
     # Get candidates
     candidates = slate.candidates.select_related(
-        'position', 'application__applicant'
+        'position', 'application__applicant', 'write_in_member'
     ).order_by('display_order')
 
     # Calculate results
@@ -234,15 +241,6 @@ def _save_results_to_documents(period, uploaded_by):
         period=period,
         slate=slate
     )
-
-    approve_count = slate_votes.filter(vote_choice='approve').count()
-    reject_count = slate_votes.filter(vote_choice='reject').count()
-    abstain_count = slate_votes.filter(vote_choice='abstain').count()
-    total_votes = approve_count + reject_count + abstain_count
-    counted_votes = approve_count + reject_count
-    approval_percentage = (approve_count / counted_votes * 100) if counted_votes > 0 else 0
-
-    passed = approval_percentage >= period.required_approval_percentage
 
     # Generate document content
     content_lines = [
@@ -253,35 +251,59 @@ def _save_results_to_documents(period, uploaded_by):
         f"Academic Term: {period.academic_term}",
         f"Published: {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}",
         f"",
-        f"VOTING SUMMARY",
-        f"--------------",
-        f"Total Votes Cast: {total_votes}",
-        f"Approve: {approve_count}",
-        f"Reject: {reject_count}",
-        f"Abstain: {abstain_count}",
-        f"",
-        f"Approval Rate: {approval_percentage:.1f}%",
-        f"Required for Passage: {period.required_approval_percentage}%",
-        f"",
-        f"RESULT: {'SLATE APPROVED' if passed else 'SLATE DID NOT PASS'}",
-        f"",
     ]
 
-    if passed:
+    if period.vote_type == 'individual':
+        # Per-position voting summary
+        passed_count = sum(1 for c in candidates if c.individual_passed is True)
+        failed_count = sum(1 for c in candidates if c.individual_passed is False)
+        total_count = candidates.count()
+        all_passed = failed_count == 0
         content_lines.extend([
-            f"ELECTED OFFICERS",
+            f"VOTING MODE: Individual Position Votes",
+            f"",
+            f"RESULT: {passed_count} of {total_count} POSITIONS PASSED",
+            f"",
+            f"POSITION RESULTS",
             f"----------------",
         ])
+        for candidate in candidates:
+            status = "PASSED" if candidate.individual_passed else ("FAILED" if candidate.individual_passed is False else "PENDING")
+            content_lines.append(
+                f"  {candidate.position.title}: {candidate.candidate_name} — {status}"
+            )
     else:
+        approve_count = slate_votes.filter(vote_choice='approve').count()
+        reject_count = slate_votes.filter(vote_choice='reject').count()
+        abstain_count = slate_votes.filter(vote_choice='abstain').count()
+        total_votes = approve_count + reject_count + abstain_count
+        counted_votes = approve_count + reject_count
+        approval_percentage = (approve_count / counted_votes * 100) if counted_votes > 0 else 0
+        passed = approval_percentage >= period.required_approval_percentage
         content_lines.extend([
-            f"PROPOSED SLATE (Not Approved)",
-            f"-----------------------------",
+            f"VOTING MODE: Full Slate Vote",
+            f"",
+            f"VOTING SUMMARY",
+            f"--------------",
+            f"Total Votes Cast: {total_votes}",
+            f"Approve: {approve_count}",
+            f"Reject: {reject_count}",
+            f"Abstain: {abstain_count}",
+            f"",
+            f"Approval Rate: {approval_percentage:.1f}%",
+            f"Required for Passage: {period.required_approval_percentage}%",
+            f"",
+            f"RESULT: {'SLATE APPROVED' if passed else 'SLATE DID NOT PASS'}",
+            f"",
         ])
-
-    for candidate in candidates:
-        content_lines.append(
-            f"  {candidate.position.title}: {candidate.application.applicant.name}"
-        )
+        if passed:
+            content_lines.extend([f"ELECTED OFFICERS", f"----------------"])
+        else:
+            content_lines.extend([f"PROPOSED SLATE (Not Approved)", f"-----------------------------"])
+        for candidate in candidates:
+            content_lines.append(
+                f"  {candidate.position.title}: {candidate.candidate_name}"
+            )
 
     content_lines.extend([
         f"",
@@ -300,24 +322,39 @@ def _save_results_to_documents(period, uploaded_by):
         }
     )
 
-    # Get slating committee if available
-    slating_committee = Committee.objects.filter(is_slating_committee=True).first()
+    # File under the chapter committee so it appears in chapter documents
+    from src.models import Committee as CommitteeModel
+    try:
+        filing_committee = CommitteeModel.objects.get(is_chapter_committee=True)
+    except CommitteeModel.DoesNotExist:
+        filing_committee = period.slating_committee  # fallback
 
-    # Create the document
-    filename = f"election_results_{period.academic_term.replace(' ', '_')}_{period.id}.txt"
+    # Create or update the document for this period
+    filename = f"election_results_{period.academic_term.replace(' ', '_').replace('/', '-')}_{period.id}.txt"
 
-    doc = CommitteeDocument(
-        committee=slating_committee,
+    existing = CommitteeDocument.objects.filter(
         title=f"Election Results - {period.name}",
-        description=f"Official election results for {period.name} ({period.academic_term})",
-        uploaded_by=uploaded_by,
-        published_to_chapter=True,
-        chapter_folder=folder,
-        document_type='report',
-        visibility='all_members',
-    )
+        committee=filing_committee,
+    ).first()
 
-    # Save the content as a file
+    if existing:
+        doc = existing
+        doc.chapter_folder = folder
+        doc.published_to_chapter = True
+        doc.visibility = 'all_members'
+    else:
+        doc = CommitteeDocument(
+            committee=filing_committee,
+            title=f"Election Results - {period.name}",
+            description=f"Official election results for {period.name} ({period.academic_term})",
+            uploaded_by=uploaded_by,
+            published_to_chapter=True,
+            chapter_folder=folder,
+            document_type='report',
+            visibility='all_members',
+        )
+
+    # Save the content as a file (overwrites if exists)
     doc.document.save(filename, ContentFile(content.encode('utf-8')))
     doc.save()
 
