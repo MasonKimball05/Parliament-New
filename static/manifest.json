@@ -1,0 +1,18 @@
+{
+  "name": "Parliament",
+  "short_name": "Parliament",
+  "description": "Alpha Mu Chapter Management System",
+  "start_url": "/home/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1d4ed8",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/exportable_media/am-coat-of-arms.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

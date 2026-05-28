@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'django_otp',
     'django_otp.plugins.otp_totp',
     'src.apps.SrcConfig',
+    'django_celery_beat',
 ]
 
 MIDDLEWARE = [
@@ -41,6 +42,7 @@ MIDDLEWARE = [
     'src.middleware.lockdown.EmergencyLockdownMiddleware',
     'src.middleware.security.AdminAccessMonitoringMiddleware',
     'src.middleware.security.ForcePasswordChangeMiddleware',
+    'src.middleware.security.QuarantineEnforcementMiddleware',
     'src.middleware.maintenance.MaintenanceModeMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -79,6 +81,9 @@ DATABASES = {
         'OPTIONS': {
             'sslmode': os.getenv('DB_SSLMODE', 'prefer'),
             'connect_timeout': 10,
+        },
+        'TEST': {
+            'NAME': os.getenv('DB_TEST_NAME', 'test_parliament_ci'),
         },
     }
 }
@@ -175,3 +180,16 @@ ALLOWED_DOCUMENT_TYPES = [
 ]
 
 PASSWORD_RESET_TIMEOUT = 1800
+
+VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+VAPID_CLAIMS = None  # Push disabled in CI
+
+# Celery — run tasks synchronously in tests (no worker needed)
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True  # surface exceptions immediately
+CELERY_BROKER_URL = 'memory://'
+CELERY_RESULT_BACKEND = 'cache+memory://'
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ['json']

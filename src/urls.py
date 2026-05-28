@@ -127,7 +127,8 @@ from src.view.officer.manage_members import add_member, edit_member, delete_memb
 from src.view.officer.manage_roles import manage_roles, role_detail, add_role, delete_role, assign_role_member, unassign_role_member, get_assignable_members
 from src.view.home import home
 from src.view.landing import landing_page, contact_submit
-from src.view.vote_view import vote_view
+from src.view.vote_view import vote_view, vote_tally_json
+from src.view.push_notifications import push_subscribe, push_unsubscribe, service_worker
 from src.view.two_factor import (
     two_factor_setup, two_factor_qrcode, two_factor_verify,
     two_factor_disable, two_factor_dismiss,
@@ -413,6 +414,10 @@ urlpatterns = [
 
     # Legislation / Voting Pages
     path('vote/', vote_view, name='vote'),
+    path('vote/tally/', vote_tally_json, name='vote_tally'),
+    path('service-worker.js', service_worker, name='service_worker'),
+    path('push/subscribe/', push_subscribe, name='push_subscribe'),
+    path('push/unsubscribe/', push_unsubscribe, name='push_unsubscribe'),
     path('vote/end/<int:legislation_id>/', end_vote, name='end_vote'),
     path('vote/runoff/<int:legislation_id>/', create_runoff, name='create_runoff'),
     path('vote/delete/<int:legislation_id>/', delete_chapter_legislation, name='delete_chapter_legislation'),

@@ -51,6 +51,98 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.19.0 - PWA & Web Push Notifications (05-27-2026)
+Adds Progressive Web App support and Web Push notifications. Members can add Parliament to their home screen for a native-app feel. Every in-app notification now fires a push to all subscribed devices simultaneously.
+
+**Deployment Status:** Not yet deployed
+
+**New Files:**
+- **`static/manifest.json`** — PWA manifest. Enables "Add to Home Screen" on iOS/Android. Sets app name, icon (coat of arms), theme color (#1d4ed8), standalone display mode, and start URL (/home/).
+- **`static/js/service-worker.js`** — Handles incoming `push` events and `notificationclick`. On tap: focuses an existing Parliament tab if one is open, otherwise opens a new one. Uses tag-based deduplication to prevent notification stacking.
+- **`src/view/push_notifications.py`** — Three endpoints: `GET /service-worker.js` (serves SW with `Service-Worker-Allowed: /` header so it controls the full site), `POST /push/subscribe/`, `POST /push/unsubscribe/`.
+- **`src/migrations/0172_push_subscription.py`** — Migration for PushSubscription model.
+
+**Modified Files:**
+- **`templates/base.html`** — Added `<link rel="manifest">` and `<meta name="theme-color">`. Registers service worker at `/service-worker.js` for authenticated users only.
+- **`src/models.py`** — Added `PushSubscription` model: stores endpoint, p256dh key, auth secret, user agent, timestamps. One user → many devices. `as_subscription_info()` returns the dict pywebpush expects.
+- **`src/tasks.py`** — Added `send_push_notification` Celery task. VAPID-signed via pywebpush. Skips gracefully if VAPID keys not configured. Auto-deletes subscriptions that return 410 Gone (expired).
+- **`src/notification_service.py`** — Added `_dispatch_push_notifications()` helper. Called in both `notify_all_active_members()` and `notify_users()` after `bulk_create` — every in-app notification now triggers a push automatically.
+- **`src/urls.py`** — Wired `/service-worker.js`, `/push/subscribe/`, `/push/unsubscribe/`.
+- **`Parliament/settings_postgres.py`** — Added VAPID settings block. Keys stored as base64url in `.env`, reconstructed to PEM at runtime.
+- **`requirements.txt`** — Added `pywebpush==2.3.0`.
+
+**Deployment steps:**
+1. `git pull origin main`
+2. `pip install -r requirements.txt`
+3. `python manage.py migrate`
+4. Generate VAPID keys on server (see DEPLOYMENT_NOTES.md), add to `.env`
+5. Add `REDIS_URL=redis://127.0.0.1:6379/0` to `.env` if not present
+6. `systemctl start redis` and `systemctl enable redis`
+7. `python manage.py collectstatic --noinput`
+8. `systemctl restart parliament`
+9. Copy and enable `parliament-worker.service` and `parliament-beat.service`
+10. Purge Cloudflare cache
+
+---
+
+### v2.18.0 - Celery + Async Infrastructure & Live Vote Tallies (05-27-2026)
+Introduces Celery + django-celery-beat as the async task queue and periodic scheduler. Emails no longer block gunicorn threads. Votes open and close on schedule without a page load. Scheduled announcements fire on time via Beat. Vote tallies now update live without a page reload.
+
+**Deployment Status:** Not yet deployed
+
+**Type:** Infrastructure / Feature
+
+**Migration required:** Yes — `python manage.py migrate` (django-celery-beat creates its own tables)
+
+**New server steps required:**
+1. `pip install -r requirements.txt` (adds `celery`, `django-celery-beat`)
+2. `python manage.py migrate` (django-celery-beat tables)
+3. `python manage.py setup_celery_schedules` (seeds Beat periodic task schedules)
+4. Copy `parliament-worker.service` and `parliament-beat.service` to `/etc/systemd/system/`
+5. `systemctl daemon-reload && systemctl enable --now parliament-worker parliament-beat`
+6. Purge Cloudflare cache (static files unchanged, but do it anyway to be safe)
+
+**Changes:**
+
+- **`Parliament/celery.py`** — Celery application config. Auto-discovers tasks from all installed apps. Settings namespace is `CELERY_` (reads from Django settings).
+- **`Parliament/__init__.py`** — Imports `celery_app` on Django startup so `@shared_task` decorators resolve correctly.
+- **`Parliament/settings_postgres.py`** — Added full Celery configuration block: broker/result backend from `REDIS_URL`, JSON serialization, `CELERY_TASK_ACKS_LATE=True`, `DatabaseScheduler`. Added `django_celery_beat` to `INSTALLED_APPS`. Falls back to `memory://` broker if `REDIS_URL` is not set (dev/test only).
+- **`src/tasks.py`** — Central task file with four groups:
+  - *Email tasks:* `send_announcement_email`, `send_security_alert_task`, `send_pledge_welcome_task` — async wrappers so email sends don't add latency to request/response cycles. Each retries up to 3 times on failure.
+  - *Vote tasks:* `auto_open_close_chapter_votes`, `auto_open_close_committee_votes`, `auto_open_close_slating_votes` — run every minute via Beat, replacing the on-page-load auto-close in `vote_view.py` and `committee/vote.py`. Votes now open and close on their scheduled time regardless of whether anyone loads the page.
+  - *Announcement task:* `publish_scheduled_announcements` — runs every 5 minutes, finds announcements with `publish_at <= now` and `send_email_on_publish=True`, atomically claims each row, then queues `send_announcement_email`. Uses `select_for_update(skip_locked=True)` to prevent duplicate sends if Beat fires twice.
+  - *Housekeeping:* `cleanup_expired_sessions` (daily 3 AM), `send_daily_honeypot_digest` (daily 7 AM).
+- **`src/management/commands/setup_celery_schedules.py`** — Seeds `PeriodicTask` records for all default schedules on first deploy. Safe to re-run (uses `get_or_create`). Pass `--reset` to force-recreate schedules after renaming tasks.
+- **`parliament-worker.service`** — systemd unit for the Celery worker. Single-concurrency (predictable memory on the VPS). Restarts on failure. Logs to `/var/www/Parliament-New/logs/celery-worker.log`.
+- **`parliament-beat.service`** — systemd unit for Celery Beat. Uses `DatabaseScheduler` so schedules can be paused/adjusted from the database without restarting the process. Logs to `/var/www/Parliament-New/logs/celery-beat.log`.
+- **`requirements.txt`** — Added `celery==5.4.0`, `django-celery-beat==2.7.0`.
+- **Live vote tallies** — `GET /vote/tally/` JSON endpoint returns current vote counts for all open legislation. On the vote page, a self-contained IIFE polls every 15 seconds (only when the tab is visible via Page Visibility API) and updates each count in-place with a brief opacity flash on change. If the server reports a vote just closed while the user was watching, the page reloads automatically so the closed-state UI renders correctly. Polling only starts if at least one tally container is present (i.e., the user is an author of open legislation). Files: `src/view/vote_view.py` (`vote_tally_json`), `src/urls.py`, `templates/vote.html`.
+
+---
+
+### v2.17.0 - Pledge Onboarding, Security Hardening & Admin Dashboard Fixes (05-27-2026)
+Adds pledge welcome emails, pledge activity logging, slating dashboard UI refresh, FK auto-discovery for pledge initiation, quarantine session enforcement, and fixes several admin-v2 dashboard bugs.
+
+**Deployment Status:** Not yet deployed
+
+**Type:** Feature / Improvement / Bug Fix
+
+**Migration required:** None
+
+**Changes:**
+
+- **Pledge welcome email** — When a pledge account is created with an email address, a welcome email is automatically sent with their username, initial password, site link, and an overview of what they have access to (announcements, calendar, documents, service hours, profile). Uses the existing email infrastructure with email-flagging on delivery failure.
+- **Pledge activity logging** — Each pledge login is now recorded as a `pledge_login` activity log entry. The first password change (forced) is recorded as `pledge_password_changed`. Both are filterable by `action_type` in the admin log. Two new `ACTION_TYPES` added to `ActivityLog`: `pledge_login` and `pledge_password_changed`.
+- **Slating dashboard UI refresh** — Updated `dashboard.html` to match the setup page's UI style: compact sidebar nav (no icons), consistent `px-5` padding, `space-y-5` spacing, `+ New` header link on the admin card, and removed the generic info card.
+- **Pledge initiation FK auto-discovery** — Replaced the 80+ entry hardcoded `related_tables` list in `initiate_pledges()` with Django ORM `_meta.get_fields()` auto-discovery. All reverse FK and OneToOne relations are now updated automatically, so new models are covered without manual maintenance. M2M relations (roles, co-authored legislation) are handled explicitly. A small `extra_tables` list covers the one non-ORM table (`calendar_subscriptions`). Steps 1–3 (raw SQL PK copy) and the cascade safety check remain unchanged.
+- **Middleware logging improvement** — `InputSanitizationMiddleware` now logs the matched regex pattern alongside the attack type, making false positive diagnosis significantly faster.
+- **Quarantine session enforcement** — New `QuarantineEnforcementMiddleware` added to `security.py` and wired into `settings_postgres.py`. A quarantined user who is already logged in is now immediately logged out on their next request (rather than being allowed to continue browsing until session expiry). They are redirected to `/login/?quarantined=1`, which displays an explanatory error message. Login already blocks quarantined users from re-entry, so the quarantine is fully enforced end-to-end.
+- **Admin-v2 dashboard bugs fixed** — Three bugs repaired: (1) duplicate `class` attributes on `.card-body` divs (HTML only reads the first `class` attribute, so `p-4`/`space-y-2` padding/spacing were silently dropped); (2) duplicate `class` attributes on all chevron SVGs (`chevron-icon` was in the second attribute, making `querySelector('.chevron-icon')` return null — chevrons never rotated); (3) all six main cards defaulted to `data-expanded="false"`, causing them to load collapsed.
+- **Admin-v2 lockdown banner wired** — `admin_v2_dashboard` view now fetches `SystemLockdown.get_instance()` and passes `lockdown_active` to the template. The emergency lockdown banner at the top of the dashboard was previously always hidden because the variable was never in context.
+- **Admin-v2 card state persistence** — Card expand/collapse state is now stored in `localStorage` keyed by `data-card-id`. State survives page reloads and navigation. Falls back to the HTML `data-expanded` default if no stored state exists.
+
+---
+
 ### v2.16.9 - Slating Results Bug Fixes (05-26-2026)
 Fixes several bugs across the slating results flow: transition officer crash, dark mode home page banner, individual vote summary display, and election results document not saving to chapter documents.
 

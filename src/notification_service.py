@@ -31,6 +31,25 @@ def _invalidate_caches_for_users(user_pks):
     keys = [f'notif_count_{pk}' for pk in user_pks]
     cache.delete_many(keys)
 
+
+def _dispatch_push_notifications(notifications):
+    """
+    Fire a send_push_notification Celery task for each notification recipient.
+    Skips silently if Celery/VAPID is not configured (dev/CI environments).
+    """
+    try:
+        from src.tasks import send_push_notification
+        for notif in notifications:
+            send_push_notification.delay(
+                user_id=notif.recipient_id,
+                title=notif.title,
+                body=notif.message[:120] if notif.message else '',
+                url=notif.link or '/home/',
+                tag=f'{notif.notification_type}-{notif.source_id or ""}',
+            )
+    except Exception as exc:
+        logger.warning(f'[push] dispatch failed: {exc}')
+
 # Maps notification_type -> UserPreferences field name
 NOTIFICATION_PREF_MAP = {
     'announcement': 'notify_announcements',
@@ -107,6 +126,7 @@ def notify_all_active_members(notification_type, title, message='', link='', sou
         # Invalidate caches for all recipients
         recipient_pks = [n.recipient_id for n in notifications]
         _invalidate_caches_for_users(recipient_pks)
+        _dispatch_push_notifications(notifications)
         logger.info(f"Created {len(notifications)} '{notification_type}' notifications: {title}")
 
     return len(notifications)
@@ -141,6 +161,7 @@ def notify_users(users, notification_type, title, message='', link='', source_ty
         # Invalidate caches for all recipients
         recipient_pks = [n.recipient_id for n in notifications]
         _invalidate_caches_for_users(recipient_pks)
+        _dispatch_push_notifications(notifications)
         logger.info(f"Created {len(notifications)} '{notification_type}' notifications for targeted users: {title}")
 
     return len(notifications)

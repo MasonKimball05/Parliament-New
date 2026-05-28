@@ -1,0 +1,35 @@
+[Unit]
+Description=Parliament Celery Worker
+After=network.target redis.service postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=exec
+User=root
+Group=root
+WorkingDirectory=/var/www/Parliament-New
+
+Environment="PATH=/var/www/Parliament-New/venv/bin"
+Environment="DJANGO_SETTINGS_MODULE=Parliament.settings_postgres"
+EnvironmentFile=/var/www/Parliament-New/.env
+
+# Concurrency=1 keeps memory usage predictable on the VPS.
+# Raise --concurrency if the queue backs up under load.
+ExecStart=/var/www/Parliament-New/venv/bin/celery \
+    -A Parliament worker \
+    --loglevel=INFO \
+    --concurrency=1 \
+    --logfile=/var/www/Parliament-New/logs/celery-worker.log
+
+Restart=on-failure
+RestartSec=10s
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=parliament-worker
+
+[Install]
+WantedBy=multi-user.target

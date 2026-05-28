@@ -337,6 +337,9 @@ def admin_v2_dashboard(request):
     performance_summary = get_performance_summary()
     slow_requests = get_slow_requests(threshold_ms=1000, limit=5)
 
+    from src.models import SystemLockdown
+    lockdown = SystemLockdown.get_instance()
+
     context = {
         'stats': stats,
         'feature_flags': feature_flags,
@@ -349,6 +352,7 @@ def admin_v2_dashboard(request):
         'system_info': system_info,
         'performance': performance_summary,
         'slow_requests': slow_requests,
+        'lockdown_active': lockdown.is_active,
     }
 
     return render(request, 'admin_v2/dashboard.html', context)

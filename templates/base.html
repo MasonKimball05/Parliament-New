@@ -7,9 +7,11 @@
     <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}Parliament{% endblock %}</title>
 
-    <!-- Favicon -->
+    <!-- Favicon & PWA -->
     <link rel="icon" type="image/png" href="/exportable_media/am-coat-of-arms.png">
     <link rel="apple-touch-icon" href="/exportable_media/am-coat-of-arms.png">
+    <link rel="manifest" href="{% static 'manifest.json' %}">
+    <meta name="theme-color" content="#1d4ed8">
 
     <!-- Tailwind CSS (self-hosted, no CDN) -->
     <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
@@ -1687,5 +1689,15 @@
     </script>
 
     {% block extra_js %}{% endblock %}
+
+    <!-- Service Worker Registration (PWA / Push Notifications) -->
+    {% if user.is_authenticated %}
+    <script nonce="{{ request.csp_nonce }}">
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+            .catch(function(err) { console.warn('SW registration failed:', err); });
+    }
+    </script>
+    {% endif %}
 </body>
 </html>

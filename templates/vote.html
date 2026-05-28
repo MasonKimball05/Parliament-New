@@ -243,39 +243,42 @@
                     {% if profile == leg.posted_by %}
                         {% with data=vote_data|get_item:leg.id %}
                         {% if data %}
-                        <div class="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4 mb-4 transition-colors duration-200">
+                        <div class="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4 mb-4 transition-colors duration-200"
+                             data-tally-id="{{ leg.id }}"
+                             data-vote-mode="{{ leg.vote_mode }}">
                             <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center">
                                 <svg class="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
                                 </svg>
                                 Live Vote Tally
+                                <span class="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500" data-tally-updated></span>
                             </h4>
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 {% if leg.vote_mode == "plurality" %}
                                     {% for option, count in data.items %}
                                         {% if option != "total" %}
                                             <div class="text-center">
-                                                <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ count }}</div>
+                                                <div class="text-2xl font-bold text-blue-600 dark:text-blue-400" data-tally-field="{{ option }}">{{ count }}</div>
                                                 <div class="text-sm text-gray-600 dark:text-gray-400">{{ option }}</div>
                                             </div>
                                         {% endif %}
                                     {% endfor %}
                                 {% else %}
                                     <div class="text-center">
-                                        <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ data.yes }}</div>
+                                        <div class="text-2xl font-bold text-green-600 dark:text-green-400" data-tally-field="yes">{{ data.yes }}</div>
                                         <div class="text-sm text-gray-600 dark:text-gray-400">Yes</div>
                                     </div>
                                     <div class="text-center">
-                                        <div class="text-2xl font-bold text-red-600 dark:text-red-400">{{ data.no }}</div>
+                                        <div class="text-2xl font-bold text-red-600 dark:text-red-400" data-tally-field="no">{{ data.no }}</div>
                                         <div class="text-sm text-gray-600 dark:text-gray-400">No</div>
                                     </div>
                                     <div class="text-center">
-                                        <div class="text-2xl font-bold text-gray-600 dark:text-gray-400">{{ data.abstain }}</div>
+                                        <div class="text-2xl font-bold text-gray-600 dark:text-gray-400" data-tally-field="abstain">{{ data.abstain }}</div>
                                         <div class="text-sm text-gray-600 dark:text-gray-400">Abstain</div>
                                     </div>
                                 {% endif %}
                                 <div class="text-center">
-                                    <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ data.total }}</div>
+                                    <div class="text-2xl font-bold text-gray-900 dark:text-gray-100" data-tally-field="total">{{ data.total }}</div>
                                     <div class="text-sm text-gray-600 dark:text-gray-400">Total Votes</div>
                                 </div>
                             </div>
@@ -503,5 +506,91 @@
             }
         });
     });
+
+    // -------------------------------------------------------------------------
+    // Live tally polling — updates vote counts every 15s without a page reload.
+    // Pauses when the tab is hidden (Page Visibility API) to avoid wasted requests.
+    // If the server reports a vote just closed, reloads the page so the user
+    // sees the final closed state with the correct UI.
+    // Only runs when at least one [data-tally-id] container exists on the page.
+    // -------------------------------------------------------------------------
+    (function () {
+        const tallyContainers = document.querySelectorAll('[data-tally-id]');
+        if (!tallyContainers.length) return;  // author has no open legislation — nothing to poll
+
+        const POLL_INTERVAL_MS = 15000;
+        let timer = null;
+
+        function fmt(d) {
+            return d.getHours().toString().padStart(2, '0') + ':' +
+                   d.getMinutes().toString().padStart(2, '0') + ':' +
+                   d.getSeconds().toString().padStart(2, '0');
+        }
+
+        function applyTally(container, tally) {
+            Object.keys(tally).forEach(function (field) {
+                if (field === 'closed') return;
+                const el = container.querySelector('[data-tally-field="' + field + '"]');
+                if (el && el.textContent !== String(tally[field])) {
+                    el.textContent = tally[field];
+                    // Brief highlight on change
+                    el.style.transition = 'opacity 0.2s';
+                    el.style.opacity = '0.4';
+                    setTimeout(function () { el.style.opacity = '1'; }, 200);
+                }
+            });
+            const ts = container.querySelector('[data-tally-updated]');
+            if (ts) ts.textContent = 'Updated ' + fmt(new Date());
+        }
+
+        async function poll() {
+            try {
+                const resp = await fetch('{% url "vote_tally" %}', {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (!resp.ok) return;
+                const data = await resp.json();
+                const tallies = data.tallies || {};
+
+                tallyContainers.forEach(function (container) {
+                    const legId = container.dataset.tallyId;
+                    const tally = tallies[legId];
+                    if (!tally) return;
+                    if (tally.closed) {
+                        // Vote ended while user was watching — reload to show final state
+                        window.location.reload();
+                        return;
+                    }
+                    applyTally(container, tally);
+                });
+            } catch (e) {
+                // Silent fail — polling will retry on next interval
+            }
+        }
+
+        function start() {
+            if (timer) return;
+            poll();  // immediate poll on start
+            timer = setInterval(poll, POLL_INTERVAL_MS);
+        }
+
+        function stop() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+            }
+        }
+
+        // Pause when tab is backgrounded, resume when visible
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) {
+                stop();
+            } else {
+                start();
+            }
+        });
+
+        start();
+    })();
 </script>
 {% endblock %}

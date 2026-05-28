@@ -23,6 +23,11 @@ Extensive tests covering:
 - **Model methods** (display names, vote calculations)
 - **Permissions** (admin, officer, member access)
 
+### 4. `src/test_pillar1.py` (Pillar 1 — Async Infrastructure & Live Vote Tallies)
+54 tests covering Celery tasks, vote auto-open/close, scheduled announcements, session cleanup,
+vote tally polling endpoint, QuarantineEnforcementMiddleware, admin-v2 dashboard context,
+and the setup_celery_schedules management command.
+
 ### 3. `src/test_edge_cases.py` (Edge Cases & Integration)
 Tests for:
 - **Edge cases** (zero votes, all abstains, ties)
@@ -50,6 +55,9 @@ python manage.py test src.test_comprehensive
 
 # Edge case tests
 python manage.py test src.test_edge_cases
+
+# Pillar 1 — async infrastructure & live vote tallies (requires .env loaded)
+export $(grep -v '^#' .env | grep -v '^$' | xargs) && .venv/bin/python3 manage.py test src.test_pillar1 --settings=ci_settings
 ```
 
 ### Run Specific Test Class

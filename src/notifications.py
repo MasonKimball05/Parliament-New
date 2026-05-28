@@ -417,3 +417,126 @@ def mark_announcement_dismissed(user, announcement_id):
     except Exception as e:
         logger.error(f"Failed to mark announcement {announcement_id} as dismissed for {user.username}: {str(e)}")
         return False
+
+
+def send_pledge_welcome_email(user, temp_password):
+    """
+    Send a welcome email to a newly created pledge with their login credentials
+    and an overview of what they have access to on the site.
+
+    Args:
+        user: ParliamentUser instance (the new pledge)
+        temp_password: The initial password assigned to them (= their username)
+
+    Returns:
+        bool: True if sent successfully, False otherwise
+    """
+    if not user.email:
+        logger.info(f"Skipping welcome email for pledge {user.username} — no email address on file")
+        return False
+
+    site_url = get_site_url()
+    login_url = f"{site_url}/login/"
+
+    subject = f"Welcome to Parliament — Your Account is Ready"
+
+    html_body = f"""
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; font-size: 15px; color: #1f2937; max-width: 600px; margin: 0 auto; padding: 24px;">
+
+  <h2 style="color: #1f2937; margin-bottom: 4px;">Welcome to Parliament, {user.name}!</h2>
+  <p style="color: #6b7280; margin-top: 0;">Your pledge account has been created.</p>
+
+  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+
+  <h3 style="color: #1f2937; margin-bottom: 8px;">Your Login Credentials</h3>
+  <table style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; width: 100%; border-collapse: collapse;">
+    <tr>
+      <td style="padding: 4px 8px; font-weight: bold; color: #374151; width: 130px;">Username</td>
+      <td style="padding: 4px 8px; font-family: monospace; color: #111827;">{user.username}</td>
+    </tr>
+    <tr>
+      <td style="padding: 4px 8px; font-weight: bold; color: #374151;">Password</td>
+      <td style="padding: 4px 8px; font-family: monospace; color: #111827;">{temp_password}</td>
+    </tr>
+  </table>
+  <p style="color: #dc2626; font-size: 13px; margin-top: 8px;">
+    &#9888; You will be required to change your password the first time you log in.
+  </p>
+
+  <p style="margin-top: 24px;">
+    <a href="{login_url}" style="display: inline-block; background: #2563eb; color: #ffffff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: bold;">
+      Log In to Parliament
+    </a>
+  </p>
+
+  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+
+  <h3 style="color: #1f2937; margin-bottom: 8px;">What You Have Access To</h3>
+  <ul style="color: #374151; line-height: 1.8; padding-left: 20px;">
+    <li><strong>Announcements</strong> — Stay up to date with chapter news and updates</li>
+    <li><strong>Chapter Calendar</strong> — View upcoming events and chapter meetings</li>
+    <li><strong>Chapter Documents</strong> — Access documents published to the chapter</li>
+    <li><strong>Service Hours</strong> — Track and submit your service hours</li>
+    <li><strong>Your Profile</strong> — Update your contact information and preferences</li>
+  </ul>
+
+  <p style="color: #6b7280; font-size: 13px; margin-top: 24px;">
+    If you have any trouble logging in, reach out to a chapter officer for assistance.
+  </p>
+
+  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+  <p style="color: #9ca3af; font-size: 12px;">
+    Parliament &mdash; Alpha Mu Chapter, Beta Theta Pi<br>
+    <a href="{site_url}" style="color: #9ca3af;">{site_url}</a>
+  </p>
+
+</body>
+</html>
+"""
+
+    text_body = (
+        f"Welcome to Parliament, {user.name}!\n\n"
+        f"Your pledge account has been created.\n\n"
+        f"LOGIN CREDENTIALS\n"
+        f"Username: {user.username}\n"
+        f"Password: {temp_password}\n\n"
+        f"You will be required to change your password the first time you log in.\n\n"
+        f"Log in at: {login_url}\n\n"
+        f"WHAT YOU HAVE ACCESS TO\n"
+        f"- Announcements: Stay up to date with chapter news\n"
+        f"- Chapter Calendar: View upcoming events and meetings\n"
+        f"- Chapter Documents: Access documents published to the chapter\n"
+        f"- Service Hours: Track and submit your service hours\n"
+        f"- Your Profile: Update your contact information and preferences\n\n"
+        f"If you have any trouble logging in, reach out to a chapter officer.\n\n"
+        f"Parliament — {site_url}"
+    )
+
+    try:
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=text_body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[user.email],
+        )
+        msg.attach_alternative(html_body, "text/html")
+        msg.send()
+
+        from src.models import ActivityLog
+        ActivityLog.log_activity(
+            action_type='email_sent',
+            user=user,
+            description=f"Welcome email sent to new pledge {user.name} ({user.email})",
+            metadata={'email_type': 'pledge_welcome', 'recipient': user.email},
+        )
+
+        logger.info(f"Welcome email sent to pledge {user.username} ({user.email})")
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to send welcome email to pledge {user.username} ({user.email}): {e}")
+        _flag_user_email(user, str(e))
+        return False

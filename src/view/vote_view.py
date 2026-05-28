@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.timezone import make_aware
 from django.utils.dateparse import parse_datetime
@@ -310,3 +311,53 @@ def vote_view(request):
         'vote_data': vote_data,
         'default_vote_mode': 'percentage',
     })
+
+
+@login_required
+def vote_tally_json(request):
+    """
+    JSON endpoint polled by vote.html to refresh live vote tallies.
+    Returns tallies only for legislation the current user posted (matching the
+    template restriction), plus a closed/open flag for each piece of legislation
+    so the page can react if a vote ends while the user is watching.
+    """
+    user = request.user
+    from django.db.models import Q
+
+    active_legislation = Legislation.objects.filter(
+        Q(available_at__lte=timezone.now()) | Q(posted_by=user),
+        voting_closed=False,
+    ).exclude(status__in=['pending', 'tabled', 'passed', 'failed', 'removed'])
+
+    tallies = {}
+    for leg in active_legislation:
+        if leg.posted_by != user:
+            # Non-authors only get the closed flag (for page reload trigger)
+            tallies[leg.id] = {'closed': False}
+            continue
+
+        votes = Vote.objects.filter(legislation=leg)
+        if leg.vote_mode == 'plurality':
+            tally = {opt: votes.filter(vote_choice=opt).count() for opt in (leg.plurality_options or [])}
+            tally['total'] = votes.count()
+        else:
+            tally = {
+                'yes': votes.filter(vote_choice='yes').count(),
+                'no': votes.filter(vote_choice='no').count(),
+                'abstain': votes.filter(vote_choice='abstain').count(),
+                'total': votes.count(),
+            }
+        tally['closed'] = False
+        tallies[leg.id] = tally
+
+    # Also include any legislation that just closed since last poll so the
+    # page knows to reload
+    recently_closed = Legislation.objects.filter(
+        posted_by=user,
+        voting_closed=True,
+        voting_ended_at__gte=timezone.now() - timedelta(minutes=2),
+    )
+    for leg in recently_closed:
+        tallies[leg.id] = {'closed': True}
+
+    return JsonResponse({'tallies': tallies})

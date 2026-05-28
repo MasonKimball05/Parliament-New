@@ -20,7 +20,8 @@
 {% block slating_content %}
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <!-- Main Content -->
-    <div class="lg:col-span-2 space-y-6">
+    <div class="lg:col-span-2 space-y-5">
+
         <!-- Active Periods -->
         {% if active_periods %}
         <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -80,13 +81,11 @@
             </div>
             <ul class="divide-y divide-gray-200 dark:divide-gray-700">
                 {% for app in my_applications %}
-                <li class="px-4 py-4 sm:px-6">
+                <li class="px-5 py-4">
                     <div class="flex items-center justify-between">
                         <div class="flex-1 min-w-0">
-                            <p class="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                {{ app.period.name }}
-                            </p>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ app.period.name }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                                 {% if app.submitted_at %}
                                 Submitted {{ app.submitted_at|date:"M j, Y" }}
                                 {% else %}
@@ -94,7 +93,7 @@
                                 {% endif %}
                             </p>
                         </div>
-                        <div class="ml-4 flex-shrink-0 flex items-center space-x-3">
+                        <div class="ml-4 flex-shrink-0 flex items-center gap-3">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                                 {% if app.status == 'submitted' %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300
                                 {% elif app.status == 'slated' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300
@@ -105,7 +104,7 @@
                                 {{ app.get_status_display }}
                             </span>
                             {% if app.status == 'draft' %}
-                            <a href="{% url 'slating_apply' period_id=app.period.id %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">
+                            <a href="{% url 'slating_apply' period_id=app.period.id %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline font-medium">
                                 Continue
                             </a>
                             {% endif %}
@@ -114,7 +113,7 @@
                 </li>
                 {% endfor %}
             </ul>
-            <div class="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 text-right">
+            <div class="px-5 py-3 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700 text-right">
                 <a href="{% url 'slating_my_applications' %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">
                     View all applications
                 </a>
@@ -122,7 +121,7 @@
         </div>
         {% endif %}
 
-        <!-- Committee Actions (for slating committee members) -->
+        <!-- Pending Reviews (slating committee members) -->
         {% if pending_reviews %}
         <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
@@ -130,17 +129,13 @@
             </div>
             <ul class="divide-y divide-gray-200 dark:divide-gray-700">
                 {% for app in pending_reviews %}
-                <li class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <a href="{% url 'slating_app_detail' period_id=app.period.id app_id=app.id %}" class="flex items-center justify-between">
+                <li class="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+                    <a href="{% url 'slating_app_detail' period_id=app.period.id app_id=app.id %}" class="flex items-center justify-between px-5 py-4">
                         <div class="flex-1 min-w-0">
-                            <p class="text-sm font-medium text-gray-900 dark:text-white">
-                                {{ app.applicant.name }}
-                            </p>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">
-                                {{ app.period.name }} - Submitted {{ app.submitted_at|date:"M j" }}
-                            </p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ app.applicant.name }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ app.period.name }} — Submitted {{ app.submitted_at|date:"M j" }}</p>
                         </div>
-                        <svg class="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <svg class="h-4 w-4 text-gray-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
                         </svg>
                     </a>
@@ -158,17 +153,13 @@
             </div>
             <ul class="divide-y divide-gray-200 dark:divide-gray-700">
                 {% for period in published_results %}
-                <li class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <a href="{% url 'slating_results' period_id=period.id %}" class="flex items-center justify-between">
+                <li class="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+                    <a href="{% url 'slating_results' period_id=period.id %}" class="flex items-center justify-between px-5 py-4">
                         <div class="flex-1 min-w-0">
-                            <p class="text-sm font-medium text-gray-900 dark:text-white">
-                                {{ period.name }}
-                            </p>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">
-                                Results published {{ period.results_publish_at|date:"M j, Y" }}
-                            </p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ period.name }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Results published {{ period.results_publish_at|date:"M j, Y" }}</p>
                         </div>
-                        <svg class="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <svg class="h-4 w-4 text-gray-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
                         </svg>
                     </a>
@@ -180,51 +171,43 @@
 
         <!-- Empty State -->
         {% if not active_periods and not my_applications and not pending_reviews and not published_results %}
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg px-6 py-12 text-center">
-            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 px-6 py-12 text-center">
+            <svg class="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
-            <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No active elections</h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                There are no active election periods at this time.
-            </p>
+            <h3 class="mt-3 text-sm font-medium text-gray-900 dark:text-white">No active elections</h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">There are no active election periods at this time.</p>
         </div>
         {% endif %}
     </div>
 
     <!-- Sidebar -->
-    <div class="space-y-6">
+    <div class="space-y-5">
+
         <!-- Quick Links -->
         <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Quick Links</h3>
             </div>
-            <nav class="px-4 py-4 space-y-2">
-                <a href="{% url 'slating_my_applications' %}" class="flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">
-                    <svg class="mr-3 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
+            <nav class="px-2 py-2 space-y-0.5">
+                <a href="{% url 'slating_my_applications' %}"
+                   class="flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                     My Applications
                 </a>
                 {% if is_committee_member and committee_period %}
-                <a href="{% url 'slating_applications' period_id=committee_period.id %}" class="flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">
-                    <svg class="mr-3 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
-                    </svg>
+                <a href="{% url 'slating_applications' period_id=committee_period.id %}"
+                   class="flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                     Review Applications
+                    {% if pending_reviews %}<span class="text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300 px-1.5 py-0.5 rounded">{{ pending_reviews|length }}</span>{% endif %}
                 </a>
-                <a href="{% url 'slating_interviews' period_id=committee_period.id %}" class="flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">
-                    <svg class="mr-3 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                    </svg>
+                <a href="{% url 'slating_interviews' period_id=committee_period.id %}"
+                   class="flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                     Interviews
                 </a>
                 {% endif %}
                 {% if is_chair_or_admin and admin_period %}
-                <a href="{% url 'slating_build_slate' period_id=admin_period.id %}" class="flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">
-                    <svg class="mr-3 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
-                    </svg>
+                <a href="{% url 'slating_build_slate' period_id=admin_period.id %}"
+                   class="flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                     Build Slate
                 </a>
                 {% endif %}
@@ -234,51 +217,28 @@
         <!-- Admin Panel -->
         {% if user.is_admin %}
         <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Administration</h3>
+                <a href="{% url 'slating_create_period' %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline font-medium">+ New</a>
             </div>
-            <nav class="px-4 py-4 space-y-2">
-                <a href="{% url 'slating_create_period' %}" class="flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">
-                    <svg class="mr-3 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                    </svg>
-                    Create Election Period
-                </a>
-            </nav>
             {% if all_periods %}
-            <div class="px-4 pb-4">
-                <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">All Periods</h4>
-                <ul class="space-y-1">
-                    {% for period in all_periods %}
-                    <li>
-                        <a href="{% url 'slating_period_setup' period_id=period.id %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">
-                            {{ period.name }}
-                        </a>
-                        <span class="text-xs text-gray-500 dark:text-gray-400 ml-1">({{ period.get_status_display }})</span>
-                    </li>
-                    {% endfor %}
-                </ul>
+            <nav class="px-2 py-2 space-y-0.5">
+                {% for period in all_periods %}
+                <a href="{% url 'slating_period_setup' period_id=period.id %}"
+                   class="flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <span class="truncate pr-2">{{ period.name }}</span>
+                    <span class="flex-shrink-0 text-xs text-gray-400 dark:text-gray-500">{{ period.get_status_display }}</span>
+                </a>
+                {% endfor %}
+            </nav>
+            {% else %}
+            <div class="px-5 py-4">
+                <p class="text-sm text-gray-400 dark:text-gray-500 italic">No election periods yet.</p>
             </div>
             {% endif %}
         </div>
         {% endif %}
 
-        <!-- Information Card -->
-        <div class="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-                    </svg>
-                </div>
-                <div class="ml-3">
-                    <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">About Officer Elections</h3>
-                    <div class="mt-2 text-sm text-blue-700 dark:text-blue-300">
-                        <p>Officer elections follow chapter bylaws with a secret ballot and 60% approval threshold.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 {% endblock %}

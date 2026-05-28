@@ -1,0 +1,35 @@
+[Unit]
+Description=Parliament Celery Beat Scheduler
+After=network.target redis.service postgresql.service parliament-worker.service
+Requires=postgresql.service
+
+[Service]
+Type=exec
+User=root
+Group=root
+WorkingDirectory=/var/www/Parliament-New
+
+Environment="PATH=/var/www/Parliament-New/venv/bin"
+Environment="DJANGO_SETTINGS_MODULE=Parliament.settings_postgres"
+EnvironmentFile=/var/www/Parliament-New/.env
+
+# DatabaseScheduler reads/writes schedules from the DB so they can be managed
+# without restarting the beat process.
+ExecStart=/var/www/Parliament-New/venv/bin/celery \
+    -A Parliament beat \
+    --loglevel=INFO \
+    --scheduler django_celery_beat.schedulers:DatabaseScheduler \
+    --logfile=/var/www/Parliament-New/logs/celery-beat.log
+
+Restart=on-failure
+RestartSec=10s
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=parliament-beat
+
+[Install]
+WantedBy=multi-user.target

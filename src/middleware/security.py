@@ -79,6 +79,36 @@ class ForcePasswordChangeMiddleware:
         return response
 
 
+class QuarantineEnforcementMiddleware:
+    """
+    Middleware to enforce account quarantine on every request.
+    Quarantined users are logged out immediately — login_view already blocks
+    re-entry, so this closes the gap where a user quarantined mid-session
+    could continue browsing until their session expired naturally.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+        self.exempt_paths = [
+            '/logout/',
+            '/login/',
+            '/static/',
+        ]
+
+    def __call__(self, request):
+        if (
+            hasattr(request, 'user')
+            and request.user.is_authenticated
+            and getattr(request.user, 'is_quarantined', False)
+            and not any(request.path.startswith(p) for p in self.exempt_paths)
+        ):
+            from django.contrib.auth import logout
+            logout(request)
+            return redirect('/login/?quarantined=1')
+
+        return self.get_response(request)
+
+
 class PasswordResetRateLimitMiddleware:
     """
     Middleware to rate limit password reset requests and prevent brute force attacks.

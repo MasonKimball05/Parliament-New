@@ -16,6 +16,7 @@ from src.models import ParliamentUser, Role, ActivityLog
 from src.forms import AddMemberForm, EditMemberForm
 from src.decorators import officer_required
 from src.notification_service import notify_users
+from src.notifications import send_pledge_welcome_email
 
 logger = logging.getLogger(__name__)
 
@@ -127,8 +128,13 @@ def add_member(request):
 
     logger.info(f"Officer {request.user.user_id} added new member {user.user_id}")
 
-    # For pledges, indicate password = username
+    # For pledges, send welcome email if an email address was provided
     is_pledge = user.member_type == 'Pledge'
+    if is_pledge and user.email:
+        try:
+            send_pledge_welcome_email(user, temp_password)
+        except Exception as e:
+            logger.error(f"Failed to send pledge welcome email for {user.user_id}: {e}")
 
     return JsonResponse({
         'success': True,
@@ -409,98 +415,11 @@ def initiate_pledges(request):
     # Get the actual database table name
     table_name = ParliamentUser._meta.db_table
 
-    # All tables with foreign keys to ParliamentUser.user_id
-    # Format: (table_name, column_name)
-    # Security: These are hardcoded values, not user input. Validated below before use.
-    related_tables = [
+    # Non-Django-ORM tables: FK relations not discoverable via _meta.get_fields().
+    # Django model relations are handled automatically below via ORM.
+    extra_tables = [
         ('calendar_subscriptions', 'user_id'),
-        ('django_admin_log', 'user_id'),
-        ('src_activitylog', 'user_id'),
-        ('src_announcement', 'posted_by_id'),
-        ('src_attendance', 'user_id'),
-        ('src_attendance', 'marked_by_id'),
-        ('src_attendanceexcuse', 'reviewed_by_id'),
-        ('src_attendanceexcuse', 'user_id'),
-        ('src_bugreport', 'resolved_by_id'),
-        ('src_bugreport', 'submitted_by_id'),
-        ('src_chapterfolder', 'created_by_id'),
-        ('src_chapterminutes', 'created_by_id'),
-        ('src_chapterminutes', 'last_edit_by_id'),
-        ('src_chatchannel', 'created_by_id'),
-        ('src_chatchannelpermission', 'user_id'),
-        ('src_chatmessage', 'sender_id'),
-        ('src_chatreadreceipt', 'user_id'),
-        ('src_committee_advisors', 'parliamentuser_id'),
-        ('src_committee_chairs', 'parliamentuser_id'),
-        ('src_committee_members', 'parliamentuser_id'),
-        ('src_committee_voting_members', 'parliamentuser_id'),
-        ('src_committeedocument', 'uploaded_by_id'),
-        ('src_committeedocument_custom_viewers', 'parliamentuser_id'),
-        ('src_committeelegislation', 'posted_by_id'),
-        ('src_committeeminutes', 'posted_by_id'),
-        ('src_committeepermissions', 'user_id'),
-        ('src_committeevote', 'user_id'),
-        ('src_documentversion', 'uploaded_by_id'),
-        ('src_event', 'finalized_by_id'),
-        ('src_event', 'created_by_id'),
-        ('src_ipblacklist', 'added_by_id'),
-        ('src_ipwhitelist', 'added_by_id'),
-        ('src_kaireport', 'reviewed_by_id'),
-        ('src_kaireport', 'submitted_by_id'),
-        ('src_kaireport', 'targeted_to_id'),
-        ('src_kaireportactivity', 'user_id'),
-        ('src_kaireporttemplate', 'created_by_id'),
-        ('src_legislation', 'posted_by_id'),
-        ('src_loginalert', 'user_id'),
-        ('src_loginalert', 'reviewed_by_id'),
-        ('src_loginhistory', 'user_id'),
-        ('src_loginhistory', 'reviewed_by_id'),
-        ('src_minutesmotion', 'author_id'),
-        ('src_notification', 'recipient_id'),
-        ('src_parliamentuser_roles', 'parliamentuser_id'),
-        ('src_passedresolution', 'created_by_id'),
-        ('src_userannouncementview', 'user_id'),
-        ('src_userpreferences', 'user_id'),
-        ('src_vote', 'user_id'),
-        ('src_announcementemailrecipient', 'user_id'),
-        ('src_announcementemaillog', 'initiated_by_id'),
-        ('src_usersession', 'user_id'),
-        ('src_twofactorrequirement', 'user_id'),
-        ('src_twofactorrequirement', 'set_by_id'),
-        ('src_servicehourssubmission', 'submitted_by_id'),
-        ('src_servicehourssubmission', 'reviewed_by_id'),
-        ('src_serviceactivity', 'user_id'),
-        ('src_servicehoursadjustment', 'member_id'),
-        ('src_servicehoursadjustment', 'adjusted_by_id'),
-        ('src_servicememberexpectation', 'member_id'),
-        ('src_servicememberexpectation', 'created_by_id'),
-        ('src_serviceperiod', 'created_by_id'),
-        ('src_serviceformfield', 'created_by_id'),
-        ('src_song', 'created_by_id'),
-        ('src_slatingapplication', 'applicant_id'),
-        ('src_slatingapplication', 'reviewer_id'),
-        ('src_slatingballot', 'voter_id'),
-        ('src_slatingactivity', 'user_id'),
-        ('src_slatinginterview_interviewers', 'parliamentuser_id'),
-        ('src_slatinginterview', 'destroyed_by_id'),
-        ('src_slatingperiod', 'created_by_id'),
-        ('src_slatingperiod', 'admin_transferred_from_id'),
-        ('src_slate', 'created_by_id'),
-        ('src_slate', 'approved_by_id'),
-        ('src_kaiclosurerequest', 'requested_by_id'),
-        ('src_kaiclosurerequest', 'reviewed_by_id'),
-        ('src_kaiformfield', 'created_by_id'),
-        ('src_notificationschedule', 'created_by_id'),
-        ('src_committee', 'admin_id'),
-        ('src_usertourprogress', 'user_id'),
-        ('src_loginlockout', 'cleared_by_id'),
     ]
-
-    # Security: Build allowlists from the hardcoded related_tables for validation
-    allowed_tables = frozenset(t[0] for t in related_tables)
-    allowed_columns = frozenset(t[1] for t in related_tables)
-    # Also allow the user table
-    allowed_tables = allowed_tables | {table_name}
 
     for pledge in pledges:
         old_user_id = pledge.user_id
@@ -510,13 +429,10 @@ def initiate_pledges(request):
         try:
             from django.db import transaction
             with transaction.atomic():
+                # Steps 1–3: Raw SQL to copy the user record with the new PK.
+                # Django ORM cannot update primary keys, so this must stay as raw SQL.
                 with connection.cursor() as cursor:
-                    # Validate table_name (comes from Django model meta, but validate anyway)
-                    if table_name not in allowed_tables:
-                        raise ValueError(f"Invalid table name: {table_name}")
-
                     # Step 1: Temporarily rename unique fields on old record to avoid conflicts
-                    # This allows us to create the new record with the same username/email
                     cursor.execute(
                         f"""UPDATE {table_name}
                             SET username = '_migrating_' || username,
@@ -526,7 +442,6 @@ def initiate_pledges(request):
                     )
 
                     # Step 2: Create a copy of the pledge with the new user_id
-                    # Get all column names except user_id and the unique fields we'll restore
                     cursor.execute(
                         """SELECT column_name FROM information_schema.columns
                            WHERE table_name = %s AND column_name NOT IN ('user_id', 'username', 'email')
@@ -536,7 +451,6 @@ def initiate_pledges(request):
                     columns = [row[0] for row in cursor.fetchall()]
                     columns_str = ', '.join(columns)
 
-                    # Insert new record with new user_id, restoring original username/email
                     cursor.execute(
                         f"""INSERT INTO {table_name} (user_id, username, email, {columns_str})
                             SELECT %s,
@@ -553,43 +467,69 @@ def initiate_pledges(request):
                         ['Member', assigned_role_number, assigned_role_number]
                     )
 
-                    # Step 4: Update all FK references to point to the new user_id
-                    fk_update_summary = []
-                    for rel_table, rel_column in related_tables:
-                        # Validate table/column names against allowlist (defense-in-depth)
-                        if rel_table not in allowed_tables or rel_column not in allowed_columns:
-                            logger.warning(f"Skipping invalid table/column: {rel_table}.{rel_column}")
-                            continue
+                # Step 4: Reassign all FK / OneToOne / M2M relations using Django ORM.
+                # _meta.get_fields() auto-discovers every relation, so new models are
+                # covered automatically without any changes here.
+                old_pledge_obj = ParliamentUser.objects.get(user_id=old_user_id)
+                new_pledge_obj = ParliamentUser.objects.get(user_id=assigned_role_number)
+
+                # M2M: roles (through table, must be moved before ORM scan)
+                new_pledge_obj.roles.set(list(old_pledge_obj.roles.all()))
+                old_pledge_obj.roles.clear()
+
+                # M2M: co-authored legislation
+                try:
+                    for leg in list(old_pledge_obj.co_authored_legislation.all()):
+                        leg.co_authors.remove(old_pledge_obj)
+                        leg.co_authors.add(new_pledge_obj)
+                except Exception:
+                    pass
+
+                # Reverse FK / OneToOne — auto-discovered
+                skip_accessors = {'roles', 'co_authored_legislation'}
+                fk_update_summary = []
+                for rel in old_pledge_obj._meta.get_fields():
+                    if not hasattr(rel, 'get_accessor_name'):
+                        continue
+                    accessor = rel.get_accessor_name()
+                    if not accessor or accessor in skip_accessors:
+                        continue
+                    if rel.one_to_many or rel.one_to_one:
+                        try:
+                            related_manager = getattr(old_pledge_obj, accessor)
+                            count = related_manager.all().update(**{rel.field.name: new_pledge_obj})
+                            if count > 0:
+                                fk_update_summary.append(f"{accessor}: {count}")
+                        except Exception as e:
+                            logger.warning(f"Could not update FK {accessor} for {pledge_name}: {e}")
+
+                # Non-ORM tables (not discoverable via _meta)
+                with connection.cursor() as cursor:
+                    for rel_table, rel_column in extra_tables:
                         try:
                             cursor.execute(
-                                f"UPDATE {rel_table} SET {rel_column} = %s WHERE {rel_column} = %s",  # nosec B608 - table/column from hardcoded allowlist
+                                f"UPDATE {rel_table} SET {rel_column} = %s WHERE {rel_column} = %s",  # nosec B608
                                 [assigned_role_number, old_user_id]
                             )
                             if cursor.rowcount > 0:
                                 fk_update_summary.append(f"{rel_table}.{rel_column}: {cursor.rowcount}")
-                            logger.debug(f"Updated {rel_table}.{rel_column}: {cursor.rowcount} rows")
                         except Exception as e:
-                            error_str = str(e).lower()
-                            # Only ignore "table does not exist" or "column does not exist" errors
-                            if 'does not exist' in error_str or 'undefined' in error_str:
-                                logger.debug(f"Table/column not found: {rel_table}.{rel_column}")
-                            else:
-                                logger.error(f"Error updating {rel_table}.{rel_column}: {e}")
-                                raise
+                            if 'does not exist' not in str(e).lower() and 'undefined' not in str(e).lower():
+                                logger.error(f"Error updating extra table {rel_table}.{rel_column}: {e}")
 
-                    if fk_update_summary:
-                        logger.info(f"FK updates for {pledge_name}: {', '.join(fk_update_summary)}")
+                if fk_update_summary:
+                    logger.info(f"FK updates for {pledge_name}: {', '.join(fk_update_summary)}")
 
-                    # Step 5: Verify no CASCADE-delete FKs still reference the old user
-                    # Check critical tables that have CASCADE delete
-                    cascade_tables = [
-                        ('src_servicehourssubmission', 'submitted_by_id'),
-                        ('src_servicehoursadjustment', 'member_id'),
-                        ('src_servicememberexpectation', 'member_id'),
-                        ('src_attendance', 'user_id'),
-                        ('src_vote', 'user_id'),
-                        ('src_committeevote', 'user_id'),
-                    ]
+                # Step 5: Verify no CASCADE-delete FKs still reference the old user
+                cascade_tables = [
+                    ('src_servicehourssubmission', 'submitted_by_id'),
+                    ('src_servicehoursadjustment', 'member_id'),
+                    ('src_servicememberexpectation', 'member_id'),
+                    ('src_attendance', 'user_id'),
+                    ('src_vote', 'user_id'),
+                    ('src_committeevote', 'user_id'),
+                ]
+                with connection.cursor() as cursor:
                     for check_table, check_col in cascade_tables:
                         try:
                             cursor.execute(

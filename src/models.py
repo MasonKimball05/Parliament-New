@@ -2756,6 +2756,10 @@ class ActivityLog(models.Model):
         # Kai Committee
         ('kai_action', 'Kai Report Action'),
 
+        # Pledge
+        ('pledge_login', 'Pledge Login'),
+        ('pledge_password_changed', 'Pledge Password Changed'),
+
         # Other
         ('other', 'Other Action'),
         ('bug_report_submitted', 'Bug Report Submitted'),
@@ -5984,6 +5988,37 @@ class LoginLockout(models.Model):
     def is_active(self):
         from django.utils import timezone
         return not self.is_cleared and self.expires_at > timezone.now()
+
+
+class PushSubscription(models.Model):
+    """
+    Stores a Web Push subscription for one browser/device.
+    One user can have multiple subscriptions (phone + laptop, etc.).
+    Created by the subscribe endpoint; deleted on unsubscribe or when
+    a push send returns a 410 Gone (subscription expired).
+    """
+    user = models.ForeignKey(ParliamentUser, on_delete=models.CASCADE, related_name='push_subscriptions')
+    endpoint = models.TextField(unique=True)
+    p256dh = models.TextField()   # public key
+    auth = models.TextField()     # auth secret
+    user_agent = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Push Subscription'
+        verbose_name_plural = 'Push Subscriptions'
+
+    def __str__(self):
+        return f"{self.user} — {self.endpoint[:60]}…"
+
+    def as_subscription_info(self):
+        """Return the dict shape pywebpush expects."""
+        return {
+            'endpoint': self.endpoint,
+            'keys': {'p256dh': self.p256dh, 'auth': self.auth},
+        }
 
 
 # Import feature flags models

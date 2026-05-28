@@ -1,0 +1,132 @@
+"""
+Register default Celery Beat periodic task schedules in the database.
+
+Run once after deploying Celery for the first time (and after new tasks are added):
+
+    python manage.py setup_celery_schedules
+
+Schedules are stored in django_celery_beat's PeriodicTask table so they can be
+paused or adjusted from admin-v2 without touching code.
+
+Running this command again is safe — it uses get_or_create so existing schedules
+are not overwritten unless --reset is passed.
+"""
+from django.core.management.base import BaseCommand
+from django_celery_beat.models import PeriodicTask, IntervalSchedule, CrontabSchedule
+import json
+
+
+SCHEDULES = [
+    # -------------------------------------------------------------------------
+    # Vote auto-open / close — runs every minute so votes open/close on time
+    # -------------------------------------------------------------------------
+    {
+        'name': 'Auto open/close chapter votes',
+        'task': 'tasks.auto_open_close_chapter_votes',
+        'interval': {'every': 1, 'period': IntervalSchedule.MINUTES},
+    },
+    {
+        'name': 'Auto open/close committee votes',
+        'task': 'tasks.auto_open_close_committee_votes',
+        'interval': {'every': 1, 'period': IntervalSchedule.MINUTES},
+    },
+    {
+        'name': 'Auto open/close slating votes',
+        'task': 'tasks.auto_open_close_slating_votes',
+        'interval': {'every': 1, 'period': IntervalSchedule.MINUTES},
+    },
+
+    # -------------------------------------------------------------------------
+    # Scheduled announcement emails — every 5 minutes
+    # -------------------------------------------------------------------------
+    {
+        'name': 'Publish scheduled announcements',
+        'task': 'tasks.publish_scheduled_announcements',
+        'interval': {'every': 5, 'period': IntervalSchedule.MINUTES},
+    },
+
+    # -------------------------------------------------------------------------
+    # Housekeeping — daily tasks via crontab
+    # -------------------------------------------------------------------------
+    {
+        'name': 'Cleanup expired user sessions',
+        'task': 'tasks.cleanup_expired_sessions',
+        'crontab': {'hour': '3', 'minute': '0'},  # 3:00 AM daily
+    },
+    {
+        'name': 'Send daily honeypot digest',
+        'task': 'tasks.send_daily_honeypot_digest',
+        'crontab': {'hour': '7', 'minute': '0'},  # 7:00 AM daily
+    },
+]
+
+
+class Command(BaseCommand):
+    help = 'Register default Celery Beat periodic task schedules in the database'
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--reset',
+            action='store_true',
+            help='Delete and recreate all managed schedules (use after renaming tasks)',
+        )
+
+    def handle(self, *args, **options):
+        reset = options['reset']
+        created = 0
+        skipped = 0
+
+        for spec in SCHEDULES:
+            task_name = spec['name']
+
+            if reset:
+                PeriodicTask.objects.filter(name=task_name).delete()
+
+            # Build the schedule object
+            if 'interval' in spec:
+                iv = spec['interval']
+                schedule, _ = IntervalSchedule.objects.get_or_create(
+                    every=iv['every'],
+                    period=iv['period'],
+                )
+                defaults = {
+                    'task': spec['task'],
+                    'interval': schedule,
+                    'crontab': None,
+                    'args': json.dumps([]),
+                    'enabled': True,
+                }
+            else:
+                ct = spec['crontab']
+                schedule, _ = CrontabSchedule.objects.get_or_create(
+                    minute=ct.get('minute', '*'),
+                    hour=ct.get('hour', '*'),
+                    day_of_week=ct.get('day_of_week', '*'),
+                    day_of_month=ct.get('day_of_month', '*'),
+                    month_of_year=ct.get('month_of_year', '*'),
+                )
+                defaults = {
+                    'task': spec['task'],
+                    'crontab': schedule,
+                    'interval': None,
+                    'args': json.dumps([]),
+                    'enabled': True,
+                }
+
+            _, was_created = PeriodicTask.objects.get_or_create(
+                name=task_name,
+                defaults=defaults,
+            )
+
+            if was_created:
+                self.stdout.write(self.style.SUCCESS(f'  Created: {task_name}'))
+                created += 1
+            else:
+                self.stdout.write(f'  Already exists (skipped): {task_name}')
+                skipped += 1
+
+        self.stdout.write(self.style.SUCCESS(
+            f'\nDone. Created {created}, skipped {skipped}.'
+        ))
+        if skipped and not reset:
+            self.stdout.write('  Run with --reset to force-recreate existing schedules.')

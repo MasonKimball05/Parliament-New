@@ -92,6 +92,23 @@ def log_successful_login(sender, request, user, **kwargs):
 
         logger.info(f"Login tracked: {user.name} from {ip_address} ({location_data.get('city', 'Unknown')}) - Risk: {risk_analysis['risk_level']}")
 
+        # Log pledge logins separately for easy officer review
+        if getattr(user, 'is_pledge', False):
+            try:
+                from src.models import ActivityLog
+                ActivityLog.log_activity(
+                    action_type='pledge_login',
+                    user=user,
+                    description=f"Pledge {user.name} logged in",
+                    ip_address=ip_address,
+                    user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+                    object_type='ParliamentUser',
+                    object_id=user.pk,
+                    object_repr=user.name,
+                )
+            except Exception as log_err:
+                logger.error(f"Failed to log pledge login for {user.name}: {log_err}")
+
     except Exception as e:
         logger.error(f"Error tracking login for user {user.name}: {str(e)}", exc_info=True)
 

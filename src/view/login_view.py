@@ -94,6 +94,13 @@ def clear_failed_attempts(ip_address):
 def login_view(request):
     list(get_messages(request))  # Clear flash messages
 
+    if request.GET.get('quarantined'):
+        messages.error(
+            request,
+            "Your session was ended because your account has been flagged for suspicious activity. "
+            "Please contact an administrator."
+        )
+
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')

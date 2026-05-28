@@ -21,6 +21,13 @@ psycopg2-pool==1.1
 redis==5.2.1
 django-redis==5.4.0
 
+# Celery — async task queue and periodic task scheduling
+celery==5.4.0
+django-celery-beat==2.7.0
+
+# Web Push notifications (VAPID-signed push via pywebpush)
+pywebpush==2.3.0
+
 # Field-level encryption for sensitive data (AES encryption via Fernet)
 cryptography==46.0.7
 

@@ -95,7 +95,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
 
         <!-- Security Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-expanded="false">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-card-id="security" data-expanded="true">
             <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center mr-3">
@@ -110,11 +110,11 @@
                         </p>
                     </div>
                 </div>
-                <svg class="w-5 h-5 text-gray-400 transform transition-transform" class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="chevron-icon w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
             </div>
-            <div class="card-body" class="p-4 space-y-2">
+            <div class="card-body p-4 space-y-2">
                 <!-- Dismissible alerts (login alerts + quarantined accounts) -->
                 {% if stats.security.new_login_alerts or stats.security.quarantined_accounts %}
                 <div class="mb-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
@@ -188,7 +188,7 @@
         </div>
 
         <!-- Users Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-expanded="false">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-card-id="users" data-expanded="true">
             <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mr-3">
@@ -201,11 +201,11 @@
                         <p class="text-sm text-gray-500 dark:text-gray-400">{{ stats.users.total }} total, {{ stats.users.active }} active</p>
                     </div>
                 </div>
-                <svg class="w-5 h-5 text-gray-400 transform transition-transform" class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="chevron-icon w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
             </div>
-            <div class="card-body" class="p-4">
+            <div class="card-body p-4">
                 <div class="grid grid-cols-3 gap-2 mb-4 text-center text-sm">
                     <div class="bg-gray-50 dark:bg-gray-700 rounded p-2">
                         <div class="font-bold text-gray-900 dark:text-gray-100">{{ stats.users.officers }}</div>
@@ -230,7 +230,7 @@
         </div>
 
         <!-- Content Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-expanded="false">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-card-id="content" data-expanded="true">
             <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center mr-3">
@@ -243,11 +243,11 @@
                         <p class="text-sm text-gray-500 dark:text-gray-400">Legislation, Events, Committees</p>
                     </div>
                 </div>
-                <svg class="w-5 h-5 text-gray-400 transform transition-transform" class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="chevron-icon w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
             </div>
-            <div class="card-body" class="p-4 space-y-2">
+            <div class="card-body p-4 space-y-2">
                 <a href="{% url 'admin_v2_manage_legislation' %}" class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">
                     <span class="font-medium text-gray-900 dark:text-gray-100">Legislation</span>
                     <span class="text-sm text-purple-600 dark:text-purple-400">{{ stats.legislation.total }}</span>
@@ -268,7 +268,7 @@
         </div>
 
         <!-- Email & Notifications Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-expanded="false">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-card-id="email" data-expanded="true">
             <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg flex items-center justify-center mr-3">
@@ -281,11 +281,11 @@
                         <p class="text-sm text-gray-500 dark:text-gray-400">Email logs, testing, schedules</p>
                     </div>
                 </div>
-                <svg class="w-5 h-5 text-gray-400 transform transition-transform" class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="chevron-icon w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
             </div>
-            <div class="card-body" class="p-4 space-y-2">
+            <div class="card-body p-4 space-y-2">
                 <a href="{% url 'admin_v2_email_logs' %}" class="block p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">
                     <span class="font-medium text-gray-900 dark:text-gray-100">Email Logs</span>
                 </a>
@@ -307,7 +307,7 @@
         </div>
 
         <!-- System Settings Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-expanded="false">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-card-id="system" data-expanded="true">
             <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center mr-3">
@@ -321,11 +321,11 @@
                         <p class="text-sm text-gray-500 dark:text-gray-400">Feature flags, settings</p>
                     </div>
                 </div>
-                <svg class="w-5 h-5 text-gray-400 transform transition-transform" class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="chevron-icon w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
             </div>
-            <div class="card-body" class="p-4">
+            <div class="card-body p-4">
                 <!-- Feature Flags Quick Toggle -->
                 <div class="mb-4">
                     <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Feature Flags</h4>
@@ -363,7 +363,7 @@
         </div>
 
         <!-- Performance Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-expanded="false">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-card-id="performance" data-expanded="true">
             <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center mr-3">
@@ -376,11 +376,11 @@
                         <p class="text-sm text-gray-500 dark:text-gray-400">{{ performance.avg_response_time_ms|default:"0" }}ms avg response</p>
                     </div>
                 </div>
-                <svg class="w-5 h-5 text-gray-400 transform transition-transform" class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="chevron-icon w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
             </div>
-            <div class="card-body" class="p-4">
+            <div class="card-body p-4">
                 <div class="grid grid-cols-3 gap-2 mb-4 text-center text-sm">
                     <div class="bg-gray-50 dark:bg-gray-700 rounded p-2">
                         <div class="font-bold text-gray-900 dark:text-gray-100">{{ performance.total_requests|default:"0" }}</div>
@@ -408,7 +408,7 @@
     </div>
 
     <!-- Page Toggles Section -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6" data-card data-expanded="true">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6" data-card data-card-id="page-toggles" data-expanded="true">
         <div class="flex items-center justify-between mb-4 cursor-pointer" onclick="toggleCard(this.closest('[data-card]'))">
             <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
                 <svg class="w-6 h-6 mr-2 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -496,23 +496,35 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
-// Card expand/collapse
+// Card expand/collapse with localStorage persistence
 function toggleCard(card) {
     if (!card) return;
     const expanded = card.dataset.expanded === 'true';
-    card.dataset.expanded = expanded ? 'false' : 'true';
+    const newState = !expanded;
+    card.dataset.expanded = newState ? 'true' : 'false';
     const body = card.querySelector('.card-body');
-    if (body) body.style.display = expanded ? 'none' : '';
+    if (body) body.style.display = newState ? '' : 'none';
     const chevron = card.querySelector('.chevron-icon');
-    if (chevron) chevron.style.transform = expanded ? '' : 'rotate(180deg)';
+    if (chevron) chevron.style.transform = newState ? 'rotate(180deg)' : '';
+    const cardId = card.dataset.cardId;
+    if (cardId) {
+        try { localStorage.setItem('admin_card_' + cardId, newState ? '1' : '0'); } catch (e) {}
+    }
 }
 
-// Initialise all cards on page load
+// Initialise all cards on page load, restoring localStorage state
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('[data-card]').forEach(function (card) {
+        const cardId = card.dataset.cardId;
+        let isExpanded = card.dataset.expanded === 'true';
+        if (cardId) {
+            try {
+                const stored = localStorage.getItem('admin_card_' + cardId);
+                if (stored !== null) isExpanded = stored === '1';
+            } catch (e) {}
+        }
         const body = card.querySelector('.card-body');
         const chevron = card.querySelector('.chevron-icon');
-        const isExpanded = card.dataset.expanded === 'true';
         if (body) body.style.display = isExpanded ? '' : 'none';
         if (chevron) chevron.style.transform = isExpanded ? 'rotate(180deg)' : '';
     });

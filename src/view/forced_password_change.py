@@ -37,6 +37,16 @@ def forced_password_change(request):
                     object_repr=request.user.name,
                     metadata={'forced': True},
                 )
+                if getattr(request.user, 'is_pledge', False):
+                    ActivityLog.log_activity(
+                        action_type='pledge_password_changed',
+                        user=request.user,
+                        description=f'Pledge {request.user.name} changed their password for the first time',
+                        request=request,
+                        object_type='ParliamentUser',
+                        object_id=request.user.pk,
+                        object_repr=request.user.name,
+                    )
                 messages.success(
                     request,
                     'Password changed successfully! You can now access the system.'
