@@ -2,11 +2,26 @@
 House map view — shows each house's members and big/little family trees.
 """
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.views.decorators.http import require_http_methods
 
-from src.models import ParliamentUser
+from src.models import ParliamentUser, Role
 from src.decorators import log_function_call
 from src.feature_flag_decorators import require_page_enabled
+
+
+def _get_historian_role():
+    role, _ = Role.objects.get_or_create(
+        code='HistorianChair',
+        defaults={
+            'name': 'Historian Chair',
+            'description': 'Can assign house memberships on the house map',
+            'one_per_chapter': True,
+            'grants_admin': False,
+        }
+    )
+    return role
 
 
 def _can_set_house(user):
@@ -62,7 +77,25 @@ def _find_implied_members(house_members, member_by_id):
 @login_required
 @require_page_enabled('house_map')
 @log_function_call
+@require_http_methods(['GET', 'POST'])
 def house_map(request):
+    historian_role = _get_historian_role()
+
+    if request.method == 'POST' and request.user.is_admin:
+        action = request.POST.get('action')
+        user_id = request.POST.get('user_id', '').strip()
+        try:
+            target = ParliamentUser.objects.get(user_id=user_id)
+            if action == 'add_historian':
+                target.roles.add(historian_role)
+                messages.success(request, f'{target.get_display_name()} assigned as Historian Chair.')
+            elif action == 'remove_historian':
+                target.roles.remove(historian_role)
+                messages.success(request, f'{target.get_display_name()} removed as Historian Chair.')
+        except ParliamentUser.DoesNotExist:
+            messages.error(request, 'Member not found.')
+        return redirect('house_map')
+
     house_choices = ParliamentUser.HOUSE_CHOICES
     house_codes = {c[0] for c in house_choices}
 
@@ -120,10 +153,17 @@ def house_map(request):
 
     unassigned_count = ParliamentUser.objects.filter(house='').count()
 
+    historians = ParliamentUser.objects.filter(roles=historian_role, is_active=True).order_by('name')
+    eligible_historians = ParliamentUser.objects.filter(
+        is_active=True, member_type='Chair'
+    ).exclude(roles=historian_role).order_by('name')
+
     return render(request, 'house_map.html', {
         'houses': houses_template,
         'houses_data': houses_js,
         'unassigned_count': unassigned_count,
         'can_set_house': _can_set_house(request.user),
         'house_choices': ParliamentUser.HOUSE_CHOICES,
+        'historians': historians,
+        'eligible_historians': eligible_historians,
     })
