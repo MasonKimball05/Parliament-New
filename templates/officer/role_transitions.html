@@ -355,8 +355,13 @@ function showToast(msg) {
 }
 
 function getCsrfToken() {
-    const cookie = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
-    return cookie ? cookie.trim().split('=')[1] : '';
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta) return meta.getAttribute('content');
+    for (const c of document.cookie.split(';')) {
+        const t = c.trim();
+        if (t.startsWith('csrftoken=')) return decodeURIComponent(t.substring(10));
+    }
+    return '';
 }
 </script>
 {% endblock %}

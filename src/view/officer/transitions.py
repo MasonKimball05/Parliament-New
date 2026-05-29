@@ -104,9 +104,9 @@ def transfer_role(request, role_id):
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Invalid JSON.'}, status=400)
 
-    incoming_id = data.get('incoming_user_id', '').strip()
-    outgoing_id = data.get('outgoing_user_id', '').strip()
-    incoming_type = data.get('incoming_type', '').strip()
+    incoming_id = (data.get('incoming_user_id') or '').strip()
+    outgoing_id = (data.get('outgoing_user_id') or '').strip()
+    incoming_type = (data.get('incoming_type') or '').strip()
     demote_outgoing = bool(data.get('demote_outgoing', False))
 
     if not incoming_id:
