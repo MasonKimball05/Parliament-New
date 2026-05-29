@@ -15,7 +15,7 @@ def _get_historian_role():
     role, _ = Role.objects.get_or_create(
         code='HIST',
         defaults={
-            'name': 'Historian Chair',
+            'name': 'Historian and Archivist',
             'description': 'Can assign house memberships on the house map',
             'one_per_chapter': True,
             'grants_admin': False,
