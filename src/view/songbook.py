@@ -188,7 +188,7 @@ def manage_categories(request):
 
     # Get or create the Chorister role
     chorister_role, _ = Role.objects.get_or_create(
-        code='Chorister',
+        code='CHOIR',
         defaults={
             'name': 'Chorister',
             'description': 'Can manage songs and lyrics in the Songbook',

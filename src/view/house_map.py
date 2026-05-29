@@ -13,7 +13,7 @@ from src.feature_flag_decorators import require_page_enabled
 
 def _get_historian_role():
     role, _ = Role.objects.get_or_create(
-        code='HistorianChair',
+        code='HIST',
         defaults={
             'name': 'Historian Chair',
             'description': 'Can assign house memberships on the house map',
@@ -88,6 +88,9 @@ def house_map(request):
             target = ParliamentUser.objects.get(user_id=user_id)
             if action == 'add_historian':
                 target.roles.add(historian_role)
+                if target.member_type not in ('Officer', 'Chair'):
+                    target.member_type = 'Chair'
+                    target.save(update_fields=['member_type'])
                 messages.success(request, f'{target.get_display_name()} assigned as Historian Chair.')
             elif action == 'remove_historian':
                 target.roles.remove(historian_role)
@@ -155,8 +158,14 @@ def house_map(request):
 
     historians = ParliamentUser.objects.filter(roles=historian_role, is_active=True).order_by('name')
     eligible_historians = ParliamentUser.objects.filter(
-        is_active=True, member_type='Chair'
-    ).exclude(roles=historian_role).order_by('name')
+        is_active=True,
+    ).exclude(
+        member_type='Pledge',
+    ).exclude(
+        member_status__in=['Alumni', 'Removed'],
+    ).exclude(
+        roles=historian_role,
+    ).order_by('name')
 
     return render(request, 'house_map.html', {
         'houses': houses_template,
