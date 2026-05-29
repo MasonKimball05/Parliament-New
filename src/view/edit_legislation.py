@@ -89,6 +89,8 @@ def edit_legislation(request, legislation_id):
                 f"as {outcome} via mark_voted action"
             )
             messages.success(request, f'Legislation marked as {outcome}.')
+            if outcome == 'passed' and legislation.legislation_type == 'appointment' and legislation.appointment_role:
+                return redirect('assign_appointment', legislation_id=legislation.id)
             return redirect('passed_legislation')
 
         # Handle authorship transfer separately

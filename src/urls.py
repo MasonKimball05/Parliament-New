@@ -157,6 +157,7 @@ from src.view.delete_legislation import delete_chapter_legislation
 from src.view.passed_legislation import passed_legislation, PassedLegislationDetailView, add_legislation, update_legislation_note
 from src.view.legislation_detail import legislation_detail
 from src.view.edit_legislation import edit_legislation
+from src.view.assign_appointment import assign_appointment
 from src.view.reopen_legislation import reopen_legislation
 from src.view.submit_new_version import submit_new_version
 from src.view.login_as_view import login_as_view, login_as_user
@@ -436,6 +437,7 @@ urlpatterns = [
     path('legislation/<int:legislation_id>/download/', download_legislation_document, name='download_legislation_document'),
     path('legislation/history/', view_legislation_history, name='view_legislation_history'),
     path('legislation/<int:legislation_id>/edit/', edit_legislation, name='edit_legislation'),
+    path('legislation/<int:legislation_id>/assign/', assign_appointment, name='assign_appointment'),
     path('legislation/<int:legislation_id>/reopen/', reopen_legislation, name='reopen_legislation'),
     path('legislation/<int:legislation_id>/note/', update_legislation_note, name='update_legislation_note'),
     path('legislation/<int:legislation_id>/submit_new_version/', submit_new_version, name='submit_new_version'),

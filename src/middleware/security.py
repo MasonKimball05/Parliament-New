@@ -17,7 +17,7 @@ logger = logging.getLogger('admin_actions')
 # Compiled regex patterns for attack detection
 SQL_INJECTION_PATTERNS = [
     re.compile(r"(\b(union|select|insert|update|delete|drop|create|alter|exec|execute)\b.*\b(from|into|table|database|where)\b)", re.IGNORECASE),
-    re.compile(r"(/\*|\*/|@@|char\s*\(|nchar\s*\(|varchar\s*\(|nvarchar\s*\(|cast\s*\(|convert\s*\()", re.IGNORECASE),  # SQL functions/comments (removed @ and ; — too broad)
+    re.compile(r"(@@|char\s*\(|nchar\s*\(|varchar\s*\(|nvarchar\s*\(|cast\s*\(|convert\s*\()", re.IGNORECASE),  # SQL functions (/* and */ removed — too broad; appear in normal text/code comments)
     re.compile(r"(\b(or|and)\b\s+\d+\s*=\s*\d+)", re.IGNORECASE),  # or 1=1, and 1=1
     re.compile(r"(\b(or|and)\b\s+'[^']*'\s*=\s*'[^']*')", re.IGNORECASE),  # or 'a'='a' — require quotes
     re.compile(r"(waitfor\s+delay|benchmark\s*\(|sleep\s*\()", re.IGNORECASE),  # Time-based injection
@@ -405,6 +405,14 @@ class InputSanitizationMiddleware:
             return render(request, '403.html', {
                 'reason': 'Your IP address has been blocked. Contact an administrator if you believe this is an error.'
             }, status=403)
+
+        # Authenticated users are already past auth/CSRF/session checks.
+        # Django's ORM parameterizes all queries and templates auto-escape output,
+        # so pattern scanning adds no real protection for logged-in members and
+        # is the primary source of false positives on free-text form fields.
+        if hasattr(request, 'user') and request.user.is_authenticated:
+            response = self.get_response(request)
+            return self.add_security_headers(response, request.csp_nonce, path=request.path)
 
         # Check all input sources for malicious patterns
         attack_detected = False

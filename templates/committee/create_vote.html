@@ -3,212 +3,199 @@
 {% block title %}Create Vote - {{ committee.name }}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <div class="mb-6">
-        <a href="{% url 'vote' committee.code %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">← Back to Voting</a>
+<div class="container mx-auto px-4 py-6 max-w-3xl">
+
+    <!-- Back link -->
+    <div class="mb-5">
+        <a href="{% url 'vote' committee.code %}"
+           class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+            Back to Voting
+        </a>
     </div>
 
-    <h1 class="text-3xl font-bold mb-6 text-gray-900 dark:text-gray-100">Create Committee Vote</h1>
-    <p class="text-gray-600 dark:text-gray-400 mb-6">Committee: {{ committee.name }}</p>
+    <!-- Page Header -->
+    <div class="flex items-center gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Create Committee Vote</h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ committee.name }}</p>
+        </div>
+    </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
-        <form method="POST" enctype="multipart/form-data" class="space-y-6">
+    <!-- Form Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <form method="POST" enctype="multipart/form-data" class="space-y-5">
             {% csrf_token %}
 
             <!-- Title -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Title <span class="text-red-500 dark:text-red-400">*</span>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                    Title <span class="text-red-500">*</span>
                 </label>
                 <input type="text" name="title" required
-                       class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded px-3 py-2"
-                       placeholder="Enter legislation title">
+                       placeholder="Enter vote title"
+                       class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
             </div>
 
             <!-- Description -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Description
-                </label>
-                <textarea name="description" rows="4"
-                          class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded px-3 py-2"
-                          placeholder="Describe the legislation"></textarea>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Either a description or document is required.</p>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Description</label>
+                <textarea name="description" rows="3"
+                          placeholder="Describe the vote"
+                          class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"></textarea>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Either a description or document is required.</p>
             </div>
 
             <!-- Vote Mode -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Vote Mode <span class="text-red-500 dark:text-red-400">*</span>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                    Voting Mode <span class="text-red-500">*</span>
                 </label>
                 <select name="vote_mode" id="vote_mode" required
-                        class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2"
-                        onchange="toggleVoteMode()">
-                    <option value="percentage">Percentage (Yes/No/Abstain)</option>
-                    <option value="piecewise">Piecewise (Specific number of Yes votes)</option>
-                    <option value="plurality">Plurality (Multiple options)</option>
+                        onchange="toggleVoteMode()"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="percentage">Percentage — Yes / No / Abstain</option>
+                    <option value="piecewise">Piecewise — specific number of Yes votes</option>
+                    <option value="plurality">Plurality — multiple options</option>
                 </select>
             </div>
 
-            <!-- Percentage Options -->
+            <!-- ── Percentage options ── -->
             <div id="percentage_options" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Required Percentage
-                    </label>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Pass Threshold</label>
                     <select name="required_percentage"
-                            class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2">
-                        <option value="51">51%</option>
+                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="51">51% — Simple majority</option>
                         <option value="60">60%</option>
-                        <option value="67">67% (2/3)</option>
-                        <option value="75">75%</option>
-                        <option value="100">Unanimous (100%)</option>
+                        <option value="67">67% — Two-thirds</option>
+                        <option value="75">75% — Three-quarters</option>
+                        <option value="100">100% — Unanimous</option>
                     </select>
                 </div>
-
-                <div>
-                    <label class="flex items-center space-x-2">
-                        <input type="checkbox" name="remove_abstain" class="w-4 h-4 dark:bg-gray-700 dark:border-gray-600">
-                        <span class="text-sm text-gray-700 dark:text-gray-300">Remove abstain option</span>
-                    </label>
-                </div>
-            </div>
-
-            <!-- Piecewise Options -->
-            <div id="piecewise_options" style="display: none;">
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Required Number of Yes Votes
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="remove_abstain"
+                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+                    <span class="text-sm text-gray-700 dark:text-gray-300">Remove abstain option</span>
                 </label>
-                <input type="number" name="required_number" min="1"
-                       class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded px-3 py-2"
-                       placeholder="Enter number of required yes votes">
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Enter the exact number of "Yes" votes needed for this legislation to pass</p>
             </div>
 
-            <!-- Plurality Options -->
-            <div id="plurality_options" style="display: none;" class="space-y-4">
+            <!-- ── Piecewise options ── -->
+            <div id="piecewise_options" class="hidden">
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Required Yes Votes</label>
+                <input type="number" name="required_number" min="1" placeholder="e.g. 15"
+                       class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Exact number of "Yes" votes needed to pass.</p>
+            </div>
+
+            <!-- ── Plurality options ── -->
+            <div id="plurality_options" class="hidden space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Voting Options (at least 2 required, up to 10)
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                        Options <span class="font-normal normal-case">(at least 2, up to 10)</span>
                     </label>
                     <div id="plurality-options-list" class="space-y-2">
-                        <input type="text" name="plurality_option_1"
-                               class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded px-3 py-2"
-                               placeholder="Option 1">
-                        <input type="text" name="plurality_option_2"
-                               class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded px-3 py-2"
-                               placeholder="Option 2">
-                        <input type="text" name="plurality_option_3"
-                               class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded px-3 py-2"
-                               placeholder="Option 3 (optional)">
-                        <input type="text" name="plurality_option_4"
-                               class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded px-3 py-2"
-                               placeholder="Option 4 (optional)">
-                        <input type="text" name="plurality_option_5"
-                               class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded px-3 py-2"
-                               placeholder="Option 5 (optional)">
+                        <input type="text" name="plurality_option_1" placeholder="Option 1" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_2" placeholder="Option 2" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_3" placeholder="Option 3 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_4" placeholder="Option 4 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_5" placeholder="Option 5 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
                     <div id="plurality-extra-options" class="space-y-2 mt-2 hidden">
-                        <input type="text" name="plurality_option_6"
-                               class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded px-3 py-2"
-                               placeholder="Option 6 (optional)">
-                        <input type="text" name="plurality_option_7"
-                               class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded px-3 py-2"
-                               placeholder="Option 7 (optional)">
-                        <input type="text" name="plurality_option_8"
-                               class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded px-3 py-2"
-                               placeholder="Option 8 (optional)">
-                        <input type="text" name="plurality_option_9"
-                               class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded px-3 py-2"
-                               placeholder="Option 9 (optional)">
-                        <input type="text" name="plurality_option_10"
-                               class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded px-3 py-2"
-                               placeholder="Option 10 (optional)">
+                        <input type="text" name="plurality_option_6"  placeholder="Option 6 (optional)"  class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_7"  placeholder="Option 7 (optional)"  class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_8"  placeholder="Option 8 (optional)"  class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_9"  placeholder="Option 9 (optional)"  class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_10" placeholder="Option 10 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
-                    <button type="button" id="toggle-extra-options" onclick="toggleExtraOptions()" class="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
-                        + Add more options (6-10)
+                    <button type="button" id="toggle-extra-options" onclick="toggleExtraOptions()"
+                            class="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                        + Add more options (6–10)
                     </button>
                 </div>
 
-                <!-- Multi-select voting settings -->
-                <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Votes Per Person</label>
-                    <select name="plurality_votes_allowed" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2">
-                        <option value="1">1 vote (single choice)</option>
-                        <option value="2">2 votes</option>
-                        <option value="3">3 votes</option>
-                        <option value="4">4 votes</option>
-                        <option value="5">5 votes</option>
-                    </select>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">How many options each voter can select</p>
-                </div>
-
-                <!-- Runoff voting settings -->
-                <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-                    <div class="flex items-center">
-                        <input type="checkbox" name="plurality_runoff_enabled" id="plurality_runoff_enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                        <label for="plurality_runoff_enabled" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">Enable runoff voting</label>
-                    </div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">If no clear winner, allow creating a runoff with top options</p>
-
-                    <div id="runoff-settings" class="mt-3 hidden">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Number of options in runoff</label>
-                        <select name="plurality_runoff_count" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2">
-                            <option value="2">Top 2 options</option>
-                            <option value="3">Top 3 options</option>
-                            <option value="4">Top 4 options</option>
-                            <option value="5">Top 5 options</option>
+                <div class="grid sm:grid-cols-2 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Votes Per Person</label>
+                        <select name="plurality_votes_allowed"
+                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="1">1 vote</option>
+                            <option value="2">2 votes</option>
+                            <option value="3">3 votes</option>
+                            <option value="4">4 votes</option>
+                            <option value="5">5 votes</option>
                         </select>
                     </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Runoff Voting</label>
+                        <label class="flex items-center gap-2 cursor-pointer mt-2">
+                            <input type="checkbox" name="plurality_runoff_enabled" id="plurality_runoff_enabled"
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+                            <span class="text-sm text-gray-700 dark:text-gray-300">Enable runoff</span>
+                        </label>
+                        <div id="runoff-settings" class="mt-2 hidden">
+                            <select name="plurality_runoff_count"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="2">Top 2 options</option>
+                                <option value="3">Top 3 options</option>
+                                <option value="4">Top 4 options</option>
+                                <option value="5">Top 5 options</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
 
+            <!-- Divider -->
+            <div class="border-t border-gray-100 dark:border-gray-700"></div>
+
             <!-- Document Upload -->
-            <div id="document_upload">
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Document (PDF or DOCX)
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                    Document <span class="font-normal normal-case text-gray-400">(PDF or DOCX, optional)</span>
                 </label>
                 <input type="file" name="document" accept=".pdf,.docx"
-                       class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2">
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Only PDF and DOCX files are allowed. Either a description or document is required.</p>
+                       class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg
+                              file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium
+                              file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-300 hover:file:bg-blue-100">
             </div>
 
-            <!-- Available At -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Voting Opens At <span class="text-red-500 dark:text-red-400">*</span>
-                </label>
-                <input type="datetime-local" name="available_at" required
-                       class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2">
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">When should voting open?</p>
+            <!-- Dates -->
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                        Voting Opens At <span class="text-red-500">*</span>
+                    </label>
+                    <input type="datetime-local" name="available_at" required
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                        Voting Ends At <span class="font-normal normal-case text-gray-400">(optional)</span>
+                    </label>
+                    <input type="datetime-local" name="voting_ends_at"
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave blank to close manually.</p>
+                </div>
             </div>
 
-            <!-- Voting Ends At (Optional) -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Voting Ends At <span class="text-gray-400 dark:text-gray-500 text-xs font-normal">(Optional)</span>
-                </label>
-                <input type="datetime-local" name="voting_ends_at"
-                       class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2">
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Leave blank for no automatic end time. You can always end voting manually.</p>
-            </div>
-
-            <!-- Anonymous Vote -->
-            <div>
-                <label class="flex items-center space-x-2">
-                    <input type="checkbox" name="anonymous" class="w-4 h-4 dark:bg-gray-700 dark:border-gray-600">
-                    <span class="text-sm text-gray-700 dark:text-gray-300">Anonymous voting (hide voter identities)</span>
-                </label>
-            </div>
+            <!-- Checkboxes -->
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="anonymous"
+                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+                <span class="text-sm text-gray-700 dark:text-gray-300">Anonymous voting — hide voter identities</span>
+            </label>
 
             <!-- Submit -->
-            <div class="flex gap-3">
+            <div class="flex items-center gap-3 pt-1 border-t border-gray-100 dark:border-gray-700">
                 <button type="submit"
-                        class="bg-blue-500 dark:bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+                        class="px-5 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
                     Create Vote
                 </button>
                 <a href="{% url 'vote' committee.code %}"
-                   class="bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-6 py-2 rounded hover:bg-gray-400 dark:hover:bg-gray-600 inline-block transition-colors">
+                   class="px-5 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
                     Cancel
                 </a>
             </div>
@@ -218,58 +205,34 @@
 
 <script nonce="{{ request.csp_nonce }}">
 function toggleVoteMode() {
-    const voteMode = document.getElementById('vote_mode').value;
-    const percentageOptions = document.getElementById('percentage_options');
-    const piecewiseOptions = document.getElementById('piecewise_options');
-    const pluralityOptions = document.getElementById('plurality_options');
-
-    // Hide all first
-    percentageOptions.style.display = 'none';
-    piecewiseOptions.style.display = 'none';
-    pluralityOptions.style.display = 'none';
-
-    // Show relevant options
-    if (voteMode === 'percentage') {
-        percentageOptions.style.display = 'block';
-    } else if (voteMode === 'piecewise') {
-        piecewiseOptions.style.display = 'block';
-    } else if (voteMode === 'plurality') {
-        pluralityOptions.style.display = 'block';
-    }
+    const mode = document.getElementById('vote_mode').value;
+    document.getElementById('percentage_options').classList.toggle('hidden', mode !== 'percentage');
+    document.getElementById('piecewise_options').classList.toggle('hidden', mode !== 'piecewise');
+    document.getElementById('plurality_options').classList.toggle('hidden', mode !== 'plurality');
 }
 
-// Toggle extra plurality options (6-10)
 function toggleExtraOptions() {
-    const extraOptions = document.getElementById('plurality-extra-options');
-    const toggleBtn = document.getElementById('toggle-extra-options');
-    if (extraOptions.classList.contains('hidden')) {
-        extraOptions.classList.remove('hidden');
-        toggleBtn.textContent = '- Hide extra options';
-    } else {
-        extraOptions.classList.add('hidden');
-        toggleBtn.textContent = '+ Add more options (6-10)';
-        // Clear values when hiding
+    const extra = document.getElementById('plurality-extra-options');
+    const btn   = document.getElementById('toggle-extra-options');
+    const hidden = extra.classList.contains('hidden');
+    extra.classList.toggle('hidden', !hidden);
+    btn.textContent = hidden ? '− Hide extra options' : '+ Add more options (6–10)';
+    if (!hidden) {
         for (let i = 6; i <= 10; i++) {
-            const input = document.querySelector(`input[name="plurality_option_${i}"]`);
-            if (input) input.value = '';
+            const el = document.querySelector(`input[name="plurality_option_${i}"]`);
+            if (el) el.value = '';
         }
     }
 }
 
-// Toggle runoff settings visibility
-const runoffCheckbox = document.getElementById('plurality_runoff_enabled');
+const runoffCb = document.getElementById('plurality_runoff_enabled');
 const runoffSettings = document.getElementById('runoff-settings');
-if (runoffCheckbox && runoffSettings) {
-    runoffCheckbox.addEventListener('change', function() {
-        if (this.checked) {
-            runoffSettings.classList.remove('hidden');
-        } else {
-            runoffSettings.classList.add('hidden');
-        }
+if (runoffCb && runoffSettings) {
+    runoffCb.addEventListener('change', function () {
+        runoffSettings.classList.toggle('hidden', !this.checked);
     });
 }
 
-// Initialize on page load
 toggleVoteMode();
 </script>
 {% endblock %}

@@ -51,6 +51,36 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.23.0 - Chair Appointment Votes (05-29-2026)
+
+- Officers can create appointment votes directly from the legislation page via a new "Chair Appointment" tab
+- Appointment votes support all three vote modes (percentage, piecewise, plurality) — plurality allows multiple candidates as options
+- When an appointment vote passes, the author is redirected to `/legislation/<id>/assign/` to formally assign the role
+- Assignment promotes the member's `member_type` to `Chair` (if currently `Member`) and adds the role via `member.roles.add()`
+- `appointment_assigned` flag tracks completion; unassigned passed appointments show a persistent callout on the passed legislation page
+- Appointment votes display an "Appointment" badge + role name pill on the vote feed
+- 4 new fields on `Legislation` model (`legislation_type`, `appointment_role`, `appointment_member`, `appointment_assigned`); migration `0174`
+- 21 new tests: `CreateAppointmentTests`, `AssignAppointmentGetTests`, `AssignAppointmentPostTests`
+
+**Files added:**
+- `src/migrations/0174_legislation_appointment_fields.py`
+- `src/view/assign_appointment.py`
+- `templates/assign_appointment.html`
+
+**Files changed:**
+- `src/models.py` — 4 new fields on Legislation
+- `src/view/upload_legislation.py` — appointment creation path
+- `src/view/edit_legislation.py` — redirect to assign_appointment on passed appointment
+- `src/view/vote_view.py` — appointment_roles/members in context
+- `templates/vote.html` — appointment tab + form + badge
+- `templates/passed_legislation.html` — unassigned appointment callout
+- `src/urls.py` — assign_appointment URL
+- `src/test_pillar3.py` — 3 new test classes
+
+**Deployment:** Requires migration (`python manage.py migrate`). `collectstatic` + Cloudflare purge required.
+
+---
+
 ### v2.22.0 - Officer/Role Transition Tools (05-29-2026)
 
 - Added dedicated role handoff page at `/officers/transitions/` — shows all roles with current holders and a Transfer button per row

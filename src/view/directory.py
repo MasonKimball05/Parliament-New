@@ -22,11 +22,11 @@ def member_directory(request):
         member_type='Advisor'
     ).order_by('name')
 
-    # Get advisors separately
-    advisors = ParliamentUser.objects.filter(
+    # Get advisors separately (materialized to list so .sort() works in sort branches below)
+    advisors = list(ParliamentUser.objects.filter(
         member_status='Active',
         member_type='Advisor'
-    ).order_by('name')
+    ).order_by('name'))
 
     alumni = []
     if show_alumni:
@@ -57,7 +57,7 @@ def member_directory(request):
         'advisors': advisors,
         'alumni': alumni,
         'show_alumni': show_alumni,
-        'total_count': members.count() + advisors.count(),
+        'total_count': members.count() + len(advisors),
         'sort': sort,
         'filter_type': request.GET.get('filter', 'all'),
     }

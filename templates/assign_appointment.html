@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block title %}Assign Role — {{ legislation.title }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-lg">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <!-- Header -->
+        <div class="bg-green-50 dark:bg-green-900/20 border-b border-green-200 dark:border-green-800 px-6 py-5">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0 w-10 h-10 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg font-semibold text-green-900 dark:text-green-100">Appointment Vote Passed</h1>
+                    <p class="text-sm text-green-700 dark:text-green-300 mt-0.5">{{ legislation.title }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="px-6 py-5">
+            <!-- Role info -->
+            <div class="mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Role to Assign</p>
+                <p class="text-base font-semibold text-gray-900 dark:text-white">{{ role.name }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 font-mono mt-0.5">{{ role.code }}</p>
+            </div>
+
+            {% if messages %}
+            <div class="mb-4 space-y-2">
+                {% for message in messages %}
+                <div class="px-4 py-3 rounded-lg text-sm bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+
+                {% if is_plurality %}
+                <!-- Plurality: officer selects which candidate won -->
+                <div class="mb-5">
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        This was a plurality vote.
+                        {% if winning_option %}
+                        The leading candidate was <strong class="text-gray-900 dark:text-white">{{ winning_option }}</strong>.
+                        Select the member to formally assign the role to:
+                        {% else %}
+                        Select the winning member to assign the role to:
+                        {% endif %}
+                    </p>
+                    <label for="assign_member_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Assign role to <span class="text-red-500">*</span>
+                    </label>
+                    <select name="assign_member_id" id="assign_member_id" required
+                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                        <option value="">— Select a member —</option>
+                        {% for m in active_members %}
+                        <option value="{{ m.user_id }}">{{ m.name }} ({{ m.member_type }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% else %}
+                <!-- Single nominee -->
+                <div class="mb-5">
+                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                        Confirm the assignment of <strong class="text-gray-900 dark:text-white">{{ member.name }}</strong>
+                        as <strong class="text-gray-900 dark:text-white">{{ role.name }}</strong>.
+                    </p>
+                    {% if member.member_type == 'Member' %}
+                    <p class="text-xs text-indigo-600 dark:text-indigo-400 mt-2">
+                        Their member type will be updated from Member → Chair.
+                    </p>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <div class="flex gap-3 justify-end pt-2">
+                    <a href="{% url 'passed_legislation' %}"
+                       class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition">
+                        Skip for Now
+                    </a>
+                    <button type="submit"
+                            class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition">
+                        Assign Role
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

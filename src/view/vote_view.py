@@ -304,12 +304,18 @@ def vote_view(request):
                     'total': votes.count()
                 }
 
+    from src.models import Role
+    appointment_roles = Role.objects.all().order_by('name')
+    appointment_members = ParliamentUser.objects.filter(member_status='Active').order_by('name')
+
     return render(request, 'vote.html', {
         'profile': user,
         'can_vote': can_vote,
         'legislation': available_legislation,
         'vote_data': vote_data,
         'default_vote_mode': 'percentage',
+        'appointment_roles': appointment_roles,
+        'appointment_members': appointment_members,
     })
 
 

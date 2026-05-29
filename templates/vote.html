@@ -5,39 +5,56 @@
 {% block title %}Vote{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-4 sm:py-8">
-    <!-- Header -->
-    <div class="mb-4 sm:mb-6 flex items-center gap-4">
-        <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-1 shadow-md">
+<div class="container mx-auto px-4 py-6 max-w-5xl">
+
+    <!-- Page Header -->
+    <div class="flex items-center gap-4 mb-6">
+        <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms"
+             class="w-12 h-12 rounded-full object-contain bg-white dark:bg-gray-800 p-1 shadow">
         <div>
-            <h1 class="text-2xl sm:text-3xl font-bold mb-2 text-gray-900 dark:text-gray-100">Legislation up for Vote</h1>
-            <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">Cast your votes on active legislation</p>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Legislation</h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Active chapter votes</p>
         </div>
+        {% if legislation %}
+        <span class="ml-auto inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+            {{ legislation|length }} active
+        </span>
+        {% endif %}
     </div>
 
-    <!-- Upload Legislation Form (Officers/Chairs Only) -->
+    <!-- Officer Panel (Officers/Chairs only) -->
     {% if profile.member_type in 'Chair Officer' %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 mb-6 sm:mb-8 transition-colors duration-200">
-        <h2 class="text-lg sm:text-xl font-semibold mb-4 flex items-center text-gray-900 dark:text-gray-100">
-            <svg class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-            </svg>
-            Upload New Legislation
-        </h2>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-6 overflow-hidden">
+        <!-- Tabs -->
+        <div class="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60">
+            <button type="button" id="tab-legislation" onclick="switchLegislationTab('legislation')"
+                    class="leg-tab px-5 py-3 text-sm font-medium border-b-2 border-blue-500 text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 -mb-px transition-colors">
+                Upload Legislation
+            </button>
+            <button type="button" id="tab-appointment" onclick="switchLegislationTab('appointment')"
+                    class="leg-tab px-5 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 -mb-px transition-colors">
+                Chair Appointment
+            </button>
+        </div>
 
+        <div class="p-5">
+
+        <!-- ── General Legislation Form ── -->
+        <div id="panel-legislation">
         <form method="POST" enctype="multipart/form-data" class="space-y-4">
             {% csrf_token %}
             <input type="hidden" name="upload_submit" value="1">
 
             <div class="grid md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Title</label>
-                    <input type="text" name="title" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Title</label>
+                    <input type="text" name="title" required
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
-
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Voting Mode</label>
-                    <select id="vote_mode" name="vote_mode" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Voting Mode</label>
+                    <select id="vote_mode" name="vote_mode"
+                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         <option value="percentage" selected>Percentage</option>
                         <option value="piecewise">Piecewise</option>
                         <option value="plurality">Plurality</option>
@@ -46,393 +63,703 @@
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</label>
-                <textarea name="description" required rows="3" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"></textarea>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Description</label>
+                <textarea name="description" required rows="3"
+                          class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"></textarea>
             </div>
 
-            <div class="grid md:grid-cols-2 gap-4">
+            <div class="grid md:grid-cols-3 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Document Available At</label>
-                    <input type="datetime-local" name="available_at" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">When members can view the document</p>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Available At</label>
+                    <input type="datetime-local" name="available_at" required
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
-
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Voting Starts At <span class="text-gray-400">(optional)</span></label>
-                    <input type="datetime-local" name="voting_starts_at" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave blank to start voting immediately when available</p>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                        Voting Starts <span class="font-normal normal-case text-gray-400">(optional)</span>
+                    </label>
+                    <input type="datetime-local" name="voting_starts_at"
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
-            </div>
-
-            <div class="grid md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Voting Ends At <span class="text-gray-400">(optional)</span></label>
-                    <input type="datetime-local" name="voting_ends_at" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave blank for manual closing</p>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Upload Document</label>
-                    <input type="file" id="documentUpload" name="document" accept=".pdf,.docx" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                        Voting Ends <span class="font-normal normal-case text-gray-400">(optional)</span>
+                    </label>
+                    <input type="datetime-local" name="voting_ends_at"
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
             </div>
 
-            <div class="flex flex-wrap gap-4">
-                <label class="flex items-center">
-                    <input type="checkbox" name="anonymous" id="anonymous" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
-                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Make Vote Anonymous</span>
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Document</label>
+                <input type="file" id="documentUpload" name="document" accept=".pdf,.docx" required
+                       class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg
+                              file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium
+                              file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-300 hover:file:bg-blue-100">
+            </div>
+
+            <div class="flex flex-wrap gap-5">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="anonymous" id="anonymous"
+                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+                    <span class="text-sm text-gray-700 dark:text-gray-300">Anonymous Vote</span>
                 </label>
-                <label class="flex items-center" id="removeAbstainWrapper">
-                    <input type="checkbox" name="remove_abstain" id="remove_abstain" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
-                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Remove Abstain Option</span>
+                <label class="flex items-center gap-2 cursor-pointer" id="removeAbstainWrapper">
+                    <input type="checkbox" name="remove_abstain" id="remove_abstain"
+                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+                    <span class="text-sm text-gray-700 dark:text-gray-300">Remove Abstain Option</span>
                 </label>
             </div>
 
             <!-- Percentage Mode -->
             <div id="percentage-section">
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Required Vote to Pass</label>
-                <select name="required_percentage" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
-                    <option value="51">51%</option>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Pass Threshold</label>
+                <select name="required_percentage"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="51">51% — Simple majority</option>
                     <option value="60">60%</option>
-                    <option value="67">67%</option>
-                    <option value="75">75%</option>
-                    <option value="100">Unanimous</option>
+                    <option value="67">67% — Two-thirds</option>
+                    <option value="75">75% — Three-quarters</option>
+                    <option value="100">100% — Unanimous</option>
                 </select>
             </div>
 
             <!-- Piecewise Mode -->
             <div id="piecewise-section" class="hidden">
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Required Number of Yes Votes to Pass</label>
-                <input type="number" name="required_number" min="1" placeholder="e.g., 15" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Enter the exact number of "Yes" votes needed for this legislation to pass</p>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Required Yes Votes</label>
+                <input type="number" name="required_number" min="1" placeholder="e.g., 15"
+                       class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Exact number of "Yes" votes needed to pass</p>
             </div>
 
             <!-- Plurality Mode -->
             <div id="plurality-options" class="hidden space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Plurality Options (at least 2, up to 10)</label>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                        Options <span class="font-normal normal-case">(at least 2, up to 10)</span>
+                    </label>
                     <div id="plurality-options-list" class="space-y-2">
-                        <input type="text" name="plurality_option_1" placeholder="Option 1" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
-                        <input type="text" name="plurality_option_2" placeholder="Option 2" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
-                        <input type="text" name="plurality_option_3" placeholder="Option 3 (optional)" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
-                        <input type="text" name="plurality_option_4" placeholder="Option 4 (optional)" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
-                        <input type="text" name="plurality_option_5" placeholder="Option 5 (optional)" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
+                        <input type="text" name="plurality_option_1" placeholder="Option 1" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_2" placeholder="Option 2" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_3" placeholder="Option 3 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_4" placeholder="Option 4 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_5" placeholder="Option 5 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
                     <div id="plurality-extra-options" class="space-y-2 mt-2 hidden">
-                        <input type="text" name="plurality_option_6" placeholder="Option 6 (optional)" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
-                        <input type="text" name="plurality_option_7" placeholder="Option 7 (optional)" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
-                        <input type="text" name="plurality_option_8" placeholder="Option 8 (optional)" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
-                        <input type="text" name="plurality_option_9" placeholder="Option 9 (optional)" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
-                        <input type="text" name="plurality_option_10" placeholder="Option 10 (optional)" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
+                        <input type="text" name="plurality_option_6" placeholder="Option 6 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_7" placeholder="Option 7 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_8" placeholder="Option 8 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_9" placeholder="Option 9 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_10" placeholder="Option 10 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
-                    <button type="button" id="toggle-extra-options" onclick="toggleExtraOptions()" class="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
-                        + Add more options (6-10)
+                    <button type="button" id="toggle-extra-options" onclick="toggleExtraOptions()"
+                            class="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                        + Add more options (6–10)
                     </button>
                 </div>
 
-                <!-- Multi-select voting settings -->
-                <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Votes Per Person</label>
-                    <select name="plurality_votes_allowed" id="plurality_votes_allowed" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
-                        <option value="1">1 vote (single choice)</option>
-                        <option value="2">2 votes</option>
-                        <option value="3">3 votes</option>
-                        <option value="4">4 votes</option>
-                        <option value="5">5 votes</option>
-                    </select>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">How many options each voter can select</p>
-                </div>
-
-                <!-- Runoff voting settings -->
-                <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-                    <div class="flex items-center">
-                        <input type="checkbox" name="plurality_runoff_enabled" id="plurality_runoff_enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                        <label for="plurality_runoff_enabled" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">Enable runoff voting</label>
-                    </div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">If no clear winner, allow creating a runoff with top options</p>
-
-                    <div id="runoff-settings" class="mt-3 hidden">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Number of options in runoff</label>
-                        <select name="plurality_runoff_count" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
-                            <option value="2">Top 2 options</option>
-                            <option value="3">Top 3 options</option>
-                            <option value="4">Top 4 options</option>
-                            <option value="5">Top 5 options</option>
+                <div class="grid md:grid-cols-2 gap-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Votes Per Person</label>
+                        <select name="plurality_votes_allowed" id="plurality_votes_allowed"
+                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="1">1 vote</option>
+                            <option value="2">2 votes</option>
+                            <option value="3">3 votes</option>
+                            <option value="4">4 votes</option>
+                            <option value="5">5 votes</option>
                         </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Runoff Voting</label>
+                        <label class="flex items-center gap-2 cursor-pointer mt-2">
+                            <input type="checkbox" name="plurality_runoff_enabled" id="plurality_runoff_enabled"
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <span class="text-sm text-gray-700 dark:text-gray-300">Enable runoff</span>
+                        </label>
+                        <div id="runoff-settings" class="mt-2 hidden">
+                            <select name="plurality_runoff_count"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="2">Top 2 options</option>
+                                <option value="3">Top 3 options</option>
+                                <option value="4">Top 4 options</option>
+                                <option value="5">Top 5 options</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="flex justify-end">
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium px-6 py-2 rounded-lg transition">
+            <div class="flex justify-end pt-1">
+                <button type="submit"
+                        class="px-5 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
                     Upload Legislation
                 </button>
             </div>
         </form>
+        </div><!-- end #panel-legislation -->
+
+        <!-- ── Chair Appointment Form ── -->
+        <div id="panel-appointment" class="hidden">
+        <form method="POST" action="{% url 'upload_legislation' %}" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="action_type" value="create_appointment">
+
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                        Role <span class="text-red-500">*</span>
+                    </label>
+                    <select name="appointment_role_id" id="appt_role" required
+                            onchange="toggleNewRoleFields(this.value)"
+                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">— Select role —</option>
+                        {% for role in appointment_roles %}
+                        <option value="{{ role.id }}">{{ role.name }} ({{ role.code }})</option>
+                        {% endfor %}
+                        <option value="__new__">+ Create new role…</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Voting Mode</label>
+                    <select name="appt_vote_mode" id="appt_vote_mode" onchange="updateApptMode(this.value)"
+                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="percentage">Percentage</option>
+                        <option value="piecewise">Piecewise</option>
+                        <option value="plurality">Plurality (multiple nominees)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- New role inline fields (shown when "Create new role" selected) -->
+            <div id="appt-new-role-section" class="hidden grid md:grid-cols-2 gap-4 p-4 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                        Role Name <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" name="new_role_name" id="new_role_name"
+                           placeholder="e.g. Sergeant at Arms"
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                        Role Code <span class="text-red-500">*</span>
+                        <span class="font-normal normal-case text-gray-400">(short abbreviation)</span>
+                    </label>
+                    <input type="text" name="new_role_code" id="new_role_code"
+                           placeholder="e.g. SAA"
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+            </div>
+
+            <!-- Single nominee (hidden for plurality) -->
+            <div id="appt-nominee-section">
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                    Nominee <span class="text-red-500">*</span>
+                </label>
+                <select name="appointment_member_id" id="appt_member"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">— Select member —</option>
+                    {% for m in appointment_members %}
+                    <option value="{{ m.user_id }}">{{ m.name }} ({{ m.member_type }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Plurality candidates (shown for plurality) -->
+            <div id="appt-plurality-section" class="hidden space-y-2">
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                    Candidates <span class="font-normal normal-case">(at least 2)</span>
+                </label>
+                {% for i in "12345"|make_list %}
+                <input type="text" name="appt_plurality_option_{{ i }}"
+                       placeholder="Candidate {{ i }}{% if forloop.counter > 2 %} (optional){% endif %}"
+                       class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                {% endfor %}
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                        Title <span class="font-normal normal-case text-gray-400">(auto-generated if blank)</span>
+                    </label>
+                    <input type="text" name="appt_title"
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="e.g. Chair Appointment: Bryan Javorek as Sergeant at Arms">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                        Description <span class="font-normal normal-case text-gray-400">(auto-generated if blank)</span>
+                    </label>
+                    <input type="text" name="appt_description"
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                        Available At <span class="text-red-500">*</span>
+                    </label>
+                    <input type="datetime-local" name="appt_available_at" required
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                        Voting Ends <span class="font-normal normal-case text-gray-400">(optional)</span>
+                    </label>
+                    <input type="datetime-local" name="appt_voting_ends_at"
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+            </div>
+
+            <!-- Percentage threshold -->
+            <div id="appt-percentage-section">
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Pass Threshold</label>
+                <select name="appt_required_percentage"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="51">51% — Simple majority</option>
+                    <option value="60">60%</option>
+                    <option value="67">67% — Two-thirds</option>
+                    <option value="75">75% — Three-quarters</option>
+                    <option value="100">100% — Unanimous</option>
+                </select>
+            </div>
+
+            <!-- Piecewise count -->
+            <div id="appt-piecewise-section" class="hidden">
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Required Yes Votes</label>
+                <input type="number" name="appt_required_number" min="1" placeholder="e.g. 15"
+                       class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+
+            <div class="flex gap-5">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="appt_anonymous"
+                           class="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500">
+                    <span class="text-sm text-gray-700 dark:text-gray-300">Anonymous vote</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="appt_remove_abstain"
+                           class="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500">
+                    <span class="text-sm text-gray-700 dark:text-gray-300">Remove abstain</span>
+                </label>
+            </div>
+
+            <div class="flex justify-end pt-1">
+                <button type="submit"
+                        class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
+                    Create Appointment Vote
+                </button>
+            </div>
+        </form>
+        </div><!-- end #panel-appointment -->
+
+        </div><!-- end .p-5 -->
     </div>
     {% endif %}
 
-    <!-- Legislation List -->
+    <!-- ── Legislation List ── -->
     {% if not legislation %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center transition-colors duration-200">
-        <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-        </svg>
-        <p class="text-lg text-gray-600 dark:text-gray-400 mb-4">Currently, there is no legislation up for vote.</p>
-        <a href="{% url 'passed_legislation' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium">
-            View Legislation Already Passed →
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+        <div class="w-14 h-14 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+            <svg class="w-7 h-7 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+        </div>
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">No Active Legislation</h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">Nothing is currently up for vote.</p>
+        <a href="{% url 'passed_legislation' %}"
+           class="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">
+            View passed legislation
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
         </a>
     </div>
+
     {% else %}
-        <div class="space-y-6">
-            {% for leg in legislation %}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
-                <div class="bg-blue-50 dark:bg-blue-900/20 px-6 py-4 border-b border-blue-100 dark:border-blue-800">
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ leg.title }}</h3>
-                            <div class="text-sm text-gray-600 dark:text-gray-400 mt-1 space-y-0.5">
-                                <p>
-                                    Submitted by {{ leg.posted_by.name }}{% with coauthors=leg.co_authors.all %}{% if coauthors %} &middot; Co-authors: {% for ca in coauthors %}{{ ca.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}{% endwith %}
-                                </p>
-                                <p>Document Available: {{ leg.available_at|date:"F j, Y, g:i a" }}</p>
-                                {% if leg.voting_starts_at and leg.voting_starts_at != leg.available_at %}
-                                <p>Voting Opens: {{ leg.voting_starts_at|date:"F j, Y, g:i a" }}</p>
-                                {% endif %}
-                                {% if leg.voting_ends_at %}
-                                <p>Voting Closes: {{ leg.voting_ends_at|date:"F j, Y, g:i a" }}</p>
-                                {% endif %}
-                            </div>
-                        </div>
-                        {% if not leg.is_available %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300">
-                            Scheduled
-                        </span>
-                        {% elif not leg.voting_has_started %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">
-                            Voting Not Open
-                        </span>
-                        {% elif leg.voting_closed %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
-                            Voting Closed
-                        </span>
-                        {% else %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
-                            Voting Open
-                        </span>
-                        {% endif %}
-                    </div>
-                </div>
+    <div class="space-y-4">
+        {% for leg in legislation %}
 
-                <div class="p-6">
-                    <p class="text-gray-700 dark:text-gray-300 mb-4">{{ leg.description|render_description }}</p>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden border border-gray-200 dark:border-gray-700 border-l-4
+                    {% if not leg.is_available %}border-l-purple-400 dark:border-l-purple-500
+                    {% elif not leg.voting_has_started %}border-l-amber-400 dark:border-l-amber-500
+                    {% elif leg.voting_closed %}border-l-gray-400 dark:border-l-gray-500
+                    {% else %}border-l-green-500 dark:border-l-green-400{% endif %}">
 
-                    <div class="flex items-center space-x-4 mb-4">
-                        {% if leg.document %}
-                        <a href="{{ leg.document.url }}" target="_blank" class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                            View Document
-                        </a>
-                        {% endif %}
-                        <span class="text-sm text-gray-500 dark:text-gray-400">Vote Mode: {{ leg.vote_mode|title }}</span>
-                    </div>
-
-                    <!-- Live Vote Tally (for author) -->
-                    {% if profile == leg.posted_by %}
-                        {% with data=vote_data|get_item:leg.id %}
-                        {% if data %}
-                        <div class="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4 mb-4 transition-colors duration-200"
-                             data-tally-id="{{ leg.id }}"
-                             data-vote-mode="{{ leg.vote_mode }}">
-                            <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center">
-                                <svg class="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                                </svg>
-                                Live Vote Tally
-                                <span class="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500" data-tally-updated></span>
-                            </h4>
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                {% if leg.vote_mode == "plurality" %}
-                                    {% for option, count in data.items %}
-                                        {% if option != "total" %}
-                                            <div class="text-center">
-                                                <div class="text-2xl font-bold text-blue-600 dark:text-blue-400" data-tally-field="{{ option }}">{{ count }}</div>
-                                                <div class="text-sm text-gray-600 dark:text-gray-400">{{ option }}</div>
-                                            </div>
-                                        {% endif %}
-                                    {% endfor %}
-                                {% else %}
-                                    <div class="text-center">
-                                        <div class="text-2xl font-bold text-green-600 dark:text-green-400" data-tally-field="yes">{{ data.yes }}</div>
-                                        <div class="text-sm text-gray-600 dark:text-gray-400">Yes</div>
-                                    </div>
-                                    <div class="text-center">
-                                        <div class="text-2xl font-bold text-red-600 dark:text-red-400" data-tally-field="no">{{ data.no }}</div>
-                                        <div class="text-sm text-gray-600 dark:text-gray-400">No</div>
-                                    </div>
-                                    <div class="text-center">
-                                        <div class="text-2xl font-bold text-gray-600 dark:text-gray-400" data-tally-field="abstain">{{ data.abstain }}</div>
-                                        <div class="text-sm text-gray-600 dark:text-gray-400">Abstain</div>
-                                    </div>
-                                {% endif %}
-                                <div class="text-center">
-                                    <div class="text-2xl font-bold text-gray-900 dark:text-gray-100" data-tally-field="total">{{ data.total }}</div>
-                                    <div class="text-sm text-gray-600 dark:text-gray-400">Total Votes</div>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-                        {% endwith %}
-                    {% endif %}
-
-                    <!-- Absent Warning -->
-                    {% if not can_vote %}
-                    <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 dark:border-yellow-500 p-4 mb-4 transition-colors duration-200">
-                        <div class="flex">
-                            <svg class="w-5 h-5 text-yellow-400 dark:text-yellow-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                            </svg>
-                            <p class="text-sm text-yellow-700 dark:text-yellow-300">You are marked as absent and cannot vote on this legislation.</p>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- Voting Not Started Yet Message -->
-                    {% if not leg.voting_has_started %}
-                    <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400 dark:border-blue-500 p-4 mb-4 transition-colors duration-200">
-                        <div class="flex">
-                            <svg class="w-5 h-5 text-blue-400 dark:text-blue-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
-                            </svg>
-                            <div>
-                                <p class="text-sm font-medium text-blue-700 dark:text-blue-300">Voting opens {{ leg.get_voting_start_time|date:"F j, Y" }} at {{ leg.get_voting_start_time|time:"g:i a" }}</p>
-                                <p class="text-sm text-blue-600 dark:text-blue-400 mt-1">You can review the document now, but voting is not yet available.</p>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- Voting Form -->
-                    {% if can_vote and leg.voting_has_started %}
-                    <form method="post" class="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4 transition-colors duration-200">
-                        {% csrf_token %}
-                        <input type="hidden" name="legislation_id" value="{{ leg.id }}">
-
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                            Cast Your Vote:
-                            {% if leg.vote_mode == "plurality" and leg.plurality_votes_allowed > 1 %}
-                            <span class="text-blue-600 dark:text-blue-400 font-normal">(Select up to {{ leg.plurality_votes_allowed }} options)</span>
+            <!-- Card Header -->
+            <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700/60">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-2 mb-1">
+                            <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100 leading-snug">{{ leg.title }}</h3>
+                            {% if leg.legislation_type == 'appointment' %}
+                            <span class="shrink-0 px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">Appointment</span>
+                            {% if leg.appointment_role %}
+                            <span class="shrink-0 px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{{ leg.appointment_role.name }}</span>
                             {% endif %}
-                        </label>
-                        <div class="space-y-2 mb-4">
-                            {% if leg.vote_mode == "plurality" %}
-                                {% if leg.plurality_votes_allowed > 1 %}
-                                    <!-- Multi-select mode: checkboxes -->
-                                    {% for option in leg.plurality_options %}
-                                    <label class="flex items-center p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                                        <input type="checkbox" name="vote_choices" value="{{ option }}" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded plurality-checkbox" data-max-votes="{{ leg.plurality_votes_allowed }}">
-                                        <span class="ml-3 text-gray-700 dark:text-gray-300">{{ option }}</span>
-                                    </label>
-                                    {% endfor %}
-                                {% else %}
-                                    <!-- Single-select mode: radio buttons -->
-                                    {% for option in leg.plurality_options %}
-                                    <label class="flex items-center p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                                        <input type="radio" name="vote_choice" value="{{ option }}" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600">
-                                        <span class="ml-3 text-gray-700 dark:text-gray-300">{{ option }}</span>
-                                    </label>
-                                    {% endfor %}
-                                {% endif %}
-                            {% else %}
-                                <label class="flex items-center p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                                    <input type="radio" name="vote_choice" value="yes" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600">
-                                    <span class="ml-3 text-gray-700 dark:text-gray-300">Yes</span>
-                                </label>
-                                <label class="flex items-center p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                                    <input type="radio" name="vote_choice" value="no" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600">
-                                    <span class="ml-3 text-gray-700 dark:text-gray-300">No</span>
-                                </label>
-                                {% if leg.allow_abstain %}
-                                <label class="flex items-center p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                                    <input type="radio" name="vote_choice" value="abstain" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600">
-                                    <span class="ml-3 text-gray-700 dark:text-gray-300">Abstain</span>
-                                </label>
-                                {% endif %}
                             {% endif %}
                         </div>
-
-                        <input type="password" name="password" placeholder="Confirm Password" required
-                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent mb-4">
-
-                        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 text-white font-medium px-6 py-2 rounded-lg transition">
-                            Submit Vote
-                        </button>
-                    </form>
-                    {% endif %}
-
-                    <!-- Scheduled Legislation Banner (for author) -->
-                    {% if not leg.is_available and profile == leg.posted_by %}
-                    <div class="bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-400 dark:border-purple-500 p-4 mb-4 transition-colors duration-200">
-                        <div class="flex">
-                            <svg class="w-5 h-5 text-purple-400 dark:text-purple-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
-                            </svg>
-                            <div>
-                                <p class="text-sm font-medium text-purple-700 dark:text-purple-300">Scheduled for {{ leg.available_at|date:"F j, Y" }} at {{ leg.available_at|time:"g:i a" }}</p>
-                                <p class="text-sm text-purple-600 dark:text-purple-400 mt-1">This legislation is not yet visible to other members. You can edit or delete it before it becomes available.</p>
-                            </div>
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
+                            <span>{{ leg.posted_by.name }}{% with coauthors=leg.co_authors.all %}{% if coauthors %} &amp; {% for ca in coauthors %}{{ ca.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}{% endwith %}</span>
+                            <span class="text-gray-300 dark:text-gray-600">&middot;</span>
+                            <span>Available {{ leg.available_at|date:"M j, Y" }}</span>
+                            {% if leg.voting_ends_at %}
+                            <span class="text-gray-300 dark:text-gray-600">&middot;</span>
+                            <span>Closes {{ leg.voting_ends_at|date:"M j, g:i a" }}</span>
+                            {% endif %}
                         </div>
                     </div>
-                    {% endif %}
 
-                    <!-- Action Buttons (for author or admin) -->
-                    {% if not leg.voting_closed %}
-                        {% if profile == leg.posted_by or profile.is_admin %}
-                        <div class="flex flex-wrap gap-3 mt-4">
-                            {% if not leg.is_available and profile == leg.posted_by %}
-                            <!-- Edit button for scheduled legislation -->
-                            <a href="{% url 'edit_legislation' leg.id %}" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium px-6 py-2 rounded-lg transition">
-                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                </svg>
-                                Edit
-                            </a>
-                            {% endif %}
-                            {% if leg.voting_has_started %}
-                            <form method="post" action="{% url 'end_vote' leg.id %}">
-                                {% csrf_token %}
-                                <button type="submit" class="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 text-white font-medium px-6 py-2 rounded-lg transition">
-                                    End Vote
-                                </button>
-                            </form>
-                            {% endif %}
-                            {% if profile.is_admin or not leg.is_available %}
-                            <form method="post" action="{% url 'delete_chapter_legislation' leg.id %}" onsubmit="return confirm('Are you sure you want to delete this legislation?');">
-                                {% csrf_token %}
-                                <button type="submit" class="bg-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 text-white font-medium px-6 py-2 rounded-lg transition">
-                                    Delete
-                                </button>
-                            </form>
-                            {% endif %}
-                        </div>
-                        {% endif %}
+                    <!-- Status badge -->
+                    {% if not leg.is_available %}
+                    <span class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                        <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>Scheduled
+                    </span>
+                    {% elif not leg.voting_has_started %}
+                    <span class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>Pending
+                    </span>
+                    {% elif leg.voting_closed %}
+                    <span class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                        <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>Closed
+                    </span>
+                    {% else %}
+                    <span class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                        <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>Open
+                    </span>
                     {% endif %}
                 </div>
             </div>
-            {% endfor %}
-        </div>
+
+            <!-- Card Body: description left / action right on desktop -->
+            <div class="px-5 py-4">
+            <div class="lg:grid lg:grid-cols-5 lg:gap-8 lg:items-start">
+
+                <!-- ── Left: context ── -->
+                <div class="lg:col-span-3 space-y-4">
+
+                <!-- Description -->
+                <p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{{ leg.description|render_description }}</p>
+
+                <!-- Document + mode tags -->
+                <div class="flex flex-wrap items-center gap-2">
+                    {% if leg.document %}
+                    <a href="{{ leg.document.url }}" target="_blank"
+                       class="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        View Document
+                    </a>
+                    {% endif %}
+                    <span class="px-2 py-0.5 text-xs border border-gray-200 dark:border-gray-600 rounded text-gray-500 dark:text-gray-400">
+                        {{ leg.vote_mode|title }}
+                    </span>
+                </div>
+
+                <!-- Live Vote Tally (author only) -->
+                {% if profile == leg.posted_by %}
+                    {% with data=vote_data|get_item:leg.id %}
+                    {% if data %}
+                    <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 p-4"
+                         data-tally-id="{{ leg.id }}"
+                         data-vote-mode="{{ leg.vote_mode }}">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-2">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                </svg>
+                                Live Tally
+                            </span>
+                            <span class="text-xs text-gray-400 dark:text-gray-500" data-tally-updated></span>
+                        </div>
+
+                        {% if leg.vote_mode == "plurality" %}
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {% for option, count in data.items %}
+                            {% if option != "total" %}
+                            <div class="text-center bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
+                                <div class="text-xl font-bold text-blue-600 dark:text-blue-400" data-tally-field="{{ option }}">{{ count }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">{{ option }}</div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                            <div class="text-center bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
+                                <div class="text-xl font-bold text-gray-900 dark:text-gray-100" data-tally-field="total">{{ data.total }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Total</div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div class="text-center bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
+                                <div class="text-xl font-bold text-green-600 dark:text-green-400" data-tally-field="yes">{{ data.yes }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Yes</div>
+                            </div>
+                            <div class="text-center bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
+                                <div class="text-xl font-bold text-red-600 dark:text-red-400" data-tally-field="no">{{ data.no }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">No</div>
+                            </div>
+                            <div class="text-center bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
+                                <div class="text-xl font-bold text-gray-500 dark:text-gray-400" data-tally-field="abstain">{{ data.abstain }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Abstain</div>
+                            </div>
+                            <div class="text-center bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
+                                <div class="text-xl font-bold text-gray-900 dark:text-gray-100" data-tally-field="total">{{ data.total }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Total</div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                {% endif %}
+
+                </div><!-- end left context column -->
+
+                <!-- ── Right: status + action ── -->
+                <div class="mt-4 lg:mt-0 lg:col-span-2 space-y-3">
+
+                <!-- Absent Warning -->
+                {% if not can_vote %}
+                <div class="flex items-start gap-2.5 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60">
+                    <svg class="w-4 h-4 text-amber-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                    </svg>
+                    <p class="text-sm text-amber-700 dark:text-amber-300">You are marked absent and cannot vote on this legislation.</p>
+                </div>
+                {% endif %}
+
+                <!-- Voting Not Started -->
+                {% if not leg.voting_has_started %}
+                <div class="flex items-start gap-2.5 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/60">
+                    <svg class="w-4 h-4 text-blue-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+                    </svg>
+                    <div>
+                        <p class="text-sm font-medium text-blue-700 dark:text-blue-300">Voting opens {{ leg.get_voting_start_time|date:"M j" }} at {{ leg.get_voting_start_time|time:"g:i a" }}</p>
+                        <p class="text-xs text-blue-600 dark:text-blue-400 mt-0.5">You can review the document now; voting is not yet available.</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Scheduled Banner (author only) -->
+                {% if not leg.is_available and profile == leg.posted_by %}
+                <div class="flex items-start gap-2.5 p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/60">
+                    <svg class="w-4 h-4 text-purple-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+                    </svg>
+                    <div>
+                        <p class="text-sm font-medium text-purple-700 dark:text-purple-300">Scheduled for {{ leg.available_at|date:"M j, Y" }} at {{ leg.available_at|time:"g:i a" }}</p>
+                        <p class="text-xs text-purple-600 dark:text-purple-400 mt-0.5">Not yet visible to others. You can edit or delete it below.</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- ── Voting Form ── -->
+                {% if can_vote and leg.voting_has_started %}
+                <form method="post" class="space-y-3 pt-1">
+                    {% csrf_token %}
+                    <input type="hidden" name="legislation_id" value="{{ leg.id }}">
+
+                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Cast Your Vote
+                        {% if leg.vote_mode == "plurality" and leg.plurality_votes_allowed > 1 %}
+                        <span class="normal-case font-normal text-blue-600 dark:text-blue-400">— select up to {{ leg.plurality_votes_allowed }}</span>
+                        {% endif %}
+                    </p>
+
+                    {% if leg.vote_mode == "plurality" %}
+                        {% if leg.plurality_votes_allowed > 1 %}
+                        <!-- Multi-select checkboxes -->
+                        <div class="space-y-2">
+                            {% for option in leg.plurality_options %}
+                            <label class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                <input type="checkbox" name="vote_choices" value="{{ option }}"
+                                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded plurality-checkbox"
+                                       data-max-votes="{{ leg.plurality_votes_allowed }}">
+                                <span class="text-sm text-gray-700 dark:text-gray-200">{{ option }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <!-- Single-select radios for plurality -->
+                        <div class="space-y-2">
+                            {% for option in leg.plurality_options %}
+                            <div class="relative">
+                                <input type="radio" name="vote_choice" value="{{ option }}"
+                                       id="opt_{{ leg.id }}_{{ forloop.counter }}"
+                                       class="peer sr-only">
+                                <label for="opt_{{ leg.id }}_{{ forloop.counter }}"
+                                       class="flex items-center gap-3 p-3 rounded-lg border-2 border-gray-200 dark:border-gray-600 cursor-pointer
+                                              hover:border-blue-300 dark:hover:border-blue-600 transition-colors
+                                              peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:border-blue-500 dark:peer-checked:bg-blue-900/20">
+                                    <span class="text-sm text-gray-700 dark:text-gray-200">{{ option }}</span>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    {% else %}
+                    <!-- Yes / No / Abstain -->
+                    <div class="grid grid-cols-{% if leg.allow_abstain %}3{% else %}2{% endif %} gap-3">
+
+                        <div class="relative">
+                            <input type="radio" name="vote_choice" value="yes"
+                                   id="vote_yes_{{ leg.id }}" class="peer sr-only">
+                            <label for="vote_yes_{{ leg.id }}"
+                                   class="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 cursor-pointer
+                                          hover:border-green-300 dark:hover:border-green-700 transition-colors
+                                          peer-checked:border-green-500 peer-checked:bg-green-50 dark:peer-checked:border-green-500 dark:peer-checked:bg-green-900/20">
+                                <div class="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                </div>
+                                <span class="text-sm font-semibold text-gray-700 dark:text-gray-200">Yes</span>
+                            </label>
+                        </div>
+
+                        <div class="relative">
+                            <input type="radio" name="vote_choice" value="no"
+                                   id="vote_no_{{ leg.id }}" class="peer sr-only">
+                            <label for="vote_no_{{ leg.id }}"
+                                   class="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 cursor-pointer
+                                          hover:border-red-300 dark:hover:border-red-700 transition-colors
+                                          peer-checked:border-red-500 peer-checked:bg-red-50 dark:peer-checked:border-red-500 dark:peer-checked:bg-red-900/20">
+                                <div class="w-9 h-9 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </div>
+                                <span class="text-sm font-semibold text-gray-700 dark:text-gray-200">No</span>
+                            </label>
+                        </div>
+
+                        {% if leg.allow_abstain %}
+                        <div class="relative">
+                            <input type="radio" name="vote_choice" value="abstain"
+                                   id="vote_abstain_{{ leg.id }}" class="peer sr-only">
+                            <label for="vote_abstain_{{ leg.id }}"
+                                   class="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 cursor-pointer
+                                          hover:border-gray-400 dark:hover:border-gray-400 transition-colors
+                                          peer-checked:border-gray-400 peer-checked:bg-gray-100 dark:peer-checked:border-gray-400 dark:peer-checked:bg-gray-700/60">
+                                <div class="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 12H4"/>
+                                    </svg>
+                                </div>
+                                <span class="text-sm font-semibold text-gray-700 dark:text-gray-200">Abstain</span>
+                            </label>
+                        </div>
+                        {% endif %}
+
+                    </div>
+                    {% endif %}
+
+                    <div class="flex gap-2 pt-1">
+                        <input type="password" name="password" placeholder="Confirm your password" required
+                               class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <button type="submit"
+                                class="px-5 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm whitespace-nowrap">
+                            Submit Vote
+                        </button>
+                    </div>
+                </form>
+                {% endif %}
+
+                <!-- Action Buttons (author / admin) -->
+                {% if not leg.voting_closed %}
+                    {% if profile == leg.posted_by or profile.is_admin %}
+                    <div class="flex flex-wrap gap-2 pt-1 border-t border-gray-100 dark:border-gray-700/60">
+                        {% if not leg.is_available and profile == leg.posted_by %}
+                        <a href="{% url 'edit_legislation' leg.id %}"
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                            Edit
+                        </a>
+                        {% endif %}
+                        {% if leg.voting_has_started %}
+                        <form method="post" action="{% url 'end_vote' leg.id %}">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors">
+                                End Vote
+                            </button>
+                        </form>
+                        {% endif %}
+                        {% if profile.is_admin or not leg.is_available %}
+                        <form method="post" action="{% url 'delete_chapter_legislation' leg.id %}"
+                              onsubmit="return confirm('Delete this legislation?')">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors">
+                                Delete
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                {% endif %}
+
+                </div><!-- end right action column -->
+            </div><!-- end 2-col grid -->
+            </div><!-- end card body -->
+        </div><!-- end card -->
+
+        {% endfor %}
+    </div>
     {% endif %}
+
+
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
-    const modeSelect = document.getElementById("vote_mode");
-    const percentDiv = document.getElementById("percentage-section");
-    const piecewiseDiv = document.getElementById("piecewise-section");
-    const pluralityDiv = document.getElementById("plurality-options");
-    const fileInput = document.getElementById('documentUpload');
-    const abstainDiv = document.getElementById('removeAbstainWrapper');
+    // ── Tab toggle (Upload / Appointment) ──
+    function switchLegislationTab(tab) {
+        const tabs = ['legislation', 'appointment'];
+        tabs.forEach(t => {
+            document.getElementById('panel-' + t).classList.toggle('hidden', t !== tab);
+            const btn = document.getElementById('tab-' + t);
+            if (t === tab) {
+                btn.classList.add('border-blue-500', 'text-blue-600', 'dark:text-blue-400', 'bg-white', 'dark:bg-gray-800');
+                btn.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+            } else {
+                btn.classList.remove('border-blue-500', 'text-blue-600', 'dark:text-blue-400', 'bg-white', 'dark:bg-gray-800');
+                btn.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+            }
+        });
+    }
+
+    // ── Appointment role: show new-role fields when "Create new role" selected ──
+    function toggleNewRoleFields(value) {
+        const section = document.getElementById('appt-new-role-section');
+        const nameInput = document.getElementById('new_role_name');
+        const codeInput = document.getElementById('new_role_code');
+        const isNew = value === '__new__';
+        section.classList.toggle('hidden', !isNew);
+        nameInput.required = isNew;
+        codeInput.required = isNew;
+    }
+
+    // ── Appointment form vote mode ──
+    function updateApptMode(value) {
+        document.getElementById('appt-nominee-section').classList.toggle('hidden', value === 'plurality');
+        document.getElementById('appt-plurality-section').classList.toggle('hidden', value !== 'plurality');
+        document.getElementById('appt-percentage-section').classList.toggle('hidden', value !== 'percentage');
+        document.getElementById('appt-piecewise-section').classList.toggle('hidden', value !== 'piecewise');
+    }
+
+    // ── General legislation vote mode ──
+    const modeSelect  = document.getElementById('vote_mode');
+    const percentDiv  = document.getElementById('percentage-section');
+    const piecewiseDiv = document.getElementById('piecewise-section');
+    const pluralityDiv = document.getElementById('plurality-options');
+    const fileInput   = document.getElementById('documentUpload');
+    const abstainDiv  = document.getElementById('removeAbstainWrapper');
 
     function togglePluralityFields(value) {
         if (value === 'plurality') {
@@ -457,68 +784,53 @@
     }
 
     if (modeSelect) {
-        modeSelect.addEventListener('change', (e) => togglePluralityFields(e.target.value));
+        modeSelect.addEventListener('change', e => togglePluralityFields(e.target.value));
         togglePluralityFields(modeSelect.value);
     }
 
     // Toggle extra plurality options (6-10)
     function toggleExtraOptions() {
-        const extraOptions = document.getElementById('plurality-extra-options');
-        const toggleBtn = document.getElementById('toggle-extra-options');
-        if (extraOptions.classList.contains('hidden')) {
-            extraOptions.classList.remove('hidden');
-            toggleBtn.textContent = '- Hide extra options';
-        } else {
-            extraOptions.classList.add('hidden');
-            toggleBtn.textContent = '+ Add more options (6-10)';
-            // Clear values when hiding
+        const extra = document.getElementById('plurality-extra-options');
+        const btn   = document.getElementById('toggle-extra-options');
+        const hidden = extra.classList.contains('hidden');
+        extra.classList.toggle('hidden', !hidden);
+        btn.textContent = hidden ? '− Hide extra options' : '+ Add more options (6–10)';
+        if (!hidden) {
             for (let i = 6; i <= 10; i++) {
-                const input = document.querySelector(`input[name="plurality_option_${i}"]`);
-                if (input) input.value = '';
+                const el = document.querySelector(`input[name="plurality_option_${i}"]`);
+                if (el) el.value = '';
             }
         }
     }
 
-    // Toggle runoff settings visibility
-    const runoffCheckbox = document.getElementById('plurality_runoff_enabled');
+    // Runoff toggle
+    const runoffCb = document.getElementById('plurality_runoff_enabled');
     const runoffSettings = document.getElementById('runoff-settings');
-    if (runoffCheckbox && runoffSettings) {
-        runoffCheckbox.addEventListener('change', function() {
-            if (this.checked) {
-                runoffSettings.classList.remove('hidden');
-            } else {
-                runoffSettings.classList.add('hidden');
-            }
+    if (runoffCb && runoffSettings) {
+        runoffCb.addEventListener('change', function () {
+            runoffSettings.classList.toggle('hidden', !this.checked);
         });
     }
 
-    // Enforce max selections for multi-select plurality voting
-    document.querySelectorAll('.plurality-checkbox').forEach(function(checkbox) {
-        checkbox.addEventListener('change', function() {
-            const maxVotes = parseInt(this.dataset.maxVotes) || 1;
+    // Enforce max selections for multi-select plurality
+    document.querySelectorAll('.plurality-checkbox').forEach(cb => {
+        cb.addEventListener('change', function () {
+            const max = parseInt(this.dataset.maxVotes) || 1;
             const form = this.closest('form');
-            const checkboxes = form.querySelectorAll('.plurality-checkbox');
-            const checkedCount = form.querySelectorAll('.plurality-checkbox:checked').length;
-
-            if (checkedCount > maxVotes) {
+            const checked = form.querySelectorAll('.plurality-checkbox:checked').length;
+            if (checked > max) {
                 this.checked = false;
-                alert(`You can only select up to ${maxVotes} option(s).`);
+                alert(`You can only select up to ${max} option(s).`);
             }
         });
     });
 
-    // -------------------------------------------------------------------------
-    // Live tally polling — updates vote counts every 15s without a page reload.
-    // Pauses when the tab is hidden (Page Visibility API) to avoid wasted requests.
-    // If the server reports a vote just closed, reloads the page so the user
-    // sees the final closed state with the correct UI.
-    // Only runs when at least one [data-tally-id] container exists on the page.
-    // -------------------------------------------------------------------------
+    // ── Live tally polling ──
     (function () {
-        const tallyContainers = document.querySelectorAll('[data-tally-id]');
-        if (!tallyContainers.length) return;  // author has no open legislation — nothing to poll
+        const containers = document.querySelectorAll('[data-tally-id]');
+        if (!containers.length) return;
 
-        const POLL_INTERVAL_MS = 15000;
+        const INTERVAL = 15000;
         let timer = null;
 
         function fmt(d) {
@@ -528,15 +840,14 @@
         }
 
         function applyTally(container, tally) {
-            Object.keys(tally).forEach(function (field) {
+            Object.keys(tally).forEach(field => {
                 if (field === 'closed') return;
                 const el = container.querySelector('[data-tally-field="' + field + '"]');
                 if (el && el.textContent !== String(tally[field])) {
                     el.textContent = tally[field];
-                    // Brief highlight on change
                     el.style.transition = 'opacity 0.2s';
                     el.style.opacity = '0.4';
-                    setTimeout(function () { el.style.opacity = '1'; }, 200);
+                    setTimeout(() => { el.style.opacity = '1'; }, 200);
                 }
             });
             const ts = container.querySelector('[data-tally-updated]');
@@ -552,42 +863,21 @@
                 const data = await resp.json();
                 const tallies = data.tallies || {};
 
-                tallyContainers.forEach(function (container) {
+                containers.forEach(container => {
                     const legId = container.dataset.tallyId;
                     const tally = tallies[legId];
                     if (!tally) return;
-                    if (tally.closed) {
-                        // Vote ended while user was watching — reload to show final state
-                        window.location.reload();
-                        return;
-                    }
+                    if (tally.closed) { window.location.reload(); return; }
                     applyTally(container, tally);
                 });
-            } catch (e) {
-                // Silent fail — polling will retry on next interval
-            }
+            } catch (e) { /* silent */ }
         }
 
-        function start() {
-            if (timer) return;
-            poll();  // immediate poll on start
-            timer = setInterval(poll, POLL_INTERVAL_MS);
-        }
+        function start() { if (timer) return; poll(); timer = setInterval(poll, INTERVAL); }
+        function stop()  { if (timer) { clearInterval(timer); timer = null; } }
 
-        function stop() {
-            if (timer) {
-                clearInterval(timer);
-                timer = null;
-            }
-        }
-
-        // Pause when tab is backgrounded, resume when visible
-        document.addEventListener('visibilitychange', function () {
-            if (document.hidden) {
-                stop();
-            } else {
-                start();
-            }
+        document.addEventListener('visibilitychange', () => {
+            document.hidden ? stop() : start();
         });
 
         start();

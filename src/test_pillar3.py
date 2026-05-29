@@ -8,10 +8,14 @@ Covers:
     explicit form submission
   - Officer/role transition tools: auth, GET render, atomic swap, member_type
     cascade, grants_admin flag, validation errors
+  - Chair appointment: create appointment vote, assign_appointment GET/POST,
+    role assignment, member_type promotion, appointment_assigned flag
 
 Run with:
     python manage.py test src.test_pillar3 --settings=ci_settings
 """
+
+import json
 
 from django.test import TestCase, Client, override_settings
 from django.urls import reverse
@@ -25,14 +29,22 @@ from src.models import ParliamentUser, Role
 
 def make_user(user_id, member_type='Member', member_status='Active', name=None, **kwargs):
     """Create a ParliamentUser with sensible defaults."""
-    defaults = dict(
+    # create_user() only accepts (user_id, name, username, member_type, password).
+    # member_status and any extra fields must be set directly after creation.
+    user = ParliamentUser.objects.create_user(
+        user_id=user_id,
+        password='testpass123',
         name=name or f'User {user_id}',
         username=f'user_{user_id}',
         member_type=member_type,
-        member_status=member_status,
     )
-    defaults.update(kwargs)
-    return ParliamentUser.objects.create_user(user_id=user_id, password='testpass123', **defaults)
+    # create_user() sets user.username = name; override it so login(username='user_<id>') works.
+    user.username = f'user_{user_id}'
+    user.member_status = member_status
+    for attr, val in kwargs.items():
+        setattr(user, attr, val)
+    user.save()
+    return user
 
 
 # ===========================================================================
@@ -488,3 +500,221 @@ class TransferRoleTests(TestCase):
         response = _post_transfer(self.client, self.role.id,
                                   incoming_user_id='tr_inactive')
         self.assertEqual(response.status_code, 404)
+
+
+# ===========================================================================
+# 10. CHAIR APPOINTMENT — CREATE APPOINTMENT VOTE
+# ===========================================================================
+
+class CreateAppointmentTests(TestCase):
+    """upload_legislation with action_type=create_appointment creates appointment legislation."""
+
+    def setUp(self):
+        self.officer = make_user('ca_off', member_type='Officer')
+        self.nominee = make_user('ca_nom', member_type='Member', name='Nominee User')
+        self.role = Role.objects.create(name='President', code='PRES')
+        self.client = Client()
+        self.client.login(username='user_ca_off', password='testpass123')
+
+    def _post(self, **extra):
+        base = {
+            'action_type': 'create_appointment',
+            'appointment_role_id': str(self.role.id),
+            'appointment_member_id': self.nominee.user_id,
+            'appt_vote_mode': 'percentage',
+            'appt_available_at': '2099-01-01T00:00',
+            'appt_required_percentage': '51',
+        }
+        base.update(extra)
+        return self.client.post(reverse('upload_legislation'), base)
+
+    def test_creates_appointment_legislation(self):
+        self._post()
+        from src.models import Legislation
+        leg = Legislation.objects.filter(legislation_type='appointment').first()
+        self.assertIsNotNone(leg)
+
+    def test_appointment_role_set_correctly(self):
+        self._post()
+        from src.models import Legislation
+        leg = Legislation.objects.filter(legislation_type='appointment').first()
+        self.assertEqual(leg.appointment_role, self.role)
+
+    def test_appointment_member_set_correctly(self):
+        self._post()
+        from src.models import Legislation
+        leg = Legislation.objects.filter(legislation_type='appointment').first()
+        self.assertEqual(leg.appointment_member, self.nominee)
+
+    def test_auto_generates_title(self):
+        self._post()
+        from src.models import Legislation
+        leg = Legislation.objects.filter(legislation_type='appointment').first()
+        self.assertIn(self.role.name, leg.title)
+        self.assertIn(self.nominee.name, leg.title)
+
+    def test_custom_title_preserved(self):
+        self._post(appt_title='My Custom Title')
+        from src.models import Legislation
+        leg = Legislation.objects.filter(legislation_type='appointment').first()
+        self.assertEqual(leg.title, 'My Custom Title')
+
+    def test_missing_role_redirects_with_error(self):
+        response = self._post(appointment_role_id='')
+        self.assertRedirects(response, reverse('vote'), fetch_redirect_response=False)
+
+    def test_missing_available_at_redirects_with_error(self):
+        response = self._post(appt_available_at='')
+        self.assertRedirects(response, reverse('vote'), fetch_redirect_response=False)
+
+    def test_missing_nominee_for_non_plurality_redirects_with_error(self):
+        response = self._post(appointment_member_id='', appt_vote_mode='percentage')
+        self.assertRedirects(response, reverse('vote'), fetch_redirect_response=False)
+        from src.models import Legislation
+        self.assertFalse(Legislation.objects.filter(legislation_type='appointment').exists())
+
+    def test_requires_officer(self):
+        member = make_user('ca_plain', member_type='Member')
+        client = Client()
+        client.login(username='user_ca_plain', password='testpass123')
+        response = self._post()
+        # Regular member cannot create appointment — officer_required redirects
+        self.assertNotEqual(response.status_code, 200)
+
+    def test_plurality_appointment_no_member_required(self):
+        self._post(
+            appt_vote_mode='plurality',
+            appointment_member_id='',
+            appt_plurality_option_1='Candidate A',
+            appt_plurality_option_2='Candidate B',
+        )
+        from src.models import Legislation
+        leg = Legislation.objects.filter(legislation_type='appointment', vote_mode='plurality').first()
+        self.assertIsNotNone(leg)
+        self.assertIsNone(leg.appointment_member)
+
+    def test_plurality_requires_two_options(self):
+        response = self._post(
+            appt_vote_mode='plurality',
+            appointment_member_id='',
+            appt_plurality_option_1='Only One',
+        )
+        from src.models import Legislation
+        self.assertFalse(Legislation.objects.filter(legislation_type='appointment').exists())
+
+
+# ===========================================================================
+# 11. CHAIR APPOINTMENT — ASSIGN_APPOINTMENT GET
+# ===========================================================================
+
+class AssignAppointmentGetTests(TestCase):
+    """assign_appointment GET renders the confirmation page for officers."""
+
+    def setUp(self):
+        self.officer = make_user('ag_off', member_type='Officer')
+        self.nominee = make_user('ag_nom', member_type='Member', name='Nominee')
+        self.role = Role.objects.create(name='President', code='PRES')
+        from src.models import Legislation
+        from django.utils import timezone
+        self.legislation = Legislation.objects.create(
+            title='Appoint President',
+            description='Vote',
+            posted_by=self.officer,
+            legislation_type='appointment',
+            appointment_role=self.role,
+            appointment_member=self.nominee,
+            available_at=timezone.now(),
+            status='passed',
+            passed=True,
+            voting_closed=True,
+        )
+        self.client = Client()
+        self.client.login(username='user_ag_off', password='testpass123')
+
+    def test_renders_200(self):
+        response = self.client.get(reverse('assign_appointment', kwargs={'legislation_id': self.legislation.id}))
+        self.assertEqual(response.status_code, 200)
+
+    def test_context_has_role(self):
+        response = self.client.get(reverse('assign_appointment', kwargs={'legislation_id': self.legislation.id}))
+        self.assertEqual(response.context['role'], self.role)
+
+    def test_context_has_member(self):
+        response = self.client.get(reverse('assign_appointment', kwargs={'legislation_id': self.legislation.id}))
+        self.assertEqual(response.context['member'], self.nominee)
+
+    def test_non_appointment_legislation_returns_404(self):
+        from src.models import Legislation
+        from django.utils import timezone
+        general = Legislation.objects.create(
+            title='General Bill',
+            description='...',
+            posted_by=self.officer,
+            legislation_type='general',
+            available_at=timezone.now(),
+        )
+        response = self.client.get(reverse('assign_appointment', kwargs={'legislation_id': general.id}))
+        self.assertEqual(response.status_code, 404)
+
+    def test_requires_officer(self):
+        member = make_user('ag_plain', member_type='Member')
+        client = Client()
+        client.login(username='user_ag_plain', password='testpass123')
+        response = client.get(reverse('assign_appointment', kwargs={'legislation_id': self.legislation.id}))
+        self.assertNotEqual(response.status_code, 200)
+
+
+# ===========================================================================
+# 12. CHAIR APPOINTMENT — ASSIGN_APPOINTMENT POST
+# ===========================================================================
+
+class AssignAppointmentPostTests(TestCase):
+    """assign_appointment POST assigns the role and updates member_type."""
+
+    def setUp(self):
+        self.officer = make_user('ap_off', member_type='Officer')
+        self.nominee = make_user('ap_nom', member_type='Member', name='Nominee')
+        self.role = Role.objects.create(name='President', code='PRES')
+        from src.models import Legislation
+        from django.utils import timezone
+        self.legislation = Legislation.objects.create(
+            title='Appoint President',
+            description='Vote',
+            posted_by=self.officer,
+            legislation_type='appointment',
+            appointment_role=self.role,
+            appointment_member=self.nominee,
+            available_at=timezone.now(),
+            status='passed',
+            passed=True,
+            voting_closed=True,
+        )
+        self.client = Client()
+        self.client.login(username='user_ap_off', password='testpass123')
+        self.url = reverse('assign_appointment', kwargs={'legislation_id': self.legislation.id})
+
+    def test_assigns_role_to_member(self):
+        self.client.post(self.url)
+        self.nominee.refresh_from_db()
+        self.assertIn(self.role, self.nominee.roles.all())
+
+    def test_updates_member_type_to_chair(self):
+        self.client.post(self.url)
+        self.nominee.refresh_from_db()
+        self.assertEqual(self.nominee.member_type, 'Chair')
+
+    def test_existing_chair_member_type_unchanged(self):
+        self.nominee.member_type = 'Chair'
+        self.nominee.save(update_fields=['member_type'])
+        self.client.post(self.url)
+        self.nominee.refresh_from_db()
+        self.assertEqual(self.nominee.member_type, 'Chair')
+
+    def test_marks_appointment_assigned(self):
+        self.client.post(self.url)
+        self.legislation.refresh_from_db()
+        self.assertTrue(self.legislation.appointment_assigned)
+
+    def test_redirects_to_passed_legislation(self):
+        response = self.client.post(self.url)
+        self.assertRedirects(response, reverse('passed_legislation'), fetch_redirect_response=False)

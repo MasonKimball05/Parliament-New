@@ -551,6 +551,27 @@ class Legislation(models.Model):
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
 
+    # Chair appointment fields — only populated when legislation_type == 'appointment'
+    LEGISLATION_TYPES = [
+        ('general', 'General'),
+        ('appointment', 'Chair Appointment'),
+    ]
+    legislation_type = models.CharField(max_length=20, choices=LEGISLATION_TYPES, default='general')
+    appointment_role = models.ForeignKey(
+        'Role', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='appointment_legislation',
+        help_text="Role being filled (appointment votes only)"
+    )
+    appointment_member = models.ForeignKey(
+        'ParliamentUser', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='appointment_nominations',
+        help_text="Nominated member for single-nominee votes; null for plurality"
+    )
+    appointment_assigned = models.BooleanField(
+        default=False,
+        help_text="Set to True once the role has been formally assigned after the vote passed"
+    )
+
     @property
     def required_yes_votes(self):
         if self.vote_mode == 'piecewise':
