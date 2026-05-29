@@ -51,19 +51,38 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.24.1 - Multiple Academics & Initiation Chapter Role Numbers (2026-05-29)
+
+Extends the member profile system to support multiple majors/minors/concentrations and adds a per-chapter role number field to initiation chapters.
+
+**New Model Fields (migration 0180):**
+- `majors`, `minors`, `concentrations` — JSONField lists replacing the old `major`, `minor`, `concentration` CharFields; existing data migrated automatically
+- `initiation_chapters` entries now accept an optional `role_number` key (no migration needed — JSONField is schemaless)
+
+**Changed:**
+- Profile and admin edit pages now show add/delete UI for each academic field (same pattern as custom socials and initiation chapters)
+- Initiation chapter add forms now include an optional Role # field; role number displayed inline in both profile page listing and modal popups
+- `profile_card_json` now returns `academics` as `{majors: [...], minors: [...], concentrations: [...]}` instead of flat strings
+- Directory and house map modals updated to render list-valued academics
+- `refresh_from_db()` added to profile view before render to ensure form pre-population always reflects saved state
+
+**Files changed:** `src/models.py`, `src/migrations/0180_parliamentuser_academic_fields.py`, `src/view/profile_view.py`, `src/view/admin_v2.py`, `src/view/profile_card.py`, `templates/profile.html`, `templates/admin_v2/edit_user_profile.html`, `templates/directory.html`, `templates/house_map.html`
+
+---
+
 ### v2.24.0 - Extended Member Profiles, House System & House Map (2026-05-29)
 
 Full overhaul of the member profile system adding rich optional profile data, a big/little family tree, a house assignment system with auto-propagation, a house map page, and a profile popup modal in the directory.
 
 **New Models / Fields (migrations 0176–0179):**
-- `about_me`, `major`, `minor`, `concentration` — bio and academics
+- `about_me`, `major`, `minor`, `concentration` — bio and academics (later migrated to `majors`/`minors`/`concentrations` JSONFields in v2.24.1)
 - `big_brother` — self-referential FK; `little_brothers` is the reverse relation
 - `pledge_class`, `pledge_class_greek` — pledge class name and Greek letter name (e.g. "Alpha Beta" → αβ); "Founder" gets a gold gradient badge
 - `graduation_semester`, `graduation_year`
 - `instagram`, `twitter`, `linkedin`, `snapchat`, `facebook`, `other_email` — standard social handles
 - `custom_socials` — JSONField list of `{"platform", "handle"}` for non-standard platforms (Signal, WhatsApp, etc.)
 - `house` — CharField with fixed 8-house choices (Smith, Duncan, Knox, Marshall, Linton, Hardin, Ryan, Gordon); not user-editable from UI
-- `initiation_chapters` — JSONField list of `{"school", "chapter"}` dicts; defaults to display "Alpha Mu (αμ) — Samford University" when empty; supports dual-chapter membership
+- `initiation_chapters` — JSONField list of `{"school", "chapter", "role_number"?}` dicts; defaults to display "Alpha Mu (αμ) — Samford University" when empty; supports dual-chapter membership; `role_number` added in v2.24.1
 - `RoleHistory` model — tracks positions held with start/end semesters; many-to-one with `ParliamentUser`
 
 **Directory Profile Modal:**

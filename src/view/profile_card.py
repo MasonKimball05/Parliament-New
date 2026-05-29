@@ -25,13 +25,11 @@ def profile_card_json(request, user_id):
     elif member.graduation_year:
         grad = str(member.graduation_year)
 
-    academics = {}
-    if member.major:
-        academics['major'] = member.major
-    if member.minor:
-        academics['minor'] = member.minor
-    if member.concentration:
-        academics['concentration'] = member.concentration
+    academics = {
+        'majors': list(member.majors or []),
+        'minors': list(member.minors or []),
+        'concentrations': list(member.concentrations or []),
+    }
 
     socials = {}
     if member.instagram:
@@ -68,7 +66,11 @@ def profile_card_json(request, user_id):
     ]
 
     initiation_chapters = [
-        {'school': c.get('school', ''), 'chapter': c.get('chapter', '')}
+        {
+            'school': c.get('school', ''),
+            'chapter': c.get('chapter', ''),
+            'role_number': c.get('role_number', ''),
+        }
         for c in (member.initiation_chapters or [])
         if c.get('school') and c.get('chapter')
     ]

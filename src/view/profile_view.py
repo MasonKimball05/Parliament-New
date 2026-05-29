@@ -38,6 +38,8 @@ def profile_view(request):
     custom_social_delete = 'custom_social_delete_submit' in request.POST
     initiation_chapter_add = 'initiation_chapter_add_submit' in request.POST
     initiation_chapter_delete = 'initiation_chapter_delete_submit' in request.POST
+    academic_item_add = 'academic_item_add_submit' in request.POST
+    academic_item_delete = 'academic_item_delete_submit' in request.POST
 
     password_form = PasswordChangeForm(user)
 
@@ -185,11 +187,9 @@ def profile_view(request):
             return redirect('profile')
 
         elif extended_profile_submitted:
-            # Save bio, academics, chapter info, socials, other email, big brother
+            # Save bio, chapter info, socials, other email, big brother
+            # (majors/minors/concentrations managed separately via academic_item_add/delete)
             user.about_me = request.POST.get('about_me', '').strip()
-            user.major = request.POST.get('major', '').strip()
-            user.minor = request.POST.get('minor', '').strip()
-            user.concentration = request.POST.get('concentration', '').strip()
             user.pledge_class = request.POST.get('pledge_class', '').strip()
             user.pledge_class_greek = request.POST.get('pledge_class_greek', '').strip()
             user.graduation_semester = request.POST.get('graduation_semester', '').strip()
@@ -256,9 +256,13 @@ def profile_view(request):
         elif initiation_chapter_add:
             school = request.POST.get('ic_school', '').strip()
             chapter = request.POST.get('ic_chapter', '').strip()
+            role_num = request.POST.get('ic_role_number', '').strip()
             if school and chapter:
                 chapters = list(user.initiation_chapters or [])
-                chapters.append({'school': school, 'chapter': chapter})
+                entry = {'school': school, 'chapter': chapter}
+                if role_num:
+                    entry['role_number'] = role_num
+                chapters.append(entry)
                 user.initiation_chapters = chapters
                 user.save(update_fields=['initiation_chapters'])
                 messages.success(request, f'{chapter} at {school} added.')
@@ -276,6 +280,39 @@ def profile_view(request):
                     user.initiation_chapters = chapters
                     user.save(update_fields=['initiation_chapters'])
                     messages.success(request, 'Initiation chapter removed.')
+            return redirect('profile')
+
+        elif academic_item_add:
+            ai_type = request.POST.get('ai_type', '').strip()
+            ai_value = request.POST.get('ai_value', '').strip()
+            field_map = {'major': 'majors', 'minor': 'minors', 'concentration': 'concentrations'}
+            if ai_type in field_map and ai_value:
+                field = field_map[ai_type]
+                items = list(getattr(user, field) or [])
+                if ai_value not in items:
+                    items.append(ai_value)
+                    setattr(user, field, items)
+                    user.save(update_fields=[field])
+                    messages.success(request, f'{ai_value} added.')
+                else:
+                    messages.info(request, f'{ai_value} is already listed.')
+            else:
+                messages.error(request, 'Type and value are required.')
+            return redirect('profile')
+
+        elif academic_item_delete:
+            ai_type = request.POST.get('ai_type', '').strip()
+            ai_index = request.POST.get('ai_index', '').strip()
+            field_map = {'major': 'majors', 'minor': 'minors', 'concentration': 'concentrations'}
+            if ai_type in field_map and ai_index.isdigit():
+                field = field_map[ai_type]
+                items = list(getattr(user, field) or [])
+                i = int(ai_index)
+                if 0 <= i < len(items):
+                    items.pop(i)
+                    setattr(user, field, items)
+                    user.save(update_fields=[field])
+                    messages.success(request, 'Removed.')
             return redirect('profile')
 
         elif role_history_delete:
@@ -319,6 +356,8 @@ def profile_view(request):
             else:
                 messages.error(request, "Please correct the errors below.")
 
+    user.refresh_from_db()
+
     # Get or create notification preferences
     notif_prefs, _ = UserPreferences.objects.get_or_create(user=user)
 
@@ -337,6 +376,12 @@ def profile_view(request):
         .order_by('name')
     )
 
+    academic_sections = [
+        ('Major', 'major', list(user.majors or [])),
+        ('Minor', 'minor', list(user.minors or [])),
+        ('Concentration', 'concentration', list(user.concentrations or [])),
+    ]
+
     return render(request, 'profile.html', {
         'user': user,
         'password_form': password_form,
@@ -345,4 +390,5 @@ def profile_view(request):
         'backup_codes_remaining': backup_codes_remaining,
         'role_histories': role_histories,
         'eligible_big_bros': eligible_big_bros,
+        'academic_sections': academic_sections,
     })

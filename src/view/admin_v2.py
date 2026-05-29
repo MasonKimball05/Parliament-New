@@ -1019,11 +1019,39 @@ def edit_user_profile(request, user_id):
             )
             messages.success(request, 'Core info updated.')
 
+        elif action == 'academic_item_add':
+            ai_type = request.POST.get('ai_type', '').strip()
+            ai_value = request.POST.get('ai_value', '').strip()
+            field_map = {'major': 'majors', 'minor': 'minors', 'concentration': 'concentrations'}
+            if ai_type in field_map and ai_value:
+                field = field_map[ai_type]
+                items = list(getattr(target, field) or [])
+                if ai_value not in items:
+                    items.append(ai_value)
+                    setattr(target, field, items)
+                    target.save(update_fields=[field])
+                    messages.success(request, f'{ai_value} added.')
+                else:
+                    messages.info(request, f'{ai_value} is already listed.')
+            else:
+                messages.error(request, 'Type and value are required.')
+
+        elif action == 'academic_item_delete':
+            ai_type = request.POST.get('ai_type', '').strip()
+            ai_index = request.POST.get('ai_index', '').strip()
+            field_map = {'major': 'majors', 'minor': 'minors', 'concentration': 'concentrations'}
+            if ai_type in field_map and ai_index.isdigit():
+                field = field_map[ai_type]
+                items = list(getattr(target, field) or [])
+                i = int(ai_index)
+                if 0 <= i < len(items):
+                    items.pop(i)
+                    setattr(target, field, items)
+                    target.save(update_fields=[field])
+                    messages.success(request, 'Removed.')
+
         elif action == 'extended':
             target.about_me = request.POST.get('about_me', '').strip()
-            target.major = request.POST.get('major', '').strip()
-            target.minor = request.POST.get('minor', '').strip()
-            target.concentration = request.POST.get('concentration', '').strip()
             target.pledge_class = request.POST.get('pledge_class', '').strip()
             target.pledge_class_greek = request.POST.get('pledge_class_greek', '').strip()
             target.graduation_semester = request.POST.get('graduation_semester', '').strip()
@@ -1085,9 +1113,13 @@ def edit_user_profile(request, user_id):
         elif action == 'initiation_chapter_add':
             school = request.POST.get('ic_school', '').strip()
             chapter = request.POST.get('ic_chapter', '').strip()
+            role_num = request.POST.get('ic_role_number', '').strip()
             if school and chapter:
                 chapters = list(target.initiation_chapters or [])
-                chapters.append({'school': school, 'chapter': chapter})
+                entry = {'school': school, 'chapter': chapter}
+                if role_num:
+                    entry['role_number'] = role_num
+                chapters.append(entry)
                 target.initiation_chapters = chapters
                 target.save(update_fields=['initiation_chapters'])
                 messages.success(request, f'{chapter} at {school} added.')
@@ -1108,10 +1140,16 @@ def edit_user_profile(request, user_id):
         return redirect('admin_v2_edit_user_profile', user_id=user_id)
 
     role_histories = RoleHistory.objects.filter(user=target)
+    academic_sections = [
+        ('Major', 'major', list(target.majors or [])),
+        ('Minor', 'minor', list(target.minors or [])),
+        ('Concentration', 'concentration', list(target.concentrations or [])),
+    ]
     return render(request, 'admin_v2/edit_user_profile.html', {
         'target': target,
         'all_members': all_members,
         'role_histories': role_histories,
+        'academic_sections': academic_sections,
     })
 
 

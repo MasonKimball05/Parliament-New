@@ -147,9 +147,9 @@ class ParliamentUser(AbstractBaseUser):
 
     # Extended profile fields (all optional)
     about_me = models.TextField(blank=True, help_text='Short bio visible to other members')
-    major = models.CharField(max_length=100, blank=True)
-    minor = models.CharField(max_length=100, blank=True)
-    concentration = models.CharField(max_length=100, blank=True)
+    majors = models.JSONField(default=list, blank=True, help_text='List of major fields of study')
+    minors = models.JSONField(default=list, blank=True, help_text='List of minor fields of study')
+    concentrations = models.JSONField(default=list, blank=True, help_text='List of concentrations')
     big_brother = models.ForeignKey(
         'self',
         null=True, blank=True,

@@ -826,9 +826,9 @@ function _renderProfile(d) {
     // Academics
     const acad = d.academics || {};
     let acadRows = '';
-    if (acad.major)         acadRows += _row('Major', acad.major);
-    if (acad.minor)         acadRows += _row('Minor', acad.minor);
-    if (acad.concentration) acadRows += _row('Concentration', acad.concentration);
+    if (acad.majors && acad.majors.length)         acadRows += _row('Major', acad.majors.map(_esc).join('<br>'));
+    if (acad.minors && acad.minors.length)         acadRows += _row('Minor', acad.minors.map(_esc).join('<br>'));
+    if (acad.concentrations && acad.concentrations.length) acadRows += _row('Concentration', acad.concentrations.map(_esc).join('<br>'));
     if (acadRows) {
         document.getElementById('pm-academics-list').innerHTML = acadRows;
         _show('pm-academics-section');
@@ -866,7 +866,8 @@ function _renderProfile(d) {
     const initLabels = initChapters.map(c => {
         const glyphs = c.chapter.trim().split(/\s+/).map(w => GREEK_GLYPHS[w.toLowerCase()] || '').join('');
         const chapterDisplay = glyphs ? `${_esc(c.chapter)} (${glyphs})` : _esc(c.chapter);
-        return `${chapterDisplay} — ${_esc(c.school)}`;
+        const roleTag = c.role_number ? ` <span class="text-gray-400">#${_esc(c.role_number)}</span>` : '';
+        return `${chapterDisplay} — ${_esc(c.school)}${roleTag}`;
     });
     chapterRows += _row('Initiated at', initLabels.join('<br>'));
     if (chapterRows) {
