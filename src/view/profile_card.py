@@ -55,7 +55,7 @@ def profile_card_json(request, user_id):
     ]
 
     littles = [
-        {'name': lb.get_display_name(), 'user_id': lb.user_id}
+        {'name': lb.get_display_name(), 'user_id': lb.user_id, 'role_number': lb.role_number or ''}
         for lb in member.little_brothers.filter(member_status='Active')
     ]
 
@@ -97,6 +97,7 @@ def profile_card_json(request, user_id):
         'big_brother': {
             'name': member.big_brother.get_display_name(),
             'user_id': member.big_brother.user_id,
+            'role_number': member.big_brother.role_number or '',
         } if member.big_brother else None,
         'little_brothers': littles,
         'socials': socials,

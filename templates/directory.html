@@ -855,9 +855,15 @@ function _renderProfile(d) {
         chapterRows += _row('Pledge class', pcLabel);
     }
     if (d.graduation)    chapterRows += _row('Graduation', d.graduation);
-    if (d.big_brother)   chapterRows += _row('Big brother', d.big_brother.name);
+    if (d.big_brother) {
+        const bigRn = d.big_brother.role_number ? ` <span class="text-gray-400">#${_esc(d.big_brother.role_number)}</span>` : '';
+        chapterRows += _row('Big brother', _esc(d.big_brother.name) + bigRn);
+    }
     if (d.little_brothers && d.little_brothers.length) {
-        chapterRows += _row('Little brothers', d.little_brothers.map(l => l.name).join(', '));
+        chapterRows += _row('Little brothers', d.little_brothers.map(l => {
+            const rn = l.role_number ? ` <span class="text-gray-400">#${_esc(l.role_number)}</span>` : '';
+            return _esc(l.name) + rn;
+        }).join(', '));
     }
     // Initiation chapters
     const initChapters = (d.initiation_chapters && d.initiation_chapters.length)

@@ -440,9 +440,15 @@
             chapterRows += _row('Pledge class', pcLabel);
         }
         if (d.graduation)   chapterRows += _row('Graduation', esc(d.graduation));
-        if (d.big_brother)  chapterRows += _row('Big brother', esc(d.big_brother.name));
+        if (d.big_brother) {
+            const bigRn = d.big_brother.role_number ? ` <span class="text-gray-400">#${esc(d.big_brother.role_number)}</span>` : '';
+            chapterRows += _row('Big brother', esc(d.big_brother.name) + bigRn);
+        }
         if (d.little_brothers && d.little_brothers.length) {
-            chapterRows += _row('Little brothers', d.little_brothers.map(l => esc(l.name)).join(', '));
+            chapterRows += _row('Little brothers', d.little_brothers.map(l => {
+                const rn = l.role_number ? ` <span class="text-gray-400">#${esc(l.role_number)}</span>` : '';
+                return esc(l.name) + rn;
+            }).join(', '));
         }
         const initChapters = (d.initiation_chapters && d.initiation_chapters.length)
             ? d.initiation_chapters
