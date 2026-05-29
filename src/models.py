@@ -282,6 +282,12 @@ def _default_user_prefs():
             'events': True,
             'slating': True,
         },
+        'push': {
+            'announcements': True,
+            'legislation': True,
+            'events': True,
+            'slating': True,
+        },
     }
 
 
@@ -426,6 +432,23 @@ class UserPreferences(models.Model):
     @property
     def notify_slating(self):
         return self._pref('notifications', 'slating', True)
+
+    # --- Push notification preferences ---
+    @property
+    def push_announcements(self):
+        return self._pref('push', 'announcements', True)
+
+    @property
+    def push_legislation(self):
+        return self._pref('push', 'legislation', True)
+
+    @property
+    def push_events(self):
+        return self._pref('push', 'events', True)
+
+    @property
+    def push_slating(self):
+        return self._pref('push', 'slating', True)
 
 
 # Signal to auto-create UserPreferences when a user is created

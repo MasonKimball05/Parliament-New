@@ -16,7 +16,8 @@ from src.models import (
     ParliamentUser, Legislation, Event, Committee,
     Announcement, ActivityLog, LoginHistory, LoginAlert,
     IPWhitelist, IPBlacklist, AnnouncementEmailLog, AnnouncementEmailRecipient,
-    QuarantinedAccount, HoneypotAccess, SecurityNotificationLog, UserWatchFlag
+    QuarantinedAccount, HoneypotAccess, SecurityNotificationLog, UserWatchFlag,
+    PushSubscription,
 )
 import os
 import secrets
@@ -314,6 +315,62 @@ def admin_v2_dashboard(request):
     # Get chat settings
     chat_settings = SiteSetting.objects.filter(category='chat').order_by('display_name')
 
+    # Seed push notification feature flags
+    push_flag_defaults = [
+        {
+            'name': 'push_notifications_enabled',
+            'display_name': 'Push Notifications (Master)',
+            'description': 'Master switch — disabling this stops all push notifications regardless of per-type settings.',
+            'category': 'communications',
+            'is_enabled': True,
+        },
+        {
+            'name': 'push_announcements',
+            'display_name': 'Push: Announcements',
+            'description': 'Send push notifications when a new announcement is posted.',
+            'category': 'communications',
+            'is_enabled': True,
+        },
+        {
+            'name': 'push_legislation',
+            'display_name': 'Push: Legislation / Votes',
+            'description': 'Send push notifications for new legislation and vote open/close events.',
+            'category': 'communications',
+            'is_enabled': True,
+        },
+        {
+            'name': 'push_events',
+            'display_name': 'Push: Events',
+            'description': 'Send push notifications for event reminders.',
+            'category': 'communications',
+            'is_enabled': True,
+        },
+        {
+            'name': 'push_slating',
+            'display_name': 'Push: Slating',
+            'description': 'Send push notifications for slating stage transitions.',
+            'category': 'communications',
+            'is_enabled': True,
+        },
+    ]
+    for flag_data in push_flag_defaults:
+        FeatureFlag.objects.get_or_create(
+            name=flag_data['name'],
+            defaults={
+                'display_name': flag_data['display_name'],
+                'description': flag_data['description'],
+                'category': flag_data['category'],
+                'is_enabled': flag_data['is_enabled'],
+            }
+        )
+
+    # Push notification stats
+    push_flags = FeatureFlag.objects.filter(name__startswith='push_').order_by('name')
+    push_stats = {
+        'total_subscribers': _safe_count(lambda: PushSubscription.objects.values('user').distinct().count()),
+        'total_devices': _safe_count(lambda: PushSubscription.objects.count()),
+    }
+
     # Recent activity logs (last 30)
     recent_logs = ActivityLog.objects.select_related('user').order_by('-timestamp')[:30]
 
@@ -346,6 +403,8 @@ def admin_v2_dashboard(request):
         'all_feature_flags': FeatureFlag.objects.all().order_by('category', 'name'),
         'page_toggles': page_toggles,
         'chat_settings': chat_settings,
+        'push_flags': push_flags,
+        'push_stats': push_stats,
         'recent_logs': recent_logs,
         'recent_logins': recent_logins,
         'recent_users': recent_users,
@@ -457,6 +516,55 @@ def update_site_setting(request, setting_id):
             )
         except SiteSetting.DoesNotExist:
             messages.error(request, 'Setting not found')
+
+    return redirect('admin_v2_dashboard')
+
+
+@require_admin_v2_auth
+def push_subscriptions_list(request):
+    """
+    List all push subscriptions grouped by user, with individual delete.
+    """
+    subscriptions = PushSubscription.objects.select_related('user').order_by('user__last_name', 'user__first_name', '-created_at')
+    return render(request, 'admin_v2/push_subscriptions.html', {'subscriptions': subscriptions})
+
+
+@require_admin_v2_auth
+@require_POST
+def delete_push_subscription(request, sub_id):
+    """
+    Delete a single push subscription by ID.
+    """
+    sub = get_object_or_404(PushSubscription, id=sub_id)
+    user_display = str(sub.user)
+    sub.delete()
+    messages.success(request, f'Deleted push subscription for {user_display}.')
+
+    ActivityLog.log_activity(
+        action_type='push_subscription_deleted',
+        user=request.user,
+        description=f'{request.user.get_display_name()} deleted push subscription {sub_id} for {user_display}',
+        request=request
+    )
+
+    return redirect('admin_v2_push_subscriptions')
+
+
+@require_admin_v2_auth
+@require_POST
+def clear_push_subscriptions(request):
+    """
+    Delete all push subscriptions (nuclear option — forces all devices to re-subscribe).
+    """
+    count, _ = PushSubscription.objects.all().delete()
+    messages.success(request, f'Cleared {count} push subscription(s). Users will need to re-subscribe.')
+
+    ActivityLog.log_activity(
+        action_type='push_subscriptions_cleared',
+        user=request.user,
+        description=f'{request.user.get_display_name()} cleared all push subscriptions ({count} removed)',
+        request=request
+    )
 
     return redirect('admin_v2_dashboard')
 

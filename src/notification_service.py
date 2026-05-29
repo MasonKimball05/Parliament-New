@@ -32,14 +32,32 @@ def _invalidate_caches_for_users(user_pks):
     cache.delete_many(keys)
 
 
+_PUSH_PREF_MAP = {
+    'announcement': 'push_announcements',
+    'legislation_new': 'push_legislation',
+    'vote_ended': 'push_legislation',
+    'event_new': 'push_events',
+    'slating_open': 'push_slating',
+    'slating_voting': 'push_slating',
+    'slating_results': 'push_slating',
+}
+
+
 def _dispatch_push_notifications(notifications):
     """
-    Fire a send_push_notification Celery task for each notification recipient.
-    Skips silently if Celery/VAPID is not configured (dev/CI environments).
+    Fire a send_push_notification Celery task for each notification recipient,
+    respecting per-type push preferences. Recipients with no subscriptions are
+    skipped by the task itself. Skips silently if VAPID not configured.
     """
     try:
         from src.tasks import send_push_notification
         for notif in notifications:
+            # Check per-type push preference — default True if prefs not loaded
+            pref_attr = _PUSH_PREF_MAP.get(notif.notification_type)
+            if pref_attr:
+                prefs = getattr(notif.recipient, 'preferences', None)
+                if prefs is not None and not getattr(prefs, pref_attr, True):
+                    continue
             send_push_notification.delay(
                 user_id=notif.recipient_id,
                 title=notif.title,

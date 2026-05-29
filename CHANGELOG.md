@@ -51,6 +51,70 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.22.0 - Officer/Role Transition Tools (05-29-2026)
+
+- Added dedicated role handoff page at `/officers/transitions/` — shows all roles with current holders and a Transfer button per row
+- Transfer modal performs an atomic swap: removes role from outgoing holder, assigns to incoming, and optionally updates member_type for both parties in one logged operation
+- Auto-grants `is_admin` when a `grants_admin` role is transferred to a non-admin member
+- Auto-clears existing holder on `one_per_chapter` roles when no explicit outgoing is specified
+- `demote_outgoing` flag: reverts outgoing member to Member type only if they hold no remaining qualifying roles (Officer type preserved if another `grants_admin` role remains)
+- Full `ActivityLog` entry with action type `transfer_role` and complete changes list
+- 14 new tests in `src/test_pillar3.py` covering auth, GET render, swap, type cascade, grants_admin, demotion guard, and validation errors
+
+**Files added:**
+- `src/view/officer/transitions.py`
+- `templates/officer/role_transitions.html`
+
+**Files changed:**
+- `src/urls.py` — two new URL patterns + import
+- `src/test_pillar3.py` — 3 new test classes (TransitionAuthTests, TransitionListTests, TransferRoleTests)
+
+**Deployment:** No migrations. `collectstatic` + Cloudflare purge required.
+
+---
+
+### v2.21.0 - Member Directory Enhancements (05-29-2026)
+
+- Added client-side type filter pills (Officers, Chairs, Members, Pledges, Advisors, Alumni) with active/inactive styling
+- Added sort dropdown (A→Z, Z→A, Roll #) — sort=roll and sort=name_desc handled server-side; dropdown reloads page via URL param
+- Added `data-type` attribute to all six member card groups so the JS filter can target them by type
+- Added `filter_type` and `sort` keys to view context so the template can pre-select active states
+- Added `src/test_pillar3.py` covering: auth requirement, member grouping, alumni toggle, sort correctness, filter_type context, export defaults, and export column selection
+
+**Files changed:**
+- `templates/directory.html` — filter pills, sort dropdown, `data-type` on all card types, JS filter/sort logic, `.filter-pill` CSS
+- `src/view/directory.py` — sort logic, `sort` + `filter_type` context keys *(already landed this session)*
+- `src/test_pillar3.py` — new Pillar 3 test file
+
+**Deployment:** Static files changed — `collectstatic` + Cloudflare cache purge required. No migrations.
+
+---
+
+### v2.20.0 - Push Notification Admin Management (05-28-2026)
+Adds admin-v2 tools for managing push subscriptions and a member-facing reconfigure button. Admins can view all registered devices, delete individual subscriptions, toggle push on/off globally or per notification type, and mass-clear all subscriptions from the dashboard — no database access required. Members can now resync their push subscription in one click from the preferences page, which handles rotated endpoints, expired subscriptions, or post-admin-clear scenarios.
+
+**Deployment Status:** Not yet deployed
+
+**New Files:**
+- **`templates/admin_v2/push_subscriptions.html`** — Table listing every registered device with user, user agent, subscribed date, last used date, truncated endpoint, and individual delete buttons.
+
+**Modified Files:**
+- **`src/view/admin_v2.py`** — Added `PushSubscription` import; dashboard seeds 5 push feature flags on first load (`push_notifications_enabled` master + 4 per-type); adds push stats and flags to context; new `push_subscriptions_list` and `delete_push_subscription` views.
+- **`src/urls.py`** — Added `admin-v2/push/subscriptions/` and `admin-v2/push/subscriptions/<id>/delete/`.
+- **`templates/admin_v2/dashboard.html`** — New Push Notifications card: subscriber/device stats, per-flag ON/OFF toggles, "View All Subscriptions" link, "Clear All" danger zone.
+- **`templates/preferences.html`** — "Reconfigure" button next to "Disable" in the push-enabled state; re-subscribes the current device fresh, handling rotated endpoints and cleared subscriptions.
+
+**Deployment steps:**
+1. `git pull origin main`
+2. `python manage.py collectstatic --noinput`
+3. `systemctl restart parliament`
+4. Purge Cloudflare cache
+5. Load admin-v2 dashboard once — push flags seeded automatically on first page load
+
+> No migration required.
+
+---
+
 ### v2.19.0 - PWA & Web Push Notifications (05-27-2026)
 Adds Progressive Web App support and Web Push notifications. Members can add Parliament to their home screen for a native-app feel. Every in-app notification now fires a push to all subscribed devices simultaneously.
 

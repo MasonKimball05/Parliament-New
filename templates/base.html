@@ -1207,6 +1207,35 @@
         {% endfor %}
     {% endif %}
 
+    <!-- Add to Home Screen prompt (PWA install nudge) -->
+    {% if user.is_authenticated %}
+    <div id="a2hs-banner" class="hidden bg-primary-700 text-white px-4 py-3" role="alert">
+        <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <img src="/exportable_media/am-coat-of-arms.png" alt="" class="w-8 h-8 rounded-full object-contain bg-white p-0.5 flex-shrink-0">
+                <div>
+                    <p class="text-sm font-medium" id="a2hs-message">Install Parliament on your home screen for quick access and push notifications.</p>
+                    <p class="text-xs text-primary-200 mt-0.5" id="a2hs-ios-hint" style="display:none">
+                        Tap the share button <span class="font-semibold">⎙</span> then "Add to Home Screen"
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <button id="a2hs-install-btn" type="button"
+                        class="hidden px-3 py-1.5 bg-white text-primary-700 text-sm font-medium rounded-md hover:bg-primary-50 transition-colors">
+                    Install
+                </button>
+                <button id="a2hs-dismiss-btn" type="button"
+                        class="p-1 rounded-md hover:bg-primary-600 transition-colors" aria-label="Dismiss">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Main Content -->
     <main class="flex-grow">
         {% block content %}{% endblock %}
@@ -1690,13 +1719,62 @@
 
     {% block extra_js %}{% endblock %}
 
-    <!-- Service Worker Registration (PWA / Push Notifications) -->
+    <!-- Service Worker Registration & Add-to-Home-Screen prompt -->
     {% if user.is_authenticated %}
     <script nonce="{{ request.csp_nonce }}">
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
-            .catch(function(err) { console.warn('SW registration failed:', err); });
-    }
+    (function() {
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+                .catch(function(err) { console.warn('SW registration failed:', err); });
+        }
+
+        // Add to Home Screen prompt — only show on mobile, only once per 30 days
+        var DISMISS_KEY = 'parliament_a2hs_dismissed';
+        var banner = document.getElementById('a2hs-banner');
+        if (!banner) return;
+
+        var dismissed = localStorage.getItem(DISMISS_KEY);
+        if (dismissed && (Date.now() - parseInt(dismissed, 10)) < 30 * 24 * 60 * 60 * 1000) return;
+
+        // Only show on mobile screen widths
+        if (window.innerWidth > 768) return;
+
+        // Don't show if already installed (standalone mode)
+        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) return;
+
+        var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+        var deferredPrompt = null;
+
+        // Chrome/Android: capture the native install prompt
+        window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('a2hs-install-btn').classList.remove('hidden');
+        });
+
+        document.getElementById('a2hs-install-btn').addEventListener('click', function() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then(function() { deferredPrompt = null; });
+            }
+            banner.classList.add('hidden');
+            localStorage.setItem(DISMISS_KEY, Date.now());
+        });
+
+        // iOS: show the manual instructions hint instead
+        if (isIOS) {
+            document.getElementById('a2hs-ios-hint').style.display = '';
+        }
+
+        document.getElementById('a2hs-dismiss-btn').addEventListener('click', function() {
+            banner.classList.add('hidden');
+            localStorage.setItem(DISMISS_KEY, Date.now());
+        });
+
+        // Show the banner
+        banner.classList.remove('hidden');
+    })();
     </script>
     {% endif %}
 </body>

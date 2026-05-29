@@ -41,15 +41,32 @@
         </button>
     </div>
 
-    <!-- Search Box -->
-    <div class="mb-6">
-        <div class="relative">
+    <!-- Search + Filter + Sort -->
+    <div class="flex flex-col sm:flex-row gap-3 mb-4">
+        <div class="relative flex-1">
             <input type="text" id="directorySearch" placeholder="Search by name, email, phone, or role number..."
-                   class="w-full px-4 py-3 pl-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-            <svg class="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="w-full px-4 py-2.5 pl-10 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+            <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
         </div>
+        <!-- Sort -->
+        <select id="directorySort" class="px-3 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <option value="name" {% if sort == 'name' %}selected{% endif %}>A → Z</option>
+            <option value="name_desc" {% if sort == 'name_desc' %}selected{% endif %}>Z → A</option>
+            <option value="roll" {% if sort == 'roll' %}selected{% endif %}>Roll #</option>
+        </select>
+    </div>
+
+    <!-- Type Filter Pills -->
+    <div class="flex flex-wrap gap-2 mb-6" id="type-filters">
+        <button data-filter="all"    class="filter-pill active px-3 py-1.5 rounded-full text-xs font-medium transition-colors">All</button>
+        {% if officers %}<button data-filter="officer" class="filter-pill px-3 py-1.5 rounded-full text-xs font-medium transition-colors">Officers ({{ officers|length }})</button>{% endif %}
+        {% if chairs   %}<button data-filter="chair"   class="filter-pill px-3 py-1.5 rounded-full text-xs font-medium transition-colors">Chairs ({{ chairs|length }})</button>{% endif %}
+        {% if members  %}<button data-filter="member"  class="filter-pill px-3 py-1.5 rounded-full text-xs font-medium transition-colors">Members ({{ members|length }})</button>{% endif %}
+        {% if pledges  %}<button data-filter="pledge"  class="filter-pill px-3 py-1.5 rounded-full text-xs font-medium transition-colors">Pledges ({{ pledges|length }})</button>{% endif %}
+        {% if advisors %}<button data-filter="advisor" class="filter-pill px-3 py-1.5 rounded-full text-xs font-medium transition-colors">Advisors ({{ advisors|length }})</button>{% endif %}
+        {% if show_alumni and alumni %}<button data-filter="alumni"  class="filter-pill px-3 py-1.5 rounded-full text-xs font-medium transition-colors">Alumni ({{ alumni|length }})</button>{% endif %}
     </div>
 
     <!-- Officers Section -->
@@ -65,7 +82,8 @@
                  data-name="{{ member.name|lower }}"
                  data-email="{{ member.email|lower|default:'' }}"
                  data-phone="{{ member.phone_number|default:'' }}"
-                 data-role="{{ member.role_number|default:member.user_id }}">
+                 data-role="{{ member.role_number|default:member.user_id }}"
+                 data-type="officer">
                 <div class="flex items-start gap-3">
                     {% if member.profile_picture %}
                     <img src="{{ member.profile_picture.url }}" alt="{{ member.name }}"
@@ -122,7 +140,8 @@
                  data-name="{{ member.name|lower }}"
                  data-email="{{ member.email|lower|default:'' }}"
                  data-phone="{{ member.phone_number|default:'' }}"
-                 data-role="{{ member.role_number|default:member.user_id }}">
+                 data-role="{{ member.role_number|default:member.user_id }}"
+                 data-type="chair">
                 <div class="flex items-start gap-3">
                     {% if member.profile_picture %}
                     <img src="{{ member.profile_picture.url }}" alt="{{ member.name }}"
@@ -149,6 +168,15 @@
                             {{ member.phone_number|format_phone }}
                         </a>
                         {% endif %}
+                        {% if member.roles.exists %}
+                        <div class="mt-2 flex flex-wrap gap-1">
+                            {% for role in member.roles.all %}
+                            <span class="px-2 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
+                                {{ role.name }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -170,7 +198,8 @@
                  data-name="{{ member.name|lower }}"
                  data-email="{{ member.email|lower|default:'' }}"
                  data-phone="{{ member.phone_number|default:'' }}"
-                 data-role="{{ member.role_number|default:member.user_id }}">
+                 data-role="{{ member.role_number|default:member.user_id }}"
+                 data-type="member">
                 <div class="flex items-start gap-3">
                     {% if member.profile_picture %}
                     <img src="{{ member.profile_picture.url }}" alt="{{ member.name }}"
@@ -218,7 +247,8 @@
                  data-name="{{ member.name|lower }}"
                  data-email="{{ member.email|lower|default:'' }}"
                  data-phone="{{ member.phone_number|default:'' }}"
-                 data-role="">
+                 data-role=""
+                 data-type="pledge">
                 <div class="flex items-start gap-3">
                     {% if member.profile_picture %}
                     <img src="{{ member.profile_picture.url }}" alt="{{ member.name }}"
@@ -264,7 +294,8 @@
                  data-name="{{ member.name|lower }}"
                  data-email="{{ member.email|lower|default:'' }}"
                  data-phone="{{ member.phone_number|default:'' }}"
-                 data-role="">
+                 data-role=""
+                 data-type="advisor">
                 <div class="flex items-start gap-3">
                     {% if member.profile_picture %}
                     <img src="{{ member.profile_picture.url }}" alt="{{ member.name }}"
@@ -313,7 +344,8 @@
                  data-name="{{ member.name|lower }}"
                  data-email="{{ member.email|lower|default:'' }}"
                  data-phone="{{ member.phone_number|default:'' }}"
-                 data-role="{{ member.role_number|default:'' }}">
+                 data-role="{{ member.role_number|default:'' }}"
+                 data-type="alumni">
                 <div class="flex items-start gap-3">
                     {% if member.profile_picture %}
                     <img src="{{ member.profile_picture.url }}" alt="{{ member.name }}"
@@ -460,6 +492,35 @@
     </div>
 </div>
 
+<style>
+.filter-pill {
+    background-color: rgb(243 244 246);
+    color: rgb(75 85 99);
+}
+.filter-pill:hover {
+    background-color: rgb(224 231 255);
+    color: rgb(67 56 202);
+}
+.filter-pill.active {
+    background-color: rgb(99 102 241);
+    color: rgb(255 255 255);
+}
+@media (prefers-color-scheme: dark) {
+    .filter-pill {
+        background-color: rgb(55 65 81);
+        color: rgb(156 163 175);
+    }
+    .filter-pill:hover {
+        background-color: rgba(99 102 241 / 0.3);
+        color: rgb(165 180 252);
+    }
+    .filter-pill.active {
+        background-color: rgb(99 102 241);
+        color: rgb(255 255 255);
+    }
+}
+</style>
+
 <script nonce="{{ request.csp_nonce }}">
 function openExportModal() {
     document.getElementById('exportModal').classList.remove('hidden');
@@ -474,14 +535,24 @@ document.getElementById('exportModal').addEventListener('click', function(e) {
     if (e.target === this) closeExportModal();
 });
 
+// Sort dropdown — reloads page with ?sort=
+document.getElementById('directorySort').addEventListener('change', function() {
+    const url = new URL(window.location.href);
+    url.searchParams.set('sort', this.value);
+    window.location.href = url.toString();
+});
+
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('directorySearch');
     const memberCards = document.querySelectorAll('.member-card');
     const noResults = document.getElementById('noResults');
     const sections = document.querySelectorAll('.directory-section');
+    const filterPills = document.querySelectorAll('.filter-pill');
 
-    searchInput.addEventListener('input', function() {
-        const query = this.value.toLowerCase().trim();
+    let activeFilter = 'all';
+
+    function applyFilters() {
+        const query = searchInput.value.toLowerCase().trim();
         let visibleCount = 0;
 
         memberCards.forEach(card => {
@@ -489,25 +560,38 @@ document.addEventListener('DOMContentLoaded', function() {
             const email = card.dataset.email || '';
             const role = card.dataset.role || '';
             const phone = card.dataset.phone || '';
+            const type = card.dataset.type || '';
 
-            const matches = !query ||
-                           name.includes(query) ||
-                           email.includes(query) ||
-                           role.includes(query) ||
-                           phone.includes(query);
+            const matchesSearch = !query ||
+                name.includes(query) ||
+                email.includes(query) ||
+                role.includes(query) ||
+                phone.includes(query);
 
-            card.style.display = matches ? '' : 'none';
-            if (matches) visibleCount++;
+            const matchesFilter = activeFilter === 'all' || type === activeFilter;
+
+            const visible = matchesSearch && matchesFilter;
+            card.style.display = visible ? '' : 'none';
+            if (visible) visibleCount++;
         });
 
-        // Hide/show section headers based on visible cards
         sections.forEach(section => {
             const visibleCards = section.querySelectorAll('.member-card:not([style*="display: none"])');
             section.style.display = visibleCards.length > 0 ? '' : 'none';
         });
 
-        // Show no results message
-        noResults.classList.toggle('hidden', visibleCount > 0 || !query);
+        noResults.classList.toggle('hidden', visibleCount > 0 || (!query && activeFilter === 'all'));
+    }
+
+    searchInput.addEventListener('input', applyFilters);
+
+    filterPills.forEach(pill => {
+        pill.addEventListener('click', function() {
+            filterPills.forEach(p => p.classList.remove('active'));
+            this.classList.add('active');
+            activeFilter = this.dataset.filter;
+            applyFilters();
+        });
     });
 });
 </script>

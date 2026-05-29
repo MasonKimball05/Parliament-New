@@ -221,6 +221,88 @@
             </div>
         </div>
 
+        <!-- Push Notifications -->
+        {% if vapid_public_key %}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+                <svg class="w-6 h-6 text-primary-600 dark:text-primary-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2v-1a7 7 0 00-14 0v1a2 2 0 002 2zM12 2a7 7 0 017 7v2l1.5 3H3.5L5 11V9a7 7 0 017-7z"/>
+                </svg>
+                Push Notifications
+            </h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Receive notifications on your device even when Parliament isn't open. Works on Chrome, Edge, Firefox, and Safari (iOS 16.4+ requires adding Parliament to your home screen first).
+            </p>
+
+            <!-- Subscribe / Unsubscribe button -->
+            <div id="push-status" class="mb-5">
+                {% if has_push_subscription %}
+                <div id="push-enabled-state" class="flex flex-wrap items-center gap-3">
+                    <span class="inline-flex items-center gap-1.5 text-sm text-green-700 dark:text-green-400 font-medium">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                        Push notifications enabled on this device
+                    </span>
+                    <button type="button" id="push-reconfigure-btn"
+                            class="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                            title="Re-sync push subscription for this device. Use this if notifications stopped arriving.">
+                        Reconfigure
+                    </button>
+                    <button type="button" id="push-disable-btn"
+                            class="text-sm text-red-600 dark:text-red-400 hover:underline">
+                        Disable
+                    </button>
+                </div>
+                {% else %}
+                <div id="push-disabled-state">
+                    <button type="button" id="push-enable-btn"
+                            class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                        </svg>
+                        Enable Push Notifications
+                    </button>
+                    <p id="push-denied-msg" class="hidden mt-2 text-sm text-red-600 dark:text-red-400">
+                        Notifications are blocked. To enable them, click the lock icon in your browser's address bar and allow notifications for this site.
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Per-type push toggles -->
+            <div class="border-t border-gray-100 dark:border-gray-700 pt-4 space-y-4">
+                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-medium">Notify me about</p>
+                <div class="flex items-center">
+                    {{ form.push_announcements }}
+                    <label for="{{ form.push_announcements.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.push_announcements.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">New announcements posted by officers</p>
+                    </label>
+                </div>
+                <div class="flex items-center">
+                    {{ form.push_legislation }}
+                    <label for="{{ form.push_legislation.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.push_legislation.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">New legislation and vote results</p>
+                    </label>
+                </div>
+                <div class="flex items-center">
+                    {{ form.push_events }}
+                    <label for="{{ form.push_events.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.push_events.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">New events created by officers</p>
+                    </label>
+                </div>
+                <div class="flex items-center">
+                    {{ form.push_slating }}
+                    <label for="{{ form.push_slating.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.push_slating.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">Nominations open, voting open, and results published</p>
+                    </label>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Display Preferences -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
@@ -414,5 +496,98 @@
     })();
     {% endif %}
 </script>
+
+{% if vapid_public_key %}
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    const VAPID_PUBLIC_KEY = '{{ vapid_public_key }}';
+    const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    function urlBase64ToUint8Array(b64) {
+        const padding = '='.repeat((4 - b64.length % 4) % 4);
+        const base64 = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const raw = atob(base64);
+        return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+    }
+
+    async function postJSON(url, data) {
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+            body: JSON.stringify(data),
+        });
+    }
+
+    async function subscribe() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            alert('Push notifications are not supported in this browser.');
+            return;
+        }
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            document.getElementById('push-denied-msg')?.classList.remove('hidden');
+            return;
+        }
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+        const json = sub.toJSON();
+        await postJSON('/push/subscribe/', { endpoint: json.endpoint, keys: json.keys });
+        window.location.reload();
+    }
+
+    async function unsubscribe() {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+            await postJSON('/push/unsubscribe/', { endpoint: sub.endpoint });
+            await sub.unsubscribe();
+        }
+        window.location.reload();
+    }
+
+    // Reconfigure: force a fresh subscription (drops old endpoint, creates new one).
+    // Useful when notifications stopped arriving, the browser rotated the endpoint,
+    // or an admin cleared server-side subscriptions.
+    async function reconfigure() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            alert('Push notifications are not supported in this browser.');
+            return;
+        }
+        const permission = Notification.permission;
+        if (permission === 'denied') {
+            alert('Notifications are blocked. Open your browser site settings and allow notifications for this site, then try again.');
+            return;
+        }
+        const reg = await navigator.serviceWorker.ready;
+        // Unsubscribe from any existing browser subscription first
+        const existing = await reg.pushManager.getSubscription();
+        if (existing) {
+            await postJSON('/push/unsubscribe/', { endpoint: existing.endpoint });
+            await existing.unsubscribe();
+        }
+        // Re-subscribe (requests permission if it was 'default')
+        const newPerm = await Notification.requestPermission();
+        if (newPerm !== 'granted') {
+            alert('Permission not granted. Enable notifications in your browser settings and try again.');
+            return;
+        }
+        const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+        const json = sub.toJSON();
+        await postJSON('/push/subscribe/', { endpoint: json.endpoint, keys: json.keys });
+        window.location.reload();
+    }
+
+    document.getElementById('push-enable-btn')?.addEventListener('click', subscribe);
+    document.getElementById('push-disable-btn')?.addEventListener('click', unsubscribe);
+    document.getElementById('push-reconfigure-btn')?.addEventListener('click', reconfigure);
+})();
+</script>
+{% endif %}
 
 {% endblock %}

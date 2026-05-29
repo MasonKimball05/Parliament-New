@@ -725,6 +725,16 @@ class UserPreferencesForm(forms.Form):
     notify_slating = forms.BooleanField(required=False, label="Officer Elections (Slating)",
         widget=forms.CheckboxInput(attrs={"class": _CB}))
 
+    # Push notification per-type preferences
+    push_announcements = forms.BooleanField(required=False, label="Announcements",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
+    push_legislation = forms.BooleanField(required=False, label="Legislation & Voting",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
+    push_events = forms.BooleanField(required=False, label="Events",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
+    push_slating = forms.BooleanField(required=False, label="Officer Elections (Slating)",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
+
     # Menu
     show_vote_menu = forms.BooleanField(required=False, label="Show Vote",
         widget=forms.CheckboxInput(attrs={"class": _CB_MENU}))
@@ -764,6 +774,10 @@ class UserPreferencesForm(forms.Form):
                 'notify_legislation': instance.notify_legislation,
                 'notify_events': instance.notify_events,
                 'notify_slating': instance.notify_slating,
+                'push_announcements': instance.push_announcements,
+                'push_legislation': instance.push_legislation,
+                'push_events': instance.push_events,
+                'push_slating': instance.push_slating,
                 'show_vote_menu': instance.show_vote_menu,
                 'show_committees_menu': instance.show_committees_menu,
                 'show_chats_menu': instance.show_chats_menu,
@@ -827,6 +841,12 @@ class UserPreferencesForm(forms.Form):
                 'legislation': self.cleaned_data['notify_legislation'],
                 'events': self.cleaned_data['notify_events'],
                 'slating': self.cleaned_data['notify_slating'],
+            },
+            'push': {
+                'announcements': self.cleaned_data['push_announcements'],
+                'legislation': self.cleaned_data['push_legislation'],
+                'events': self.cleaned_data['push_events'],
+                'slating': self.cleaned_data['push_slating'],
             },
         }
         p.save()

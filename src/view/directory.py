@@ -40,6 +40,15 @@ def member_directory(request):
     regular_members = [m for m in members if m.member_type == 'Member']
     pledges = [m for m in members if m.member_type == 'Pledge']
 
+    sort = request.GET.get('sort', 'name')
+    if sort == 'roll':
+        for group in [officers, chairs, regular_members, advisors]:
+            group.sort(key=lambda m: (m.role_number is None, m.role_number or 0))
+    elif sort == 'name_desc':
+        for group in [officers, chairs, regular_members, pledges, advisors, alumni]:
+            group.sort(key=lambda m: m.name, reverse=True)
+    # default 'name' is already sorted ascending from the queryset
+
     context = {
         'officers': officers,
         'chairs': chairs,
@@ -49,6 +58,8 @@ def member_directory(request):
         'alumni': alumni,
         'show_alumni': show_alumni,
         'total_count': members.count() + advisors.count(),
+        'sort': sort,
+        'filter_type': request.GET.get('filter', 'all'),
     }
 
     return render(request, 'directory.html', context)

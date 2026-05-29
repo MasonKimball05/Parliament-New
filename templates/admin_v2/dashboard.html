@@ -306,6 +306,73 @@
             </div>
         </div>
 
+        <!-- Push Notifications Card -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-card-id="push" data-expanded="true">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mr-3">
+                        <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-900 dark:text-gray-100">Push Notifications</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ push_stats.total_subscribers }} subscriber{{ push_stats.total_subscribers|pluralize }}, {{ push_stats.total_devices }} device{{ push_stats.total_devices|pluralize }}</p>
+                    </div>
+                </div>
+                <svg class="chevron-icon w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
+            <div class="card-body p-4 space-y-3">
+                <!-- Stats row -->
+                <div class="grid grid-cols-2 gap-2 text-center text-sm">
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded p-2">
+                        <div class="font-bold text-gray-900 dark:text-gray-100">{{ push_stats.total_subscribers }}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">Subscribers</div>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded p-2">
+                        <div class="font-bold text-gray-900 dark:text-gray-100">{{ push_stats.total_devices }}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">Devices</div>
+                    </div>
+                </div>
+                <!-- Per-type flag toggles -->
+                <div>
+                    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Feature Flags</h4>
+                    <div class="space-y-1">
+                        {% for flag in push_flags %}
+                        <div class="flex items-center justify-between p-2 {% if flag.name == 'push_notifications_enabled' %}bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800{% else %}bg-gray-50 dark:bg-gray-700{% endif %} rounded">
+                            <span class="text-sm text-gray-900 dark:text-gray-100">{{ flag.display_name }}</span>
+                            <form method="post" action="{% url 'toggle_feature_flag' flag.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="px-2 py-1 text-xs rounded {% if flag.is_enabled %}bg-green-500 text-white{% else %}bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300{% endif %}">
+                                    {% if flag.is_enabled %}ON{% else %}OFF{% endif %}
+                                </button>
+                            </form>
+                        </div>
+                        {% empty %}
+                        <p class="text-sm text-gray-500 dark:text-gray-400">No push flags seeded yet — reload the page.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                <!-- View all link -->
+                <a href="{% url 'admin_v2_push_subscriptions' %}" class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">
+                    <span class="font-medium text-gray-900 dark:text-gray-100">View All Subscriptions</span>
+                    <span class="text-sm text-blue-600 dark:text-blue-400">{{ push_stats.total_devices }}</span>
+                </a>
+                <!-- Danger zone -->
+                <div class="border-t border-gray-200 dark:border-gray-700 pt-3">
+                    <h4 class="text-xs font-semibold text-red-500 uppercase mb-2">Danger Zone</h4>
+                    <form method="post" action="{% url 'admin_v2_clear_push_subscriptions' %}" onsubmit="return confirm('Delete ALL push subscriptions? Every device will need to re-subscribe. This cannot be undone.');">
+                        {% csrf_token %}
+                        <button type="submit" class="w-full p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition">
+                            Clear All Subscriptions ({{ push_stats.total_devices }})
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
         <!-- System Settings Card -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-card-id="system" data-expanded="true">
             <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">

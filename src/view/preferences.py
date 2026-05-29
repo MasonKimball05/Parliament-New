@@ -1,11 +1,12 @@
 """
 User preferences view
 """
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from src.forms import UserPreferencesForm
-from src.models import UserPreferences, ActivityLog
+from src.models import UserPreferences, ActivityLog, PushSubscription
 
 
 @login_required
@@ -43,10 +44,14 @@ def preferences_view(request):
     else:
         form = UserPreferencesForm(instance=preferences)
 
+    has_push_subscription = PushSubscription.objects.filter(user=request.user).exists()
+
     context = {
         'form': form,
         'preferences': preferences,
         'theme_changed': request.GET.get('theme_changed', False),
+        'vapid_public_key': getattr(settings, 'VAPID_PUBLIC_KEY', ''),
+        'has_push_subscription': has_push_subscription,
     }
 
     return render(request, 'preferences.html', context)

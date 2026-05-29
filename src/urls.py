@@ -114,7 +114,8 @@ from src.view.admin_v2 import (
     honeypot_logs, security_notifications_log,
     dismiss_alert, dismiss_all_alerts,
     delete_honeypot_log, clear_honeypot_logs, blacklist_all_honeypot_ips,
-    manage_lockouts,
+    manage_lockouts, clear_push_subscriptions,
+    push_subscriptions_list, delete_push_subscription,
 )
 from src.view.admin_v2 import manage_events as admin_v2_manage_events, delete_event as admin_v2_delete_event
 from src.view.notification_admin import (
@@ -125,6 +126,7 @@ from src.view.notification_admin import (
 from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event
 from src.view.officer.manage_members import add_member, edit_member, delete_member, initiate_pledges, get_all_roles, sync_officer_admins, get_admin_roles
 from src.view.officer.manage_roles import manage_roles, role_detail, add_role, delete_role, assign_role_member, unassign_role_member, get_assignable_members
+from src.view.officer.transitions import role_transitions, transfer_role
 from src.view.home import home
 from src.view.landing import landing_page, contact_submit
 from src.view.vote_view import vote_view, vote_tally_json
@@ -377,6 +379,10 @@ urlpatterns = [
     path('officers/roles/<int:role_id>/assign/', assign_role_member, name='assign_role_member'),
     path('officers/roles/<int:role_id>/unassign/', unassign_role_member, name='unassign_role_member'),
     path('officers/roles/<int:role_id>/members/', get_assignable_members, name='get_assignable_members'),
+
+    # Role Transitions (Officer)
+    path('officers/transitions/', role_transitions, name='role_transitions'),
+    path('officers/transitions/<int:role_id>/transfer/', transfer_role, name='transfer_role'),
 
     # Announcement Management (Officer)
     path('officers/announcements/', manage_announcements, name='manage_announcements'),
@@ -670,6 +676,11 @@ urlpatterns = [
     path('admin-v2/notifications/schedules/<int:schedule_id>/delete/', delete_schedule, name='admin_v2_delete_notification_schedule'),
     path('admin-v2/notifications/logs/', notification_logs, name='admin_v2_notification_logs'),
     path('admin-v2/notifications/logs/<int:log_id>/', notification_log_detail, name='admin_v2_notification_log_detail'),
+
+    # Admin v2 - Push Notifications
+    path('admin-v2/push/subscriptions/', push_subscriptions_list, name='admin_v2_push_subscriptions'),
+    path('admin-v2/push/subscriptions/<int:sub_id>/delete/', delete_push_subscription, name='admin_v2_delete_push_subscription'),
+    path('admin-v2/push/clear-subscriptions/', clear_push_subscriptions, name='admin_v2_clear_push_subscriptions'),
 
     # Health Check API
     path('api/health-check/', health_check, name='health_check'),
