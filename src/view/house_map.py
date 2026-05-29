@@ -31,6 +31,7 @@ def _build_tree(member, all_little_map, house_code):
         'name': member.get_display_name(),
         'member_type': member.member_type,
         'member_status': member.member_status,
+        'role_number': member.role_number or '',
         'littles': [_build_tree(lb, all_little_map, house_code) for lb in relevant_littles],
     }
 

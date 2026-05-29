@@ -278,6 +278,12 @@
 
         inner.appendChild(dotEl);
         inner.appendChild(nameBtn);
+        if (node.role_number) {
+            const rn = document.createElement('span');
+            rn.className = 'text-xs text-gray-400 dark:text-gray-500';
+            rn.textContent = '#' + node.role_number;
+            inner.appendChild(rn);
+        }
         if (badgeText) {
             const badge = document.createElement('span');
             badge.className = 'text-xs text-gray-400 dark:text-gray-500';
