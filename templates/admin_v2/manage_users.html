@@ -131,6 +131,9 @@
                         </td>
                         <td class="px-4 py-4">
                             <div class="flex items-center gap-2">
+                                <a href="{% url 'admin_v2_edit_user_profile' user.user_id %}" class="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded" title="Edit member profile">
+                                    ✏️ Edit Profile
+                                </a>
                                 <a href="{% url 'admin_v2_user_login_security' user.user_id %}" class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded" title="View login security information">
                                     🔒 Login Info
                                 </a>

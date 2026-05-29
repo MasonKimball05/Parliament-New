@@ -1,0 +1,535 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+
+{% block title %}House Map - Parliament{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+
+    <!-- Header -->
+    <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">House Map</h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-1">Big/little family lines organized by house</p>
+        </div>
+        <div class="flex items-center gap-3">
+            {% if unassigned_count %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                {{ unassigned_count }} unassigned
+            </span>
+            {% endif %}
+            <a href="{% url 'member_directory' %}"
+               class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                </svg>
+                Directory
+            </a>
+        </div>
+    </div>
+
+    <!-- House Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {% for house in houses %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+
+            <!-- House Header -->
+            <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-3 h-3 rounded-full house-dot-{{ house.code|lower }}"></div>
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ house.label }} House</h2>
+                </div>
+                <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    <span class="font-medium text-gray-700 dark:text-gray-300">{{ house.active }}</span> active
+                    {% if house.total != house.active %}
+                    <span>/ {{ house.total }} total</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Family Trees — populated by JS -->
+            <div class="p-5 house-tree-container" data-house="{{ house.code }}">
+                <p class="text-sm text-gray-400 dark:text-gray-500 italic tree-placeholder">Loading…</p>
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Legend -->
+    <div class="mt-6 flex flex-wrap items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+        <div class="flex items-center gap-1.5">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-green-500"></span>Active
+        </div>
+        <div class="flex items-center gap-1.5">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-yellow-400"></span>Pledge
+        </div>
+        <div class="flex items-center gap-1.5">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-gray-400"></span>Inactive / Alumni / Other
+        </div>
+        <div class="flex items-center gap-1.5">
+            <span class="inline-block w-0.5 h-5 bg-gray-300 dark:bg-gray-600 ml-1"></span>Big → Little line
+        </div>
+    </div>
+
+</div>
+
+<!-- Profile Modal -->
+<div id="profileModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full sm:max-w-lg overflow-hidden">
+    <div class="overflow-y-auto max-h-[85vh]">
+        <!-- Loading state -->
+        <div id="profileModalLoading" class="flex flex-col items-center justify-center py-10 px-6">
+            <div class="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Loading profile…</p>
+        </div>
+        <!-- Content -->
+        <div id="profileModalContent" class="hidden">
+            <div class="flex items-start gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
+                <div id="pm-avatar" class="flex-shrink-0"></div>
+                <div class="flex-1 min-w-0">
+                    <h2 id="profileModalTitle" class="text-lg font-bold text-gray-900 dark:text-white leading-tight"></h2>
+                    <p id="pm-type-badge" class="mt-0.5"></p>
+                    <p id="pm-roll" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5"></p>
+                </div>
+                <button type="button" onclick="closeProfileModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0 p-1 -mr-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-4 space-y-3">
+                <div id="pm-about-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">About</h3>
+                    <p id="pm-about" class="text-sm text-gray-700 dark:text-gray-300"></p>
+                </div>
+                <div id="pm-contact-section">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Contact</h3>
+                    <div id="pm-contact-list" class="space-y-1"></div>
+                </div>
+                <div id="pm-academics-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Academics</h3>
+                    <div id="pm-academics-list" class="space-y-1"></div>
+                </div>
+                <div id="pm-chapter-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Chapter</h3>
+                    <div id="pm-chapter-list" class="space-y-1"></div>
+                </div>
+                <div id="pm-roles-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Current Roles</h3>
+                    <div id="pm-roles-list" class="flex flex-wrap gap-1.5"></div>
+                </div>
+                <div id="pm-history-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Role History</h3>
+                    <div id="pm-history-list" class="space-y-1"></div>
+                </div>
+                <div id="pm-socials-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Socials</h3>
+                    <div id="pm-socials-list" class="flex flex-wrap gap-1.5"></div>
+                </div>
+                <div id="pm-house-section">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">House</h3>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span id="pm-house-badge" class="hidden px-2.5 py-0.5 rounded-full text-sm font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300"></span>
+                        <span id="pm-house-none" class="text-sm text-gray-400 italic">Not assigned</span>
+                        {% if can_set_house %}
+                        <div class="flex items-center gap-2 flex-wrap">
+                            {% csrf_token %}
+                            <select id="pm-house-select" class="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                                <option value="">— None —</option>
+                                {% for val, label in house_choices %}
+                                <option value="{{ val }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" onclick="submitHouseChange()" class="px-3 py-1 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition">Set</button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Error state -->
+        <div id="profileModalError" class="hidden flex flex-col items-center justify-center py-10 px-6 text-center">
+            <svg class="w-8 h-8 text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Could not load profile.</p>
+            <button type="button" onclick="closeProfileModal()" class="mt-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Close</button>
+        </div>
+    </div>
+    </div>
+</div>
+
+{{ houses_data|json_script:"houses-data" }}
+
+<style>
+.house-dot-smith    { background: #6366f1; }
+.house-dot-duncan   { background: #f59e0b; }
+.house-dot-knox     { background: #10b981; }
+.house-dot-marshall { background: #ef4444; }
+.house-dot-linton   { background: #8b5cf6; }
+.house-dot-hardin   { background: #0ea5e9; }
+.house-dot-ryan     { background: #f97316; }
+.house-dot-gordon   { background: #14b8a6; }
+
+.tree-node { position: relative; }
+
+.tree-children {
+    margin-left: 1rem;
+    padding-left: 0.875rem;
+    border-left: 2px solid #e5e7eb;
+}
+.dark .tree-children { border-left-color: #374151; }
+
+.tree-node-inner {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.2rem 0.375rem;
+    border-radius: 0.375rem;
+    transition: background 0.15s;
+}
+.tree-node-inner:hover {
+    background: rgba(99,102,241,0.07);
+}
+
+/* Separator between separate family trees within one house */
+.tree-root-separator {
+    border-top: 1px dashed #e5e7eb;
+    margin: 0.5rem 0;
+}
+.dark .tree-root-separator { border-top-color: #374151; }
+</style>
+
+<script>
+(function () {
+    const HOUSES_DATA = JSON.parse(document.getElementById('houses-data').textContent || '[]');
+
+    const STATUS_DOT = {
+        'Active':   'bg-green-500',
+        'Pledge':   'bg-yellow-400',
+        'Inactive': 'bg-gray-400',
+        'Alumni':   'bg-gray-400',
+        'Removed':  'bg-red-400',
+    };
+
+    const TYPE_CLASS = {
+        'Officer': 'font-semibold text-indigo-600 dark:text-indigo-400',
+        'Chair':   'font-medium text-blue-600 dark:text-blue-400',
+        'Pledge':  'text-yellow-700 dark:text-yellow-300',
+        'Alumni':  'text-gray-500 dark:text-gray-400',
+    };
+
+    const TYPE_COLORS = {
+        Officer: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+        Chair:   'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+        Member:  'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+        Pledge:  'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
+        Advisor: 'bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300',
+        Alumni:  'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
+        Removed: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+    };
+
+    const SOCIAL_ICONS = {
+        instagram: { label: 'Instagram', color: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300' },
+        twitter:   { label: 'X/Twitter', color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' },
+        linkedin:  { label: 'LinkedIn',  color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+        snapchat:  { label: 'Snapchat',  color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300' },
+        facebook:  { label: 'Facebook',  color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300' },
+    };
+
+    const GREEK_GLYPHS = {
+        alpha:'α',beta:'β',gamma:'γ',delta:'δ',epsilon:'ε',zeta:'ζ',eta:'η',theta:'θ',
+        iota:'ι',kappa:'κ',lambda:'λ',mu:'μ',nu:'ν',xi:'ξ',omicron:'ο',pi:'π',
+        rho:'ρ',sigma:'σ',tau:'τ',upsilon:'υ',phi:'φ',chi:'χ',psi:'ψ',omega:'ω',
+    };
+
+    function esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Tree rendering ──────────────────────────────────────────────────────
+
+    function renderNode(node) {
+        const dot = STATUS_DOT[node.member_status] || 'bg-gray-400';
+        const nameClass = TYPE_CLASS[node.member_type] || 'text-gray-800 dark:text-gray-200';
+        const badgeText = node.member_status === 'Removed'
+            ? 'Removed'
+            : (node.member_type && node.member_type !== 'Active' && node.member_type !== 'Member')
+                ? node.member_type
+                : null;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'tree-node';
+
+        const inner = document.createElement('div');
+        inner.className = 'tree-node-inner';
+
+        // Name is a clickable button
+        const nameBtn = document.createElement('button');
+        nameBtn.type = 'button';
+        nameBtn.className = `text-sm ${nameClass} hover:underline focus:outline-none`;
+        nameBtn.textContent = node.name;
+        if (node.user_id) {
+            nameBtn.onclick = () => openProfileModal(node.user_id);
+        }
+
+        const dotEl = document.createElement('span');
+        dotEl.className = `inline-block w-2 h-2 rounded-full flex-shrink-0 ${dot}`;
+
+        inner.appendChild(dotEl);
+        inner.appendChild(nameBtn);
+        if (badgeText) {
+            const badge = document.createElement('span');
+            badge.className = 'text-xs text-gray-400 dark:text-gray-500';
+            badge.textContent = badgeText;
+            inner.appendChild(badge);
+        }
+        wrapper.appendChild(inner);
+
+        if (node.littles && node.littles.length > 0) {
+            const children = document.createElement('div');
+            children.className = 'tree-children';
+            for (const little of node.littles) {
+                children.appendChild(renderNode(little));
+            }
+            wrapper.appendChild(children);
+        }
+
+        return wrapper;
+    }
+
+    // Build lookup: house code -> tree array
+    const houseTreeMap = {};
+    for (const h of HOUSES_DATA) {
+        houseTreeMap[h.code] = h.trees;
+    }
+
+    document.querySelectorAll('.house-tree-container[data-house]').forEach(container => {
+        const code = container.getAttribute('data-house');
+        const trees = houseTreeMap[code] || [];
+
+        const placeholder = container.querySelector('.tree-placeholder');
+        if (placeholder) placeholder.remove();
+
+        if (trees.length === 0) {
+            const empty = document.createElement('p');
+            empty.className = 'text-sm text-gray-400 dark:text-gray-500 italic';
+            empty.textContent = 'No members assigned.';
+            container.appendChild(empty);
+            return;
+        }
+
+        const treeWrap = document.createElement('div');
+        trees.forEach((tree, i) => {
+            if (i > 0) {
+                // Dashed separator between separate family lines
+                const sep = document.createElement('div');
+                sep.className = 'tree-root-separator';
+                treeWrap.appendChild(sep);
+            }
+            treeWrap.appendChild(renderNode(tree));
+        });
+        container.appendChild(treeWrap);
+    });
+
+    // ── Profile modal ────────────────────────────────────────────────────────
+
+    function openProfileModal(userId) {
+        const modal = document.getElementById('profileModal');
+        document.getElementById('profileModalLoading').classList.remove('hidden');
+        document.getElementById('profileModalContent').classList.add('hidden');
+        document.getElementById('profileModalError').classList.add('hidden');
+        modal.classList.remove('hidden');
+
+        fetch(`/directory/${encodeURIComponent(userId)}/card/`)
+            .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+            .then(d => {
+                _renderProfile(d);
+                document.getElementById('profileModalLoading').classList.add('hidden');
+                document.getElementById('profileModalContent').classList.remove('hidden');
+            })
+            .catch(() => {
+                document.getElementById('profileModalLoading').classList.add('hidden');
+                document.getElementById('profileModalError').classList.remove('hidden');
+            });
+    }
+
+    function closeProfileModal() {
+        document.getElementById('profileModal').classList.add('hidden');
+    }
+
+    document.getElementById('profileModal').addEventListener('click', function(e) {
+        if (e.target === this) closeProfileModal();
+    });
+
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeProfileModal(); });
+
+    function _show(id) { document.getElementById(id).classList.remove('hidden'); }
+    function _hide(id) { document.getElementById(id).classList.add('hidden'); }
+    function _setText(id, val) { document.getElementById(id).textContent = val; }
+    function _row(label, val) {
+        return `<div class="flex gap-2 text-sm"><span class="text-gray-500 dark:text-gray-400 w-24 flex-shrink-0">${label}</span><span class="text-gray-800 dark:text-gray-200 min-w-0">${val}</span></div>`;
+    }
+
+    let _currentUserId = null;
+
+    function _renderProfile(d) {
+        _currentUserId = d.user_id;
+
+        // Avatar
+        const avatarEl = document.getElementById('pm-avatar');
+        if (d.profile_picture_url) {
+            avatarEl.innerHTML = `<img src="${d.profile_picture_url}" alt="${esc(d.name)}" class="w-12 h-12 rounded-full object-cover">`;
+        } else {
+            const initial = d.name ? d.name[0].toUpperCase() : '?';
+            avatarEl.innerHTML = `<div class="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center"><span class="text-indigo-600 dark:text-indigo-300 font-bold text-xl">${initial}</span></div>`;
+        }
+
+        // Name + badge
+        _setText('profileModalTitle', d.name);
+        const typeLabel = (d.member_status === 'Alumni' || d.member_status === 'Removed') ? d.member_status : d.member_type;
+        const typeColor = TYPE_COLORS[typeLabel] || TYPE_COLORS.Member;
+        document.getElementById('pm-type-badge').innerHTML = `<span class="px-2 py-0.5 text-xs rounded-full font-medium ${typeColor}">${typeLabel}</span>`;
+        const rollParts = [];
+        if (d.role_number) rollParts.push(`#${d.role_number}`);
+        if (d.user_id)     rollParts.push(`ID ${d.user_id}`);
+        const rollEl = document.getElementById('pm-roll');
+        if (rollParts.length) { rollEl.textContent = rollParts.join(' · '); rollEl.classList.remove('hidden'); }
+        else                  { rollEl.classList.add('hidden'); }
+
+        // About
+        if (d.about_me) { _setText('pm-about', d.about_me); _show('pm-about-section'); }
+        else            { _hide('pm-about-section'); }
+
+        // Contact
+        let contactRows = '';
+        if (d.email)       contactRows += `<div class="text-sm"><a href="mailto:${esc(d.email)}" class="text-blue-600 dark:text-blue-400 hover:underline">${esc(d.email)}</a></div>`;
+        if (d.other_email) contactRows += `<div class="text-sm text-gray-500 dark:text-gray-400"><a href="mailto:${esc(d.other_email)}" class="hover:underline">${esc(d.other_email)}</a></div>`;
+        if (d.phone)       contactRows += `<div class="text-sm text-gray-600 dark:text-gray-400">${esc(d.phone)}</div>`;
+        document.getElementById('pm-contact-list').innerHTML = contactRows || '<p class="text-sm text-gray-400">No contact info</p>';
+
+        // Academics
+        const acad = d.academics || {};
+        let acadRows = '';
+        if (acad.major)         acadRows += _row('Major', esc(acad.major));
+        if (acad.minor)         acadRows += _row('Minor', esc(acad.minor));
+        if (acad.concentration) acadRows += _row('Concentration', esc(acad.concentration));
+        if (acadRows) { document.getElementById('pm-academics-list').innerHTML = acadRows; _show('pm-academics-section'); }
+        else          { _hide('pm-academics-section'); }
+
+        // Chapter
+        let chapterRows = '';
+        if (d.pledge_class) {
+            let pcLabel = esc(d.pledge_class);
+            if (d.pledge_class_greek) {
+                const greek = d.pledge_class_greek.trim();
+                if (greek.toLowerCase() === 'founder') {
+                    pcLabel = `<span class="font-semibold px-1.5 py-0.5 rounded" style="background:linear-gradient(135deg,#b8860b,#ffd700,#b8860b);color:#3b1f00;">Founder Class</span> · ${esc(d.pledge_class)}`;
+                } else {
+                    const glyphs = greek.split(/\s+/).map(w => GREEK_GLYPHS[w.toLowerCase()] || '').join('');
+                    const greekDisplay = glyphs ? `${esc(greek)} (${glyphs})` : esc(greek);
+                    pcLabel = `${greekDisplay} Class · ${esc(d.pledge_class)}`;
+                }
+            }
+            chapterRows += _row('Pledge class', pcLabel);
+        }
+        if (d.graduation)   chapterRows += _row('Graduation', esc(d.graduation));
+        if (d.big_brother)  chapterRows += _row('Big brother', esc(d.big_brother.name));
+        if (d.little_brothers && d.little_brothers.length) {
+            chapterRows += _row('Little brothers', d.little_brothers.map(l => esc(l.name)).join(', '));
+        }
+        const initChapters = (d.initiation_chapters && d.initiation_chapters.length)
+            ? d.initiation_chapters
+            : [{ school: 'Samford University', chapter: 'Alpha Mu' }];
+        const initLabels = initChapters.map(c => {
+            const glyphs = c.chapter.trim().split(/\s+/).map(w => GREEK_GLYPHS[w.toLowerCase()] || '').join('');
+            const chapterDisplay = glyphs ? `${esc(c.chapter)} (${glyphs})` : esc(c.chapter);
+            return `${chapterDisplay} — ${esc(c.school)}`;
+        });
+        chapterRows += _row('Initiated at', initLabels.join('<br>'));
+        if (chapterRows) { document.getElementById('pm-chapter-list').innerHTML = chapterRows; _show('pm-chapter-section'); }
+        else             { _hide('pm-chapter-section'); }
+
+        // Current roles
+        if (d.roles && d.roles.length) {
+            document.getElementById('pm-roles-list').innerHTML = d.roles.map(r =>
+                `<span class="px-2 py-0.5 text-xs rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300">${esc(r.name)}</span>`
+            ).join('');
+            _show('pm-roles-section');
+        } else { _hide('pm-roles-section'); }
+
+        // Role history
+        if (d.role_history && d.role_history.length) {
+            document.getElementById('pm-history-list').innerHTML = d.role_history.map(h => {
+                const range = h.end ? `${esc(h.start)} – ${esc(h.end)}` : `${esc(h.start)} – present`;
+                return `<div class="text-sm flex flex-wrap gap-x-2 gap-y-0.5"><span class="font-medium text-gray-800 dark:text-gray-200">${esc(h.role)}</span><span class="text-gray-500 dark:text-gray-400">${range}</span></div>`;
+            }).join('');
+            _show('pm-history-section');
+        } else { _hide('pm-history-section'); }
+
+        // Socials
+        const socials = d.socials || {};
+        const customSocials = d.custom_socials || [];
+        const allSocialItems = [
+            ...Object.keys(socials).map(k => {
+                const info = SOCIAL_ICONS[k] || { label: k, color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' };
+                return `<a href="${esc(socials[k].url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${info.color} hover:opacity-80 transition-opacity">${info.label}: @${esc(socials[k].handle)}</a>`;
+            }),
+            ...customSocials.map(s =>
+                `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700/60 dark:text-gray-300">${esc(s.platform)}: @${esc(s.handle)}</span>`
+            ),
+        ];
+        if (allSocialItems.length) { document.getElementById('pm-socials-list').innerHTML = allSocialItems.join(''); _show('pm-socials-section'); }
+        else                       { _hide('pm-socials-section'); }
+
+        // House
+        const houseBadge  = document.getElementById('pm-house-badge');
+        const houseNone   = document.getElementById('pm-house-none');
+        const houseSelect = document.getElementById('pm-house-select');
+        if (d.house) {
+            houseBadge.textContent = d.house + ' House';
+            houseBadge.classList.remove('hidden');
+            houseNone.classList.add('hidden');
+        } else {
+            houseBadge.classList.add('hidden');
+            houseNone.classList.remove('hidden');
+        }
+        if (houseSelect) houseSelect.value = d.house || '';
+    }
+
+    {% if can_set_house %}
+    function submitHouseChange() {
+        if (!_currentUserId) return;
+        const select = document.getElementById('pm-house-select');
+        const house = select ? select.value : '';
+        const csrf = (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
+        const body = new URLSearchParams({ house, csrfmiddlewaretoken: csrf });
+        fetch(`/officers/members/${encodeURIComponent(_currentUserId)}/set-house/`, {
+            method: 'POST',
+            body,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        })
+        .then(r => r.json())
+        .then(d => {
+            const houseBadge = document.getElementById('pm-house-badge');
+            const houseNone  = document.getElementById('pm-house-none');
+            if (d.house) {
+                houseBadge.textContent = d.house + ' House';
+                houseBadge.classList.remove('hidden');
+                houseNone.classList.add('hidden');
+            } else {
+                houseBadge.classList.add('hidden');
+                houseNone.classList.remove('hidden');
+            }
+        })
+        .catch(() => alert('Failed to save house.'));
+    }
+    {% endif %}
+
+    // Expose for onclick
+    window.openProfileModal  = openProfileModal;
+    window.closeProfileModal = closeProfileModal;
+    {% if can_set_house %}window.submitHouseChange = submitHouseChange;{% endif %}
+})();
+</script>
+{% endblock %}

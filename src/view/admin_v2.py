@@ -978,6 +978,144 @@ def delete_announcement(request, announcement_id):
 
 
 @require_admin_v2_auth
+def edit_user_profile(request, user_id):
+    """
+    Admin view to edit a member's profile fields — core info, extended profile,
+    big/little brother, and role history.
+    """
+    from src.models import RoleHistory
+    target = get_object_or_404(ParliamentUser, user_id=user_id)
+    all_members = ParliamentUser.objects.exclude(user_id=user_id).order_by('name')
+
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+
+        if action == 'core':
+            target.name = request.POST.get('name', target.name).strip()
+            target.preferred_name = request.POST.get('preferred_name', '').strip()
+            target.member_type = request.POST.get('member_type', target.member_type)
+            target.member_status = request.POST.get('member_status', target.member_status)
+            new_email = request.POST.get('email', '').strip()
+            if new_email and new_email != target.email:
+                if ParliamentUser.objects.filter(email=new_email).exclude(user_id=user_id).exists():
+                    messages.error(request, 'That email is already in use.')
+                    return redirect('admin_v2_edit_user_profile', user_id=user_id)
+            target.email = new_email or None
+            target.phone_number = request.POST.get('phone_number', '').strip()
+            target.role_number = request.POST.get('role_number', '').strip() or None
+            house = request.POST.get('house', '').strip()
+            from src.models import ParliamentUser as PU
+            valid_houses = {c[0] for c in PU.HOUSE_CHOICES}
+            target.house = house if house in valid_houses else ''
+            target.save()
+            ActivityLog.log_activity(
+                action_type='profile_updated',
+                user=request.user,
+                description=f'{request.user.get_display_name()} edited core profile for {target.get_display_name()}',
+                request=request,
+                object_type='ParliamentUser',
+                object_id=target.pk,
+                object_repr=target.name,
+            )
+            messages.success(request, 'Core info updated.')
+
+        elif action == 'extended':
+            target.about_me = request.POST.get('about_me', '').strip()
+            target.major = request.POST.get('major', '').strip()
+            target.minor = request.POST.get('minor', '').strip()
+            target.concentration = request.POST.get('concentration', '').strip()
+            target.pledge_class = request.POST.get('pledge_class', '').strip()
+            target.pledge_class_greek = request.POST.get('pledge_class_greek', '').strip()
+            target.graduation_semester = request.POST.get('graduation_semester', '').strip()
+            raw_year = request.POST.get('graduation_year', '').strip()
+            target.graduation_year = int(raw_year) if raw_year.isdigit() else None
+            big_bro_id = request.POST.get('big_brother', '').strip()
+            target.big_brother = ParliamentUser.objects.get(user_id=big_bro_id) if big_bro_id else None
+            target.instagram = request.POST.get('instagram', '').strip().lstrip('@')
+            target.twitter = request.POST.get('twitter', '').strip().lstrip('@')
+            target.linkedin = request.POST.get('linkedin', '').strip().lstrip('@')
+            target.snapchat = request.POST.get('snapchat', '').strip().lstrip('@')
+            target.facebook = request.POST.get('facebook', '').strip().lstrip('@')
+            other_email = request.POST.get('other_email', '').strip()
+            target.other_email = other_email or None
+            target.save()
+            from src.house_utils import inherit_house_from_big
+            inherit_house_from_big(target, target.big_brother)
+            messages.success(request, 'Extended profile updated.')
+
+        elif action == 'custom_social_add':
+            platform = request.POST.get('cs_platform', '').strip()
+            handle = request.POST.get('cs_handle', '').strip().lstrip('@')
+            if platform and handle:
+                socials = list(target.custom_socials or [])
+                socials.append({'platform': platform, 'handle': handle})
+                target.custom_socials = socials
+                target.save(update_fields=['custom_socials'])
+                messages.success(request, f'{platform} added.')
+            else:
+                messages.error(request, 'Platform name and handle are required.')
+
+        elif action == 'custom_social_delete':
+            idx = request.POST.get('cs_index', '').strip()
+            if idx.isdigit():
+                socials = list(target.custom_socials or [])
+                i = int(idx)
+                if 0 <= i < len(socials):
+                    socials.pop(i)
+                    target.custom_socials = socials
+                    target.save(update_fields=['custom_socials'])
+                    messages.success(request, 'Custom social removed.')
+
+        elif action == 'role_history_add':
+            role_name = request.POST.get('rh_role_name', '').strip()
+            start_sem = request.POST.get('rh_start_semester', '').strip()
+            end_sem = request.POST.get('rh_end_semester', '').strip()
+            if role_name and start_sem:
+                RoleHistory.objects.create(user=target, role_name=role_name, start_semester=start_sem, end_semester=end_sem)
+                messages.success(request, 'Role history entry added.')
+            else:
+                messages.error(request, 'Role name and start semester are required.')
+
+        elif action == 'role_history_delete':
+            rh_id = request.POST.get('rh_id', '').strip()
+            if rh_id:
+                RoleHistory.objects.filter(id=rh_id, user=target).delete()
+                messages.success(request, 'Role history entry removed.')
+
+        elif action == 'initiation_chapter_add':
+            school = request.POST.get('ic_school', '').strip()
+            chapter = request.POST.get('ic_chapter', '').strip()
+            if school and chapter:
+                chapters = list(target.initiation_chapters or [])
+                chapters.append({'school': school, 'chapter': chapter})
+                target.initiation_chapters = chapters
+                target.save(update_fields=['initiation_chapters'])
+                messages.success(request, f'{chapter} at {school} added.')
+            else:
+                messages.error(request, 'School and chapter name are required.')
+
+        elif action == 'initiation_chapter_delete':
+            idx = request.POST.get('ic_index', '').strip()
+            if idx.isdigit():
+                chapters = list(target.initiation_chapters or [])
+                i = int(idx)
+                if 0 <= i < len(chapters):
+                    chapters.pop(i)
+                    target.initiation_chapters = chapters
+                    target.save(update_fields=['initiation_chapters'])
+                    messages.success(request, 'Initiation chapter removed.')
+
+        return redirect('admin_v2_edit_user_profile', user_id=user_id)
+
+    role_histories = RoleHistory.objects.filter(user=target)
+    return render(request, 'admin_v2/edit_user_profile.html', {
+        'target': target,
+        'all_members': all_members,
+        'role_histories': role_histories,
+    })
+
+
+@require_admin_v2_auth
 def user_login_security(request, user_id):
     """
     Detailed login security view for a specific user

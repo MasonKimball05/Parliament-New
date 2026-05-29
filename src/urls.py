@@ -100,7 +100,7 @@ from src.view.admin_v2 import (
     admin_v2_login, admin_v2_dashboard, toggle_feature_flag,
     toggle_page, admin_v2_logout, manage_legislation, delete_legislation,
     manage_committees as admin_v2_manage_committees, toggle_committee_active,
-    manage_users, toggle_user_admin, remove_user_profile_picture, manage_login_history,
+    manage_users, toggle_user_admin, remove_user_profile_picture, manage_login_history, edit_user_profile,
     manage_announcements as admin_v2_manage_announcements_view,
     delete_announcement as admin_v2_delete_announcement_view,
     user_login_security, force_password_reset, toggle_watch_flag,
@@ -127,6 +127,7 @@ from src.view.officer.manage_events import manage_events, create_event, edit_eve
 from src.view.officer.manage_members import add_member, edit_member, delete_member, initiate_pledges, get_all_roles, sync_officer_admins, get_admin_roles
 from src.view.officer.manage_roles import manage_roles, role_detail, add_role, delete_role, assign_role_member, unassign_role_member, get_assignable_members
 from src.view.officer.transitions import role_transitions, transfer_role
+from src.view.officer.set_member_house import set_member_house
 from src.view.home import home
 from src.view.landing import landing_page, contact_submit
 from src.view.vote_view import vote_view, vote_tally_json
@@ -148,6 +149,8 @@ from src.view.login_view import login_view
 from src.view.logout_view import logout_view
 from src.view.profile_view import profile_view
 from src.view.directory import member_directory, export_directory
+from src.view.profile_card import profile_card_json
+from src.view.house_map import house_map
 from src.view.preferences import preferences_view
 from src.view.session_viewer import session_list, revoke_session, revoke_all_other_sessions
 from src.view.activity_logs import activity_logs_view, export_activity_logs
@@ -236,6 +239,8 @@ urlpatterns = [
     path('users/', user_list, name='user_list'),
     path('directory/', member_directory, name='member_directory'),
     path('directory/export/', export_directory, name='export_directory'),
+    path('directory/<str:user_id>/card/', profile_card_json, name='profile_card'),
+    path('house-map/', house_map, name='house_map'),
     path('profile/', profile_view, name='profile'),
     path('preferences/', preferences_view, name='preferences'),
     path('set-email/', set_email, name='set_email'),
@@ -373,6 +378,7 @@ urlpatterns = [
     path('api/admin-roles/', get_admin_roles, name='get_admin_roles'),
 
     # Role Management (Admin)
+    path('officers/members/<str:user_id>/set-house/', set_member_house, name='set_member_house'),
     path('officers/roles/', manage_roles, name='manage_roles'),
     path('officers/roles/add/', add_role, name='add_role'),
     path('officers/roles/<int:role_id>/', role_detail, name='role_detail'),
@@ -637,6 +643,7 @@ urlpatterns = [
     path('admin-v2/committees/', admin_v2_manage_committees, name='admin_v2_manage_committees'),
     path('admin-v2/committees/<int:committee_id>/toggle/', toggle_committee_active, name='admin_v2_toggle_committee'),
     path('admin-v2/users/', manage_users, name='admin_v2_manage_users'),
+    path('admin-v2/users/<str:user_id>/edit-profile/', edit_user_profile, name='admin_v2_edit_user_profile'),
     path('admin-v2/users/<str:user_id>/toggle-admin/', toggle_user_admin, name='admin_v2_toggle_user_admin'),
     path('admin-v2/users/<str:user_id>/remove-profile-picture/', remove_user_profile_picture, name='admin_v2_remove_user_profile_picture'),
     path('api/check-default-password/<str:user_id>/', check_default_password, name='check_default_password'),

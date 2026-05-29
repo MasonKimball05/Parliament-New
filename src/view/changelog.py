@@ -2,9 +2,39 @@
 Changelog view - displays version history for transparency
 """
 import os
+import re
 import markdown
 from django.shortcuts import render
 from django.conf import settings
+
+# Names / substrings that count as "just Mason" — anything else is an external contributor
+_MASON_PATTERNS = [
+    r'mason\s+kimball',
+    r'masonkimball05',
+]
+_MASON_RE = re.compile('|'.join(_MASON_PATTERNS), re.IGNORECASE)
+
+
+def parse_contributors(content):
+    """
+    Extract the ## Contributors section from a changelog file.
+    Returns a list of contributor name strings, or [] if no section exists.
+    """
+    m = re.search(r'## Contributors\n(.*?)(?:\n---|\n## |\Z)', content, re.DOTALL)
+    if not m:
+        return []
+    lines = [l.strip().lstrip('- ').strip()
+             for l in m.group(1).splitlines()
+             if l.strip().startswith('-')]
+    return lines
+
+
+def has_external_contributors(contributors):
+    """Return True if any contributor is not Mason (or Claude)."""
+    for c in contributors:
+        if not _MASON_RE.search(c) and 'claude' not in c.lower() and 'anthropic' not in c.lower():
+            return True
+    return False
 
 
 def parse_version(filename):
@@ -69,6 +99,7 @@ def changelog(request):
     detailed_changelogs = []
     changelogs_dir = os.path.join(settings.BASE_DIR, 'changelogs')
 
+    v2_changelogs = []
     if os.path.exists(changelogs_dir):
         # Get all changelog files and sort by semantic version (newest first)
         changelog_files = [f for f in os.listdir(changelogs_dir)
@@ -77,14 +108,29 @@ def changelog(request):
 
         for filename in changelog_files:
             version = filename.replace('.md', '')
-            detailed_changelogs.append({
+            filepath = os.path.join(changelogs_dir, filename)
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    file_content = f.read()
+            except Exception:
+                file_content = ''
+            contributors = parse_contributors(file_content)
+            entry = {
                 'version': version,
                 'filename': filename,
-            })
+                'contributors': contributors,
+                'has_external': has_external_contributors(contributors),
+            }
+            major = parse_version(filename)[0]
+            if major >= 3:
+                detailed_changelogs.append(entry)
+            else:
+                v2_changelogs.append(entry)
 
     context = {
         'changelog_html': changelog_html,
         'detailed_changelogs': detailed_changelogs,
+        'v2_changelogs': v2_changelogs,
     }
 
     return render(request, 'changelog.html', context)

@@ -145,6 +145,52 @@ class ParliamentUser(AbstractBaseUser):
         help_text='Member roll number assigned at initiation (unique identifier visible to members)'
     )
 
+    # Extended profile fields (all optional)
+    about_me = models.TextField(blank=True, help_text='Short bio visible to other members')
+    major = models.CharField(max_length=100, blank=True)
+    minor = models.CharField(max_length=100, blank=True)
+    concentration = models.CharField(max_length=100, blank=True)
+    big_brother = models.ForeignKey(
+        'self',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='little_brothers',
+        help_text='Big brother in the fraternity'
+    )
+    pledge_class = models.CharField(max_length=30, blank=True, help_text='e.g. "Spring 2024"')
+    pledge_class_greek = models.CharField(max_length=50, blank=True, help_text='Greek letter/name for the class (e.g. "Beta")')
+    graduation_year = models.PositiveSmallIntegerField(null=True, blank=True)
+    graduation_semester = models.CharField(
+        max_length=6, blank=True,
+        choices=[('Fall', 'Fall'), ('Spring', 'Spring')],
+    )
+    # Social handles (store handle only, not full URL)
+    instagram = models.CharField(max_length=60, blank=True)
+    twitter = models.CharField(max_length=60, blank=True)
+    linkedin = models.CharField(max_length=100, blank=True)
+    snapchat = models.CharField(max_length=60, blank=True)
+    facebook = models.CharField(max_length=100, blank=True)
+    other_email = models.EmailField(max_length=254, blank=True, null=True, help_text='Secondary contact email')
+    # Custom social handles: list of {"platform": str, "handle": str} dicts
+    custom_socials = models.JSONField(default=list, blank=True)
+    # Initiation chapters: list of {"school": str, "chapter": str} dicts
+    # If empty, defaults to display "Alpha Mu — Samford University"
+    initiation_chapters = models.JSONField(default=list, blank=True)
+
+    # House — fixed choices, assigned by officers/historian chair only
+    HOUSE_CHOICES = [
+        ('Smith',    'Smith'),
+        ('Duncan',   'Duncan'),
+        ('Knox',     'Knox'),
+        ('Marshall', 'Marshall'),
+        ('Linton',   'Linton'),
+        ('Hardin',   'Hardin'),
+        ('Ryan',     'Ryan'),
+        ('Gordon',   'Gordon'),
+    ]
+    house = models.CharField(max_length=20, blank=True, choices=HOUSE_CHOICES,
+                             help_text='Chapter house assignment — set by officers/historian chair')
+
     objects = ParliamentUserManager()
     active = ActiveUserManager()
 
@@ -247,6 +293,27 @@ class ParliamentUser(AbstractBaseUser):
 
     class Meta:
         ordering = ['user_id']
+
+
+class RoleHistory(models.Model):
+    """Tracks positions a member has held (officer, chair, etc.)."""
+    SEMESTER_CHOICES = [
+        ('Spring', 'Spring'),
+        ('Fall', 'Fall'),
+        ('Summer', 'Summer'),
+    ]
+
+    user = models.ForeignKey(ParliamentUser, on_delete=models.CASCADE, related_name='role_history')
+    role_name = models.CharField(max_length=100, help_text='e.g. "President"')
+    start_semester = models.CharField(max_length=20, help_text='e.g. "Spring 2026"')
+    end_semester = models.CharField(max_length=20, blank=True, help_text='Leave blank if current')
+
+    class Meta:
+        ordering = ['-start_semester']
+
+    def __str__(self):
+        end = self.end_semester or 'present'
+        return f'{self.user.name} — {self.role_name} ({self.start_semester}–{end})'
 
 
 def _default_user_prefs():

@@ -202,6 +202,314 @@
         </div>
     </div>
 
+    <!-- Public Profile Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 transition-colors duration-200">
+        <h2 class="text-xl font-semibold mb-1 flex items-center text-gray-900 dark:text-gray-100">
+            <svg class="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Public Profile
+        </h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">This information is visible to other members when they click your name in the directory. All fields are optional.</p>
+
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="extended_profile_submit" value="1">
+
+            <div class="space-y-6">
+                <!-- About me -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">About me</label>
+                    <textarea name="about_me" rows="3" placeholder="A short bio…"
+                              class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm resize-none">{{ user.about_me }}</textarea>
+                </div>
+
+                <!-- Academics -->
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Academics</h3>
+                    <div class="grid sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Major</label>
+                            <input type="text" name="major" value="{{ user.major }}" placeholder="e.g. Computer Science"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Minor</label>
+                            <input type="text" name="minor" value="{{ user.minor }}" placeholder="e.g. Mathematics"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Concentration</label>
+                            <input type="text" name="concentration" value="{{ user.concentration }}" placeholder="e.g. Cyber Security"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chapter info -->
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Chapter</h3>
+                    <div class="grid sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Pledge class semester</label>
+                            <input type="text" name="pledge_class" value="{{ user.pledge_class }}" placeholder="e.g. Spring 2024"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Pledge class Greek name</label>
+                            <input type="text" name="pledge_class_greek" value="{{ user.pledge_class_greek }}" placeholder="e.g. Beta"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Big brother</label>
+                            <select name="big_brother"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                                <option value="">— None —</option>
+                                {% for m in eligible_big_bros %}
+                                <option value="{{ m.user_id }}" {% if user.big_brother_id == m.user_id %}selected{% endif %}>{{ m.get_display_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Little brothers</label>
+                            {% with littles=user.little_brothers.all %}
+                            {% if littles %}
+                            <div class="px-3 py-2 border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm text-gray-700 dark:text-gray-300 min-h-[38px]">
+                                {{ littles|join:", " }}
+                            </div>
+                            {% else %}
+                            <div class="px-3 py-2 border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm text-gray-400 italic min-h-[38px]">
+                                None yet — assigned when a member selects you as their big
+                            </div>
+                            {% endif %}
+                            {% endwith %}
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Graduation semester</label>
+                            <select name="graduation_semester"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                                <option value="">— Not set —</option>
+                                <option value="Spring" {% if user.graduation_semester == 'Spring' %}selected{% endif %}>Spring</option>
+                                <option value="Fall"   {% if user.graduation_semester == 'Fall' %}selected{% endif %}>Fall</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Graduation year</label>
+                            <input type="number" name="graduation_year" value="{{ user.graduation_year|default:'' }}" placeholder="e.g. 2027" min="2000" max="2060"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Socials -->
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Social handles <span class="font-normal text-gray-400">(handle only, no @)</span></h3>
+                    <div class="grid sm:grid-cols-2 gap-4">
+                            <div class="flex items-center gap-2">
+                            <span class="text-xs text-gray-500 dark:text-gray-400 w-20 flex-shrink-0">Instagram</span>
+                            <input type="text" name="instagram" value="{{ user.instagram }}" placeholder="handle"
+                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-gray-500 dark:text-gray-400 w-20 flex-shrink-0">Twitter / X</span>
+                            <input type="text" name="twitter" value="{{ user.twitter }}" placeholder="handle"
+                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-gray-500 dark:text-gray-400 w-20 flex-shrink-0">LinkedIn</span>
+                            <input type="text" name="linkedin" value="{{ user.linkedin }}" placeholder="handle"
+                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-gray-500 dark:text-gray-400 w-20 flex-shrink-0">Snapchat</span>
+                            <input type="text" name="snapchat" value="{{ user.snapchat }}" placeholder="handle"
+                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-gray-500 dark:text-gray-400 w-20 flex-shrink-0">Facebook</span>
+                            <input type="text" name="facebook" value="{{ user.facebook }}" placeholder="handle"
+                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom socials note -->
+                <p class="text-xs text-gray-400 dark:text-gray-500 -mt-2">For additional platforms (Signal, WhatsApp, etc.) use the <strong>Custom Links</strong> section below after saving.</p>
+
+                <!-- Other email -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Other / secondary email <span class="text-gray-400 font-normal text-xs">(optional)</span></label>
+                    <input type="email" name="other_email" value="{{ user.other_email|default:'' }}" placeholder="personal@email.com"
+                           class="w-full sm:w-96 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                </div>
+            </div>
+
+            <button type="submit" class="mt-6 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium px-6 py-2 rounded-lg transition flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                Save Public Profile
+            </button>
+        </form>
+
+        <!-- Custom Social Links -->
+        <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Custom Social Links</h3>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Add handles for platforms not listed above — Signal, WhatsApp, TikTok, etc.</p>
+
+            {% with socials=user.custom_socials %}
+            {% if socials %}
+            <ul class="space-y-2 mb-4">
+                {% for s in socials %}
+                <li class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm">
+                    <div>
+                        <span class="font-medium text-gray-800 dark:text-gray-200">{{ s.platform }}</span>
+                        <span class="text-gray-500 dark:text-gray-400 ml-2">@{{ s.handle }}</span>
+                    </div>
+                    <form method="POST" class="flex-shrink-0 ml-2">
+                        {% csrf_token %}
+                        <input type="hidden" name="custom_social_delete_submit" value="1">
+                        <input type="hidden" name="cs_index" value="{{ forloop.counter0 }}">
+                        <button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" title="Remove">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-gray-400 italic mb-4">No custom links yet.</p>
+            {% endif %}
+            {% endwith %}
+
+            <form method="POST" class="flex gap-3 items-end flex-wrap">
+                {% csrf_token %}
+                <input type="hidden" name="custom_social_add_submit" value="1">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Platform</label>
+                    <input type="text" name="cs_platform" placeholder="e.g. Signal" required
+                           class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-36">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Handle</label>
+                    <div class="flex gap-2">
+                        <input type="text" name="cs_handle" placeholder="username" required
+                               class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-40">
+                        <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Initiation Chapters -->
+        <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Initiation Chapters</h3>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Where you were initiated. Leave empty to default to Alpha Mu — Samford University. Add multiple if you hold membership in more than one chapter.</p>
+
+            {% with chapters=user.initiation_chapters %}
+            {% if chapters %}
+            <ul class="space-y-2 mb-4">
+                {% for c in chapters %}
+                <li class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm">
+                    <div>
+                        <span class="font-medium text-gray-800 dark:text-gray-200">{{ c.chapter }}</span>
+                        <span class="text-gray-500 dark:text-gray-400 ml-2">— {{ c.school }}</span>
+                    </div>
+                    <form method="POST" class="flex-shrink-0 ml-2">
+                        {% csrf_token %}
+                        <input type="hidden" name="initiation_chapter_delete_submit" value="1">
+                        <input type="hidden" name="ic_index" value="{{ forloop.counter0 }}">
+                        <button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" title="Remove">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-gray-400 italic mb-4">Defaulting to Alpha Mu — Samford University.</p>
+            {% endif %}
+            {% endwith %}
+
+            <form method="POST" class="flex gap-3 items-end flex-wrap">
+                {% csrf_token %}
+                <input type="hidden" name="initiation_chapter_add_submit" value="1">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">School</label>
+                    <input type="text" name="ic_school" placeholder="e.g. Auburn University" required
+                           class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-52">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Chapter</label>
+                    <div class="flex gap-2">
+                        <input type="text" name="ic_chapter" placeholder="e.g. Delta Zeta" required
+                               class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-40">
+                        <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Role History -->
+        <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Role History</h3>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Positions you've held in the chapter (officer, chair, etc.). Visible on your directory profile.</p>
+
+            {% if role_histories %}
+            <ul class="space-y-2 mb-5">
+                {% for rh in role_histories %}
+                <li class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm">
+                    <div>
+                        <span class="font-medium text-gray-800 dark:text-gray-200">{{ rh.role_name }}</span>
+                        <span class="text-gray-500 dark:text-gray-400 ml-2">{{ rh.start_semester }}{% if rh.end_semester %} – {{ rh.end_semester }}{% else %} – present{% endif %}</span>
+                    </div>
+                    <form method="POST" class="flex-shrink-0 ml-2">
+                        {% csrf_token %}
+                        <input type="hidden" name="role_history_delete_submit" value="1">
+                        <input type="hidden" name="rh_id" value="{{ rh.id }}">
+                        <button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" title="Remove">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-gray-400 dark:text-gray-500 mb-4 italic">No role history added yet.</p>
+            {% endif %}
+
+            <!-- Add entry -->
+            <form method="POST" class="grid sm:grid-cols-3 gap-3 items-end">
+                {% csrf_token %}
+                <input type="hidden" name="role_history_add_submit" value="1">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Position</label>
+                    <input type="text" name="rh_role_name" placeholder="e.g. President" required
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Start semester</label>
+                    <input type="text" name="rh_start_semester" placeholder="e.g. Spring 2026" required
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">End semester <span class="text-gray-400 font-normal">(blank = current)</span></label>
+                    <div class="flex gap-2">
+                        <input type="text" name="rh_end_semester" placeholder="e.g. Fall 2026"
+                               class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Notification Preferences Card -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 transition-colors duration-200">
         <h2 class="text-xl font-semibold mb-4 flex items-center text-gray-900 dark:text-gray-100">

@@ -51,6 +51,81 @@ The original Parliament system with basic functionality but significant security
 - No backward compatibility with v1.0.0 authentication
 
 
+### v2.24.0 - Extended Member Profiles, House System & House Map (2026-05-29)
+
+Full overhaul of the member profile system adding rich optional profile data, a big/little family tree, a house assignment system with auto-propagation, a house map page, and a profile popup modal in the directory.
+
+**New Models / Fields (migrations 0176–0179):**
+- `about_me`, `major`, `minor`, `concentration` — bio and academics
+- `big_brother` — self-referential FK; `little_brothers` is the reverse relation
+- `pledge_class`, `pledge_class_greek` — pledge class name and Greek letter name (e.g. "Alpha Beta" → αβ); "Founder" gets a gold gradient badge
+- `graduation_semester`, `graduation_year`
+- `instagram`, `twitter`, `linkedin`, `snapchat`, `facebook`, `other_email` — standard social handles
+- `custom_socials` — JSONField list of `{"platform", "handle"}` for non-standard platforms (Signal, WhatsApp, etc.)
+- `house` — CharField with fixed 8-house choices (Smith, Duncan, Knox, Marshall, Linton, Hardin, Ryan, Gordon); not user-editable from UI
+- `initiation_chapters` — JSONField list of `{"school", "chapter"}` dicts; defaults to display "Alpha Mu (αμ) — Samford University" when empty; supports dual-chapter membership
+- `RoleHistory` model — tracks positions held with start/end semesters; many-to-one with `ParliamentUser`
+
+**Directory Profile Modal:**
+- Clicking any member name or avatar in the directory opens a slide-up modal fetching from `GET /directory/<user_id>/card/`
+- Shows: profile picture (or initial avatar), member type badge, roll number + ID, bio, contact info, academics, chapter info (pledge class with Greek glyphs + Founder badge, graduation, big/little, initiation chapters), current roles, role history, socials + custom socials, house
+- Pledge viewers cannot see roll number or user ID for any member
+- Removed members show a red "Removed" badge instead of their member type
+
+**House System:**
+- House assignment restricted to Officers, Admins, and Chairs whose role name contains "historian"
+- `POST /officers/members/<user_id>/set-house/` — JSON endpoint to set/clear house
+- Auto-propagation: when a big brother has a house, setting that big on a houseless user cascades the house down through their houseless descendants (BFS); stops at anyone who already has a house set
+- House setter UI appears in the directory profile modal for authorized users
+
+**House Map (`/house-map/`):**
+- 8 house cards in a 2-column grid, each showing active/total member counts
+- Family trees rendered client-side with CSS connector lines; multiple separate family lines within one house are separated by a dashed divider
+- Tree includes houseless littles (implied same house) and stops at littles assigned to a different house
+- Status dots: green = Active, yellow = Pledge, gray = Inactive/Alumni, red = Removed
+- Removed members show "Removed" badge in tree instead of member type
+- Clicking any name opens the same profile modal
+- "House Map" button added to the directory header
+
+**Profile Self-Edit (`/profile/`):**
+- New "Public Profile" card: bio, academics, chapter section (pledge class, pledge class Greek name, big brother select including removed members, little brothers read-only), graduation, standard socials, other email
+- Custom Social Links section: add/remove non-standard platform handles
+- Initiation Chapters section: add/remove `{school, chapter}` entries; empty shows Samford default note
+- Role History section: add/remove past positions with start/end semesters
+
+**Admin Edit Profile (`/admin-v2/users/<id>/edit-profile/`):**
+- New page for officers/admins to edit any member's full profile
+- Core section: name, preferred name, member type/status, email, phone, roll number, house dropdown
+- Public Profile section: all extended fields including big brother (with house propagation on save)
+- Dedicated sections for Role History, Custom Socials, and Initiation Chapters with add/remove
+
+**Bug Fixes:**
+- `preferred_name` `IntegrityError` — admin edit was saving `None` to a non-nullable `CharField`; fixed to store `''`
+- House map "Loading…" stuck — `json_script` element was placed after the `<script>` block that reads it; moved before
+- Removed member modal badge — was showing member type (Member/Officer/etc.) instead of "Removed"; fixed in both directory and house map modals
+
+**Files added:**
+- `src/view/profile_card.py` — `GET /directory/<user_id>/card/` JSON endpoint
+- `src/view/officer/set_member_house.py` — `POST /officers/members/<user_id>/set-house/`
+- `src/view/house_map.py` — house map view with per-house tree building
+- `src/house_utils.py` — `propagate_house()` and `inherit_house_from_big()` utilities
+- `templates/house_map.html` — house map page with profile modal
+- `templates/admin_v2/edit_user_profile.html` — admin full-profile editor
+- `src/migrations/0176_parliamentuser_profile_fields.py`
+- `src/migrations/0177_parliamentuser_house_custom_socials.py`
+- `src/migrations/0178_parliamentuser_pledge_class_greek.py`
+- `src/migrations/0179_parliamentuser_initiation_chapters.py`
+
+**Files changed:**
+- `src/models.py` — all new profile fields + `RoleHistory` model + `HOUSE_CHOICES`
+- `src/view/profile_view.py` — handlers for all new profile sections
+- `src/view/admin_v2.py` — `edit_user_profile` view + all action handlers; `preferred_name` null fix
+- `src/view/directory.py` — `can_set_house` + `house_choices` context; profile card endpoint
+- `src/templatetags/custom_filters.py` — `jsonify` filter added
+- `templates/directory.html` — profile modal HTML + JS (openProfileModal, _renderProfile, submitHouseChange); House Map button; Removed badge fix
+- `templates/profile.html` — all new self-edit sections
+- `src/urls.py` — profile card, house map, set-house, edit-profile URLs
+
 ### v2.23.0 - Chair Appointment Votes (05-29-2026)
 
 - Officers can create appointment votes directly from the legislation page via a new "Chair Appointment" tab

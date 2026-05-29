@@ -181,6 +181,14 @@ def linkify(value, autoescape=True):
 
 
 @register.filter
+def jsonify(value):
+    """Serialize a Python object to a JSON string (safe for use in data attributes)."""
+    import json
+    from django.utils.html import escape
+    return escape(json.dumps(value, ensure_ascii=True))
+
+
+@register.filter
 def country_flag(country_code):
     """Convert a 2-letter ISO country code to its flag emoji (e.g. 'US' → '🇺🇸')."""
     if not country_code or len(country_code) != 2:

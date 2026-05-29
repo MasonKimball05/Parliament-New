@@ -31,6 +31,13 @@ def profile_view(request):
     password_form_submitted = 'password_submit' in request.POST
     profile_picture_submitted = 'profile_picture_submit' in request.POST
     notification_prefs_submitted = 'notification_prefs_submit' in request.POST
+    extended_profile_submitted = 'extended_profile_submit' in request.POST
+    role_history_add = 'role_history_add_submit' in request.POST
+    role_history_delete = 'role_history_delete_submit' in request.POST
+    custom_social_add = 'custom_social_add_submit' in request.POST
+    custom_social_delete = 'custom_social_delete_submit' in request.POST
+    initiation_chapter_add = 'initiation_chapter_add_submit' in request.POST
+    initiation_chapter_delete = 'initiation_chapter_delete_submit' in request.POST
 
     password_form = PasswordChangeForm(user)
 
@@ -177,6 +184,108 @@ def profile_view(request):
             messages.success(request, "Notification preferences updated.")
             return redirect('profile')
 
+        elif extended_profile_submitted:
+            # Save bio, academics, chapter info, socials, other email, big brother
+            user.about_me = request.POST.get('about_me', '').strip()
+            user.major = request.POST.get('major', '').strip()
+            user.minor = request.POST.get('minor', '').strip()
+            user.concentration = request.POST.get('concentration', '').strip()
+            user.pledge_class = request.POST.get('pledge_class', '').strip()
+            user.pledge_class_greek = request.POST.get('pledge_class_greek', '').strip()
+            user.graduation_semester = request.POST.get('graduation_semester', '').strip()
+            raw_year = request.POST.get('graduation_year', '').strip()
+            user.graduation_year = int(raw_year) if raw_year.isdigit() else None
+            user.instagram = request.POST.get('instagram', '').strip().lstrip('@')
+            user.twitter = request.POST.get('twitter', '').strip().lstrip('@')
+            user.linkedin = request.POST.get('linkedin', '').strip().lstrip('@')
+            user.snapchat = request.POST.get('snapchat', '').strip().lstrip('@')
+            user.facebook = request.POST.get('facebook', '').strip().lstrip('@')
+            new_other_email = request.POST.get('other_email', '').strip()
+            user.other_email = new_other_email if new_other_email else None
+            big_bro_id = request.POST.get('big_brother', '').strip()
+            if big_bro_id:
+                try:
+                    user.big_brother = ParliamentUser.objects.get(user_id=big_bro_id)
+                except ParliamentUser.DoesNotExist:
+                    pass
+            else:
+                user.big_brother = None
+            user.save()
+            from src.house_utils import inherit_house_from_big
+            inherit_house_from_big(user, user.big_brother)
+            messages.success(request, 'Public profile updated.')
+            return redirect('profile')
+
+        elif role_history_add:
+            role_name = request.POST.get('rh_role_name', '').strip()
+            start_sem = request.POST.get('rh_start_semester', '').strip()
+            end_sem = request.POST.get('rh_end_semester', '').strip()
+            if role_name and start_sem:
+                from src.models import RoleHistory
+                RoleHistory.objects.create(user=user, role_name=role_name, start_semester=start_sem, end_semester=end_sem)
+                messages.success(request, 'Role history entry added.')
+            else:
+                messages.error(request, 'Role name and start semester are required.')
+            return redirect('profile')
+
+        elif custom_social_add:
+            platform = request.POST.get('cs_platform', '').strip()
+            handle = request.POST.get('cs_handle', '').strip().lstrip('@')
+            if platform and handle:
+                socials = list(user.custom_socials or [])
+                socials.append({'platform': platform, 'handle': handle})
+                user.custom_socials = socials
+                user.save(update_fields=['custom_socials'])
+                messages.success(request, f'{platform} added.')
+            else:
+                messages.error(request, 'Platform name and handle are required.')
+            return redirect('profile')
+
+        elif custom_social_delete:
+            idx = request.POST.get('cs_index', '').strip()
+            if idx.isdigit():
+                socials = list(user.custom_socials or [])
+                i = int(idx)
+                if 0 <= i < len(socials):
+                    socials.pop(i)
+                    user.custom_socials = socials
+                    user.save(update_fields=['custom_socials'])
+                    messages.success(request, 'Custom social removed.')
+            return redirect('profile')
+
+        elif initiation_chapter_add:
+            school = request.POST.get('ic_school', '').strip()
+            chapter = request.POST.get('ic_chapter', '').strip()
+            if school and chapter:
+                chapters = list(user.initiation_chapters or [])
+                chapters.append({'school': school, 'chapter': chapter})
+                user.initiation_chapters = chapters
+                user.save(update_fields=['initiation_chapters'])
+                messages.success(request, f'{chapter} at {school} added.')
+            else:
+                messages.error(request, 'School and chapter name are required.')
+            return redirect('profile')
+
+        elif initiation_chapter_delete:
+            idx = request.POST.get('ic_index', '').strip()
+            if idx.isdigit():
+                chapters = list(user.initiation_chapters or [])
+                i = int(idx)
+                if 0 <= i < len(chapters):
+                    chapters.pop(i)
+                    user.initiation_chapters = chapters
+                    user.save(update_fields=['initiation_chapters'])
+                    messages.success(request, 'Initiation chapter removed.')
+            return redirect('profile')
+
+        elif role_history_delete:
+            rh_id = request.POST.get('rh_id', '').strip()
+            if rh_id:
+                from src.models import RoleHistory
+                RoleHistory.objects.filter(id=rh_id, user=user).delete()
+                messages.success(request, 'Role history entry removed.')
+            return redirect('profile')
+
         elif password_form_submitted:
             password_form = PasswordChangeForm(user, request.POST)
             if password_form.is_valid():
@@ -220,10 +329,20 @@ def profile_view(request):
     backup_device = StaticDevice.objects.filter(user=user, name='backup', confirmed=True).first()
     backup_codes_remaining = backup_device.token_set.count() if backup_device else 0
 
+    from src.models import RoleHistory
+    role_histories = RoleHistory.objects.filter(user=user)
+    eligible_big_bros = (
+        ParliamentUser.objects
+        .exclude(user_id=user.user_id)
+        .order_by('name')
+    )
+
     return render(request, 'profile.html', {
         'user': user,
         'password_form': password_form,
         'notif_prefs': notif_prefs,
         'has_2fa': has_2fa,
         'backup_codes_remaining': backup_codes_remaining,
+        'role_histories': role_histories,
+        'eligible_big_bros': eligible_big_bros,
     })

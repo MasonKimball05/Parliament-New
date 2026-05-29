@@ -31,7 +31,15 @@
                 {% endif %}
             </div>
         </div>
-        <!-- Export Button -->
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-2">
+        <a href="{% url 'house_map' %}"
+           class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+            House Map
+        </a>
         <button type="button" onclick="openExportModal()"
                 class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -39,6 +47,7 @@
             </svg>
             Export
         </button>
+        </div>
     </div>
 
     <!-- Search + Filter + Sort -->
@@ -85,18 +94,20 @@
                  data-role="{{ member.role_number|default:member.user_id }}"
                  data-type="officer">
                 <div class="flex items-start gap-3">
+                    <button type="button" onclick="openProfileModal('{{ member.user_id }}')" class="flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-purple-500 rounded-full" title="View profile">
                     {% if member.profile_picture %}
                     <img src="{{ member.profile_picture.url }}" alt="{{ member.name }}"
-                         class="w-12 h-12 rounded-full object-cover flex-shrink-0">
+                         class="w-12 h-12 rounded-full object-cover hover:opacity-80 transition-opacity">
                     {% else %}
-                    <div class="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center flex-shrink-0">
+                    <div class="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center hover:bg-purple-200 dark:hover:bg-purple-800 transition-colors">
                         <span class="text-purple-600 dark:text-purple-300 font-semibold text-lg">
                             {{ member.name|slice:":1"|upper }}
                         </span>
                     </div>
                     {% endif %}
+                    </button>
                     <div class="flex-1 min-w-0">
-                        <h3 class="font-semibold text-gray-900 dark:text-white truncate">{{ member.get_display_name }}</h3>
+                        <button type="button" onclick="openProfileModal('{{ member.user_id }}')" class="font-semibold text-gray-900 dark:text-white truncate hover:text-purple-600 dark:hover:text-purple-400 transition-colors text-left w-full focus:outline-none">{{ member.get_display_name }}</button>
                         <p class="text-sm text-gray-500 dark:text-gray-400">
                             {% if member.role_number %}#{{ member.role_number }}{% else %}{{ member.user_id }}{% endif %}
                         </p>
@@ -143,18 +154,20 @@
                  data-role="{{ member.role_number|default:member.user_id }}"
                  data-type="chair">
                 <div class="flex items-start gap-3">
+                    <button type="button" onclick="openProfileModal('{{ member.user_id }}')" class="flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full" title="View profile">
                     {% if member.profile_picture %}
                     <img src="{{ member.profile_picture.url }}" alt="{{ member.name }}"
-                         class="w-12 h-12 rounded-full object-cover flex-shrink-0">
+                         class="w-12 h-12 rounded-full object-cover hover:opacity-80 transition-opacity">
                     {% else %}
-                    <div class="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
+                    <div class="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors">
                         <span class="text-blue-600 dark:text-blue-300 font-semibold text-lg">
                             {{ member.name|slice:":1"|upper }}
                         </span>
                     </div>
                     {% endif %}
+                    </button>
                     <div class="flex-1 min-w-0">
-                        <h3 class="font-semibold text-gray-900 dark:text-white truncate">{{ member.get_display_name }}</h3>
+                        <button type="button" onclick="openProfileModal('{{ member.user_id }}')" class="font-semibold text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left w-full focus:outline-none">{{ member.get_display_name }}</button>
                         <p class="text-sm text-gray-500 dark:text-gray-400">
                             {% if member.role_number %}#{{ member.role_number }}{% else %}{{ member.user_id }}{% endif %}
                         </p>
@@ -201,18 +214,20 @@
                  data-role="{{ member.role_number|default:member.user_id }}"
                  data-type="member">
                 <div class="flex items-start gap-3">
+                    <button type="button" onclick="openProfileModal('{{ member.user_id }}')" class="flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-green-500 rounded-full" title="View profile">
                     {% if member.profile_picture %}
                     <img src="{{ member.profile_picture.url }}" alt="{{ member.name }}"
-                         class="w-12 h-12 rounded-full object-cover flex-shrink-0">
+                         class="w-12 h-12 rounded-full object-cover hover:opacity-80 transition-opacity">
                     {% else %}
-                    <div class="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center flex-shrink-0">
+                    <div class="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center hover:bg-green-200 dark:hover:bg-green-800 transition-colors">
                         <span class="text-green-600 dark:text-green-300 font-semibold text-lg">
                             {{ member.name|slice:":1"|upper }}
                         </span>
                     </div>
                     {% endif %}
+                    </button>
                     <div class="flex-1 min-w-0">
-                        <h3 class="font-semibold text-gray-900 dark:text-white truncate">{{ member.get_display_name }}</h3>
+                        <button type="button" onclick="openProfileModal('{{ member.user_id }}')" class="font-semibold text-gray-900 dark:text-white truncate hover:text-green-600 dark:hover:text-green-400 transition-colors text-left w-full focus:outline-none">{{ member.get_display_name }}</button>
                         <p class="text-sm text-gray-500 dark:text-gray-400">
                             {% if member.role_number %}#{{ member.role_number }}{% else %}{{ member.user_id }}{% endif %}
                         </p>
@@ -250,18 +265,20 @@
                  data-role=""
                  data-type="pledge">
                 <div class="flex items-start gap-3">
+                    <button type="button" onclick="openProfileModal('{{ member.user_id }}')" class="flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-yellow-500 rounded-full" title="View profile">
                     {% if member.profile_picture %}
                     <img src="{{ member.profile_picture.url }}" alt="{{ member.name }}"
-                         class="w-12 h-12 rounded-full object-cover flex-shrink-0">
+                         class="w-12 h-12 rounded-full object-cover hover:opacity-80 transition-opacity">
                     {% else %}
-                    <div class="w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center flex-shrink-0">
+                    <div class="w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center hover:bg-yellow-200 dark:hover:bg-yellow-800 transition-colors">
                         <span class="text-yellow-600 dark:text-yellow-300 font-semibold text-lg">
                             {{ member.name|slice:":1"|upper }}
                         </span>
                     </div>
                     {% endif %}
+                    </button>
                     <div class="flex-1 min-w-0">
-                        <h3 class="font-semibold text-gray-900 dark:text-white truncate">{{ member.get_display_name }}</h3>
+                        <button type="button" onclick="openProfileModal('{{ member.user_id }}')" class="font-semibold text-gray-900 dark:text-white truncate hover:text-yellow-600 dark:hover:text-yellow-400 transition-colors text-left w-full focus:outline-none">{{ member.get_display_name }}</button>
                         <p class="text-sm text-gray-500 dark:text-gray-400">Pledge</p>
                         {% if member.email %}
                         <a href="mailto:{{ member.email }}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline truncate block">
@@ -297,18 +314,20 @@
                  data-role=""
                  data-type="advisor">
                 <div class="flex items-start gap-3">
+                    <button type="button" onclick="openProfileModal('{{ member.user_id }}')" class="flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-gray-400 rounded-full" title="View profile">
                     {% if member.profile_picture %}
                     <img src="{{ member.profile_picture.url }}" alt="{{ member.name }}"
-                         class="w-12 h-12 rounded-full object-cover flex-shrink-0">
+                         class="w-12 h-12 rounded-full object-cover hover:opacity-80 transition-opacity">
                     {% else %}
-                    <div class="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                    <div class="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                         <span class="text-gray-600 dark:text-gray-300 font-semibold text-lg">
                             {{ member.name|slice:":1"|upper }}
                         </span>
                     </div>
                     {% endif %}
+                    </button>
                     <div class="flex-1 min-w-0">
-                        <h3 class="font-semibold text-gray-900 dark:text-white truncate">{{ member.get_display_name }}</h3>
+                        <button type="button" onclick="openProfileModal('{{ member.user_id }}')" class="font-semibold text-gray-900 dark:text-white truncate hover:text-gray-600 dark:hover:text-gray-400 transition-colors text-left w-full focus:outline-none">{{ member.get_display_name }}</button>
                         <p class="text-sm text-gray-500 dark:text-gray-400">{% if member.role_number %}#{{ member.role_number }}{% endif %}</p>
                         {% if member.email %}
                         <a href="mailto:{{ member.email }}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline truncate block">
@@ -347,18 +366,20 @@
                  data-role="{{ member.role_number|default:'' }}"
                  data-type="alumni">
                 <div class="flex items-start gap-3">
+                    <button type="button" onclick="openProfileModal('{{ member.user_id }}')" class="flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-indigo-400 rounded-full" title="View profile">
                     {% if member.profile_picture %}
                     <img src="{{ member.profile_picture.url }}" alt="{{ member.name }}"
-                         class="w-12 h-12 rounded-full object-cover flex-shrink-0 opacity-80">
+                         class="w-12 h-12 rounded-full object-cover opacity-80 hover:opacity-100 transition-opacity">
                     {% else %}
-                    <div class="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center flex-shrink-0">
+                    <div class="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors">
                         <span class="text-indigo-500 dark:text-indigo-300 font-semibold text-lg">
                             {{ member.name|slice:":1"|upper }}
                         </span>
                     </div>
                     {% endif %}
+                    </button>
                     <div class="flex-1 min-w-0">
-                        <h3 class="font-semibold text-gray-900 dark:text-white truncate">{{ member.get_display_name }}</h3>
+                        <button type="button" onclick="openProfileModal('{{ member.user_id }}')" class="font-semibold text-gray-900 dark:text-white truncate hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors text-left w-full focus:outline-none">{{ member.get_display_name }}</button>
                         <p class="text-sm text-gray-500 dark:text-gray-400">
                             {% if member.role_number %}#{{ member.role_number }} &middot; {% endif %}Alumni
                         </p>
@@ -387,6 +408,103 @@
         </svg>
         <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No members found</h3>
         <p class="text-gray-500 dark:text-gray-400">Try adjusting your search terms.</p>
+    </div>
+</div>
+
+<!-- Profile Card Modal -->
+<div id="profileModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full sm:max-w-lg overflow-hidden">
+    <div class="overflow-y-auto max-h-[85vh]">
+        <!-- Loading state -->
+        <div id="profileModalLoading" class="flex flex-col items-center justify-center py-10 px-6">
+            <div class="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Loading profile…</p>
+        </div>
+        <!-- Content (populated by JS) -->
+        <div id="profileModalContent" class="hidden">
+            <!-- Header -->
+            <div class="flex items-start gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
+                <div id="pm-avatar" class="flex-shrink-0"></div>
+                <div class="flex-1 min-w-0">
+                    <h2 id="profileModalTitle" class="text-lg font-bold text-gray-900 dark:text-white leading-tight"></h2>
+                    <p id="pm-type-badge" class="mt-0.5"></p>
+                    <p id="pm-roll" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5"></p>
+                </div>
+                <button type="button" onclick="closeProfileModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0 p-1 -mr-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <!-- Body -->
+            <div class="p-4 space-y-3">
+                <!-- About me -->
+                <div id="pm-about-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">About</h3>
+                    <p id="pm-about" class="text-sm text-gray-700 dark:text-gray-300"></p>
+                </div>
+                <!-- Contact -->
+                <div id="pm-contact-section">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Contact</h3>
+                    <div id="pm-contact-list" class="space-y-1"></div>
+                </div>
+                <!-- Academics -->
+                <div id="pm-academics-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Academics</h3>
+                    <div id="pm-academics-list" class="space-y-1"></div>
+                </div>
+                <!-- Chapter info -->
+                <div id="pm-chapter-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Chapter</h3>
+                    <div id="pm-chapter-list" class="space-y-1"></div>
+                </div>
+                <!-- Roles currently held -->
+                <div id="pm-roles-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Current Roles</h3>
+                    <div id="pm-roles-list" class="flex flex-wrap gap-1.5"></div>
+                </div>
+                <!-- Role history -->
+                <div id="pm-history-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Role History</h3>
+                    <div id="pm-history-list" class="space-y-1"></div>
+                </div>
+                <!-- Socials -->
+                <div id="pm-socials-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Socials</h3>
+                    <div id="pm-socials-list" class="flex flex-wrap gap-1.5"></div>
+                </div>
+                <!-- House -->
+                <div id="pm-house-section">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">House</h3>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span id="pm-house-badge" class="hidden px-2.5 py-0.5 rounded-full text-sm font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300"></span>
+                        <span id="pm-house-none" class="text-sm text-gray-400 italic">Not assigned</span>
+                        {% if can_set_house %}
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <input type="hidden" id="pm-house-csrf" value="">
+                            {% csrf_token %}
+                            <select id="pm-house-select" class="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                                <option value="">— None —</option>
+                                {% for val, label in house_choices %}
+                                <option value="{{ val }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" onclick="submitHouseChange()" class="px-3 py-1 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition">Set</button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Error state -->
+        <div id="profileModalError" class="hidden flex flex-col items-center justify-center py-10 px-6 text-center">
+            <svg class="w-8 h-8 text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Could not load profile.</p>
+            <button type="button" onclick="closeProfileModal()" class="mt-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Close</button>
+        </div>
+    </div>
     </div>
 </div>
 
@@ -594,5 +712,261 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// ---- Profile modal ----
+const GREEK_GLYPHS = {
+    'alpha':'α','beta':'β','gamma':'γ','delta':'δ','epsilon':'ε',
+    'zeta':'ζ','eta':'η','theta':'θ','iota':'ι','kappa':'κ',
+    'lambda':'λ','mu':'μ','nu':'ν','xi':'ξ','omicron':'ο',
+    'pi':'π','rho':'ρ','sigma':'σ','tau':'τ','upsilon':'υ',
+    'phi':'φ','chi':'χ','psi':'ψ','omega':'ω',
+};
+
+const SOCIAL_ICONS = {
+    instagram: { label: 'Instagram', color: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300' },
+    twitter:   { label: 'Twitter / X', color: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' },
+    linkedin:  { label: 'LinkedIn', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+    snapchat:  { label: 'Snapchat', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' },
+    facebook:  { label: 'Facebook', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' },
+};
+
+const TYPE_COLORS = {
+    Officer: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+    Chair:   'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+    Member:  'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+    Pledge:  'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
+    Advisor: 'bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300',
+    Alumni:  'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
+    Removed: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+};
+
+function openProfileModal(userId) {
+    const modal = document.getElementById('profileModal');
+    document.getElementById('profileModalLoading').classList.remove('hidden');
+    document.getElementById('profileModalContent').classList.add('hidden');
+    document.getElementById('profileModalError').classList.add('hidden');
+    modal.classList.remove('hidden');
+
+    fetch(`/directory/${encodeURIComponent(userId)}/card/`)
+        .then(r => {
+            if (!r.ok) throw new Error('Not found');
+            return r.json();
+        })
+        .then(d => {
+            _renderProfile(d);
+            document.getElementById('profileModalLoading').classList.add('hidden');
+            document.getElementById('profileModalContent').classList.remove('hidden');
+        })
+        .catch(() => {
+            document.getElementById('profileModalLoading').classList.add('hidden');
+            document.getElementById('profileModalError').classList.remove('hidden');
+        });
+}
+
+function closeProfileModal() {
+    document.getElementById('profileModal').classList.add('hidden');
+}
+
+document.getElementById('profileModal').addEventListener('click', function(e) {
+    if (e.target === this) closeProfileModal();
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeProfileModal();
+});
+
+function _show(id)  { document.getElementById(id).classList.remove('hidden'); }
+function _hide(id)  { document.getElementById(id).classList.add('hidden'); }
+function _setText(id, val) { document.getElementById(id).textContent = val; }
+function _row(label, val) {
+    return `<div class="flex gap-2 text-sm"><span class="text-gray-500 dark:text-gray-400 w-24 flex-shrink-0">${label}</span><span class="text-gray-800 dark:text-gray-200 min-w-0">${val}</span></div>`;
+}
+
+function _renderProfile(d) {
+    // Avatar
+    const avatarEl = document.getElementById('pm-avatar');
+    if (d.profile_picture_url) {
+        avatarEl.innerHTML = `<img src="${d.profile_picture_url}" alt="${d.name}" class="w-12 h-12 rounded-full object-cover">`;
+    } else {
+        const initial = d.name ? d.name[0].toUpperCase() : '?';
+        avatarEl.innerHTML = `<div class="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center"><span class="text-indigo-600 dark:text-indigo-300 font-bold text-xl">${initial}</span></div>`;
+    }
+
+    // Name + type badge
+    _setText('profileModalTitle', d.name);
+    const typeLabel = (d.member_status === 'Alumni' || d.member_status === 'Removed') ? d.member_status : d.member_type;
+    const typeColor = TYPE_COLORS[typeLabel] || TYPE_COLORS.Member;
+    document.getElementById('pm-type-badge').innerHTML = `<span class="px-2 py-0.5 text-xs rounded-full font-medium ${typeColor}">${typeLabel}</span>`;
+    const rollParts = [];
+    if (d.role_number) rollParts.push(`#${d.role_number}`);
+    if (d.user_id) rollParts.push(`ID ${d.user_id}`);
+    const rollEl = document.getElementById('pm-roll');
+    if (rollParts.length) {
+        rollEl.textContent = rollParts.join(' · ');
+        rollEl.classList.remove('hidden');
+    } else {
+        rollEl.classList.add('hidden');
+    }
+
+    // About
+    if (d.about_me) {
+        _setText('pm-about', d.about_me);
+        _show('pm-about-section');
+    } else {
+        _hide('pm-about-section');
+    }
+
+    // Contact
+    let contactRows = '';
+    if (d.email)       contactRows += `<div class="text-sm"><a href="mailto:${d.email}" class="text-blue-600 dark:text-blue-400 hover:underline">${d.email}</a></div>`;
+    if (d.other_email) contactRows += `<div class="text-sm text-gray-500 dark:text-gray-400"><a href="mailto:${d.other_email}" class="hover:underline">${d.other_email}</a></div>`;
+    if (d.phone)       contactRows += `<div class="text-sm text-gray-600 dark:text-gray-400">${d.phone}</div>`;
+    document.getElementById('pm-contact-list').innerHTML = contactRows || '<p class="text-sm text-gray-400">No contact info</p>';
+
+    // Academics
+    const acad = d.academics || {};
+    let acadRows = '';
+    if (acad.major)         acadRows += _row('Major', acad.major);
+    if (acad.minor)         acadRows += _row('Minor', acad.minor);
+    if (acad.concentration) acadRows += _row('Concentration', acad.concentration);
+    if (acadRows) {
+        document.getElementById('pm-academics-list').innerHTML = acadRows;
+        _show('pm-academics-section');
+    } else {
+        _hide('pm-academics-section');
+    }
+
+    // Chapter info
+    let chapterRows = '';
+    if (d.pledge_class) {
+        let pcLabel = d.pledge_class;
+        if (d.pledge_class_greek) {
+            if (d.pledge_class_greek.trim().toLowerCase() === 'founder') {
+                pcLabel = `<span class="font-semibold px-1.5 py-0.5 rounded" style="background:linear-gradient(135deg,#b8860b,#ffd700,#b8860b);color:#3b1f00;">Founder Class</span> · ${d.pledge_class}`;
+            } else {
+                const glyphs = d.pledge_class_greek.trim().split(/\s+/)
+                    .map(w => GREEK_GLYPHS[w.toLowerCase()] || '').join('');
+                const greekDisplay = glyphs
+                    ? `${d.pledge_class_greek} (${glyphs})`
+                    : d.pledge_class_greek;
+                pcLabel = `${greekDisplay} Class · ${d.pledge_class}`;
+            }
+        }
+        chapterRows += _row('Pledge class', pcLabel);
+    }
+    if (d.graduation)    chapterRows += _row('Graduation', d.graduation);
+    if (d.big_brother)   chapterRows += _row('Big brother', d.big_brother.name);
+    if (d.little_brothers && d.little_brothers.length) {
+        chapterRows += _row('Little brothers', d.little_brothers.map(l => l.name).join(', '));
+    }
+    // Initiation chapters
+    const initChapters = (d.initiation_chapters && d.initiation_chapters.length)
+        ? d.initiation_chapters
+        : [{ school: 'Samford University', chapter: 'Alpha Mu' }];
+    const initLabels = initChapters.map(c => {
+        const glyphs = c.chapter.trim().split(/\s+/).map(w => GREEK_GLYPHS[w.toLowerCase()] || '').join('');
+        const chapterDisplay = glyphs ? `${_esc(c.chapter)} (${glyphs})` : _esc(c.chapter);
+        return `${chapterDisplay} — ${_esc(c.school)}`;
+    });
+    chapterRows += _row('Initiated at', initLabels.join('<br>'));
+    if (chapterRows) {
+        document.getElementById('pm-chapter-list').innerHTML = chapterRows;
+        _show('pm-chapter-section');
+    } else {
+        _hide('pm-chapter-section');
+    }
+
+    // Current roles
+    if (d.roles && d.roles.length) {
+        document.getElementById('pm-roles-list').innerHTML = d.roles.map(r =>
+            `<span class="px-2 py-0.5 text-xs rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300">${r.name}</span>`
+        ).join('');
+        _show('pm-roles-section');
+    } else {
+        _hide('pm-roles-section');
+    }
+
+    // Role history
+    if (d.role_history && d.role_history.length) {
+        document.getElementById('pm-history-list').innerHTML = d.role_history.map(h => {
+            const range = h.end ? `${h.start} – ${h.end}` : `${h.start} – present`;
+            return `<div class="text-sm flex flex-wrap gap-x-2 gap-y-0.5"><span class="font-medium text-gray-800 dark:text-gray-200">${_esc(h.role)}</span><span class="text-gray-500 dark:text-gray-400">${range}</span></div>`;
+        }).join('');
+        _show('pm-history-section');
+    } else {
+        _hide('pm-history-section');
+    }
+
+    // Socials (hardcoded)
+    const socials = d.socials || {};
+    const socialKeys = Object.keys(socials);
+    // Custom socials
+    const customSocials = d.custom_socials || [];
+    const allSocialItems = [
+        ...socialKeys.map(k => {
+            const info = SOCIAL_ICONS[k] || { label: k, color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' };
+            return `<a href="${socials[k].url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${info.color} hover:opacity-80 transition-opacity">${info.label}: @${socials[k].handle}</a>`;
+        }),
+        ...customSocials.map(s =>
+            `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700/60 dark:text-gray-300">${_esc(s.platform)}: @${_esc(s.handle)}</span>`
+        ),
+    ];
+    if (allSocialItems.length) {
+        document.getElementById('pm-socials-list').innerHTML = allSocialItems.join('');
+        _show('pm-socials-section');
+    } else {
+        _hide('pm-socials-section');
+    }
+
+    // House
+    _currentUserId = d.user_id;
+    const houseBadge = document.getElementById('pm-house-badge');
+    const houseNone  = document.getElementById('pm-house-none');
+    const houseSelect = document.getElementById('pm-house-select');
+    if (d.house) {
+        houseBadge.textContent = d.house + ' House';
+        houseBadge.classList.remove('hidden');
+        houseNone.classList.add('hidden');
+    } else {
+        houseBadge.classList.add('hidden');
+        houseNone.classList.remove('hidden');
+    }
+    if (houseSelect) houseSelect.value = d.house || '';
+}
+
+function _esc(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let _currentUserId = null;
+
+{% if can_set_house %}
+function submitHouseChange() {
+    if (!_currentUserId) return;
+    const select = document.getElementById('pm-house-select');
+    const house = select ? select.value : '';
+    const csrf = (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
+    const body = new URLSearchParams({ house, csrfmiddlewaretoken: csrf });
+    fetch(`/officers/members/${encodeURIComponent(_currentUserId)}/set-house/`, {
+        method: 'POST',
+        body: body,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    })
+    .then(r => r.json())
+    .then(d => {
+        const houseBadge = document.getElementById('pm-house-badge');
+        const houseNone  = document.getElementById('pm-house-none');
+        if (d.house) {
+            houseBadge.textContent = d.house + ' House';
+            houseBadge.classList.remove('hidden');
+            houseNone.classList.add('hidden');
+        } else {
+            houseBadge.classList.add('hidden');
+            houseNone.classList.remove('hidden');
+        }
+    })
+    .catch(() => alert('Failed to save house.'));
+}
+{% endif %}
 </script>
 {% endblock %}

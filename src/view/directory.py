@@ -49,6 +49,13 @@ def member_directory(request):
             group.sort(key=lambda m: m.name, reverse=True)
     # default 'name' is already sorted ascending from the queryset
 
+    def _can_set_house(user):
+        if user.member_type == 'Officer' or user.is_admin:
+            return True
+        if user.member_type == 'Chair':
+            return user.roles.filter(name__icontains='historian').exists()
+        return False
+
     context = {
         'officers': officers,
         'chairs': chairs,
@@ -60,6 +67,8 @@ def member_directory(request):
         'total_count': members.count() + len(advisors),
         'sort': sort,
         'filter_type': request.GET.get('filter', 'all'),
+        'can_set_house': _can_set_house(request.user),
+        'house_choices': ParliamentUser.HOUSE_CHOICES,
     }
 
     return render(request, 'directory.html', context)
