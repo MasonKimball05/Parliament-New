@@ -1,0 +1,312 @@
+"""
+Views for announcement polls/surveys.
+
+Officer views:
+  - create_poll / edit_poll     — create or edit a poll on an announcement
+  - poll_results                — view results, respondents, non-respondents, export CSV
+
+Member views:
+  - take_poll                   — submit a response
+  - poll_confirmation           — shown after submission
+"""
+import csv
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.http import HttpResponse, JsonResponse
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+
+from src.models import (
+    Announcement, AnnouncementPoll, AnnouncementPollQuestion,
+    AnnouncementPollOption, AnnouncementPollResponse, AnnouncementPollAnswer,
+)
+from src.decorators import officer_required
+
+
+# ---------------------------------------------------------------------------
+# Officer: Create / Edit Poll
+# ---------------------------------------------------------------------------
+
+@login_required
+@officer_required
+def create_or_edit_poll(request, announcement_id):
+    """Create or edit the poll attached to an announcement."""
+    announcement = get_object_or_404(Announcement, id=announcement_id)
+    poll = getattr(announcement, 'poll', None)
+    is_edit = poll is not None
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'delete' and is_edit:
+            poll.delete()
+            messages.success(request, 'Poll deleted.')
+            return redirect('manage_announcements')
+
+        # --- Save poll metadata ---
+        title = request.POST.get('poll_title', '').strip()
+        description = request.POST.get('poll_description', '').strip()
+        is_anonymous = request.POST.get('is_anonymous') == 'on'
+        is_open = request.POST.get('is_open') == 'on'
+        closes_at_raw = request.POST.get('closes_at', '').strip()
+        closes_at = None
+        if closes_at_raw:
+            from django.utils.dateparse import parse_datetime
+            closes_at = parse_datetime(closes_at_raw)
+
+        if not title:
+            messages.error(request, 'Poll title is required.')
+            return redirect('create_or_edit_poll', announcement_id=announcement_id)
+
+        if not is_edit:
+            poll = AnnouncementPoll(announcement=announcement, created_by=request.user)
+        poll.title = title
+        poll.description = description
+        poll.is_anonymous = is_anonymous
+        poll.is_open = is_open
+        poll.closes_at = closes_at
+        poll.save()
+
+        # --- Save questions ---
+        # Delete removed questions (those whose IDs aren't in the submitted list)
+        submitted_q_ids = [
+            v for k, v in request.POST.items()
+            if k.startswith('question_id_') and v
+        ]
+        poll.questions.exclude(id__in=submitted_q_ids).delete()
+
+        question_indices = sorted(set(
+            k.split('_')[-1] for k in request.POST
+            if k.startswith('question_text_')
+        ), key=lambda x: int(x) if x.isdigit() else 0)
+
+        for order, idx in enumerate(question_indices):
+            text = request.POST.get(f'question_text_{idx}', '').strip()
+            q_type = request.POST.get(f'question_type_{idx}', 'single')
+            is_required = request.POST.get(f'question_required_{idx}') == 'on'
+            q_id = request.POST.get(f'question_id_{idx}', '')
+
+            if not text:
+                continue
+
+            if q_id:
+                try:
+                    question = AnnouncementPollQuestion.objects.get(id=q_id, poll=poll)
+                except AnnouncementPollQuestion.DoesNotExist:
+                    question = AnnouncementPollQuestion(poll=poll)
+            else:
+                question = AnnouncementPollQuestion(poll=poll)
+
+            question.text = text
+            question.question_type = q_type
+            question.is_required = is_required
+            question.order = order
+            question.save()
+
+            # Save options for choice questions
+            if q_type in ('single', 'multiple'):
+                submitted_opt_ids = [
+                    v for k, v in request.POST.items()
+                    if k.startswith(f'option_id_{idx}_') and v
+                ]
+                question.options.exclude(id__in=submitted_opt_ids).delete()
+
+                opt_indices = sorted(set(
+                    k.split('_')[-1] for k in request.POST
+                    if k.startswith(f'option_text_{idx}_')
+                ), key=lambda x: int(x) if x.isdigit() else 0)
+
+                for opt_order, opt_idx in enumerate(opt_indices):
+                    opt_text = request.POST.get(f'option_text_{idx}_{opt_idx}', '').strip()
+                    opt_id = request.POST.get(f'option_id_{idx}_{opt_idx}', '')
+                    if not opt_text:
+                        continue
+                    if opt_id:
+                        try:
+                            option = AnnouncementPollOption.objects.get(id=opt_id, question=question)
+                        except AnnouncementPollOption.DoesNotExist:
+                            option = AnnouncementPollOption(question=question)
+                    else:
+                        option = AnnouncementPollOption(question=question)
+                    option.text = opt_text
+                    option.order = opt_order
+                    option.save()
+            else:
+                # Text question — remove any stale options
+                question.options.all().delete()
+
+        messages.success(request, 'Poll saved successfully.')
+        return redirect('poll_results', announcement_id=announcement_id)
+
+    questions = poll.questions.prefetch_related('options').all() if is_edit else []
+    return render(request, 'officer/announcement_poll_edit.html', {
+        'announcement': announcement,
+        'poll': poll,
+        'questions': questions,
+        'is_edit': is_edit,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Officer: Results
+# ---------------------------------------------------------------------------
+
+@login_required
+@officer_required
+def poll_results(request, announcement_id):
+    """Display poll results, respondents, and non-respondents."""
+    announcement = get_object_or_404(Announcement, id=announcement_id)
+    poll = get_object_or_404(AnnouncementPoll, announcement=announcement)
+
+    questions = poll.questions.prefetch_related('options').all()
+    responses = poll.responses.select_related('respondent').prefetch_related(
+        'answers__selected_options', 'answers__question',
+    ).all()
+
+    # Build per-question aggregate counts
+    question_stats = []
+    for question in questions:
+        if question.question_type in ('single', 'multiple'):
+            option_counts = {}
+            for option in question.options.all():
+                count = AnnouncementPollAnswer.objects.filter(
+                    question=question, selected_options=option
+                ).count()
+                option_counts[option] = count
+            question_stats.append({
+                'question': question,
+                'option_counts': option_counts,
+                'total_answers': sum(option_counts.values()),
+            })
+        else:
+            text_answers = AnnouncementPollAnswer.objects.filter(
+                question=question
+            ).exclude(text_answer='').values_list('text_answer', flat=True)
+            question_stats.append({
+                'question': question,
+                'text_answers': list(text_answers),
+            })
+
+    non_respondents = poll.get_non_respondents()
+
+    # CSV export
+    if request.GET.get('export') == 'csv':
+        return _export_poll_csv(poll, questions, responses)
+
+    return render(request, 'officer/announcement_poll_results.html', {
+        'announcement': announcement,
+        'poll': poll,
+        'question_stats': question_stats,
+        'responses': responses if not poll.is_anonymous else None,
+        'respondent_count': responses.count(),
+        'non_respondents': non_respondents,
+    })
+
+
+def _export_poll_csv(poll, questions, responses):
+    response = HttpResponse(content_type='text/csv')
+    filename = f"poll_{poll.id}_{timezone.now().strftime('%Y%m%d')}.csv"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    writer = csv.writer(response)
+    headers = ['Submitted At']
+    if not poll.is_anonymous:
+        headers.insert(0, 'Respondent')
+    for q in questions:
+        headers.append(q.text[:80])
+    writer.writerow(headers)
+
+    for resp in responses:
+        row = [resp.submitted_at.strftime('%Y-%m-%d %H:%M')]
+        if not poll.is_anonymous:
+            row.insert(0, resp.respondent.get_display_name() if resp.respondent else '')
+        for q in questions:
+            try:
+                answer = resp.answers.get(question=q)
+                if q.question_type in ('single', 'multiple'):
+                    row.append(', '.join(o.text for o in answer.selected_options.all()))
+                else:
+                    row.append(answer.text_answer)
+            except AnnouncementPollAnswer.DoesNotExist:
+                row.append('')
+        writer.writerow(row)
+
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Member: Take Poll
+# ---------------------------------------------------------------------------
+
+@login_required
+def take_poll(request, announcement_id):
+    """Display and process a poll for a regular member."""
+    announcement = get_object_or_404(Announcement, id=announcement_id)
+
+    if not announcement.is_visible_to_user(request.user):
+        messages.error(request, 'You do not have access to this announcement.')
+        return redirect('announcements')
+
+    poll = get_object_or_404(AnnouncementPoll, announcement=announcement)
+
+    already_responded = poll.has_user_responded(request.user)
+    accepting = poll.is_accepting_responses()
+
+    if request.method == 'POST':
+        if already_responded:
+            messages.warning(request, 'You have already submitted a response.')
+            return redirect('poll_confirmation', announcement_id=announcement_id)
+        if not accepting:
+            messages.error(request, 'This poll is no longer accepting responses.')
+            return redirect('announcements')
+
+        # Create the response
+        resp = AnnouncementPollResponse.objects.create(
+            poll=poll,
+            respondent=request.user,
+        )
+
+        questions = poll.questions.prefetch_related('options').all()
+        for question in questions:
+            answer = AnnouncementPollAnswer.objects.create(
+                response=resp,
+                question=question,
+            )
+            if question.question_type == 'text':
+                answer.text_answer = request.POST.get(f'q_{question.id}', '').strip()
+                answer.save()
+            elif question.question_type == 'single':
+                option_id = request.POST.get(f'q_{question.id}')
+                if option_id:
+                    try:
+                        option = question.options.get(id=option_id)
+                        answer.selected_options.add(option)
+                    except AnnouncementPollOption.DoesNotExist:
+                        pass
+            elif question.question_type == 'multiple':
+                option_ids = request.POST.getlist(f'q_{question.id}')
+                options = question.options.filter(id__in=option_ids)
+                answer.selected_options.set(options)
+
+        return redirect('poll_confirmation', announcement_id=announcement_id)
+
+    questions = poll.questions.prefetch_related('options').all()
+    return render(request, 'announcement_poll.html', {
+        'announcement': announcement,
+        'poll': poll,
+        'questions': questions,
+        'already_responded': already_responded,
+        'accepting': accepting,
+    })
+
+
+@login_required
+def poll_confirmation(request, announcement_id):
+    """Shown after a user submits a poll response."""
+    announcement = get_object_or_404(Announcement, id=announcement_id)
+    poll = get_object_or_404(AnnouncementPoll, announcement=announcement)
+    return render(request, 'announcement_poll_confirmation.html', {
+        'announcement': announcement,
+        'poll': poll,
+    })

@@ -40,6 +40,24 @@ def notifications(request):
     return {'unread_notification_count': 0}
 
 
+def impersonation(request):
+    """
+    Exposes impersonation state to all templates.
+    When an admin is logged in as another user, is_impersonating is True
+    and impersonation_original_name is the admin's display name.
+    """
+    if request.user.is_authenticated:
+        original_id = request.session.get('_impersonating_original_user_id')
+        if original_id:
+            return {
+                'is_impersonating': True,
+                'impersonation_original_name': request.session.get(
+                    '_impersonating_original_user_name', 'Admin'
+                ),
+            }
+    return {'is_impersonating': False, 'impersonation_original_name': None}
+
+
 def feature_flags(request):
     """
     Makes feature flags available in all templates.

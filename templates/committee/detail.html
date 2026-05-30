@@ -10,6 +10,13 @@
         <a href="{% url 'committee_index' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">← Back to All Committees</a>
     </div>
 
+    {% if committee.is_archived %}
+    <div class="mb-6 flex items-center gap-3 px-4 py-3 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 text-sm text-orange-800 dark:text-orange-300">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M10 12a1 1 0 102 0 1 1 0 00-2 0z"/></svg>
+        <span><strong>This committee is archived.</strong> It is read-only and no longer active.</span>
+    </div>
+    {% endif %}
+
     <!-- Committee Header -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 mb-6 transition-colors duration-200">
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4">
@@ -34,6 +41,7 @@
             </div>
 
             <!-- Chat Buttons -->
+            {% if feature_flags.chats %}
             <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 <a href="{% url 'committee_chat' committee.code %}"
                    class="px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg bg-blue-700 dark:bg-blue-600 text-white font-semibold flex items-center justify-center gap-2 hover:bg-blue-800 dark:hover:bg-blue-700 transition flex-shrink-0 text-sm sm:text-base">
@@ -53,6 +61,7 @@
                     </a>
                 {% endif %}
             </div>
+            {% endif %}
         </div>
 
         <!-- User's Roles -->

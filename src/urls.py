@@ -25,6 +25,9 @@ from src.view.officer.manage_announcements import (
     confirm_announcement_email, send_announcement_emails, skip_announcement_email,
     warmup_announcement_email, cancel_warmup_announcement_email
 )
+from src.view.officer.announcement_polls import (
+    create_or_edit_poll, poll_results, take_poll, poll_confirmation,
+)
 from src.view.officer.edit_landing_page import edit_landing_page
 from src.view.officer.contact_submissions import contact_submissions_view, mark_contact_read, mark_all_contact_read
 from src.view.officer.event_attendance import event_attendance_list, mark_event_attendance, review_excuses
@@ -163,7 +166,7 @@ from src.view.edit_legislation import edit_legislation
 from src.view.assign_appointment import assign_appointment
 from src.view.reopen_legislation import reopen_legislation
 from src.view.submit_new_version import submit_new_version
-from src.view.login_as_view import login_as_view, login_as_user
+from src.view.login_as_view import login_as_view, login_as_user, return_to_original_user
 from src.view.roberts_rules import roberts_rules
 from src.view.constitution_bylaws import constitution_bylaws
 from src.view.view_document import (
@@ -398,6 +401,10 @@ urlpatterns = [
     path('officers/announcements/<int:announcement_id>/delete/', delete_announcement, name='delete_announcement'),
     path('officers/announcements/<int:announcement_id>/toggle/', toggle_announcement_status, name='toggle_announcement_status'),
     path('officers/announcements/<int:announcement_id>/stats/', announcement_stats, name='announcement_stats'),
+    path('officers/announcements/<int:announcement_id>/poll/', create_or_edit_poll, name='create_or_edit_poll'),
+    path('officers/announcements/<int:announcement_id>/poll/results/', poll_results, name='poll_results'),
+    path('announcements/<int:announcement_id>/poll/', take_poll, name='take_poll'),
+    path('announcements/<int:announcement_id>/poll/thanks/', poll_confirmation, name='poll_confirmation'),
     path('officers/announcements/<int:announcement_id>/confirm-email/', confirm_announcement_email, name='confirm_announcement_email'),
     path('officers/announcements/<int:announcement_id>/send-emails/', send_announcement_emails, name='send_announcement_emails'),
     path('officers/announcements/<int:announcement_id>/skip-email/', skip_announcement_email, name='skip_announcement_email'),
@@ -450,7 +457,8 @@ urlpatterns = [
 
     # Admin Pages
     path('admin/', admin.site.urls),
-    path('admin/login-as/<int:user_id>/', login_as_user, name='login-as'),
+    path('staff/login-as/<str:user_id>/', login_as_user, name='login-as'),
+    path('staff/return-to-original/', return_to_original_user, name='return_to_original_user'),
     path('accounts/login/', login_view, name='admin_login_redirect'),
 
     # Committee URLs

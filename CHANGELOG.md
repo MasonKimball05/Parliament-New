@@ -50,6 +50,197 @@ The original Parliament system with basic functionality but significant security
 - All environment variables must be properly set
 - No backward compatibility with v1.0.0 authentication
 
+> **Note on v2.1–v2.23:** These versions were built and deployed between January and May 2026. Changelog entries were not written at the time. Key milestones included: 2FA enforcement, slating system, KAI reporting, push notifications, service hours, house map, big/little family trees, extended member profiles, and the admin-v2 dashboard. Bug fixes from this period are not individually documented.
+
+---
+
+### v2.25.0 - Feature Flags, Announcement Enhancements, Profile Redesign & models.py Split (2026-05-30)
+
+A large session covering five independent areas: feature flag completion, two announcement features (document linking and polls), a profile page UI redesign, and a major code organization overhaul splitting the monolithic models file.
+
+---
+
+#### Feature Flag Audit & Chat Disable
+
+Completes the feature flag system so the `chats` flag actually removes all chat UI across the site when disabled, and fixes a broken seed command.
+
+**Changed:**
+- `base.html` nav — Chats link now hidden when the `chats` feature flag is off (previously only checked user preference, not the flag)
+- `committee_home.html`, `committee_index.html`, `detail.html` — all chat buttons wrapped in `{% if feature_flags.chats %}`
+- `seed_feature_flags.py` — Fixed `page_name` key → `url_name` throughout page toggles section (`PageToggle.url_name` is the actual field name)
+- `seed_feature_flags.py` — Added missing `announcements` feature flag (view used `@require_feature_flag('announcements')` but the flag was never seeded)
+- `seed_feature_flags.py` — Added clarifying note to `committee_chat` flag description
+
+**Audit findings (no code change):** `calendar_subscriptions`, `global_search`, `kai_reports`, `attendance_tracking` flags are seeded but not enforced in views — noted for future work.
+
+**Files changed:** `templates/base.html`, `templates/committee/committee_home.html`, `templates/committee/committee_index.html`, `templates/committee/detail.html`, `src/management/commands/seed_feature_flags.py`
+
+---
+
+#### Announcement Document Linking (migration 0181)
+
+Allows officers to attach chapter documents to announcements, displayed as linked file pills for members.
+
+**New:**
+- `Announcement.linked_documents` — ManyToMany to `CommitteeDocument`; only chapter-published documents are available, enforced server-side
+- Document picker in create/edit forms — collapsible panel with checkboxes; badge shows attached count
+- Linked document pills on the announcements page below announcement content, each linking to the document download
+
+**Files changed:** `src/models/announcements.py`, `src/migrations/0181_announcement_linked_documents.py`, `src/view/officer/manage_announcements.py`, `templates/officer/create_announcement.html`, `templates/officer/edit_announcement.html`, `templates/announcements.html`
+
+---
+
+#### Announcement Polls & Surveys (migration 0182)
+
+Full poll/survey system attachable to any announcement — officer-managed, with anonymous option, per-question response tracking, results dashboard, and CSV export.
+
+**New Models:**
+- `AnnouncementPoll` — one-to-one with `Announcement`; `is_anonymous`, `is_open`, `closes_at`
+- `AnnouncementPollQuestion` — text, single-choice, or multiple-choice; ordered
+- `AnnouncementPollOption` — selectable choices for single/multiple questions
+- `AnnouncementPollResponse` — one per user per poll; tracks who has responded
+- `AnnouncementPollAnswer` — per-question answer with M2M options or text field
+
+**New Views:**
+- `create_or_edit_poll` (`/officers/announcements/<id>/poll/`) — dynamic question/option builder; delete-poll action
+- `poll_results` (`/officers/announcements/<id>/poll/results/`) — aggregate bar charts per question, individual response table (non-anonymous), "who hasn't responded" pill list, CSV export
+- `take_poll` (`/announcements/<id>/poll/`) — member-facing poll form; shows confirmation if already responded or poll is closed
+- `poll_confirmation` — post-submit thank-you page with anonymous notice if applicable
+
+**Changed:**
+- `announcements.html` — "Take Poll" button, "Poll completed" badge, or "Poll closed" badge per announcement; `responded_poll_ids` precomputed in view
+- `manage_announcements.html` — "Poll Results" (purple) or "+ Add Poll" (outline) per announcement
+
+**Files changed:** `src/models/announcements.py`, `src/migrations/0182_announcement_poll.py`, `src/view/officer/announcement_polls.py` (new), `src/urls.py`, `src/view/announcements.py`, `templates/officer/announcement_poll_edit.html` (new), `templates/officer/announcement_poll_results.html` (new), `templates/announcement_poll.html` (new), `templates/announcement_poll_confirmation.html` (new), `templates/announcements.html`, `templates/officer/manage_announcements.html`
+
+---
+
+#### Profile Page Redesign
+
+Reduces visual clutter on the profile page by collapsing infrequently-edited sections into accordions, merging the read-only info card into the header, and removing the notification preferences duplicate (already fully covered by Preferences).
+
+**Changed:**
+- Header now shows user ID, member type, and status as chips alongside the profile picture; "Preferences & Settings" link added inline below the name
+- "Profile Information" read-only card removed — all four fields are now shown in the header
+- "Notification Preferences" card removed — fully duplicated the In-App Notifications section on the Preferences page; replaced with a single "Manage Preferences →" row at the bottom of the page
+- Account Settings: Two-Factor Authentication and Change Password sections wrapped in collapsible `<details>` accordions; 2FA summary shows "Enabled"/"Not set up" badge without opening
+- Public Profile: About Me stays open; Chapter Info, Social Handles, Custom Social Links, Academics, Initiation Chapters, and Role History are all collapsible accordions; count badges shown for Custom Links and Init Chapters when populated
+
+**Files changed:** `templates/profile.html`
+
+---
+
+#### models.py Split into Sub-modules
+
+Breaks the 6280-line monolithic `src/models.py` into 16 focused sub-modules under `src/models/`. No model names, fields, or database tables changed — pure file reorganization. All 216 existing `from src.models import X` import sites work unchanged via the re-export shim in `src/models/__init__.py`.
+
+**New structure (`src/models/`):**
+
+| File | Contents |
+|------|----------|
+| `users.py` | `ParliamentUser`, `Role`, `RoleHistory`, `UserPreferences`, `TwoFactorRequirement`, `UserSession`, managers, signals |
+| `legislation.py` | `Legislation`, `Vote` |
+| `committees.py` | `Committee`, `CommitteePermissions`, `CommitteeLegislation`, `CommitteeVote` |
+| `documents.py` | `CommitteeMinutes`, `ChapterFolder`, `DocumentTag`, `CommitteeDocument`, `DocumentVersion`, `ChapterMinutes`, `MinutesSection`, `MinutesMotion` |
+| `announcements.py` | `Announcement`, `UserAnnouncementView`, poll models (5), `AnnouncementEmailLog`, `AnnouncementEmailRecipient` |
+| `events.py` | `Event`, `Attendance`, `AttendanceExcuse` |
+| `chat.py` | `ChatChannel`, `ChatChannelPermission`, `ChatMessage`, `ChatReadReceipt` |
+| `kai.py` | `KaiReport`, `KaiReportActivity`, `KaiReportTemplate`, `KaiFormField`, `KaiReportFieldResponse`, `KaiClosureRequest` |
+| `slating.py` | 12 slating classes (`SlatingPeriod` → `SlatingActivity`) |
+| `service.py` | 7 service hours classes |
+| `security.py` | `LoginHistory`, `LoginAlert`, `UserWatchFlag`, `IPWhitelist`, `IPBlacklist`, `BugReport`, `QuarantinedAccount`, `HoneypotAccess`, `SystemLockdown`, `SecurityNotificationLog`, `LoginLockout` |
+| `notifications.py` | `Notification`, `NotificationSchedule`, `NotificationLog`, `PushSubscription` |
+| `activity.py` | `ActivityLog`, generic `post_save`/`post_delete` logging signal receivers |
+| `guide.py` | `GuideTour`, `GuideTourStep`, `UserTourProgress`, `GuideArticle` |
+| `songs.py` | `SongCategory`, `Song` |
+| `landing.py` | `PassedResolution`, `ResolutionSectionImpact`, landing page content models, `ContactSubmission` |
+
+`__init__.py` re-exports all 90+ names (including `_default_user_prefs` and `validate_*` functions referenced by migrations) so zero import sites required updating.
+
+**Files changed:** `src/models.py` → `src/models/__init__.py` + 16 sub-modules
+
+---
+
+## Changelog Format (v2.24+)
+
+Starting with v2.24.0, all changes are documented here. Version numbering:
+- **x.Y.0** — new feature or significant rework
+- **x.y.Z** — bug fix or small enhancement to an existing feature
+
+Bug fixes caught between releases (i.e. fixed in the same session they were found, before a new version is tagged) are documented in the **Bug Fixes** section below rather than getting their own version entry. This keeps the version list meaningful without losing the fix history.
+
+### Bug Fixes (undocumented between versions)
+
+Fixes caught and resolved within the same session as their discovery — too small for a version bump, too important to leave unrecorded.
+
+| Date | Area | Fix |
+|------|------|-----|
+| 2026-05-30 | Committee | `ActivityLog` missing from `committee_index.py` imports — caused silent 500 after any archive/ad-hoc save (DB write succeeded but error response returned) |
+| 2026-05-30 | Committee | `TemplateSyntaxError` on `/committees/` from `item.roles.split:','` — Django templates can't call Python methods with arguments; fixed by passing roles as a list from the view |
+| 2026-05-30 | Committee | Recent Documents / Recent Votes grids overflow on mobile — fixed with `min-w-0` on grid children |
+| 2026-05-30 | Login-As | `login_as_view` session keys wiped by Django's `session.flush()` — fixed by writing keys after `login()`, not before |
+| 2026-05-30 | Login-As | Impersonation URLs unreachable under `admin/` prefix (Django admin catches all `admin/*`) — moved to `staff/` prefix |
+| 2026-05-30 | Login-As | `<int:user_id>` in URL pattern but `user_id` is a `CharField` PK — changed to `<str:user_id>` |
+| 2026-05-30 | Migration | Migration 0160 `RunPython` crashed test DB build — `ParliamentUser.objects.all()` selected columns not yet added at that migration point; fixed with `.only('pk', 'name', 'user_id', 'password')` |
+| 2026-05-30 | Feature Flags | `seed_feature_flags.py` used `page_name` key throughout page toggles but the model field is `url_name` — would raise `TypeError` on any fresh seed run |
+| 2026-05-30 | Feature Flags | `announcements` feature flag never seeded — view used `@require_feature_flag('announcements')` but the flag row didn't exist, making it untoggleable from admin |
+
+---
+
+### v2.24.4 - Committee Index Enhancements & Bug Fixes (2026-05-30)
+
+Expands committee index cards with more detail, fixes a template crash, a 500 on committee save, and a mobile layout overflow — plus adds the login-as test suite.
+
+**Changed:**
+- Committee index cards (`/committees/`) now show: code badge, member/chair/advisor counts with icons, role badges per card, and a three-button footer (Open / Chat / Docs)
+- Committee index view now passes `roles` as a list instead of a comma-joined string; template iterates with `{% for role in item.roles %}` — fixes `TemplateSyntaxError` from `item.roles.split:','`
+- Committee index view now annotates each committee dict with `member_count`, `chair_count`, `advisor_count`
+- Recent Documents and Recent Votes grids on committee home now use `min-w-0` on children to prevent horizontal overflow on mobile
+- `committee_index.py` imports `ActivityLog` (was missing — caused a `NameError` on any save/archive/ad-hoc action, returning a 500 while the DB change had already committed)
+
+**Tests:**
+- `src/test_login_as.py` (11 tests) added — covers non-staff blocked, admin impersonation, session key storage, context processor True/False, return-to-original session clear, return without session, 2FA bypassed during impersonation, 2FA still enforced normally, impersonation start/end logging
+
+**Files changed:** `src/view/committee/committee_index.py`, `templates/committee/committee_index.html`, `templates/committee/committee_home.html`, `src/test_login_as.py`
+
+---
+
+### v2.24.3 - Login-As-User Reworks (2026-05-30)
+
+Improves admin impersonation with session tracking, a persistent banner, a one-click return button, and 2FA bypass.
+
+**New:**
+- `return_to_original_user` view (`/admin/return-to-original/`) — logs admin back in as themselves and clears impersonation state
+- `impersonation` context processor — exposes `is_impersonating` and `impersonation_original_name` to all templates
+- Impersonation banner in `base.html` — amber bar shown on every page during an impersonation session, with the target user's name, the admin's name, and a "Return to [admin]" button
+- 2FA bypass in `Enforce2FAMiddleware` — sessions with `_impersonating_original_user_id` skip 2FA enforcement entirely so admins can't get stuck at the target user's 2FA screen
+
+**Changed:**
+- `login_as_view` now stores original admin's user_id and display name in the session after `login()` (post-flush), and logs both to the security logger and ActivityLog
+- `return_to_original_user` logs the impersonation end to both loggers and clears all impersonation session keys
+
+**Files changed:** `src/view/login_as_view.py`, `src/middleware/two_factor.py`, `src/context_processors.py`, `Parliament/settings_postgres.py`, `src/urls.py`, `templates/base.html`
+
+---
+
+### v2.24.2 - Committee Home Redesign (2026-05-30)
+
+Merged the committee detail page's functionality into the home page and brought the UI in line with the rest of the site.
+
+**Changed:**
+- `committee_home` view now enforces `@login_required` and performs the same access check as the detail view (members, chairs, advisors, VP, admin, committee admin)
+- `committee_home` view now builds full context: `permissions` object, eligible member/chair/advisor/voter lists for the management modal, `is_member`, `is_voting_member`, `is_committee_admin`, Kai reports (for Kai committee chairs/admins), and slating periods (for the slating committee)
+- `committee_home.html` header replaced: gradient removed, now a clean white card matching the site's card-based UI — coat of arms, name, code, admin info, status badges (Inactive/Archived/Ad-hoc), user role pills, Chat and Chat Guests buttons
+- Member roster added to home page — Chairs, Advisors, Voting Members, Members each in their own card with inline Remove buttons and role-appropriate Add buttons (chair/advisor/voter/member), gated by `can_manage` and hidden when committee is archived
+- Actions section redesigned — now uses subtle tinted tiles instead of solid colored blocks; Chair-only actions (Upload, Create Vote, Push to Chapter, Minutes, Attendance, Manage Members) gated behind `can_manage`; member-accessible actions (View Documents, Committee Voting) gated by permissions
+- Add Member modal ported from `detail.html` to `committee_home.html` — same filtered eligible lists and `openManageModal(roleType)` JS
+- Kai Reports section ported from `detail.html` to home page
+- Slating section ported from `detail.html` to home page
+- Stats grid simplified — removed per-card SVG icons, cleaner compact layout
+
+**Files changed:** `src/view/committee/committee_home.py`, `templates/committee/committee_home.html`
+
+---
 
 ### v2.24.1 - Multiple Academics & Initiation Chapter Role Numbers (2026-05-29)
 

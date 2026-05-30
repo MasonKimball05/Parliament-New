@@ -11,17 +11,17 @@
 
 {% block content %}
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
     <!-- Page Header -->
-    <div class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-md p-6 mb-8 text-white">
-        <div class="flex items-center justify-between">
+    <div class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-md p-6 mb-6 text-white">
+        <div class="flex items-start justify-between gap-4">
             <div class="flex items-center space-x-4">
-                <!-- Profile Picture Display -->
-                <div class="relative group">
+                <!-- Profile Picture -->
+                <div class="relative group flex-shrink-0">
                     {% if user.profile_picture %}
                         <img src="{{ user.profile_picture.url }}" alt="{{ user.name }}"
                              class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover ring-4 ring-white ring-opacity-50">
                     {% else %}
-                        <!-- Fallback to initials -->
                         <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white bg-opacity-20 flex items-center justify-center ring-4 ring-white ring-opacity-50">
                             <span class="text-2xl sm:text-3xl font-bold">
                                 {% with first=user.name|first %}
@@ -43,58 +43,36 @@
                         </svg>
                     </div>
                 </div>
+
                 <div>
-                    <h1 class="text-3xl font-bold">My Profile</h1>
-                    <p class="text-blue-100 mt-1">Welcome, {{ user.get_display_name }}</p>
+                    <h1 class="text-2xl sm:text-3xl font-bold">{{ user.get_display_name }}</h1>
+                    <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        {% if not user.is_pledge %}
+                        <span class="text-xs bg-white/20 px-2 py-0.5 rounded-full font-mono">{{ user.user_id }}</span>
+                        {% endif %}
+                        <span class="text-xs bg-white/20 px-2 py-0.5 rounded-full
+                            {% if user.member_type == 'Officer' %}bg-purple-500/40
+                            {% elif user.member_type == 'Chair' %}bg-blue-500/40{% endif %}">
+                            {{ user.member_type }}
+                        </span>
+                        <span class="text-xs px-2 py-0.5 rounded-full
+                            {% if user.member_status == 'Active' %}bg-green-500/40
+                            {% elif user.member_status == 'Inactive' %}bg-gray-500/40
+                            {% elif user.member_status == 'Removed' %}bg-red-500/40
+                            {% else %}bg-yellow-500/40{% endif %}">
+                            {{ user.member_status }}
+                        </span>
+                    </div>
+                    <a href="{% url 'preferences' %}" class="mt-2 inline-flex items-center gap-1 text-xs text-blue-100 hover:text-white transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                        Preferences &amp; Settings
+                    </a>
                 </div>
             </div>
-            <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-contain bg-white p-1 opacity-90">
-        </div>
-    </div>
-
-    <!-- Profile Information Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 transition-colors duration-200">
-        <h2 class="text-xl font-semibold mb-4 flex items-center text-gray-900 dark:text-gray-100">
-            <svg class="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            Profile Information
-        </h2>
-
-        <div class="grid md:grid-cols-2 gap-6">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
-                <p class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 px-4 py-2 rounded border border-gray-200 dark:border-gray-600">{{ user.name }}</p>
-            </div>
-            {% if not user.is_pledge %}
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User ID / Role Number</label>
-                <p class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 px-4 py-2 rounded border border-gray-200 dark:border-gray-600">{{ user.user_id }}</p>
-            </div>
-            {% endif %}
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Member Type</label>
-                <p class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 px-4 py-2 rounded border border-gray-200 dark:border-gray-600">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                        {% if user.member_type == 'Officer' %}bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200
-                        {% elif user.member_type == 'Chair' %}bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200
-                        {% else %}bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200{% endif %}">
-                        {{ user.member_type }}
-                    </span>
-                </p>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-                <p class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 px-4 py-2 rounded border border-gray-200 dark:border-gray-600">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                        {% if user.member_status == 'Active' %}bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200
-                        {% elif user.member_status == 'Inactive' %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300
-                        {% elif user.member_status == 'Removed' %}bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200
-                        {% else %}bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200{% endif %}">
-                        {{ user.member_status }}
-                    </span>
-                </p>
-            </div>
+            <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms" class="w-14 h-14 sm:w-18 sm:h-18 rounded-full object-contain bg-white p-1 opacity-90 flex-shrink-0">
         </div>
     </div>
 
@@ -167,12 +145,9 @@
                 </div>
 
                 <div class="flex gap-4">
-                    <!-- Image container for cropping -->
                     <div class="flex-1 bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden" style="height: 500px;">
                         <img id="crop-image" style="display: block; max-width: 100%;">
                     </div>
-
-                    <!-- Live preview -->
                     <div class="w-48">
                         <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Preview</h4>
                         <div class="w-40 h-40 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 border-4 border-gray-300 dark:border-gray-600 shadow-lg">
@@ -184,7 +159,6 @@
                     </div>
                 </div>
 
-                <!-- Action buttons -->
                 <div class="flex justify-end gap-3">
                     <button type="button" id="cancel-crop"
                             class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium px-6 py-2 rounded-lg transition">
@@ -202,6 +176,193 @@
         </div>
     </div>
 
+    <!-- Account Settings Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 transition-colors duration-200">
+        <h2 class="text-xl font-semibold mb-4 flex items-center text-gray-900 dark:text-gray-100">
+            <svg class="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            Account Settings
+        </h2>
+
+        <!-- Core account fields -->
+        <form method="POST" class="mb-6">
+            {% csrf_token %}
+            <input type="hidden" name="profile_submit" value="1">
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Preferred First Name <span class="text-gray-500 dark:text-gray-400 font-normal text-xs">(optional)</span>
+                    </label>
+                    <input type="text" name="preferred_name" value="{{ user.preferred_name|default:'' }}"
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="e.g., Mike (for Michael)">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        {% if user.preferred_name %}Currently displays as: "{{ user.get_display_name }}"
+                        {% else %}If set, you'll appear with your preferred name instead of your full name{% endif %}
+                    </p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Username</label>
+                    <input type="text" name="username" value="{{ user.username }}"
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Your login username">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">This is what you use to log in</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Email Address <span class="text-gray-500 dark:text-gray-400 font-normal text-xs">(optional — for password reset)</span>
+                    </label>
+                    <input type="email" name="email" value="{{ user.email|default:'' }}"
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="your.email@example.com">
+                    {% if user.email_flagged %}
+                    <div class="mt-2 px-3 py-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg text-sm">
+                        <span class="font-semibold text-red-700 dark:text-red-300">Email delivery failed</span>
+                        <span class="text-red-600 dark:text-red-400"> — a recent email could not be delivered. Please update your address to continue receiving notifications.</span>
+                    </div>
+                    {% else %}
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        {% if user.email %}Current: {{ user.email }}. Used for password reset.
+                        {% else %}Add an email to enable password reset.{% endif %}
+                    </p>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Phone Number <span class="text-gray-500 dark:text-gray-400 font-normal text-xs">(optional — shown in member directory)</span>
+                    </label>
+                    <input type="tel" name="phone_number" id="phone_number_input" value="{{ user.phone_number|format_phone|default:'' }}"
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="123-456-7890" maxlength="12">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Visible to other members in the directory.</p>
+                </div>
+            </div>
+
+            <button type="submit" class="mt-4 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium px-6 py-2 rounded-lg transition flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                Save Changes
+            </button>
+        </form>
+
+        <!-- Two-Factor Authentication (collapsible) -->
+        <details class="accordion border border-gray-200 dark:border-gray-600 rounded-lg mb-3">
+            <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-sm font-medium text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors">
+                <span class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                    Two-Factor Authentication
+                    {% if has_2fa %}<span class="text-xs font-normal px-1.5 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded">Enabled</span>
+                    {% else %}<span class="text-xs font-normal px-1.5 py-0.5 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 rounded">Not set up</span>{% endif %}
+                </span>
+                <svg class="accordion-chevron w-4 h-4 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </summary>
+            <div class="px-4 pb-4 pt-3 border-t border-gray-200 dark:border-gray-600">
+                {% if has_2fa %}
+                <div class="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg mb-3">
+                    <div class="flex items-center">
+                        <svg class="w-6 h-6 text-green-600 dark:text-green-400 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <div>
+                            <p class="font-medium text-green-800 dark:text-green-200">2FA is enabled</p>
+                            <p class="text-sm text-green-600 dark:text-green-400">Your account is protected with two-factor authentication.</p>
+                        </div>
+                    </div>
+                    <a href="{% url 'two_factor_disable' %}" class="flex-shrink-0 px-4 py-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm font-medium">
+                        Disable 2FA
+                    </a>
+                </div>
+
+                <div class="flex items-center justify-between p-4 {% if backup_codes_remaining == 0 %}bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700{% elif backup_codes_remaining <= 2 %}bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700{% else %}bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600{% endif %} rounded-lg">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5 flex-shrink-0 {% if backup_codes_remaining == 0 %}text-red-500{% elif backup_codes_remaining <= 2 %}text-amber-500{% else %}text-gray-500 dark:text-gray-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                        </svg>
+                        <div>
+                            <p class="text-sm font-medium text-gray-800 dark:text-gray-200">
+                                Backup Codes
+                                {% if backup_codes_remaining == 0 %}<span class="ml-1 text-xs font-bold text-red-600 dark:text-red-400">— None remaining!</span>
+                                {% elif backup_codes_remaining <= 2 %}<span class="ml-1 text-xs font-bold text-amber-600 dark:text-amber-400">— Only {{ backup_codes_remaining }} left</span>
+                                {% else %}<span class="ml-1 text-xs text-gray-500 dark:text-gray-400">— {{ backup_codes_remaining }} remaining</span>{% endif %}
+                            </p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">One-time codes for when you don't have your phone</p>
+                        </div>
+                    </div>
+                    <a href="{% url 'two_factor_regenerate_backup_codes' %}"
+                        class="flex-shrink-0 text-xs px-3 py-1.5 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded font-medium">
+                        Regenerate
+                    </a>
+                </div>
+                {% else %}
+                <div class="flex items-center justify-between p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                    <div class="flex items-center">
+                        <svg class="w-6 h-6 text-yellow-600 dark:text-yellow-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                        <div>
+                            <p class="font-medium text-yellow-800 dark:text-yellow-200">2FA is not enabled</p>
+                            <p class="text-sm text-yellow-600 dark:text-yellow-400">Enable two-factor authentication for additional account security.</p>
+                        </div>
+                    </div>
+                    <a href="{% url 'two_factor_setup' %}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">
+                        Set Up 2FA
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </details>
+
+        <!-- Change Password (collapsible) -->
+        <details class="accordion border border-gray-200 dark:border-gray-600 rounded-lg">
+            <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-sm font-medium text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors">
+                <span class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                    Change Password
+                </span>
+                <svg class="accordion-chevron w-4 h-4 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </summary>
+            <div class="px-4 pb-4 pt-3 border-t border-gray-200 dark:border-gray-600">
+                <form method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="password_submit" value="1">
+                    <div class="space-y-4">
+                        {% for field in password_form %}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ field.label }}</label>
+                            <input type="{{ field.field.widget.input_type }}" name="{{ field.name }}"
+                                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   {% if field.field.required %}required{% endif %}>
+                            {% if field.errors %}<p class="text-red-500 dark:text-red-400 text-sm mt-1">{{ field.errors|join:", " }}</p>{% endif %}
+                            {% if field.help_text %}<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ field.help_text }}</p>{% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <button type="submit" class="mt-4 bg-green-600 dark:bg-green-500 hover:bg-green-700 dark:hover:bg-green-600 text-white font-medium px-6 py-2 rounded-lg transition flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                        </svg>
+                        Change Password
+                    </button>
+                </form>
+            </div>
+        </details>
+    </div>
+
     <!-- Public Profile Card -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 transition-colors duration-200">
         <h2 class="text-xl font-semibold mb-1 flex items-center text-gray-900 dark:text-gray-100">
@@ -210,23 +371,28 @@
             </svg>
             Public Profile
         </h2>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">This information is visible to other members when they click your name in the directory. All fields are optional.</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">Visible to other members in the directory. All fields are optional.</p>
 
         <form method="POST">
             {% csrf_token %}
             <input type="hidden" name="extended_profile_submit" value="1">
 
-            <div class="space-y-6">
-                <!-- About me -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">About me</label>
-                    <textarea name="about_me" rows="3" placeholder="A short bio…"
-                              class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm resize-none">{{ user.about_me }}</textarea>
-                </div>
+            <!-- Bio (always visible) -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">About me</label>
+                <textarea name="about_me" rows="3" placeholder="A short bio…"
+                          class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm resize-none">{{ user.about_me }}</textarea>
+            </div>
 
-                <!-- Chapter info -->
-                <div>
-                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Chapter</h3>
+            <!-- Chapter Info (collapsible) -->
+            <details class="accordion border border-gray-200 dark:border-gray-600 rounded-lg mb-3">
+                <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors">
+                    Chapter Info
+                    <svg class="accordion-chevron w-4 h-4 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </summary>
+                <div class="px-4 pb-4 pt-3 border-t border-gray-200 dark:border-gray-600">
                     <div class="grid sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Pledge class semester</label>
@@ -278,12 +444,19 @@
                         </div>
                     </div>
                 </div>
+            </details>
 
-                <!-- Socials -->
-                <div>
-                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Social handles <span class="font-normal text-gray-400">(handle only, no @)</span></h3>
-                    <div class="grid sm:grid-cols-2 gap-4">
-                            <div class="flex items-center gap-2">
+            <!-- Social Handles (collapsible) -->
+            <details class="accordion border border-gray-200 dark:border-gray-600 rounded-lg mb-3">
+                <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors">
+                    Social Handles <span class="text-gray-400 font-normal">(handle only, no @)</span>
+                    <svg class="accordion-chevron w-4 h-4 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </summary>
+                <div class="px-4 pb-4 pt-3 border-t border-gray-200 dark:border-gray-600 space-y-3">
+                    <div class="grid sm:grid-cols-2 gap-3">
+                        <div class="flex items-center gap-2">
                             <span class="text-xs text-gray-500 dark:text-gray-400 w-20 flex-shrink-0">Instagram</span>
                             <input type="text" name="instagram" value="{{ user.instagram }}" placeholder="handle"
                                    class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
@@ -309,20 +482,16 @@
                                    class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
                         </div>
                     </div>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">For Signal, WhatsApp, etc. use Custom Links below.</p>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Other / secondary email <span class="text-gray-400 font-normal">(optional)</span></label>
+                        <input type="email" name="other_email" value="{{ user.other_email|default:'' }}" placeholder="personal@email.com"
+                               class="w-full sm:w-96 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                    </div>
                 </div>
+            </details>
 
-                <!-- Custom socials note -->
-                <p class="text-xs text-gray-400 dark:text-gray-500 -mt-2">For additional platforms (Signal, WhatsApp, etc.) use the <strong>Custom Links</strong> section below after saving.</p>
-
-                <!-- Other email -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Other / secondary email <span class="text-gray-400 font-normal text-xs">(optional)</span></label>
-                    <input type="email" name="other_email" value="{{ user.other_email|default:'' }}" placeholder="personal@email.com"
-                           class="w-full sm:w-96 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
-                </div>
-            </div>
-
-            <button type="submit" class="mt-6 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium px-6 py-2 rounded-lg transition flex items-center">
+            <button type="submit" class="mt-2 mb-6 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium px-6 py-2 rounded-lg transition flex items-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>
@@ -330,75 +499,32 @@
             </button>
         </form>
 
-        <!-- Custom Social Links -->
-        <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Custom Social Links</h3>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Add handles for platforms not listed above — Signal, WhatsApp, TikTok, etc.</p>
+        <!-- Custom Social Links (collapsible) -->
+        <details class="accordion border border-gray-200 dark:border-gray-600 rounded-lg mb-3">
+            <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors">
+                <span>Custom Social Links
+                    {% with socials=user.custom_socials %}{% if socials %}<span class="ml-1 text-xs text-gray-400">({{ socials|length }})</span>{% endif %}{% endwith %}
+                </span>
+                <svg class="accordion-chevron w-4 h-4 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </summary>
+            <div class="px-4 pb-4 pt-3 border-t border-gray-200 dark:border-gray-600">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Add handles for platforms not listed above — Signal, WhatsApp, TikTok, etc.</p>
 
-            {% with socials=user.custom_socials %}
-            {% if socials %}
-            <ul class="space-y-2 mb-4">
-                {% for s in socials %}
-                <li class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm">
-                    <div>
-                        <span class="font-medium text-gray-800 dark:text-gray-200">{{ s.platform }}</span>
-                        <span class="text-gray-500 dark:text-gray-400 ml-2">@{{ s.handle }}</span>
-                    </div>
-                    <form method="POST" class="flex-shrink-0 ml-2">
-                        {% csrf_token %}
-                        <input type="hidden" name="custom_social_delete_submit" value="1">
-                        <input type="hidden" name="cs_index" value="{{ forloop.counter0 }}">
-                        <button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" title="Remove">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>
-                        </button>
-                    </form>
-                </li>
-                {% endfor %}
-            </ul>
-            {% else %}
-            <p class="text-sm text-gray-400 italic mb-4">No custom links yet.</p>
-            {% endif %}
-            {% endwith %}
-
-            <form method="POST" class="flex gap-3 items-end flex-wrap">
-                {% csrf_token %}
-                <input type="hidden" name="custom_social_add_submit" value="1">
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Platform</label>
-                    <input type="text" name="cs_platform" placeholder="e.g. Signal" required
-                           class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-36">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Handle</label>
-                    <div class="flex gap-2">
-                        <input type="text" name="cs_handle" placeholder="username" required
-                               class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-40">
-                        <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
-                    </div>
-                </div>
-            </form>
-        </div>
-
-        <!-- Academics -->
-        <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Academics</h3>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Add multiple majors, minors, or concentrations if applicable.</p>
-
-            {% for label, field_type, items in academic_sections %}
-            <div class="mb-4">
-                <p class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">{{ label }}</p>
-                {% if items %}
-                <ul class="space-y-1 mb-2">
-                    {% for item in items %}
-                    <li class="flex items-center justify-between py-1.5 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm">
-                        <span class="text-gray-800 dark:text-gray-200">{{ item }}</span>
+                {% with socials=user.custom_socials %}
+                {% if socials %}
+                <ul class="space-y-2 mb-4">
+                    {% for s in socials %}
+                    <li class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm">
+                        <div>
+                            <span class="font-medium text-gray-800 dark:text-gray-200">{{ s.platform }}</span>
+                            <span class="text-gray-500 dark:text-gray-400 ml-2">@{{ s.handle }}</span>
+                        </div>
                         <form method="POST" class="flex-shrink-0 ml-2">
                             {% csrf_token %}
-                            <input type="hidden" name="academic_item_delete_submit" value="1">
-                            <input type="hidden" name="ai_type" value="{{ field_type }}">
-                            <input type="hidden" name="ai_index" value="{{ forloop.counter0 }}">
+                            <input type="hidden" name="custom_social_delete_submit" value="1">
+                            <input type="hidden" name="cs_index" value="{{ forloop.counter0 }}">
                             <button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" title="Remove">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -408,498 +534,272 @@
                     </li>
                     {% endfor %}
                 </ul>
+                {% else %}
+                <p class="text-sm text-gray-400 italic mb-4">No custom links yet.</p>
                 {% endif %}
-                <form method="POST" class="flex gap-2 items-end">
+                {% endwith %}
+
+                <form method="POST" class="flex gap-3 items-end flex-wrap">
                     {% csrf_token %}
-                    <input type="hidden" name="academic_item_add_submit" value="1">
-                    <input type="hidden" name="ai_type" value="{{ field_type }}">
-                    <input type="text" name="ai_value" placeholder="Add {{ label|lower }}…"
-                           class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-64">
-                    <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
+                    <input type="hidden" name="custom_social_add_submit" value="1">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Platform</label>
+                        <input type="text" name="cs_platform" placeholder="e.g. Signal" required
+                               class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-36">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Handle</label>
+                        <div class="flex gap-2">
+                            <input type="text" name="cs_handle" placeholder="username" required
+                                   class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-40">
+                            <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
+                        </div>
+                    </div>
                 </form>
             </div>
-            {% endfor %}
-        </div>
+        </details>
 
-        <!-- Initiation Chapters -->
-        <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Initiation Chapters</h3>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Where you were initiated. Leave empty to default to Alpha Mu — Samford University. Add multiple if you hold membership in more than one chapter.</p>
-
-            {% with chapters=user.initiation_chapters %}
-            {% if chapters %}
-            <ul class="space-y-2 mb-4">
-                {% for c in chapters %}
-                <li class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm">
-                    <div>
-                        <span class="font-medium text-gray-800 dark:text-gray-200">{{ c.chapter }}</span>
-                        <span class="text-gray-500 dark:text-gray-400 ml-2">— {{ c.school }}</span>
-                        {% if c.role_number %}<span class="text-xs text-gray-400 dark:text-gray-500 ml-2">#{{ c.role_number }}</span>{% endif %}
-                    </div>
-                    <form method="POST" class="flex-shrink-0 ml-2">
-                        {% csrf_token %}
-                        <input type="hidden" name="initiation_chapter_delete_submit" value="1">
-                        <input type="hidden" name="ic_index" value="{{ forloop.counter0 }}">
-                        <button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" title="Remove">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>
-                        </button>
-                    </form>
-                </li>
-                {% endfor %}
-            </ul>
-            {% else %}
-            <p class="text-sm text-gray-400 italic mb-4">Defaulting to Alpha Mu — Samford University.</p>
-            {% endif %}
-            {% endwith %}
-
-            <form method="POST" class="flex gap-3 items-end flex-wrap">
-                {% csrf_token %}
-                <input type="hidden" name="initiation_chapter_add_submit" value="1">
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">School</label>
-                    <input type="text" name="ic_school" placeholder="e.g. Auburn University" required
-                           class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-52">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Chapter</label>
-                    <input type="text" name="ic_chapter" placeholder="e.g. Delta Zeta" required
-                           class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-40">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Role # <span class="font-normal text-gray-400">(optional)</span></label>
-                    <div class="flex gap-2">
-                        <input type="text" name="ic_role_number" placeholder="e.g. 173"
-                               class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-24">
-                        <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
-                    </div>
-                </div>
-            </form>
-        </div>
-
-        <!-- Role History -->
-        <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Role History</h3>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Positions you've held in the chapter (officer, chair, etc.). Visible on your directory profile.</p>
-
-            {% if role_histories %}
-            <ul class="space-y-2 mb-5">
-                {% for rh in role_histories %}
-                <li class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm">
-                    <div>
-                        <span class="font-medium text-gray-800 dark:text-gray-200">{{ rh.role_name }}</span>
-                        <span class="text-gray-500 dark:text-gray-400 ml-2">{{ rh.start_semester }}{% if rh.end_semester %} – {{ rh.end_semester }}{% else %} – present{% endif %}</span>
-                    </div>
-                    <form method="POST" class="flex-shrink-0 ml-2">
-                        {% csrf_token %}
-                        <input type="hidden" name="role_history_delete_submit" value="1">
-                        <input type="hidden" name="rh_id" value="{{ rh.id }}">
-                        <button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" title="Remove">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>
-                        </button>
-                    </form>
-                </li>
-                {% endfor %}
-            </ul>
-            {% else %}
-            <p class="text-sm text-gray-400 dark:text-gray-500 mb-4 italic">No role history added yet.</p>
-            {% endif %}
-
-            <!-- Add entry -->
-            <form method="POST" class="grid sm:grid-cols-3 gap-3 items-end">
-                {% csrf_token %}
-                <input type="hidden" name="role_history_add_submit" value="1">
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Position</label>
-                    <input type="text" name="rh_role_name" placeholder="e.g. President" required
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Start semester</label>
-                    <input type="text" name="rh_start_semester" placeholder="e.g. Spring 2026" required
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">End semester <span class="text-gray-400 font-normal">(blank = current)</span></label>
-                    <div class="flex gap-2">
-                        <input type="text" name="rh_end_semester" placeholder="e.g. Fall 2026"
-                               class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
-                        <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Notification Preferences Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 transition-colors duration-200">
-        <h2 class="text-xl font-semibold mb-4 flex items-center text-gray-900 dark:text-gray-100">
-            <svg class="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-            </svg>
-            Notification Preferences
-        </h2>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Quick toggle for in-app notifications. For full preferences including email and display settings, visit <a href="{% url 'preferences' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Preferences</a>.</p>
-
-        <form method="POST">
-            {% csrf_token %}
-            <input type="hidden" name="notification_prefs_submit" value="1">
-
-            <div class="space-y-4">
-                <label class="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition cursor-pointer">
-                    <div>
-                        <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Announcements</span>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">New announcements posted by officers</p>
-                    </div>
-                    <input type="checkbox" name="notify_announcements" {% if notif_prefs.notify_announcements %}checked{% endif %}
-                           class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700">
-                </label>
-
-                <label class="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition cursor-pointer">
-                    <div>
-                        <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Legislation & Voting</span>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">New legislation available and vote results</p>
-                    </div>
-                    <input type="checkbox" name="notify_legislation" {% if notif_prefs.notify_legislation %}checked{% endif %}
-                           class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700">
-                </label>
-
-                <label class="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition cursor-pointer">
-                    <div>
-                        <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Events</span>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">New events created by officers</p>
-                    </div>
-                    <input type="checkbox" name="notify_events" {% if notif_prefs.notify_events %}checked{% endif %}
-                           class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700">
-                </label>
-
-                <label class="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition cursor-pointer">
-                    <div>
-                        <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Officer Elections (Slating)</span>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">When nominations open, voting opens, and results are published</p>
-                    </div>
-                    <input type="checkbox" name="notify_slating" {% if notif_prefs.notify_slating %}checked{% endif %}
-                           class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700">
-                </label>
-            </div>
-
-            <button type="submit" class="mt-4 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium px-6 py-2 rounded-lg transition flex items-center">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        <!-- Academics (collapsible) -->
+        <details class="accordion border border-gray-200 dark:border-gray-600 rounded-lg mb-3">
+            <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors">
+                Academics
+                <svg class="accordion-chevron w-4 h-4 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
-                Save Preferences
-            </button>
-        </form>
+            </summary>
+            <div class="px-4 pb-4 pt-3 border-t border-gray-200 dark:border-gray-600">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Add multiple majors, minors, or concentrations if applicable.</p>
+
+                {% for label, field_type, items in academic_sections %}
+                <div class="mb-4">
+                    <p class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">{{ label }}</p>
+                    {% if items %}
+                    <ul class="space-y-1 mb-2">
+                        {% for item in items %}
+                        <li class="flex items-center justify-between py-1.5 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm">
+                            <span class="text-gray-800 dark:text-gray-200">{{ item }}</span>
+                            <form method="POST" class="flex-shrink-0 ml-2">
+                                {% csrf_token %}
+                                <input type="hidden" name="academic_item_delete_submit" value="1">
+                                <input type="hidden" name="ai_type" value="{{ field_type }}">
+                                <input type="hidden" name="ai_index" value="{{ forloop.counter0 }}">
+                                <button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" title="Remove">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                    <form method="POST" class="flex gap-2 items-end">
+                        {% csrf_token %}
+                        <input type="hidden" name="academic_item_add_submit" value="1">
+                        <input type="hidden" name="ai_type" value="{{ field_type }}">
+                        <input type="text" name="ai_value" placeholder="Add {{ label|lower }}…"
+                               class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-64">
+                        <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </details>
+
+        <!-- Initiation Chapters (collapsible) -->
+        <details class="accordion border border-gray-200 dark:border-gray-600 rounded-lg mb-3">
+            <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors">
+                <span>Initiation Chapters
+                    {% with chapters=user.initiation_chapters %}{% if chapters %}<span class="ml-1 text-xs text-gray-400">({{ chapters|length }})</span>{% endif %}{% endwith %}
+                </span>
+                <svg class="accordion-chevron w-4 h-4 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </summary>
+            <div class="px-4 pb-4 pt-3 border-t border-gray-200 dark:border-gray-600">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Where you were initiated. Defaults to Alpha Mu — Samford University. Add more if you hold membership in multiple chapters.</p>
+
+                {% with chapters=user.initiation_chapters %}
+                {% if chapters %}
+                <ul class="space-y-2 mb-4">
+                    {% for c in chapters %}
+                    <li class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm">
+                        <div>
+                            <span class="font-medium text-gray-800 dark:text-gray-200">{{ c.chapter }}</span>
+                            <span class="text-gray-500 dark:text-gray-400 ml-2">— {{ c.school }}</span>
+                            {% if c.role_number %}<span class="text-xs text-gray-400 dark:text-gray-500 ml-2">#{{ c.role_number }}</span>{% endif %}
+                        </div>
+                        <form method="POST" class="flex-shrink-0 ml-2">
+                            {% csrf_token %}
+                            <input type="hidden" name="initiation_chapter_delete_submit" value="1">
+                            <input type="hidden" name="ic_index" value="{{ forloop.counter0 }}">
+                            <button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" title="Remove">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </form>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-sm text-gray-400 italic mb-4">Defaulting to Alpha Mu — Samford University.</p>
+                {% endif %}
+                {% endwith %}
+
+                <form method="POST" class="flex gap-3 items-end flex-wrap">
+                    {% csrf_token %}
+                    <input type="hidden" name="initiation_chapter_add_submit" value="1">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">School</label>
+                        <input type="text" name="ic_school" placeholder="e.g. Auburn University" required
+                               class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-52">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Chapter</label>
+                        <input type="text" name="ic_chapter" placeholder="e.g. Delta Zeta" required
+                               class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-40">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Role # <span class="font-normal text-gray-400">(optional)</span></label>
+                        <div class="flex gap-2">
+                            <input type="text" name="ic_role_number" placeholder="e.g. 173"
+                                   class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-24">
+                            <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </details>
+
+        <!-- Role History (collapsible) -->
+        <details class="accordion border border-gray-200 dark:border-gray-600 rounded-lg">
+            <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors">
+                <span>Role History
+                    {% if role_histories %}<span class="ml-1 text-xs text-gray-400">({{ role_histories|length }})</span>{% endif %}
+                </span>
+                <svg class="accordion-chevron w-4 h-4 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </summary>
+            <div class="px-4 pb-4 pt-3 border-t border-gray-200 dark:border-gray-600">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Positions you've held in the chapter. Visible on your directory profile.</p>
+
+                {% if role_histories %}
+                <ul class="space-y-2 mb-5">
+                    {% for rh in role_histories %}
+                    <li class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm">
+                        <div>
+                            <span class="font-medium text-gray-800 dark:text-gray-200">{{ rh.role_name }}</span>
+                            <span class="text-gray-500 dark:text-gray-400 ml-2">{{ rh.start_semester }}{% if rh.end_semester %} – {{ rh.end_semester }}{% else %} – present{% endif %}</span>
+                        </div>
+                        <form method="POST" class="flex-shrink-0 ml-2">
+                            {% csrf_token %}
+                            <input type="hidden" name="role_history_delete_submit" value="1">
+                            <input type="hidden" name="rh_id" value="{{ rh.id }}">
+                            <button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" title="Remove">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </form>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-sm text-gray-400 dark:text-gray-500 mb-4 italic">No role history added yet.</p>
+                {% endif %}
+
+                <form method="POST" class="grid sm:grid-cols-3 gap-3 items-end">
+                    {% csrf_token %}
+                    <input type="hidden" name="role_history_add_submit" value="1">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Position</label>
+                        <input type="text" name="rh_role_name" placeholder="e.g. President" required
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Start semester</label>
+                        <input type="text" name="rh_start_semester" placeholder="e.g. Spring 2026" required
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">End semester <span class="text-gray-400 font-normal">(blank = current)</span></label>
+                        <div class="flex gap-2">
+                            <input type="text" name="rh_end_semester" placeholder="e.g. Fall 2026"
+                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                            <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </details>
     </div>
 
-    <!-- Account Settings Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 transition-colors duration-200">
-        <h2 class="text-xl font-semibold mb-4 flex items-center text-gray-900 dark:text-gray-100">
-            <svg class="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <!-- Preferences link row -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-colors duration-200">
+        <div>
+            <p class="font-medium text-gray-900 dark:text-gray-100">Preferences</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Theme, navigation, email &amp; push notifications, display settings</p>
+        </div>
+        <a href="{% url 'preferences' %}" class="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg text-sm font-medium transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
             </svg>
-            Account Settings
-        </h2>
-
-        <!-- Preferred Name Form -->
-        <form method="POST" class="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
-            {% csrf_token %}
-            <input type="hidden" name="profile_submit" value="1">
-
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Preferred First Name
-                    <span class="text-gray-500 dark:text-gray-400 font-normal text-xs">(Optional)</span>
-                </label>
-                <input type="text" name="preferred_name" value="{{ user.preferred_name|default:'' }}"
-                       class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                       placeholder="e.g., Mike (for Michael)">
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    {% if user.preferred_name %}
-                        Currently displays as: "{{ user.get_display_name }}"
-                    {% else %}
-                        If set, you'll appear with your preferred name instead of your full name
-                    {% endif %}
-                </p>
-            </div>
-
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Username</label>
-                <input type="text" name="username" value="{{ user.username }}"
-                       class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                       placeholder="Your login username">
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">This is what you use to log in</p>
-            </div>
-
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Email Address
-                    <span class="text-gray-500 dark:text-gray-400 font-normal text-xs">(Optional - for password reset)</span>
-                </label>
-                <input type="email" name="email" value="{{ user.email|default:'' }}"
-                       class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                       placeholder="your.email@example.com">
-                {% if user.email_flagged %}
-                <div class="mt-2 px-3 py-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg text-sm">
-                    <span class="font-semibold text-red-700 dark:text-red-300">Email delivery failed</span>
-                    <span class="text-red-600 dark:text-red-400"> — a recent email to this address could not be delivered. Please update your email address to continue receiving notifications.</span>
-                </div>
-                {% else %}
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    {% if user.email %}
-                        Current email: {{ user.email }}. Used for password reset.
-                    {% else %}
-                        Add an email to enable password reset functionality.
-                    {% endif %}
-                </p>
-                {% endif %}
-            </div>
-
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Phone Number
-                    <span class="text-gray-500 dark:text-gray-400 font-normal text-xs">(Optional - shown in member directory)</span>
-                </label>
-                <input type="tel" name="phone_number" id="phone_number_input" value="{{ user.phone_number|format_phone|default:'' }}"
-                       class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                       placeholder="123-456-7890" maxlength="12">
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    This will be visible to other members in the directory.
-                </p>
-            </div>
-
-            <button type="submit" class="bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium px-6 py-2 rounded-lg transition flex items-center">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                Save Changes
-            </button>
-        </form>
-
-        <!-- Two-Factor Authentication Section -->
-        <div class="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
-            <h3 class="text-lg font-semibold mb-4 flex items-center text-gray-900 dark:text-gray-100">
-                <svg class="w-5 h-5 mr-2 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                </svg>
-                Two-Factor Authentication
-            </h3>
-
-            {% if has_2fa %}
-            <div class="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg mb-3">
-                <div class="flex items-center">
-                    <svg class="w-6 h-6 text-green-600 dark:text-green-400 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    <div>
-                        <p class="font-medium text-green-800 dark:text-green-200">2FA is enabled</p>
-                        <p class="text-sm text-green-600 dark:text-green-400">Your account is protected with two-factor authentication.</p>
-                    </div>
-                </div>
-                <a href="{% url 'two_factor_disable' %}" class="flex-shrink-0 px-4 py-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm font-medium">
-                    Disable 2FA
-                </a>
-            </div>
-
-            <!-- Backup Codes -->
-            <div class="flex items-center justify-between p-4 {% if backup_codes_remaining == 0 %}bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700{% elif backup_codes_remaining <= 2 %}bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700{% else %}bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600{% endif %} rounded-lg">
-                <div class="flex items-center gap-3">
-                    <svg class="w-5 h-5 flex-shrink-0 {% if backup_codes_remaining == 0 %}text-red-500{% elif backup_codes_remaining <= 2 %}text-amber-500{% else %}text-gray-500 dark:text-gray-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
-                    </svg>
-                    <div>
-                        <p class="text-sm font-medium text-gray-800 dark:text-gray-200">
-                            Backup Codes
-                            {% if backup_codes_remaining == 0 %}
-                            <span class="ml-1 text-xs font-bold text-red-600 dark:text-red-400">— None remaining!</span>
-                            {% elif backup_codes_remaining <= 2 %}
-                            <span class="ml-1 text-xs font-bold text-amber-600 dark:text-amber-400">— Only {{ backup_codes_remaining }} left</span>
-                            {% else %}
-                            <span class="ml-1 text-xs text-gray-500 dark:text-gray-400">— {{ backup_codes_remaining }} remaining</span>
-                            {% endif %}
-                        </p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">One-time codes for when you don't have your phone</p>
-                    </div>
-                </div>
-                <a href="{% url 'two_factor_regenerate_backup_codes' %}"
-                    class="flex-shrink-0 text-xs px-3 py-1.5 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded font-medium">
-                    Regenerate
-                </a>
-            </div>
-            {% else %}
-            <div class="flex items-center justify-between p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                <div class="flex items-center">
-                    <svg class="w-6 h-6 text-yellow-600 dark:text-yellow-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                    </svg>
-                    <div>
-                        <p class="font-medium text-yellow-800 dark:text-yellow-200">2FA is not enabled</p>
-                        <p class="text-sm text-yellow-600 dark:text-yellow-400">Enable two-factor authentication for additional account security.</p>
-                    </div>
-                </div>
-                <a href="{% url 'two_factor_setup' %}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">
-                    Set Up 2FA
-                </a>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Password Change Form -->
-        <form method="POST">
-            {% csrf_token %}
-            <input type="hidden" name="password_submit" value="1">
-
-            <h3 class="text-lg font-semibold mb-4 flex items-center text-gray-900 dark:text-gray-100">
-                <svg class="w-5 h-5 mr-2 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                </svg>
-                Change Password
-            </h3>
-
-            <div class="space-y-4">
-                {% for field in password_form %}
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ field.label }}</label>
-                        <input type="{{ field.field.widget.input_type }}" name="{{ field.name }}"
-                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                               {% if field.field.required %}required{% endif %}>
-                        {% if field.errors %}
-                            <p class="text-red-500 dark:text-red-400 text-sm mt-1">{{ field.errors|join:", " }}</p>
-                        {% endif %}
-                        {% if field.help_text %}
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ field.help_text }}</p>
-                        {% endif %}
-                    </div>
-                {% endfor %}
-            </div>
-
-            <button type="submit" class="mt-4 bg-green-600 dark:bg-green-500 hover:bg-green-700 dark:hover:bg-green-600 text-white font-medium px-6 py-2 rounded-lg transition flex items-center">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                </svg>
-                Change Password
-            </button>
-        </form>
+            Manage Preferences
+        </a>
     </div>
+
 </div>
 
 <style>
     /* Cropper.js modal styling */
-    #crop-modal .cropper-container {
-        max-height: 500px;
-        width: 100%;
-        height: 100%;
-    }
+    #crop-modal .cropper-container { max-height: 500px; width: 100%; height: 100%; }
+    #crop-modal .cropper-canvas { width: 100%; height: 100%; }
+    #crop-image.cropper-hidden { display: none !important; }
 
-    #crop-modal .cropper-canvas {
-        width: 100%;
-        height: 100%;
-    }
-
-    /* Ensure the original image is hidden when cropper initializes */
-    #crop-image.cropper-hidden {
-        display: none !important;
-    }
-
-    /* Ensure cropper background is visible in dark mode */
     .dark .cropper-bg {
         background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQAQMAAAAlPW0iAAAAA3NCSVQICAjb4U/gAAAABlBMVEXMzMz////TjRV2AAAACXBIWXMAAArrAAAK6wGCiw1aAAAAHHRFWHRTb2Z0d2FyZQBBZG9iZSBGaXJld29ya3MgQ1M26LyyjAAAABFJREFUCJlj+M/AgBVhF/0PAH6/D/HkDxOGAAAAAElFTkSuQmCC') !important;
     }
 
-    /* Circular overlay on crop box */
     .cropper-crop-box::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        border-radius: 50%;
-        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
-        pointer-events: none;
+        content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        border-radius: 50%; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); pointer-events: none;
     }
 
-    /* Make crop box outline circular */
-    .cropper-view-box {
-        border-radius: 50%;
-        outline: 2px solid rgba(59, 130, 246, 0.8);
-        outline-offset: -1px;
+    .cropper-view-box { border-radius: 50%; outline: 2px solid rgba(59,130,246,0.8); outline-offset: -1px; }
+
+    /* Accordion chevron rotation */
+    details.accordion[open] .accordion-chevron { transform: rotate(180deg); }
+    details.accordion > summary { list-style: none; }
+    details.accordion > summary::-webkit-details-marker { display: none; }
+
+    /* Password help text dark mode */
+    .helptext, .helptext ul, .helptext li, ul.helptext, ul.helptext li, .form-text, small, .text-muted {
+        color: rgb(107 114 128) !important;
+    }
+    .dark .helptext, .dark .helptext ul, .dark .helptext li, .dark ul.helptext, .dark ul.helptext li,
+    .dark .form-text, .dark small, .dark .text-muted { color: rgb(156 163 175) !important; }
+
+    #id_new_password1 + ul, #id_new_password1 + ul li,
+    #id_new_password2 + ul, #id_new_password2 + ul li,
+    input[name="new_password1"] + ul, input[name="new_password1"] + ul li,
+    input[name="new_password2"] + ul, input[name="new_password2"] + ul li {
+        color: rgb(107 114 128) !important;
+    }
+    .dark #id_new_password1 + ul, .dark #id_new_password1 + ul li,
+    .dark #id_new_password2 + ul, .dark #id_new_password2 + ul li,
+    .dark input[name="new_password1"] + ul, .dark input[name="new_password1"] + ul li,
+    .dark input[name="new_password2"] + ul, .dark input[name="new_password2"] + ul li {
+        color: rgb(156 163 175) !important;
     }
 
-    /* Comprehensive dark mode styling for Django password validation help text */
+    ul.errorlist, ul.errorlist li, .error, .invalid-feedback { color: rgb(239 68 68) !important; }
+    .dark ul.errorlist, .dark ul.errorlist li, .dark .error, .dark .invalid-feedback { color: rgb(248 113 113) !important; }
 
-    /* Target all possible help text elements */
-    .helptext,
-    .helptext ul,
-    .helptext li,
-    ul.helptext,
-    ul.helptext li,
-    .form-text,
-    small,
-    .text-muted {
-        color: rgb(107 114 128) !important; /* gray-500 in light mode */
-    }
-
-    /* Dark mode overrides */
-    .dark .helptext,
-    .dark .helptext ul,
-    .dark .helptext li,
-    .dark ul.helptext,
-    .dark ul.helptext li,
-    .dark .form-text,
-    .dark small,
-    .dark .text-muted {
-        color: rgb(156 163 175) !important; /* gray-400 in dark mode */
-    }
-
-    /* Target Django's default password validator rendering */
-    #id_new_password1 + ul,
-    #id_new_password1 + ul li,
-    #id_new_password2 + ul,
-    #id_new_password2 + ul li,
-    input[name="new_password1"] + ul,
-    input[name="new_password1"] + ul li,
-    input[name="new_password2"] + ul,
-    input[name="new_password2"] + ul li {
-        color: rgb(107 114 128) !important; /* gray-500 in light mode */
-    }
-
-    .dark #id_new_password1 + ul,
-    .dark #id_new_password1 + ul li,
-    .dark #id_new_password2 + ul,
-    .dark #id_new_password2 + ul li,
-    .dark input[name="new_password1"] + ul,
-    .dark input[name="new_password1"] + ul li,
-    .dark input[name="new_password2"] + ul,
-    .dark input[name="new_password2"] + ul li {
-        color: rgb(156 163 175) !important; /* gray-400 in dark mode */
-    }
-
-    /* Error messages */
-    ul.errorlist,
-    ul.errorlist li,
-    .error,
-    .invalid-feedback {
-        color: rgb(239 68 68) !important; /* red-500 in light mode */
-    }
-
-    .dark ul.errorlist,
-    .dark ul.errorlist li,
-    .dark .error,
-    .dark .invalid-feedback {
-        color: rgb(248 113 113) !important; /* red-400 in dark mode */
-    }
-
-    /* Catch-all for any remaining black text in forms */
-    .dark form p,
-    .dark form ul,
-    .dark form li,
-    .dark form span:not(.inline-flex) {
-        color: rgb(156 163 175) !important; /* gray-400 in dark mode */
+    .dark form p, .dark form ul, .dark form li, .dark form span:not(.inline-flex) {
+        color: rgb(156 163 175) !important;
     }
 </style>
 
@@ -921,15 +821,9 @@ document.addEventListener('DOMContentLoaded', function() {
     let cropper = null;
     let selectedFile = null;
 
-    // Function to update the circular preview
     function updatePreview() {
         if (!cropper) return;
-
-        const canvas = cropper.getCroppedCanvas({
-            width: 160,
-            height: 160,
-        });
-
+        const canvas = cropper.getCroppedCanvas({ width: 160, height: 160 });
         previewCircle.innerHTML = '';
         const img = document.createElement('img');
         img.src = canvas.toDataURL();
@@ -939,88 +833,46 @@ document.addEventListener('DOMContentLoaded', function() {
         previewCircle.appendChild(img);
     }
 
-    // Handle file selection
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
-
         if (!file) return;
-
-        // Validate file type
         const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
         if (!validTypes.includes(file.type)) {
             alert('Please select a valid image file (JPEG, PNG, or WebP)');
             fileInput.value = '';
             return;
         }
-
-        // Validate file size (5MB)
         if (file.size > 5 * 1024 * 1024) {
             alert('File size must be less than 5MB');
             fileInput.value = '';
             return;
         }
-
         selectedFile = file;
-
-        // Read the file and show it in the modal
         const reader = new FileReader();
         reader.onload = function(event) {
             cropImage.src = event.target.result;
-
-            // Show modal
             cropModal.style.display = 'flex';
             cropModal.classList.remove('hidden');
-
-            // Initialize Cropper.js
-            if (cropper) {
-                cropper.destroy();
-            }
-
+            if (cropper) { cropper.destroy(); }
             cropper = new Cropper(cropImage, {
-                aspectRatio: 1, // Square crop
-                viewMode: 1,
-                dragMode: 'move',
-                autoCropArea: 1,
-                restore: false,
-                guides: true,
-                center: true,
-                highlight: true,
-                cropBoxMovable: true,
-                cropBoxResizable: true,
-                toggleDragModeOnDblclick: false,
-                responsive: true,
-                background: false,
-                modal: false,
-                minCropBoxWidth: 100,
-                minCropBoxHeight: 100,
-                zoomable: true,
-                zoomOnWheel: true,
-                zoomOnTouch: true,
-                wheelZoomRatio: 0.1,
-                ready: function() {
-                    console.log('Cropper ready');
-                    updatePreview();
-                },
-                crop: function() {
-                    updatePreview();
-                },
-                zoom: function() {
-                    updatePreview();
-                }
+                aspectRatio: 1, viewMode: 1, dragMode: 'move', autoCropArea: 1,
+                restore: false, guides: true, center: true, highlight: true,
+                cropBoxMovable: true, cropBoxResizable: true, toggleDragModeOnDblclick: false,
+                responsive: true, background: false, modal: false,
+                minCropBoxWidth: 100, minCropBoxHeight: 100,
+                zoomable: true, zoomOnWheel: true, zoomOnTouch: true, wheelZoomRatio: 0.1,
+                ready: function() { updatePreview(); },
+                crop: function() { updatePreview(); },
+                zoom: function() { updatePreview(); }
             });
         };
-
         reader.readAsDataURL(file);
     });
 
-    // Close modal handlers
     function closeModal() {
         cropModal.style.display = 'none';
         cropModal.classList.add('hidden');
-        if (cropper) {
-            cropper.destroy();
-            cropper = null;
-        }
+        if (cropper) { cropper.destroy(); cropper = null; }
         fileInput.value = '';
         selectedFile = null;
         previewCircle.innerHTML = '';
@@ -1028,62 +880,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
     closeCropModal.addEventListener('click', closeModal);
     cancelCrop.addEventListener('click', closeModal);
+    cropModal.addEventListener('click', function(e) { if (e.target === cropModal) { closeModal(); } });
 
-    // Close modal when clicking outside
-    cropModal.addEventListener('click', function(e) {
-        if (e.target === cropModal) {
-            closeModal();
-        }
-    });
-
-    // Handle upload button - FIX: Use base64 data instead of DataTransfer
     uploadCropped.addEventListener('click', function() {
         if (!cropper) return;
-
-        // Show loading state
         uploadCropped.disabled = true;
         uploadCropped.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2 inline-block" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Uploading...';
-
-        // Get the cropped canvas
-        const canvas = cropper.getCroppedCanvas({
-            width: 400,
-            height: 400,
-            imageSmoothingEnabled: true,
-            imageSmoothingQuality: 'high',
-        });
-
-        // Convert canvas to blob
+        const canvas = cropper.getCroppedCanvas({ width: 400, height: 400, imageSmoothingEnabled: true, imageSmoothingQuality: 'high' });
         canvas.toBlob(function(blob) {
-            // Create a new File object from the blob
-            const croppedFile = new File([blob], selectedFile.name, {
-                type: selectedFile.type,
-                lastModified: Date.now(),
-            });
-
-            // Use FormData to properly submit the file
+            const croppedFile = new File([blob], selectedFile.name, { type: selectedFile.type, lastModified: Date.now() });
             const formData = new FormData();
             formData.append('csrfmiddlewaretoken', form.querySelector('[name=csrfmiddlewaretoken]').value);
             formData.append('profile_picture_submit', '1');
             formData.append('profile_picture', croppedFile);
-
-            // Submit via fetch
-            fetch(form.action || window.location.href, {
-                method: 'POST',
-                body: formData,
-            }).then(response => {
-                if (response.ok) {
-                    window.location.reload();
-                } else {
+            fetch(form.action || window.location.href, { method: 'POST', body: formData })
+                .then(response => {
+                    if (response.ok) { window.location.reload(); }
+                    else {
+                        alert('Upload failed. Please try again.');
+                        uploadCropped.disabled = false;
+                        uploadCropped.innerHTML = '<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>Upload Picture';
+                    }
+                })
+                .catch(error => {
+                    console.error('Upload error:', error);
                     alert('Upload failed. Please try again.');
                     uploadCropped.disabled = false;
                     uploadCropped.innerHTML = '<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>Upload Picture';
-                }
-            }).catch(error => {
-                console.error('Upload error:', error);
-                alert('Upload failed. Please try again.');
-                uploadCropped.disabled = false;
-                uploadCropped.innerHTML = '<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>Upload Picture';
-            });
+                });
         }, selectedFile.type, 0.95);
     });
 });
@@ -1092,53 +916,25 @@ document.addEventListener('DOMContentLoaded', function() {
 const phoneInput = document.getElementById('phone_number_input');
 if (phoneInput) {
     phoneInput.addEventListener('input', function(e) {
-        // Get only digits from input
         let digits = this.value.replace(/\D/g, '');
-
-        // Limit to 10 digits
-        if (digits.length > 10) {
-            digits = digits.substring(0, 10);
-        }
-
-        // Format as XXX-XXX-XXXX
+        if (digits.length > 10) { digits = digits.substring(0, 10); }
         let formatted = '';
-        if (digits.length > 0) {
-            formatted = digits.substring(0, 3);
-        }
-        if (digits.length > 3) {
-            formatted += '-' + digits.substring(3, 6);
-        }
-        if (digits.length > 6) {
-            formatted += '-' + digits.substring(6, 10);
-        }
-
+        if (digits.length > 0) { formatted = digits.substring(0, 3); }
+        if (digits.length > 3) { formatted += '-' + digits.substring(3, 6); }
+        if (digits.length > 6) { formatted += '-' + digits.substring(6, 10); }
         this.value = formatted;
     });
 
-    // Also format on paste
     phoneInput.addEventListener('paste', function(e) {
         e.preventDefault();
         const pastedText = (e.clipboardData || window.clipboardData).getData('text');
         let digits = pastedText.replace(/\D/g, '');
-
-        // Remove leading 1 if 11 digits (country code)
-        if (digits.length === 11 && digits.startsWith('1')) {
-            digits = digits.substring(1);
-        }
-
-        // Limit to 10 digits and format
+        if (digits.length === 11 && digits.startsWith('1')) { digits = digits.substring(1); }
         digits = digits.substring(0, 10);
         let formatted = '';
-        if (digits.length > 0) {
-            formatted = digits.substring(0, 3);
-        }
-        if (digits.length > 3) {
-            formatted += '-' + digits.substring(3, 6);
-        }
-        if (digits.length > 6) {
-            formatted += '-' + digits.substring(6, 10);
-        }
-
+        if (digits.length > 0) { formatted = digits.substring(0, 3); }
+        if (digits.length > 3) { formatted += '-' + digits.substring(3, 6); }
+        if (digits.length > 6) { formatted += '-' + digits.substring(6, 10); }
         this.value = formatted;
     });
 }

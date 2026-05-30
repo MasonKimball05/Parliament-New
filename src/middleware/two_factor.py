@@ -61,6 +61,10 @@ class Enforce2FAMiddleware:
         except Exception:
             pass
 
+        # Skip 2FA enforcement for active admin impersonation sessions
+        if request.session.get('_impersonating_original_user_id'):
+            return self.get_response(request)
+
         # Check if user requires 2FA
         requires_2fa = self.user_requires_2fa(request.user)
 

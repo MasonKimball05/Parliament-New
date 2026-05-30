@@ -1,0 +1,411 @@
+from django.db import models
+from src.models.users import ParliamentUser
+
+
+class Event(models.Model):
+    """Model for calendar events - officers and chairs can create, all members can view"""
+    MEMBER_TYPES = (
+        ('Member', 'Members'),
+        ('Advisor', 'Advisors'),
+        ('Pledge', 'Pledges'),
+    )
+
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    date_time = models.DateTimeField(help_text='Date and time of the event')
+    location = models.CharField(max_length=300, blank=True, help_text='Event location (physical or virtual)')
+    created_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True, help_text='Uncheck to hide event from calendar')
+    archived = models.BooleanField(default=False, help_text='Events older than 1 year are automatically archived')
+    visible_to = models.JSONField(
+        null=True,
+        blank=True,
+        help_text='Select which member types can see this event. Leave empty for all members.'
+    )
+
+    # Recurring event fields
+    RECURRENCE_CHOICES = [
+        ('none', 'Does not repeat'),
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+        ('biweekly', 'Every 2 weeks'),
+        ('monthly', 'Monthly'),
+        ('custom', 'Custom'),
+    ]
+
+    is_recurring = models.BooleanField(
+        default=False,
+        help_text='Check if this event repeats'
+    )
+    recurrence_type = models.CharField(
+        max_length=20,
+        choices=RECURRENCE_CHOICES,
+        default='none',
+        help_text='How often the event repeats'
+    )
+    recurrence_interval = models.PositiveIntegerField(
+        default=1,
+        help_text='For custom recurrence: repeat every X days/weeks/months'
+    )
+    recurrence_unit = models.CharField(
+        max_length=10,
+        choices=[('days', 'Day(s)'), ('weeks', 'Week(s)'), ('months', 'Month(s)')],
+        default='weeks',
+        help_text='Unit for custom recurrence interval'
+    )
+    recurrence_days = models.JSONField(
+        null=True,
+        blank=True,
+        help_text='Days of week for weekly recurrence (0=Monday, 6=Sunday)'
+    )
+    recurrence_end_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Date when recurring events stop (leave blank for indefinite)'
+    )
+    parent_event = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='recurring_instances',
+        help_text='Parent event for recurring event instances'
+    )
+
+    # Attendance tracking fields
+    requires_attendance = models.BooleanField(
+        default=True,
+        help_text='Check if this event requires attendance tracking (chapter meetings, etc.)'
+    )
+    allow_excuses = models.BooleanField(
+        default=True,
+        help_text='Allow members to submit excuse requests for this event'
+    )
+    excuse_deadline = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Deadline for submitting excuses (leave empty to allow until event time)'
+    )
+    attendance_finalized = models.BooleanField(
+        default=False,
+        help_text='Mark as true when attendance has been finalized by an officer'
+    )
+    finalized_by = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='finalized_events',
+        help_text='Officer who finalized attendance'
+    )
+    finalized_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When attendance was finalized'
+    )
+
+    class Meta:
+        ordering = ['date_time']
+
+    def __str__(self):
+        return f"{self.title} - {self.date_time.strftime('%Y-%m-%d %H:%M')}"
+
+    def is_upcoming(self):
+        """Check if event is in the future"""
+        from django.utils import timezone
+        return self.date_time > timezone.now()
+
+    def is_visible_to_user(self, user):
+        """Check if user should be able to see this event"""
+        if not self.is_active:
+            return False
+        # If visible_to is None or empty, show to all users
+        if not self.visible_to:
+            return True
+        # Check if user's member_type is directly in the list
+        if user.member_type in self.visible_to:
+            return True
+        # If "Member" is selected, also include Chair and Officer
+        if 'Member' in self.visible_to and user.member_type in ['Chair', 'Officer']:
+            return True
+        return False
+
+    def can_submit_excuse(self):
+        """Check if excuses can still be submitted for this event"""
+        from django.utils import timezone
+
+        if not self.allow_excuses:
+            return False
+
+        if self.attendance_finalized:
+            return False
+
+        # Check excuse deadline
+        if self.excuse_deadline:
+            return timezone.now() < self.excuse_deadline
+
+        # If no deadline set, allow until event time
+        return timezone.now() < self.date_time
+
+    def get_attendance_stats(self):
+        """Get attendance statistics for this event"""
+        from django.db.models import Count, Q
+
+        if not self.requires_attendance:
+            return None
+
+        total_members = ParliamentUser.objects.filter(member_status='Active').count()
+
+        attendance_records = self.attendance_records.all()
+        present_count = attendance_records.filter(status='present').count()
+        absent_count = attendance_records.filter(status='absent').count()
+        excused_count = attendance_records.filter(status='excused').count()
+        pending_count = attendance_records.filter(status='pending').count()
+
+        return {
+            'total_members': total_members,
+            'present': present_count,
+            'absent': absent_count,
+            'excused': excused_count,
+            'pending': pending_count,
+            'unmarked': total_members - attendance_records.count(),
+            'attendance_rate': (present_count / total_members * 100) if total_members > 0 else 0
+        }
+
+
+class Attendance(models.Model):
+    """
+    Attendance record for events and committee meetings
+    """
+    ATTENDANCE_TYPE_CHOICES = (
+        ('event', 'Event Attendance'),
+        ('committee', 'Committee Attendance'),
+    )
+
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),  # Not yet marked
+        ('present', 'Present'),
+        ('absent', 'Absent'),
+        ('excused', 'Excused'),
+        ('late', 'Late'),
+    )
+
+    # Type of attendance
+    attendance_type = models.CharField(
+        max_length=10,
+        choices=ATTENDANCE_TYPE_CHOICES,
+        default='event',
+        help_text='Type of attendance (event or committee)'
+    )
+
+    # For event attendance
+    event = models.ForeignKey(
+        'Event',
+        on_delete=models.CASCADE,
+        related_name='attendance_records',
+        null=True,
+        blank=True,
+        help_text='Event this attendance record is for (if event attendance)'
+    )
+
+    # For committee attendance
+    committee = models.ForeignKey(
+        'Committee',
+        on_delete=models.CASCADE,
+        related_name='attendance_records',
+        null=True,
+        blank=True,
+        help_text='Committee this attendance record is for (if committee attendance)'
+    )
+
+    user = models.ForeignKey(
+        ParliamentUser,
+        on_delete=models.CASCADE,
+        limit_choices_to={'member_status': 'Active'},
+        related_name='attendance_records'
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='pending',
+        help_text='Attendance status'
+    )
+
+    # Tracking fields
+    marked_by = models.ForeignKey(
+        ParliamentUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='marked_attendance',
+        help_text='Officer/Chair who marked this attendance'
+    )
+    marked_at = models.DateTimeField(null=True, blank=True, help_text='When attendance was marked')
+    created_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True, help_text='Additional notes about attendance')
+
+    # Legacy field for backwards compatibility
+    date = models.DateField(auto_now_add=True)
+    present = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at', 'user__name']
+        verbose_name = 'Attendance Record'
+        verbose_name_plural = 'Attendance Records'
+        indexes = [
+            models.Index(fields=['event', 'status']),
+            models.Index(fields=['committee', 'status']),
+            models.Index(fields=['user', 'status']),
+            models.Index(fields=['attendance_type', 'created_at']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['event', 'user'],
+                condition=models.Q(event__isnull=False, attendance_type='event'),
+                name='unique_event_user_attendance'
+            ),
+            models.UniqueConstraint(
+                fields=['committee', 'user', 'date'],
+                condition=models.Q(committee__isnull=False, attendance_type='committee'),
+                name='unique_committee_user_date_attendance'
+            )
+        ]
+
+    def __str__(self):
+        if self.attendance_type == 'event' and self.event:
+            return f"{self.user.name} - {self.event.title} - {self.get_status_display()}"
+        elif self.attendance_type == 'committee' and self.committee:
+            return f"{self.user.name} - {self.committee.name} - {self.get_status_display()}"
+        return f"{self.user.name} - {self.get_status_display()}"
+
+    def save(self, *args, **kwargs):
+        # Update legacy 'present' field based on status
+        self.present = self.status == 'present'
+        super().save(*args, **kwargs)
+
+
+class AttendanceExcuse(models.Model):
+    """
+    Excuse request for an event
+    """
+    STATUS_CHOICES = (
+        ('pending', 'Pending Review'),
+        ('approved', 'Approved'),
+        ('denied', 'Denied'),
+        ('expired', 'Expired (past deadline)'),
+    )
+
+    event = models.ForeignKey(
+        'Event',
+        on_delete=models.CASCADE,
+        related_name='excuse_requests',
+        help_text='Event for which excuse is requested'
+    )
+    user = models.ForeignKey(
+        ParliamentUser,
+        on_delete=models.CASCADE,
+        related_name='excuse_requests',
+        help_text='Member requesting the excuse'
+    )
+
+    # Excuse details
+    reason = models.TextField(help_text='Reason for absence')
+    supporting_document = models.FileField(
+        upload_to='excuse_documents/',
+        null=True,
+        blank=True,
+        help_text='Optional supporting document (doctor note, etc.)'
+    )
+
+    # Status and review
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    reviewed_by = models.ForeignKey(
+        ParliamentUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_excuses',
+        help_text='Officer who reviewed this excuse'
+    )
+    reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When the excuse was reviewed'
+    )
+    review_notes = models.TextField(
+        blank=True,
+        help_text='Officer notes about the excuse decision'
+    )
+
+    # Timestamps
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-submitted_at']
+        unique_together = ('event', 'user')
+        verbose_name = 'Attendance Excuse'
+        verbose_name_plural = 'Attendance Excuses'
+        indexes = [
+            models.Index(fields=['event', 'status']),
+            models.Index(fields=['user', 'status']),
+            models.Index(fields=['-submitted_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.name} - {self.event.title} - {self.get_status_display()}"
+
+    def is_past_deadline(self):
+        """Check if this excuse was submitted after the deadline"""
+        from django.utils import timezone
+
+        if not self.event.excuse_deadline:
+            # If no deadline, check against event time
+            return self.submitted_at > self.event.date_time
+
+        return self.submitted_at > self.event.excuse_deadline
+
+    def approve(self, officer, notes=''):
+        """Approve the excuse and update attendance"""
+        from django.utils import timezone
+
+        self.status = 'approved'
+        self.reviewed_by = officer
+        self.reviewed_at = timezone.now()
+        self.review_notes = notes
+        self.save()
+
+        # Update or create attendance record
+        attendance, created = Attendance.objects.get_or_create(
+            event=self.event,
+            user=self.user,
+            attendance_type='event',
+            defaults={
+                'status': 'excused',
+                'marked_by': officer,
+                'marked_at': timezone.now(),
+                'notes': f'Excused: {self.reason[:100]}'
+            }
+        )
+
+        if not created and attendance.status != 'excused':
+            attendance.status = 'excused'
+            attendance.marked_by = officer
+            attendance.marked_at = timezone.now()
+            attendance.notes = f'Excused: {self.reason[:100]}'
+            attendance.save()
+
+    def deny(self, officer, notes=''):
+        """Deny the excuse"""
+        from django.utils import timezone
+
+        self.status = 'denied'
+        self.reviewed_by = officer
+        self.reviewed_at = timezone.now()
+        self.review_notes = notes
+        self.save()

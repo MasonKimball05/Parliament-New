@@ -417,28 +417,36 @@ class ParliamentUserAdmin(admin.ModelAdmin):
         })
 
     def login_as_user(self, request, user_id):
+        from src.view.login_as_view import SESSION_ORIGINAL_ID, SESSION_ORIGINAL_NAME
         logger = logging.getLogger('function_calls')
-        User = get_user_model()
-        requesting_user = User.objects.get(pk=request.user.pk)
+        security_logger = logging.getLogger('security')
 
         if not request.user.is_authenticated or not request.user.is_admin:
             messages.error(request, 'You are not an admin')
             return redirect('/admin/')
 
-        logger.info(f"User {request.user} attempted to login as user id ({user_id})")
-
         try:
-            user = ParliamentUser.objects.get(pk=user_id)
-            login(request, user)
-
-            logger.info(f"{requesting_user} logged in as {user.username}")
-
-            messages.success(request, f'You are now logged in as {user.name}')
-
-            return redirect('home')
+            target = ParliamentUser.objects.get(pk=user_id)
         except ParliamentUser.DoesNotExist:
             messages.error(request, 'User not found')
             return redirect('/admin/')
+
+        original_id   = request.user.user_id
+        original_name = request.user.get_display_name()
+
+        target.backend = 'django.contrib.auth.backends.ModelBackend'
+        login(request, target)
+
+        request.session[SESSION_ORIGINAL_ID]   = original_id
+        request.session[SESSION_ORIGINAL_NAME] = original_name
+
+        security_logger.warning(
+            f"ADMIN IMPERSONATION START: {original_name} (ID: {original_id}) "
+            f"logged in as {target.username} (ID: {target.user_id})"
+        )
+        logger.info(f"{original_name} logged in as {target.username}")
+        messages.success(request, f'You are now logged in as {target.name}')
+        return redirect('home')
 
 
 @admin.register(Legislation, site=admin_site)

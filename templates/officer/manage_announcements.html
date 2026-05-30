@@ -131,6 +131,15 @@
                         <a href="{% url 'announcement_stats' announcement.id %}" class="bg-gray-600 dark:bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-700 dark:hover:bg-gray-600 transition text-sm">
                             View Stats
                         </a>
+                        {% if announcement.poll %}
+                        <a href="{% url 'poll_results' announcement.id %}" class="bg-purple-600 dark:bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-700 dark:hover:bg-purple-600 transition text-sm">
+                            Poll Results
+                        </a>
+                        {% else %}
+                        <a href="{% url 'create_or_edit_poll' announcement.id %}" class="border border-purple-400 dark:border-purple-500 text-purple-600 dark:text-purple-400 px-4 py-2 rounded hover:bg-purple-50 dark:hover:bg-purple-900/20 transition text-sm">
+                            + Add Poll
+                        </a>
+                        {% endif %}
                         <a href="{% url 'delete_announcement' announcement.id %}" class="bg-red-600 dark:bg-red-500 text-white px-4 py-2 rounded hover:bg-red-700 dark:hover:bg-red-600 transition text-sm">
                             Delete
                         </a>

@@ -29,6 +29,26 @@
     </script>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col transition-colors duration-200">
+
+    <!-- Impersonation Banner -->
+    {% if is_impersonating %}
+    <div class="bg-amber-400 text-amber-950 px-4 py-2 text-sm font-medium flex items-center justify-between gap-4 flex-wrap">
+        <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+            <span>Viewing as <strong>{{ user.get_display_name }}</strong> — session started by {{ impersonation_original_name }}</span>
+        </div>
+        <a href="{% url 'return_to_original_user' %}"
+           class="flex items-center gap-1.5 px-3 py-1 rounded-md bg-amber-950 text-amber-50 text-xs font-semibold hover:bg-amber-900 transition-colors flex-shrink-0">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"/>
+            </svg>
+            Return to {{ impersonation_original_name }}
+        </a>
+    </div>
+    {% endif %}
+
     <!-- Navigation -->
     <nav class="bg-primary-700 text-white shadow-lg">
         <div class="max-w-full mx-auto px-3 sm:px-4 lg:px-6">
@@ -52,7 +72,7 @@
                                 Committees
                             </a>
                             {% endif %}
-                            {% if user.preferences.show_chats_menu %}
+                            {% if user.preferences.show_chats_menu and feature_flags.chats %}
                             <a href="{% url 'chat_index' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Chats
                             </a>
@@ -207,7 +227,7 @@
                     👥 Committees
                 </a>
                 {% endif %}
-                {% if user.preferences.show_chats_menu %}
+                {% if user.preferences.show_chats_menu and feature_flags.chats %}
                 <a href="{% url 'chat_index' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     💬 Chats
                 </a>

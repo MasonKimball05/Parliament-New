@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_http_methods
-from src.models import Committee, Role, ParliamentUser, CommitteeLegislation, CommitteeDocument, CommitteeMinutes
+from src.models import Committee, Role, ParliamentUser, CommitteeLegislation, CommitteeDocument, CommitteeMinutes, ActivityLog
 from src.forms import CommitteeCreateForm
 from src.constants import MemberStatus
 from src.feature_flag_decorators import require_page_enabled
@@ -31,6 +31,8 @@ def committee_index(request):
     # Combine and remove duplicates
     user_committees = (member_committees | chair_committees | advisor_committees).distinct()
 
+    show_archived = request.GET.get('show_archived') == 'true' and (user.is_admin or user.member_type == 'Officer')
+
     # Get all committees for dropdown and admin view
     all_committees_query = Committee.objects.select_related('role').all().order_by('name')
 
@@ -39,6 +41,10 @@ def committee_index(request):
         all_committees_list = list(all_committees_query)
     else:
         all_committees_list = [c for c in all_committees_query if c.is_visible_to(user)]
+
+    # Exclude archived unless explicitly requested
+    if not show_archived:
+        all_committees_list = [c for c in all_committees_list if not c.is_archived]
 
     # Prepare all committees info for dropdown (filtered by visibility)
     all_committees_info = []
@@ -49,12 +55,16 @@ def committee_index(request):
             'vp': committee_vp,
         })
 
+    # Count archived committees the user is a member of (for toggle pill)
+    archived_count = sum(1 for c in user_committees if c.is_archived and c.is_visible_to(user))
+
     # Determine which committees to display in main section
     if show_all:
         display_committees = all_committees_list
     else:
-        # Filter user's committees by visibility as well
         display_committees = [c for c in user_committees if c.is_visible_to(user)]
+        if not show_archived:
+            display_committees = [c for c in display_committees if not c.is_archived]
 
     # Add role information to each committee
     committees_with_roles = []
@@ -77,16 +87,22 @@ def committee_index(request):
 
         committees_with_roles.append({
             'committee': committee,
-            'roles': ', '.join(roles) if roles else 'Not a member',
+            'roles': roles,
             'is_voting_member': is_voting_member,
             'committee_vp': committee_vp,
+            'member_count': committee.members.count(),
+            'chair_count': committee.chairs.count(),
+            'advisor_count': committee.advisors.count(),
         })
 
     context = {
         'committees': committees_with_roles,
         'all_committees_info': all_committees_info,
         'show_all': show_all,
+        'show_archived': show_archived,
+        'archived_count': archived_count,
         'is_test_server': settings.DEBUG,  # Test server runs with DEBUG=True
+        'can_see_archived_toggle': user.is_admin or user.member_type == 'Officer',
     }
 
     return render(request, 'committee/committee_index.html', context)

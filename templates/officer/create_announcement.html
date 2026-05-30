@@ -138,6 +138,38 @@
             </div>
             <p class="ml-6 text-sm text-gray-500 dark:text-gray-400">Uncheck to publish without sending an email blast.</p>
 
+            <!-- Linked Documents -->
+            {% if chapter_docs %}
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                <button type="button" id="docs-toggle-btn" onclick="toggleDocs()"
+                        class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <span>Attach Chapter Documents</span>
+                    <span id="docs-badge" class="hidden px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400 rounded-full"></span>
+                    <svg id="docs-chevron" class="w-4 h-4 text-gray-500 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div id="docs-panel" class="hidden border-t border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/10 px-4 py-3">
+                    <p class="text-xs text-blue-700 dark:text-blue-400 mb-3">Select chapter documents to attach as links in this announcement.</p>
+                    <div class="space-y-2 max-h-64 overflow-y-auto">
+                        {% for doc in chapter_docs %}
+                        <label class="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer">
+                            <input type="checkbox" name="linked_document_ids" value="{{ doc.id }}"
+                                   class="doc-checkbox rounded border-gray-300 dark:border-gray-600 text-blue-500 focus:ring-blue-400 dark:bg-gray-700"
+                                   onchange="updateDocsBadge()">
+                            <span class="flex-1 min-w-0">
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">{{ doc.title }}</span>
+                                {% if doc.document_type %}
+                                <span class="ml-2 text-xs text-gray-400 dark:text-gray-500">{{ doc.get_document_type_display }}</span>
+                                {% endif %}
+                            </span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Include Inactive / Alumni Members -->
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                 <button type="button" id="inactive-toggle-btn" onclick="toggleInactive()"
@@ -225,6 +257,24 @@ document.addEventListener('DOMContentLoaded', function() {
         updatePledgeWarning(); // Initial state
     }
 });
+
+function toggleDocs() {
+    const panel = document.getElementById('docs-panel');
+    const chevron = document.getElementById('docs-chevron');
+    panel.classList.toggle('hidden');
+    chevron.style.transform = panel.classList.contains('hidden') ? '' : 'rotate(180deg)';
+}
+
+function updateDocsBadge() {
+    const checked = document.querySelectorAll('.doc-checkbox:checked').length;
+    const badge = document.getElementById('docs-badge');
+    if (checked > 0) {
+        badge.textContent = checked + ' attached';
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+}
 
 function toggleInactive() {
     const panel = document.getElementById('inactive-panel');

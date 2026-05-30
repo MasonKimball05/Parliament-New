@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Poll Results — {{ announcement.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    {% include 'includes/breadcrumbs.html' with back_url='/officers/announcements/' back_label='Manage Announcements' current='Poll Results' %}
+
+    <!-- Header -->
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ poll.title }}</h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Attached to: <span class="font-medium">{{ announcement.title }}</span></p>
+            <div class="flex flex-wrap gap-2 mt-2">
+                {% if poll.is_anonymous %}
+                <span class="px-2 py-0.5 text-xs rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-medium">Anonymous</span>
+                {% endif %}
+                {% if poll.is_accepting_responses %}
+                <span class="px-2 py-0.5 text-xs rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-medium">Open</span>
+                {% else %}
+                <span class="px-2 py-0.5 text-xs rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 font-medium">Closed</span>
+                {% endif %}
+                <span class="px-2 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium">{{ respondent_count }} response{{ respondent_count|pluralize }}</span>
+            </div>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <a href="{% url 'create_or_edit_poll' announcement.id %}"
+               class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium transition">
+                Edit Poll
+            </a>
+            <a href="?export=csv"
+               class="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                Export CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- Aggregate Results -->
+    <div class="space-y-4 mb-8">
+        {% for stat in question_stats %}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5">
+            <div class="flex items-start gap-2 mb-3">
+                <span class="text-xs font-mono bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded">Q{{ forloop.counter }}</span>
+                <p class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ stat.question.text }}</p>
+            </div>
+            {% if stat.question.question_type == 'text' %}
+                {% if stat.text_answers %}
+                <ul class="space-y-1.5 pl-4">
+                    {% for ans in stat.text_answers %}
+                    <li class="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 rounded px-3 py-1.5">"{{ ans }}"</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-sm text-gray-400 dark:text-gray-500">No text responses yet.</p>
+                {% endif %}
+            {% else %}
+                {% if stat.total_answers > 0 %}
+                <div class="space-y-2">
+                    {% for option, count in stat.option_counts.items %}
+                    {% widthratio count stat.total_answers 100 as pct %}
+                    <div>
+                        <div class="flex justify-between text-sm mb-0.5">
+                            <span class="text-gray-700 dark:text-gray-300">{{ option.text }}</span>
+                            <span class="text-gray-500 dark:text-gray-400 font-medium">{{ count }} ({{ pct }}%)</span>
+                        </div>
+                        <div class="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
+                            <div class="bg-blue-500 h-2 rounded-full" style="width: {{ pct }}%"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-sm text-gray-400 dark:text-gray-500">No responses yet.</p>
+                {% endif %}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Individual Responses (non-anonymous) -->
+    {% if not poll.is_anonymous and responses %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5 mb-6">
+        <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">Individual Responses</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-200 dark:border-gray-700 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        <th class="pb-2 pr-4">Respondent</th>
+                        <th class="pb-2 pr-4">Submitted</th>
+                        {% for stat in question_stats %}
+                        <th class="pb-2 pr-4">{{ stat.question.text|truncatechars:30 }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% for resp in responses %}
+                    <tr>
+                        <td class="py-2 pr-4 font-medium text-gray-800 dark:text-gray-200">
+                            {% if resp.respondent %}{{ resp.respondent.get_display_name }}{% else %}—{% endif %}
+                        </td>
+                        <td class="py-2 pr-4 text-gray-500 dark:text-gray-400">{{ resp.submitted_at|date:"M j, g:i A" }}</td>
+                        {% for stat in question_stats %}
+                        <td class="py-2 pr-4 text-gray-700 dark:text-gray-300">
+                            {% for answer in resp.answers.all %}
+                                {% if answer.question.id == stat.question.id %}
+                                    {% if stat.question.question_type == 'text' %}
+                                        {{ answer.text_answer|default:"—" }}
+                                    {% else %}
+                                        {% for opt in answer.selected_options.all %}{{ opt.text }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Who Hasn't Responded -->
+    {% if non_respondents %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5">
+        <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
+            Haven't Responded ({{ non_respondents.count }})
+        </h2>
+        <div class="flex flex-wrap gap-2">
+            {% for user in non_respondents %}
+            <span class="px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium">{{ user.get_display_name }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

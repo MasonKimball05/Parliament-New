@@ -4,6 +4,7 @@ from src.models import Announcement, UserAnnouncementView
 from datetime import datetime, timedelta
 from django.utils import timezone
 from src.feature_flag_decorators import require_feature_flag, require_page_enabled
+from src.models import AnnouncementPollResponse
 
 @login_required
 @require_feature_flag('announcements')
@@ -58,8 +59,17 @@ def announcements_view(request):
             defaults={'view_source': 'site'}
         )
 
+    # Precompute poll response state for each announcement that has a poll
+    responded_poll_ids = set(
+        AnnouncementPollResponse.objects.filter(
+            respondent=request.user,
+            poll__announcement__in=announcements,
+        ).values_list('poll__announcement_id', flat=True)
+    )
+
     return render(request, 'announcements.html', {
         'announcements': announcements,
         'search_query': search_query,
         'days_filter': days_filter,
+        'responded_poll_ids': responded_poll_ids,
     })

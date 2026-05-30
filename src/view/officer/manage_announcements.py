@@ -10,7 +10,7 @@ from django.core.cache import cache
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.conf import settings
-from src.models import Announcement, UserAnnouncementView, ParliamentUser, AnnouncementEmailLog, AnnouncementEmailRecipient
+from src.models import Announcement, UserAnnouncementView, ParliamentUser, AnnouncementEmailLog, AnnouncementEmailRecipient, CommitteeDocument
 from src.forms import AnnouncementForm
 from src.decorators import log_function_call, officer_required
 from src.notifications import send_announcement_notification, get_site_url
@@ -70,6 +70,16 @@ def create_announcement(request):
 
             announcement.save()
 
+            # Save linked documents (M2M — must be after save())
+            linked_doc_ids = request.POST.getlist('linked_document_ids')
+            if linked_doc_ids:
+                valid_docs = CommitteeDocument.objects.filter(
+                    id__in=linked_doc_ids, published_to_chapter=True
+                )
+                announcement.linked_documents.set(valid_docs)
+            else:
+                announcement.linked_documents.clear()
+
             # Note: We don't create in-app notifications for announcements because
             # announcements have their own dedicated display system (home page popup,
             # announcements page) with UserAnnouncementView tracking. This saves
@@ -96,9 +106,14 @@ def create_announcement(request):
         member_status='Active'
     ).filter(email__isnull=False).exclude(email='').order_by('member_status', 'name')
 
+    chapter_docs = CommitteeDocument.objects.filter(
+        published_to_chapter=True
+    ).order_by('title')
+
     return render(request, 'officer/create_announcement.html', {
         'form': form,
         'inactive_members': inactive_members,
+        'chapter_docs': chapter_docs,
     })
 
 
@@ -583,14 +598,30 @@ def edit_announcement(request, announcement_id):
         form = AnnouncementForm(request.POST, instance=announcement)
         if form.is_valid():
             form.save()
+            # Save linked documents
+            linked_doc_ids = request.POST.getlist('linked_document_ids')
+            if linked_doc_ids:
+                valid_docs = CommitteeDocument.objects.filter(
+                    id__in=linked_doc_ids, published_to_chapter=True
+                )
+                announcement.linked_documents.set(valid_docs)
+            else:
+                announcement.linked_documents.clear()
             messages.success(request, 'Announcement updated successfully!')
             return redirect('manage_announcements')
     else:
         form = AnnouncementForm(instance=announcement)
 
+    chapter_docs = CommitteeDocument.objects.filter(
+        published_to_chapter=True
+    ).order_by('title')
+    linked_doc_ids = list(announcement.linked_documents.values_list('id', flat=True))
+
     return render(request, 'officer/edit_announcement.html', {
         'form': form,
-        'announcement': announcement
+        'announcement': announcement,
+        'chapter_docs': chapter_docs,
+        'linked_doc_ids': linked_doc_ids,
     })
 
 @login_required
