@@ -1,0 +1,74 @@
+# Local development compose — NOT for production use.
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up        # start everything
+#   docker compose -f docker-compose.dev.yml up --build  # rebuild after dep changes
+#   docker compose -f docker-compose.dev.yml down       # stop and remove containers
+#   docker compose -f docker-compose.dev.yml exec web python manage.py migrate
+#   docker compose -f docker-compose.dev.yml exec web python manage.py createsuperuser
+#
+# First time setup:
+#   cp .env.dev.example .env.dev
+#   docker compose -f docker-compose.dev.yml up --build
+#   docker compose -f docker-compose.dev.yml exec web python manage.py migrate
+#   docker compose -f docker-compose.dev.yml exec web python manage.py seed_feature_flags
+#
+# App will be at http://localhost:8000
+# No nginx — Django's dev server handles everything directly.
+
+services:
+
+  db:
+    image: postgres:15-alpine
+    container_name: parliament-db-dev
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: parliament_dev
+      POSTGRES_USER: parliament_user
+      POSTGRES_PASSWORD: devpassword
+    ports:
+      - "5433:5432"   # 5433 locally so it doesn't clash with a native postgres install
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parliament_user"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: parliament-redis-dev
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru --save "" --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  web:
+    build: .
+    container_name: parliament-web-dev
+    # runserver with --noreload disabled so Django picks up code changes via the volume mount
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app         # mount source so edits are reflected without rebuilding
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.dev
+    environment:
+      # Override anything in .env.dev that must be set for Docker networking
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_dev_data:
