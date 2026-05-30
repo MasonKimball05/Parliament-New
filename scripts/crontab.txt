@@ -1,0 +1,30 @@
+# Parliament crontab
+# Edit with: sudo crontab -e
+# View with: sudo crontab -l
+#
+# Logs go to /var/log/parliament/
+# Make sure the log dir exists: sudo mkdir -p /var/log/parliament
+
+# ---------------------------------------------------------------------------
+# Scheduled announcements — every 15 minutes
+# ---------------------------------------------------------------------------
+*/15 * * * * cd /var/www/Parliament-New && echo "=== $(date) ===" >> /var/log/parliament/scheduled_announcements.log && source venv/bin/activate && python manage.py process_scheduled_announcements >> /var/log/parliament/scheduled_announcements.log 2>&1
+
+# ---------------------------------------------------------------------------
+# Session cleanup — weekly, Sunday 3am
+# ---------------------------------------------------------------------------
+0 3 * * 0 cd /var/www/Parliament-New && source venv/bin/activate && python manage.py cleanup_sessions >> /var/log/parliament/cleanup.log 2>&1
+
+# ---------------------------------------------------------------------------
+# Database backups
+#
+# Backups are saved to /var/backups/parliament/ (12 kept, older ones pruned).
+# Set PARLIAMENT_BACKUP_DIR in /etc/environment if you want a different path.
+# To restore: sudo ./scripts/restore_db.sh /var/backups/parliament/<filename>.dump
+# ---------------------------------------------------------------------------
+
+# Weekly backup — Sunday 2am, September through May
+0 2 * 1-5,9-12 0 cd /var/www/Parliament-New && source venv/bin/activate && python manage.py backup_db >> /var/log/parliament/backup.log 2>&1
+
+# Monthly backup — 1st of month, 2am, June through August
+0 2 1 6-8 * cd /var/www/Parliament-New && source venv/bin/activate && python manage.py backup_db >> /var/log/parliament/backup.log 2>&1
