@@ -161,6 +161,246 @@ Breaks the 6280-line monolithic `src/models.py` into 16 focused sub-modules unde
 
 ---
 
+### v2.27.0 - Guide Accuracy Pass, Inline Poll Builder, My Work Page & Poll Privacy (2026-05-31)
+
+Four independent areas: guide template corrections, polling UX improvements (inline creation + document search), page rename + enhanced vote display, and anonymous poll privacy hardening.
+
+---
+
+#### Guide Template Accuracy Pass
+
+Fixed several inaccuracies in officer guide pages where the written descriptions had drifted from actual app behavior.
+
+**Attendance guide (`officers/attendance.html`):**
+- Section 1 replaced with "Where to Take Attendance" covering all three sync'd sources (Attendance Page, Minutes Editor, Vote Page Attendance tab)
+- Section 2 "Attendance Statuses" — corrected colors: Late=yellow (was blue), Excused=blue (was yellow); added tip about excuse approval not overwriting Present/Late
+- Section 4 "Reports" — replaced vague bullet list with accurate Attendance Dashboard description (per-member rates, monthly trends, at-risk members, history)
+
+**Chapter Minutes guide (`officers/chapter_minutes.html`):**
+- "Two main tabs" → corrected to "three collapsible sections: Attendance, Meeting Minutes, Publish"
+- "Switch to the Attendance tab" → corrected to "Expand the Attendance section"
+- Added Save Draft vs Save Attendance vs Publish distinction callout
+- Added Section 4 "Markdown Formatting" with inline/block syntax reference grids
+
+**Announcements guide (`officers/announcements.html`):**
+- Added Section 2 "Linking Documents" — step-by-step instructions for the document picker
+- Added Section 3 "Polls & Surveys" — how to create a poll, three question types as colored cards, results description (bar charts, non-respondents, CSV export)
+- Renumbered remaining sections (Email Delivery → 4, Scheduling → 5, Targeting → 6, Engagement Stats → 7)
+
+**Files changed:** `templates/guide/officers/attendance.html`, `templates/guide/officers/chapter_minutes.html`, `templates/guide/officers/announcements.html`
+
+---
+
+#### Handoff Docs Surfaced In-App
+
+`docs/OFFICER_GUIDE.md` and `docs/HANDOFF_DEVELOPER.md` are now rendered as live pages inside the guide system. The markdown is rendered server-side with the `markdown` library (tables, fenced_code, toc extensions) and sanitized via `bleach`.
+
+**New:**
+- `guide_officer_handoff` view — renders `OFFICER_GUIDE.md`; linked from Officer Guides hub and General Help
+- `guide_developer_handoff` view — renders `HANDOFF_DEVELOPER.md`; officer-gated; linked from General Help only
+- `templates/guide/handoff.html` — shared template with breadcrumb, document header card, and table styles for handoff content
+- `_render_markdown_doc()` helper in `guide.py` with extended allowed tag set for tables
+
+**Changed:**
+- `guide/index.html` — General Help card links to both docs; developer link gated with officer check; Officer Guides grid gains an "Officer & Admin Guide" card and gated "Developer Handoff Guide" card
+- `guide/category_hub.html` (officer hub) — "Officer & Admin Guide" amber card added at the bottom
+
+**Files changed:** `src/view/guide.py`, `src/urls.py`, `templates/guide/handoff.html` (new), `templates/guide/index.html`, `templates/guide/category_hub.html`
+
+---
+
+#### Document Search Bar on Announcement Forms
+
+The "Attach Chapter Documents" accordion on both create and edit announcement forms was previously unsearchable. With many chapter documents, officers had to scroll through the full list to find what they wanted.
+
+**Changed:**
+- Search input added above the document list in both forms; filters by document title client-side on `oninput`
+- "No documents match your search." empty-state message
+- Search input cleared when the accordion is collapsed
+
+**Files changed:** `templates/officer/create_announcement.html`, `templates/officer/edit_announcement.html`
+
+---
+
+#### Inline Poll Builder on Create Announcement
+
+Previously a poll could only be added after an announcement was created, from the edit page. The poll builder is now available directly on the create announcement form as a collapsible "Add Poll / Survey (optional)" accordion.
+
+Poll fields (title, description, is_open, is_anonymous, closes_at) and a full dynamic question/option builder are submitted alongside the announcement in a single POST. A `_save_poll_from_post()` helper was extracted to handle poll creation from POST data, shared between create and the redirect flow.
+
+On successful creation (email or non-email path) the redirect now lands on the edit page rather than the manage list, so the poll is immediately visible and editable.
+
+**New:**
+- `_save_poll_from_post(post, announcement, user)` helper in `manage_announcements.py`
+- Poll accordion section in `create_announcement.html` with full JS question/option builder (`togglePoll`, `updatePollBadge`, `addPollQuestion`, `removePollQuestion`, `addPollOption`, `onPollTypeChange`)
+
+**Changed:**
+- `create_announcement` view — calls `_save_poll_from_post` after saving linked documents if `poll_title` is present in POST
+- Post-create redirect changed from `manage_announcements` to `edit_announcement` (both email and non-email paths)
+
+**Files changed:** `src/view/officer/manage_announcements.py`, `templates/officer/create_announcement.html`
+
+---
+
+#### "My Legislation" Renamed to "My Work" + Polls Tab + Vote Display Improvements
+
+The "My Legislation" page was renamed to "My Work" and expanded with a Polls tab showing all polls the user has created, plus improved vote result display for newer vote types.
+
+**Changed:**
+- Page title → "My Work"; subtitle updated; 4th stat card changed from "Active" to "Polls Created"
+- Tab bar added ("Legislation" | "Polls & Surveys") with localStorage persistence for active tab
+- Home page link labels updated in all three home templates (`home.html`, `home_modern.html`, `home_classic.html`)
+
+**New (Polls tab):**
+- Lists all polls created by the current user with: title, attached announcement, question count, response count, open/closed status, auto-close date
+- Status strip (green = open, gray = closed); links to View Results, Edit Poll, View Announcement
+
+**New (Legislation tab — vote display):**
+- Chair Appointment type: amber "Chair Appt." badge; structured Role / Nominee info line; "Assigned" green badge when role is formally assigned post-vote
+- Runoff votes: indigo "Runoff" badge; "Runoff from: [parent]" link; child runoff links shown under plurality results
+- Plurality multi-select: "X selections per voter" shown when `plurality_votes_allowed > 1`
+- Tie detection: "Tie — runoff may be required" shown when no winner and runoff is enabled
+- Anonymous ballot noted in meta line
+
+**Files changed:** `templates/legislation_history.html`, `src/view/view_legislation_history.py`, `templates/home.html`, `templates/home_modern.html`, `templates/home_classic.html`
+
+---
+
+#### Anonymous Poll Privacy Hardening
+
+Three gaps in the anonymous poll system closed: the `is_anonymous` flag could be reversed after being set, individual respondent/non-respondent information leaked via process-of-elimination on polls with few responses, and the results page gave no useful information when a closed poll never reached the threshold.
+
+**Changed:**
+
+*Lock `is_anonymous` once set:*
+- `announcement_poll_edit.html` — checkbox renders `disabled` with a grayed label and "(locked — cannot be removed once set)" note when editing an existing anonymous poll; hidden input carries the value so the form submits correctly
+- `create_or_edit_poll` view — server-side guard: if `is_edit and poll.is_anonymous`, `is_anonymous` is forced to `True` regardless of POST contents
+
+*Threshold-based respondent reveal (>2 votes):*
+- `poll_results` view — for anonymous polls, both the respondent list and non-respondent list are withheld until `respondent_count > 2`; once met, `anon_respondent_users` (names only, no answers) and `non_respondents` are passed to context
+- `announcement_poll_results.html` — purple notice card shown while below threshold (open: "X/3 so far"; closed with <3 votes: explains poll closed below threshold); above threshold: "Have Responded" section with purple name chips and "Individual answers are hidden" note; "Haven't Responded" unchanged
+
+*Closed poll below threshold — partial non-respondent list:*
+- When a closed anonymous poll has 1–2 responses, `floor(non_respondent_count / 2)` non-respondents are shown (enough for follow-up, not enough to identify voters by elimination)
+- Non-respondent section header labeled "(partial list — some withheld to protect anonymity)" in this case
+
+**Files changed:** `src/view/officer/announcement_polls.py`, `templates/officer/announcement_poll_edit.html`, `templates/officer/announcement_poll_results.html`
+
+---
+
+### v2.26.0 - Attendance System Overhaul (2026-05-31)
+
+A full-session audit and rework of the attendance and voting systems, fixing several silent bugs that caused data to not be saved, pre-check states to display incorrectly, and minutes publish to snapshot stale attendance.
+
+---
+
+#### Attendance Dashboard Rewrite
+
+Full visual rewrite of the officer attendance dashboard with better stats, color-coded trends, and at-risk highlighting.
+
+**Changed:**
+- Six stat cards (Rate, Events, Present, Late, Absent, Excused) with icons; Rate card color-coded green/yellow/red based on threshold
+- Monthly trend bars color-coded green (≥80%), yellow (60–79%), red (<60%) with a legend
+- At-risk section (hidden by default, revealed via JS when at-risk rows exist): lists members below threshold
+- Member table sorted worst-first using `{% for item in member_stats reversed %}` so lowest performers appear at the top
+- At-risk member rows get a red avatar tint; the section header/footer are stable HTML containers, not `forloop.first`/`forloop.last` (prior approach caused the wrapper to never render)
+- Print button added via `onclick="window.print()"`
+
+**Files changed:** `templates/officer/attendance_dashboard.html`
+
+---
+
+#### Voting: Allow Late Members to Vote
+
+Previously, vote eligibility required `status='present'`. Members marked late were locked out of voting even if physically present.
+
+**Changed:**
+- `vote_view.py` — eligibility check updated from `present=True` filter to `status__in=['present', 'late']`
+
+**Files changed:** `src/view/vote_view.py`
+
+---
+
+#### Vote Page: Quick Attendance Tab for Officers
+
+Attendance could only be taken from the attendance page or via minutes — not from the vote page itself. Officers had to navigate away mid-meeting to mark someone present. Added a third "Attendance" tab to the officer panel on the vote page.
+
+**New:**
+- Officer panel on vote page gains an "Attendance" tab with a live present-count badge
+- Per-member Present/Late/Absent toggle buttons; "All Present" and "Clear All" bulk actions; name search filter
+- AJAX `markAttendance()` posts to a new `mark_attendance_quick` action handler; optimistic UI updates buttons and avatar color on click
+- Shows current status for all members on load (not blank to start) — `members_attendance` and `attendance_present_count` added to context (officers only)
+- Records write as `attendance_type='committee', committee=None` (vote-context attendance, no linked event required)
+
+**Files changed:** `src/view/vote_view.py`, `templates/vote.html`
+
+---
+
+#### Minutes Attendance Sync Fix
+
+Taking attendance in the minutes editor and saving did not reliably update the `Attendance` model records used by the vote page and attendance dashboard.
+
+**Fixed:**
+- `save_minutes_attendance` in `chapter_minutes.py` — added `created_at: now` to event-linked `update_or_create` defaults; added `else` branch for minutes with no linked event to write `attendance_type='committee', committee=None` records (previously no records were written at all for event-less minutes)
+- Priority chain in `edit_chapter_minutes`: approved excuse now overrides a previously-saved `absent` status; chain is: approved-excuse-over-absent → saved status → event attendance map → approved excuse (any status) → pending
+
+**Files changed:** `src/view/officer/chapter_minutes.py`
+
+---
+
+#### Minutes Publish Bug Fix
+
+When the attendance panel was edited after the initial "Save Attendance" click, changes were tracked only in the in-memory JS array. Clicking "Publish" submitted the form without re-persisting, so the published PDF captured the old attendance snapshot.
+
+**Fixed:**
+- Extracted `_persistAttendance()` as a raw async fetch helper used by both the "Save Attendance" button and the new publish interceptor
+- `saveAttendance()` now delegates to `_persistAttendance()` internally
+- Removed `onclick="return confirm(...)"` from publish button; replaced with a form `submit` event listener that: (1) prevents default, (2) prompts for confirmation, (3) calls `_persistAttendance()`, then (4) calls `this.submit()` — attendance is always current at publish time
+- Publish button disabled and relabeled ("Saving attendance… → Publishing…") while async work runs; re-enabled with an alert on failure
+
+**Applies to:** Chapter minutes and committee minutes (both use `officer/chapter_minutes_editor.html`)
+
+**Files changed:** `templates/officer/chapter_minutes_editor.html`
+
+---
+
+#### Committee Minutes: Write Attendance Records
+
+The committee minutes save handler stored attendance in the `CommitteeMinutes` JSON field but never wrote `Attendance` model records. Committee attendance was invisible to any view that queried the `Attendance` table.
+
+**Fixed:**
+- `save_committee_minutes_attendance` now loops the attendance list after saving minutes and calls `Attendance.objects.update_or_create` for each non-pending member, writing `attendance_type='committee'` records against the correct committee
+
+**Files changed:** `src/view/committee/committee_minutes_editor.py`
+
+---
+
+#### Attendance View: Silent `present=True` Reset Bug
+
+The attendance toggle view set `present=True` or `present=False` in `update_or_create` defaults. Because `Attendance.save()` overrides `self.present` from `self.status`, and `status` defaulted to `'pending'`, the `present` flag was always silently reset to `False` after every toggle. Attendance appeared to save (HTTP 200) but no one was ever marked present in the DB.
+
+**Fixed:**
+- POST handler now sets `status='present'` / `status='absent'` directly in defaults instead of using the legacy `present` boolean
+- Added `marked_by` and `marked_at` to the written record
+- GET handler now queries `today_present_ids` (a set of `user_id` values for active-today attendance) and passes it to context
+- Template pre-check updated from `{% if user.attendance_set.last.present and ... %}` to `{% if user.user_id in today_present_ids %}` — eliminates stale `.last` lookups
+
+**Files changed:** `src/view/officer/attendance.py`, `templates/attendance.html`
+
+---
+
+#### Bug Fixes
+
+| Area | Fix |
+|------|-----|
+| `AttendanceExcuse.approve()` | Did not set `created_at` in `get_or_create` defaults — new records got `auto_now_add` timestamp, but `created_at` was ambiguous as a lookup/default field; now explicitly set to `now` |
+| `AttendanceExcuse.approve()` | Previous condition `if attendance.status != 'excused'` would overwrite `present` or `late` when an officer approved an excuse for a member who had actually attended; changed to `not in ('present', 'late', 'excused')` |
+| `submit_excuse.py` | Deadline-passed and finalized-attendance errors both showed a generic message; now shows distinct messages for each case |
+
+**Files changed:** `src/models/events.py`, `src/view/submit_excuse.py`
+
+---
+
 ## Changelog Format (v2.24+)
 
 Starting with v2.24.0, all changes are documented here. Version numbering:

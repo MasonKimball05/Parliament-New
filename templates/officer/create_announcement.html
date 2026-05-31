@@ -151,7 +151,12 @@
                 </button>
                 <div id="docs-panel" class="hidden border-t border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/10 px-4 py-3">
                     <p class="text-xs text-blue-700 dark:text-blue-400 mb-3">Select chapter documents to attach as links in this announcement.</p>
-                    <div class="space-y-2 max-h-64 overflow-y-auto">
+                    <div class="mb-2">
+                        <input type="text" id="docs-search" placeholder="Search documents…" oninput="filterDocs()"
+                               class="w-full text-sm rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 py-1.5 px-3">
+                    </div>
+                    <div id="docs-no-results" class="hidden text-xs text-gray-500 dark:text-gray-400 py-2">No documents match your search.</div>
+                    <div class="space-y-2 max-h-56 overflow-y-auto" id="docs-list">
                         {% for doc in chapter_docs %}
                         <label class="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer">
                             <input type="checkbox" name="linked_document_ids" value="{{ doc.id }}"
@@ -169,6 +174,70 @@
                 </div>
             </div>
             {% endif %}
+
+            <!-- Poll Builder (optional) -->
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                <button type="button" id="poll-toggle-btn" onclick="togglePoll()"
+                        class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <span class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        Add Poll / Survey <span class="font-normal text-gray-400 dark:text-gray-500">(optional)</span>
+                    </span>
+                    <span id="poll-badge" class="hidden px-1.5 py-0.5 text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-400 rounded-full"></span>
+                    <svg id="poll-chevron" class="w-4 h-4 text-gray-500 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div id="poll-panel" class="hidden border-t border-gray-200 dark:border-gray-700 bg-purple-50 dark:bg-purple-900/10 px-4 py-4 space-y-4">
+                    <p class="text-xs text-purple-700 dark:text-purple-400">Members will be able to respond to the poll directly from the announcement. Leave the title empty to skip creating a poll.</p>
+
+                    <!-- Poll metadata -->
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Poll Title</label>
+                            <input type="text" name="poll_title" id="poll-title-input" placeholder="e.g. What day works best for the event?" oninput="updatePollBadge()"
+                                   class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm shadow-sm focus:border-purple-500 focus:ring-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description / Instructions <span class="font-normal text-gray-400">(optional)</span></label>
+                            <textarea name="poll_description" rows="2" placeholder="Optional instructions shown above the questions"
+                                      class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm shadow-sm focus:border-purple-500 focus:ring-purple-500"></textarea>
+                        </div>
+                        <div class="flex flex-wrap gap-5">
+                            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                                <input type="checkbox" name="is_open" checked class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
+                                Open (accepting responses)
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                                <input type="checkbox" name="is_anonymous" class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
+                                Anonymous (hide who responded)
+                            </label>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Auto-close at <span class="font-normal text-gray-400">(optional)</span></label>
+                            <input type="datetime-local" name="closes_at"
+                                   class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm shadow-sm focus:border-purple-500 focus:ring-purple-500">
+                        </div>
+                    </div>
+
+                    <!-- Questions -->
+                    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Questions</span>
+                            <button type="button" onclick="addPollQuestion()"
+                                    class="px-3 py-1 rounded-md bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium transition flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                Add Question
+                            </button>
+                        </div>
+                        <div id="poll-questions-container" class="space-y-3">
+                            <p class="text-xs text-gray-500 dark:text-gray-400 text-center py-3" id="poll-no-questions-hint">No questions yet — click "Add Question" to start.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <!-- Include Inactive / Alumni Members -->
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
@@ -263,6 +332,10 @@ function toggleDocs() {
     const chevron = document.getElementById('docs-chevron');
     panel.classList.toggle('hidden');
     chevron.style.transform = panel.classList.contains('hidden') ? '' : 'rotate(180deg)';
+    if (panel.classList.contains('hidden')) {
+        const search = document.getElementById('docs-search');
+        if (search) { search.value = ''; filterDocs(); }
+    }
 }
 
 function updateDocsBadge() {
@@ -274,6 +347,20 @@ function updateDocsBadge() {
     } else {
         badge.classList.add('hidden');
     }
+}
+
+function filterDocs() {
+    const query = document.getElementById('docs-search').value.toLowerCase().trim();
+    const items = document.querySelectorAll('#docs-list label');
+    let visible = 0;
+    items.forEach(function(label) {
+        const title = label.querySelector('span.text-sm').textContent.toLowerCase();
+        const show = !query || title.includes(query);
+        label.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    const noResults = document.getElementById('docs-no-results');
+    noResults.classList.toggle('hidden', visible > 0 || items.length === 0);
 }
 
 function toggleInactive() {
@@ -293,6 +380,105 @@ function updateBadge() {
         badge.classList.add('hidden');
     }
 }
+
+// ── Poll builder ─────────────────────────────────────────────────────────────
+let pollQuestionCounter = 0;
+let pollOptionCounters = {};
+
+function togglePoll() {
+    const panel = document.getElementById('poll-panel');
+    const chevron = document.getElementById('poll-chevron');
+    panel.classList.toggle('hidden');
+    chevron.style.transform = panel.classList.contains('hidden') ? '' : 'rotate(180deg)';
+}
+
+function updatePollBadge() {
+    const title = document.getElementById('poll-title-input').value.trim();
+    const badge = document.getElementById('poll-badge');
+    if (title) {
+        const qCount = document.querySelectorAll('#poll-questions-container .question-block').length;
+        badge.textContent = qCount > 0 ? qCount + ' Q' : 'Poll';
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+}
+
+function addPollQuestion() {
+    const hint = document.getElementById('poll-no-questions-hint');
+    if (hint) hint.remove();
+
+    const idx = pollQuestionCounter++;
+    const container = document.getElementById('poll-questions-container');
+    const block = document.createElement('div');
+    block.className = 'question-block border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3';
+    block.dataset.idx = idx;
+    block.innerHTML = `
+        <div class="flex items-start gap-3">
+            <div class="flex-1 space-y-2">
+                <input type="text" name="question_text_${idx}" placeholder="Question text"
+                       class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm shadow-sm focus:border-purple-500 focus:ring-purple-500">
+                <div class="flex flex-wrap gap-4 items-center">
+                    <select name="question_type_${idx}" onchange="onPollTypeChange(this)"
+                            class="rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm shadow-sm focus:border-purple-500 focus:ring-purple-500">
+                        <option value="single">Single Choice</option>
+                        <option value="multiple">Multiple Choice</option>
+                        <option value="text">Text Response</option>
+                    </select>
+                    <label class="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                        <input type="checkbox" name="question_required_${idx}" checked
+                               class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
+                        Required
+                    </label>
+                </div>
+            </div>
+            <button type="button" onclick="removePollQuestion(this)" class="text-red-400 hover:text-red-600 transition mt-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="options-container space-y-2 pl-2">
+            <button type="button" onclick="addPollOption(this, ${idx})"
+                    class="text-sm text-purple-600 dark:text-purple-400 hover:underline">+ Add option</button>
+        </div>
+    `;
+    container.appendChild(block);
+    updatePollBadge();
+}
+
+function removePollQuestion(btn) {
+    btn.closest('.question-block').remove();
+    if (document.querySelectorAll('#poll-questions-container .question-block').length === 0) {
+        const container = document.getElementById('poll-questions-container');
+        const hint = document.createElement('p');
+        hint.id = 'poll-no-questions-hint';
+        hint.className = 'text-xs text-gray-500 dark:text-gray-400 text-center py-3';
+        hint.textContent = 'No questions yet — click "Add Question" to start.';
+        container.appendChild(hint);
+    }
+    updatePollBadge();
+}
+
+function addPollOption(btn, qIdx) {
+    if (!pollOptionCounters[qIdx]) pollOptionCounters[qIdx] = 0;
+    const oIdx = pollOptionCounters[qIdx]++;
+    const row = document.createElement('div');
+    row.className = 'option-row flex items-center gap-2';
+    row.innerHTML = `
+        <input type="text" name="option_text_${qIdx}_${oIdx}" placeholder="Option text"
+               class="flex-1 rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm shadow-sm focus:border-purple-500 focus:ring-purple-500">
+        <button type="button" onclick="this.closest('.option-row').remove()" class="text-red-400 hover:text-red-600 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+    `;
+    btn.before(row);
+}
+
+function onPollTypeChange(select) {
+    const block = select.closest('.question-block');
+    const optContainer = block.querySelector('.options-container');
+    optContainer.classList.toggle('hidden', select.value === 'text');
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Prevent double form submission
 document.querySelector('form').addEventListener('submit', function(e) {

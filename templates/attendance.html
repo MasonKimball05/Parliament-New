@@ -172,7 +172,7 @@
                   <div class="flex items-center justify-center">
                     <label class="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" name="present" value="{{ user.user_id }}"
-                        {% if user.attendance_set.last.present and user.attendance_set.last.date == today %}checked{% endif %}
+                        {% if user.user_id in today_present_ids %}checked{% endif %}
                         class="attendance-checkbox sr-only peer" onchange="updateCounts(); toggleRowHighlight(this)">
                       <!-- Toggle Switch Background -->
                       <div class="relative w-16 h-8 bg-red-500 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full transition-all duration-300 peer-checked:bg-green-500 shadow-inner">
@@ -234,7 +234,7 @@
                 <div class="flex items-center gap-2 mt-3">
                   <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" name="present" value="{{ user.user_id }}"
-                      {% if user.attendance_set.last.present and user.attendance_set.last.date == today %}checked{% endif %}
+                      {% if user.user_id in today_present_ids %}checked{% endif %}
                       class="attendance-checkbox sr-only peer" onchange="updateCounts(); toggleRowHighlight(this)">
                     <!-- Toggle Switch Background -->
                     <div class="relative w-16 h-8 bg-red-500 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full transition-all duration-300 peer-checked:bg-green-500 shadow-inner">

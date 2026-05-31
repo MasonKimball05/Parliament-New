@@ -46,10 +46,17 @@
                            class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500">
                     Open (accepting responses)
                 </label>
-                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                <label class="flex items-center gap-2 text-sm {% if is_edit and poll.is_anonymous %}text-gray-400 dark:text-gray-500 cursor-not-allowed{% else %}text-gray-700 dark:text-gray-300 cursor-pointer{% endif %}">
                     <input type="checkbox" name="is_anonymous" {% if poll.is_anonymous %}checked{% endif %}
-                           class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500">
+                           {% if is_edit and poll.is_anonymous %}disabled{% endif %}
+                           class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 {% if is_edit and poll.is_anonymous %}opacity-50 cursor-not-allowed{% endif %}">
+                    {% if is_edit and poll.is_anonymous %}
+                    <input type="hidden" name="is_anonymous" value="on">
+                    {% endif %}
                     Anonymous (hide individual responses in results)
+                    {% if is_edit and poll.is_anonymous %}
+                    <span class="ml-1 text-xs text-gray-400 dark:text-gray-500">(locked — cannot be removed once set)</span>
+                    {% endif %}
                 </label>
             </div>
 

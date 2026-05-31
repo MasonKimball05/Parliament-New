@@ -10,6 +10,7 @@ from src.models import (
     PassedResolution, SlatingPeriod, KaiReport
 )
 from django.utils import timezone
+from src.feature_flag_decorators import require_feature_flag
 
 
 # Define all searchable pages with keywords
@@ -106,6 +107,7 @@ def search_pages(query, user):
 
 
 @login_required
+@require_feature_flag('global_search')
 def global_search(request):
     """
     Search across all content types in Parliament system

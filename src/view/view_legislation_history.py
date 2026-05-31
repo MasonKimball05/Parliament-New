@@ -119,8 +119,16 @@ def view_legislation_history(request):
             'detail_url': reverse('legislation_detail', args=[leg.id]),
         })
 
+    my_polls = list(
+        AnnouncementPoll.objects.filter(created_by=user)
+        .select_related('announcement')
+        .prefetch_related('questions', 'responses')
+        .order_by('-created_at')
+    )
+
     return render(request, 'legislation_history.html', {
         'legislation_history': legislation_history,
         'status_filter': status_filter,
         'status_counts': status_counts,
+        'my_polls': my_polls,
     })

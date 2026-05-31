@@ -10,7 +10,7 @@ from django.core.cache import cache
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.conf import settings
-from src.models import Announcement, UserAnnouncementView, ParliamentUser, AnnouncementEmailLog, AnnouncementEmailRecipient, CommitteeDocument
+from src.models import Announcement, UserAnnouncementView, ParliamentUser, AnnouncementEmailLog, AnnouncementEmailRecipient, CommitteeDocument, AnnouncementPoll, AnnouncementPollQuestion, AnnouncementPollOption
 from src.forms import AnnouncementForm
 from src.decorators import log_function_call, officer_required
 from src.notifications import send_announcement_notification, get_site_url
@@ -39,6 +39,58 @@ def manage_announcements(request):
         'page_obj': page_obj,
         'total_count': paginator.count,
     })
+
+def _save_poll_from_post(post, announcement, user):
+    """
+    Create or update a poll from form POST data.
+    Called from create_announcement when poll fields are submitted alongside the
+    announcement form. Uses the same field names as create_or_edit_poll so the
+    template JS is reusable.
+    """
+    from django.utils.dateparse import parse_datetime
+
+    title = post.get('poll_title', '').strip()
+    if not title:
+        return
+
+    poll, _ = AnnouncementPoll.objects.get_or_create(
+        announcement=announcement,
+        defaults={'created_by': user},
+    )
+    poll.title = title
+    poll.description = post.get('poll_description', '').strip()
+    poll.is_anonymous = post.get('is_anonymous') == 'on'
+    poll.is_open = post.get('is_open') == 'on'
+    closes_at_raw = post.get('closes_at', '').strip()
+    poll.closes_at = parse_datetime(closes_at_raw) if closes_at_raw else None
+    poll.save()
+
+    question_indices = sorted(
+        set(k.split('_')[-1] for k in post if k.startswith('question_text_')),
+        key=lambda x: int(x) if x.isdigit() else 0,
+    )
+    for order, idx in enumerate(question_indices):
+        text = post.get(f'question_text_{idx}', '').strip()
+        if not text:
+            continue
+        q_type = post.get(f'question_type_{idx}', 'single')
+        is_required = post.get(f'question_required_{idx}') == 'on'
+        question = AnnouncementPollQuestion.objects.create(
+            poll=poll, text=text, question_type=q_type,
+            is_required=is_required, order=order,
+        )
+        if q_type in ('single', 'multiple'):
+            opt_indices = sorted(
+                set(k.split('_')[-1] for k in post if k.startswith(f'option_text_{idx}_')),
+                key=lambda x: int(x) if x.isdigit() else 0,
+            )
+            for opt_order, opt_idx in enumerate(opt_indices):
+                opt_text = post.get(f'option_text_{idx}_{opt_idx}', '').strip()
+                if opt_text:
+                    AnnouncementPollOption.objects.create(
+                        question=question, text=opt_text, order=opt_order,
+                    )
+
 
 @login_required
 @officer_required
@@ -85,6 +137,10 @@ def create_announcement(request):
             # announcements page) with UserAnnouncementView tracking. This saves
             # significant database space (~1 row per member per announcement).
 
+            # Create poll if poll fields were submitted
+            if request.POST.get('poll_title', '').strip():
+                _save_poll_from_post(request.POST, announcement, request.user)
+
             # If send_email is checked and announcement is published, redirect to confirmation
             if announcement.is_published() and send_email:
                 url = f"{redirect('confirm_announcement_email', announcement_id=announcement.id).url}"
@@ -92,13 +148,13 @@ def create_announcement(request):
                     url += f"?extra_user_ids={extra_ids_str}"
                 return redirect(url)
             elif announcement.is_published():
-                messages.success(request, 'Announcement created successfully!')
+                messages.success(request, 'Announcement created!')
             elif send_email:
                 messages.success(request, 'Announcement scheduled! Emails will be sent automatically when published.')
             else:
                 messages.success(request, 'Announcement created and scheduled for publication!')
 
-            return redirect('manage_announcements')
+            return redirect('edit_announcement', announcement_id=announcement.id)
     else:
         form = AnnouncementForm(initial={'is_active': True})
 
@@ -355,7 +411,7 @@ def send_announcement_emails(request, announcement_id):
             # Clear warmup cache
             cache.delete(cache_key)
 
-            messages.success(request, f'Announcement created and {sent_count} email notifications sent!')
+            messages.success(request, f'Announcement created and {sent_count} email notifications sent! You can add a poll below.')
 
         except Exception as e:
             logger.error(f"[SEND] Failed using warmup data: {e}", exc_info=True)
@@ -363,7 +419,7 @@ def send_announcement_emails(request, announcement_id):
             # Fall back to regular send
             try:
                 sent_count = send_announcement_notification(announcement, initiated_by=request.user)
-                messages.success(request, f'Announcement created and {sent_count} email notifications sent!')
+                messages.success(request, f'Announcement created and {sent_count} email notifications sent! You can add a poll below.')
             except Exception as e2:
                 messages.warning(request, f'Announcement created but email notifications failed: {str(e2)}')
     else:
@@ -371,11 +427,11 @@ def send_announcement_emails(request, announcement_id):
         logger.info(f"[SEND] No warmup data, using regular send for announcement {announcement_id}")
         try:
             sent_count = send_announcement_notification(announcement, initiated_by=request.user)
-            messages.success(request, f'Announcement created and {sent_count} email notifications sent!')
+            messages.success(request, f'Announcement created and {sent_count} email notifications sent! You can add a poll below.')
         except Exception as e:
             messages.warning(request, f'Announcement created but email notifications failed: {str(e)}')
 
-    return redirect('manage_announcements')
+    return redirect('edit_announcement', announcement_id=announcement_id)
 
 
 @login_required

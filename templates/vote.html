@@ -35,6 +35,13 @@
                     class="leg-tab px-5 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 -mb-px transition-colors">
                 Chair Appointment
             </button>
+            <button type="button" id="tab-attendance" onclick="switchLegislationTab('attendance')"
+                    class="leg-tab px-5 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 -mb-px transition-colors flex items-center gap-2">
+                Attendance
+                {% if attendance_present_count > 0 %}
+                <span class="px-1.5 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs font-semibold rounded-full">{{ attendance_present_count }}</span>
+                {% endif %}
+            </button>
         </div>
 
         <div class="p-5">
@@ -354,6 +361,79 @@
             </div>
         </form>
         </div><!-- end #panel-appointment -->
+
+        <!-- ── Attendance Panel ── -->
+        <div id="panel-attendance" class="hidden">
+        {% if members_attendance %}
+        <div class="space-y-3">
+            <div class="flex items-center justify-between">
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    <span id="att-present-count" class="font-semibold text-green-600 dark:text-green-400">{{ attendance_present_count }}</span>
+                    / {{ members_attendance|length }} present
+                </p>
+                <div class="flex gap-2">
+                    <button type="button" onclick="markAllAttendance('present')"
+                            class="px-3 py-1 text-xs font-medium bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-800/60 transition">
+                        All Present
+                    </button>
+                    <button type="button" onclick="markAllAttendance('absent')"
+                            class="px-3 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition">
+                        Clear All
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search -->
+            <input type="text" id="att-search" placeholder="Search members…" oninput="filterAttendance(this.value)"
+                   class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+
+            <!-- Member list -->
+            <div class="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg" id="att-member-list">
+                {% for item in members_attendance %}
+                <div class="att-member-row flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                     data-name="{{ item.member.name|lower }}"
+                     data-user-id="{{ item.member.user_id }}"
+                     data-status="{{ item.status }}">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold
+                            {% if item.status == 'present' %}bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300
+                            {% elif item.status == 'late' %}bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300
+                            {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400{% endif %}"
+                            id="att-avatar-{{ item.member.user_id }}">
+                            {{ item.member.name|slice:":1"|upper }}
+                        </div>
+                        <span class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ item.member.get_display_name }}</span>
+                    </div>
+                    <div class="flex items-center gap-1 flex-shrink-0 ml-3">
+                        <button type="button"
+                                onclick="markAttendance('{{ item.member.user_id }}', 'present', this)"
+                                class="att-btn px-2 py-1 text-xs rounded font-medium transition
+                                    {% if item.status == 'present' %}bg-green-500 text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-green-100 dark:hover:bg-green-900/40 hover:text-green-700 dark:hover:text-green-300{% endif %}"
+                                data-status-btn="present">
+                            Present
+                        </button>
+                        <button type="button"
+                                onclick="markAttendance('{{ item.member.user_id }}', 'late', this)"
+                                class="att-btn px-2 py-1 text-xs rounded font-medium transition
+                                    {% if item.status == 'late' %}bg-yellow-500 text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 hover:text-yellow-700 dark:hover:text-yellow-300{% endif %}"
+                                data-status-btn="late">
+                            Late
+                        </button>
+                        <button type="button"
+                                onclick="markAttendance('{{ item.member.user_id }}', 'absent', this)"
+                                class="att-btn px-2 py-1 text-xs rounded font-medium transition
+                                    {% if item.status == 'absent' %}bg-red-500 text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 dark:hover:text-red-400{% endif %}"
+                                data-status-btn="absent">
+                            Absent
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <p class="text-xs text-gray-400 dark:text-gray-500">Changes take effect immediately. Members marked present or late can vote.</p>
+        </div>
+        {% endif %}
+        </div><!-- end #panel-attendance -->
 
         </div><!-- end .p-5 -->
     </div>
@@ -718,12 +798,14 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
-    // ── Tab toggle (Upload / Appointment) ──
+    // ── Tab toggle (Upload / Appointment / Attendance) ──
     function switchLegislationTab(tab) {
-        const tabs = ['legislation', 'appointment'];
+        const tabs = ['legislation', 'appointment', 'attendance'];
         tabs.forEach(t => {
-            document.getElementById('panel-' + t).classList.toggle('hidden', t !== tab);
+            const panel = document.getElementById('panel-' + t);
+            if (panel) panel.classList.toggle('hidden', t !== tab);
             const btn = document.getElementById('tab-' + t);
+            if (!btn) return;
             if (t === tab) {
                 btn.classList.add('border-blue-500', 'text-blue-600', 'dark:text-blue-400', 'bg-white', 'dark:bg-gray-800');
                 btn.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
@@ -731,6 +813,76 @@
                 btn.classList.remove('border-blue-500', 'text-blue-600', 'dark:text-blue-400', 'bg-white', 'dark:bg-gray-800');
                 btn.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400');
             }
+        });
+    }
+
+    // ── Quick Attendance ──
+    const _csrfToken = () => document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+    const ATT_AVATAR_CLASSES = {
+        present: ['bg-green-100', 'text-green-700'],
+        late:    ['bg-yellow-100', 'text-yellow-700'],
+        absent:  ['bg-gray-100', 'text-gray-500'],
+    };
+    const ATT_BTN_ACTIVE = {
+        present: ['bg-green-500', 'text-white'],
+        late:    ['bg-yellow-500', 'text-white'],
+        absent:  ['bg-red-500', 'text-white'],
+    };
+    const ATT_BTN_INACTIVE = ['bg-gray-100', 'text-gray-500'];
+    const ALL_ATT_AVATAR = Object.values(ATT_AVATAR_CLASSES).flat();
+    const ALL_ATT_BTN    = [...Object.values(ATT_BTN_ACTIVE).flat(), ...ATT_BTN_INACTIVE];
+
+    async function markAttendance(userId, status, btnEl) {
+        const row = btnEl.closest('.att-member-row');
+        if (row.dataset.status === status) return;
+
+        // Optimistic UI update
+        row.dataset.status = status;
+        const avatar = document.getElementById('att-avatar-' + userId);
+        if (avatar) {
+            avatar.classList.remove(...ALL_ATT_AVATAR);
+            avatar.classList.add(...(ATT_AVATAR_CLASSES[status] || ATT_AVATAR_CLASSES.absent));
+        }
+        row.querySelectorAll('.att-btn').forEach(btn => {
+            btn.classList.remove(...ALL_ATT_BTN);
+            btn.classList.add(...(btn.dataset.statusBtn === status ? ATT_BTN_ACTIVE[status] : ATT_BTN_INACTIVE));
+        });
+        _updatePresentCount();
+
+        // Fire-and-forget POST
+        const fd = new FormData();
+        fd.append('csrfmiddlewaretoken', _csrfToken());
+        fd.append('action', 'mark_attendance_quick');
+        fd.append('target_user_id', userId);
+        fd.append('attendance_status', status);
+        try {
+            await fetch(window.location.href, { method: 'POST', body: fd });
+        } catch (e) { /* silent */ }
+    }
+
+    function _updatePresentCount() {
+        const count = Array.from(document.querySelectorAll('.att-member-row'))
+            .filter(r => r.dataset.status === 'present' || r.dataset.status === 'late').length;
+        const el = document.getElementById('att-present-count');
+        if (el) el.textContent = count;
+        const badge = document.querySelector('#tab-attendance .rounded-full');
+        if (badge) { badge.textContent = count; badge.classList.toggle('hidden', count === 0); }
+    }
+
+    function markAllAttendance(status) {
+        document.querySelectorAll('.att-member-row').forEach(row => {
+            if (row.dataset.status !== status) {
+                const btn = row.querySelector('[data-status-btn="' + status + '"]');
+                if (btn) markAttendance(row.dataset.userId, status, btn);
+            }
+        });
+    }
+
+    function filterAttendance(query) {
+        const q = query.toLowerCase();
+        document.querySelectorAll('.att-member-row').forEach(row => {
+            row.style.display = row.dataset.name.includes(q) ? '' : 'none';
         });
     }
 

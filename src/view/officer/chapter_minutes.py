@@ -5,6 +5,7 @@ with attendance tracking and embedded motion/vote recording.
 """
 import io
 import json
+import re
 from datetime import date
 from zoneinfo import ZoneInfo
 
@@ -210,12 +211,21 @@ def edit_chapter_minutes(request, minutes_id):
     member_list = []
     for member in members:
         uid = str(member.user_id)
-        # Determine status: saved minutes data > event attendance > excuse-based > pending
-        if uid in attendance_map:
-            status = attendance_map[uid]
+        # Determine status priority:
+        # 1. Approved excuse overrides a saved 'absent' (excuse was approved after attendance saved)
+        # 2. Otherwise: saved minutes data wins
+        # 3. Fall back to event attendance record, then pending
+        saved_status = attendance_map.get(uid)
+        has_approved_excuse = uid in excuse_map and excuse_map[uid]['status'] == 'approved'
+
+        if has_approved_excuse and saved_status == 'absent':
+            # Excuse was approved after the officer marked absent — reflect the excuse
+            status = 'excused'
+        elif saved_status:
+            status = saved_status
         elif uid in event_attendance_map:
             status = event_attendance_map[uid]
-        elif uid in excuse_map and excuse_map[uid]['status'] == 'approved':
+        elif has_approved_excuse:
             status = 'excused'
         else:
             status = 'pending'
@@ -378,8 +388,12 @@ def save_minutes_attendance(request, minutes_id):
     minutes.attendance_taken = True
     minutes.save()
 
-    # If linked to an event, sync attendance records and excuse statuses
+    # Sync Attendance records so vote eligibility (3-hour window) is always current
+    now = timezone.now()
+    today = now.date()
+
     if minutes.event:
+        # Linked to an event — write event-type attendance records
         # Build a map of pending/approved excuses for this event
         excuses_by_user = {}
         for excuse in AttendanceExcuse.objects.filter(event=minutes.event).select_related('user'):
@@ -398,14 +412,16 @@ def save_minutes_attendance(request, minutes_id):
                 continue
 
             # Sync attendance record to the event
+            # created_at is refreshed so the vote eligibility 3-hour window sees it
             Attendance.objects.update_or_create(
                 event=minutes.event,
                 user=user,
                 attendance_type='event',
                 defaults={
                     'status': status,
+                    'created_at': now,
                     'marked_by': request.user,
-                    'marked_at': timezone.now(),
+                    'marked_at': now,
                     'notes': f'Marked via chapter minutes: {minutes.title}',
                 }
             )
@@ -417,9 +433,38 @@ def save_minutes_attendance(request, minutes_id):
                 if excuse.status == 'pending':
                     excuse.status = 'approved'
                     excuse.reviewed_by = request.user
-                    excuse.reviewed_at = timezone.now()
+                    excuse.reviewed_at = now
                     excuse.review_notes = f'Approved via chapter minutes: {minutes.title}'
                     excuse.save()
+
+    else:
+        # No linked event — write standalone committee attendance records
+        # so vote eligibility still works during unlinked meetings
+        for entry in attendance_list:
+            user_id = entry.get('user_id')
+            status = entry.get('status', 'pending')
+
+            if status == 'pending':
+                continue
+
+            try:
+                member = ParliamentUser.objects.get(user_id=user_id)
+            except ParliamentUser.DoesNotExist:
+                continue
+
+            Attendance.objects.update_or_create(
+                user=member,
+                date=today,
+                attendance_type='committee',
+                committee=None,
+                defaults={
+                    'status': status,
+                    'created_at': now,
+                    'marked_by': request.user,
+                    'marked_at': now,
+                    'notes': f'Marked via chapter minutes: {minutes.title}',
+                }
+            )
 
     ActivityLog.log_activity(
         action_type='attendance_taken',
@@ -506,7 +551,7 @@ def generate_minutes_pdf_buffer(minutes):
     from reportlab.lib.enums import TA_LEFT, TA_CENTER
     from reportlab.platypus import (
         SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-        HRFlowable, KeepTogether, Indenter
+        HRFlowable, KeepTogether, Indenter, ListFlowable, ListItem, Preformatted
     )
 
     # Build the PDF in memory
@@ -587,6 +632,216 @@ def generate_minutes_pdf_buffer(minutes):
         fontSize=9,
         leading=11,
     )
+
+    # Markdown-specific styles (used for formatted text blocks in the minutes body)
+    style_md_h1 = ParagraphStyle(
+        'MdH1',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=13,
+        leading=17,
+        spaceBefore=10,
+        spaceAfter=4,
+        textColor=HexColor('#111827'),
+    )
+    style_md_h2 = ParagraphStyle(
+        'MdH2',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=11,
+        leading=15,
+        spaceBefore=8,
+        spaceAfter=3,
+        textColor=HexColor('#374151'),
+    )
+    style_md_h3 = ParagraphStyle(
+        'MdH3',
+        parent=styles['Normal'],
+        fontName='Helvetica-BoldOblique',
+        fontSize=10,
+        leading=14,
+        spaceBefore=6,
+        spaceAfter=2,
+        textColor=HexColor('#4b5563'),
+    )
+    style_md_blockquote = ParagraphStyle(
+        'MdBlockquote',
+        parent=styles['Normal'],
+        fontSize=10,
+        leading=14,
+        leftIndent=20,
+        spaceAfter=6,
+        textColor=HexColor('#6b7280'),
+    )
+    style_md_code_block = ParagraphStyle(
+        'MdCodeBlock',
+        parent=styles['Code'],
+        fontName='Courier',
+        fontSize=9,
+        leading=12,
+        leftIndent=12,
+        rightIndent=12,
+        spaceBefore=4,
+        spaceAfter=4,
+    )
+
+    # ---- Inline Markdown + Markdown-to-flowables helpers ----
+
+    def _esc(text):
+        """Escape XML special characters in plain text."""
+        return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+    def _inline_md(text):
+        """
+        Convert inline Markdown syntax to ReportLab XML tags.
+        Call AFTER _esc() so user-typed < > & are already safe.
+        Supports: ***bold-italic***, **bold**, *italic*, ~~strike~~, `code`
+        """
+        # Bold + italic must be checked before bold/italic individually
+        text = re.sub(r'\*{3}(.+?)\*{3}', r'<b><i>\1</i></b>', text)
+        text = re.sub(r'\*{2}(.+?)\*{2}', r'<b>\1</b>', text)
+        text = re.sub(r'\*(.+?)\*', r'<i>\1</i>', text)
+        # __bold__ and _italic_ variants
+        text = re.sub(r'_{2}(.+?)_{2}', r'<b>\1</b>', text)
+        text = re.sub(r'_([^_]+?)_', r'<i>\1</i>', text)
+        # Strikethrough
+        text = re.sub(r'~~(.+?)~~', r'<strike>\1</strike>', text)
+        # Inline code
+        text = re.sub(r'`([^`]+)`', lambda m: '<font name="Courier">' + m.group(1) + '</font>', text)
+        return text
+
+    def _render_markdown(text, target_list):
+        """
+        Parse a plain-text block as Markdown and append ReportLab flowables
+        to target_list.
+
+        Supported block elements:
+          # H1  ## H2  ### H3
+          - / * / + unordered list
+          1. ordered list
+          > blockquote
+          ``` fenced code block
+          --- / *** / ___ horizontal rule
+          blank line (paragraph break)
+
+        Supported inline elements:
+          **bold**  *italic*  ***bold-italic***
+          __bold__  _italic_
+          ~~strikethrough~~  `inline code`
+        """
+        lines = text.split('\n')
+        i = 0
+        pending = []  # accumulate consecutive plain-text lines into one paragraph
+
+        def flush_pending():
+            if not pending:
+                return
+            combined = '<br/>'.join(_inline_md(_esc(ln)) for ln in pending)
+            target_list.append(Paragraph(combined, style_body))
+            pending.clear()
+
+        while i < len(lines):
+            line = lines[i]
+
+            # — Blank line → paragraph break
+            if line.strip() == '':
+                flush_pending()
+                i += 1
+                continue
+
+            # — Horizontal rule: three or more -, *, or _ on their own line
+            if re.match(r'^[-*_]{3,}\s*$', line.strip()):
+                flush_pending()
+                target_list.append(HRFlowable(width='100%', thickness=0.5, color=HexColor('#9ca3af')))
+                target_list.append(Spacer(1, 4))
+                i += 1
+                continue
+
+            # — ATX headings: #, ##, ###
+            h_match = re.match(r'^(#{1,3})\s+(.*)', line)
+            if h_match:
+                flush_pending()
+                level = len(h_match.group(1))
+                content = _inline_md(_esc(h_match.group(2).strip()))
+                style = {1: style_md_h1, 2: style_md_h2, 3: style_md_h3}[level]
+                target_list.append(Paragraph(content, style))
+                i += 1
+                continue
+
+            # — Fenced code block: ```
+            if line.strip().startswith('```'):
+                flush_pending()
+                i += 1
+                code_lines = []
+                while i < len(lines) and not lines[i].strip().startswith('```'):
+                    code_lines.append(_esc(lines[i]))
+                    i += 1
+                i += 1  # skip closing ```
+                if code_lines:
+                    target_list.append(Preformatted('\n'.join(
+                        ln.replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>') for ln in code_lines
+                    ), style_md_code_block))
+                continue
+
+            # — Blockquote: lines starting with >
+            if line.startswith('>'):
+                flush_pending()
+                quote_lines = []
+                while i < len(lines) and lines[i].startswith('>'):
+                    stripped = lines[i][1:].lstrip(' ')
+                    quote_lines.append(stripped)
+                    i += 1
+                combined = '<br/>'.join(_inline_md(_esc(ln)) for ln in quote_lines)
+                target_list.append(Paragraph(combined, style_md_blockquote))
+                continue
+
+            # — Unordered list: -, *, or + followed by a space
+            if re.match(r'^[-*+]\s', line):
+                flush_pending()
+                items = []
+                while i < len(lines):
+                    m = re.match(r'^[-*+]\s+(.*)', lines[i])
+                    if m:
+                        items.append(m.group(1))
+                        i += 1
+                    else:
+                        break
+                list_items = [
+                    ListItem(Paragraph(_inline_md(_esc(it)), style_body), leftIndent=10)
+                    for it in items
+                ]
+                target_list.append(ListFlowable(
+                    list_items, bulletType='bullet', leftIndent=16, bulletFontSize=8,
+                    spaceBefore=2, spaceAfter=4,
+                ))
+                continue
+
+            # — Ordered list: digit(s) followed by . and a space
+            if re.match(r'^\d+\.\s', line):
+                flush_pending()
+                items = []
+                while i < len(lines):
+                    m = re.match(r'^\d+\.\s+(.*)', lines[i])
+                    if m:
+                        items.append(m.group(1))
+                        i += 1
+                    else:
+                        break
+                list_items = [
+                    ListItem(Paragraph(_inline_md(_esc(it)), style_body), leftIndent=10)
+                    for it in items
+                ]
+                target_list.append(ListFlowable(
+                    list_items, bulletType='1', leftIndent=16, bulletFontSize=8,
+                    spaceBefore=2, spaceAfter=4,
+                ))
+                continue
+
+            # — Plain text line: accumulate
+            pending.append(line)
+            i += 1
+
+        flush_pending()
 
     elements = []
 
@@ -697,11 +952,7 @@ def generate_minutes_pdf_buffer(minutes):
         if section.section_type == 'text':
             text = section.content.strip()
             if text:
-                paragraphs = text.split('\n\n')
-                for para in paragraphs:
-                    safe_para = para.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-                    safe_para = safe_para.replace('\n', '<br/>')
-                    target_list.append(Paragraph(safe_para, style_body))
+                _render_markdown(text, target_list)
 
         elif section.section_type == 'motion' and hasattr(section, 'motion'):
             m = section.motion

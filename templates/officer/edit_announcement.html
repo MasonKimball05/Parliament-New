@@ -134,7 +134,12 @@
                 </button>
                 <div id="docs-panel" class="{% if not linked_doc_ids %}hidden{% endif %} border-t border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/10 px-4 py-3">
                     <p class="text-xs text-blue-700 dark:text-blue-400 mb-3">Select chapter documents to attach as links in this announcement.</p>
-                    <div class="space-y-2 max-h-64 overflow-y-auto">
+                    <div class="mb-2">
+                        <input type="text" id="docs-search" placeholder="Search documents…" oninput="filterDocs()"
+                               class="w-full text-sm rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 py-1.5 px-3">
+                    </div>
+                    <div id="docs-no-results" class="hidden text-xs text-gray-500 dark:text-gray-400 py-2">No documents match your search.</div>
+                    <div class="space-y-2 max-h-56 overflow-y-auto" id="docs-list">
                         {% for doc in chapter_docs %}
                         <label class="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer">
                             <input type="checkbox" name="linked_document_ids" value="{{ doc.id }}"
@@ -174,6 +179,56 @@
                 </button>
             </div>
         </form>
+    </div>
+
+    <!-- Poll Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md mt-6 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div class="flex items-center">
+                <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-lg flex items-center justify-center mr-3">
+                    <svg class="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Poll / Survey</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Attach a poll that members answer from the announcement</p>
+                </div>
+            </div>
+            {% if announcement.poll %}
+            <div class="flex items-center gap-2">
+                <a href="{% url 'create_or_edit_poll' announcement.id %}" class="px-3 py-1.5 text-sm border border-purple-400 dark:border-purple-500 text-purple-600 dark:text-purple-400 rounded-md hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors">
+                    Edit Poll
+                </a>
+                <a href="{% url 'poll_results' announcement.id %}" class="px-3 py-1.5 text-sm bg-purple-600 dark:bg-purple-500 text-white rounded-md hover:bg-purple-700 dark:hover:bg-purple-600 transition-colors">
+                    View Results
+                </a>
+            </div>
+            {% else %}
+            <a href="{% url 'create_or_edit_poll' announcement.id %}" class="px-3 py-1.5 text-sm bg-purple-600 dark:bg-purple-500 text-white rounded-md hover:bg-purple-700 dark:hover:bg-purple-600 transition-colors flex items-center">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Add Poll
+            </a>
+            {% endif %}
+        </div>
+        {% if announcement.poll %}
+        <div class="px-6 py-4">
+            <div class="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                <span><strong class="text-gray-900 dark:text-gray-100">{{ announcement.poll.questions.count }}</strong> question{{ announcement.poll.questions.count|pluralize }}</span>
+                <span class="text-gray-300 dark:text-gray-600">|</span>
+                {% if announcement.poll.is_anonymous %}<span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">Anonymous</span>{% endif %}
+                {% if announcement.poll.is_open %}<span class="px-2 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded text-xs">Open</span>
+                {% else %}<span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded text-xs">Closed</span>{% endif %}
+                <span><strong class="text-gray-900 dark:text-gray-100">{{ announcement.poll.responses.count }}</strong> response{{ announcement.poll.responses.count|pluralize }}</span>
+            </div>
+        </div>
+        {% else %}
+        <div class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+            No poll attached. Click <strong>Add Poll</strong> to create one.
+        </div>
+        {% endif %}
     </div>
 
     <!-- Back Link -->
@@ -220,6 +275,10 @@ function toggleDocs() {
     const chevron = document.getElementById('docs-chevron');
     panel.classList.toggle('hidden');
     chevron.style.transform = panel.classList.contains('hidden') ? '' : 'rotate(180deg)';
+    if (panel.classList.contains('hidden')) {
+        const search = document.getElementById('docs-search');
+        if (search) { search.value = ''; filterDocs(); }
+    }
 }
 
 function updateDocsBadge() {
@@ -231,6 +290,20 @@ function updateDocsBadge() {
     } else {
         badge.classList.add('hidden');
     }
+}
+
+function filterDocs() {
+    const query = document.getElementById('docs-search').value.toLowerCase().trim();
+    const items = document.querySelectorAll('#docs-list label');
+    let visible = 0;
+    items.forEach(function(label) {
+        const title = label.querySelector('span.text-sm').textContent.toLowerCase();
+        const show = !query || title.includes(query);
+        label.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    const noResults = document.getElementById('docs-no-results');
+    noResults.classList.toggle('hidden', visible > 0 || items.length === 0);
 }
 
 // Prevent double form submission

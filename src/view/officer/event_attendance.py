@@ -9,9 +9,11 @@ from django.db.models import Q
 from datetime import datetime, timedelta
 from src.models import Event, Attendance, ParliamentUser, AttendanceExcuse, ActivityLog
 from src.decorators import officer_required
+from src.feature_flag_decorators import require_feature_flag
 
 
 @login_required
+@require_feature_flag('attendance_tracking')
 @officer_required
 def event_attendance_list(request):
     """
@@ -38,6 +40,7 @@ def event_attendance_list(request):
 
 
 @login_required
+@require_feature_flag('attendance_tracking')
 @officer_required
 def mark_event_attendance(request, event_id):
     """
@@ -217,6 +220,7 @@ def mark_event_attendance(request, event_id):
 
 
 @login_required
+@require_feature_flag('attendance_tracking')
 @officer_required
 def review_excuses(request, event_id=None):
     """

@@ -4,7 +4,9 @@ Guide System Views
 Static guide pages and article views for user documentation.
 """
 
+import os
 import bleach
+import markdown as md_lib
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
@@ -500,3 +502,64 @@ def tour_skip(request, tour_slug):
         'success': True,
         'skipped': True,
     })
+
+
+# =============================================================================
+# HANDOFF DOCUMENT VIEWS
+# =============================================================================
+
+_HANDOFF_ALLOWED_TAGS = _GUIDE_ALLOWED_TAGS + ['table', 'thead', 'tbody', 'tr', 'th', 'td']
+_HANDOFF_ALLOWED_ATTRS = {
+    **_GUIDE_ALLOWED_ATTRS,
+    'table': ['class'],
+    'th': ['colspan', 'rowspan'],
+    'td': ['colspan', 'rowspan'],
+}
+
+
+def _render_markdown_doc(file_path):
+    """Read a markdown file and return sanitized HTML."""
+    with open(file_path, 'r') as f:
+        raw = f.read()
+    html = md_lib.markdown(raw, extensions=['tables', 'fenced_code', 'toc'])
+    return mark_safe(bleach.clean(html, tags=_HANDOFF_ALLOWED_TAGS,
+                                  attributes=_HANDOFF_ALLOWED_ATTRS, strip=True))
+
+
+@login_required
+def guide_officer_handoff(request):
+    """
+    Officer & Admin Guide rendered from docs/OFFICER_GUIDE.md.
+    """
+    doc_path = os.path.join(os.path.dirname(__file__), '..', '..', 'docs', 'OFFICER_GUIDE.md')
+    content = _render_markdown_doc(os.path.abspath(doc_path))
+    context = {
+        'page_title': 'Officer & Admin Guide',
+        'doc_content': content,
+        'back_url': 'guide_officer_hub',
+        'back_label': 'Officer Guides',
+    }
+    return render(request, 'guide/handoff.html', context)
+
+
+@login_required
+def guide_developer_handoff(request):
+    """
+    Developer Handoff Guide rendered from docs/HANDOFF_DEVELOPER.md.
+    Officers only — gates behind member_type check.
+    """
+    from src.models import ParliamentUser
+    user = request.user
+    if not (user.is_staff or getattr(user, 'member_type', None) == 'Officer'):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied
+
+    doc_path = os.path.join(os.path.dirname(__file__), '..', '..', 'docs', 'HANDOFF_DEVELOPER.md')
+    content = _render_markdown_doc(os.path.abspath(doc_path))
+    context = {
+        'page_title': 'Developer Handoff Guide',
+        'doc_content': content,
+        'back_url': 'guide_index',
+        'back_label': 'Guide Index',
+    }
+    return render(request, 'guide/handoff.html', context)

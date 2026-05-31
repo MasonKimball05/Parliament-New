@@ -11,10 +11,12 @@ import csv
 from src.models import KaiReport, Committee, ParliamentUser, KaiReportActivity, KaiReportTemplate, KaiFormField, KaiReportFieldResponse, KaiClosureRequest, ActivityLog
 from src.forms import KaiReportForm
 from src.decorators import log_function_call
+from src.feature_flag_decorators import require_feature_flag
 from src.utils.file_validation import validate_uploaded_file
 
 
 @login_required
+@require_feature_flag('kai_reports')
 @log_function_call
 def submit_kai_report(request):
     """Allow any logged-in user to submit a Kai report"""
@@ -218,6 +220,7 @@ Please log in to the Kai Committee page to review this report.
 
 
 @login_required
+@require_feature_flag('kai_reports')
 @log_function_call
 def view_kai_reports(request):
     """View for Kai chairs to see all submitted reports"""
@@ -1362,6 +1365,7 @@ def print_kai_report(request, report_id):
 
 
 @login_required
+@require_feature_flag('kai_reports')
 @log_function_call
 def kai_dashboard(request):
     """Dashboard with statistics and charts for Kai reports"""

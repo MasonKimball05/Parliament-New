@@ -47,7 +47,11 @@ def create_or_edit_poll(request, announcement_id):
         # --- Save poll metadata ---
         title = request.POST.get('poll_title', '').strip()
         description = request.POST.get('poll_description', '').strip()
-        is_anonymous = request.POST.get('is_anonymous') == 'on'
+        # Once anonymous, it cannot be reversed — guard against tampered POSTs
+        if is_edit and poll.is_anonymous:
+            is_anonymous = True
+        else:
+            is_anonymous = request.POST.get('is_anonymous') == 'on'
         is_open = request.POST.get('is_open') == 'on'
         closes_at_raw = request.POST.get('closes_at', '').strip()
         closes_at = None
@@ -189,6 +193,44 @@ def poll_results(request, announcement_id):
             })
 
     non_respondents = poll.get_non_respondents()
+    respondent_count = responses.count()
+
+    # For anonymous polls, only reveal who has/hasn't responded once more than 2
+    # people have voted — prevents identifying early respondents by elimination.
+    anon_threshold_met = respondent_count > 2
+    poll_is_closed = not poll.is_accepting_responses()
+
+    from src.models import ParliamentUser
+
+    if poll.is_anonymous:
+        anon_respondents = (
+            responses.values_list('respondent', flat=True)
+            if anon_threshold_met else None
+        )
+        anon_respondent_users = (
+            ParliamentUser.objects.filter(pk__in=anon_respondents)
+            if anon_threshold_met else None
+        )
+
+        if anon_threshold_met:
+            # Threshold met — show full non-respondent list
+            non_respondents_display = non_respondents
+            non_respondents_partial = False
+        elif poll_is_closed and respondent_count > 0:
+            # Closed without enough votes — show roughly half the non-respondent
+            # list so the voter(s) can't be identified by elimination.
+            nr_count = non_respondents.count()
+            show_count = nr_count // 2
+            non_respondents_display = list(non_respondents[:show_count])
+            non_respondents_partial = True
+        else:
+            # Still open, threshold not met (or no votes yet while open)
+            non_respondents_display = None
+            non_respondents_partial = False
+    else:
+        anon_respondent_users = None
+        non_respondents_display = non_respondents
+        non_respondents_partial = False
 
     # CSV export
     if request.GET.get('export') == 'csv':
@@ -199,8 +241,12 @@ def poll_results(request, announcement_id):
         'poll': poll,
         'question_stats': question_stats,
         'responses': responses if not poll.is_anonymous else None,
-        'respondent_count': responses.count(),
-        'non_respondents': non_respondents,
+        'respondent_count': respondent_count,
+        'non_respondents': non_respondents_display,
+        'non_respondents_partial': non_respondents_partial,
+        'anon_respondent_users': anon_respondent_users,
+        'anon_threshold_met': anon_threshold_met,
+        'poll_is_closed': poll_is_closed,
     })
 
 

@@ -139,12 +139,37 @@ def vote_view(request):
             messages.success(request, "Legislation uploaded successfully.")
             return redirect('vote')
 
-    # Determine if user is present and allowed to vote
+    # Quick attendance marking for officers (no event required)
+    if request.method == 'POST' and request.POST.get('action') == 'mark_attendance_quick':
+        if user.member_type in ['Chair', 'Officer']:
+            target_user_id = request.POST.get('target_user_id')
+            new_status = request.POST.get('attendance_status')
+            if target_user_id and new_status in ['present', 'late', 'absent']:
+                now = timezone.now()
+                try:
+                    target = ParliamentUser.objects.get(user_id=target_user_id)
+                    Attendance.objects.update_or_create(
+                        user=target,
+                        date=now.date(),
+                        attendance_type='committee',
+                        committee=None,
+                        defaults={
+                            'status': new_status,
+                            'created_at': now,
+                            'marked_by': user,
+                            'marked_at': now,
+                        }
+                    )
+                except ParliamentUser.DoesNotExist:
+                    pass
+        return redirect('vote')
+
+    # Determine if user is present/late and allowed to vote
     three_hours_ago = timezone.now() - timedelta(hours=3)
     attendance = Attendance.objects.filter(
         user=user,
         created_at__gte=three_hours_ago,
-        present=True
+        status__in=['present', 'late']
     ).order_by('-created_at').first()
     # Check both attendance AND if user type can vote (excludes pledges)
     can_vote = bool(attendance) and user.can_vote
@@ -308,6 +333,25 @@ def vote_view(request):
     appointment_roles = Role.objects.all().order_by('name')
     appointment_members = ParliamentUser.objects.filter(member_status='Active').order_by('name')
 
+    # Build attendance panel for officers
+    members_attendance = None
+    attendance_present_count = 0
+    if user.member_type in ['Chair', 'Officer']:
+        all_members = ParliamentUser.objects.filter(member_status='Active').order_by('name')
+        recent_atts = {}
+        for att in Attendance.objects.filter(
+            user__in=all_members,
+            created_at__gte=three_hours_ago
+        ).order_by('created_at'):  # ascending so later records win
+            recent_atts[att.user_id] = att.status
+        members_attendance = [
+            {'member': m, 'status': recent_atts.get(m.user_id, 'absent')}
+            for m in all_members
+        ]
+        attendance_present_count = sum(
+            1 for m in members_attendance if m['status'] in ('present', 'late')
+        )
+
     return render(request, 'vote.html', {
         'profile': user,
         'can_vote': can_vote,
@@ -316,6 +360,8 @@ def vote_view(request):
         'default_vote_mode': 'percentage',
         'appointment_roles': appointment_roles,
         'appointment_members': appointment_members,
+        'members_attendance': members_attendance,
+        'attendance_present_count': attendance_present_count,
     })
 
 

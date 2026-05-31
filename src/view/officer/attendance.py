@@ -5,9 +5,11 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from src.models import Attendance, Committee, ParliamentUser
 from src.decorators import officer_required, log_function_call
+from src.feature_flag_decorators import require_feature_flag
 from src.constants import MemberType
 
 @login_required
+@require_feature_flag('attendance_tracking')
 @officer_required
 @log_function_call
 def attendance(request):
@@ -56,26 +58,43 @@ def attendance(request):
 
         for user in users_to_update:
             is_present = str(user.user_id) in present_ids
+            status = 'present' if is_present else 'absent'
 
             Attendance.objects.update_or_create(
                 user=user,
                 date=now.date(),
+                attendance_type='committee',
+                committee=selected_committee,
                 defaults={
-                    'present': is_present,
+                    'status': status,
                     'created_at': now,
+                    'marked_by': request.user,
+                    'marked_at': now,
                 }
             )
 
-            action = "present" if is_present else "absent"
-            logger.info(f"{request.user.username} marked {user.username} as {action} on {now.date()}")
+            logger.info(f"{request.user.username} marked {user.username} as {status} on {now.date()}")
 
         messages.success(request, "Attendance has been updated.")
         return redirect('officer_home')
+
+    # Build set of user_ids already marked present/late today for pre-filling checkboxes
+    today = timezone.now().date()
+    today_present_ids = set(
+        Attendance.objects.filter(
+            user__in=users,
+            date=today,
+            attendance_type='committee',
+            committee=selected_committee,
+            status__in=['present', 'late'],
+        ).values_list('user_id', flat=True)
+    )
 
     context = {
         'users': users,
         'committees': committees,
         'selected_committee': selected_committee,
-        'today': timezone.now().date()
+        'today': today,
+        'today_present_ids': today_present_ids,
     }
     return render(request, 'attendance.html', context)

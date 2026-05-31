@@ -12,9 +12,11 @@ from collections import defaultdict
 
 from src.models import Event, Attendance, ParliamentUser, AttendanceExcuse
 from src.decorators import officer_required
+from src.feature_flag_decorators import require_feature_flag
 
 
 @login_required
+@require_feature_flag('attendance_tracking')
 @officer_required
 def attendance_dashboard(request):
     """
@@ -224,6 +226,7 @@ def attendance_dashboard(request):
 
 
 @login_required
+@require_feature_flag('attendance_tracking')
 @officer_required
 def member_attendance_detail(request, user_id):
     """

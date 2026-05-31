@@ -381,19 +381,23 @@ class AttendanceExcuse(models.Model):
         self.save()
 
         # Update or create attendance record
+        now = timezone.now()
         attendance, created = Attendance.objects.get_or_create(
             event=self.event,
             user=self.user,
             attendance_type='event',
             defaults={
                 'status': 'excused',
+                'created_at': now,
                 'marked_by': officer,
-                'marked_at': timezone.now(),
+                'marked_at': now,
                 'notes': f'Excused: {self.reason[:100]}'
             }
         )
 
-        if not created and attendance.status != 'excused':
+        # Only update to 'excused' if the member wasn't already marked present/late.
+        # If they actually attended despite submitting an excuse, keep the real status.
+        if not created and attendance.status not in ('present', 'late', 'excused'):
             attendance.status = 'excused'
             attendance.marked_by = officer
             attendance.marked_at = timezone.now()

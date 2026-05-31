@@ -204,6 +204,7 @@ from src.view.guide import (
     guide_profile, guide_calendar, guide_notifications, guide_excuses,
     guide_2fa, guide_directory, guide_search,
     guide_resolutions, guide_activity_logs, guide_kai_forms,
+    guide_officer_handoff, guide_developer_handoff,
     tour_start, tour_advance, tour_complete, tour_skip
 )
 from src.view.songbook import (
@@ -319,6 +320,8 @@ urlpatterns = [
     path('guide/officers/activity-logs/', guide_activity_logs, name='guide_activity_logs'),
     path('guide/officers/kai-forms/', guide_kai_forms, name='guide_kai_forms'),
     path('guide/article/<slug:slug>/', guide_article, name='guide_article'),
+    path('guide/officers/officer-guide/', guide_officer_handoff, name='guide_officer_handoff'),
+    path('guide/developer/', guide_developer_handoff, name='guide_developer_handoff'),
     # Tour API endpoints
     path('guide/tour/<slug:tour_slug>/start/', tour_start, name='tour_start'),
     path('guide/tour/<slug:tour_slug>/advance/', tour_advance, name='tour_advance'),

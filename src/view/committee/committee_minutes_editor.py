@@ -16,7 +16,7 @@ from django.core.files.base import ContentFile
 from src.models import (
     ChapterMinutes, MinutesSection, MinutesMotion,
     ParliamentUser, Committee, CommitteePermissions,
-    CommitteeDocument, ActivityLog
+    CommitteeDocument, ActivityLog, Attendance
 )
 from src.view.officer.chapter_minutes import generate_minutes_pdf_buffer
 
@@ -371,6 +371,32 @@ def save_committee_minutes_attendance(request, code, minutes_id):
     minutes.attendance_data = attendance_list
     minutes.attendance_taken = True
     minutes.save()
+
+    # Write Attendance records so this attendance is persisted in the model
+    # (created_at is set to now so the 3-hour vote eligibility window sees it)
+    now = timezone.now()
+    for entry in attendance_list:
+        user_id = entry.get('user_id')
+        status = entry.get('status', 'pending')
+        if status == 'pending':
+            continue
+        try:
+            member = ParliamentUser.objects.get(user_id=user_id)
+        except ParliamentUser.DoesNotExist:
+            continue
+        Attendance.objects.update_or_create(
+            user=member,
+            date=now.date(),
+            attendance_type='committee',
+            committee=committee,
+            defaults={
+                'status': status,
+                'created_at': now,
+                'marked_by': request.user,
+                'marked_at': now,
+                'notes': f'Marked via committee minutes: {minutes.title}',
+            }
+        )
 
     ActivityLog.log_activity(
         action_type='attendance_taken',

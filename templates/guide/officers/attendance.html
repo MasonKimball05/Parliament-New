@@ -70,45 +70,111 @@
             </div>
         </div>
 
-        <!-- Section: Taking Attendance -->
+        <!-- Section: Where to Take Attendance -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
                     <span class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-emerald-600 dark:text-emerald-400">1</span>
-                    Taking Attendance
+                    Where to Take Attendance
                 </h2>
             </div>
             <div class="px-6 py-5 space-y-4">
                 <p class="text-gray-600 dark:text-gray-400">
-                    To take attendance for an event, go to <strong class="text-gray-900 dark:text-gray-100">Officers &rarr; Event Attendance</strong> and select the event you want to record attendance for.
+                    Attendance can be taken from three different places. All three sync to the same underlying records — marking someone present in one will reflect everywhere else.
                 </p>
 
-                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Marking Attendance</h4>
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">For each member, you can mark their attendance status:</p>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div class="flex items-center p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                            <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                            <span class="text-sm text-green-700 dark:text-green-300">Present</span>
+                <div class="space-y-3">
+                    <div class="flex items-start p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <div class="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/50 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                            </svg>
                         </div>
-                        <div class="flex items-center p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
-                            <div class="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                            <span class="text-sm text-red-700 dark:text-red-300">Absent</span>
+                        <div class="ml-4">
+                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Attendance Page <span class="text-xs font-normal text-gray-500 dark:text-gray-400 ml-1">(primary)</span></h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Go to <strong>Officers &rarr; Event Attendance</strong> and select an event. Shows all active members with toggle buttons. Best for taking attendance before or after a meeting.</p>
                         </div>
-                        <div class="flex items-center p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
-                            <div class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
-                            <span class="text-sm text-yellow-700 dark:text-yellow-300">Excused</span>
+                    </div>
+                    <div class="flex items-start p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <div class="w-10 h-10 bg-violet-100 dark:bg-violet-900/50 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
                         </div>
-                        <div class="flex items-center p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                            <div class="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-                            <span class="text-sm text-blue-700 dark:text-blue-300">Late</span>
+                        <div class="ml-4">
+                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Chapter Minutes Editor</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">The Attendance section inside the minutes editor. If the minutes are linked to an event, changes here sync to that event's records. Convenient for recording attendance while writing meeting notes.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/50 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Vote Page — Attendance Tab</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">The officer panel on the live Vote page has an <strong>Attendance</strong> tab. Lets you mark attendance without leaving the vote page — useful during chapter meetings when a vote is open.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Marking Attendance -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-emerald-600 dark:text-emerald-400">2</span>
+                    Attendance Statuses
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    For each member, mark one of five statuses:
+                </p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div class="flex items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                        <div class="w-3 h-3 bg-green-500 rounded-full mr-3 flex-shrink-0"></div>
+                        <div>
+                            <div class="text-sm font-medium text-green-700 dark:text-green-300">Present</div>
+                            <div class="text-xs text-green-600 dark:text-green-400">Attended</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                        <div class="w-3 h-3 bg-yellow-500 rounded-full mr-3 flex-shrink-0"></div>
+                        <div>
+                            <div class="text-sm font-medium text-yellow-700 dark:text-yellow-300">Late</div>
+                            <div class="text-xs text-yellow-600 dark:text-yellow-400">Arrived late but attended</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                        <div class="w-3 h-3 bg-red-500 rounded-full mr-3 flex-shrink-0"></div>
+                        <div>
+                            <div class="text-sm font-medium text-red-700 dark:text-red-300">Absent</div>
+                            <div class="text-xs text-red-600 dark:text-red-400">Did not attend</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <div class="w-3 h-3 bg-blue-500 rounded-full mr-3 flex-shrink-0"></div>
+                        <div>
+                            <div class="text-sm font-medium text-blue-700 dark:text-blue-300">Excused</div>
+                            <div class="text-xs text-blue-600 dark:text-blue-400">Approved excuse on file</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600">
+                        <div class="w-3 h-3 bg-gray-400 rounded-full mr-3 flex-shrink-0"></div>
+                        <div>
+                            <div class="text-sm font-medium text-gray-700 dark:text-gray-300">Pending</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Not yet marked</div>
                         </div>
                     </div>
                 </div>
 
                 <div class="bg-emerald-50 dark:bg-emerald-900/20 border-l-4 border-emerald-500 p-4 rounded-r-lg">
                     <p class="text-sm text-emerald-800 dark:text-emerald-200">
-                        <strong>Tip:</strong> You can use the "Mark All Present" button to quickly mark everyone as present, then adjust individual entries as needed.
+                        <strong>Tip:</strong> Approving an excuse request automatically updates the member's status to Excused — unless they were already marked Present or Late (an approved excuse won't overwrite confirmed attendance).
                     </p>
                 </div>
             </div>
@@ -118,7 +184,7 @@
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
-                    <span class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-emerald-600 dark:text-emerald-400">2</span>
+                    <span class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-emerald-600 dark:text-emerald-400">3</span>
                     Handling Excuse Requests
                 </h2>
             </div>
@@ -172,41 +238,56 @@
             </div>
         </div>
 
-        <!-- Section: Attendance Reports -->
+        <!-- Section: Attendance Dashboard -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
-                    <span class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-emerald-600 dark:text-emerald-400">3</span>
-                    Viewing Attendance Reports
+                    <span class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-emerald-600 dark:text-emerald-400">4</span>
+                    Attendance Dashboard
                 </h2>
             </div>
             <div class="px-6 py-5 space-y-4">
                 <p class="text-gray-600 dark:text-gray-400">
-                    You can view attendance reports to see trends and identify members who may need follow-up.
+                    The attendance dashboard (<strong class="text-gray-900 dark:text-gray-100">Officers &rarr; Attendance &rarr; Dashboard</strong>) gives a chapter-wide view of attendance trends. Use it to identify members who may need follow-up.
                 </p>
 
-                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Available Reports</h4>
-                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                        <li class="flex items-start">
-                            <svg class="w-5 h-5 text-emerald-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                            </svg>
-                            <span><strong>Event Summary:</strong> See attendance breakdown for a specific event</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-5 h-5 text-emerald-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                            </svg>
-                            <span><strong>Member History:</strong> View a member's attendance record over time</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-5 h-5 text-emerald-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                            <span><strong>Chapter Overview:</strong> Overall attendance statistics for the chapter</span>
-                        </li>
-                    </ul>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="flex items-start p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <svg class="w-5 h-5 text-emerald-500 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        <div>
+                            <div class="text-sm font-medium text-gray-900 dark:text-gray-100">Per-member attendance rates</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Percentage breakdown per member, sorted worst to best</div>
+                        </div>
+                    </div>
+                    <div class="flex items-start p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <svg class="w-5 h-5 text-emerald-500 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        <div>
+                            <div class="text-sm font-medium text-gray-900 dark:text-gray-100">Monthly trend bars</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Chapter-wide attendance rate by month</div>
+                        </div>
+                    </div>
+                    <div class="flex items-start p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <svg class="w-5 h-5 text-red-500 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                        <div>
+                            <div class="text-sm font-medium text-gray-900 dark:text-gray-100">At-risk members</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Members flagged as below the attendance threshold</div>
+                        </div>
+                    </div>
+                    <div class="flex items-start p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <svg class="w-5 h-5 text-emerald-500 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                        <div>
+                            <div class="text-sm font-medium text-gray-900 dark:text-gray-100">Member history</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Click any member to see their full event-by-event record</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -215,9 +296,7 @@
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
-                    <svg class="w-6 h-6 text-emerald-600 dark:text-emerald-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
-                    </svg>
+                    <span class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-emerald-600 dark:text-emerald-400">5</span>
                     Best Practices
                 </h2>
             </div>

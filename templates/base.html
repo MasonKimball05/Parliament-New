@@ -118,7 +118,7 @@
 
                 <div class="flex items-center space-x-1.5">
                     {% if user.is_authenticated %}
-                        {% if user.preferences.show_search_menu %}
+                        {% if user.preferences.show_search_menu and feature_flags.global_search %}
                         <!-- Search Bar - More Compact -->
                         <form method="get" action="{% url 'global_search' %}" class="hidden lg:block">
                             <div class="relative">
@@ -212,7 +212,7 @@
                 <a href="{% url 'home' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     🏠 Home
                 </a>
-                {% if user.preferences.show_search_menu %}
+                {% if user.preferences.show_search_menu and feature_flags.global_search %}
                 <a href="{% url 'global_search' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     🔍 Search
                 </a>

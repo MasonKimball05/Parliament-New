@@ -4,7 +4,7 @@ from django.utils import timezone
 from django.http import JsonResponse, HttpResponse
 from src.models import Event, ActivityLog, AttendanceExcuse
 from src.models_calendar_subscription import CalendarSubscription
-from src.feature_flag_decorators import require_page_enabled
+from src.feature_flag_decorators import require_page_enabled, require_feature_flag
 from icalendar import Calendar, Event as ICalEvent
 import calendar
 from datetime import datetime, timedelta
@@ -463,6 +463,7 @@ def calendar_subscription_feed(request, token):
 
 
 @login_required
+@require_feature_flag('calendar_subscriptions')
 def get_calendar_subscription_url(request):
     """
     Get or create the user's personal calendar subscription URL
@@ -494,6 +495,7 @@ def get_calendar_subscription_url(request):
 
 
 @login_required
+@require_feature_flag('calendar_subscriptions')
 def regenerate_calendar_token(request):
     """
     Regenerate the user's calendar subscription token

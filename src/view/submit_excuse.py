@@ -12,9 +12,11 @@ from datetime import timedelta
 
 from src.models import Event, Attendance, AttendanceExcuse, ActivityLog, ParliamentUser
 from src.utils.file_validation import validate_uploaded_file
+from src.feature_flag_decorators import require_feature_flag
 
 
 @login_required
+@require_feature_flag('attendance_tracking')
 def my_excuses(request):
     """
     View member's excuse requests and submit new ones
@@ -59,6 +61,7 @@ def my_excuses(request):
 
 
 @login_required
+@require_feature_flag('attendance_tracking')
 def submit_excuse(request, event_id):
     """
     Submit an excuse request for a specific event
@@ -75,9 +78,12 @@ def submit_excuse(request, event_id):
         messages.error(request, 'Excuses are not allowed for this event.')
         return redirect('my_excuses')
 
-    # Check if deadline has passed
+    # Check if excuses are still accepted
     if not event.can_submit_excuse():
-        messages.error(request, 'The deadline for submitting excuses has passed.')
+        if event.attendance_finalized:
+            messages.error(request, 'Attendance for this event has been finalized. Excuses can no longer be submitted.')
+        else:
+            messages.error(request, 'The deadline for submitting excuses has passed.')
         return redirect('my_excuses')
 
     # Check if user already has an excuse for this event
@@ -133,6 +139,7 @@ def submit_excuse(request, event_id):
 
 
 @login_required
+@require_feature_flag('attendance_tracking')
 def cancel_excuse(request, excuse_id):
     """
     Cancel/delete a pending excuse request
@@ -160,6 +167,7 @@ def cancel_excuse(request, excuse_id):
 
 
 @login_required
+@require_feature_flag('attendance_tracking')
 def my_attendance(request):
     """
     Personal attendance dashboard for members

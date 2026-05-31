@@ -51,21 +51,25 @@
                     {% endif %}
                 </div>
             </div>
-            <div class="flex gap-2 flex-shrink-0">
+            <div class="flex items-center gap-2 flex-shrink-0">
                 <button type="button" onclick="previewPDF()" id="previewPdfBtn"
-                        class="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-medium py-2 px-3 rounded-lg transition flex items-center gap-1.5 text-sm whitespace-nowrap">
+                        class="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-medium py-2 px-3 rounded-lg transition flex items-center gap-1.5 text-sm whitespace-nowrap"
+                        title="Preview the minutes as a PDF">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                    Preview
+                    Preview PDF
                 </button>
                 <button type="button" onclick="downloadPDF()" id="downloadPdfBtn"
-                        class="bg-gray-600 hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600 text-white font-medium py-2 px-3 rounded-lg transition flex items-center gap-1.5 text-sm whitespace-nowrap">
+                        class="bg-gray-600 hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600 text-white font-medium py-2 px-3 rounded-lg transition flex items-center gap-1.5 text-sm whitespace-nowrap"
+                        title="Download the current PDF">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                    Download
+                    Download PDF
                 </button>
+                <div class="w-px h-8 bg-gray-300 dark:bg-gray-600"></div>
                 <button type="button" onclick="saveDraft()" id="saveDraftBtn"
-                        class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium py-2 px-3 rounded-lg transition flex items-center gap-1.5 text-sm whitespace-nowrap">
+                        class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium py-2 px-3 rounded-lg transition flex items-center gap-1.5 text-sm whitespace-nowrap"
+                        title="Save your minutes as a draft (does not publish)">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
-                    Save
+                    Save Draft
                 </button>
             </div>
         </div>
@@ -184,9 +188,10 @@
                 </div>
 
                 <!-- Save Attendance Button -->
-                <div class="mt-4 flex justify-end">
+                <div class="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Attendance saves separately from the minutes content. If publishing, attendance is saved automatically.</p>
                     <button type="button" onclick="saveAttendance()" id="saveAttendanceBtn"
-                            class="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white font-medium py-2 px-6 rounded-lg transition flex items-center gap-2">
+                            class="flex-shrink-0 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white font-medium py-2 px-6 rounded-lg transition flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                         Save Attendance
                     </button>
@@ -201,7 +206,36 @@
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md mb-6 overflow-hidden">
         <div class="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-bold text-gray-900 dark:text-white">Meeting Minutes</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Type notes directly in the text area. Place your cursor where you want to insert a motion or section header, then use the insert buttons below the editor.</p>
         </div>
+        <!-- Formatting help (collapsible) -->
+        <div class="px-4 sm:px-6 pt-3 pb-0">
+            <details class="group">
+                <summary class="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer select-none w-fit">
+                    <svg class="fmt-arrow w-3.5 h-3.5 transition-transform" style="transition: transform 0.15s;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    Formatting help
+                </summary>
+                <div class="mt-2 mb-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-400">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 font-mono">
+                        <div><span class="text-gray-800 dark:text-gray-200">**bold**</span> <span class="text-gray-400">→ <b>bold</b></span></div>
+                        <div><span class="text-gray-800 dark:text-gray-200">*italic*</span> <span class="text-gray-400">→ <em>italic</em></span></div>
+                        <div><span class="text-gray-800 dark:text-gray-200">***bold italic***</span></div>
+                        <div><span class="text-gray-800 dark:text-gray-200">~~strikethrough~~</span></div>
+                        <div><span class="text-gray-800 dark:text-gray-200">`inline code`</span></div>
+                        <div><span class="text-gray-800 dark:text-gray-200"># Heading 1</span></div>
+                        <div><span class="text-gray-800 dark:text-gray-200">## Heading 2</span></div>
+                        <div><span class="text-gray-800 dark:text-gray-200">### Heading 3</span></div>
+                        <div><span class="text-gray-800 dark:text-gray-200">- item &nbsp;/&nbsp; * item</span> <span class="text-gray-400">→ bullet list</span></div>
+                        <div><span class="text-gray-800 dark:text-gray-200">1. item</span> <span class="text-gray-400">→ numbered list</span></div>
+                        <div><span class="text-gray-800 dark:text-gray-200">&gt; text</span> <span class="text-gray-400">→ blockquote</span></div>
+                        <div><span class="text-gray-800 dark:text-gray-200">---</span> <span class="text-gray-400">→ horizontal rule</span></div>
+                        <div class="sm:col-span-2"><span class="text-gray-800 dark:text-gray-200">```</span> <span class="text-gray-400">→ fenced code block (opening and closing lines)</span></div>
+                    </div>
+                    <p class="mt-2 text-gray-400 dark:text-gray-500 font-sans">All formatting is reflected in Preview PDF and the published document.</p>
+                </div>
+            </details>
+        </div>
+
         <div class="p-4 sm:p-6" id="sectionsContainer">
             <!-- Sections rendered by JavaScript -->
         </div>
@@ -427,7 +461,7 @@
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
                 <h3 class="text-lg font-bold text-gray-900 dark:text-white">Adjourn Meeting</h3>
-                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Sets the adjournment time to the current time.</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Sets the adjournment time (shown in the header) to the current time. You can also set it manually using the time field above.</p>
             </div>
             <div class="flex items-center gap-3">
                 <span id="adjournedTimeDisplay" class="text-sm text-gray-600 dark:text-gray-400 hidden">
@@ -447,7 +481,8 @@
     <!-- ============================== -->
     {% if minutes.status != 'published' %}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
-        <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Publish to Documents</h3>
+        <h3 class="text-lg font-bold text-gray-900 dark:text-white">Publish to Documents</h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">Generates a PDF and makes these minutes visible to members. Attendance will be saved automatically before publishing. This action can be undone by editing the minutes.</p>
         <form method="post" action="{% if is_committee_minutes %}{% url 'publish_committee_minutes' committee.code minutes.id %}{% else %}{% url 'publish_chapter_minutes' minutes.id %}{% endif %}" id="publishForm">
             {% csrf_token %}
             <div class="flex flex-col gap-4">
@@ -465,7 +500,7 @@
                             {% endif %}
                         </select>
                     </div>
-                    <button type="submit" onclick="return confirm('Publish these minutes? This will save the current state.')"
+                    <button type="submit" id="publishBtn"
                             class="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white font-medium py-2 px-6 rounded-lg transition flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
                         Publish Minutes
@@ -704,32 +739,35 @@ function toggleAttendance() {
     chevron.classList.toggle('rotate-180');
 }
 
+async function _persistAttendance() {
+    // Raw save — returns true on success, throws on network error
+    const resp = await fetch(ATTENDANCE_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+        body: JSON.stringify({attendance: members}),
+    });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Server rejected attendance save.');
+    return true;
+}
+
 async function saveAttendance() {
     const btn = document.getElementById('saveAttendanceBtn');
     btn.disabled = true;
     btn.textContent = 'Saving...';
 
     try {
-        const resp = await fetch(ATTENDANCE_URL, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
-            body: JSON.stringify({attendance: members}),
-        });
-        const data = await resp.json();
-        if (data.success) {
-            // Collapse attendance
-            document.getElementById('attendanceBody').classList.add('hidden');
-            document.getElementById('attendanceChevron').classList.add('rotate-180');
-            // Show saved badge
-            const header = document.querySelector('#attendanceSection .flex.items-center.gap-3');
-            if (!header.querySelector('.bg-green-100')) {
-                header.insertAdjacentHTML('beforeend', '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300">Saved</span>');
-            }
-        } else {
-            alert(data.error || 'Failed to save attendance.');
+        await _persistAttendance();
+        // Collapse attendance
+        document.getElementById('attendanceBody').classList.add('hidden');
+        document.getElementById('attendanceChevron').classList.add('rotate-180');
+        // Show saved badge
+        const header = document.querySelector('#attendanceSection .flex.items-center.gap-3');
+        if (!header.querySelector('.bg-green-100')) {
+            header.insertAdjacentHTML('beforeend', '<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300">Saved</span>');
         }
     } catch (e) {
-        alert('Error saving attendance.');
+        alert('Error saving attendance: ' + e.message);
     }
     btn.disabled = false;
     btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Save Attendance';
@@ -924,15 +962,21 @@ function renderSections() {
 
     // Buttons row
     const btnsDiv = document.createElement('div');
-    btnsDiv.className = 'mt-1 mb-3 flex flex-wrap gap-2';
+    btnsDiv.className = 'mt-2 mb-3 flex flex-wrap items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600';
+
+    const insertLabel = document.createElement('span');
+    insertLabel.className = 'text-xs font-medium text-gray-500 dark:text-gray-400 mr-1';
+    insertLabel.textContent = 'Insert at cursor:';
+    btnsDiv.appendChild(insertLabel);
 
     // "Add Motion at Cursor" button
     const addMotionBtn = document.createElement('button');
     addMotionBtn.type = 'button';
-    addMotionBtn.className = 'flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20';
+    addMotionBtn.className = 'flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition px-2.5 py-1.5 rounded-md bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800';
+    addMotionBtn.title = 'Insert a motion or vote record at your cursor position';
     addMotionBtn.innerHTML = `
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-        Add Motion at Cursor
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        Motion / Vote
     `;
     addMotionBtn.onclick = function() { insertMotionAtCursor(); };
     btnsDiv.appendChild(addMotionBtn);
@@ -940,10 +984,11 @@ function renderSections() {
     // "Add Section Header at Cursor" button
     const addSectionBtn = document.createElement('button');
     addSectionBtn.type = 'button';
-    addSectionBtn.className = 'flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 transition px-2 py-1 rounded hover:bg-purple-50 dark:hover:bg-purple-900/20';
+    addSectionBtn.className = 'flex items-center gap-1.5 text-xs font-medium text-purple-700 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 transition px-2.5 py-1.5 rounded-md bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-800';
+    addSectionBtn.title = 'Insert a section header at your cursor position (e.g. President\'s Report, Old Business)';
     addSectionBtn.innerHTML = `
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
-        Add Section Header at Cursor
+        Section Header
     `;
     addSectionBtn.onclick = function() { insertSectionAtCursor(); };
     btnsDiv.appendChild(addSectionBtn);
@@ -951,10 +996,11 @@ function renderSections() {
     // "End Section at Cursor" button
     const endSectionBtn = document.createElement('button');
     endSectionBtn.type = 'button';
-    endSectionBtn.className = 'flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 transition px-2 py-1 rounded hover:bg-purple-50 dark:hover:bg-purple-900/20';
+    endSectionBtn.className = 'flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition px-2.5 py-1.5 rounded-md bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600';
+    endSectionBtn.title = 'Insert a section end marker at your cursor position to close the current section';
     endSectionBtn.innerHTML = `
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8"/></svg>
-        End Section at Cursor
+        End Section
     `;
     endSectionBtn.onclick = function() { insertSectionEndAtCursor(); };
     btnsDiv.appendChild(endSectionBtn);
@@ -1811,6 +1857,39 @@ document.addEventListener('DOMContentLoaded', function() {
     renderExcuseSummary();
     renderAttendance();
     renderSections();
+});
+
+// Always save attendance before publishing so radio-button changes are never lost
+const publishForm = document.getElementById('publishForm');
+if (publishForm) {
+    publishForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (!confirm('Publish these minutes? Attendance will be saved automatically.')) return;
+
+        const btn = document.getElementById('publishBtn');
+        btn.disabled = true;
+        btn.textContent = 'Saving attendance…';
+
+        try {
+            await _persistAttendance();
+        } catch (err) {
+            alert('Could not save attendance before publishing:\n' + err.message + '\n\nPlease save attendance manually and try again.');
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg> Publish Minutes';
+            return;
+        }
+
+        btn.textContent = 'Publishing…';
+        this.submit();
+    });
+}
+
+// Rotate the formatting-help arrow when the <details> opens/closes
+document.querySelectorAll('details').forEach(function(el) {
+    el.addEventListener('toggle', function() {
+        const arrow = el.querySelector('.fmt-arrow');
+        if (arrow) arrow.style.transform = el.open ? 'rotate(90deg)' : '';
+    });
 });
 </script>
 {% endblock %}
