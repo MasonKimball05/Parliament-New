@@ -17,7 +17,7 @@ PRIVATE_PREFIXES = ('10.', '172.16.', '172.17.', '172.18.', '172.19.',
 API_FIELDS = 'status,country,countryCode,regionName,city,zip,lat,lon,isp,org,as,query'
 
 
-def get_ip_geo(ip_address, timeout=4):
+def get_ip_geo(ip_address, timeout=2):
     """
     Return geolocation dict for an IP address.
     Returns {} for private/local IPs, or on any lookup failure.
@@ -64,7 +64,7 @@ def get_ip_geo(ip_address, timeout=4):
         return {}
 
 
-def is_foreign_ip(ip_address, trusted_country='US', timeout=4):
+def is_foreign_ip(ip_address, trusted_country='US', timeout=2):
     """
     Returns (is_foreign, geo_dict).
     is_foreign is True if the IP resolves to a country other than trusted_country.

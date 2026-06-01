@@ -6,7 +6,7 @@
 
 {% block extra_head %}
 <!-- Cropper.js CSS -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+<link rel="stylesheet" href="{% static 'vendor/cropper.min.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -827,7 +827,7 @@
 </style>
 
 <!-- Cropper.js JavaScript -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+<script src="{% static 'vendor/cropper.min.js' %}"></script>
 
 <script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {

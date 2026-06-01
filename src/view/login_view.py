@@ -101,6 +101,13 @@ def login_view(request):
             "Please contact an administrator."
         )
 
+    if request.GET.get('rl'):
+        minutes = request.GET.get('rl', '30')
+        messages.error(
+            request,
+            f"Too many failed login attempts. Please try again in {minutes} minutes."
+        )
+
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')

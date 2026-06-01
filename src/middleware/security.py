@@ -230,9 +230,7 @@ class LoginRateLimitMiddleware:
                 logger.warning(
                     f'Login blocked: IP {ip_address} is locked out due to too many attempts'
                 )
-                return render(request, '403.html', {
-                    'reason': 'Too many failed login attempts from your IP address. Please try again in 30 minutes.'
-                }, status=403)
+                return redirect(f'/login/?rl={self.lockout_minutes}&reason=ip')
 
             # Check if IP has exceeded rate limit
             if ip_attempts >= self.max_attempts_per_ip:
@@ -254,9 +252,7 @@ class LoginRateLimitMiddleware:
                     )
                 except Exception:
                     pass
-                return render(request, '403.html', {
-                    'reason': 'Your IP address has been temporarily blocked due to excessive failed login attempts. Please try again in 30 minutes.'
-                }, status=403)
+                return redirect(f'/login/?rl={self.lockout_minutes}&reason=ip')
 
             # Check username-based rate limit if username is provided
             if username:
@@ -269,10 +265,7 @@ class LoginRateLimitMiddleware:
                     logger.warning(
                         f'Login blocked: Username {username} is locked out. Attempt from IP {ip_address}'
                     )
-                    # Don't reveal if username exists, use generic message
-                    return render(request, '403.html', {
-                        'reason': 'This account has been temporarily locked due to multiple failed login attempts. Please try again in 30 minutes.'
-                    }, status=403)
+                    return redirect(f'/login/?rl={self.lockout_minutes}&reason=user')
 
                 if username_attempts >= self.max_attempts_per_username:
                     logger.warning(
@@ -298,13 +291,13 @@ class LoginRateLimitMiddleware:
 
         response = self.get_response(request)
 
-        # After response, track failed login attempts
+        # After response, track failed login attempts.
+        # Status codes: 200 = failed (form re-rendered), 302 = success (redirect after login).
+        # Any other status (e.g. 403 from this middleware itself, or 302 from a lockout redirect)
+        # must not touch counters — clearing on a self-generated 403 would undo the lockout.
         if (request.path == '/login/' or request.path == '/accounts/login/') and request.method == 'POST':
-            # A successful login redirects (302); a failed login re-renders the form (200).
-            # Checking status code avoids consuming the message queue via get_messages().
-            has_error = response.status_code == 200
-
-            if has_error:
+            if response.status_code == 200:
+                # Failed login — form was re-rendered with errors
                 ip_address = self.get_client_ip(request)
                 username = request.POST.get('username', '').strip().lower()
 
@@ -324,8 +317,8 @@ class LoginRateLimitMiddleware:
                         f'IP attempts: {ip_attempts + 1}/{self.max_attempts_per_ip}, '
                         f'Username attempts: {username_attempts + 1}/{self.max_attempts_per_username}'
                     )
-            else:
-                # Successful login - clear attempt counters
+            elif response.status_code == 302 and 'rl=' not in response.get('Location', ''):
+                # Successful login redirect (not a rate-limit redirect) — clear attempt counters
                 ip_address = self.get_client_ip(request)
                 username = request.POST.get('username', '').strip().lower()
 
@@ -334,6 +327,7 @@ class LoginRateLimitMiddleware:
                     cache.delete(f'login_attempts_user_{username}')
                     cache.delete(f'login_lockout_ip_{ip_address}')
                     cache.delete(f'login_lockout_user_{username}')
+            # else: blocked by this middleware (lockout redirect) — leave counters alone
 
         return response
 
