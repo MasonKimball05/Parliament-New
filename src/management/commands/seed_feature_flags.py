@@ -45,7 +45,7 @@ class Command(BaseCommand):
             {
                 'name': 'chats',
                 'display_name': 'Chat System',
-                'description': 'Enable channel-based chat system. When disabled, all chat functionality and polling is stopped.',
+                'description': 'Enable channel-based chat system, including committee chats. When disabled, all chat functionality is stopped.',
                 'category': 'features',
                 'is_enabled': True,
             },
@@ -54,13 +54,6 @@ class Command(BaseCommand):
                 'display_name': 'Announcements',
                 'description': 'Enable the announcements system. When disabled, the announcements page returns a feature-disabled error.',
                 'category': 'communications',
-                'is_enabled': True,
-            },
-            {
-                'name': 'committee_chat',
-                'display_name': 'Committee Chat',
-                'description': 'Note: committee chat pages are gated by the Chat System flag, not this one. This flag is reserved for future granular control.',
-                'category': 'features',
                 'is_enabled': True,
             },
             {
@@ -82,6 +75,13 @@ class Command(BaseCommand):
                 'display_name': 'Maintenance Mode',
                 'description': 'Put site in maintenance mode',
                 'category': 'system',
+                'is_enabled': False,
+            },
+            {
+                'name': 'rest_api',
+                'display_name': 'REST API',
+                'description': 'Enable the /api/v1/ REST API endpoints. Disabled by default until an active use case exists.',
+                'category': 'features',
                 'is_enabled': False,
             },
         ]

@@ -72,13 +72,6 @@ class Command(BaseCommand):
                 'is_enabled': True
             },
             {
-                'name': 'committee_chat',
-                'display_name': 'Committee Chat',
-                'description': 'Enable/disable committee chat functionality',
-                'category': 'committees',
-                'is_enabled': True
-            },
-            {
                 'name': 'committee_voting',
                 'display_name': 'Committee Voting',
                 'description': 'Enable/disable voting within committees',

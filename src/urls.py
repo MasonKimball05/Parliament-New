@@ -137,8 +137,11 @@ from src.view.vote_view import vote_view, vote_tally_json
 from src.view.push_notifications import push_subscribe, push_unsubscribe, service_worker
 from src.view.two_factor import (
     two_factor_setup, two_factor_qrcode, two_factor_verify,
-    two_factor_disable, two_factor_dismiss,
+    two_factor_disable, two_factor_dismiss, two_factor_forget_device,
     two_factor_backup_codes_reveal, two_factor_regenerate_backup_codes,
+)
+from src.view.two_factor_recovery import (
+    two_factor_recovery_request, two_factor_recovery_confirm,
 )
 from src.view.admin_two_factor import (
     two_factor_dashboard as admin_v2_two_factor_dashboard,
@@ -220,8 +223,12 @@ from src.view.honeypot import (
     honeypot_wp_content, honeypot_joomla, honeypot_htaccess, honeypot_aws,
     honeypot_server_status
 )
+from django.urls import include as url_include
 
 urlpatterns = [
+    # REST API (v1)
+    path('api/v1/', url_include('src.api.urls')),
+
     # Public landing page
     path('', landing_page, name='landing'),
     path('contact/submit/', contact_submit, name='contact_submit'),
@@ -611,6 +618,9 @@ urlpatterns = [
     path('accounts/two-factor/backup-codes/', two_factor_backup_codes_reveal, name='two_factor_backup_codes_reveal'),
     path('accounts/two-factor/backup-codes/regenerate/', two_factor_regenerate_backup_codes, name='two_factor_regenerate_backup_codes'),
     path('accounts/two-factor/dismiss/', two_factor_dismiss, name='two_factor_dismiss'),
+    path('accounts/two-factor/forget-device/', two_factor_forget_device, name='two_factor_forget_device'),
+    path('accounts/two-factor/recovery/', two_factor_recovery_request, name='two_factor_recovery_request'),
+    path('accounts/two-factor/recovery-confirm/<str:uidb64>/<str:token>/', two_factor_recovery_confirm, name='two_factor_recovery_confirm'),
 
     # Session Management
     path('account/sessions/', session_list, name='session_list'),

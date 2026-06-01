@@ -3,12 +3,24 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash
 from django.contrib import messages
+from django.core.cache import cache
 from src.utils.security_utils import get_client_ip
 from src.models import ActivityLog
+
+_PW_CHANGE_LIMIT = 5       # attempts
+_PW_CHANGE_WINDOW = 3600   # 1 hour
+
 
 @login_required
 def change_password(request):
     if request.method == 'POST':
+        # Rate limit: 5 attempts per hour per user
+        rate_key = f'pw_change_{request.user.pk}'
+        attempts = cache.get(rate_key, 0)
+        if attempts >= _PW_CHANGE_LIMIT:
+            messages.error(request, 'Too many password change attempts. Please wait an hour and try again.')
+            return redirect('profile')
+        cache.set(rate_key, attempts + 1, _PW_CHANGE_WINDOW)
         form = PasswordChangeForm(user=request.user, data=request.POST)
         if form.is_valid():
             form.save()

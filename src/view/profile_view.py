@@ -364,9 +364,30 @@ def profile_view(request):
     # Check 2FA status
     from django_otp import user_has_device
     from django_otp.plugins.otp_static.models import StaticDevice
+    from src.view.two_factor import _REMEMBER_COOKIE_NAME, _REMEMBER_COOKIE_SALT, _REMEMBER_DAYS, _parse_remember_cookie
+    from django.core import signing
     has_2fa = user_has_device(user)
     backup_device = StaticDevice.objects.filter(user=user, name='backup', confirmed=True).first()
     backup_codes_remaining = backup_device.token_set.count() if backup_device else 0
+    backup_codes_warning = (
+        has_2fa and (
+            not backup_device
+            or backup_codes_remaining == 0
+            or not user.backup_codes_acknowledged
+            or backup_codes_remaining <= 2
+        )
+    )
+
+    # Check if this browser has a valid remember-device cookie
+    two_factor_device_remembered = False
+    if has_2fa:
+        cookie = request.COOKIES.get(_REMEMBER_COOKIE_NAME)
+        if cookie:
+            try:
+                u_pk, _ = _parse_remember_cookie(cookie)
+                two_factor_device_remembered = (u_pk == user.pk)
+            except (signing.BadSignature, signing.SignatureExpired, ValueError):
+                pass
 
     from src.models import RoleHistory
     role_histories = RoleHistory.objects.filter(user=user)
@@ -388,6 +409,9 @@ def profile_view(request):
         'notif_prefs': notif_prefs,
         'has_2fa': has_2fa,
         'backup_codes_remaining': backup_codes_remaining,
+        'backup_codes_acknowledged': user.backup_codes_acknowledged,
+        'backup_codes_warning': backup_codes_warning,
+        'two_factor_device_remembered': two_factor_device_remembered,
         'role_histories': role_histories,
         'eligible_big_bros': eligible_big_bros,
         'academic_sections': academic_sections,

@@ -216,6 +216,40 @@ def maintenance_mode(request):
     return context
 
 
+def two_factor_status(request):
+    """
+    Injects backup-code warning state into all templates so a banner can
+    be shown site-wide when the user's 2FA backup codes need attention.
+
+    Warning is shown when:
+    - 2FA is enabled AND codes have never been acknowledged (not viewed after generation)
+    - 2FA is enabled AND no backup device exists
+    - 2FA is enabled AND ≤ 2 codes remain
+    """
+    if not request.user.is_authenticated:
+        return {'backup_codes_warning': False, 'backup_codes_remaining': None}
+
+    from django_otp import user_has_device
+    from django_otp.plugins.otp_static.models import StaticDevice
+
+    has_2fa = user_has_device(request.user)
+    if not has_2fa:
+        return {'backup_codes_warning': False, 'backup_codes_remaining': None}
+
+    backup_device = StaticDevice.objects.filter(
+        user=request.user, name='backup', confirmed=True
+    ).first()
+    remaining = backup_device.token_set.count() if backup_device else 0
+
+    warning = (
+        not backup_device
+        or remaining == 0
+        or not request.user.backup_codes_acknowledged
+        or remaining <= 2
+    )
+    return {'backup_codes_warning': warning, 'backup_codes_remaining': remaining}
+
+
 def _get_client_ip(request):
     """Helper to get client IP address"""
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')

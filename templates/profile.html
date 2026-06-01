@@ -279,9 +279,19 @@
                             <p class="text-sm text-green-600 dark:text-green-400">Your account is protected with two-factor authentication.</p>
                         </div>
                     </div>
-                    <a href="{% url 'two_factor_disable' %}" class="flex-shrink-0 px-4 py-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm font-medium">
-                        Disable 2FA
-                    </a>
+                    <div class="flex items-center gap-3">
+                        {% if two_factor_device_remembered %}
+                        <form method="post" action="{% url 'two_factor_forget_device' %}">
+                            {% csrf_token %}
+                            <button type="submit" class="flex-shrink-0 px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                                Forget this device
+                            </button>
+                        </form>
+                        {% endif %}
+                        <a href="{% url 'two_factor_disable' %}" class="flex-shrink-0 px-4 py-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm font-medium">
+                            Disable 2FA
+                        </a>
+                    </div>
                 </div>
 
                 <div class="flex items-center justify-between p-4 {% if backup_codes_remaining == 0 %}bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700{% elif backup_codes_remaining <= 2 %}bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700{% else %}bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600{% endif %} rounded-lg">
@@ -304,6 +314,19 @@
                         Regenerate
                     </a>
                 </div>
+
+                {% if not backup_codes_acknowledged %}
+                <div class="flex items-start gap-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg">
+                    <svg class="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Backup codes not yet saved</p>
+                        <p class="text-xs text-yellow-700 dark:text-yellow-300 mt-0.5">You haven't viewed your backup codes since they were last generated. If you lose your authenticator without them, you'll be locked out. <a href="{% url 'two_factor_regenerate_backup_codes' %}" class="underline font-medium">Generate and save new ones now.</a></p>
+                    </div>
+                </div>
+                {% endif %}
+
                 {% else %}
                 <div class="flex items-center justify-between p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                     <div class="flex items-center">

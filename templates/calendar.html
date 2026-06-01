@@ -22,12 +22,14 @@
                 </svg>
                 Export Calendar
             </a>
+            {% if feature_flags.calendar_subscriptions %}
             <button onclick="openSubscriptionModal()" class="bg-teal-600 dark:bg-teal-700 hover:bg-teal-700 dark:hover:bg-teal-600 text-white font-medium py-2 px-4 rounded-lg transition flex items-center" title="Subscribe to auto-updating calendar feed">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                 </svg>
                 Subscribe to Calendar
             </button>
+            {% endif %}
             {% if user.member_type == 'Officer' or user.member_type == 'Chair' %}
                 <a href="{% url 'create_event' %}" class="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition flex items-center">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -691,6 +693,7 @@
         preloadAdjacentMonths();
     }
 
+    {% if feature_flags.calendar_subscriptions %}
     // Calendar Subscription Functions
     let subscriptionData = null;
 
@@ -787,8 +790,10 @@
             if (e.target === this) closeSubscriptionModal();
         });
     });
+    {% endif %}
 </script>
 
+{% if feature_flags.calendar_subscriptions %}
 <!-- Calendar Subscription Modal -->
 <div id="subscriptionModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-gray-900 dark:bg-opacity-70 hidden items-center justify-center z-50 overflow-y-auto p-4">
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-auto my-8 p-6 max-h-[90vh] overflow-y-auto">
@@ -847,5 +852,6 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 {% endblock %}

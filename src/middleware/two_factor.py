@@ -4,7 +4,9 @@ Middleware to enforce Two-Factor Authentication based on configurable policy
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
-from django_otp import user_has_device
+from django.core import signing
+from django_otp import user_has_device, login as otp_login
+from django_otp.plugins.otp_totp.models import TOTPDevice
 from datetime import timedelta
 import logging
 
@@ -44,6 +46,8 @@ class Enforce2FAMiddleware:
             '/accounts/two-factor/verify/',
             '/accounts/two-factor/disable/',
             '/accounts/two-factor/dismiss/',
+            '/accounts/two-factor/recovery/',
+            '/accounts/two-factor/recovery-confirm/',
             '/static/',
             '/media/',
             '/api/',  # API endpoints should handle auth separately
@@ -91,9 +95,37 @@ class Enforce2FAMiddleware:
         # If 2FA is required and set up, but not verified this session
         if requires_2fa and user_has_device(request.user):
             if not request.user.is_verified() and request.path != '/accounts/two-factor/verify/':
-                return redirect('two_factor_verify')
+                # Check for a valid "remember this device" cookie before forcing verify
+                if self._check_remember_cookie(request):
+                    pass  # auto-verified via cookie — fall through
+                else:
+                    return redirect('two_factor_verify')
 
         return self.get_response(request)
+
+    def _check_remember_cookie(self, request):
+        """
+        Check the remember-device cookie. If valid and the device still exists,
+        auto-complete OTP login for this session and return True.
+        """
+        from src.view.two_factor import _REMEMBER_COOKIE_NAME, _REMEMBER_COOKIE_SALT, _REMEMBER_DAYS
+        cookie = request.COOKIES.get(_REMEMBER_COOKIE_NAME)
+        if not cookie:
+            return False
+        try:
+            signer = signing.TimestampSigner(salt=_REMEMBER_COOKIE_SALT)
+            value = signer.unsign(cookie, max_age=_REMEMBER_DAYS * 86400)
+            user_pk, device_pk = value.split(':', 1)
+            if int(user_pk) != request.user.pk:
+                return False
+            device = TOTPDevice.objects.filter(pk=int(device_pk), user=request.user, confirmed=True).first()
+            if not device:
+                return False
+            otp_login(request, device)
+            logger.debug(f'2FA auto-verified via remember cookie for {request.user.username}')
+            return True
+        except (signing.BadSignature, signing.SignatureExpired, ValueError, TypeError):
+            return False
 
     def user_requires_2fa(self, user):
         """

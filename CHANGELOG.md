@@ -161,6 +161,12 @@ Breaks the 6280-line monolithic `src/models.py` into 16 focused sub-modules unde
 
 ---
 
+### v2.28.0 - 2FA Hardening, Auth Audit & API Foundation (2026-06-01)
+
+Self-service 2FA recovery via email, "remember this device for 30 days" cookie, backup code acknowledgement tracking with a site-wide warning banner, auth view audit fixes (logout logging, rate limiting on password change and 2FA recovery, admin notification on recovery use), and a read-only REST API scaffolded on Django REST Framework as the 3.0.0 API foundation.
+
+---
+
 ### v2.27.0 - Guide Accuracy Pass, Inline Poll Builder, My Work Page & Poll Privacy (2026-05-31)
 
 Four independent areas: guide template corrections, polling UX improvements (inline creation + document search), page rename + enhanced vote display, and anonymous poll privacy hardening.

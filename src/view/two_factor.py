@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.http import HttpResponse
 from django.utils import timezone
 from django.core.cache import cache
+from django.core import signing
 from django_otp import user_has_device, login as otp_login
 from django_otp.plugins.otp_totp.models import TOTPDevice
 from django_otp.plugins.otp_static.models import StaticDevice, StaticToken
@@ -29,12 +30,52 @@ _2FA_WINDOW_SECONDS = 900   # 15-minute window
 # Number of backup codes to generate
 BACKUP_CODE_COUNT = 10
 
+# Remember this device
+_REMEMBER_COOKIE_NAME = '2fa_remember'
+_REMEMBER_COOKIE_SALT = 'parliament.2fa.remember'
+_REMEMBER_DAYS = 30
+
+
+def _make_remember_cookie_value(user, device):
+    """Return a signed value encoding user PK + device PK."""
+    signer = signing.TimestampSigner(salt=_REMEMBER_COOKIE_SALT)
+    return signer.sign(f'{user.pk}:{device.pk}')
+
+
+def _parse_remember_cookie(cookie_value):
+    """
+    Validate and decode a remember cookie.
+    Returns (user_pk, device_pk) on success, raises signing.BadSignature on failure.
+    """
+    signer = signing.TimestampSigner(salt=_REMEMBER_COOKIE_SALT)
+    value = signer.unsign(cookie_value, max_age=_REMEMBER_DAYS * 86400)
+    user_pk, device_pk = value.split(':', 1)
+    return int(user_pk), int(device_pk)
+
+
+def set_remember_cookie(response, user, device):
+    """Attach a 30-day HttpOnly remember cookie to the response."""
+    response.set_cookie(
+        _REMEMBER_COOKIE_NAME,
+        _make_remember_cookie_value(user, device),
+        max_age=_REMEMBER_DAYS * 86400,
+        httponly=True,
+        secure=True,
+        samesite='Lax',
+    )
+
+
+def clear_remember_cookie(response):
+    """Remove the remember cookie."""
+    response.delete_cookie(_REMEMBER_COOKIE_NAME)
+
 
 def _generate_backup_codes(user):
     """
     Generate a fresh set of backup codes for a user.
     Deletes any existing StaticDevice for this user and creates a new one.
     Returns a list of plaintext code strings (shown to user once).
+    Clears backup_codes_acknowledged so the user is prompted to view the new codes.
     """
     # Remove any existing backup code device
     StaticDevice.objects.filter(user=user, name='backup').delete()
@@ -46,6 +87,11 @@ def _generate_backup_codes(user):
         code = secrets.token_hex(4).upper()  # e.g. "A3F2C19D"
         StaticToken.objects.create(device=device, token=code)
         codes.append(code)
+
+    # Reset acknowledged flag — user must view new codes
+    user.backup_codes_acknowledged = False
+    user.save(update_fields=['backup_codes_acknowledged'])
+
     return codes
 
 
@@ -58,17 +104,47 @@ def _get_backup_device(user):
 def two_factor_setup(request):
     """
     Set up Two-Factor Authentication using TOTP (Time-based One-Time Password)
-    Users scan QR code with Google Authenticator, Authy, or similar app
+    Users scan QR code with Google Authenticator, Authy, or similar app.
+
+    If the user has no email address, show an email collection step first —
+    this keeps everything on the already-middleware-exempt /accounts/two-factor/setup/
+    path so a policy-required user can still complete setup.
     """
     # Check if user already has 2FA set up
     if user_has_device(request.user):
         messages.info(request, 'Two-Factor Authentication is already set up for your account.')
         return redirect('home')
 
-    # Generate or get device for this user
-    device = TOTPDevice.objects.filter(user=request.user, confirmed=False).first()
+    user = request.user
 
-    if request.method == 'POST':
+    # --- Email collection step ---
+    # If the user has no email we stop here and collect it first.
+    # Handle email submission in this same view (POST with 'email' field)
+    # so we stay on the middleware-exempt path.
+    if not user.email:
+        if request.method == 'POST' and 'email' in request.POST:
+            email = request.POST.get('email', '').strip().lower()
+            if email:
+                from django.db import transaction as _tx
+                with _tx.atomic():
+                    user.email = email
+                    user.email_flagged = False
+                    user.email_flagged_reason = ''
+                    user.email_flagged_at = None
+                    user.save(update_fields=['email', 'email_flagged', 'email_flagged_reason', 'email_flagged_at'])
+                user.refresh_from_db()
+                logger.info(f'Email set for {user.username} during 2FA setup: {email}')
+                messages.success(request, f'Email set to {email}. You can now complete 2FA setup.')
+                return redirect('two_factor_setup')
+            else:
+                messages.error(request, 'Please enter a valid email address.')
+        # Render the email collection step (no QR code yet)
+        return render(request, 'two_factor/setup.html', {'needs_email': True})
+
+    # --- Normal TOTP setup ---
+    device = TOTPDevice.objects.filter(user=user, confirmed=False).first()
+
+    if request.method == 'POST' and 'token' in request.POST:
         token = request.POST.get('token', '').strip()
 
         if not device:
@@ -77,12 +153,11 @@ def two_factor_setup(request):
 
         # Verify the token
         if device.verify_token(token):
-            # Mark device as confirmed
             device.confirmed = True
             device.save()
 
             # Generate backup codes and store them in session to show once
-            backup_codes = _generate_backup_codes(request.user)
+            backup_codes = _generate_backup_codes(user)
             request.session['new_backup_codes'] = backup_codes
 
             return redirect('two_factor_backup_codes_reveal')
@@ -92,7 +167,7 @@ def two_factor_setup(request):
     # Create a new device if none exists
     if not device:
         device = TOTPDevice.objects.create(
-            user=request.user,
+            user=user,
             name='default',
             confirmed=False,
             key=random_hex()
@@ -101,7 +176,7 @@ def two_factor_setup(request):
     context = {
         'qr_code_url': '/accounts/two-factor/qrcode/',
         'manual_entry_key': device.key,
-        'account_name': request.user.username,
+        'account_name': user.username,
     }
 
     return render(request, 'two_factor/setup.html', context)
@@ -117,6 +192,10 @@ def two_factor_backup_codes_reveal(request):
     if not backup_codes:
         # No codes in session — redirect to profile
         return redirect('profile')
+
+    # Mark that the user has seen their backup codes
+    request.user.backup_codes_acknowledged = True
+    request.user.save(update_fields=['backup_codes_acknowledged'])
 
     return render(request, 'two_factor/backup_codes_reveal.html', {
         'backup_codes': backup_codes,
@@ -273,7 +352,13 @@ def two_factor_verify(request):
             cache.delete(f'2fa_failures_{request.user.pk}')
             if not token or len(token) != 8:  # Only show generic success for TOTP
                 messages.success(request, 'Two-Factor Authentication verified successfully!')
-            return redirect('home')
+            response = redirect('home')
+            # Set remember cookie if requested (only for TOTP, not backup codes)
+            remember = request.POST.get('remember_device') == 'on'
+            if remember and totp_device and len(token) != 8:
+                set_remember_cookie(response, request.user, totp_device)
+                logger.info(f'User {request.user.username} enabled 2FA device remembering.')
+            return response
         else:
             messages.error(request, 'Invalid verification code. Please try again.')
             _record_2fa_failure(request)
@@ -281,6 +366,7 @@ def two_factor_verify(request):
     backup_device = _get_backup_device(request.user)
     return render(request, 'two_factor/verify.html', {
         'has_backup_codes': backup_device is not None and backup_device.token_set.exists(),
+        'remember_days': _REMEMBER_DAYS,
     })
 
 
@@ -294,7 +380,9 @@ def two_factor_disable(request):
         TOTPDevice.objects.filter(user=request.user).delete()
         StaticDevice.objects.filter(user=request.user, name='backup').delete()
         messages.success(request, 'Two-Factor Authentication has been disabled.')
-        return redirect('profile')
+        response = redirect('profile')
+        clear_remember_cookie(response)
+        return response
 
     return render(request, 'two_factor/disable.html')
 
@@ -311,3 +399,17 @@ def two_factor_dismiss(request):
 
     messages.info(request, 'Two-Factor Authentication setup has been postponed for 1 hour.')
     return redirect('home')
+
+
+@login_required
+def two_factor_forget_device(request):
+    """
+    Clear the 'remember this device' cookie for the current browser.
+    POST only to prevent accidental clearing via prefetch/crawlers.
+    """
+    if request.method == 'POST':
+        response = redirect('profile')
+        clear_remember_cookie(response)
+        messages.success(request, 'This device will no longer be remembered for 2FA.')
+        return response
+    return redirect('profile')

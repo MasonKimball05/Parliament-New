@@ -7,6 +7,51 @@
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
         <h1 class="text-3xl font-bold mb-4 text-center text-gray-900 dark:text-gray-100">Set Up Two-Factor Authentication</h1>
 
+        {% if needs_email %}
+        {# ---- Email collection gate ---- #}
+        <div class="bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-500 p-4 mb-6">
+            <p class="text-sm text-yellow-700 dark:text-yellow-300">
+                <strong>Email Required:</strong> An email address is required before enabling 2FA.
+                It's used to send you a recovery link if you ever lose access to your authenticator.
+            </p>
+        </div>
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Email Address
+                </label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    required
+                    autofocus
+                    placeholder="your.name@samford.edu"
+                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                >
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Please use your Samford email (@samford.edu).</p>
+            </div>
+            <button
+                type="submit"
+                class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+            >
+                Save Email &amp; Continue
+            </button>
+        </form>
+
+        <div class="mt-4 text-center">
+            <a
+                href="{% url 'two_factor_dismiss' %}"
+                class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
+            >
+                Remind me later (skip for 1 hour)
+            </a>
+        </div>
+
+        {% else %}
+        {# ---- Normal TOTP setup ---- #}
         <div class="bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500 p-4 mb-6">
             <p class="text-sm text-blue-700 dark:text-blue-300">
                 <strong>Security Enhancement:</strong> Two-Factor Authentication adds an extra layer of security to your account by requiring a verification code from your phone in addition to your password.
@@ -61,6 +106,7 @@
                             pattern="[0-9]{6}"
                             placeholder="000000"
                             required
+                            autofocus
                             class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-center text-2xl font-mono tracking-wider focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                             autocomplete="off"
                         >
@@ -94,9 +140,11 @@
             <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                 <li>Make sure your phone's date and time are correct</li>
                 <li>The verification code changes every 30 seconds</li>
-                <li>If you lose your phone, contact an administrator to reset 2FA</li>
+                <li>If you lose your phone, use the self-service recovery link on the verification page</li>
             </ul>
         </div>
+        {% endif %}
+
     </div>
 </div>
 {% endblock %}

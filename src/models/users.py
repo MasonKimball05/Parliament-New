@@ -137,6 +137,10 @@ class ParliamentUser(AbstractBaseUser):
     email_flagged = models.BooleanField(default=False, help_text='Email address flagged as undeliverable — user prompted to update it')
     email_flagged_reason = models.TextField(blank=True, help_text='Reason the email address was flagged (e.g. delivery error message)')
     email_flagged_at = models.DateTimeField(null=True, blank=True, help_text='When the email address was flagged')
+    backup_codes_acknowledged = models.BooleanField(
+        default=False,
+        help_text='True after the user has viewed their backup codes on the reveal page. Reset when codes are regenerated.'
+    )
     role_number = models.CharField(
         max_length=30,
         unique=True,
