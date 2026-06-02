@@ -299,6 +299,32 @@
                         <p class="text-gray-500 dark:text-gray-400">Nominations open, voting open, and results published</p>
                     </label>
                 </div>
+                {% if feature_flags.chats %}
+                <div class="flex items-center">
+                    {{ form.push_chat }}
+                    <label for="{{ form.push_chat.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.push_chat.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">New messages in channels (respects per-channel notification settings)</p>
+                    </label>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Install App -->
+            <div class="border-t border-gray-100 dark:border-gray-700 pt-4 mt-4">
+                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-medium mb-3">Install</p>
+                <button type="button" id="prefs-install-btn"
+                        onclick="handlePrefsInstall()"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 text-sm font-medium rounded-lg transition-colors border border-gray-200 dark:border-gray-600">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    <span id="prefs-install-btn-label">Install Parliament as an App</span>
+                </button>
+                <p id="prefs-already-installed" class="hidden text-sm text-green-600 dark:text-green-400 flex items-center gap-1.5 mt-1">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                    Parliament is already installed on this device
+                </p>
             </div>
         </div>
         {% endif %}
@@ -589,5 +615,41 @@
 })();
 </script>
 {% endif %}
+
+<script nonce="{{ request.csp_nonce }}">
+// Install button on preferences page — shares state with the nav button via window.deferredInstallPrompt
+(function() {
+    var isInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+    if (isInstalled) {
+        var btn = document.getElementById('prefs-install-btn');
+        if (btn) btn.classList.add('hidden');
+        var msg = document.getElementById('prefs-already-installed');
+        if (msg) msg.classList.remove('hidden');
+    }
+
+    window.handlePrefsInstall = function() {
+        // If the nav already captured a deferred prompt, use it
+        if (window.deferredInstallPrompt) {
+            window.deferredInstallPrompt.prompt();
+            window.deferredInstallPrompt.userChoice.then(function() {
+                window.deferredInstallPrompt = null;
+            });
+            return;
+        }
+        // Otherwise open the same instructions modal from base.html
+        if (typeof showInstructionsModal === 'function') {
+            showInstructionsModal();
+        }
+    };
+
+    window.addEventListener('appinstalled', function() {
+        var btn = document.getElementById('prefs-install-btn');
+        if (btn) btn.classList.add('hidden');
+        var msg = document.getElementById('prefs-already-installed');
+        if (msg) msg.classList.remove('hidden');
+    });
+})();
+</script>
 
 {% endblock %}

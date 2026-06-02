@@ -734,6 +734,8 @@ class UserPreferencesForm(forms.Form):
         widget=forms.CheckboxInput(attrs={"class": _CB}))
     push_slating = forms.BooleanField(required=False, label="Officer Elections (Slating)",
         widget=forms.CheckboxInput(attrs={"class": _CB}))
+    push_chat = forms.BooleanField(required=False, label="Chat Messages",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
 
     # Menu
     show_vote_menu = forms.BooleanField(required=False, label="Show Vote",
@@ -778,6 +780,7 @@ class UserPreferencesForm(forms.Form):
                 'push_legislation': instance.push_legislation,
                 'push_events': instance.push_events,
                 'push_slating': instance.push_slating,
+                'push_chat': instance.push_chat,
                 'show_vote_menu': instance.show_vote_menu,
                 'show_committees_menu': instance.show_committees_menu,
                 'show_chats_menu': instance.show_chats_menu,
@@ -847,6 +850,7 @@ class UserPreferencesForm(forms.Form):
                 'legislation': self.cleaned_data['push_legislation'],
                 'events': self.cleaned_data['push_events'],
                 'slating': self.cleaned_data['push_slating'],
+                'chat': self.cleaned_data['push_chat'],
             },
         }
         p.save()

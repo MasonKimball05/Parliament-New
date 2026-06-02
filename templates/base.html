@@ -1820,12 +1820,23 @@
         // Detect browser for instructions
         var ua = navigator.userAgent;
         var isArc = window.hasOwnProperty('__arc_toolbar') || (CSS && CSS.supports && CSS.supports('-webkit-app-region', 'drag') && /Chrome/.test(ua) && /Arc/.test(navigator.userAgentData && navigator.userAgentData.brands ? JSON.stringify(navigator.userAgentData.brands) : ''));
-        var isSafari = /^((?!chrome|android).)*safari/i.test(ua);
-        var isChromiumBased = /Chrome/.test(ua) && !/Edg/.test(ua);
-        var isEdge = /Edg/.test(ua);
+        var isOpera = /OPR\//.test(ua) || /Opera/.test(ua);
+        var isEdge = /Edg\//.test(ua);
         var isFirefox = /Firefox/.test(ua);
+        var isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+        var isChrome = /Chrome/.test(ua) && !isEdge && !isOpera;
 
         function getBrowserInstructions() {
+            // Opera / Opera GX: Chromium-based, supports beforeinstallprompt
+            // This fallback only shows if the native prompt didn't fire
+            if (isOpera) {
+                return '<p class="font-medium mb-3">To install Parliament in Opera:</p>' +
+                    '<ol class="list-decimal list-inside space-y-2">' +
+                    '<li>Look for the <strong>install icon</strong> <span class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">⊕</span> in the address bar</li>' +
+                    '<li>Click it and select <strong>Install</strong></li>' +
+                    '</ol>' +
+                    '<p class="mt-3 text-xs text-gray-500 dark:text-gray-400">Opera and Opera GX both support PWA installation. If you don\'t see the icon, try visiting a few more pages first.</p>';
+            }
             // Arc: no PWA support
             if (isArc) {
                 return '<div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">' +
@@ -1859,8 +1870,9 @@
                     '<p class="text-amber-700 dark:text-amber-400">To install Parliament as an app, open it in <strong>Chrome</strong> or <strong>Edge</strong>.</p>' +
                     '</div>';
             }
-            // Chrome / Edge fallback (beforeinstallprompt didn't fire yet — maybe already installed or criteria not met)
-            return '<p class="font-medium mb-3">To install Parliament in ' + (isEdge ? 'Edge' : 'Chrome') + ':</p>' +
+            // Chrome / Edge / other Chromium fallback
+            var browserName = isEdge ? 'Edge' : (isOpera ? 'Opera' : 'Chrome');
+            return '<p class="font-medium mb-3">To install Parliament in ' + browserName + ':</p>' +
                 '<ol class="list-decimal list-inside space-y-2">' +
                 '<li>Look for the <strong>install icon</strong> <span class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">⊕</span> in the address bar</li>' +
                 '<li>Click it and select <strong>Install</strong></li>' +

@@ -24,10 +24,17 @@
     <div class="mb-2 sm:mb-4">
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
             <div class="flex-1">
-                <a href="{% url 'chat_index' %}{% if admin_preview_mode %}?view_all=true{% endif %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm sm:text-base">
-                    ← Back to Chats
+                <a href="{% url 'chat_index' %}{% if admin_preview_mode %}?view_all=true{% endif %}" class="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm sm:text-base">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                    Back to Chats
                 </a>
-                <h2 class="text-xl sm:text-2xl lg:text-3xl font-bold mt-1 sm:mt-2 text-gray-900 dark:text-gray-100">{{ channel.name }}</h2>
+                <div class="flex items-center gap-3 mt-1 sm:mt-2">
+                    {% if channel.icon %}
+                    <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-xl sm:text-2xl flex-shrink-0"
+                         style="background-color: {{ channel.color }}25;">{{ channel.icon }}</div>
+                    {% endif %}
+                    <h2 class="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-gray-100">{{ channel.name }}</h2>
+                </div>
                 <div class="flex flex-wrap items-center gap-2 sm:gap-4 text-gray-600 dark:text-gray-400 text-xs sm:text-sm">
                     {% if channel.description %}
                         <p class="break-words">{{ channel.description }}</p>
@@ -76,8 +83,9 @@
 
     <!-- Notification preference + poll indicator row -->
     <div class="flex items-center justify-between mb-1 sm:mb-2">
-        <div id="poll-status" class="text-xs text-blue-700 dark:text-blue-400">
-            ● Connecting...
+        <div id="poll-status" class="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+            <span id="poll-dot" class="w-1.5 h-1.5 rounded-full bg-yellow-400 inline-block"></span>
+            <span id="poll-text">Connecting...</span>
         </div>
         {% if not admin_preview_mode %}
         <!-- Per-channel notification preference -->
@@ -111,22 +119,24 @@
     <div id="chat-container" class="flex-1 rounded-lg shadow-md p-2 sm:p-4 overflow-y-auto mb-2 sm:mb-4 border transition-colors duration-200 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
         <div id="messages-list">
             {% if has_more_messages %}
-            <div id="load-older-wrapper" class="text-center mb-3">
+            <div id="load-older-wrapper" class="flex items-center gap-3 mb-4">
+                <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
                 <button id="load-older-btn" onclick="loadOlderMessages()"
-                        class="px-4 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        class="px-3 py-1 text-xs rounded-full border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors whitespace-nowrap">
                     Load older messages
                 </button>
+                <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
             </div>
             {% endif %}
             {% for msg in initial_messages %}
-                <div id="msg-{{ msg.id }}" class="flex gap-2 sm:gap-3 p-1.5 sm:p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 mb-1.5 sm:mb-2 group transition-colors {% if msg.sender == request.user %}bg-pink-50 dark:bg-pink-900/20{% endif %}">
+                <div id="msg-{{ msg.id }}" class="flex gap-2 sm:gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/60 mb-0.5 group transition-colors {% if msg.sender == request.user %}border-l-2 border-blue-300 dark:border-blue-600 pl-3{% endif %}">
                     <!-- Avatar with profile picture or initials -->
                     {% if msg.sender.profile_picture %}
                     <img src="{{ msg.sender.profile_picture.url }}" alt="{{ msg.sender.name }}"
-                         class="w-8 h-8 sm:w-9 sm:h-9 rounded object-cover flex-shrink-0">
+                         class="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover flex-shrink-0 mt-0.5">
                     {% else %}
-                    <div class="w-8 h-8 sm:w-9 sm:h-9 rounded text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0"
-                         style="background-color: {% if msg.sender == request.user %}#CD8C95{% else %}#003DA5{% endif %}">
+                    <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0 mt-0.5"
+                         style="background-color: {% if msg.sender == request.user %}#003DA5{% else %}#4B6CB7{% endif %}">
                         {% with first=msg.sender.name|first %}
                             {% with parts=msg.sender.name|split:' ' %}
                                 {% if parts|length > 1 %}
@@ -178,33 +188,39 @@
     <!-- Message Input -->
     {% if not admin_preview_mode %}
         {% if can_send_messages %}
-            <div class="rounded-lg shadow-md p-2 sm:p-4 border-2 transition-colors duration-200 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+            <div class="rounded-xl shadow-md border transition-colors duration-200 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus-within:border-blue-400 dark:focus-within:border-blue-500">
                 <!-- @mention autocomplete dropdown -->
-                <div id="mention-dropdown" class="hidden relative mb-1">
-                    <div id="mention-list" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                <div id="mention-dropdown" class="hidden px-2 pt-2">
+                    <div id="mention-list" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-44 overflow-y-auto">
                     </div>
                 </div>
-                <form id="message-form" class="flex gap-2">
+                <form id="message-form">
                     {% csrf_token %}
-                    <input
-                        type="text"
-                        id="message-input"
-                        name="message"
-                        placeholder="Type a message... (use @ to mention someone)"
-                        maxlength="2000"
-                        class="flex-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded px-3 sm:px-4 py-2 text-sm sm:text-base focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 transition-colors"
-                        autocomplete="off"
-                    >
-                    <button
-                        type="submit"
-                        class="px-4 sm:px-6 py-2 rounded text-white font-semibold text-sm sm:text-base whitespace-nowrap bg-blue-700 dark:bg-blue-600 hover:bg-blue-800 dark:hover:bg-blue-700 transition-colors"
-                    >
-                        Send
-                    </button>
+                    <div class="flex items-end gap-2 px-3 py-2">
+                        <textarea
+                            id="message-input"
+                            name="message"
+                            placeholder="Message #{{ channel.name }}… (Enter to send, Shift+Enter for newline)"
+                            maxlength="2000"
+                            rows="1"
+                            class="flex-1 bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 text-sm sm:text-base focus:outline-none resize-none overflow-hidden leading-relaxed py-1"
+                            autocomplete="off"
+                            style="max-height: 140px;"
+                        ></textarea>
+                        <button
+                            type="submit"
+                            class="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-white bg-blue-700 dark:bg-blue-600 hover:bg-blue-800 dark:hover:bg-blue-700 transition-colors disabled:opacity-40"
+                            title="Send (Enter)"
+                        >
+                            <svg class="w-4 h-4 rotate-90" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="flex justify-end px-3 pb-1.5">
+                        <span class="text-xs text-gray-400 dark:text-gray-500"><span id="char-count">0</span>/2000</span>
+                    </div>
                 </form>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 sm:mt-2 text-right">
-                    <span id="char-count">0</span>/2000 characters
-                </p>
             </div>
         {% else %}
             <!-- Read-Only Banner -->
@@ -311,6 +327,13 @@
     let activeUsersPollInterval = null;
     let isPageVisible = !document.hidden;
 
+    function setPollStatus(dot, text) {
+        const dotEl = document.getElementById('poll-dot');
+        const textEl = document.getElementById('poll-text');
+        if (dotEl) dotEl.className = `w-1.5 h-1.5 rounded-full inline-block ${dot}`;
+        if (textEl) textEl.textContent = text;
+    }
+
     function startPolling(isVisible) {
         // Clear existing intervals
         if (messagesPollInterval) clearInterval(messagesPollInterval);
@@ -318,7 +341,7 @@
 
         // Don't start polling if chat feature is disabled
         if (!CHAT_ENABLED) {
-            document.getElementById('poll-status').textContent = `⊘ Chat feature is disabled`;
+            setPollStatus('bg-gray-400', 'Chat disabled');
             return;
         }
 
@@ -326,13 +349,13 @@
             // Active: use configured active poll intervals
             messagesPollInterval = setInterval(pollForMessages, ACTIVE_POLL_INTERVAL);
             activeUsersPollInterval = setInterval(updateActiveUsers, ACTIVE_USERS_POLL_INTERVAL);
-            document.getElementById('poll-status').textContent = `● Connected - polling every ${ACTIVE_POLL_INTERVAL/1000} seconds`;
+            setPollStatus('bg-green-400', 'Live');
         } else {
             // Inactive: use configured inactive poll interval
-            const inactiveUsersPoll = INACTIVE_POLL_INTERVAL + 10000; // Active users poll slower when inactive
+            const inactiveUsersPoll = INACTIVE_POLL_INTERVAL + 10000;
             messagesPollInterval = setInterval(pollForMessages, INACTIVE_POLL_INTERVAL);
             activeUsersPollInterval = setInterval(updateActiveUsers, inactiveUsersPoll);
-            document.getElementById('poll-status').textContent = `○ Background mode - polling every ${INACTIVE_POLL_INTERVAL/1000} seconds`;
+            setPollStatus('bg-yellow-400', 'Background');
         }
     }
 
@@ -368,7 +391,7 @@
                     // Feature was disabled - stop polling
                     if (messagesPollInterval) clearInterval(messagesPollInterval);
                     if (activeUsersPollInterval) clearInterval(activeUsersPollInterval);
-                    document.getElementById('poll-status').textContent = `⊘ Chat feature has been disabled`;
+                    setPollStatus('bg-gray-400', 'Chat disabled');
                     throw new Error('Chat feature disabled');
                 }
                 return response.json();
@@ -383,11 +406,11 @@
                 }
 
                 // Update poll indicator
-                const now = new Date().toLocaleTimeString();
-                const indicator = isPageVisible ? '●' : '○';
-                const mode = isPageVisible ? 'Connected' : 'Background mode';
-                const interval = isPageVisible ? (ACTIVE_POLL_INTERVAL/1000) : (INACTIVE_POLL_INTERVAL/1000);
-                document.getElementById('poll-status').textContent = `${indicator} ${mode} - polling every ${interval}s - last: ${now}`;
+                if (isPageVisible) {
+                    setPollStatus('bg-green-400', 'Live');
+                } else {
+                    setPollStatus('bg-yellow-400', 'Background');
+                }
             })
             .catch(error => {
                 if (error.message !== 'Chat feature disabled') {
@@ -397,6 +420,19 @@
             .finally(() => {
                 isPolling = false;
             });
+    }
+
+    // Textarea auto-grow + char counter (declared early so handlers below can use it)
+    const messageInput = document.getElementById('message-input');
+
+    // Enter = send, Shift+Enter = newline
+    if (messageInput) {
+        messageInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                document.getElementById('message-form')?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+            }
+        });
     }
 
     // Send message (only if not in admin preview mode)
@@ -430,6 +466,7 @@
 
             // Clear input immediately for better UX
             input.value = '';
+            input.style.height = 'auto';
             updateCharCount();
 
             const formData = new FormData();
@@ -504,7 +541,7 @@
         messageDiv.id = `msg-${msg.id}`;
         messageDiv.className = `flex gap-2 sm:gap-3 p-1.5 sm:p-2 rounded hover:bg-gray-50 mb-1.5 sm:mb-2 ${msg.is_own_message ? 'bg-pink-50' : ''}`;
 
-        const avatarBg = msg.is_own_message ? '#CD8C95' : '#003DA5';
+        const avatarBg = msg.is_own_message ? '#003DA5' : '#4B6CB7';
 
         // Determine profile picture URL
         const profilePicture = msg.sender_profile_picture || (msg.is_own_message ? currentUserProfilePicture : null);
@@ -560,14 +597,14 @@
             `;
         }
 
-        messageDiv.className = `flex gap-2 sm:gap-3 p-1.5 sm:p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 mb-1.5 sm:mb-2 group transition-colors ${msg.is_own_message ? 'bg-pink-50 dark:bg-pink-900/20' : ''}`;
+        messageDiv.className = `flex gap-2 sm:gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/60 mb-0.5 group transition-colors ${msg.is_own_message ? 'border-l-2 border-blue-300 dark:border-blue-600 pl-3' : ''}`;
 
         // Generate avatar HTML - profile picture or initials
         let avatarHtml;
         if (profilePicture) {
-            avatarHtml = `<img src="${escapeHtml(profilePicture)}" alt="${escapeHtml(msg.sender_name)}" class="w-8 h-8 sm:w-9 sm:h-9 rounded object-cover flex-shrink-0">`;
+            avatarHtml = `<img src="${escapeHtml(profilePicture)}" alt="${escapeHtml(msg.sender_name)}" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover flex-shrink-0 mt-0.5">`;
         } else {
-            avatarHtml = `<div class="w-8 h-8 sm:w-9 sm:h-9 rounded text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0" style="background-color: ${avatarBg}">${initials.toUpperCase()}</div>`;
+            avatarHtml = `<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0 mt-0.5" style="background-color: ${avatarBg}">${initials.toUpperCase()}</div>`;
         }
 
         messageDiv.innerHTML = `
@@ -603,15 +640,15 @@
             : nameParts[0][0];
 
         const isSender = msg.sender_id === currentUserId;
-        const avatarBg = isSender ? '#CD8C95' : '#003DA5';
+        const avatarBg = isSender ? '#003DA5' : '#4B6CB7';
         const profilePicture = msg.sender_profile_picture || (isSender ? currentUserProfilePicture : null);
         const avatarHtml = profilePicture
-            ? `<img src="${escapeHtml(profilePicture)}" alt="${escapeHtml(msg.sender_name)}" class="w-8 h-8 sm:w-9 sm:h-9 rounded object-cover flex-shrink-0">`
-            : `<div class="w-8 h-8 sm:w-9 sm:h-9 rounded text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0" style="background-color: ${avatarBg}">${initials.toUpperCase()}</div>`;
+            ? `<img src="${escapeHtml(profilePicture)}" alt="${escapeHtml(msg.sender_name)}" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover flex-shrink-0 mt-0.5">`
+            : `<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0 mt-0.5" style="background-color: ${avatarBg}">${initials.toUpperCase()}</div>`;
 
         const messageDiv = document.createElement('div');
         messageDiv.id = `msg-${msg.id}`;
-        messageDiv.className = `flex gap-2 sm:gap-3 p-1.5 sm:p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 mb-1.5 sm:mb-2 group transition-colors ${isSender ? 'bg-pink-50 dark:bg-pink-900/20' : ''}`;
+        messageDiv.className = `flex gap-2 sm:gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/60 mb-0.5 group transition-colors ${isSender ? 'border-l-2 border-blue-300 dark:border-blue-600 pl-3' : ''}`;
         messageDiv.innerHTML = `
             ${avatarHtml}
             <div class="flex-1 min-w-0">
@@ -811,17 +848,17 @@
         container.scrollTop = container.scrollHeight;
     }
 
-    // Character counter (only if not in admin preview mode)
-    const messageInput = document.getElementById('message-input');
+    // Textarea auto-grow + char counter
+    function updateCharCount() {
+        if (!messageInput) return;
+        const count = messageInput.value.length;
+        document.getElementById('char-count').textContent = count;
+        // Auto-grow
+        messageInput.style.height = 'auto';
+        messageInput.style.height = Math.min(messageInput.scrollHeight, 140) + 'px';
+    }
     if (messageInput) {
         messageInput.addEventListener('input', updateCharCount);
-    }
-
-    function updateCharCount() {
-        if (messageInput) {
-            const count = messageInput.value.length;
-            document.getElementById('char-count').textContent = count;
-        }
     }
 
     // HTML escape
@@ -841,6 +878,7 @@
                     // Feature was disabled - stop polling
                     if (messagesPollInterval) clearInterval(messagesPollInterval);
                     if (activeUsersPollInterval) clearInterval(activeUsersPollInterval);
+                    setPollStatus('bg-gray-400', 'Chat disabled');
                     throw new Error('Chat feature disabled');
                 }
                 return response.json();
@@ -1037,99 +1075,30 @@
     // Initial scroll
     scrollToBottom();
 
-    // Apply dark mode styles immediately using inline styles as fallback
-    (function() {
-        function applyDarkModeInline() {
-            const isDark = document.documentElement.classList.contains('dark');
-
-            if (isDark) {
-                // Force chat container styles
-                const chatContainer = document.getElementById('chat-container');
-                if (chatContainer) {
-                    chatContainer.style.backgroundColor = 'rgb(31, 41, 55)';
-                    chatContainer.style.borderColor = 'rgb(55, 65, 81)';
-                }
-
-                // Force message input container
-                const inputContainer = chatContainer?.nextElementSibling;
-                if (inputContainer) {
-                    inputContainer.style.backgroundColor = 'rgb(31, 41, 55)';
-                    inputContainer.style.borderColor = 'rgb(75, 85, 99)';
-                }
-
-                // Force message input
-                const messageInput = document.getElementById('message-input');
-                if (messageInput) {
-                    messageInput.style.backgroundColor = 'rgb(55, 65, 81)';
-                    messageInput.style.borderColor = 'rgb(75, 85, 99)';
-                    messageInput.style.color = 'rgb(243, 244, 246)';
-                }
-            }
-        }
-
-        // Apply immediately
-        applyDarkModeInline();
-
-        // Re-apply after a short delay to catch any dynamic loading
-        setTimeout(applyDarkModeInline, 100);
-
-        // Listen for theme changes
-        const observer = new MutationObserver(applyDarkModeInline);
-        observer.observe(document.documentElement, {
-            attributes: true,
-            attributeFilter: ['class']
-        });
-    })();
+    // Initial scroll
+    // (moved below)
 </script>
 
 <style>
-    /* Aggressive dark mode styles for chat elements */
+    /* Dark mode: chat messages area */
     html.dark #chat-container,
     .dark #chat-container {
-        background-color: rgb(31, 41, 55) !important; /* gray-800 */
-        border-color: rgb(55, 65, 81) !important; /* gray-700 */
+        background-color: rgb(31, 41, 55) !important;
+        border-color: rgb(55, 65, 81) !important;
     }
 
-    html.dark #chat-container > div,
-    .dark #chat-container > div {
-        background-color: transparent !important;
-    }
-
-    /* Target all divs with bg-white in dark mode */
-    html.dark .bg-white,
-    .dark .bg-white {
-        background-color: rgb(31, 41, 55) !important; /* gray-800 */
-    }
-
-    /* Message input container */
-    html.dark #chat-container + div,
-    .dark #chat-container + div {
-        background-color: rgb(31, 41, 55) !important; /* gray-800 */
-        border-color: rgb(75, 85, 99) !important; /* gray-600 */
-    }
-
-    html.dark #message-input,
-    .dark #message-input {
-        background-color: rgb(55, 65, 81) !important; /* gray-700 */
-        border-color: rgb(75, 85, 99) !important; /* gray-600 */
-        color: rgb(243, 244, 246) !important; /* gray-100 */
+    /* Dark mode: message input wrapper */
+    html.dark #message-form,
+    .dark #message-form,
+    html.dark #message-form textarea,
+    .dark #message-form textarea {
+        background-color: transparent;
+        color: rgb(243, 244, 246);
     }
 
     html.dark #message-input::placeholder,
     .dark #message-input::placeholder {
-        color: rgb(156, 163, 175) !important; /* gray-400 */
-    }
-
-    /* Force all white backgrounds to be dark gray in dark mode */
-    html.dark .container .bg-white,
-    html.dark div[class*="bg-white"] {
-        background-color: rgb(31, 41, 55) !important;
-    }
-
-    /* Force border colors */
-    html.dark .border-gray-200,
-    html.dark .border-gray-300 {
-        border-color: rgb(75, 85, 99) !important;
+        color: rgb(107, 114, 128) !important;
     }
 </style>
 {% endblock %}
