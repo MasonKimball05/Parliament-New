@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 
 
 class ChatChannel(models.Model):
@@ -346,3 +347,43 @@ class ChatReadReceipt(models.Model):
                 is_deleted=False
             ).count()
         return 0
+
+class ChatNotificationPreference(models.Model):
+    """Per-user, per-channel notification level preference."""
+
+    LEVEL_ALL = 'all'
+    LEVEL_MENTIONS = 'mentions'
+    LEVEL_NONE = 'none'
+
+    NOTIFICATION_LEVELS = [
+        (LEVEL_ALL, 'All Messages'),
+        (LEVEL_MENTIONS, '@Mentions Only'),
+        (LEVEL_NONE, 'None'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='chat_notification_prefs',
+    )
+    channel = models.ForeignKey(
+        ChatChannel,
+        on_delete=models.CASCADE,
+        related_name='notification_prefs',
+    )
+    level = models.CharField(
+        max_length=10,
+        choices=NOTIFICATION_LEVELS,
+        default=LEVEL_ALL,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'channel'],
+                name='unique_user_channel_notif_pref',
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user.name} — #{self.channel.name}: {self.level}"

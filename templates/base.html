@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" href="/exportable_media/am-coat-of-arms.png">
     <link rel="apple-touch-icon" href="/exportable_media/am-coat-of-arms.png">
     <link rel="manifest" href="{% static 'manifest.json' %}">
-    <meta name="theme-color" content="#1d4ed8">
+    <meta name="theme-color" content="#003DA5">
 
     <!-- Tailwind CSS (self-hosted, no CDN) -->
     <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
@@ -99,8 +99,11 @@
                             </a>
                             {% endif %}
                             {% if user.preferences.show_chats_menu and feature_flags.chats %}
-                            <a href="{% url 'chat_index' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
+                            <a href="{% url 'chat_index' %}" class="relative px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Chats
+                                {% if unread_chat_count %}
+                                <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[1rem] h-4 flex items-center justify-center font-bold px-0.5">{{ unread_chat_count }}</span>
+                                {% endif %}
                             </a>
                             {% endif %}
                             {% if user.preferences.show_documents_menu and not user.is_pledge %}
@@ -255,7 +258,7 @@
                 {% endif %}
                 {% if user.preferences.show_chats_menu and feature_flags.chats %}
                 <a href="{% url 'chat_index' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
-                    💬 Chats
+                    💬 Chats{% if unread_chat_count %} <span class="inline-flex items-center justify-center ml-1 px-1.5 py-0.5 text-xs font-bold bg-red-500 rounded-full">{{ unread_chat_count }}</span>{% endif %}
                 </a>
                 {% endif %}
                 {% if user.preferences.show_documents_menu and not user.is_pledge %}

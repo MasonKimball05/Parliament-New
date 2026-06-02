@@ -16,6 +16,17 @@
 
 const ICON = '/exportable_media/am-coat-of-arms.png';
 
+// ─── Install / Activate ────────────────────────────────────────────────────
+
+// Skip waiting so the new SW activates immediately on update
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => event.waitUntil(clients.claim()));
+
+// Minimal fetch handler — required by Chrome for the PWA install prompt.
+// We do not cache anything; all requests go straight to the network.
+// Parliament is a login-gated app so offline support isn't useful.
+self.addEventListener('fetch', () => {});
+
 // ─── Push event ────────────────────────────────────────────────────────────
 
 self.addEventListener('push', (event) => {

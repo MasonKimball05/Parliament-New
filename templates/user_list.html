@@ -40,6 +40,20 @@
                 </svg>
                 <span>Add Member</span>
             </button>
+            <!-- Batch Add Button -->
+            <button onclick="openBatchAddModal()" class="px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+                <span>Batch Add</span>
+            </button>
+            <!-- Import CSV Button -->
+            <button onclick="openImportCsvModal()" class="px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                </svg>
+                <span>Import CSV</span>
+            </button>
             <!-- Export Button -->
             <a href="{% url 'export_user_list' %}?status={{ selected_status }}" class="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center justify-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
                 <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -585,6 +599,174 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Batch Add Modal -->
+<div id="batch-add-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+        <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+            <div class="bg-white dark:bg-gray-800 px-6 pt-5 pb-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Batch Add Members</h3>
+                    <button onclick="closeBatchAddModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">&times;</button>
+                </div>
+
+                <!-- Entry form -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Name <span class="text-red-500">*</span></label>
+                        <input id="batch-name" type="text" placeholder="Full name" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Username <span class="text-red-500">*</span></label>
+                        <input id="batch-username" type="text" placeholder="e.g. jsmith" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Member Type <span class="text-red-500">*</span></label>
+                        <select id="batch-member-type" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                            <option value="Pledge">Pledge</option>
+                            <option value="Member">Member</option>
+                            <option value="Officer">Officer</option>
+                            <option value="Chair">Chair</option>
+                            <option value="Advisor">Advisor</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                        <input id="batch-email" type="email" placeholder="Optional" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Pledge Class</label>
+                        <input id="batch-pledge-class" type="text" placeholder="e.g. Spring 2025" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Grad Year</label>
+                        <input id="batch-graduation-year" type="number" placeholder="e.g. 2027" min="2000" max="2100" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
+                        <input id="batch-phone" type="text" placeholder="Optional" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                    </div>
+                </div>
+                <div id="batch-entry-error" class="hidden mb-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-400 text-sm"></div>
+                <button onclick="batchAddToQueue()" class="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium mb-4">
+                    + Add to Queue
+                </button>
+
+                <!-- Queue -->
+                <div id="batch-queue-empty" class="text-center text-gray-400 dark:text-gray-500 text-sm py-4">No members in queue yet.</div>
+                <div id="batch-queue-wrapper" class="hidden">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Queue (<span id="batch-queue-count">0</span>)</p>
+                    <div class="overflow-x-auto rounded border border-gray-200 dark:border-gray-700 mb-4">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Name</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Username</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Type</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Email</th>
+                                    <th class="px-3 py-2"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="batch-queue-tbody" class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Results (shown after submit) -->
+                <div id="batch-results" class="hidden">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Import Results</p>
+                    <div class="overflow-x-auto rounded border border-gray-200 dark:border-gray-700 mb-3">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Name</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Username</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Password</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="batch-results-tbody" class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800"></tbody>
+                        </table>
+                    </div>
+                    <button onclick="closeBatchAddModal(); location.reload();" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm font-medium">
+                        Done — Refresh Page
+                    </button>
+                </div>
+
+                <div id="batch-submit-area" class="hidden">
+                    <div id="batch-submit-error" class="hidden mb-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-400 text-sm"></div>
+                    <button id="batch-submit-btn" onclick="batchSubmit()" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium">
+                        Create All (<span id="batch-submit-count">0</span> members)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import CSV Modal -->
+<div id="import-csv-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+        <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="bg-white dark:bg-gray-800 px-6 pt-5 pb-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Import Members from CSV</h3>
+                    <button onclick="closeImportCsvModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">&times;</button>
+                </div>
+
+                <div id="csv-upload-area">
+                    <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">
+                        Upload a CSV file to create multiple members at once. Maximum 100 rows per import.
+                    </p>
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-4 text-xs text-gray-600 dark:text-gray-300">
+                        <p class="font-medium mb-1">Required columns: <code class="bg-gray-200 dark:bg-gray-600 px-1 rounded">name</code>, <code class="bg-gray-200 dark:bg-gray-600 px-1 rounded">username</code>, <code class="bg-gray-200 dark:bg-gray-600 px-1 rounded">member_type</code></p>
+                        <p>Optional: <code class="bg-gray-200 dark:bg-gray-600 px-1 rounded">email</code>, <code class="bg-gray-200 dark:bg-gray-600 px-1 rounded">pledge_class</code>, <code class="bg-gray-200 dark:bg-gray-600 px-1 rounded">graduation_year</code>, <code class="bg-gray-200 dark:bg-gray-600 px-1 rounded">phone_number</code></p>
+                        <p class="mt-1">member_type values: Pledge, Member, Officer, Chair, Advisor</p>
+                    </div>
+                    <button onclick="downloadCsvTemplate()" class="w-full mb-3 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm font-medium border border-gray-300 dark:border-gray-600">
+                        Download Template CSV
+                    </button>
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select CSV File</label>
+                        <input id="csv-file-input" type="file" accept=".csv" class="w-full text-sm text-gray-600 dark:text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 dark:file:bg-purple-900/20 dark:file:text-purple-400 hover:file:bg-purple-100 dark:hover:file:bg-purple-900/30">
+                    </div>
+                    <div id="csv-upload-error" class="hidden mb-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-400 text-sm"></div>
+                    <button id="csv-upload-btn" onclick="submitCsvImport()" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium">
+                        Upload &amp; Import
+                    </button>
+                </div>
+
+                <!-- Results -->
+                <div id="csv-results" class="hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Import Results</p>
+                        <span id="csv-results-summary" class="text-xs text-gray-500 dark:text-gray-400"></span>
+                    </div>
+                    <div class="overflow-x-auto rounded border border-gray-200 dark:border-gray-700 mb-3 max-h-80 overflow-y-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50 dark:bg-gray-700 sticky top-0">
+                                <tr>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Name</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Username</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Password</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="csv-results-tbody" class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800"></tbody>
+                        </table>
+                    </div>
+                    <button onclick="closeImportCsvModal(); location.reload();" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm font-medium">
+                        Done — Refresh Page
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -1463,6 +1645,236 @@ async function confirmSyncAdmins() {
         confirmBtn.disabled = false;
         confirmBtn.innerHTML = '<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Sync Now';
     }
+}
+
+// =============================================================================
+// Batch Add
+// =============================================================================
+let batchQueue = [];
+
+function openBatchAddModal() {
+    batchQueue = [];
+    renderBatchQueue();
+    document.getElementById('batch-results').classList.add('hidden');
+    document.getElementById('batch-submit-area').classList.add('hidden');
+    document.getElementById('batch-entry-error').classList.add('hidden');
+    ['batch-name','batch-username','batch-email','batch-pledge-class','batch-graduation-year','batch-phone'].forEach(id => {
+        document.getElementById(id).value = '';
+    });
+    document.getElementById('batch-member-type').value = 'Pledge';
+    document.getElementById('batch-add-modal').classList.remove('hidden');
+}
+
+function closeBatchAddModal() {
+    document.getElementById('batch-add-modal').classList.add('hidden');
+}
+
+function batchAddToQueue() {
+    const name = document.getElementById('batch-name').value.trim();
+    const username = document.getElementById('batch-username').value.trim().toLowerCase();
+    const memberType = document.getElementById('batch-member-type').value;
+    const email = document.getElementById('batch-email').value.trim();
+    const pledgeClass = document.getElementById('batch-pledge-class').value.trim();
+    const graduationYear = document.getElementById('batch-graduation-year').value.trim();
+    const phone = document.getElementById('batch-phone').value.trim();
+    const errDiv = document.getElementById('batch-entry-error');
+
+    if (!name || !username || !memberType) {
+        errDiv.textContent = 'Name, username, and member type are required.';
+        errDiv.classList.remove('hidden');
+        return;
+    }
+    if (!/^[a-z0-9_]+$/.test(username)) {
+        errDiv.textContent = 'Username may only contain lowercase letters, numbers, and underscores.';
+        errDiv.classList.remove('hidden');
+        return;
+    }
+    if (batchQueue.some(m => m.username === username)) {
+        errDiv.textContent = `Username '${username}' is already in the queue.`;
+        errDiv.classList.remove('hidden');
+        return;
+    }
+    errDiv.classList.add('hidden');
+
+    batchQueue.push({ name, username, member_type: memberType, email, pledge_class: pledgeClass, graduation_year: graduationYear, phone_number: phone });
+    renderBatchQueue();
+
+    // Clear entry fields (keep member_type for pledge class workflows)
+    ['batch-name','batch-username','batch-email','batch-pledge-class','batch-graduation-year','batch-phone'].forEach(id => {
+        document.getElementById(id).value = '';
+    });
+    document.getElementById('batch-name').focus();
+}
+
+function batchRemove(idx) {
+    batchQueue.splice(idx, 1);
+    renderBatchQueue();
+}
+
+function renderBatchQueue() {
+    const tbody = document.getElementById('batch-queue-tbody');
+    const emptyMsg = document.getElementById('batch-queue-empty');
+    const wrapper = document.getElementById('batch-queue-wrapper');
+    const submitArea = document.getElementById('batch-submit-area');
+    const countSpan = document.getElementById('batch-queue-count');
+    const submitCount = document.getElementById('batch-submit-count');
+
+    tbody.innerHTML = '';
+    if (batchQueue.length === 0) {
+        emptyMsg.classList.remove('hidden');
+        wrapper.classList.add('hidden');
+        submitArea.classList.add('hidden');
+        return;
+    }
+    emptyMsg.classList.add('hidden');
+    wrapper.classList.remove('hidden');
+    submitArea.classList.remove('hidden');
+    countSpan.textContent = batchQueue.length;
+    submitCount.textContent = batchQueue.length;
+
+    batchQueue.forEach((m, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="px-3 py-2 text-gray-900 dark:text-gray-100">${m.name}</td>
+            <td class="px-3 py-2 text-gray-600 dark:text-gray-300 font-mono text-xs">${m.username}</td>
+            <td class="px-3 py-2 text-gray-600 dark:text-gray-300">${m.member_type}</td>
+            <td class="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs">${m.email || '—'}</td>
+            <td class="px-3 py-2 text-right"><button onclick="batchRemove(${i})" class="text-red-500 hover:text-red-700 text-xs">Remove</button></td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+async function batchSubmit() {
+    const btn = document.getElementById('batch-submit-btn');
+    const errDiv = document.getElementById('batch-submit-error');
+    btn.disabled = true;
+    btn.textContent = 'Creating…';
+    errDiv.classList.add('hidden');
+
+    try {
+        const resp = await fetch('{% url "bulk_import_members" %}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            body: JSON.stringify(batchQueue),
+        });
+        const data = await resp.json();
+        if (!data.success) {
+            errDiv.textContent = data.error || 'Import failed.';
+            errDiv.classList.remove('hidden');
+            btn.disabled = false;
+            btn.textContent = `Create All (${batchQueue.length} members)`;
+            return;
+        }
+        renderImportResults(data.results, 'batch-results-tbody');
+        document.getElementById('batch-queue-wrapper').classList.add('hidden');
+        document.getElementById('batch-submit-area').classList.add('hidden');
+        document.getElementById('batch-results').classList.remove('hidden');
+    } catch (e) {
+        errDiv.textContent = 'Network error. Please try again.';
+        errDiv.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = `Create All (${batchQueue.length} members)`;
+    }
+}
+
+// =============================================================================
+// CSV Import
+// =============================================================================
+function openImportCsvModal() {
+    document.getElementById('csv-file-input').value = '';
+    document.getElementById('csv-upload-error').classList.add('hidden');
+    document.getElementById('csv-results').classList.add('hidden');
+    document.getElementById('csv-upload-area').classList.remove('hidden');
+    document.getElementById('csv-upload-btn').disabled = false;
+    document.getElementById('import-csv-modal').classList.remove('hidden');
+}
+
+function closeImportCsvModal() {
+    document.getElementById('import-csv-modal').classList.add('hidden');
+}
+
+function downloadCsvTemplate() {
+    const rows = [
+        ['name','username','member_type','email','pledge_class','graduation_year','phone_number'],
+        ['John Smith','jsmith','Pledge','jsmith@samford.edu','Spring 2025','2028',''],
+        ['Jane Doe','jdoe','Pledge','','Spring 2025','2028',''],
+    ];
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'member_import_template.csv';
+    a.click();
+}
+
+async function submitCsvImport() {
+    const fileInput = document.getElementById('csv-file-input');
+    const btn = document.getElementById('csv-upload-btn');
+    const errDiv = document.getElementById('csv-upload-error');
+
+    if (!fileInput.files.length) {
+        errDiv.textContent = 'Please select a CSV file.';
+        errDiv.classList.remove('hidden');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Uploading…';
+    errDiv.classList.add('hidden');
+
+    const formData = new FormData();
+    formData.append('csv_file', fileInput.files[0]);
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+    try {
+        const resp = await fetch('{% url "bulk_import_members" %}', { method: 'POST', body: formData });
+        const data = await resp.json();
+        if (!data.success) {
+            errDiv.textContent = data.error || 'Import failed.';
+            errDiv.classList.remove('hidden');
+            btn.disabled = false;
+            btn.textContent = 'Upload & Import';
+            return;
+        }
+        document.getElementById('csv-results-summary').textContent = `${data.created} created, ${data.errors} error(s)`;
+        renderImportResults(data.results, 'csv-results-tbody');
+        document.getElementById('csv-upload-area').classList.add('hidden');
+        document.getElementById('csv-results').classList.remove('hidden');
+    } catch (e) {
+        errDiv.textContent = 'Network error. Please try again.';
+        errDiv.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Upload & Import';
+    }
+}
+
+// =============================================================================
+// Shared results renderer
+// =============================================================================
+function renderImportResults(results, tbodyId) {
+    const tbody = document.getElementById(tbodyId);
+    tbody.innerHTML = '';
+    results.forEach(r => {
+        const tr = document.createElement('tr');
+        if (r.status === 'created') {
+            const pwText = r.password_is_username ? `${r.temp_password} (= username)` : r.temp_password;
+            tr.innerHTML = `
+                <td class="px-3 py-2 text-gray-900 dark:text-gray-100">${r.name}</td>
+                <td class="px-3 py-2 font-mono text-xs text-gray-700 dark:text-gray-300">${r.username}</td>
+                <td class="px-3 py-2 font-mono text-xs text-gray-700 dark:text-gray-300">${pwText}</td>
+                <td class="px-3 py-2"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">Created</span></td>
+            `;
+        } else {
+            tr.innerHTML = `
+                <td class="px-3 py-2 text-gray-900 dark:text-gray-100">${r.name}</td>
+                <td class="px-3 py-2 font-mono text-xs text-gray-700 dark:text-gray-300">${r.username}</td>
+                <td class="px-3 py-2 text-gray-400 dark:text-gray-500">—</td>
+                <td class="px-3 py-2"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" title="${r.error}">Error: ${r.error}</span></td>
+            `;
+        }
+        tbody.appendChild(tr);
+    });
 }
 </script>
 {% endblock %}

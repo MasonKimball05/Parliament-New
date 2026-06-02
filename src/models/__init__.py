@@ -67,6 +67,7 @@ from src.models.chat import (
     ChatChannel,
     ChatChannelPermission,
     ChatMessage,
+    ChatNotificationPreference,
     ChatReadReceipt,
 )
 
@@ -120,6 +121,7 @@ from src.models.security import (
     SecurityNotificationLog,
     LoginLockout,
     QuarantinedAccount,
+    EmailVerificationToken,
 )
 
 # Notifications
@@ -212,6 +214,7 @@ __all__ = [
     'ChatChannel',
     'ChatChannelPermission',
     'ChatMessage',
+    'ChatNotificationPreference',
     'ChatReadReceipt',
     # Kai
     'KaiReport',
@@ -253,6 +256,7 @@ __all__ = [
     'SecurityNotificationLog',
     'LoginLockout',
     'QuarantinedAccount',
+    'EmailVerificationToken',
     # Notifications
     'Notification',
     'NotificationSchedule',

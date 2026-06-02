@@ -8,8 +8,8 @@ Task groups:
   Email          — async wrappers around notifications.py send functions
   Vote           — scheduled open/close for chapter + committee legislation
   Announcements  — scheduled publish + email dispatch
-  Housekeeping   — session cleanup, log maintenance
-  Daily Digest   — combined daily site health report (3 AM CST)
+  Housekeeping   — session/lockout/blacklist/push/token cleanup (daily + monthly)
+  Daily Digest   — combined daily site health report (3:30 AM CST)
                    includes: system integrity audit + honeypot activity
 """
 from celery import shared_task
@@ -304,6 +304,98 @@ def cleanup_expired_sessions():
             logger.info(f"[tasks] cleanup_expired_sessions: removed {deleted} stale UserSession records")
     except Exception as exc:
         logger.error(f"[tasks] cleanup_expired_sessions failed: {exc}")
+
+
+@shared_task(name='tasks.prune_expired_login_lockouts')
+def prune_expired_login_lockouts():
+    """
+    Delete LoginLockout records whose cache lockout has expired.
+
+    LoginLockout rows are created for every IP/username lockout event so they
+    show up in admin-v2. The cache entry that actually enforces the lockout
+    expires automatically, but the DB row stays forever. This task prunes rows
+    that are past their expires_at and were not manually cleared (cleared rows
+    are worth keeping for audit history).
+    Runs daily alongside session cleanup.
+    """
+    try:
+        from src.models import LoginLockout
+        cutoff = timezone.now()
+        deleted, _ = LoginLockout.objects.filter(
+            expires_at__lt=cutoff,
+            is_cleared=False,
+        ).delete()
+        if deleted:
+            logger.info(f"[tasks] prune_expired_login_lockouts: removed {deleted} expired LoginLockout records")
+    except Exception as exc:
+        logger.error(f"[tasks] prune_expired_login_lockouts failed: {exc}")
+
+
+@shared_task(name='tasks.expire_stale_ip_blacklist_entries')
+def expire_stale_ip_blacklist_entries():
+    """
+    Set is_active=False on IPBlacklist entries that have passed their expires_at.
+
+    Entries with no expires_at are permanent and are left alone.
+    Runs daily so the blacklist stays accurate without manual intervention.
+    """
+    try:
+        from src.models import IPBlacklist
+        now = timezone.now()
+        updated = IPBlacklist.objects.filter(
+            is_active=True,
+            expires_at__lt=now,
+        ).exclude(expires_at=None).update(is_active=False)
+        if updated:
+            logger.info(f"[tasks] expire_stale_ip_blacklist_entries: deactivated {updated} expired IPBlacklist entries")
+    except Exception as exc:
+        logger.error(f"[tasks] expire_stale_ip_blacklist_entries failed: {exc}")
+
+
+@shared_task(name='tasks.prune_stale_push_subscriptions')
+def prune_stale_push_subscriptions():
+    """
+    Delete PushSubscription records unused for 90+ days.
+
+    Subscriptions that return 410 Gone are deleted immediately on send. This
+    task catches the rest: subscriptions that are technically alive but haven't
+    been used in 90 days are almost certainly from browsers where the user
+    revoked permission or cleared site data. Pruning them keeps the table lean
+    and prevents push tasks from attempting dead endpoints.
+    Runs monthly (first of the month at 3:00 AM CST).
+    """
+    try:
+        from src.models import PushSubscription
+        cutoff = timezone.now() - timezone.timedelta(days=90)
+        deleted, _ = PushSubscription.objects.filter(
+            last_used_at__lt=cutoff,
+        ).delete()
+        if deleted:
+            logger.info(f"[tasks] prune_stale_push_subscriptions: removed {deleted} stale PushSubscription records")
+    except Exception as exc:
+        logger.error(f"[tasks] prune_stale_push_subscriptions failed: {exc}")
+
+
+@shared_task(name='tasks.prune_old_auth_tokens')
+def prune_old_auth_tokens():
+    """
+    Delete DRF auth tokens that haven't been used in 90 days.
+
+    DRF's Token model has no built-in expiry. Tokens accumulate for every user
+    who has ever called /api/v1/auth/token/. This task removes tokens that
+    haven't been seen in 90 days so stale credentials don't linger indefinitely.
+    Token.created is the only timestamp available (DRF doesn't track last use),
+    so we use that as the cutoff.
+    Runs monthly alongside push subscription pruning.
+    """
+    try:
+        from rest_framework.authtoken.models import Token
+        cutoff = timezone.now() - timezone.timedelta(days=90)
+        deleted, _ = Token.objects.filter(created__lt=cutoff).delete()
+        if deleted:
+            logger.info(f"[tasks] prune_old_auth_tokens: removed {deleted} old DRF auth tokens")
+    except Exception as exc:
+        logger.error(f"[tasks] prune_old_auth_tokens failed: {exc}")
 
 
 # ---------------------------------------------------------------------------

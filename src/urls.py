@@ -68,6 +68,7 @@ from src.view.committee.manage_chat_permissions import manage_chat_permissions, 
 from src.view.chat import (
     chat_index, channel_chat, get_channel_messages, send_channel_message,
     edit_channel_message, delete_channel_message, get_channel_active_users,
+    get_channel_members, set_channel_notification_pref,
     create_channel, edit_channel, delete_channel,
 )
 from src.view.submit_excuse import my_excuses, submit_excuse, cancel_excuse, my_attendance
@@ -90,7 +91,7 @@ from src.view.service_form_builder import (
 from src.view.chapter_documents import chapter_documents
 from src.view.api import dismiss_announcement_api
 from src.view.notifications import notifications_page, notifications_dropdown_api, mark_notification_read, mark_all_notifications_read, delete_notification
-from src.view.set_email import set_email
+from src.view.set_email import set_email, confirm_email_change
 from src.view.upload_chapter_document import upload_chapter_document
 from src.view.manage_chapter_document import manage_chapter_document
 from src.view.manage_chapter_documents import manage_chapter_documents
@@ -127,7 +128,7 @@ from src.view.notification_admin import (
     notification_log_detail
 )
 from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event
-from src.view.officer.manage_members import add_member, edit_member, delete_member, initiate_pledges, get_all_roles, sync_officer_admins, get_admin_roles
+from src.view.officer.manage_members import add_member, edit_member, delete_member, initiate_pledges, get_all_roles, sync_officer_admins, get_admin_roles, bulk_import_members
 from src.view.officer.manage_roles import manage_roles, role_detail, add_role, delete_role, assign_role_member, unassign_role_member, get_assignable_members
 from src.view.officer.transitions import role_transitions, transfer_role
 from src.view.officer.set_member_house import set_member_house
@@ -255,6 +256,7 @@ urlpatterns = [
     path('profile/', profile_view, name='profile'),
     path('preferences/', preferences_view, name='preferences'),
     path('set-email/', set_email, name='set_email'),
+    path('set-email/confirm/<uuid:token>/', confirm_email_change, name='confirm_email_change'),
     path('upload/', upload_legislation, name='upload_legislation'),
     path('change_password/', change_password, name='change_password'),
     path('forced-password-change/', forced_password_change, name='forced_password_change'),
@@ -383,6 +385,7 @@ urlpatterns = [
 
     # Member Management (Officer)
     path('officers/members/add/', add_member, name='add_member'),
+    path('officers/members/import/', bulk_import_members, name='bulk_import_members'),
     path('officers/members/<str:user_id>/edit/', edit_member, name='edit_member'),
     path('officers/members/<str:user_id>/delete/', delete_member, name='delete_member'),
     path('officers/members/initiate/', initiate_pledges, name='initiate_pledges'),
@@ -586,11 +589,15 @@ urlpatterns = [
     path('api/channel/committee/<str:code>/edit/<int:message_id>/', edit_channel_message, name='committee_edit_channel_message'),
     path('api/channel/committee/<str:code>/delete/<int:message_id>/', delete_channel_message, name='committee_delete_channel_message'),
     path('api/channel/committee/<str:code>/active/', get_channel_active_users, name='committee_get_channel_active_users'),
+    path('api/channel/committee/<str:code>/members/', get_channel_members, name='committee_get_channel_members'),
+    path('api/channel/committee/<str:code>/notification-pref/', set_channel_notification_pref, name='committee_set_channel_notification_pref'),
     path('api/channel/<int:channel_id>/messages/', get_channel_messages, name='get_channel_messages'),
     path('api/channel/<int:channel_id>/send/', send_channel_message, name='send_channel_message'),
     path('api/channel/<int:channel_id>/edit/<int:message_id>/', edit_channel_message, name='edit_channel_message'),
     path('api/channel/<int:channel_id>/delete/<int:message_id>/', delete_channel_message, name='delete_channel_message'),
     path('api/channel/<int:channel_id>/active/', get_channel_active_users, name='get_channel_active_users'),
+    path('api/channel/<int:channel_id>/members/', get_channel_members, name='get_channel_members'),
+    path('api/channel/<int:channel_id>/notification-pref/', set_channel_notification_pref, name='set_channel_notification_pref'),
 
     # Admin Channel Management
     path('chats/create/', create_channel, name='create_channel'),
@@ -609,6 +616,7 @@ urlpatterns = [
 
     # User Settings
     path('set-email/', set_email, name='set_email'),
+    path('set-email/confirm/<uuid:token>/', confirm_email_change, name='confirm_email_change'),
 
     # Two-Factor Authentication
     path('accounts/two-factor/setup/', two_factor_setup, name='two_factor_setup'),

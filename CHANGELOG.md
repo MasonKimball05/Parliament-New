@@ -161,6 +161,18 @@ Breaks the 6280-line monolithic `src/models.py` into 16 focused sub-modules unde
 
 ---
 
+### v2.30.0 - Chat Overhaul + PWA (2026-06-02)
+
+Push notifications fire when a message is sent and you're not actively viewing the channel. New per-channel notification preference (All / @Mentions Only / None) stored in `ChatNotificationPreference` model. @mentions with autocomplete, highlighted in rendered messages, used to route push notifications. Red unread badge on Chats nav link. URLs autolink. Newlines render. "Load older messages" for history. PWA: Parliament can now be installed as a standalone desktop/mobile app via any modern browser — install prompt appears in Chrome/Edge address bar. Run migration 0185 and purge Cloudflare cache on deploy.
+
+---
+
+### v2.29.0 - Daily Site Digest, Automated Housekeeping & Email Change Verification (2026-06-02)
+
+Replaces the weekly system audit and daily honeypot digest with a single unified `send_daily_digest` task that runs nightly at 3:30 AM CST. Always sends (even on clean runs), shows all check results (OK and flagged), and includes a honeypot activity section. Adds four new housekeeping tasks: `prune_expired_login_lockouts` (daily), `expire_stale_ip_blacklist_entries` (daily), `prune_stale_push_subscriptions` (monthly), and `prune_old_auth_tokens` (monthly). Closes HIGH severity gap: email address changes now require confirmation to the new address before taking effect — first-time email set is still immediate. Run `migrate` and `setup_celery_schedules --reset` on deploy.
+
+---
+
 ### v2.28.1 - Login 403 Bug Fix, Middleware Reorder & CSP Fix (2026-06-01)
 
 Fixes mobile login 403s caused by `LoginRateLimitMiddleware` self-clearing its own lockout and returning a raw 403 page instead of redirecting. Moves `InputSanitizationMiddleware` to after `AuthenticationMiddleware` so the authenticated-user bypass actually works. Reduces geo lookup timeout from 4s to 2s. Vendors cropperjs locally to fix CSP violation on the profile page.

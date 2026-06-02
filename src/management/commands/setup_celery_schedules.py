@@ -46,17 +46,41 @@ SCHEDULES = [
     },
 
     # -------------------------------------------------------------------------
-    # Housekeeping — daily tasks via crontab
+    # Housekeeping — daily tasks (3:00–3:30 AM CST = 09:00–09:30 UTC)
     # -------------------------------------------------------------------------
     {
         'name': 'Cleanup expired user sessions',
         'task': 'tasks.cleanup_expired_sessions',
-        'crontab': {'hour': '3', 'minute': '0'},  # 3:00 AM daily
+        'crontab': {'hour': '9', 'minute': '0'},   # 3:00 AM CST daily
+    },
+    {
+        'name': 'Prune expired login lockouts',
+        'task': 'tasks.prune_expired_login_lockouts',
+        'crontab': {'hour': '9', 'minute': '5'},   # 3:05 AM CST daily
+    },
+    {
+        'name': 'Expire stale IP blacklist entries',
+        'task': 'tasks.expire_stale_ip_blacklist_entries',
+        'crontab': {'hour': '9', 'minute': '10'},  # 3:10 AM CST daily
+    },
+
+    # -------------------------------------------------------------------------
+    # Housekeeping — monthly tasks (1st of month, 3:15 AM CST = 09:15 UTC)
+    # -------------------------------------------------------------------------
+    {
+        'name': 'Prune stale push subscriptions',
+        'task': 'tasks.prune_stale_push_subscriptions',
+        'crontab': {'hour': '9', 'minute': '15', 'day_of_month': '1'},
+    },
+    {
+        'name': 'Prune old auth tokens',
+        'task': 'tasks.prune_old_auth_tokens',
+        'crontab': {'hour': '9', 'minute': '15', 'day_of_month': '1'},
     },
 
     # -------------------------------------------------------------------------
     # Daily digest — system audit + honeypot activity combined
-    # 3:30 AM CST = 09:30 UTC (after session cleanup at 3:00 AM)
+    # 3:30 AM CST = 09:30 UTC (after all cleanup tasks complete)
     # -------------------------------------------------------------------------
     {
         'name': 'Send daily site digest',

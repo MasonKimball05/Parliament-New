@@ -22,12 +22,14 @@ def user_preferences(request):
 
 def notifications(request):
     """
-    Injects unread notification count into all templates.
-    Used by the navbar bell icon to show the badge count.
-    Cached for 60 seconds to reduce database queries.
+    Injects unread notification count and unread chat count into all templates.
+    Used by the navbar bell icon and Chats link badge.
+    Cached for 60 seconds (notifications) and 30 seconds (chat) to reduce queries.
     """
     if request.user.is_authenticated:
         from django.core.cache import cache
+
+        # Bell notification count
         cache_key = f'notif_count_{request.user.pk}'
         unread_count = cache.get(cache_key)
         if unread_count is None:
@@ -35,9 +37,26 @@ def notifications(request):
             unread_count = Notification.objects.filter(
                 recipient=request.user, is_read=False
             ).count()
-            cache.set(cache_key, unread_count, 60)  # Cache for 60 seconds
-        return {'unread_notification_count': unread_count}
-    return {'unread_notification_count': 0}
+            cache.set(cache_key, unread_count, 60)
+
+        # Chat unread count (sum across all channels the user has visited)
+        chat_cache_key = f'chat_unread_{request.user.pk}'
+        unread_chat = cache.get(chat_cache_key)
+        if unread_chat is None:
+            from src.models import ChatReadReceipt
+            receipts = ChatReadReceipt.objects.filter(
+                user=request.user,
+                channel__isnull=False,
+            ).select_related('last_read_message')
+            unread_chat = sum(r.get_unread_count() for r in receipts)
+            unread_chat = min(unread_chat, 99)  # Cap display at 99
+            cache.set(chat_cache_key, unread_chat, 30)
+
+        return {
+            'unread_notification_count': unread_count,
+            'unread_chat_count': unread_chat,
+        }
+    return {'unread_notification_count': 0, 'unread_chat_count': 0}
 
 
 def impersonation(request):

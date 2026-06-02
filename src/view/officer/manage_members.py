@@ -751,3 +751,189 @@ def sync_officer_admins(request):
             'success': False,
             'error': f'An error occurred: {str(e)}'
         }, status=500)
+
+
+# ---------------------------------------------------------------------------
+# Bulk / Batch member import
+# ---------------------------------------------------------------------------
+
+VALID_MEMBER_TYPES = {mt[0] for mt in ParliamentUser.MEMBER_TYPES}
+VALID_MEMBER_STATUSES = {ms[0] for ms in ParliamentUser.MEMBER_STATUS}
+BULK_IMPORT_MAX_ROWS = 100
+
+
+def _import_member_row(row, requesting_user):
+    """
+    Attempt to create a single member from a dict of fields.
+    Returns a result dict:
+      { 'status': 'created'|'error', 'name': ..., 'username': ...,
+        'error': ..., 'temp_password': ..., 'password_is_username': ... }
+    """
+    import re
+    name = (row.get('name') or '').strip()
+    username = (row.get('username') or '').strip().lower()
+    member_type = (row.get('member_type') or '').strip()
+    email = (row.get('email') or '').strip() or None
+    pledge_class = (row.get('pledge_class') or '').strip() or ''
+    phone_number = (row.get('phone_number') or '').strip() or ''
+    graduation_year_raw = (row.get('graduation_year') or '').strip()
+
+    # --- Required field validation ---
+    if not name:
+        return {'status': 'error', 'name': name or '(blank)', 'username': username, 'error': 'Name is required.'}
+    if not username:
+        return {'status': 'error', 'name': name, 'username': '(blank)', 'error': 'Username is required.'}
+    if not re.match(r'^[a-z0-9_]+$', username):
+        return {'status': 'error', 'name': name, 'username': username, 'error': 'Username may only contain lowercase letters, numbers, and underscores.'}
+    if member_type not in VALID_MEMBER_TYPES:
+        return {'status': 'error', 'name': name, 'username': username,
+                'error': f"Invalid member_type '{member_type}'. Must be one of: {', '.join(sorted(VALID_MEMBER_TYPES))}."}
+
+    # --- Username conflict ---
+    if ParliamentUser.objects.filter(username=username).exists():
+        # Suggest appending a number
+        counter = 1
+        while ParliamentUser.objects.filter(username=f"{username}{counter}").exists():
+            counter += 1
+        suggestion = f"{username}{counter}"
+        return {'status': 'error', 'name': name, 'username': username,
+                'error': f"Username '{username}' is already taken. Try '{suggestion}'."}
+
+    # --- Email conflict ---
+    if email and ParliamentUser.objects.filter(email__iexact=email).exists():
+        return {'status': 'error', 'name': name, 'username': username,
+                'error': f"Email '{email}' is already in use by another account."}
+
+    # --- Optional field validation ---
+    graduation_year = None
+    if graduation_year_raw:
+        try:
+            graduation_year = int(graduation_year_raw)
+            if not (2000 <= graduation_year <= 2100):
+                raise ValueError
+        except ValueError:
+            return {'status': 'error', 'name': name, 'username': username,
+                    'error': f"Invalid graduation_year '{graduation_year_raw}'. Must be a 4-digit year."}
+
+    # --- Generate user_id (same logic as single add: first initial + last name) ---
+    parts = name.strip().split()
+    if len(parts) >= 2:
+        base_id = re.sub(r'[^a-z0-9]', '', (parts[0][0] + parts[-1]).lower())
+    else:
+        base_id = re.sub(r'[^a-z0-9]', '', parts[0].lower()) if parts else 'user'
+    user_id = base_id
+    id_counter = 1
+    while ParliamentUser.objects.filter(user_id=user_id).exists():
+        user_id = f"{base_id}{id_counter}"
+        id_counter += 1
+
+    # --- Password ---
+    if member_type == 'Pledge':
+        temp_password = username
+        password_is_username = True
+    else:
+        temp_password = generate_temp_password()
+        password_is_username = False
+
+    # --- Create ---
+    user = ParliamentUser.objects.create_user(
+        user_id=user_id,
+        name=name,
+        username=username,
+        member_type=member_type,
+        password=temp_password,
+    )
+    user.force_password_change = True
+    user.has_default_password = True
+    if email:
+        user.email = email
+    if pledge_class:
+        user.pledge_class = pledge_class
+    if phone_number:
+        user.phone_number = phone_number
+    if graduation_year:
+        user.graduation_year = graduation_year
+    user.save()
+
+    ActivityLog.log_activity(
+        action_type='other',
+        user=requesting_user,
+        description=f'{requesting_user.get_display_name()} bulk-imported member {user.name} ({user.user_id})',
+        metadata={'action': 'bulk_import_member', 'new_member_id': user.user_id,
+                  'new_member_name': user.name, 'member_type': user.member_type},
+    )
+
+    return {
+        'status': 'created',
+        'name': name,
+        'username': username,
+        'user_id': user_id,
+        'temp_password': temp_password,
+        'password_is_username': password_is_username,
+    }
+
+
+@login_required
+@officer_required
+@require_POST
+def bulk_import_members(request):
+    """
+    Bulk-create members from either a JSON batch or a CSV file upload.
+
+    JSON batch (from the Batch Add modal):
+      Content-Type: application/json
+      Body: [{"name": "...", "username": "...", "member_type": "..."}, ...]
+
+    CSV upload (from the Import CSV modal):
+      Content-Type: multipart/form-data
+      File field: "csv_file"
+      Required columns: name, username, member_type
+      Optional columns: email, pledge_class, graduation_year, phone_number
+
+    Response: {"results": [...], "created": N, "errors": N}
+    """
+    import csv
+    import io
+
+    # --- Parse input ---
+    if request.content_type and 'application/json' in request.content_type:
+        try:
+            rows = json.loads(request.body)
+            if not isinstance(rows, list):
+                return JsonResponse({'success': False, 'error': 'Expected a JSON array.'}, status=400)
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Invalid JSON.'}, status=400)
+    else:
+        csv_file = request.FILES.get('csv_file')
+        if not csv_file:
+            return JsonResponse({'success': False, 'error': 'No CSV file provided.'}, status=400)
+        if not csv_file.name.endswith('.csv'):
+            return JsonResponse({'success': False, 'error': 'File must be a .csv file.'}, status=400)
+
+        try:
+            content = csv_file.read().decode('utf-8-sig')  # strip BOM if present
+            reader = csv.DictReader(io.StringIO(content))
+            rows = list(reader)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'Could not parse CSV: {e}'}, status=400)
+
+        # Normalise header names (strip whitespace)
+        rows = [{k.strip().lower(): v for k, v in row.items()} for row in rows]
+
+    if not rows:
+        return JsonResponse({'success': False, 'error': 'No rows found.'}, status=400)
+    if len(rows) > BULK_IMPORT_MAX_ROWS:
+        return JsonResponse({'success': False,
+                             'error': f'Maximum {BULK_IMPORT_MAX_ROWS} rows per import. Split into smaller batches.'}, status=400)
+
+    # --- Process rows ---
+    results = []
+    for row in rows:
+        results.append(_import_member_row(row, request.user))
+
+    created = sum(1 for r in results if r['status'] == 'created')
+    errors = sum(1 for r in results if r['status'] == 'error')
+
+    logger.info(f"Officer {request.user.user_id} bulk-imported members: {created} created, {errors} errors")
+
+    return JsonResponse({'success': True, 'results': results, 'created': created, 'errors': errors})

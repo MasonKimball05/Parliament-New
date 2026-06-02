@@ -521,6 +521,10 @@ class UserPreferences(models.Model):
     def push_slating(self):
         return self._pref('push', 'slating', True)
 
+    @property
+    def push_chat(self):
+        return self._pref('push', 'chat', True)
+
 
 # Signal to auto-create UserPreferences when a user is created
 @receiver(post_save, sender=ParliamentUser)

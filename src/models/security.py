@@ -1,5 +1,7 @@
+import uuid
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from src.encrypted_fields import EncryptedCharField, EncryptedEmailField
 
 
@@ -755,3 +757,36 @@ class QuarantinedAccount(models.Model):
         if not active_quarantines:
             self.user.is_quarantined = False
             self.user.save(update_fields=['is_quarantined'])
+
+
+class EmailVerificationToken(models.Model):
+    """
+    Pending email address change requiring confirmation.
+
+    Created when an authenticated user with an existing email submits a new
+    address. The change is not applied until they click the link in the
+    confirmation email sent to the new address. Only one pending token per user
+    is kept — submitting again invalidates the previous one.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='email_verification_tokens',
+    )
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    new_email = models.EmailField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Email Verification Token'
+        verbose_name_plural = 'Email Verification Tokens'
+
+    def __str__(self):
+        return f"{self.user} → {self.new_email} ({'used' if self.used else 'pending'})"
+
+    @property
+    def is_valid(self):
+        return not self.used and timezone.now() < self.expires_at

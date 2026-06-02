@@ -74,14 +74,50 @@
         </div>
     </div>
 
-    <!-- Poll indicator -->
-    <div id="poll-status" class="text-xs mb-1 sm:mb-2 text-blue-700 dark:text-blue-400">
-        ● Connecting...
+    <!-- Notification preference + poll indicator row -->
+    <div class="flex items-center justify-between mb-1 sm:mb-2">
+        <div id="poll-status" class="text-xs text-blue-700 dark:text-blue-400">
+            ● Connecting...
+        </div>
+        {% if not admin_preview_mode %}
+        <!-- Per-channel notification preference -->
+        <div class="relative" id="notif-pref-container">
+            <button id="notif-pref-btn"
+                    onclick="toggleNotifPrefDropdown()"
+                    class="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    title="Notification preferences for this channel">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                </svg>
+                <span id="notif-pref-label">{{ notif_pref|title }}</span>
+            </button>
+            <div id="notif-pref-dropdown"
+                 class="hidden absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20 w-44 py-1">
+                <p class="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Notify me about</p>
+                {% for value, label in notif_pref_choices %}
+                <button onclick="setNotifPref('{{ value }}')"
+                        class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 {% if notif_pref == value %}text-blue-600 dark:text-blue-400 font-medium{% else %}text-gray-700 dark:text-gray-300{% endif %}"
+                        data-pref-value="{{ value }}">
+                    <span class="notif-check {% if notif_pref == value %}opacity-100{% else %}opacity-0{% endif %}">✓</span>
+                    {{ label }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Chat Messages Container -->
     <div id="chat-container" class="flex-1 rounded-lg shadow-md p-2 sm:p-4 overflow-y-auto mb-2 sm:mb-4 border transition-colors duration-200 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
         <div id="messages-list">
+            {% if has_more_messages %}
+            <div id="load-older-wrapper" class="text-center mb-3">
+                <button id="load-older-btn" onclick="loadOlderMessages()"
+                        class="px-4 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    Load older messages
+                </button>
+            </div>
+            {% endif %}
             {% for msg in initial_messages %}
                 <div id="msg-{{ msg.id }}" class="flex gap-2 sm:gap-3 p-1.5 sm:p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 mb-1.5 sm:mb-2 group transition-colors {% if msg.sender == request.user %}bg-pink-50 dark:bg-pink-900/20{% endif %}">
                     <!-- Avatar with profile picture or initials -->
@@ -132,7 +168,7 @@
                                 </button>
                             {% endif %}
                         </div>
-                        <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="{{ msg.id }}">{{ msg.message }}</div>
+                        <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="{{ msg.id }}">{{ msg.message|linebreaksbr }}</div>
                     </div>
                 </div>
             {% endfor %}
@@ -143,13 +179,18 @@
     {% if not admin_preview_mode %}
         {% if can_send_messages %}
             <div class="rounded-lg shadow-md p-2 sm:p-4 border-2 transition-colors duration-200 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+                <!-- @mention autocomplete dropdown -->
+                <div id="mention-dropdown" class="hidden relative mb-1">
+                    <div id="mention-list" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                    </div>
+                </div>
                 <form id="message-form" class="flex gap-2">
                     {% csrf_token %}
                     <input
                         type="text"
                         id="message-input"
                         name="message"
-                        placeholder="Type a message..."
+                        placeholder="Type a message... (use @ to mention someone)"
                         maxlength="2000"
                         class="flex-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded px-3 sm:px-4 py-2 text-sm sm:text-base focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 transition-colors"
                         autocomplete="off"
@@ -194,7 +235,35 @@
     const currentUserProfilePicture = {% if request.user.profile_picture %}"{{ request.user.profile_picture.url }}"{% else %}null{% endif %};
     const canDeleteOwnMessages = {{ can_delete_own_messages|lower }};
     let lastMessageTimestamp = null;
+    let oldestMessageTimestamp = null;
     let isPolling = false;
+
+    // Render message text: HTML-escape, autolink URLs, highlight @mentions, convert newlines to <br>
+    function renderMessageText(text) {
+        // Match URLs and @mentions together so we process them in order
+        const pattern = /https?:\/\/[^\s]+|@([a-zA-Z0-9._]+)/g;
+        const parts = [];
+        let lastIndex = 0;
+        let match;
+        while ((match = pattern.exec(text)) !== null) {
+            if (match.index > lastIndex) {
+                parts.push(escapeHtml(text.slice(lastIndex, match.index)));
+            }
+            if (match[0].startsWith('http')) {
+                // URL → clickable link
+                const url = match[0];
+                parts.push(`<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 underline hover:text-blue-800">${escapeHtml(url)}</a>`);
+            } else {
+                // @mention → highlight
+                parts.push(`<span class="mention bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded px-0.5 font-medium">${escapeHtml(match[0])}</span>`);
+            }
+            lastIndex = match.index + match[0].length;
+        }
+        if (lastIndex < text.length) {
+            parts.push(escapeHtml(text.slice(lastIndex)));
+        }
+        return parts.join('').replace(/\n/g, '<br>');
+    }
 
     // Helper function to build API URLs
     function getApiUrl(endpoint) {
@@ -217,8 +286,17 @@
         ];
         if (initialMessages.length > 0) {
             lastMessageTimestamp = initialMessages[initialMessages.length - 1].created_at;
+            oldestMessageTimestamp = initialMessages[0].created_at;
         }
     {% endif %}
+
+    // Linkify and apply line breaks to server-rendered initial messages
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.message-text').forEach(el => {
+            const text = el.textContent;
+            el.innerHTML = renderMessageText(text);
+        });
+    });
 
     // Chat feature flag (controls whether polling is active)
     const CHAT_ENABLED = {{ chat_enabled|yesno:"true,false" }};
@@ -503,11 +581,98 @@
                     ${editButton}
                     ${deleteButton}
                 </div>
-                <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="${msg.id}">${escapeHtml(msg.message)}</div>
+                <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="${msg.id}">${renderMessageText(msg.message)}</div>
             </div>
         `;
 
         messagesList.appendChild(messageDiv);
+    }
+
+    // Prepend a message at the top of the list (for load-older)
+    function prependMessage(msg) {
+        const messagesList = document.getElementById('messages-list');
+        if (document.getElementById(`msg-${msg.id}`)) return;
+
+        const msgDate = new Date(msg.created_at);
+        const timestamp = msgDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            + ', ' + msgDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+        const nameParts = msg.sender_name.split(' ');
+        const initials = nameParts.length >= 2
+            ? nameParts[0][0] + nameParts[nameParts.length - 1][0]
+            : nameParts[0][0];
+
+        const isSender = msg.sender_id === currentUserId;
+        const avatarBg = isSender ? '#CD8C95' : '#003DA5';
+        const profilePicture = msg.sender_profile_picture || (isSender ? currentUserProfilePicture : null);
+        const avatarHtml = profilePicture
+            ? `<img src="${escapeHtml(profilePicture)}" alt="${escapeHtml(msg.sender_name)}" class="w-8 h-8 sm:w-9 sm:h-9 rounded object-cover flex-shrink-0">`
+            : `<div class="w-8 h-8 sm:w-9 sm:h-9 rounded text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0" style="background-color: ${avatarBg}">${initials.toUpperCase()}</div>`;
+
+        const messageDiv = document.createElement('div');
+        messageDiv.id = `msg-${msg.id}`;
+        messageDiv.className = `flex gap-2 sm:gap-3 p-1.5 sm:p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 mb-1.5 sm:mb-2 group transition-colors ${isSender ? 'bg-pink-50 dark:bg-pink-900/20' : ''}`;
+        messageDiv.innerHTML = `
+            ${avatarHtml}
+            <div class="flex-1 min-w-0">
+                <div class="flex flex-wrap items-baseline gap-1 sm:gap-2 mb-1">
+                    <span class="font-bold text-gray-900 dark:text-gray-100 text-sm sm:text-base">${escapeHtml(msg.sender_name)}</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">${timestamp}</span>
+                    ${msg.edited_at ? '<span class="text-xs text-gray-400 dark:text-gray-500 italic">(edited)</span>' : ''}
+                </div>
+                <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="${msg.id}">${renderMessageText(msg.message)}</div>
+            </div>
+        `;
+
+        // Insert after the load-older wrapper (if present) or at the very top
+        const wrapper = document.getElementById('load-older-wrapper');
+        if (wrapper) {
+            wrapper.after(messageDiv);
+        } else {
+            messagesList.prepend(messageDiv);
+        }
+    }
+
+    // Load older messages (pagination)
+    async function loadOlderMessages() {
+        if (!oldestMessageTimestamp) return;
+        const btn = document.getElementById('load-older-btn');
+        if (!btn) return;
+        btn.textContent = 'Loading...';
+        btn.disabled = true;
+
+        try {
+            const url = getApiUrl('messages/') + `?before=${encodeURIComponent(oldestMessageTimestamp)}`;
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.messages && data.messages.length > 0) {
+                const container = document.getElementById('chat-container');
+                const scrollHeightBefore = container.scrollHeight;
+
+                // Prepend in order (oldest first — server already returns them that way)
+                data.messages.forEach(msg => prependMessage(msg));
+
+                oldestMessageTimestamp = data.messages[0].created_at;
+
+                // Maintain scroll position after prepending
+                container.scrollTop += container.scrollHeight - scrollHeightBefore;
+
+                if (data.messages.length < 50) {
+                    // No more history
+                    document.getElementById('load-older-wrapper')?.remove();
+                } else {
+                    btn.textContent = 'Load older messages';
+                    btn.disabled = false;
+                }
+            } else {
+                document.getElementById('load-older-wrapper')?.remove();
+            }
+        } catch (err) {
+            console.error('Error loading older messages:', err);
+            btn.textContent = 'Load older messages';
+            btn.disabled = false;
+        }
     }
 
     // Edit message function
@@ -704,6 +869,170 @@
                 }
             });
     }
+
+    // ─── @mention autocomplete ─────────────────────────────────────────────────
+
+    let channelMembers = [];  // Loaded once on first @
+    let mentionQuery = '';
+    let mentionActive = false;
+    let mentionStart = -1;
+
+    // Fetch channel members for autocomplete (lazy, cached)
+    async function loadChannelMembers() {
+        if (channelMembers.length > 0) return;
+        try {
+            const resp = await fetch(getApiUrl('members/'));
+            const data = await resp.json();
+            channelMembers = data.members || [];
+        } catch (e) {
+            console.error('Could not load channel members:', e);
+        }
+    }
+
+    function showMentionDropdown(matches) {
+        const dropdown = document.getElementById('mention-dropdown');
+        const list = document.getElementById('mention-list');
+        if (!matches.length) {
+            dropdown.classList.add('hidden');
+            return;
+        }
+        list.innerHTML = matches.slice(0, 8).map((m, i) =>
+            `<button type="button"
+                     class="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors flex items-center gap-2 text-gray-800 dark:text-gray-200"
+                     onclick="insertMention('${escapeHtml(m.username)}')">
+                <span class="font-medium">@${escapeHtml(m.username)}</span>
+                <span class="text-gray-500 dark:text-gray-400 text-xs">${escapeHtml(m.name)}</span>
+             </button>`
+        ).join('');
+        dropdown.classList.remove('hidden');
+    }
+
+    function hideMentionDropdown() {
+        document.getElementById('mention-dropdown').classList.add('hidden');
+        mentionActive = false;
+    }
+
+    function insertMention(username) {
+        if (!messageInput) return;
+        const val = messageInput.value;
+        const before = val.slice(0, mentionStart);
+        const after = val.slice(mentionStart + mentionQuery.length + 1);  // +1 for @
+        messageInput.value = before + '@' + username + ' ' + after;
+        messageInput.focus();
+        hideMentionDropdown();
+        updateCharCount();
+    }
+
+    if (messageInput) {
+        messageInput.addEventListener('input', async function() {
+            updateCharCount();
+            const val = this.value;
+            const cursor = this.selectionStart;
+
+            // Find the @ that triggered the mention before the cursor
+            let atIdx = -1;
+            for (let i = cursor - 1; i >= 0; i--) {
+                if (val[i] === '@') { atIdx = i; break; }
+                if (val[i] === ' ') break;
+            }
+
+            if (atIdx >= 0) {
+                const query = val.slice(atIdx + 1, cursor).toLowerCase();
+                if (query.length === 0 && !mentionActive) {
+                    // Just typed @, load members
+                    mentionActive = true;
+                    mentionStart = atIdx;
+                    mentionQuery = query;
+                    await loadChannelMembers();
+                    showMentionDropdown(channelMembers);
+                } else if (mentionActive || atIdx >= 0) {
+                    mentionActive = true;
+                    mentionStart = atIdx;
+                    mentionQuery = query;
+                    const filtered = channelMembers.filter(m =>
+                        m.username.toLowerCase().includes(query) ||
+                        m.name.toLowerCase().includes(query)
+                    );
+                    showMentionDropdown(filtered);
+                }
+            } else {
+                hideMentionDropdown();
+            }
+        });
+
+        messageInput.addEventListener('keydown', function(e) {
+            if (!mentionActive) return;
+            const dropdown = document.getElementById('mention-dropdown');
+            if (dropdown.classList.contains('hidden')) return;
+            if (e.key === 'Escape') {
+                hideMentionDropdown();
+                e.preventDefault();
+            }
+        });
+    }
+
+    // Close mention dropdown on outside click
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#mention-dropdown') && !e.target.closest('#message-input')) {
+            hideMentionDropdown();
+        }
+    });
+
+    // ─── Notification preference dropdown ─────────────────────────────────────
+
+    let currentNotifPref = '{{ notif_pref }}';
+
+    function toggleNotifPrefDropdown() {
+        const dd = document.getElementById('notif-pref-dropdown');
+        dd.classList.toggle('hidden');
+    }
+
+    async function setNotifPref(level) {
+        try {
+            const resp = await fetch(getApiUrl('notification-pref/'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+                body: JSON.stringify({ level }),
+            });
+            const data = await resp.json();
+            if (data.success) {
+                currentNotifPref = level;
+
+                // Update button label
+                const labels = { all: 'All', mentions: 'Mentions', none: 'None' };
+                document.getElementById('notif-pref-label').textContent = labels[level] || level;
+
+                // Update checkmarks
+                document.querySelectorAll('[data-pref-value]').forEach(btn => {
+                    const check = btn.querySelector('.notif-check');
+                    if (btn.dataset.prefValue === level) {
+                        btn.classList.add('text-blue-600', 'dark:text-blue-400', 'font-medium');
+                        btn.classList.remove('text-gray-700', 'dark:text-gray-300');
+                        if (check) check.classList.remove('opacity-0');
+                    } else {
+                        btn.classList.remove('text-blue-600', 'dark:text-blue-400', 'font-medium');
+                        btn.classList.add('text-gray-700', 'dark:text-gray-300');
+                        if (check) check.classList.add('opacity-0');
+                    }
+                });
+
+                document.getElementById('notif-pref-dropdown').classList.add('hidden');
+            }
+        } catch (e) {
+            console.error('Failed to update notification preference:', e);
+        }
+    }
+
+    // Close notification pref dropdown on outside click
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#notif-pref-container')) {
+            const dd = document.getElementById('notif-pref-dropdown');
+            if (dd) dd.classList.add('hidden');
+        }
+    });
 
     // Initial scroll
     scrollToBottom();
