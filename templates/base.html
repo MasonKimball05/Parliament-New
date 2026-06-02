@@ -171,6 +171,16 @@
                         </a>
                         {% endif %}
 
+                        <!-- PWA Install Button (hidden until browser fires beforeinstallprompt) -->
+                        <button id="pwa-install-btn"
+                                class="hidden p-1.5 rounded-md hover:bg-primary-600 transition-colors"
+                                aria-label="Install Parliament app"
+                                title="Install Parliament as an app">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                        </button>
+
                         <!-- Notification Bell (Desktop) -->
                         <div class="relative" id="notification-bell-container">
                             <button id="notification-bell" class="p-1.5 rounded-md hover:bg-primary-600 transition-colors relative" aria-label="Notifications">
@@ -305,6 +315,10 @@
 
                 <!-- Mobile User Section -->
                 <div class="border-t border-primary-600 pt-2 mt-2">
+                    <button id="pwa-install-btn-mobile"
+                            class="hidden w-full text-left px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
+                        ⬇️ Install App
+                    </button>
                     <a href="{% url 'notifications' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                         🔔 Notifications{% if unread_notification_count %} <span class="inline-flex items-center justify-center ml-1 px-1.5 py-0.5 text-xs font-bold bg-red-500 rounded-full">{{ unread_notification_count }}</span>{% endif %}
                     </a>
@@ -1782,7 +1796,57 @@
                 .catch(function(err) { console.warn('SW registration failed:', err); });
         }
 
-        // Add to Home Screen prompt — only show on mobile, only once per 30 days
+        // PWA install prompt — captures the browser event for both the nav button and the mobile banner
+        var deferredInstallPrompt = null;
+        var isAlreadyInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+        function triggerInstall() {
+            if (deferredInstallPrompt) {
+                deferredInstallPrompt.prompt();
+                deferredInstallPrompt.userChoice.then(function(choice) {
+                    deferredInstallPrompt = null;
+                    // Hide buttons after interaction regardless of outcome
+                    hideInstallButtons();
+                });
+            }
+        }
+
+        function showInstallButtons() {
+            var btn = document.getElementById('pwa-install-btn');
+            var btnMobile = document.getElementById('pwa-install-btn-mobile');
+            if (btn) btn.classList.remove('hidden');
+            if (btnMobile) btnMobile.classList.remove('hidden');
+        }
+
+        function hideInstallButtons() {
+            var btn = document.getElementById('pwa-install-btn');
+            var btnMobile = document.getElementById('pwa-install-btn-mobile');
+            if (btn) btn.classList.add('hidden');
+            if (btnMobile) btnMobile.classList.add('hidden');
+        }
+
+        // Wire up nav install buttons
+        var installBtn = document.getElementById('pwa-install-btn');
+        var installBtnMobile = document.getElementById('pwa-install-btn-mobile');
+        if (installBtn) installBtn.addEventListener('click', triggerInstall);
+        if (installBtnMobile) installBtnMobile.addEventListener('click', triggerInstall);
+
+        // Don't show if already running as installed app
+        if (!isAlreadyInstalled) {
+            window.addEventListener('beforeinstallprompt', function(e) {
+                e.preventDefault();
+                deferredInstallPrompt = e;
+                showInstallButtons();
+            });
+        }
+
+        // Hide buttons once the app is installed
+        window.addEventListener('appinstalled', function() {
+            deferredInstallPrompt = null;
+            hideInstallButtons();
+        });
+
+        // ── Mobile A2HS banner (existing, mobile-only) ──────────────────────
         var DISMISS_KEY = 'parliament_a2hs_dismissed';
         var banner = document.getElementById('a2hs-banner');
         if (!banner) return;
@@ -1790,43 +1854,34 @@
         var dismissed = localStorage.getItem(DISMISS_KEY);
         if (dismissed && (Date.now() - parseInt(dismissed, 10)) < 30 * 24 * 60 * 60 * 1000) return;
 
-        // Only show on mobile screen widths
         if (window.innerWidth > 768) return;
-
-        // Don't show if already installed (standalone mode)
-        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) return;
+        if (isAlreadyInstalled) return;
 
         var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-        var deferredPrompt = null;
 
-        // Chrome/Android: capture the native install prompt
-        window.addEventListener('beforeinstallprompt', function(e) {
-            e.preventDefault();
-            deferredPrompt = e;
-            document.getElementById('a2hs-install-btn').classList.remove('hidden');
-        });
-
-        document.getElementById('a2hs-install-btn').addEventListener('click', function() {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then(function() { deferredPrompt = null; });
-            }
-            banner.classList.add('hidden');
-            localStorage.setItem(DISMISS_KEY, Date.now());
-        });
-
-        // iOS: show the manual instructions hint instead
+        // iOS: show the manual instructions hint (no beforeinstallprompt on iOS)
         if (isIOS) {
-            document.getElementById('a2hs-ios-hint').style.display = '';
+            var iosHint = document.getElementById('a2hs-ios-hint');
+            if (iosHint) iosHint.style.display = '';
+            banner.classList.remove('hidden');
         }
 
-        document.getElementById('a2hs-dismiss-btn').addEventListener('click', function() {
-            banner.classList.add('hidden');
-            localStorage.setItem(DISMISS_KEY, Date.now());
-        });
+        var a2hsInstallBtn = document.getElementById('a2hs-install-btn');
+        if (a2hsInstallBtn) {
+            a2hsInstallBtn.addEventListener('click', function() {
+                triggerInstall();
+                banner.classList.add('hidden');
+                localStorage.setItem(DISMISS_KEY, Date.now());
+            });
+        }
 
-        // Show the banner
-        banner.classList.remove('hidden');
+        var dismissBtn = document.getElementById('a2hs-dismiss-btn');
+        if (dismissBtn) {
+            dismissBtn.addEventListener('click', function() {
+                banner.classList.add('hidden');
+                localStorage.setItem(DISMISS_KEY, Date.now());
+            });
+        }
     })();
     </script>
     {% endif %}
