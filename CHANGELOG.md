@@ -161,6 +161,12 @@ Breaks the 6280-line monolithic `src/models.py` into 16 focused sub-modules unde
 
 ---
 
+### v2.28.1 - Login 403 Bug Fix, Middleware Reorder & CSP Fix (2026-06-01)
+
+Fixes mobile login 403s caused by `LoginRateLimitMiddleware` self-clearing its own lockout and returning a raw 403 page instead of redirecting. Moves `InputSanitizationMiddleware` to after `AuthenticationMiddleware` so the authenticated-user bypass actually works. Reduces geo lookup timeout from 4s to 2s. Vendors cropperjs locally to fix CSP violation on the profile page.
+
+---
+
 ### v2.28.0 - 2FA Hardening, Auth Audit & API Foundation (2026-06-01)
 
 Self-service 2FA recovery via email, "remember this device for 30 days" cookie, backup code acknowledgement tracking with a site-wide warning banner, auth view audit fixes (logout logging, rate limiting on password change and 2FA recovery, admin notification on recovery use), and a read-only REST API scaffolded on Django REST Framework as the 3.0.0 API foundation.

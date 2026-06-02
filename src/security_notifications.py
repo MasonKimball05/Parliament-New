@@ -109,7 +109,14 @@ This is an automated security alert from Parliament.
 
 
 def alert_attack_blocked(ip_address, attack_count, attack_type, details=''):
-    """Send alert when multiple attack attempts are blocked from an IP."""
+    """
+    Log when multiple attack attempts are blocked from an IP.
+
+    Severity is 'medium' so this is recorded in SecurityNotificationLog
+    but does NOT trigger an immediate email — the daily honeypot digest
+    covers this noise. Persistent/novel threats (quarantine, lockdown)
+    still send critical emails through their own paths.
+    """
     event_details = f"""
 Multiple attack attempts detected and blocked.
 
@@ -126,7 +133,7 @@ Consider adding this IP to the permanent blacklist if attacks continue.
 
     return send_security_alert(
         event_type='ATTACK_BLOCKED',
-        severity='critical',
+        severity='medium',
         details=event_details,
         ip_address=ip_address
     )
@@ -224,7 +231,7 @@ def send_honeypot_digest(since=None):
     Called by the send_honeypot_digest management command.
     Returns True if an email was sent, False otherwise.
     """
-    from src.models import HoneypotAccess
+    from src.models import HoneypotAccess, IPBlacklist
     from django.db.models import Count
 
     if since is None:
@@ -253,13 +260,35 @@ def send_honeypot_digest(since=None):
         .order_by('-count')[:5]
     )
 
+    # Look up blacklist status for top IPs in one query
+    top_ip_addresses = [e['ip_address'] for e in top_ips]
+    blacklisted_ips = set(
+        IPBlacklist.objects.filter(
+            ip_address__in=top_ip_addresses,
+            is_active=True,
+        ).values_list('ip_address', flat=True)
+    )
+
     endpoint_lines = '\n'.join(
         f"  {e['endpoint']} — {e['count']} hit{'s' if e['count'] != 1 else ''}"
         for e in top_endpoints
     )
     ip_lines = '\n'.join(
         f"  {e['ip_address']} — {e['count']} hit{'s' if e['count'] != 1 else ''}"
+        f"{'  [BLACKLISTED]' if e['ip_address'] in blacklisted_ips else '  [not blacklisted]'}"
         for e in top_ips
+    )
+
+    # Also include attack-blocked events from the middleware in this period
+    from src.models import SecurityNotificationLog
+    attack_blocks = SecurityNotificationLog.objects.filter(
+        event_type='ATTACK_BLOCKED',
+        sent_at__gte=since,
+    ).count()
+    attack_block_line = (
+        f"\nAttack-blocked events (pattern scanner): {attack_blocks}"
+        if attack_blocks
+        else ""
     )
 
     site_url = get_site_url()
@@ -269,7 +298,7 @@ Parliament Honeypot Daily Digest
 {'=' * 60}
 
 Period: Last 24 hours (since {localtime(since).strftime('%Y-%m-%d %H:%M %Z')})
-Total hits: {total}
+Total honeypot hits: {total}{attack_block_line}
 
 Top Targeted Endpoints:
 {endpoint_lines}

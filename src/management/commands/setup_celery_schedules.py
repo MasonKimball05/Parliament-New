@@ -53,10 +53,15 @@ SCHEDULES = [
         'task': 'tasks.cleanup_expired_sessions',
         'crontab': {'hour': '3', 'minute': '0'},  # 3:00 AM daily
     },
+
+    # -------------------------------------------------------------------------
+    # Daily digest — system audit + honeypot activity combined
+    # 3:30 AM CST = 09:30 UTC (after session cleanup at 3:00 AM)
+    # -------------------------------------------------------------------------
     {
-        'name': 'Send daily honeypot digest',
-        'task': 'tasks.send_daily_honeypot_digest',
-        'crontab': {'hour': '7', 'minute': '0'},  # 7:00 AM daily
+        'name': 'Send daily site digest',
+        'task': 'tasks.send_daily_digest',
+        'crontab': {'hour': '9', 'minute': '30'},  # 3:30 AM CST daily
     },
 ]
 

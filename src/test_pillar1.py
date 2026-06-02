@@ -90,7 +90,7 @@ class CeleryConfigTests(TestCase):
             'tasks.auto_open_close_slating_votes',
             'tasks.publish_scheduled_announcements',
             'tasks.cleanup_expired_sessions',
-            'tasks.send_daily_honeypot_digest',
+            'tasks.send_daily_digest',
         ]
         for task_name in expected:
             self.assertIn(task_name, registered, f'Task not registered: {task_name}')
@@ -855,7 +855,7 @@ class SetupCelerySchedulesCommandTests(TestCase):
             'Auto open/close slating votes',
             'Publish scheduled announcements',
             'Cleanup expired user sessions',
-            'Send daily honeypot digest',
+            'Send daily site digest',
         ]
         created_names = list(PeriodicTask.objects.values_list('name', flat=True))
         for name in expected_names:
@@ -894,7 +894,7 @@ class SetupCelerySchedulesCommandTests(TestCase):
         """Housekeeping tasks use crontab schedules, not interval."""
         from django_celery_beat.models import PeriodicTask
         self._run_command()
-        for name in ['Cleanup expired user sessions', 'Send daily honeypot digest']:
+        for name in ['Cleanup expired user sessions', 'Send daily site digest']:
             task = PeriodicTask.objects.get(name=name)
             self.assertIsNotNone(task.crontab)
             self.assertIsNone(task.interval)
