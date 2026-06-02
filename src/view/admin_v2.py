@@ -525,7 +525,7 @@ def push_subscriptions_list(request):
     """
     List all push subscriptions grouped by user, with individual delete.
     """
-    subscriptions = PushSubscription.objects.select_related('user').order_by('user__last_name', 'user__first_name', '-created_at')
+    subscriptions = PushSubscription.objects.select_related('user').order_by('user__name', '-created_at')
     return render(request, 'admin_v2/push_subscriptions.html', {'subscriptions': subscriptions})
 
 
