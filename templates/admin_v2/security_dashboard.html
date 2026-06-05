@@ -1,13 +1,13 @@
-{% extends "base.html" %}
+{% extends "admin_v2/base.html" %}
 {% load custom_filters %}
 
 {% block title %}Security Dashboard - Admin v2{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8">
 
     <!-- Header -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <div class="flex items-center justify-between">
             <div>
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">Security Dashboard</h1>
@@ -21,7 +21,7 @@
 
     <!-- Emergency Lockdown Banner -->
     {% if lockdown.is_active %}
-    <div class="bg-red-600 text-white rounded-lg shadow-md p-5 mb-6 flex items-center justify-between">
+    <div class="bg-red-600 text-white rounded-xl shadow-sm p-5 mb-6 flex items-center justify-between">
         <div class="flex items-center gap-4">
             <svg class="w-8 h-8 animate-pulse flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
@@ -44,7 +44,7 @@
             <div class="text-lg font-bold {% if lockdown.is_active %}text-red-600 dark:text-red-400{% else %}text-green-600 dark:text-green-400{% endif %}">
                 {% if lockdown.is_active %}LOCKDOWN{% else %}Normal{% endif %}
             </div>
-            <a href="{% url 'admin_v2_lockdown' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">Control</a>
+            <a href="{% url 'admin_v2_lockdown' %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">Control</a>
         </div>
 
         <!-- Security Alerts -->
@@ -85,7 +85,7 @@
     </div>
 
     <!-- Tool Navigation -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 mb-6">
         <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Security Tools</h2>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
 
@@ -145,7 +145,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
         <!-- Security Alerts Previewer -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md flex flex-col">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm flex flex-col">
             <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Security Alerts</h2>
@@ -153,7 +153,7 @@
                     <span class="px-2 py-0.5 text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 rounded-full">{{ new_alerts_count }} new</span>
                     {% endif %}
                 </div>
-                <a href="{% url 'admin_v2_security_alerts' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">View all →</a>
+                <a href="{% url 'admin_v2_security_alerts' %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">View all →</a>
             </div>
             <div class="flex-1 divide-y divide-gray-100 dark:divide-gray-700/50">
                 {% for alert in new_alerts %}
@@ -174,7 +174,7 @@
                                 {{ alert.user.get_display_name }} · {{ alert.created_at|timesince }} ago
                             </div>
                         </div>
-                        <a href="{% url 'admin_v2_user_login_security' alert.user.user_id %}" class="flex-shrink-0 text-xs px-2 py-1 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded font-medium">
+                        <a href="{% url 'admin_v2_user_login_security' alert.user.user_id %}" class="flex-shrink-0 text-xs px-2 py-1 bg-primary-100 hover:bg-primary-200 dark:bg-primary-900/30 dark:hover:bg-primary-900/50 text-primary-700 dark:text-primary-300 rounded font-medium">
                             Investigate
                         </a>
                     </div>
@@ -187,13 +187,13 @@
             </div>
             {% if new_alerts_count > new_alerts|length %}
             <div class="px-5 py-3 border-t border-gray-100 dark:border-gray-700/50 text-center">
-                <a href="{% url 'admin_v2_security_alerts' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">+ {{ new_alerts_count|add:"-8" }} more alerts</a>
+                <a href="{% url 'admin_v2_security_alerts' %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">+ {{ new_alerts_count|add:"-8" }} more alerts</a>
             </div>
             {% endif %}
         </div>
 
         <!-- Active Quarantines Previewer -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md flex flex-col">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm flex flex-col">
             <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Quarantined Accounts</h2>
@@ -201,7 +201,7 @@
                     <span class="px-2 py-0.5 text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 rounded-full">{{ active_quarantines.count }}</span>
                     {% endif %}
                 </div>
-                <a href="{% url 'admin_v2_quarantine' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">Manage →</a>
+                <a href="{% url 'admin_v2_quarantine' %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">Manage →</a>
             </div>
             <div class="flex-1 divide-y divide-gray-100 dark:divide-gray-700/50">
                 {% for q in active_quarantines %}
@@ -239,7 +239,7 @@
         </div>
 
         <!-- Active Lockouts Previewer -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md flex flex-col">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm flex flex-col">
             <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Login Lockouts</h2>
@@ -247,7 +247,7 @@
                     <span class="px-2 py-0.5 text-xs font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 rounded-full">{{ active_lockouts_count }}</span>
                     {% endif %}
                 </div>
-                <a href="{% url 'admin_v2_lockouts' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">Manage →</a>
+                <a href="{% url 'admin_v2_lockouts' %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">Manage →</a>
             </div>
             <div class="flex-1 divide-y divide-gray-100 dark:divide-gray-700/50">
                 {% for lockout in active_lockouts %}
@@ -307,7 +307,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         <!-- Recent Honeypot Activity -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md flex flex-col">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm flex flex-col">
             <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Recent Honeypot Activity</h2>
@@ -315,7 +315,7 @@
                     <span class="px-2 py-0.5 text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 rounded-full">{{ honeypot_24h }} today</span>
                     {% endif %}
                 </div>
-                <a href="{% url 'admin_v2_honeypot_logs' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">All logs →</a>
+                <a href="{% url 'admin_v2_honeypot_logs' %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">All logs →</a>
             </div>
             <div class="flex-1 divide-y divide-gray-100 dark:divide-gray-700/50 max-h-80 overflow-y-auto">
                 {% for h in recent_honeypot %}
@@ -370,7 +370,7 @@
         </div>
 
         <!-- Recent Security Notifications -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md flex flex-col">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm flex flex-col">
             <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Email Notifications</h2>
@@ -378,7 +378,7 @@
                     <span class="px-2 py-0.5 text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 rounded-full">{{ critical_notifications }} critical today</span>
                     {% endif %}
                 </div>
-                <a href="{% url 'admin_v2_security_notifications' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">View all →</a>
+                <a href="{% url 'admin_v2_security_notifications' %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">View all →</a>
             </div>
             <div class="flex-1 divide-y divide-gray-100 dark:divide-gray-700/50 max-h-80 overflow-y-auto">
                 {% for n in recent_notifications %}
@@ -408,7 +408,7 @@
                 {% endfor %}
             </div>
             <div class="px-5 py-3 border-t border-gray-100 dark:border-gray-700/50">
-                <a href="{% url 'admin_v2_security_notifications' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                <a href="{% url 'admin_v2_security_notifications' %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">
                     Full notification history →
                 </a>
             </div>

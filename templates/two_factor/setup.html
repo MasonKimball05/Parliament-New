@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-2xl">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
         <h1 class="text-3xl font-bold mb-4 text-center text-gray-900 dark:text-gray-100">Set Up Two-Factor Authentication</h1>
 
         {% if needs_email %}
@@ -29,13 +29,13 @@
                     required
                     autofocus
                     placeholder="your.name@samford.edu"
-                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                 >
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Please use your Samford email (@samford.edu).</p>
             </div>
             <button
                 type="submit"
-                class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                class="w-full bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors font-semibold"
             >
                 Save Email &amp; Continue
             </button>
@@ -52,8 +52,8 @@
 
         {% else %}
         {# ---- Normal TOTP setup ---- #}
-        <div class="bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500 p-4 mb-6">
-            <p class="text-sm text-blue-700 dark:text-blue-300">
+        <div class="bg-primary-50 dark:bg-primary-900/30 border-l-4 border-primary-500 p-4 mb-6">
+            <p class="text-sm text-primary-700 dark:text-primary-300">
                 <strong>Security Enhancement:</strong> Two-Factor Authentication adds an extra layer of security to your account by requiring a verification code from your phone in addition to your password.
             </p>
         </div>
@@ -107,7 +107,7 @@
                             placeholder="000000"
                             required
                             autofocus
-                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-center text-2xl font-mono tracking-wider focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-center text-2xl font-mono tracking-wider focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                             autocomplete="off"
                         >
                     </div>
@@ -115,7 +115,7 @@
                     <div class="flex gap-3">
                         <button
                             type="submit"
-                            class="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                            class="flex-1 bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors font-semibold"
                         >
                             Verify and Enable 2FA
                         </button>

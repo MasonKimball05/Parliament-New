@@ -8,13 +8,18 @@
     {% include 'includes/breadcrumbs.html' with back_url='/excuses/' back_label='Excuse Requests' current='Submit Excuse' %}
 
     <!-- Header -->
-    <div class="mb-6">
-        <h2 class="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Submit Excuse Request</h2>
-        <p class="text-gray-600 dark:text-gray-400">Request an excused absence for the event below</p>
+    <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
+        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
+        <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold">Submit Excuse Request</h1>
+                <p class="text-sm text-white/75 mt-0.5">Request an excused absence for the event below</p>
+            </div>
+        </div>
     </div>
 
     <!-- Event Info Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">{{ event.title }}</h3>
 
         <div class="grid md:grid-cols-2 gap-4 mb-4">
@@ -49,9 +54,9 @@
                     <p class="text-sm text-yellow-700 dark:text-yellow-300">{{ event.excuse_deadline|date:"M j, Y g:i A" }}</p>
                 </div>
                 {% else %}
-                <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
-                    <p class="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-1">Excuse Deadline</p>
-                    <p class="text-sm text-blue-700 dark:text-blue-300">Same as event time</p>
+                <div class="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-700 rounded-lg p-3">
+                    <p class="text-sm font-semibold text-primary-800 dark:text-primary-200 mb-1">Excuse Deadline</p>
+                    <p class="text-sm text-primary-700 dark:text-primary-300">Same as event time</p>
                 </div>
                 {% endif %}
             </div>
@@ -65,18 +70,18 @@
     </div>
 
     <!-- Excuse Request Form -->
-    <form method="post" enctype="multipart/form-data" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+    <form method="post" enctype="multipart/form-data" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
         {% csrf_token %}
 
         <!-- Info Box -->
-        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+        <div class="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-700 rounded-lg p-4 mb-6">
             <div class="flex">
-                <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5 text-primary-600 dark:text-primary-400 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
-                <div class="text-sm text-blue-800 dark:text-blue-200">
+                <div class="text-sm text-primary-800 dark:text-primary-200">
                     <p class="font-semibold mb-1">Important Information:</p>
-                    <ul class="list-disc list-inside space-y-1 text-blue-700 dark:text-blue-300">
+                    <ul class="list-disc list-inside space-y-1 text-primary-700 dark:text-primary-300">
                         <li>Your excuse request will be reviewed by an officer</li>
                         <li>Provide a detailed and honest reason for your absence</li>
                         <li>Supporting documentation (if applicable) can strengthen your request</li>
@@ -97,7 +102,7 @@
                 rows="6"
                 required
                 minlength="10"
-                class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500"
                 placeholder="Please provide a detailed explanation of why you cannot attend this event (minimum 10 characters)..."></textarea>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Minimum 10 characters required</p>
         </div>
@@ -112,7 +117,7 @@
                 name="supporting_document"
                 id="supporting_document"
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                class="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 dark:file:bg-blue-900/50 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900">
+                class="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 dark:file:bg-primary-900/50 file:text-primary-700 dark:file:text-primary-300 hover:file:bg-primary-100 dark:hover:file:bg-primary-900">
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 Accepted formats: PDF, DOC, DOCX, JPG, PNG (e.g., doctor's note, travel itinerary, etc.)
             </p>
@@ -122,7 +127,7 @@
         <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
                 type="submit"
-                class="flex-1 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium py-3 px-6 rounded-lg transition">
+                class="flex-1 bg-primary-600 hover:bg-primary-700 text-white font-medium py-3 px-6 rounded-lg transition">
                 Submit Excuse Request
             </button>
             <a

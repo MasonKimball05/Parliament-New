@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ resolution.title }} — Alpha Mu of Beta Theta Pi</title>
+    <style>
+        /* ── Base ─────────────────────────────────────────── */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: "Times New Roman", Times, serif;
+            font-size: 12pt;
+            line-height: 1.6;
+            color: #000;
+            background: #fff;
+            padding: 0.75in 1in;
+            max-width: 8.5in;
+            margin: 0 auto;
+        }
+
+        /* ── Print button (screen only) ───────────────────── */
+        .print-bar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            background: #1e3a5f;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 20px;
+            font-family: -apple-system, sans-serif;
+            font-size: 13px;
+            z-index: 100;
+        }
+        .print-bar a { color: #93c5fd; text-decoration: none; }
+        .print-bar a:hover { text-decoration: underline; }
+        .print-bar button {
+            background: #fff;
+            color: #1e3a5f;
+            border: none;
+            padding: 6px 18px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .spacer { height: 44px; }
+
+        @media print {
+            .print-bar, .spacer { display: none; }
+            body { padding: 0; }
+            @page { margin: 1in; }
+        }
+
+        /* ── Document structure ───────────────────────────── */
+        .doc-header {
+            text-align: center;
+            margin-bottom: 24pt;
+            padding-bottom: 12pt;
+            border-bottom: 2px solid #000;
+        }
+        .doc-header .chapter-name {
+            font-size: 13pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .doc-header .subtitle {
+            font-size: 11pt;
+            font-style: italic;
+            margin-top: 4pt;
+        }
+        .doc-header .meta {
+            font-size: 10.5pt;
+            margin-top: 6pt;
+        }
+
+        .section-heading {
+            font-size: 11pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-top: 20pt;
+            margin-bottom: 8pt;
+            border-bottom: 1px solid #000;
+            padding-bottom: 3pt;
+        }
+
+        .resolution-title {
+            font-size: 13pt;
+            font-weight: bold;
+            margin: 8pt 0;
+        }
+        .resolution-title .label { font-weight: normal; font-style: italic; }
+
+        .whereas-block { margin: 8pt 0; }
+        .whereas-block p { margin-bottom: 6pt; text-indent: 0; text-align: justify; }
+
+        .resolved-clause { margin: 10pt 0; font-weight: bold; }
+
+        .body-text {
+            white-space: pre-wrap;
+            font-family: "Times New Roman", Times, serif;
+            font-size: 12pt;
+            line-height: 1.6;
+            text-align: justify;
+            margin: 8pt 0;
+        }
+
+        .conclusion-text {
+            white-space: pre-wrap;
+            font-size: 12pt;
+            line-height: 1.6;
+            margin: 8pt 0;
+        }
+
+        /* ── Certification block ──────────────────────────── */
+        .cert-block {
+            margin-top: 24pt;
+            padding-top: 12pt;
+            border-top: 2px solid #000;
+        }
+        .cert-block p { margin-bottom: 8pt; text-align: justify; }
+        .cert-vote-row { margin: 10pt 0 4pt; }
+        .sig-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32pt;
+            margin-top: 28pt;
+        }
+        .sig-line { border-top: 1px solid #000; padding-top: 4pt; font-size: 10.5pt; }
+        .sig-label { font-size: 10.5pt; font-style: italic; }
+        .sig-date { margin-top: 14pt; }
+        .sig-date-line { border-top: 1px solid #000; padding-top: 4pt; font-size: 10.5pt; }
+
+        .resolution-footer {
+            margin-top: 28pt;
+            text-align: center;
+            font-size: 10.5pt;
+            font-style: italic;
+            border-top: 1px solid #000;
+            padding-top: 8pt;
+        }
+
+        /* ── Inline amendment callout ────────────────────── */
+        .inline-amend-callout {
+            display: block;
+            margin: 4pt 0 4pt 16pt;
+            padding: 4pt 8pt;
+            border-left: 3px solid #888;
+            background: #f7f7f7;
+            font-size: 10pt;
+            font-style: italic;
+            line-height: 1.5;
+        }
+        .inline-amend-callout .amend-ref {
+            display: block;
+            font-style: normal;
+            font-weight: bold;
+            font-size: 9.5pt;
+            color: #444;
+            margin-bottom: 2pt;
+        }
+        .inline-amend-callout .amend-delta-add { color: #155724; }
+        .inline-amend-callout .amend-delta-del { color: #721c24; text-decoration: line-through; }
+        /* ── Appendix ─────────────────────────────────────── */
+        .appendix {
+            margin-top: 32pt;
+            padding-top: 12pt;
+            border-top: 2px solid #000;
+        }
+        .appendix-heading {
+            font-size: 11pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 12pt;
+        }
+        .amendment-entry {
+            margin-bottom: 16pt;
+            padding-bottom: 16pt;
+            border-bottom: 1px solid #ccc;
+        }
+        .amendment-entry:last-child { border-bottom: none; }
+        .amendment-entry-header { font-weight: bold; font-size: 11pt; margin-bottom: 4pt; }
+        .amendment-label {
+            font-size: 10pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 3pt;
+        }
+        .amendment-text {
+            font-size: 10.5pt;
+            white-space: pre-wrap;
+            line-height: 1.5;
+            padding: 6pt 10pt;
+            border-left: 3px solid #ccc;
+            margin-bottom: 6pt;
+            color: #222;
+        }
+        .diff-add { background: #d4edda; color: #155724; }
+        .diff-del { background: #f8d7da; color: #721c24; text-decoration: line-through; }
+    </style>
+</head>
+<body>
+
+<div class="print-bar">
+    <a href="{% url 'cnb_resolution_detail' resolution_id=resolution.pk %}">&larr; Back to Resolution</a>
+    <button onclick="window.print()">Print / Save as PDF</button>
+</div>
+<div class="spacer"></div>
+
+<!-- Document header -->
+<div class="doc-header">
+    <p class="chapter-name">The Samford Chapter, the Alpha Mu of Beta Theta Pi</p>
+    <p class="subtitle">A Resolution of the Chapter</p>
+    {% if resolution.vote_date %}
+    <p class="meta">{{ resolution.vote_date|date:"F j, Y" }}</p>
+    {% endif %}
+    {% if resolution.authors %}
+    <p class="meta"><strong>Author(s):</strong> {{ resolution.authors }}</p>
+    {% endif %}
+    {% if resolution.sponsors %}
+    <p class="meta"><strong>Sponsor(s):</strong> {{ resolution.sponsors }}</p>
+    {% endif %}
+</div>
+
+<!-- Section I — Preamble -->
+<p class="section-heading">Section I &mdash; Preamble</p>
+
+<p class="resolution-title">
+    <span class="label">TITLE: </span>{{ resolution.title }}
+</p>
+
+{% if resolution.whereas_clauses %}
+<div class="whereas-block">
+    {% for clause in resolution.whereas_clauses.splitlines %}
+    {% if clause.strip %}
+    <p><strong>Whereas,</strong> {{ clause.strip }}{% if not forloop.last %}; and{% else %};{% endif %}</p>
+    {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if resolution.resolved_text %}
+<p class="resolved-clause">Therefore, be it resolved, {{ resolution.resolved_text }}</p>
+{% endif %}
+
+<!-- Section II — Body -->
+{% if resolution.resolution_body %}
+<p class="section-heading">Section II &mdash; Body of the Resolution</p>
+<div class="body-text">{{ resolution.resolution_body }}</div>
+{% endif %}
+
+<!-- Section III — Conclusion and Certification -->
+<p class="section-heading">Section III &mdash; Conclusion and Certification</p>
+
+{% if resolution.additional_notes %}
+<div class="conclusion-text">{{ resolution.additional_notes }}</div>
+{% endif %}
+
+<!-- Certification of Passage (boilerplate) -->
+<div class="cert-block">
+    <p><strong>Certification of Passage</strong></p>
+    <p>
+        The undersigned hereby certify that the foregoing Resolution was duly adopted by the Samford Chapter,
+        the Alpha Mu of Beta Theta Pi at a meeting held on _________________, {{ resolution.vote_date|date:"Y"|default:"_____" }},
+        at which a quorum was present, and that the vote was as follows:
+    </p>
+    <p class="cert-vote-row">
+        {% if resolution.get_resolution_type_display == 'Constitutional/Bylaws Amendment' %}
+        Amendment Vote: &nbsp;&nbsp;&nbsp; YEA: _______ &nbsp;&nbsp; NAY: _______ &nbsp;&nbsp; ABSTAIN: _______
+        {% else %}
+        Chapter Vote: &nbsp;&nbsp;&nbsp; YEA: _______ &nbsp;&nbsp; NAY: _______ &nbsp;&nbsp; ABSTAIN: _______
+        {% endif %}
+    </p>
+
+    <div class="sig-grid">
+        <div>
+            <div class="sig-line">President, Alpha Mu of Beta Theta Pi</div>
+            <div class="sig-date">
+                <div class="sig-date-line">Date</div>
+            </div>
+        </div>
+        <div>
+            <div class="sig-line">Secretary, Alpha Mu of Beta Theta Pi</div>
+            <div class="sig-date">
+                <div class="sig-date-line">Date</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="resolution-footer">
+    &mdash; End of Resolution: {{ resolution.title|upper }} &mdash;
+</div>
+
+<script>
+(function() {
+    var amendments = [
+        {% for amendment in resolution.amendments.all %}
+        {
+            num: {{ forloop.counter }},
+            section: '{{ amendment.section.full_identifier|escapejs }}',
+            type: '{{ amendment.amendment_type|escapejs }}',
+            scope: '{{ amendment.scope_note|escapejs }}',
+            proposed: '{{ amendment.proposed_text|escapejs }}',
+            original: '{{ amendment.original_text_snapshot|escapejs }}',
+            articleNum:   '{{ amendment.section.article.number|escapejs }}',
+            articleTitle: '{{ amendment.section.article.title|escapejs }}',
+            docType:      '{{ amendment.section.article.document.get_doc_type_display|escapejs }}',
+            sectionNum:   '{{ amendment.section.number|escapejs }}',
+            sectionTitle: '{{ amendment.section.title|escapejs }}'
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    // ── Word-level diff (LCS) ────────────────────────────────────────────────
+    function tokenize(text) { return text.match(/\s*\S+/g) || []; }
+
+    function diff(original, proposed) {
+        var a = tokenize(original), b = tokenize(proposed);
+        var m = a.length, n = b.length;
+        // LCS table
+        var dp = new Array(m + 1);
+        for (var i = 0; i <= m; i++) { dp[i] = new Array(n + 1).fill(0); }
+        for (var i = 1; i <= m; i++)
+            for (var j = 1; j <= n; j++)
+                dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+        // Traceback
+        var ops = [], i = m, j = n;
+        while (i > 0 || j > 0) {
+            if (i > 0 && j > 0 && a[i-1] === b[j-1]) { ops.unshift({t:'same', v:b[j-1]}); i--; j--; }
+            else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) { ops.unshift({t:'add', v:b[j-1]}); j--; }
+            else { ops.unshift({t:'del', v:a[i-1]}); i--; }
+        }
+        return ops;
+    }
+
+    function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    // Render diff as HTML — for Addition only show added spans; for Change/Deletion show full diff
+    function renderDiffHTML(a) {
+        var ops = diff(a.original, a.proposed);
+        // Similarity check: if very little in common, show block replacement
+        var same = ops.filter(function(o){ return o.t==='same'; }).length;
+        var minLen = Math.min(tokenize(a.original).length, tokenize(a.proposed).length);
+        if (minLen > 0 && same < minLen * 0.4) {
+            if (a.type === 'deletion' && !a.proposed) {
+                return '<span class="diff-del">' + esc(a.original) + '</span>';
+            }
+            return (a.original ? '<span class="diff-del">' + esc(a.original) + '</span> ' : '')
+                 + '<span class="diff-add">' + esc(a.proposed) + '</span>';
+        }
+        var html = '';
+        ops.forEach(function(op) {
+            var t = esc(op.v);
+            if (op.t === 'same')  html += t;
+            else if (op.t === 'add') html += '<span class="diff-add">' + t + '</span>';
+            else                     html += '<span class="diff-del">' + t + '</span>';
+        });
+        return html;
+    }
+
+    // Extract only the delta tokens (added for addition/change, deleted for deletion)
+    function extractDelta(a) {
+        var ops = diff(a.original, a.proposed || '');
+        if (a.type === 'deletion' && !a.proposed) {
+            return { text: ops.filter(function(o){ return o.t==='del'; }).map(function(o){ return o.v.trim(); }).join(' ').trim(), cls: 'amend-delta-del' };
+        }
+        var added = ops.filter(function(o){ return o.t==='add'; }).map(function(o){ return o.v.trim(); }).join(' ').trim();
+        return { text: added, cls: 'amend-delta-add' };
+    }
+
+    // ── Inline marker replacement ─────────────────────────────────────────────
+    function buildMarker(a) {
+        var code = '[' + a.section;
+        if (a.type && a.type !== 'change') code += ' (' + a.type.charAt(0).toUpperCase() + a.type.slice(1) + ')';
+        if (a.scope) code += ' \u2014 ' + a.scope;
+        return code + ' - ' + a.num + ']';
+    }
+
+    function buildInlineHTML(a) {
+        var typeLabel = a.type.charAt(0).toUpperCase() + a.type.slice(1);
+        var ref = a.section + ' (' + typeLabel + ')' + (a.scope ? ' \u2014 ' + a.scope : '');
+        var delta = extractDelta(a);
+        var deltaHTML = delta.text
+            ? '<span class="' + delta.cls + '">\u201c' + esc(delta.text) + '\u201d</span>'
+            : '';
+        return '<span class="inline-amend-callout">'
+            + '<span class="amend-ref">' + esc(ref) + '</span>'
+            + deltaHTML
+            + '</span>';
+    }
+
+    function replaceMarkersIn(el) {
+        if (!el) return;
+        amendments.forEach(function(a) {
+            var marker = buildMarker(a);
+            var escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            el.innerHTML = el.innerHTML.replace(new RegExp(escaped, 'g'), buildInlineHTML(a));
+        });
+    }
+
+    document.querySelectorAll('.body-text, .whereas-block, .resolved-clause, .conclusion-text').forEach(replaceMarkersIn);
+
+    // ── Appendix ──────────────────────────────────────────────────────────────
+    if (amendments.length) {
+        var appendix = document.createElement('div');
+        appendix.className = 'appendix';
+        appendix.innerHTML = '<p class="appendix-heading">Appendix \u2014 Tracked Section Amendments</p>';
+
+        amendments.forEach(function(a) {
+            var typeLabel = a.type.charAt(0).toUpperCase() + a.type.slice(1);
+            var art = 'Article ' + a.articleNum + (a.articleTitle ? ' (' + a.articleTitle + ')' : '');
+            var sec = (a.sectionTitle ? '\u00a7\u00a0' + a.sectionNum + ': ' + a.sectionTitle : '\u00a7\u00a0' + a.sectionNum);
+            var scope = a.scope ? ' \u2014 ' + a.scope : '';
+
+            var desc;
+            if (a.type === 'addition') {
+                desc = 'The following shall be added to ' + art + ' of the ' + a.docType + ' of the Samford Chapter, the Alpha Mu of Beta Theta Pi, under ' + sec + scope + ':';
+            } else if (a.type === 'deletion') {
+                desc = 'The following shall be deleted from ' + sec + ' of ' + art + ' of the ' + a.docType + ' of the Samford Chapter, the Alpha Mu of Beta Theta Pi' + scope + ':';
+            } else {
+                desc = 'The following change shall be made to ' + sec + ' of ' + art + ' of the ' + a.docType + ' of the Samford Chapter, the Alpha Mu of Beta Theta Pi' + scope + ':';
+            }
+
+            var diffHTML = (a.original || a.proposed) ? renderDiffHTML(a) : '';
+
+            var entry = document.createElement('div');
+            entry.className = 'amendment-entry';
+            entry.innerHTML =
+                '<p class="amendment-entry-header">[' + a.num + '] ' + esc(a.section) + (a.sectionTitle ? ' \u2014 ' + esc(a.sectionTitle) : '') + ' &mdash; ' + typeLabel + '</p>'
+                + '<p style="font-size:11pt;margin-bottom:8pt;line-height:1.5;">' + esc(desc) + '</p>'
+                + (diffHTML ? '<div class="amendment-text" style="border-color:#ccc;"><span style="white-space:pre-wrap;">' + diffHTML + '</span></div>' : '');
+            appendix.appendChild(entry);
+        });
+
+        document.body.appendChild(appendix);
+    }
+})();
+</script>
+
+</body>
+</html>

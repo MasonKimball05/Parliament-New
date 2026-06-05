@@ -7,58 +7,61 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <!-- Header Section -->
-    <div class="mb-6 flex flex-wrap justify-between items-start gap-4">
-        <div class="flex items-center gap-4">
-            <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-1 shadow-md">
-            <div>
-                <h2 class="text-3xl font-bold mb-2 text-gray-900 dark:text-gray-100">Event Calendar</h2>
-                <p class="text-gray-600 dark:text-gray-400">View chapter events and meetings</p>
+    <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
+        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
+        <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms" class="w-12 h-12 rounded-full object-contain bg-white p-1 opacity-90 flex-shrink-0">
+                <div>
+                    <h2 class="text-2xl sm:text-3xl font-bold">Event Calendar</h2>
+                    <p class="text-sm text-white/75 mt-0.5">View chapter events and meetings</p>
+                </div>
             </div>
-        </div>
-        <div class="flex flex-wrap gap-2">
-            <a href="{% url 'export_calendar_ical' %}" class="bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition flex items-center" title="Export to calendar app (Google Calendar, Apple Calendar, Outlook, etc.)">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-                Export Calendar
-            </a>
-            {% if feature_flags.calendar_subscriptions %}
-            <button onclick="openSubscriptionModal()" class="bg-teal-600 dark:bg-teal-700 hover:bg-teal-700 dark:hover:bg-teal-600 text-white font-medium py-2 px-4 rounded-lg transition flex items-center" title="Subscribe to auto-updating calendar feed">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                </svg>
-                Subscribe to Calendar
-            </button>
-            {% endif %}
-            {% if user.member_type == 'Officer' or user.member_type == 'Chair' %}
-                <a href="{% url 'create_event' %}" class="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex flex-wrap gap-2 flex-shrink-0">
+                <a href="{% url 'export_calendar_ical' %}" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-green-500/90 hover:bg-green-500 text-white transition" title="Export to calendar app">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Export
+                </a>
+                {% if feature_flags.ical_export %}
+                <button onclick="openSubscriptionModal()" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-teal-500/80 hover:bg-teal-500 text-white transition" title="Subscribe to auto-updating calendar feed">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    Subscribe
+                </button>
+                {% endif %}
+                {% if user.member_type == 'Officer' or user.member_type == 'Chair' %}
+                <a href="{% url 'create_event' %}" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/15 hover:bg-white/25 text-white transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                     </svg>
                     New Event
                 </a>
-                <a href="{% url 'manage_events' %}" class="bg-gray-600 dark:bg-gray-700 hover:bg-gray-700 dark:hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <a href="{% url 'manage_events' %}" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/15 hover:bg-white/25 text-white transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     </svg>
                     Manage
                 </a>
-            {% endif %}
+                {% endif %}
+            </div>
         </div>
     </div>
 
     <!-- Calendar Grid -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden mb-8 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mb-8 transition-colors duration-200">
         <!-- Month Navigation -->
-        <div class="bg-blue-600 dark:bg-blue-700 text-white px-6 py-4 flex items-center justify-between relative">
-            <button id="prevMonthBtn" onclick="navigateMonth(-1)" class="hover:bg-blue-700 dark:hover:bg-blue-600 p-2 rounded transition {% if not can_go_prev %}opacity-50 cursor-not-allowed{% endif %}" {% if not can_go_prev %}disabled{% endif %}>
+        <div class="bg-primary-600 text-white px-6 py-4 flex items-center justify-between relative">
+            <button id="prevMonthBtn" onclick="navigateMonth(-1)" class="hover:bg-primary-700 p-2 rounded transition {% if not can_go_prev %}opacity-50 cursor-not-allowed{% endif %}" {% if not can_go_prev %}disabled{% endif %}>
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                 </svg>
             </button>
             <div class="relative">
-                <button onclick="toggleMonthDropdown()" class="text-2xl font-bold hover:bg-blue-700 dark:hover:bg-blue-600 px-4 py-2 rounded transition flex items-center space-x-2">
+                <button onclick="toggleMonthDropdown()" class="text-2xl font-bold hover:bg-primary-700 px-4 py-2 rounded transition flex items-center space-x-2">
                     <span id="monthYearTitle">{{ month_name }} {{ year }}</span>
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
@@ -70,7 +73,7 @@
                     </div>
                 </div>
             </div>
-            <button id="nextMonthBtn" onclick="navigateMonth(1)" class="hover:bg-blue-700 dark:hover:bg-blue-600 p-2 rounded transition {% if not can_go_next %}opacity-50 cursor-not-allowed{% endif %}" {% if not can_go_next %}disabled{% endif %}>
+            <button id="nextMonthBtn" onclick="navigateMonth(1)" class="hover:bg-primary-700 p-2 rounded transition {% if not can_go_next %}opacity-50 cursor-not-allowed{% endif %}" {% if not can_go_next %}disabled{% endif %}>
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                 </svg>
@@ -95,14 +98,14 @@
                         <div class="min-h-24 border border-gray-200 dark:border-gray-700 rounded-lg p-1 sm:p-2 {% if day == 0 %}bg-gray-50 dark:bg-gray-900{% elif day == today %}bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-500{% else %}bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700{% endif %} transition">
                             {% if day != 0 %}
                                 <div class="text-right">
-                                    <span class="{% if day == today %}bg-blue-600 dark:bg-blue-500 text-white rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs sm:text-sm font-bold{% else %}text-gray-700 dark:text-gray-300 font-medium text-xs sm:text-sm{% endif %}">
+                                    <span class="{% if day == today %}bg-primary-600 text-white rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs sm:text-sm font-bold{% else %}text-gray-700 dark:text-gray-300 font-medium text-xs sm:text-sm{% endif %}">
                                         {{ day }}
                                     </span>
                                 </div>
                                 {% if day in events_by_day %}
                                     <div class="mt-1 space-y-1">
                                         {% for event in events_by_day|get_item:day %}
-                                            <div class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800 transition"
+                                            <div class="bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded cursor-pointer hover:bg-primary-200 dark:hover:bg-primary-800 transition"
                                                  onclick="showEventDetails{{ event.id }}()">
                                                 <div class="font-semibold truncate text-[10px] sm:text-xs">{{ event.date_time|date:"g:i A" }}</div>
                                                 <div class="truncate text-[10px] sm:text-xs">{{ event.title }}</div>
@@ -134,7 +137,7 @@
                     <span class="text-gray-700 dark:text-gray-300">Today</span>
                 </div>
                 <div class="flex items-center">
-                    <div class="w-4 h-4 bg-blue-100 dark:bg-blue-900 rounded mr-2"></div>
+                    <div class="w-4 h-4 bg-primary-100 dark:bg-primary-900 rounded mr-2"></div>
                     <span class="text-gray-700 dark:text-gray-300">Has Events</span>
                 </div>
             </div>
@@ -159,7 +162,7 @@
                         <div class="flex items-center gap-2 mb-2">
                             <p class="text-gray-700 dark:text-gray-300">{{ event.description|linebreaksbr }}</p>
                             {% if event.allow_excuses and not event.requires_attendance %}
-                            <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300" title="Attendance is not marked as required for this event">
+                            <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300" title="Attendance is not marked as required for this event">
                                 Optional Attendance
                             </span>
                             {% endif %}
@@ -199,25 +202,25 @@
                                         {% elif user_excuse.status == 'denied' %}
                                             <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Excuse Denied</span>
                                         {% endif %}
-                                        <a href="{% url 'my_excuses' %}" class="text-sm text-blue-600 hover:text-blue-800">View My Excuses →</a>
+                                        <a href="{% url 'my_excuses' %}" class="text-sm text-primary-600 hover:text-primary-800">View My Excuses →</a>
                                     </div>
                                 </div>
                             {% elif event.can_submit_excuse %}
                                 <div class="border-t pt-4">
                                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                         <div class="flex items-start">
-                                            <svg class="w-5 h-5 text-blue-600 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg class="w-5 h-5 text-primary-600 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                             </svg>
                                             <div class="flex-1">
                                                 {% if event.requires_attendance %}
                                                 <p class="text-sm font-medium text-blue-900 mb-2">This event requires attendance</p>
-                                                <p class="text-sm text-blue-700 mb-3">Unable to attend? Submit an excuse request.</p>
+                                                <p class="text-sm text-primary-700 mb-3">Unable to attend? Submit an excuse request.</p>
                                                 {% else %}
                                                 <p class="text-sm font-medium text-blue-900 mb-2">Attendance is optional for this event</p>
-                                                <p class="text-sm text-blue-700 mb-3">If you cannot attend, you may still submit an excuse request.</p>
+                                                <p class="text-sm text-primary-700 mb-3">If you cannot attend, you may still submit an excuse request.</p>
                                                 {% endif %}
-                                                <a href="{% url 'submit_excuse' event.id %}" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition text-sm">
+                                                <a href="{% url 'submit_excuse' event.id %}" class="inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition text-sm">
                                                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                                     </svg>
@@ -259,7 +262,7 @@
 
     <!-- Upcoming Events List -->
     {% if upcoming_events %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
             <h3 class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100">Upcoming Events</h3>
             <div class="space-y-3">
                 {% for event in upcoming_events %}
@@ -455,7 +458,7 @@
 
                 if (!isEmpty) {
                     const dayClass = isToday
-                        ? 'bg-blue-600 dark:bg-blue-500 text-white rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs sm:text-sm font-bold'
+                        ? 'bg-primary-600 text-white rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs sm:text-sm font-bold'
                         : 'text-gray-700 dark:text-gray-300 font-medium text-xs sm:text-sm';
                     html += `<div class="text-right"><span class="${dayClass}">${day}</span></div>`;
 
@@ -464,7 +467,7 @@
                         html += '<div class="mt-1 space-y-1">';
                         data.events[day].forEach(event => {
                             html += `
-                                <div class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800 transition"
+                                <div class="bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded cursor-pointer hover:bg-primary-200 dark:hover:bg-primary-800 transition"
                                      onclick="showEventModal(${event.id}, '${escapeForJs(event.title)}', '${escapeForJs(event.description)}', '${event.full_datetime}', '${escapeForJs(event.location)}', '${escapeForJs(event.created_by)}', ${event.requires_attendance}, ${event.allow_excuses}, ${event.can_submit_excuse}, ${event.has_excuse}, '${event.excuse_status}')">
                                     <div class="font-semibold truncate text-[10px] sm:text-xs">${event.time}</div>
                                     <div class="truncate text-[10px] sm:text-xs">${escapeHtml(event.title)}</div>
@@ -528,7 +531,7 @@
                     <div class="border-t dark:border-gray-700 pt-4">
                         <div class="flex items-center justify-between">
                             ${statusBadge}
-                            <a href="/excuses/" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">View My Excuses →</a>
+                            <a href="/excuses/" class="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">View My Excuses →</a>
                         </div>
                     </div>
                 `;
@@ -536,15 +539,15 @@
                 // User can submit an excuse
                 excuseHtml = `
                     <div class="border-t dark:border-gray-700 pt-4">
-                        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+                        <div class="bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-700 rounded-lg p-4">
                             <div class="flex items-start">
-                                <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-5 h-5 text-primary-600 dark:text-primary-400 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
                                 <div class="flex-1">
                                     <p class="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">This event requires attendance</p>
-                                    <p class="text-sm text-blue-700 dark:text-blue-300 mb-3">Unable to attend? Submit an excuse request.</p>
-                                    <a href="/excuses/submit/${id}/" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition text-sm">
+                                    <p class="text-sm text-primary-700 dark:text-primary-300 mb-3">Unable to attend? Submit an excuse request.</p>
+                                    <a href="/excuses/submit/${id}/" class="inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition text-sm">
                                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                         </svg>
@@ -670,7 +673,7 @@
 
             const isCurrentMonth = year === currentYear && month === currentMonth;
             const bgClass = isCurrentMonth
-                ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 font-semibold'
+                ? 'bg-primary-100 dark:bg-primary-900 text-primary-900 dark:text-primary-100 font-semibold'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700';
 
             html += `
@@ -693,7 +696,7 @@
         preloadAdjacentMonths();
     }
 
-    {% if feature_flags.calendar_subscriptions %}
+    {% if feature_flags.ical_export %}
     // Calendar Subscription Functions
     let subscriptionData = null;
 
@@ -726,7 +729,7 @@
             <div class="space-y-4">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <a href="${googleCalUrl}" target="_blank" rel="noopener"
-                       class="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium">
+                       class="flex items-center justify-center gap-2 px-4 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors font-medium">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.5 3h-17A1.5 1.5 0 002 4.5v15A1.5 1.5 0 003.5 21h17a1.5 1.5 0 001.5-1.5v-15A1.5 1.5 0 0020.5 3z"/></svg>
                         Google Calendar
                     </a>
@@ -793,7 +796,7 @@
     {% endif %}
 </script>
 
-{% if feature_flags.calendar_subscriptions %}
+{% if feature_flags.ical_export %}
 <!-- Calendar Subscription Modal -->
 <div id="subscriptionModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-gray-900 dark:bg-opacity-70 hidden items-center justify-center z-50 overflow-y-auto p-4">
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-auto my-8 p-6 max-h-[90vh] overflow-y-auto">
@@ -811,7 +814,7 @@
                 Get automatic calendar updates! Subscribe to this calendar in your favorite app and it will stay synced with all chapter events.
             </p>
 
-            <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-4">
+            <div class="bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-700 rounded-lg p-4 mb-4">
                 <h4 class="font-semibold text-blue-900 dark:text-blue-100 mb-2">✨ Features:</h4>
                 <ul class="space-y-1 text-sm text-blue-800 dark:text-blue-200">
                     <li>• Automatically updates when events change</li>

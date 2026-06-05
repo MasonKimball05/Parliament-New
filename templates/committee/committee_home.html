@@ -8,7 +8,7 @@
 
     <!-- Back Link -->
     <div class="mb-6">
-        <a href="{% url 'committee_index' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm">← All Committees</a>
+        <a href="{% url 'committee_index' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 text-sm">← All Committees</a>
     </div>
 
     <!-- Archived Banner -->
@@ -19,46 +19,36 @@
     </div>
     {% endif %}
 
-    <!-- Header Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 sm:p-6 mb-6 transition-colors duration-200">
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4">
-            <div class="flex items-start gap-3 sm:gap-4 flex-1">
+    <!-- Header Banner -->
+    <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
+        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
+        <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
                 <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms"
-                     class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-1 shadow-md flex-shrink-0">
+                     class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white/10 p-1 shadow-md flex-shrink-0">
                 <div class="flex-1 min-w-0">
-                    <h1 class="text-2xl sm:text-3xl font-bold mb-1 break-words text-gray-900 dark:text-gray-100">{{ committee.name }}</h1>
+                    <h1 class="text-2xl sm:text-3xl font-bold break-words">{{ committee.name }}</h1>
                     {% if committee.code %}
-                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Code: <span class="font-medium text-gray-700 dark:text-gray-300">{{ committee.code }}</span></p>
-                    {% endif %}
-                    {% if committee.role %}
-                        <p class="text-sm text-gray-600 dark:text-gray-400">
-                            <span class="font-medium">Admin:</span> {{ committee.role.name }}{% if committee_vp %} — {{ committee_vp.name }}{% endif %}
+                        <p class="text-sm text-white/75 mt-0.5">Code: <span class="font-medium text-white/90">{{ committee.code }}</span>
+                        {% if committee.role %}
+                            &nbsp;·&nbsp; Admin: {{ committee.role.name }}{% if committee_vp %} — {{ committee_vp.name }}{% endif %}
+                        {% elif committee.admin %}
+                            &nbsp;·&nbsp; Admin: {{ committee.admin.name }}
+                        {% endif %}
                         </p>
+                    {% elif committee.role %}
+                        <p class="text-sm text-white/75 mt-0.5">Admin: {{ committee.role.name }}{% if committee_vp %} — {{ committee_vp.name }}{% endif %}</p>
                     {% elif committee.admin %}
-                        <p class="text-sm text-gray-600 dark:text-gray-400">
-                            <span class="font-medium">Admin:</span> {{ committee.admin.name }}
-                        </p>
+                        <p class="text-sm text-white/75 mt-0.5">Admin: {{ committee.admin.name }}</p>
                     {% endif %}
-                    <!-- Status badges -->
-                    <div class="flex flex-wrap gap-1.5 mt-2">
-                        {% if not committee.is_active %}
-                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">Inactive</span>
-                        {% endif %}
-                        {% if committee.is_archived %}
-                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">Archived</span>
-                        {% endif %}
-                        {% if committee.is_ad_hoc %}
-                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400">Ad-hoc</span>
-                        {% endif %}
-                    </div>
                 </div>
             </div>
 
             <!-- Action buttons -->
-            <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto flex-shrink-0">
+            <div class="flex flex-col sm:flex-row gap-2 flex-shrink-0">
                 {% if feature_flags.chats %}
                 <a href="{% url 'committee_chat' committee.code %}"
-                   class="px-4 py-2.5 rounded-lg bg-blue-600 dark:bg-blue-700 text-white font-medium flex items-center justify-center gap-2 hover:bg-blue-700 dark:hover:bg-blue-800 transition text-sm">
+                   class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/20 hover:bg-white/30 text-white transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                     </svg>
@@ -66,24 +56,37 @@
                 </a>
                 {% if is_chair or is_vp or user.is_admin %}
                 <a href="{% url 'manage_chat_permissions' committee.code %}"
-                   class="px-4 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium flex items-center justify-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm">
+                   class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/20 hover:bg-white/30 text-white transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
                     </svg>
-                    Chat Guests
+                    Chat Settings
                 </a>
                 {% endif %}
                 {% endif %}
             </div>
         </div>
+    </div>
 
-        <!-- User role badges -->
-        <div class="flex flex-wrap gap-2 sm:ml-16 md:ml-20">
+    <!-- Status & Role Badges Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-6 transition-colors duration-200">
+        <div class="flex flex-wrap gap-2">
+            <!-- Status badges -->
+            {% if not committee.is_active %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">Inactive</span>
+            {% endif %}
+            {% if committee.is_archived %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">Archived</span>
+            {% endif %}
+            {% if committee.is_ad_hoc %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400">Ad-hoc</span>
+            {% endif %}
+            <!-- User role badges -->
             {% if is_vp %}
                 <span class="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-3 py-1 rounded-full text-xs font-medium">Vice President</span>
             {% endif %}
             {% if is_chair %}
-                <span class="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-3 py-1 rounded-full text-xs font-medium">Chair</span>
+                <span class="bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 px-3 py-1 rounded-full text-xs font-medium">Chair</span>
             {% endif %}
             {% if is_advisor %}
                 <span class="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-3 py-1 rounded-full text-xs font-medium">Advisor</span>
@@ -138,7 +141,7 @@
                 <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Chairs</h2>
                 {% if can_manage and not committee.is_archived %}
                 <button onclick="openManageModal('chair')"
-                        class="text-xs bg-blue-500 dark:bg-blue-600 text-white px-2.5 py-1 rounded hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+                        class="text-xs bg-primary-600 hover:bg-primary-700 text-white px-2.5 py-1 rounded transition-colors">
                     + Add
                 </button>
                 {% endif %}
@@ -353,7 +356,7 @@
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Recent Documents</h2>
                 <a href="{% url 'committee_documents' committee.code %}"
-                   class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">View All →</a>
+                   class="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">View All →</a>
             </div>
             {% if recent_documents %}
             <div class="space-y-2">
@@ -379,7 +382,7 @@
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Recent Votes</h2>
                 <a href="{% url 'vote' committee.code %}"
-                   class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">View All →</a>
+                   class="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">View All →</a>
             </div>
             {% if recent_votes %}
             <div class="space-y-2">
@@ -418,9 +421,14 @@
                 <p class="text-xs text-yellow-600 dark:text-yellow-500 mt-1">{{ kai_report_count }} pending report{{ kai_report_count|pluralize }}</p>
                 {% endif %}
             </div>
-            <a href="{% url 'view_kai_reports' %}" class="text-xs bg-blue-500 dark:bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-600 dark:hover:bg-blue-700">
-                View All
-            </a>
+            <div class="flex items-center gap-2">
+                <a href="{% url 'manage_kai_permissions' committee.code %}" class="text-xs border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 px-3 py-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                    Member Perms
+                </a>
+                <a href="{% url 'view_kai_reports' %}" class="text-xs bg-primary-600 text-white px-3 py-1.5 rounded hover:bg-primary-700">
+                    View All
+                </a>
+            </div>
         </div>
         {% if kai_reports %}
         <div class="space-y-3">
@@ -582,7 +590,7 @@
                         Cancel
                     </button>
                     <button type="submit"
-                            class="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 text-sm">
+                            class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm">
                         Add
                     </button>
                 </div>

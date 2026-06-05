@@ -9,7 +9,7 @@
     {% include 'includes/breadcrumbs.html' with back_url='/songbook/' back_label='Songbook' current='Manage Categories' %}
 
     <!-- Page Header -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <div class="flex items-center gap-4">
             <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
                 <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -25,7 +25,7 @@
 
     <div class="grid gap-6 lg:grid-cols-2">
         <!-- Add Category Form -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -83,7 +83,7 @@
         </div>
 
         <!-- Existing Categories -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,7 +135,7 @@
     </div>
 
     <!-- Chorister Management -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mt-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mt-6">
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -155,7 +155,7 @@
                         {% csrf_token %}
                         <input type="hidden" name="action" value="add_chorister">
                         <select name="user_id" required
-                                class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                             <option value="">Select a member...</option>
                             {% for member in eligible_members %}
                             <option value="{{ member.user_id }}">{{ member.name }}</option>
@@ -204,7 +204,7 @@
 
     <!-- Back Link -->
     <div class="mt-6 text-center">
-        <a href="{% url 'songbook' %}" class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline">
+        <a href="{% url 'songbook' %}" class="inline-flex items-center text-primary-600 dark:text-primary-400 hover:underline">
             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
             </svg>

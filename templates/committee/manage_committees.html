@@ -19,7 +19,7 @@
     </div>
 
     <!-- Committees List -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-700">
@@ -37,7 +37,7 @@
                     {% for data in committees_data %}
                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <a href="{% url 'committee_home' code=data.committee.code %}" class="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400">
+                            <a href="{% url 'committee_home' code=data.committee.code %}" class="font-medium text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400">
                                 {{ data.committee.name }}
                             </a>
                         </td>
@@ -82,7 +82,7 @@
                         </td>
                         <td class="px-6 py-4 text-center">
                             <div class="flex items-center justify-center space-x-1">
-                                <button onclick="openEditCommitteeModal({{ data.committee.id }})" class="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition" title="Edit committee">
+                                <button onclick="openEditCommitteeModal({{ data.committee.id }})" class="p-1.5 text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded transition" title="Edit committee">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                     </svg>
@@ -122,7 +122,7 @@
 
     <!-- Back Link -->
     <div class="mt-6">
-        <a href="{% url 'officer_home' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
+        <a href="{% url 'officer_home' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium">
             &larr; Back to Officer Portal
         </a>
     </div>
@@ -148,15 +148,15 @@
                     <div class="space-y-4">
                         <div>
                             <label for="add-committee-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Committee Name *</label>
-                            <input type="text" id="add-committee-name" name="name" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., Finance Committee">
+                            <input type="text" id="add-committee-name" name="name" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="e.g., Finance Committee">
                         </div>
                         <div>
                             <label for="add-committee-code" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Committee Code *</label>
-                            <input type="text" id="add-committee-code" name="code" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase" placeholder="e.g., FIN" maxlength="20">
+                            <input type="text" id="add-committee-code" name="code" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent uppercase" placeholder="e.g., FIN" maxlength="20">
                         </div>
                         <div>
                             <label for="add-committee-role" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Admin Role</label>
-                            <select id="add-committee-role" name="role" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <select id="add-committee-role" name="role" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                                 <option value="">No admin role</option>
                                 {% for role in roles %}
                                 <option value="{{ role.id }}">{{ role.name }}</option>
@@ -218,15 +218,15 @@
                     <div class="space-y-4">
                         <div>
                             <label for="edit-committee-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Committee Name *</label>
-                            <input type="text" id="edit-committee-name" name="name" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <input type="text" id="edit-committee-name" name="name" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         </div>
                         <div>
                             <label for="edit-committee-code" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Committee Code *</label>
-                            <input type="text" id="edit-committee-code" name="code" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase" maxlength="20">
+                            <input type="text" id="edit-committee-code" name="code" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent uppercase" maxlength="20">
                         </div>
                         <div>
                             <label for="edit-committee-role" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Admin Role</label>
-                            <select id="edit-committee-role" name="role" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <select id="edit-committee-role" name="role" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                                 <option value="">No admin role</option>
                                 {% for role in roles %}
                                 <option value="{{ role.id }}">{{ role.name }}</option>
@@ -268,7 +268,7 @@
 
                     <div class="mt-6 flex justify-end gap-3">
                         <button type="button" onclick="closeEditCommitteeModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">Cancel</button>
-                        <button type="submit" id="edit-committee-submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">Save Changes</button>
+                        <button type="submit" id="edit-committee-submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium">Save Changes</button>
                     </div>
                 </form>
             </div>
@@ -304,7 +304,7 @@
 
                 <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
                     <button type="button" onclick="confirmDeleteCommittee()" id="delete-committee-submit" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:w-auto sm:text-sm">Delete</button>
-                    <button type="button" onclick="closeDeleteCommitteeModal()" class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm">Cancel</button>
+                    <button type="button" onclick="closeDeleteCommitteeModal()" class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:w-auto sm:text-sm">Cancel</button>
                 </div>
             </div>
         </div>

@@ -6,9 +6,14 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-5xl">
     <!-- Header -->
-    <div class="mb-8">
-        <h2 class="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Excuse Requests</h2>
-        <p class="text-gray-600 dark:text-gray-400">Request excused absences for events you cannot attend</p>
+    <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
+        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
+        <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold">Excuse Requests</h1>
+                <p class="text-sm text-white/75 mt-0.5">Request excused absences for events you cannot attend</p>
+            </div>
+        </div>
     </div>
 
     <!-- Status Summary Cards -->
@@ -38,7 +43,7 @@
     <div class="mb-10">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
-                <svg class="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5 mr-2 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                 </svg>
                 Submit New Excuse
@@ -54,7 +59,7 @@
                         <div class="flex-1 min-w-0">
                             <h4 class="text-lg font-semibold text-gray-900 dark:text-white truncate">{{ event.title }}</h4>
                             {% if not event.requires_attendance %}
-                            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 mt-1">
+                            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 mt-1">
                                 Optional Attendance
                             </span>
                             {% endif %}
@@ -88,7 +93,7 @@
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-4 line-clamp-2">{{ event.description|truncatewords:20 }}</p>
                     {% endif %}
 
-                    <a href="{% url 'submit_excuse' event.id %}" class="w-full inline-flex justify-center items-center px-4 py-2.5 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium rounded-lg transition">
+                    <a href="{% url 'submit_excuse' event.id %}" class="w-full inline-flex justify-center items-center px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                         </svg>
@@ -191,7 +196,7 @@
                     <!-- Supporting Document -->
                     {% if excuse.supporting_document %}
                     <div class="mb-4">
-                        <a href="{{ excuse.supporting_document.url }}" target="_blank" class="inline-flex items-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
+                        <a href="{{ excuse.supporting_document.url }}" target="_blank" class="inline-flex items-center text-sm text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">
                             <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                             </svg>
@@ -271,15 +276,15 @@
 
     {% if not available_events and not my_excuses %}
     <!-- No Events Available -->
-    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-12 text-center">
-        <div class="w-16 h-16 mx-auto mb-4 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
-            <svg class="w-8 h-8 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-xl p-12 text-center">
+        <div class="w-16 h-16 mx-auto mb-4 bg-primary-100 dark:bg-primary-900/50 rounded-full flex items-center justify-center">
+            <svg class="w-8 h-8 text-primary-500 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
             </svg>
         </div>
-        <h4 class="text-lg font-medium text-blue-800 dark:text-blue-200 mb-2">No Events Available</h4>
-        <p class="text-blue-600 dark:text-blue-300">There are no events available for excuse requests at this time.</p>
-        <p class="text-sm text-blue-500 dark:text-blue-400 mt-2">Check back when new events are scheduled.</p>
+        <h4 class="text-lg font-medium text-primary-800 dark:text-primary-200 mb-2">No Events Available</h4>
+        <p class="text-primary-600 dark:text-primary-300">There are no events available for excuse requests at this time.</p>
+        <p class="text-sm text-primary-500 dark:text-primary-400 mt-2">Check back when new events are scheduled.</p>
     </div>
     {% endif %}
 </div>

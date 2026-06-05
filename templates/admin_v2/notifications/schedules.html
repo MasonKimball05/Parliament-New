@@ -1,29 +1,29 @@
-{% extends "base.html" %}
+{% extends "admin_v2/base.html" %}
 {% load static %}
 
 {% block title %}Notification Schedules - Admin v2{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8 max-w-full">
     <!-- Header -->
-    <div class="bg-gradient-to-r from-indigo-600 to-indigo-800 dark:from-indigo-700 dark:to-indigo-900 rounded-lg shadow-lg p-6 mb-8">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8 transition-colors duration-200">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-                <h1 class="text-3xl font-bold text-white mb-2">Notification Schedules</h1>
-                <p class="text-indigo-100">Configure automated notification triggers and reminders</p>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">Notification Schedules</h1>
+                <p class="text-gray-600 dark:text-gray-400 text-sm">Configure automated notification triggers and reminders</p>
             </div>
-            <div class="flex gap-3">
+            <div class="flex items-center gap-3">
                 <button onclick="openCreateModal()"
-                   class="px-4 py-2 bg-white text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-2 font-medium">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="px-4 py-2 rounded-lg bg-primary-700 dark:bg-primary-600 text-white hover:bg-primary-800 dark:hover:bg-primary-700 transition-colors flex items-center gap-2 text-sm font-medium">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                     </svg>
                     New Schedule
                 </button>
                 <a href="{% url 'admin_v2_notifications' %}"
-                   class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors flex items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                   class="inline-flex items-center gap-1.5 text-sm text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                     </svg>
                     Back
                 </a>
@@ -32,7 +32,7 @@
     </div>
 
     <!-- Schedules List -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead class="bg-gray-50 dark:bg-gray-700">
                 <tr>
@@ -124,7 +124,7 @@
                         </svg>
                         <p class="text-lg font-medium mb-2">No schedules configured</p>
                         <p class="mb-4">Create your first notification schedule to automate reminders</p>
-                        <button onclick="openCreateModal()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                        <button onclick="openCreateModal()" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
                             Create Schedule
                         </button>
                     </td>
@@ -139,7 +139,7 @@
 <div id="schedule-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4">
         <div class="fixed inset-0 bg-black/50" onclick="closeModal()"></div>
-        <div class="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full">
+        <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-sm max-w-2xl w-full">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100" id="modal-title">Create Schedule</h3>
             </div>
@@ -148,12 +148,12 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name *</label>
                         <input type="text" name="name" required
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500">
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type *</label>
                         <select name="notification_type" required
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500">
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500">
                             {% for value, label in notification_types %}
                             <option value="{{ value }}">{{ label }}</option>
                             {% endfor %}
@@ -162,18 +162,18 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
                         <textarea name="description" rows="2"
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500"></textarea>
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"></textarea>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hours Before</label>
                             <input type="number" name="hours_before" value="24" min="1"
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500">
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Target Audience</label>
                             <select name="target_audience"
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500">
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500">
                                 {% for value, label in target_audiences %}
                                 <option value="{{ value }}">{{ label }}</option>
                                 {% endfor %}
@@ -182,18 +182,18 @@
                     </div>
                     <div class="flex gap-4">
                         <label class="flex items-center">
-                            <input type="checkbox" name="send_email" checked class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500">
+                            <input type="checkbox" name="send_email" checked class="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500">
                             <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Send via Email</span>
                         </label>
                         <label class="flex items-center">
-                            <input type="checkbox" name="send_in_app" checked class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500">
+                            <input type="checkbox" name="send_in_app" checked class="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500">
                             <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Send In-App</span>
                         </label>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Message Template *</label>
                         <textarea name="message_template" rows="4" required
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500"
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
                             placeholder="Use {event_name}, {event_date}, {event_time}, {event_location} as placeholders"></textarea>
                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                             Available placeholders: {event_name}, {event_date}, {event_time}, {event_location}
@@ -206,7 +206,7 @@
                         Cancel
                     </button>
                     <button type="submit"
-                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                        class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
                         Save Schedule
                     </button>
                 </div>

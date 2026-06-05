@@ -4,6 +4,7 @@ User preferences view
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
+from django.urls import reverse
 from django.contrib import messages
 from src.forms import UserPreferencesForm
 from src.models import UserPreferences, ActivityLog, PushSubscription
@@ -36,7 +37,7 @@ def preferences_view(request):
             # Add a flag to trigger page reload if theme changed
             new_theme = request.POST.get('theme', 'light')
             if old_theme != new_theme:
-                return redirect('preferences' + '?theme_changed=1')
+                return redirect(reverse('preferences') + '?theme_changed=1')
 
             return redirect('preferences')
         else:

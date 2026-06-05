@@ -1,0 +1,938 @@
+{% extends "base.html" %}
+
+{% block title %}{{ resolution.title }} - Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200">
+
+    <!-- Banner -->
+    <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg relative overflow-hidden">
+        <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-gold-400 via-gold-500 to-gold-400 opacity-80"></div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                <div class="min-w-0">
+                    <a href="{% url 'cnb_resolution_list' %}" class="text-primary-200 hover:text-white text-sm flex items-center gap-1 mb-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                        Resolutions
+                    </a>
+                    <h1 class="text-2xl font-bold mb-1 break-words">{{ resolution.title }}</h1>
+                    <div class="flex flex-wrap items-center gap-3 text-sm text-primary-200">
+                        <span>{{ resolution.get_resolution_type_display }}</span>
+                        <span>·</span>
+                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+                            {% if resolution.status == 'draft' %}bg-white/20
+                            {% elif resolution.status == 'pending' %}bg-amber-500/30
+                            {% elif resolution.status == 'passed' %}bg-green-500/30
+                            {% elif resolution.status == 'failed' %}bg-red-500/30
+                            {% else %}bg-white/10{% endif %}">
+                            {{ resolution.get_status_display }}
+                        </span>
+                        {% if resolution.vote_date %}
+                        <span>· Vote: {{ resolution.vote_date|date:"M j, Y" }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    <a href="{% url 'cnb_resolution_print' resolution_id=resolution.pk %}" target="_blank"
+                       class="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white px-3 py-2 rounded-lg text-sm font-medium border border-white/20 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                        </svg>
+                        Print / PDF
+                    </a>
+                    {% if can_edit %}
+                    <a href="{% url 'cnb_edit_resolution' resolution_id=resolution.pk %}"
+                       class="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium border border-white/30 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                        Edit
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            <!-- Main: Formal resolution text -->
+            <div class="lg:col-span-2 space-y-6">
+
+                <!-- Formatted Resolution -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Resolution Text</h2>
+                    </div>
+                    <div class="px-6 py-5 space-y-6 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+
+                        <!-- Document header -->
+                        <div class="text-center space-y-1 pb-4 border-b border-gray-100 dark:border-gray-700">
+                            <p class="font-bold text-gray-900 dark:text-gray-100 uppercase text-xs tracking-widest">The Samford Chapter, the Alpha Mu of Beta Theta Pi</p>
+                            <p class="text-gray-500 dark:text-gray-400 text-xs">A Resolution of the Chapter</p>
+                            {% if resolution.vote_date %}
+                            <p class="text-gray-500 dark:text-gray-400 text-xs">{{ resolution.vote_date|date:"F j, Y" }}</p>
+                            {% endif %}
+                            {% if resolution.authors %}
+                            <p class="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                                <span class="font-medium">Author(s):</span> {{ resolution.authors }}
+                            </p>
+                            {% endif %}
+                            {% if resolution.sponsors %}
+                            <p class="text-xs text-gray-600 dark:text-gray-300">
+                                <span class="font-medium">Sponsor(s):</span> {{ resolution.sponsors }}
+                            </p>
+                            {% endif %}
+                        </div>
+
+                        <!-- Section I — Preamble -->
+                        <div class="space-y-3">
+                            <p class="font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wide text-xs">Section I — Preamble</p>
+                            <p class="font-bold text-gray-900 dark:text-gray-100">
+                                <span class="font-normal text-gray-500 dark:text-gray-400">TITLE:</span>
+                                {{ resolution.title }}
+                            </p>
+
+                            {% if resolution.whereas_clauses %}
+                            <div class="space-y-2 font-serif">
+                                <p class="font-sans text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Whereas Clauses</p>
+                                {% for clause in resolution.whereas_clauses.splitlines %}
+                                {% if clause.strip %}
+                                <p><strong>Whereas,</strong> {{ clause.strip }}{% if not forloop.last %}; and{% else %};{% endif %}</p>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            {% if resolution.resolved_text %}
+                            <p class="font-serif"><strong>Therefore, be it resolved,</strong> {{ resolution.resolved_text }}</p>
+                            {% endif %}
+
+                            {% if not resolution.whereas_clauses and not resolution.resolved_text %}
+                            <p class="text-gray-400 dark:text-gray-600 italic text-xs">No preamble text added yet.</p>
+                            {% endif %}
+                        </div>
+
+                        <!-- Section II — Body -->
+                        {% if resolution.resolution_body %}
+                        <div class="space-y-2">
+                            <p class="font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wide text-xs">Section II — Body of the Resolution</p>
+                            <div class="font-serif whitespace-pre-wrap cnb-linkify">{{ resolution.resolution_body }}</div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Section III — Conclusion -->
+                        {% if resolution.additional_notes %}
+                        <div class="space-y-2">
+                            <p class="font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wide text-xs">Section III — Conclusion and Certification</p>
+                            <div class="whitespace-pre-wrap font-serif cnb-linkify">{{ resolution.additional_notes }}</div>
+                        </div>
+                        {% endif %}
+
+                    </div>
+                </div>
+
+                <!-- Section Amendments (tracked changes) -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">
+                            Tracked Section Amendments
+                            {% if resolution.amendments.count %}
+                            <span class="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">({{ resolution.amendments.count }})</span>
+                            {% endif %}
+                        </h2>
+                        {% if can_edit %}
+                        <button onclick="openAmendmentModal()"
+                                class="inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Add
+                        </button>
+                        {% endif %}
+                    </div>
+
+                    {% if resolution.amendments.all %}
+                    <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                        {% for amendment in resolution.amendments.all %}
+                        <div class="px-6 py-5">
+                            <!-- Amendment header -->
+                            <div class="flex items-start justify-between gap-4 mb-3">
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                            {{ amendment.section.full_identifier }}
+                                        </p>
+                                        <!-- Amendment type badge -->
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+                                            {% if amendment.amendment_type == 'addition' %}bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400
+                                            {% elif amendment.amendment_type == 'deletion' %}bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400
+                                            {% else %}bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400{% endif %}">
+                                            {% if amendment.amendment_type == 'addition' %}Addition
+                                            {% elif amendment.amendment_type == 'deletion' %}Deletion
+                                            {% else %}Change{% endif %}
+                                        </span>
+                                        {% if amendment.applied %}
+                                        <span class="text-xs text-green-600 dark:text-green-400 font-medium">✓ Applied</span>
+                                        {% endif %}
+                                    </div>
+                                    {% if amendment.section.title %}
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ amendment.section.title }}</p>
+                                    {% endif %}
+                                    {% if amendment.scope_note %}
+                                    <p class="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
+                                        <span class="font-medium">Scope:</span> {{ amendment.scope_note }}
+                                    </p>
+                                    {% endif %}
+                                </div>
+                                {% if can_edit and not amendment.applied %}
+                                <form method="post" action="{% url 'cnb_remove_amendment' resolution_id=resolution.pk amendment_id=amendment.pk %}"
+                                      onsubmit="return confirm('Remove this amendment?')">
+                                    {% csrf_token %}
+                                    <button type="submit" class="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 flex-shrink-0">Remove</button>
+                                </form>
+                                {% endif %}
+                            </div>
+
+                            <!-- Surrounding context (collapsed by default) -->
+                            {% with sections=amendment.section.article.sections.all %}
+                            {% for s in sections %}{% if forloop.counter0 == 0 %}{% with first=s %}{% endwith %}{% endif %}{% endfor %}
+                            <details class="mb-3 group">
+                                <summary class="text-xs text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 cursor-pointer select-none list-none flex items-center gap-1">
+                                    <svg class="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                    </svg>
+                                    View article context — {{ amendment.section.article.get_doc_type_display|default:amendment.section.article.document.get_doc_type_display }} Art. {{ amendment.section.article.number }}: {{ amendment.section.article.title }}
+                                </summary>
+                                <div class="mt-2 pl-4 border-l-2 border-gray-200 dark:border-gray-700 space-y-2">
+                                    {% for s in sections %}
+                                    <div class="{% if s.pk == amendment.section.pk %}bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg{% endif %} px-3 py-2">
+                                        <p class="text-xs font-semibold {% if s.pk == amendment.section.pk %}text-primary-700 dark:text-primary-300{% else %}text-gray-600 dark:text-gray-400{% endif %}">
+                                            § {{ s.number }}{% if s.title %} — {{ s.title }}{% endif %}
+                                            {% if s.pk == amendment.section.pk %}<span class="ml-1 text-primary-500 dark:text-primary-400">(this section)</span>{% endif %}
+                                        </p>
+                                        <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mt-0.5 line-clamp-2 whitespace-pre-wrap">{{ s.content }}</p>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </details>
+                            {% endwith %}
+
+                            <!-- Current vs Proposed diff -->
+                            {% if amendment.amendment_type == 'deletion' and not amendment.proposed_text %}
+                            <!-- Whole-section deletion -->
+                            <div>
+                                <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Entire section to be deleted</p>
+                                <div class="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg p-3 text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto line-through opacity-70">{{ amendment.original_text_snapshot }}</div>
+                                <p class="text-xs text-red-600 dark:text-red-400 mt-1.5">This section will be cleared and suspended if the resolution passes.</p>
+                            </div>
+                            {% else %}
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                                        {% if amendment.amendment_type == 'addition' %}Current text (being added to){% else %}Current text{% endif %}
+                                    </p>
+                                    <div class="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg p-3 text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">{{ amendment.original_text_snapshot }}</div>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                                        {% if amendment.amendment_type == 'addition' %}Proposed text (with addition){% else %}Proposed replacement{% endif %}
+                                    </p>
+                                    <div class="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-lg p-3 text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">{{ amendment.proposed_text }}</div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                        {% if can_edit %}
+                        No section amendments added yet.
+                        <button onclick="openAmendmentModal()"
+                                class="text-primary-600 dark:text-primary-400 underline ml-1">Add one</button>
+                        {% else %}
+                        No tracked section amendments.
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+
+            </div>
+
+            <!-- Sidebar -->
+            <div class="space-y-6">
+
+                <!-- Status Actions -->
+                {% if can_edit %}
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                    <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Actions</h3>
+                    </div>
+                    <div class="px-5 py-4 space-y-2">
+                        {% if resolution.status == 'draft' %}
+                        <form method="post" action="{% url 'cnb_set_status' resolution_id=resolution.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="status" value="pending">
+                            <button type="submit" class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors">
+                                Move to Pending Vote
+                            </button>
+                        </form>
+                        <form method="post" action="{% url 'cnb_set_status' resolution_id=resolution.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="status" value="withdrawn">
+                            <button type="submit" onclick="return confirm('Withdraw this resolution?')"
+                                    class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                                Withdraw
+                            </button>
+                        </form>
+                        {% elif resolution.status == 'pending' %}
+                        <form method="post" action="{% url 'cnb_set_status' resolution_id=resolution.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="status" value="passed">
+                            <button type="submit" onclick="return confirm('Mark as PASSED? This will apply all tracked amendments to the live document.')"
+                                    class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors">
+                                Resolution Passed
+                            </button>
+                        </form>
+                        <form method="post" action="{% url 'cnb_set_status' resolution_id=resolution.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="status" value="failed">
+                            <button type="submit" onclick="return confirm('Mark as FAILED? Impacted sections will be protected from new amendments.')"
+                                    class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
+                                Resolution Failed
+                            </button>
+                        </form>
+                        <form method="post" action="{% url 'cnb_set_status' resolution_id=resolution.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="status" value="draft">
+                            <button type="submit"
+                                    class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 transition-colors">
+                                Return to Draft
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Metadata -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                    <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Details</h3>
+                    </div>
+                    <dl class="px-5 py-4 space-y-3 text-sm">
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-gray-500 dark:text-gray-400">Type</dt>
+                            <dd class="text-gray-900 dark:text-gray-100 font-medium text-right">{{ resolution.get_resolution_type_display }}</dd>
+                        </div>
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-gray-500 dark:text-gray-400">Status</dt>
+                            <dd class="text-gray-900 dark:text-gray-100 font-medium text-right">{{ resolution.get_status_display }}</dd>
+                        </div>
+                        {% if resolution.vote_date %}
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-gray-500 dark:text-gray-400">Vote date</dt>
+                            <dd class="text-gray-900 dark:text-gray-100 font-medium text-right">{{ resolution.vote_date|date:"M j, Y" }}</dd>
+                        </div>
+                        {% endif %}
+                        {% if resolution.passed_at %}
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-gray-500 dark:text-gray-400">Passed</dt>
+                            <dd class="text-green-600 dark:text-green-400 font-medium text-right">{{ resolution.passed_at|date:"M j, Y" }}</dd>
+                        </div>
+                        {% endif %}
+                        {% if resolution.failed_at %}
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-gray-500 dark:text-gray-400">Failed</dt>
+                            <dd class="text-red-500 dark:text-red-400 font-medium text-right">{{ resolution.failed_at|date:"M j, Y" }}</dd>
+                        </div>
+                        {% endif %}
+                        {% if resolution.authors %}
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-gray-500 dark:text-gray-400 flex-shrink-0">Author(s)</dt>
+                            <dd class="text-gray-900 dark:text-gray-100 font-medium text-right">{{ resolution.authors }}</dd>
+                        </div>
+                        {% else %}
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-gray-500 dark:text-gray-400">Submitted by</dt>
+                            <dd class="text-gray-900 dark:text-gray-100 font-medium text-right">{{ resolution.created_by.name|default:"—" }}</dd>
+                        </div>
+                        {% endif %}
+                        {% if resolution.sponsors %}
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-gray-500 dark:text-gray-400 flex-shrink-0">Sponsor(s)</dt>
+                            <dd class="text-gray-900 dark:text-gray-100 font-medium text-right">{{ resolution.sponsors }}</dd>
+                        </div>
+                        {% endif %}
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-gray-500 dark:text-gray-400">Created</dt>
+                            <dd class="text-gray-900 dark:text-gray-100 text-right">{{ resolution.created_at|date:"M j, Y" }}</dd>
+                        </div>
+                        <div class="pt-1 border-t border-gray-100 dark:border-gray-700">
+                            <p class="text-xs text-gray-400 dark:text-gray-500">Protection on failure: Constitution 15 wks · Bylaws 10 wks</p>
+                        </div>
+                    </dl>
+                </div>
+
+                <!-- Collaborators (CNB-managed) -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                    <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Collaborators</h3>
+                        {% if is_cnb %}
+                        <button onclick="document.getElementById('addCollabModal').classList.remove('hidden')"
+                                class="text-xs text-primary-600 dark:text-primary-400 hover:underline font-medium">+ Add</button>
+                        {% endif %}
+                    </div>
+
+                    {% if resolution.collaborators.all %}
+                    <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+                        {% for collab in resolution.collaborators.all %}
+                        <li class="px-5 py-3 flex items-center justify-between gap-3">
+                            <div>
+                                <p class="text-sm text-gray-900 dark:text-gray-100 font-medium">{{ collab.user.name }}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ collab.get_role_display }}</p>
+                            </div>
+                            {% if is_cnb %}
+                            <form method="post" action="{% url 'cnb_remove_collaborator' resolution_id=resolution.pk collaborator_id=collab.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400">Remove</button>
+                            </form>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="px-5 py-4 text-sm text-gray-400 dark:text-gray-500 italic">No collaborators added.</p>
+                    {% endif %}
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Section Amendment Modal -->
+{% if can_edit %}
+<div id="addAmendmentModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-5xl flex flex-col" style="max-height: 92vh;">
+
+        <!-- Modal header -->
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+            <div>
+                <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Amendment Editor</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Select a section, edit its text, and see exactly what changes before submitting.</p>
+            </div>
+            <button onclick="closeAmendmentModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <form method="post" action="{% url 'cnb_add_amendment' resolution_id=resolution.pk %}" class="flex flex-col flex-1 overflow-hidden" id="amendmentForm">
+            {% csrf_token %}
+
+            <!-- Top controls (section + type + scope) -->
+            <div class="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0 space-y-4">
+
+                <!-- Section selector -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Target Section <span class="text-red-500">*</span></label>
+                        <select name="section_id" id="sectionSelect"
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                required>
+                            <option value="">— Select a section to edit —</option>
+                            {% for doc in documents %}
+                            <optgroup label="{{ doc.get_doc_type_display }}">
+                                {% for article in doc.articles.all %}
+                                {% for section in article.sections.all %}
+                                <option value="{{ section.pk }}" {% if section.amendment_protected %}disabled{% endif %}>
+                                    {{ section.full_identifier }}{% if section.title %} — {{ section.title }}{% endif %}{% if section.amendment_protected %} [PROTECTED until {{ section.protected_until }}]{% endif %}
+                                </option>
+                                {% endfor %}
+                                {% endfor %}
+                            </optgroup>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                            Specific clause <span class="font-normal text-gray-400">(optional)</span>
+                        </label>
+                        <input type="text" name="scope_note" id="scopeNoteInput"
+                               placeholder='e.g. "§ 3.a.i" or "the second sentence"'
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    </div>
+                </div>
+
+                <!-- Surrounding context (collapsed) -->
+                <div id="sectionContextRow" class="hidden">
+                    <details class="group">
+                        <summary class="text-xs text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 cursor-pointer select-none list-none flex items-center gap-1">
+                            <svg class="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            <span id="contextSummaryText">Show article context</span>
+                        </summary>
+                        <div class="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2" id="contextPanels"></div>
+                    </details>
+                </div>
+            </div>
+
+            <!-- Main editor area: textarea ←→ diff preview -->
+            <div class="flex-1 overflow-hidden">
+                <!-- Empty state (no section selected) -->
+                <div id="editorEmptyState" class="h-full flex items-center justify-center text-center px-8">
+                    <div>
+                        <svg class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Select a section above to start editing</p>
+                    </div>
+                </div>
+
+                <!-- Editor panels (shown once section selected) -->
+                <div id="editorPanels" class="hidden h-full grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-100 dark:divide-gray-700" style="height: 100%;">
+
+                    <!-- Left: Editable textarea -->
+                    <div class="flex flex-col overflow-hidden">
+                        <div class="px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Edit Section Text</span>
+                            <button type="button" id="resetTextBtn" onclick="resetToOriginal()"
+                                    class="text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors">
+                                Reset to original
+                            </button>
+                        </div>
+                        <textarea name="proposed_text" id="proposedTextArea"
+                                  class="flex-1 px-4 py-3 border-0 dark:bg-gray-800 dark:text-gray-100 text-sm leading-relaxed resize-none focus:outline-none focus:ring-0"
+                                  style="min-height: 240px;"
+                                  placeholder="Select a section above to load its text here…"></textarea>
+                        <div class="px-4 py-2 border-t border-gray-100 dark:border-gray-700 flex-shrink-0">
+                            <p class="text-xs text-gray-400 dark:text-gray-500" id="editorHint">Edit the section text directly. The diff preview updates live.</p>
+                        </div>
+                    </div>
+
+                    <!-- Right: Live diff preview -->
+                    <div class="flex flex-col overflow-hidden">
+                        <div class="px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Tracked Changes</span>
+                            <div class="flex items-center gap-3 text-xs text-gray-400">
+                                <span style="background:rgba(34,197,94,.2);padding:0 4px;border-radius:2px;">Added</span>
+                                <span style="background:rgba(239,68,68,.15);text-decoration:line-through;padding:0 4px;border-radius:2px;">Removed</span>
+                            </div>
+                        </div>
+                        <div id="diffPreview"
+                             class="flex-1 overflow-y-auto px-4 py-3 text-sm leading-relaxed dark:text-gray-200 whitespace-pre-wrap"
+                             style="min-height: 240px;">
+                            <span class="text-gray-400 dark:text-gray-600 italic text-xs">No changes yet — start editing the text on the left.</span>
+                        </div>
+                        <div id="diffStats" class="hidden px-4 py-2 border-t border-gray-100 dark:border-gray-700 flex-shrink-0 text-xs text-gray-400 flex items-center gap-3">
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Whole-section deletion shortcut -->
+            <div id="deletionNotice" class="hidden px-6 py-3 border-t border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/20 flex-shrink-0">
+                <p class="text-xs text-red-700 dark:text-red-300">
+                    <strong>Deleting entire section:</strong> Clear all text in the editor to flag this section for complete removal. If removing only specific clauses, leave the rest of the text intact.
+                </p>
+            </div>
+
+            <!-- Footer -->
+            <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+                <p class="text-xs text-gray-400 dark:text-gray-500" id="amendTypeHint">When this resolution passes, the section text will be replaced with what you write on the left.</p>
+                <div class="flex gap-3">
+                    <button type="button" onclick="closeAmendmentModal()"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" id="amendSubmitBtn"
+                            class="px-4 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
+                        Save Amendment
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+// ── Amendment Editor ──────────────────────────────────────────────────────────
+(function() {
+    var modal        = document.getElementById('addAmendmentModal');
+    var select       = document.getElementById('sectionSelect');
+    var proposedTA   = document.getElementById('proposedTextArea');
+    var diffEl       = document.getElementById('diffPreview');
+    var diffStats    = document.getElementById('diffStats');
+    var emptyState   = document.getElementById('editorEmptyState');
+    var editorPanels = document.getElementById('editorPanels');
+    var typeHint     = document.getElementById('amendTypeHint');
+    var editorHint   = document.getElementById('editorHint');
+    var deletionNote = document.getElementById('deletionNotice');
+    var scopeInput   = document.getElementById('scopeNoteInput');
+    var contextRow   = document.getElementById('sectionContextRow');
+    var contextSum   = document.getElementById('contextSummaryText');
+    var contextPanels= document.getElementById('contextPanels');
+    var diffTimer    = null;
+    var originalText = '';  // snapshot when section was loaded
+
+    // ── Word-level diff (LCS) ─────────────────────────────────────────────────
+    function tokenize(str) {
+        // Each token = optional leading whitespace + the word.
+        // Keeps newlines bound to the following word so the LCS can't
+        // match a bare space in one location with a bare space elsewhere.
+        return str.match(/\s*\S+/g) || [];
+    }
+
+    function wordDiff(a, b) {
+        var tokA = tokenize(a);
+        var tokB = tokenize(b);
+        var m = tokA.length, n = tokB.length;
+
+        // For very large texts, fall back to line diff to stay fast
+        if (m * n > 200000) { return lineDiff(a, b); }
+
+        // Build LCS table
+        var dp = [];
+        var i, j;
+        for (i = 0; i <= m; i++) { dp[i] = new Array(n + 1).fill(0); }
+        for (i = m - 1; i >= 0; i--) {
+            for (j = n - 1; j >= 0; j--) {
+                if (tokA[i] === tokB[j]) {
+                    dp[i][j] = dp[i+1][j+1] + 1;
+                } else {
+                    dp[i][j] = Math.max(dp[i+1][j], dp[i][j+1]);
+                }
+            }
+        }
+
+        // If the texts share very few tokens in common, the interleaved word diff
+        // becomes unreadable (original and proposed words get mixed together).
+        // Fall back to a clean block replacement: all old text deleted, all new added.
+        if (dp[0][0] < Math.min(m, n) * 0.4) {
+            var blockOps = [];
+            tokA.forEach(function(t) { blockOps.push({type: 'remove', val: t}); });
+            tokB.forEach(function(t) { blockOps.push({type: 'add',    val: t}); });
+            return blockOps;
+        }
+
+        // Backtrack
+        var ops = [];
+        i = 0; j = 0;
+        while (i < m || j < n) {
+            if (i < m && j < n && tokA[i] === tokB[j]) {
+                ops.push({type: 'equal', val: tokA[i]});
+                i++; j++;
+            } else if (j < n && (i >= m || dp[i][j+1] >= dp[i+1][j])) {
+                ops.push({type: 'add', val: tokB[j]});
+                j++;
+            } else {
+                ops.push({type: 'remove', val: tokA[i]});
+                i++;
+            }
+        }
+        return ops;
+    }
+
+    function lineDiff(a, b) {
+        var linesA = a.split('\n');
+        var linesB = b.split('\n');
+        var ops = [];
+        var m = linesA.length, n = linesB.length;
+        var dp = [];
+        var i, j;
+        for (i = 0; i <= m; i++) { dp[i] = new Array(n + 1).fill(0); }
+        for (i = m - 1; i >= 0; i--)
+            for (j = n - 1; j >= 0; j--)
+                dp[i][j] = linesA[i] === linesB[j] ? dp[i+1][j+1]+1 : Math.max(dp[i+1][j], dp[i][j+1]);
+        i = 0; j = 0;
+        while (i < m || j < n) {
+            if (i < m && j < n && linesA[i] === linesB[j]) {
+                ops.push({type: 'equal', val: linesA[i] + (i < m-1 ? '\n' : '')});
+                i++; j++;
+            } else if (j < n && (i >= m || dp[i][j+1] >= dp[i+1][j])) {
+                ops.push({type: 'add', val: linesB[j] + (j < n-1 ? '\n' : '')});
+                j++;
+            } else {
+                ops.push({type: 'remove', val: linesA[i] + (i < m-1 ? '\n' : '')});
+                i++;
+            }
+        }
+        return ops;
+    }
+
+    function renderDiff(original, proposed) {
+        if (!diffEl) return;
+        if (!original && !proposed) {
+            diffEl.innerHTML = '<span style="color:#9ca3af;font-style:italic;font-size:0.75rem;">No text.</span>';
+            if (diffStats) diffStats.classList.add('hidden');
+            return;
+        }
+        if (original === proposed) {
+            diffEl.textContent = proposed;
+            if (diffStats) diffStats.classList.add('hidden');
+            return;
+        }
+
+        var ops = wordDiff(original, proposed);
+        var frag = document.createDocumentFragment();
+        var added = 0, removed = 0;
+
+        ops.forEach(function(op) {
+            if (op.type === 'equal') {
+                frag.appendChild(document.createTextNode(op.val));
+            } else if (op.type === 'add') {
+                var s = document.createElement('span');
+                s.style.cssText = 'background:rgba(34,197,94,.18);color:#166534;border-radius:2px;padding:0 1px;';
+                s.textContent = op.val;
+                frag.appendChild(s);
+                if (op.val.trim()) added++;
+            } else {
+                var s = document.createElement('span');
+                s.style.cssText = 'background:rgba(239,68,68,.12);color:#991b1b;text-decoration:line-through;border-radius:2px;padding:0 1px;';
+                s.textContent = op.val;
+                frag.appendChild(s);
+                if (op.val.trim()) removed++;
+            }
+        });
+
+        diffEl.innerHTML = '';
+        diffEl.appendChild(frag);
+
+        if (diffStats) {
+            if (added || removed) {
+                diffStats.classList.remove('hidden');
+                diffStats.textContent = (added ? '+' + added + ' word' + (added !== 1 ? 's' : '') : '') +
+                    (added && removed ? '  ' : '') +
+                    (removed ? '−' + removed + ' word' + (removed !== 1 ? 's' : '') : '');
+            } else {
+                diffStats.classList.add('hidden');
+            }
+        }
+    }
+
+    function scheduleDiff() {
+        clearTimeout(diffTimer);
+        diffTimer = setTimeout(function() {
+            renderDiff(originalText, proposedTA ? proposedTA.value : '');
+            // Show deletion notice hint when textarea is empty and type is deletion
+            var type = getSelectedType();
+            if (type === 'deletion' && proposedTA && !proposedTA.value.trim()) {
+                deletionNote.classList.remove('hidden');
+            } else {
+                deletionNote.classList.add('hidden');
+            }
+        }, 80);
+    }
+
+    // ── Section loading ───────────────────────────────────────────────────────
+    function loadSection(sectionId) {
+        fetch('/cnb/api/section/' + sectionId + '/')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                originalText = data.content;
+                if (proposedTA) {
+                    proposedTA.value = data.content;
+                    proposedTA.focus();
+                }
+
+                // Show editor
+                if (emptyState) emptyState.classList.add('hidden');
+                if (editorPanels) editorPanels.classList.remove('hidden');
+
+                // Render initial diff (no changes yet)
+                renderDiff(originalText, originalText);
+
+                // Context panels
+                buildContextPanels(data);
+            })
+            .catch(function(err) {
+                console.error('Section load error', err);
+            });
+    }
+
+    function buildContextPanels(data) {
+        if (!contextPanels || !contextRow) return;
+        var panels = [];
+
+        if (data.prev_section) panels.push({label: '▲ Previous § ' + data.prev_section.number, text: data.prev_section.content, dim: true});
+        panels.push({label: '→ § ' + data.article_number + '.' + (data.title || data.identifier || ''), text: data.content, dim: false, current: true});
+        if (data.next_section) panels.push({label: '▼ Next § ' + data.next_section.number, text: data.next_section.content, dim: true});
+
+        if (panels.length > 1) {
+            contextRow.classList.remove('hidden');
+            if (contextSum) contextSum.textContent = 'Show article context — Art. ' + data.article_number + ': ' + data.article_title;
+            contextPanels.innerHTML = '';
+            panels.forEach(function(p) {
+                var div = document.createElement('div');
+                div.className = 'rounded-lg border px-3 py-2 text-xs leading-relaxed ' +
+                    (p.current
+                        ? 'border-primary-300 dark:border-primary-700 bg-primary-50 dark:bg-primary-900/20 text-primary-800 dark:text-primary-200'
+                        : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400');
+                var h = document.createElement('p');
+                h.className = 'font-semibold mb-1 ' + (p.current ? 'text-primary-700 dark:text-primary-300' : '');
+                h.textContent = p.label;
+                var t = document.createElement('p');
+                t.style.cssText = 'display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;';
+                t.textContent = p.text;
+                div.appendChild(h);
+                div.appendChild(t);
+                contextPanels.appendChild(div);
+            });
+        } else {
+            contextRow.classList.add('hidden');
+        }
+    }
+
+    if (select) {
+        select.addEventListener('change', function() {
+            var id = this.value;
+            if (!id) {
+                originalText = '';
+                if (emptyState) emptyState.classList.remove('hidden');
+                if (editorPanels) editorPanels.classList.add('hidden');
+                if (contextRow) contextRow.classList.add('hidden');
+                return;
+            }
+            loadSection(id);
+        });
+    }
+
+    if (proposedTA) {
+        proposedTA.addEventListener('input', scheduleDiff);
+    }
+
+    // ── Reset button ──────────────────────────────────────────────────────────
+    window.resetToOriginal = function() {
+        if (!proposedTA || !originalText) return;
+        proposedTA.value = originalText;
+        renderDiff(originalText, originalText);
+        if (diffStats) diffStats.classList.add('hidden');
+    };
+
+    // ── Modal open / close ────────────────────────────────────────────────────
+    window.closeAmendmentModal = function() {
+        if (modal) modal.classList.add('hidden');
+    };
+
+    // Reset modal when opened fresh
+    window.openAmendmentModal = function() {
+        if (!modal) return;
+        // Reset state
+        originalText = '';
+        if (select) select.value = '';
+        if (proposedTA) proposedTA.value = '';
+        if (diffEl) diffEl.innerHTML = '<span style="color:#9ca3af;font-style:italic;font-size:0.75rem;">No changes yet — start editing the text on the left.</span>';
+        if (diffStats) diffStats.classList.add('hidden');
+        if (emptyState) emptyState.classList.remove('hidden');
+        if (editorPanels) editorPanels.classList.add('hidden');
+        if (contextRow) contextRow.classList.add('hidden');
+        if (deletionNote) deletionNote.classList.add('hidden');
+        if (scopeInput) scopeInput.value = '';
+        modal.classList.remove('hidden');
+    };
+})();
+</script>
+{% endif %}
+
+<!-- Add Collaborator Modal -->
+{% if is_cnb %}
+<div id="addCollabModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+            <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Add Collaborator</h3>
+            <button onclick="document.getElementById('addCollabModal').classList.add('hidden')"
+                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <form method="post" action="{% url 'cnb_add_collaborator' resolution_id=resolution.pk %}" class="px-6 py-5 space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Member</label>
+                <select name="user_id" required
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="">— Select a member —</option>
+                    {% for member in members %}
+                    <option value="{{ member.pk }}">{{ member.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Role</label>
+                <select name="role"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="viewer">Viewer — can view this resolution (no edit access)</option>
+                    <option value="editor">Editor — can add/remove amendments and change status</option>
+                </select>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">All chapter members can already view published resolutions. Use Viewer to share a draft before it goes pending.</p>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('addCollabModal').classList.add('hidden')"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="px-4 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
+                    Add Collaborator
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<script nonce="{{ request.csp_nonce }}">
+// Linkify C&B section identifiers in resolution text.
+// Matches patterns like "Constitution Art. III § 2" or "Bylaws Art. X § 4"
+// and wraps them in a link to the C&B viewer.
+(function() {
+    var cnbUrl = "{% url 'constitution_bylaws' %}?tab=document";
+    // Matches both plain  "Constitution Art. III § 2"
+    // and bracketed       "[Constitution Art. III § 2]" (inserted via the form)
+    var pattern = /\[?((?:Constitution|Bylaws) Art\. [IVXLCDM]+ \u00a7 \d+)\]?/g;
+
+    document.querySelectorAll('.cnb-linkify').forEach(function(el) {
+        var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+        var nodes = [];
+        var node;
+        while ((node = walker.nextNode())) nodes.push(node);
+
+        nodes.forEach(function(textNode) {
+            var text = textNode.nodeValue;
+            if (!pattern.test(text)) { pattern.lastIndex = 0; return; }
+            pattern.lastIndex = 0;
+
+            var frag = document.createDocumentFragment();
+            var last = 0, match;
+            while ((match = pattern.exec(text)) !== null) {
+                if (match.index > last) {
+                    frag.appendChild(document.createTextNode(text.slice(last, match.index)));
+                }
+                var a = document.createElement('a');
+                a.href = cnbUrl;
+                a.target = '_blank';
+                a.rel = 'noopener';
+                a.textContent = match[1]; // inner group — strips brackets if present
+                a.className = 'text-primary-600 dark:text-primary-400 underline decoration-dotted hover:decoration-solid font-medium';
+                a.title = 'View in Constitution \u0026 Bylaws';
+                frag.appendChild(a);
+                last = match.index + match[0].length;
+            }
+            if (last < text.length) {
+                frag.appendChild(document.createTextNode(text.slice(last)));
+            }
+            textNode.parentNode.replaceChild(frag, textNode);
+        });
+    });
+})();
+</script>
+
+{% endblock %}

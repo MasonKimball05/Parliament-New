@@ -1,51 +1,49 @@
-{% extends "base.html" %}
+{% extends "admin_v2/base.html" %}
 {% load static %}
 
 {% block title %}Notification Logs - Admin v2{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8 max-w-full">
     <!-- Header -->
-    <div class="bg-gradient-to-r from-emerald-600 to-emerald-800 dark:from-emerald-700 dark:to-emerald-900 rounded-lg shadow-lg p-6 mb-8">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8 transition-colors duration-200">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-                <h1 class="text-3xl font-bold text-white mb-2">Notification Logs</h1>
-                <p class="text-emerald-100">View notification delivery history and status</p>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">Notification Logs</h1>
+                <p class="text-gray-600 dark:text-gray-400 text-sm">View notification delivery history and status</p>
             </div>
-            <div class="flex gap-3">
-                <a href="{% url 'admin_v2_notifications' %}"
-                   class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors flex items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                    </svg>
-                    Back
-                </a>
-            </div>
+            <a href="{% url 'admin_v2_notifications' %}"
+               class="inline-flex items-center gap-1.5 text-sm text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors self-start">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                Back
+            </a>
         </div>
     </div>
 
     <!-- Stats -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
             <div class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ stats.total }}</div>
             <div class="text-sm text-gray-500 dark:text-gray-400">Total Logs</div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
             <div class="text-3xl font-bold text-green-600 dark:text-green-400">{{ stats.sent }}</div>
             <div class="text-sm text-gray-500 dark:text-gray-400">Sent</div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
             <div class="text-3xl font-bold text-red-600 dark:text-red-400">{{ stats.failed }}</div>
             <div class="text-sm text-gray-500 dark:text-gray-400">Failed</div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
             <div class="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{{ stats.pending }}</div>
             <div class="text-sm text-gray-500 dark:text-gray-400">Pending</div>
         </div>
     </div>
 
     <!-- Filters -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-6">
         <form method="get" class="flex flex-wrap gap-4 items-end">
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
@@ -87,7 +85,7 @@
     </div>
 
     <!-- Logs Table -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead class="bg-gray-50 dark:bg-gray-700">
                 <tr>

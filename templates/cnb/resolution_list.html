@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Resolutions - Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200">
+
+    <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg relative overflow-hidden">
+        <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-gold-400 via-gold-500 to-gold-400 opacity-80"></div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <a href="{% url 'constitution_bylaws' %}" class="text-primary-200 hover:text-white text-sm flex items-center gap-1 mb-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                    Constitution & Bylaws
+                </a>
+                <h1 class="text-3xl font-bold">Chapter Resolutions</h1>
+                <p class="text-primary-100 text-sm mt-1">Official resolutions of Alpha Mu Chapter</p>
+            </div>
+            {% if user.has_cnb_permission %}
+            <a href="{% url 'cnb_create_resolution' %}"
+               class="inline-flex items-center gap-2 bg-white text-primary-700 hover:bg-primary-50 px-4 py-2 rounded-lg text-sm font-semibold transition-colors self-start">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                New Resolution
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {% if resolutions %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for resolution in resolutions %}
+                <a href="{% url 'cnb_resolution_detail' resolution_id=resolution.pk %}"
+                   class="px-6 py-4 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors block">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-3 mb-0.5">
+                            <p class="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{{ resolution.title }}</p>
+                            <span class="flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold
+                                {% if resolution.status == 'draft' %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300
+                                {% elif resolution.status == 'pending' %}bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400
+                                {% elif resolution.status == 'passed' %}bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400
+                                {% elif resolution.status == 'failed' %}bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400
+                                {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400{% endif %}">
+                                {{ resolution.get_status_display }}
+                            </span>
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            {{ resolution.get_resolution_type_display }}
+                            · {{ resolution.amendments.count }} amendment{{ resolution.amendments.count|pluralize }}
+                            {% if resolution.vote_date %}· Vote {{ resolution.vote_date|date:"M j, Y" }}{% endif %}
+                            {% if resolution.created_by %}· by {{ resolution.created_by.name }}{% endif %}
+                        </p>
+                    </div>
+                    <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">No resolutions yet.</p>
+            {% if user.has_cnb_permission %}
+            <a href="{% url 'cnb_create_resolution' %}" class="text-primary-600 dark:text-primary-400 text-sm font-medium hover:underline">
+                Create the first resolution →
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}

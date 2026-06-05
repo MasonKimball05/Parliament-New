@@ -3,28 +3,32 @@
 
 {% block title %}Kai Dashboard{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 min-h-screen transition-colors duration-200">
   <div class="max-w-7xl mx-auto px-4 py-6">
 
     <!-- Header -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6 transition-colors duration-200">
-      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
+      <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
+      <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">Kai Committee Dashboard</h1>
-          <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm">Analytics and insights for Kai reports</p>
+          <h1 class="text-2xl sm:text-3xl font-bold">Kai Committee Dashboard</h1>
+          <p class="mt-1 text-sm text-white/80">Analytics and insights for Kai reports</p>
         </div>
-        <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:gap-3">
-          <a href="{% url 'kai_form_builder' %}" class="px-3 py-2 sm:px-6 sm:py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold shadow text-center text-sm sm:text-base">
+        <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:gap-3">
+          <a href="{% url 'manage_kai_permissions' kai_committee.code %}" class="px-3 py-2 sm:px-4 sm:py-3 bg-white/15 hover:bg-white/25 text-white rounded-xl transition font-semibold text-center text-sm border border-white/20">
+            Member Perms
+          </a>
+          <a href="{% url 'kai_form_builder' %}" class="px-3 py-2 sm:px-6 sm:py-3 bg-white/15 hover:bg-white/25 text-white rounded-xl transition font-semibold text-center text-sm sm:text-base">
             Form Builder
           </a>
-          <a href="{% url 'manage_kai_templates' %}" class="px-3 py-2 sm:px-6 sm:py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold shadow text-center text-sm sm:text-base">
+          <a href="{% url 'manage_kai_templates' %}" class="px-3 py-2 sm:px-6 sm:py-3 bg-white/15 hover:bg-white/25 text-white rounded-xl transition font-semibold text-center text-sm sm:text-base">
             Templates
           </a>
-          <a href="{% url 'view_kai_reports' %}" class="px-3 py-2 sm:px-6 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold shadow text-center text-sm sm:text-base">
+          <a href="{% url 'view_kai_reports' %}" class="px-3 py-2 sm:px-6 sm:py-3 bg-white/15 hover:bg-white/25 text-white rounded-xl transition font-semibold text-center text-sm sm:text-base">
             All Reports
           </a>
-          <a href="{% url 'submit_kai_report' %}" class="px-3 py-2 sm:px-6 sm:py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold shadow text-center text-sm sm:text-base">
+          <a href="{% url 'submit_kai_report' %}" class="px-3 py-2 sm:px-6 sm:py-3 bg-green-500/90 hover:bg-green-500 text-white rounded-xl transition font-semibold text-center text-sm sm:text-base">
             + Submit
           </a>
         </div>
@@ -33,21 +37,21 @@
 
     <!-- Stats Cards -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6">
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 transition-colors duration-200">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Total</p>
             <p class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 mt-1">{{ total_reports }}</p>
           </div>
-          <div class="bg-blue-100 dark:bg-blue-900/50 rounded-full p-2 sm:p-3">
-            <svg class="w-5 h-5 sm:w-8 sm:h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="bg-primary-100 dark:bg-primary-900/50 rounded-full p-2 sm:p-3">
+            <svg class="w-5 h-5 sm:w-8 sm:h-8 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
             </svg>
           </div>
         </div>
       </div>
 
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 transition-colors duration-200">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Pending</p>
@@ -59,10 +63,10 @@
             </svg>
           </div>
         </div>
-        <a href="{% url 'view_kai_reports' %}?status=pending" class="text-xs sm:text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 mt-2 inline-block">View →</a>
+        <a href="{% url 'view_kai_reports' %}?status=pending" class="text-xs sm:text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 mt-2 inline-block">View →</a>
       </div>
 
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 transition-colors duration-200">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Reviewed</p>
@@ -74,10 +78,10 @@
             </svg>
           </div>
         </div>
-        <a href="{% url 'view_kai_reports' %}?status=reviewed" class="text-xs sm:text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 mt-2 inline-block">View →</a>
+        <a href="{% url 'view_kai_reports' %}?status=reviewed" class="text-xs sm:text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 mt-2 inline-block">View →</a>
       </div>
 
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 transition-colors duration-200">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 transition-colors duration-200">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Archived</p>
@@ -89,20 +93,20 @@
             </svg>
           </div>
         </div>
-        <a href="{% url 'view_kai_reports' %}?status=archived" class="text-xs sm:text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 mt-2 inline-block">View →</a>
+        <a href="{% url 'view_kai_reports' %}?status=archived" class="text-xs sm:text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 mt-2 inline-block">View →</a>
       </div>
     </div>
 
     <!-- Charts Row -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 transition-colors duration-200">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 transition-colors duration-200">
         <h2 class="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Reports by Category</h2>
         <div class="relative w-full" style="height: 260px;">
           <canvas id="categoryChart"></canvas>
         </div>
       </div>
 
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 transition-colors duration-200">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 transition-colors duration-200">
         <h2 class="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Submission Trends (Last 6 Months)</h2>
         <div class="relative w-full" style="height: 260px;">
           <canvas id="monthlyChart"></canvas>
@@ -111,7 +115,7 @@
     </div>
 
     <!-- Deliberation Outcomes -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 mb-6 transition-colors duration-200">
       <h2 class="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Deliberation Outcomes</h2>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <div class="p-4 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg border border-yellow-200 dark:border-yellow-700">
@@ -132,7 +136,7 @@
     <!-- Bottom Row: Recent Activity and Recent Reports -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- Recent Activity -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 transition-colors duration-200">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 transition-colors duration-200">
         <h2 class="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center">
           <svg class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-gray-600 dark:text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -144,11 +148,11 @@
         <div class="space-y-3 max-h-96 overflow-y-auto">
           {% for activity in recent_activities %}
           <div class="flex items-start space-x-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-            <div class="flex-shrink-0 w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full mt-2"></div>
+            <div class="flex-shrink-0 w-2 h-2 bg-primary-600 dark:bg-primary-400 rounded-full mt-2"></div>
             <div class="flex-1 min-w-0">
               <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ activity.get_action_display }}</p>
               <p class="text-xs text-gray-600 dark:text-gray-400 truncate">
-                <a href="{% url 'manage_kai_report' activity.report.id %}" class="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">{{ activity.report.title }}</a>
+                <a href="{% url 'manage_kai_report' activity.report.id %}" class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">{{ activity.report.title }}</a>
               </p>
               {% if activity.details %}
               <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ activity.details|truncatewords:15 }}</p>
@@ -166,7 +170,7 @@
       </div>
 
       <!-- Recent Reports -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 transition-colors duration-200">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 transition-colors duration-200">
         <h2 class="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center">
           <svg class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-gray-600 dark:text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -180,7 +184,7 @@
           <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
             <div class="flex items-start justify-between gap-2">
               <div class="flex-1 min-w-0">
-                <a href="{% url 'manage_kai_report' report.id %}" class="text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 block truncate">
+                <a href="{% url 'manage_kai_report' report.id %}" class="text-sm font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 block truncate">
                   {{ report.title }}
                 </a>
                 <p class="text-xs text-gray-600 dark:text-gray-400 mt-1 truncate">
@@ -198,7 +202,7 @@
           </div>
           {% endfor %}
         </div>
-        <a href="{% url 'view_kai_reports' %}" class="block text-center text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 mt-4 font-medium">
+        <a href="{% url 'view_kai_reports' %}" class="block text-center text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 mt-4 font-medium">
           View all reports →
         </a>
         {% else %}

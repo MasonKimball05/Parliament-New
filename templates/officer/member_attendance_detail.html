@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% load static %}
 
 {% block title %}{{ member.get_display_name }} - Attendance{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8 max-w-5xl">
     {% include 'includes/breadcrumbs.html' with back_url='/officers/attendance/dashboard/' back_label='Attendance Dashboard' current=member.get_display_name %}
 
@@ -14,7 +14,7 @@
             <img src="{{ member.profile_picture.url }}" alt="{{ member.name }}" class="w-16 h-16 rounded-full object-cover">
             {% else %}
             <div class="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
-                <span class="text-blue-600 dark:text-blue-300 text-2xl font-bold">{{ member.name|slice:":1"|upper }}</span>
+                <span class="text-primary-600 dark:text-primary-300 text-2xl font-bold">{{ member.name|slice:":1"|upper }}</span>
             </div>
             {% endif %}
             <div>
@@ -26,7 +26,7 @@
         <!-- Date Range Filter -->
         <div class="flex items-center gap-3">
             <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Time Period:</label>
-            <select id="rangeFilter" onchange="updateRange()" class="rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm focus:ring-blue-500 focus:border-blue-500">
+            <select id="rangeFilter" onchange="updateRange()" class="rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm focus:ring-primary-500 focus:border-primary-500">
                 <option value="30" {% if range_filter == '30' %}selected{% endif %}>Last 30 days</option>
                 <option value="60" {% if range_filter == '60' %}selected{% endif %}>Last 60 days</option>
                 <option value="90" {% if range_filter == '90' %}selected{% endif %}>Last 90 days</option>
@@ -124,7 +124,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
                         {% elif item.status == 'excused' %}
-                        <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
                         {% else %}

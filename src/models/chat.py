@@ -34,6 +34,7 @@ class ChatChannel(models.Model):
     created_by = models.ForeignKey('ParliamentUser', on_delete=models.SET_NULL, null=True, related_name='created_channels')
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
+    is_read_only = models.BooleanField(default=False, help_text='No one can send new messages; existing messages remain visible')
 
     # Icon/color for customization
     icon = models.CharField(max_length=10, default='💬')
@@ -61,20 +62,25 @@ class ChatChannel(models.Model):
             # Check if user is a committee member first
             if self.committee.is_member(user):
                 return True
-            # Check if user has guest permission with can_read=True
+            # Check if user has guest permission with can_read=True (not expired)
+            from django.utils import timezone
             return ChatChannelPermission.objects.filter(
                 channel=self,
                 user=user,
                 can_read=True
+            ).filter(
+                models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now())
             ).exists()
 
         if self.access_type == 'restricted':
+            from django.utils import timezone
+            not_expired = models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now())
             # Check custom permissions - must have can_read=True
             return ChatChannelPermission.objects.filter(
                 channel=self,
                 user=user,
                 can_read=True
-            ).exists() or ChatChannelPermission.objects.filter(
+            ).filter(not_expired).exists() or ChatChannelPermission.objects.filter(
                 channel=self,
                 member_type=user.member_type,
                 can_read=True
@@ -90,6 +96,12 @@ class ChatChannel(models.Model):
                     officers_only=True,
                     can_read=True
                 ).exists() and user.is_officer
+            ) or (
+                ChatChannelPermission.objects.filter(
+                    channel=self,
+                    alumni_only=True,
+                    can_read=True
+                ).exists() and user.member_status == 'Alumni'
             )
 
         return False
@@ -127,11 +139,13 @@ class ChatChannel(models.Model):
 
         # For committee and restricted channels, check guest permissions
         if self.access_type in ['committee', 'restricted']:
-            # Check for explicit permission with can_read=True
+            from django.utils import timezone
             perm = ChatChannelPermission.objects.filter(
                 channel=self,
                 user=user,
                 can_read=True
+            ).filter(
+                models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now())
             ).first()
             return perm is not None
 
@@ -140,6 +154,9 @@ class ChatChannel(models.Model):
     def can_write(self, user):
         """Check if user can send messages in this channel"""
         if not self.is_active:
+            return False
+
+        if self.is_read_only:
             return False
 
         # Admins always have access
@@ -156,11 +173,13 @@ class ChatChannel(models.Model):
 
         # For committee and restricted channels, check guest permissions
         if self.access_type in ['committee', 'restricted']:
-            # Check for explicit permission with can_write=True
+            from django.utils import timezone
             perm = ChatChannelPermission.objects.filter(
                 channel=self,
                 user=user,
                 can_write=True
+            ).filter(
+                models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now())
             ).first()
             return perm is not None
 
@@ -189,11 +208,44 @@ class ChatChannel(models.Model):
 
         # For committee and restricted channels, check guest permissions
         if self.access_type in ['committee', 'restricted']:
-            # Check for explicit permission with can_delete=True
+            from django.utils import timezone
             perm = ChatChannelPermission.objects.filter(
                 channel=self,
                 user=user,
                 can_delete=True
+            ).filter(
+                models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now())
+            ).first()
+            return perm is not None
+
+        return False
+
+    def can_edit_messages(self, user):
+        """Check if user can edit their own messages in this channel"""
+        if not self.is_active:
+            return False
+
+        # Admins always have access
+        if user.is_admin:
+            return True
+
+        # Committee members can always edit their own messages
+        if self.committee and self.committee.is_member(user):
+            return True
+
+        # Open channels: everyone can edit
+        if self.access_type == 'open':
+            return True
+
+        # For committee and restricted channels, check guest permissions
+        if self.access_type in ['committee', 'restricted']:
+            from django.utils import timezone
+            perm = ChatChannelPermission.objects.filter(
+                channel=self,
+                user=user,
+                can_edit=True
+            ).filter(
+                models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now())
             ).first()
             return perm is not None
 
@@ -231,12 +283,28 @@ class ChatChannelPermission(models.Model):
     # Officer-only access
     officers_only = models.BooleanField(default=False, help_text='Only officers can access')
 
+    # Alumni-only access
+    alumni_only = models.BooleanField(default=False, help_text='Only alumni can access')
+
     # Read/Write permissions for guest users (non-committee members)
     can_read = models.BooleanField(default=True, help_text='User can read messages in this channel')
     can_write = models.BooleanField(default=True, help_text='User can send messages in this channel')
     can_delete = models.BooleanField(default=False, help_text='User can delete their own messages in this channel')
+    can_edit = models.BooleanField(default=False, help_text='User can edit their own messages in this channel')
+
+    expires_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='If set, this permission expires at the given time and the guest loses access'
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def is_expired(self):
+        if self.expires_at is None:
+            return False
+        from django.utils import timezone
+        return timezone.now() >= self.expires_at
 
     class Meta:
         constraints = [

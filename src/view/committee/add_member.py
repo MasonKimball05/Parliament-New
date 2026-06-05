@@ -13,7 +13,7 @@ def committee_add_member(request, code):
     # Check permissions
     if not (committee.is_vp(request.user) or request.user.is_admin):
         messages.error(request, 'You do not have permission to manage this committee.')
-        return redirect('committee_detail', code=code)
+        return redirect('committee_home', code=code)
 
     user_id = request.POST.get('user_id')
     role_type = request.POST.get('role_type')
@@ -24,7 +24,7 @@ def committee_add_member(request, code):
         # Pledges cannot be added to committees
         if user.is_pledge:
             messages.error(request, 'Pledges cannot be added to committees.')
-            return redirect('committee_detail', code=code)
+            return redirect('committee_home', code=code)
 
         if role_type == 'member':
             committee.members.add(user)
@@ -41,4 +41,4 @@ def committee_add_member(request, code):
     except ParliamentUser.DoesNotExist:
         messages.error(request, 'User not found.')
 
-    return redirect('committee_detail', code=code)
+    return redirect('committee_home', code=code)

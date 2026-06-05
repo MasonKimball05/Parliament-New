@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% load static %}
 
 {% block title %}Confirm Email Send - Parliament{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8 max-w-4xl">
     <!-- Header -->
     <div class="bg-gradient-to-r from-yellow-500 to-orange-500 dark:from-yellow-600 dark:to-orange-600 rounded-lg shadow-lg p-6 mb-8">
@@ -19,20 +19,20 @@
     </div>
 
     <!-- Announcement Summary -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-3">Announcement</h2>
-        <div class="border-l-4 border-blue-500 pl-4">
+        <div class="border-l-4 border-primary-500 pl-4">
             <h3 class="text-xl font-bold text-gray-900 dark:text-white">{{ announcement.title }}</h3>
             <p class="text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{{ announcement.content|truncatewords:30 }}</p>
         </div>
     </div>
 
     <!-- Visibility Settings -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-3">Visibility Settings</h2>
         <div class="flex flex-wrap gap-2">
             {% for type in visible_to %}
-            <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-sm font-medium">
+            <span class="px-3 py-1 bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 rounded-full text-sm font-medium">
                 {{ type }}
             </span>
             {% endfor %}
@@ -61,7 +61,7 @@
     </div>
 
     <!-- Recipients List -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mb-6">
         <div class="bg-green-600 px-4 py-3">
             <h3 class="text-lg font-semibold text-white">Users Who Will Receive Email ({{ recipients_count }})</h3>
         </div>
@@ -102,7 +102,7 @@
 
     {% if excluded_by_type %}
     <!-- Excluded Users -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mb-6">
         <div class="bg-gray-500 px-4 py-3">
             <h3 class="text-lg font-semibold text-white">Excluded by Visibility ({{ excluded_count }})</h3>
             <p class="text-gray-200 text-sm">These users won't receive email because their member type wasn't selected</p>

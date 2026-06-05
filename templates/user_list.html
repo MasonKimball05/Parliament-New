@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% load static %}
 
 {% block title %}Member List{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8">
     <!-- Header -->
     <div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
@@ -34,14 +34,14 @@
             </button>
             {% endif %}
             <!-- Add Member Button -->
-            <button id="add-member-btn" onclick="openAddModal()" class="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
+            <button id="add-member-btn" onclick="openAddModal()" class="px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
                 <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                 </svg>
                 <span>Add Member</span>
             </button>
             <!-- Batch Add Button -->
-            <button onclick="openBatchAddModal()" class="px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
+            <button onclick="openBatchAddModal()" class="px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
                 <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
                 </svg>
@@ -66,14 +66,14 @@
 
     <!-- Filters and Search -->
     <form method="get" class="mb-6">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <!-- Search -->
                 <div class="md:col-span-1">
                     <label for="searchInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Search</label>
                     <div class="relative">
                         <input type="text" id="searchInput" name="q" value="{{ search_query }}" placeholder="Name, ID, or email..."
-                               class="w-full px-4 py-2 pl-10 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                               class="w-full px-4 py-2 pl-10 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         <svg class="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
@@ -83,7 +83,7 @@
                 <!-- Status Filter -->
                 <div class="md:col-span-1">
                     <label for="statusFilter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Member Status</label>
-                    <select id="statusFilter" name="status" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <select id="statusFilter" name="status" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active & Advisors</option>
                         <option value="all" {% if selected_status == 'all' %}selected{% endif %}>All Members</option>
                         <option value="inactive" {% if selected_status == 'inactive' %}selected{% endif %}>Inactive</option>
@@ -95,7 +95,7 @@
                 <!-- Type Filter -->
                 <div class="md:col-span-1">
                     <label for="typeFilter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Member Type</label>
-                    <select id="typeFilter" name="type" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <select id="typeFilter" name="type" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         <option value="" {% if not selected_type %}selected{% endif %}>All Types</option>
                         {% for value, label in member_types %}
                             <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
@@ -109,7 +109,7 @@
                 <a href="{% url 'user_list' %}" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-center font-medium">
                     Clear Filters
                 </a>
-                <button type="submit" class="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+                <button type="submit" class="px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium">
                     Apply Filters
                 </button>
             </div>
@@ -117,7 +117,7 @@
     </form>
 
     <!-- Members List - Table on Desktop, Cards on Mobile -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">
         <!-- Desktop Table View (hidden on mobile) -->
         <div class="hidden md:block overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -126,7 +126,7 @@
                         <!-- Checkbox column for pledges - only shown when pledges exist -->
                         {% if has_pledges %}
                         <th scope="col" class="px-2 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-8">
-                            <input type="checkbox" id="select-all-pledges" onclick="toggleAllPledges()" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer" title="Select all pledges">
+                            <input type="checkbox" id="select-all-pledges" onclick="toggleAllPledges()" class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer" title="Select all pledges">
                         </th>
                         {% endif %}
                         <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -216,14 +216,14 @@
                             {% if has_pledges %}
                             <td class="px-2 py-4 text-center w-8">
                                 {% if data.role == 'Pledge' %}
-                                <input type="checkbox" class="pledge-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer" value="{{ data.user.user_id }}" data-name="{{ data.username }}" onchange="updateInitiateButton()">
+                                <input type="checkbox" class="pledge-checkbox h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer" value="{{ data.user.user_id }}" data-name="{{ data.username }}" onchange="updateInitiateButton()">
                                 {% endif %}
                             </td>
                             {% endif %}
                             <td class="px-3 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
-                                    <div class="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                        <span class="text-blue-600 font-semibold text-sm">
+                                    <div class="flex-shrink-0 h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
+                                        <span class="text-primary-600 font-semibold text-sm">
                                             {{ data.username|slice:":1"|upper }}
                                         </span>
                                     </div>
@@ -311,7 +311,7 @@
                                 <div class="text-sm text-gray-600 dark:text-gray-400">{{ data.last_login }}</div>
                             </td>
                             <td class="px-4 py-4 text-center">
-                                <button onclick="openEditModal('{{ data.user.user_id }}')" class="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition" title="Edit member">
+                                <button onclick="openEditModal('{{ data.user.user_id }}')" class="p-1.5 text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded transition" title="Edit member">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                     </svg>
@@ -325,7 +325,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                                 </svg>
                                 <p>No members found matching your filters.</p>
-                                <a href="{% url 'user_list' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm mt-2 inline-block">Clear all filters</a>
+                                <a href="{% url 'user_list' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 text-sm mt-2 inline-block">Clear all filters</a>
                             </td>
                         </tr>
                     {% endfor %}
@@ -341,12 +341,12 @@
                     <!-- Checkbox for pledges (mobile) -->
                     {% if data.role == 'Pledge' %}
                     <div class="flex-shrink-0 pt-1">
-                        <input type="checkbox" class="pledge-checkbox h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer" value="{{ data.user.user_id }}" data-name="{{ data.username }}" onchange="updateInitiateButton()">
+                        <input type="checkbox" class="pledge-checkbox h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer" value="{{ data.user.user_id }}" data-name="{{ data.username }}" onchange="updateInitiateButton()">
                     </div>
                     {% endif %}
                     <!-- Avatar -->
-                    <div class="flex-shrink-0 h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                        <span class="text-blue-600 font-semibold text-lg">
+                    <div class="flex-shrink-0 h-12 w-12 rounded-full bg-primary-100 flex items-center justify-center">
+                        <span class="text-primary-600 font-semibold text-lg">
                             {{ data.username|slice:":1"|upper }}
                         </span>
                     </div>
@@ -356,7 +356,7 @@
                         <!-- Name with edit button -->
                         <div class="flex items-center justify-between">
                             <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-1">{{ data.username }}</h3>
-                            <button onclick="openEditModal('{{ data.user.user_id }}')" class="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition" title="Edit member">
+                            <button onclick="openEditModal('{{ data.user.user_id }}')" class="p-1.5 text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded transition" title="Edit member">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                 </svg>
@@ -482,7 +482,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                 </svg>
                 <p class="text-gray-600 dark:text-gray-400 mb-2">No members found matching your filters.</p>
-                <a href="{% url 'user_list' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium">Clear all filters</a>
+                <a href="{% url 'user_list' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 text-sm font-medium">Clear all filters</a>
             </div>
             {% endfor %}
         </div>
@@ -513,14 +513,14 @@
                         <!-- Name -->
                         <div>
                             <label for="add-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
-                            <input type="text" id="add-name" name="name" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="John Smith">
+                            <input type="text" id="add-name" name="name" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="John Smith">
                         </div>
 
                         <!-- User ID -->
                         <div>
                             <label for="add-user-id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Member ID *</label>
                             <div class="flex gap-2">
-                                <input type="text" id="add-user-id" name="user_id" required class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Unique identifier">
+                                <input type="text" id="add-user-id" name="user_id" required class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Unique identifier">
                                 <button type="button" id="generate-id-btn" onclick="generatePledgeId()" class="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500 transition whitespace-nowrap" title="Auto-generate a temporary ID for pledges">
                                     <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -534,14 +534,14 @@
                         <!-- Email -->
                         <div>
                             <label for="add-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email (Optional)</label>
-                            <input type="email" id="add-email" name="email" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="email@example.com">
+                            <input type="email" id="add-email" name="email" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="email@example.com">
                         </div>
 
                         <!-- Member Type and Status Row -->
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label for="add-member-type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Member Type *</label>
-                                <select id="add-member-type" name="member_type" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <select id="add-member-type" name="member_type" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                                     {% for value, label in member_types %}
                                     <option value="{{ value }}" {% if value == 'Pledge' %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
@@ -549,7 +549,7 @@
                             </div>
                             <div>
                                 <label for="add-member-status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status *</label>
-                                <select id="add-member-status" name="member_status" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <select id="add-member-status" name="member_status" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                                     {% for value, label in member_statuses %}
                                     <option value="{{ value }}" {% if value == 'Active' %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
@@ -583,7 +583,7 @@
                                 <code id="temp-password" class="block text-lg font-mono text-gray-900 dark:text-white select-all"></code>
                             </div>
                         </div>
-                        <p id="pledge-password-note" class="hidden text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">
+                        <p id="pledge-password-note" class="hidden text-xs text-primary-600 dark:text-primary-400 mt-2 font-medium">
                             Note: For pledges, username and password are the same.
                         </p>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">The member will be required to change this password on first login.</p>
@@ -594,7 +594,7 @@
                         <button type="button" onclick="closeAddModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
                             Cancel
                         </button>
-                        <button type="submit" id="add-member-submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+                        <button type="submit" id="add-member-submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium">
                             Add Member
                         </button>
                     </div>
@@ -619,15 +619,15 @@
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Name <span class="text-red-500">*</span></label>
-                        <input id="batch-name" type="text" placeholder="Full name" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                        <input id="batch-name" type="text" placeholder="Full name" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Username <span class="text-red-500">*</span></label>
-                        <input id="batch-username" type="text" placeholder="e.g. jsmith" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                        <input id="batch-username" type="text" placeholder="e.g. jsmith" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Member Type <span class="text-red-500">*</span></label>
-                        <select id="batch-member-type" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                        <select id="batch-member-type" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                             <option value="Pledge">Pledge</option>
                             <option value="Member">Member</option>
                             <option value="Officer">Officer</option>
@@ -639,23 +639,23 @@
                 <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-                        <input id="batch-email" type="email" placeholder="Optional" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                        <input id="batch-email" type="email" placeholder="Optional" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Pledge Class</label>
-                        <input id="batch-pledge-class" type="text" placeholder="e.g. Spring 2025" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                        <input id="batch-pledge-class" type="text" placeholder="e.g. Spring 2025" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Grad Year</label>
-                        <input id="batch-graduation-year" type="number" placeholder="e.g. 2027" min="2000" max="2100" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                        <input id="batch-graduation-year" type="number" placeholder="e.g. 2027" min="2000" max="2100" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
-                        <input id="batch-phone" type="text" placeholder="Optional" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                        <input id="batch-phone" type="text" placeholder="Optional" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     </div>
                 </div>
                 <div id="batch-entry-error" class="hidden mb-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-400 text-sm"></div>
-                <button onclick="batchAddToQueue()" class="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium mb-4">
+                <button onclick="batchAddToQueue()" class="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition text-sm font-medium mb-4">
                     + Add to Queue
                 </button>
 
@@ -815,26 +815,26 @@
                         <!-- Name -->
                         <div>
                             <label for="edit-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
-                            <input type="text" id="edit-name" name="name" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <input type="text" id="edit-name" name="name" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         </div>
 
                         <!-- Preferred Name -->
                         <div>
                             <label for="edit-preferred-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Preferred Name</label>
-                            <input type="text" id="edit-preferred-name" name="preferred_name" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Optional">
+                            <input type="text" id="edit-preferred-name" name="preferred_name" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Optional">
                         </div>
 
                         <!-- Email -->
                         <div>
                             <label for="edit-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-                            <input type="email" id="edit-email" name="email" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <input type="email" id="edit-email" name="email" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         </div>
 
                         <!-- Member Type and Status Row -->
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label for="edit-member-type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Member Type *</label>
-                                <select id="edit-member-type" name="member_type" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <select id="edit-member-type" name="member_type" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                                     {% for value, label in member_types %}
                                     <option value="{{ value }}">{{ label }}</option>
                                     {% endfor %}
@@ -842,7 +842,7 @@
                             </div>
                             <div>
                                 <label for="edit-member-status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status *</label>
-                                <select id="edit-member-status" name="member_status" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <select id="edit-member-status" name="member_status" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                                     {% for value, label in member_statuses %}
                                     <option value="{{ value }}">{{ label }}</option>
                                     {% endfor %}
@@ -881,7 +881,7 @@
                             <button type="button" onclick="closeEditModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
                                 Cancel
                             </button>
-                            <button type="submit" id="edit-member-submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+                            <button type="submit" id="edit-member-submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium">
                                 Save Changes
                             </button>
                         </div>
@@ -982,8 +982,8 @@
                                     <span><strong>Remove admin</strong> from users without these roles</span>
                                 </li>
                             </ul>
-                            <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                                <p class="text-sm text-blue-700 dark:text-blue-300">
+                            <div class="mt-4 p-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg">
+                                <p class="text-sm text-primary-700 dark:text-primary-300">
                                     <strong>Admin-granting roles:</strong><br>
                                     <span id="admin-roles-list">President, Executive Vice President, Vice President of Brotherhood</span>
                                 </p>
@@ -1016,7 +1016,7 @@
                         </svg>
                         Sync Now
                     </button>
-                    <button type="button" onclick="closeSyncAdminsModal()" class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm">
+                    <button type="button" onclick="closeSyncAdminsModal()" class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:w-auto sm:text-sm">
                         Cancel
                     </button>
                 </div>
@@ -1050,7 +1050,7 @@
                             </p>
                             <div class="mt-3 space-y-2">
                                 <label class="flex items-center">
-                                    <input type="radio" name="delete-type" value="soft" checked class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600">
+                                    <input type="radio" name="delete-type" value="soft" checked class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600">
                                     <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Deactivate (set status to Inactive)</span>
                                 </label>
                                 <label class="flex items-center">
@@ -1069,7 +1069,7 @@
                     <button type="button" onclick="confirmDelete()" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:w-auto sm:text-sm">
                         Delete
                     </button>
-                    <button type="button" onclick="closeDeleteModal()" class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm">
+                    <button type="button" onclick="closeDeleteModal()" class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:w-auto sm:text-sm">
                         Cancel
                     </button>
                 </div>
@@ -1123,7 +1123,7 @@ function populateRolesCheckboxes(containerId, selectedIds) {
     const prefix = containerId.includes('add') ? 'add' : 'edit';
     container.innerHTML = allRoles.map(role => `
         <label class="flex items-center">
-            <input type="checkbox" name="${prefix}-roles" value="${role.id}" ${selectedIds.includes(role.id) ? 'checked' : ''} class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+            <input type="checkbox" name="${prefix}-roles" value="${role.id}" ${selectedIds.includes(role.id) ? 'checked' : ''} class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded">
             <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">${role.name}</span>
         </label>
     `).join('');

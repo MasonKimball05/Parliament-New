@@ -8,7 +8,7 @@ from django.utils.timezone import localtime
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError
 import csv
-from src.models import KaiReport, Committee, ParliamentUser, KaiReportActivity, KaiReportTemplate, KaiFormField, KaiReportFieldResponse, KaiClosureRequest, ActivityLog
+from src.models import KaiReport, Committee, ParliamentUser, KaiReportActivity, KaiReportTemplate, KaiFormField, KaiReportFieldResponse, KaiClosureRequest, ActivityLog, KaiMemberPermission
 from src.forms import KaiReportForm
 from src.decorators import log_function_call
 from src.feature_flag_decorators import require_feature_flag
@@ -222,16 +222,38 @@ Please log in to the Kai Committee page to review this report.
 @login_required
 @require_feature_flag('kai_reports')
 @log_function_call
+def _get_kai_access(user, committee):
+    """
+    Return a dict of Kai permission flags for the given user.
+    Chairs and site admins get full access. Other users get their KaiMemberPermission
+    flags; users with no permission row get all False.
+    """
+    FIELDS = [
+        'can_view_report_list', 'can_view_report_details',
+        'can_view_submitter_identity', 'can_view_accused_identity',
+        'can_edit_open_cases', 'can_add_activity', 'can_close_cases',
+    ]
+    if committee.is_chair(user) or user.is_admin:
+        return {f: True for f in FIELDS} | {'is_full_access': True}
+    try:
+        perm = KaiMemberPermission.objects.get(committee=committee, user=user)
+        return {f: getattr(perm, f) for f in FIELDS} | {'is_full_access': False}
+    except KaiMemberPermission.DoesNotExist:
+        return {f: False for f in FIELDS} | {'is_full_access': False}
+
+
 def view_kai_reports(request):
     """View for Kai chairs to see all submitted reports"""
     # Check if user is a Kai chair
     try:
         kai_committee = Committee.objects.get(is_kai_committee=True)
-        if not kai_committee.is_chair(request.user):
-            messages.error(request, 'Only Kai chairs can access this page.')
-            return redirect('home')
     except Committee.DoesNotExist:
         messages.error(request, 'Kai committee not found.')
+        return redirect('home')
+
+    kai_access = _get_kai_access(request.user, kai_committee)
+    if not kai_access['can_view_report_list']:
+        messages.error(request, 'You do not have permission to view Kai reports.')
         return redirect('home')
 
     # Check if KaiReport table exists
@@ -324,6 +346,45 @@ def view_kai_reports(request):
         category_counts = {}
         messages.info(request, 'Kai Reports database table not yet created. This is a preview of the interface.')
 
+    # Dashboard stats (compute after main try/except so counts are available)
+    try:
+        from datetime import timedelta
+        import json
+
+        category_data = {}
+        for cat_value, cat_label in KaiReport.CATEGORY_CHOICES:
+            cat_count = KaiReport.objects.filter(category=cat_value).count()
+            if cat_count:
+                category_data[cat_label] = cat_count
+
+        outcome_pending = KaiReport.objects.filter(deliberation_outcome='pending').count()
+        outcome_heard = KaiReport.objects.filter(deliberation_outcome='heard').count()
+        outcome_thrown_out = KaiReport.objects.filter(deliberation_outcome='thrown_out').count()
+
+        monthly_data = {}
+        current_date = timezone.now()
+        for i in range(5, -1, -1):
+            month_date = current_date - timedelta(days=30 * i)
+            month_key = month_date.strftime('%b %Y')
+            month_start = month_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            if month_date.month == 12:
+                next_month_start = month_date.replace(year=month_date.year + 1, month=1, day=1)
+            else:
+                next_month_start = month_date.replace(month=month_date.month + 1, day=1)
+            monthly_data[month_key] = KaiReport.objects.filter(
+                submitted_at__gte=month_start, submitted_at__lt=next_month_start
+            ).count()
+
+        recent_activities = list(
+            KaiReportActivity.objects.select_related('report', 'user').order_by('-timestamp')[:8]
+        )
+    except Exception:
+        category_data = {}
+        outcome_pending = outcome_heard = outcome_thrown_out = 0
+        monthly_data = {}
+        recent_activities = []
+
+    import json as _json
     context = {
         'reports': reports,
         'status_filter': status_filter,
@@ -335,6 +396,17 @@ def view_kai_reports(request):
         'category_counts': category_counts,
         'kai_committee': kai_committee,
         'category_choices': KaiReport.CATEGORY_CHOICES,
+        'total_reports': counts['all'],
+        'pending_count': counts['pending'],
+        'reviewed_count': counts['reviewed'],
+        'archived_count': counts['archived'],
+        'category_data': _json.dumps(category_data),
+        'monthly_data': _json.dumps(monthly_data),
+        'outcome_pending': outcome_pending,
+        'outcome_heard': outcome_heard,
+        'outcome_thrown_out': outcome_thrown_out,
+        'recent_activities': recent_activities,
+        'kai_access': kai_access,
     }
 
     return render(request, 'kai/view_reports.html', context)
@@ -344,14 +416,15 @@ def view_kai_reports(request):
 @log_function_call
 def export_kai_reports_csv(request):
     """Export filtered Kai reports to CSV"""
-    # Check if user is a Kai chair
     try:
         kai_committee = Committee.objects.get(is_kai_committee=True)
-        if not kai_committee.is_chair(request.user):
-            messages.error(request, 'Only Kai chairs can export reports.')
-            return redirect('home')
     except Committee.DoesNotExist:
         messages.error(request, 'Kai committee not found.')
+        return redirect('home')
+
+    kai_access = _get_kai_access(request.user, kai_committee)
+    if not kai_access['can_view_report_list']:
+        messages.error(request, 'You do not have permission to export Kai reports.')
         return redirect('home')
 
     # Get same filters as view
@@ -435,8 +508,8 @@ def export_kai_reports_csv(request):
                 report.id,
                 report.title,
                 report.get_category_display(),
-                report.submitted_by.name,
-                report.targeted_to.name if report.targeted_to else '',
+                report.submitted_by.name if kai_access['can_view_submitter_identity'] else '[Redacted]',
+                (report.targeted_to.name if report.targeted_to else '') if kai_access['can_view_accused_identity'] else '[Redacted]',
                 localtime(report.submitted_at).strftime('%Y-%m-%d %H:%M:%S'),
                 report.get_status_display(),
                 report.get_deliberation_outcome_display(),
@@ -474,18 +547,35 @@ def manage_kai_report(request, report_id):
         messages.warning(request, 'Kai Reports feature is not yet set up. Please run database migrations.')
         return redirect('home')
 
-    # Check if user is a Kai chair
     try:
         kai_committee = Committee.objects.get(is_kai_committee=True)
-        if not kai_committee.is_chair(request.user):
-            messages.error(request, 'Only Kai chairs can manage reports.')
-            return redirect('home')
     except Committee.DoesNotExist:
         messages.error(request, 'Kai committee not found.')
         return redirect('home')
 
+    kai_access = _get_kai_access(request.user, kai_committee)
+    if not kai_access['can_view_report_details']:
+        messages.error(request, 'You do not have permission to view this report.')
+        return redirect('home')
+
     if request.method == 'POST':
         action = request.POST.get('action')
+
+        # Action-level permission checks
+        _edit_actions = {'mark_reviewed', 'mark_pending', 'update_tags', 'update_deliberation',
+                         'link_report', 'unlink_report', 'update_accused', 'notify_accused', 'notify_submitter'}
+        _activity_actions = {'update_notes', 'add_activity'}
+        _close_actions = {'archive', 'approve_closure', 'deny_closure'}
+
+        if action in _edit_actions and not kai_access['can_edit_open_cases']:
+            messages.error(request, 'You do not have permission to edit cases.')
+            return redirect('manage_kai_report', report_id=report.id)
+        if action in _activity_actions and not kai_access['can_add_activity']:
+            messages.error(request, 'You do not have permission to add activity to cases.')
+            return redirect('manage_kai_report', report_id=report.id)
+        if action in _close_actions and not kai_access['can_close_cases']:
+            messages.error(request, 'You do not have permission to close cases.')
+            return redirect('manage_kai_report', report_id=report.id)
 
         if action == 'mark_reviewed':
             report.mark_as_reviewed(request.user)
@@ -1311,6 +1401,7 @@ You may submit another closure request in the future if circumstances change.
         'all_members': all_members,
         'closure_requests': closure_requests,
         'custom_responses': custom_responses,
+        'kai_access': kai_access,
     }
 
     return render(request, 'kai/manage_report.html', context)
@@ -1327,14 +1418,15 @@ def print_kai_report(request, report_id):
         messages.warning(request, 'Kai Reports feature is not yet set up. Please run database migrations.')
         return redirect('home')
 
-    # Check if user is a Kai chair or admin
     try:
         kai_committee = Committee.objects.get(is_kai_committee=True)
-        if not kai_committee.is_chair(request.user):
-            messages.error(request, 'Only Kai chairs can view report details.')
-            return redirect('home')
     except Committee.DoesNotExist:
         messages.error(request, 'Kai committee not found.')
+        return redirect('home')
+
+    kai_access = _get_kai_access(request.user, kai_committee)
+    if not kai_access['can_view_report_details']:
+        messages.error(request, 'You do not have permission to view this report.')
         return redirect('home')
 
     # Get activity log
@@ -1368,100 +1460,8 @@ def print_kai_report(request, report_id):
 @require_feature_flag('kai_reports')
 @log_function_call
 def kai_dashboard(request):
-    """Dashboard with statistics and charts for Kai reports"""
-    # Check if user is a Kai chair or admin
-    try:
-        kai_committee = Committee.objects.get(is_kai_committee=True)
-        if not kai_committee.is_chair(request.user):
-            messages.error(request, 'Only Kai chairs can access the dashboard.')
-            return redirect('home')
-    except Committee.DoesNotExist:
-        messages.error(request, 'Kai committee not found.')
-        return redirect('home')
-
-    try:
-        from django.db.models import Count, Q
-        from datetime import datetime, timedelta
-        import json
-
-        # Get counts by status
-        total_reports = KaiReport.objects.count()
-        pending_count = KaiReport.objects.filter(status='pending').count()
-        reviewed_count = KaiReport.objects.filter(status='reviewed').count()
-        archived_count = KaiReport.objects.filter(status='archived').count()
-
-        # Get counts by category
-        category_data = {}
-        for cat_value, cat_label in KaiReport.CATEGORY_CHOICES:
-            count = KaiReport.objects.filter(category=cat_value).count()
-            category_data[cat_label] = count
-
-        # Get counts by deliberation outcome
-        outcome_pending = KaiReport.objects.filter(deliberation_outcome='pending').count()
-        outcome_heard = KaiReport.objects.filter(deliberation_outcome='heard').count()
-        outcome_thrown_out = KaiReport.objects.filter(deliberation_outcome='thrown_out').count()
-
-        # Get monthly submission trends (last 6 months)
-        six_months_ago = timezone.now() - timedelta(days=180)
-        monthly_data = {}
-
-        # Generate last 6 months
-        current_date = timezone.now()
-        for i in range(6):
-            month_date = current_date - timedelta(days=30*i)
-            month_key = month_date.strftime('%b %Y')
-            month_start = month_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
-            # Calculate next month start
-            if month_date.month == 12:
-                next_month_start = month_date.replace(year=month_date.year + 1, month=1, day=1)
-            else:
-                next_month_start = month_date.replace(month=month_date.month + 1, day=1)
-
-            count = KaiReport.objects.filter(
-                submitted_at__gte=month_start,
-                submitted_at__lt=next_month_start
-            ).count()
-
-            monthly_data[month_key] = count
-
-        # Reverse to show oldest to newest
-        monthly_data = dict(reversed(list(monthly_data.items())))
-
-        # Get recent activity (last 10 activities across all reports)
-        recent_activities = list(
-            KaiReportActivity.objects.all()
-            .select_related('report', 'user')
-            .order_by('-timestamp')[:10]
-        )
-
-        # Get most recent reports
-        recent_reports = list(
-            KaiReport.objects.all()
-            .select_related('submitted_by', 'targeted_to')
-            .order_by('-submitted_at')[:5]
-        )
-
-        context = {
-            'kai_committee': kai_committee,
-            'total_reports': total_reports,
-            'pending_count': pending_count,
-            'reviewed_count': reviewed_count,
-            'archived_count': archived_count,
-            'category_data': json.dumps(category_data),
-            'outcome_pending': outcome_pending,
-            'outcome_heard': outcome_heard,
-            'outcome_thrown_out': outcome_thrown_out,
-            'monthly_data': json.dumps(monthly_data),
-            'recent_activities': recent_activities,
-            'recent_reports': recent_reports,
-        }
-
-        return render(request, 'kai/dashboard.html', context)
-
-    except Exception as e:
-        messages.error(request, f'Error loading dashboard: {str(e)}')
-        return redirect('home')
+    """Redirects to the consolidated Kai reports page (dashboard merged in)."""
+    return redirect('view_kai_reports')
 
 
 @login_required
@@ -1471,19 +1471,28 @@ def bulk_actions_kai_reports(request):
     if request.method != 'POST':
         return redirect('view_kai_reports')
 
-    # Check if user is a Kai chair or admin
     try:
         kai_committee = Committee.objects.get(is_kai_committee=True)
-        if not kai_committee.is_chair(request.user):
-            messages.error(request, 'Only Kai chairs can perform bulk actions.')
-            return redirect('home')
     except Committee.DoesNotExist:
         messages.error(request, 'Kai committee not found.')
+        return redirect('home')
+
+    kai_access = _get_kai_access(request.user, kai_committee)
+    if not kai_access['can_view_report_list']:
+        messages.error(request, 'You do not have permission to perform bulk actions.')
         return redirect('home')
 
     # Get selected report IDs and action
     report_ids = request.POST.getlist('report_ids')
     action = request.POST.get('bulk_action')
+
+    # Action-level permission check
+    if action in ('mark_reviewed', 'mark_pending') and not kai_access['can_edit_open_cases']:
+        messages.error(request, 'You do not have permission to edit cases.')
+        return redirect('view_kai_reports')
+    if action == 'archive' and not kai_access['can_close_cases']:
+        messages.error(request, 'You do not have permission to close cases.')
+        return redirect('view_kai_reports')
 
     if not report_ids:
         messages.warning(request, 'No reports selected.')
@@ -1615,7 +1624,7 @@ def manage_kai_templates(request):
     # Check if user is a Kai chair or admin
     try:
         kai_committee = Committee.objects.get(is_kai_committee=True)
-        if not kai_committee.is_chair(request.user):
+        if not (kai_committee.is_chair(request.user) or request.user.is_admin):
             messages.error(request, 'Only Kai chairs can manage templates.')
             return redirect('home')
     except Committee.DoesNotExist:
@@ -1639,7 +1648,7 @@ def create_kai_template(request):
     # Check if user is a Kai chair or admin
     try:
         kai_committee = Committee.objects.get(is_kai_committee=True)
-        if not kai_committee.is_chair(request.user):
+        if not (kai_committee.is_chair(request.user) or request.user.is_admin):
             messages.error(request, 'Only Kai chairs can create templates.')
             return redirect('home')
     except Committee.DoesNotExist:
@@ -1687,7 +1696,7 @@ def edit_kai_template(request, template_id):
     # Check if user is a Kai chair or admin
     try:
         kai_committee = Committee.objects.get(is_kai_committee=True)
-        if not kai_committee.is_chair(request.user):
+        if not (kai_committee.is_chair(request.user) or request.user.is_admin):
             messages.error(request, 'Only Kai chairs can edit templates.')
             return redirect('home')
     except Committee.DoesNotExist:
@@ -1725,7 +1734,7 @@ def delete_kai_template(request, template_id):
     # Check if user is a Kai chair or admin
     try:
         kai_committee = Committee.objects.get(is_kai_committee=True)
-        if not kai_committee.is_chair(request.user):
+        if not (kai_committee.is_chair(request.user) or request.user.is_admin):
             messages.error(request, 'Only Kai chairs can delete templates.')
             return redirect('home')
     except Committee.DoesNotExist:

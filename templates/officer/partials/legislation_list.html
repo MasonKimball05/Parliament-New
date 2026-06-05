@@ -1,7 +1,7 @@
 {% if legislation %}
 <div class="space-y-4">
     {% for leg in legislation %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
         <div class="flex items-start justify-between mb-3">
             <div class="flex-1">
                 <div class="flex items-center space-x-3 mb-2">
@@ -86,7 +86,7 @@
 
             <div class="ml-4 flex flex-col space-y-2">
                 {% if leg.document %}
-                <a href="{{ leg.document.url }}" target="_blank" class="inline-flex items-center justify-center space-x-1 bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition text-sm">
+                <a href="{{ leg.document.url }}" target="_blank" class="inline-flex items-center justify-center space-x-1 bg-primary-600 dark:bg-primary-700 hover:bg-primary-700 dark:hover:bg-primary-600 text-white px-4 py-2 rounded-lg font-medium transition text-sm">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
@@ -107,7 +107,7 @@
     {% endfor %}
 </div>
 {% else %}
-<div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center">
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
     <svg class="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
     </svg>

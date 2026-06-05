@@ -3,13 +3,13 @@
 {% block title %}Constitution & Bylaws - Parliament{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200">
+<div class="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200">
     <!-- Header -->
-    <div class="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 text-white py-8 shadow-lg">
+    <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <h1 class="text-4xl font-bold mb-2">Constitution & Bylaws</h1>
-            <p class="text-blue-100 dark:text-blue-200 text-lg">Alpha Mu Chapter of Beta Theta Pi at Samford University</p>
-            <p class="text-blue-200 dark:text-blue-300 text-sm mt-2">Last Updated: August 2025</p>
+            <p class="text-primary-100 dark:text-primary-200 text-lg">Alpha Mu Chapter of Beta Theta Pi at Samford University</p>
+            <p class="text-primary-200 dark:text-primary-300 text-sm mt-2">Last Updated: August 2025</p>
 
             <!-- Search Bar -->
             <div class="mt-6 relative">
@@ -19,8 +19,8 @@
                     </svg>
                 </div>
                 <input type="text" id="searchInput" placeholder="Search Constitution & Bylaws... (e.g., 'quorum', 'officer', 'voting')"
-                       class="w-full px-4 py-3 pl-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-gray-900">
-                <div id="searchResults" class="mt-2 text-sm text-blue-100 dark:text-blue-200"></div>
+                       class="w-full px-4 py-3 pl-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 focus:border-transparent text-gray-900">
+                <div id="searchResults" class="mt-2 text-sm text-primary-100 dark:text-primary-200"></div>
             </div>
         </div>
     </div>
@@ -29,7 +29,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
             <!-- Home Card -->
-            <a href="{% url 'home' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 group">
+            <a href="{% url 'home' %}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 group">
                 <div class="flex flex-col items-center text-center">
                     <svg class="w-8 h-8 text-primary-600 dark:text-primary-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
@@ -39,7 +39,7 @@
             </a>
 
             <!-- Robert's Rules Card -->
-            <a href="{% url 'roberts_rules' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 group">
+            <a href="{% url 'roberts_rules' %}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 group">
                 <div class="flex flex-col items-center text-center">
                     <svg class="w-8 h-8 text-primary-600 dark:text-primary-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
@@ -49,7 +49,7 @@
             </a>
 
             <!-- Legislation Card -->
-            <a href="{% url 'passed_legislation' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 group">
+            <a href="{% url 'passed_legislation' %}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 group">
                 <div class="flex flex-col items-center text-center">
                     <svg class="w-8 h-8 text-primary-600 dark:text-primary-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -59,7 +59,7 @@
             </a>
 
             <!-- Documents Card -->
-            <a href="{% url 'chapter_documents' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 group">
+            <a href="{% url 'chapter_documents' %}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 group">
                 <div class="flex flex-col items-center text-center">
                     <svg class="w-8 h-8 text-primary-600 dark:text-primary-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
@@ -69,7 +69,7 @@
             </a>
 
             <!-- Calendar Card -->
-            <a href="{% url 'calendar' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 group">
+            <a href="{% url 'calendar' %}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 group">
                 <div class="flex flex-col items-center text-center">
                     <svg class="w-8 h-8 text-primary-600 dark:text-primary-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -79,7 +79,7 @@
             </a>
 
             <!-- View PDF Card -->
-            <a href="{% url 'view_reference_document' 'constitution-bylaws' %}" class="block bg-gradient-to-br from-green-600 to-green-700 dark:from-green-700 dark:to-green-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 group">
+            <a href="{% url 'view_reference_document' 'constitution-bylaws' %}" class="block bg-gradient-to-br from-green-600 to-green-700 dark:from-green-700 dark:to-green-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 group">
                 <div class="flex flex-col items-center text-center">
                     <svg class="w-8 h-8 text-white mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -96,12 +96,12 @@
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <!-- Table of Contents Sidebar -->
             <div class="lg:col-span-1">
-                <div class="sticky top-4 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 max-h-[calc(100vh-2rem)] overflow-y-auto transition-colors duration-200">
+                <div class="sticky top-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 max-h-[calc(100vh-2rem)] overflow-y-auto transition-colors duration-200">
                     <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">Table of Contents</h2>
                     <nav class="space-y-2" id="tocNav">
                         <!-- Quick Links -->
                         <div class="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700 space-y-2">
-                            <a href="{% url 'roberts_rules' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm flex items-center">
+                            <a href="{% url 'roberts_rules' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 text-sm flex items-center">
                                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
                                 </svg>
@@ -125,7 +125,7 @@
                                 Code of Beta Theta Pi
                             </a>
                             <a href="{% url 'view_reference_document' 'kai-binder' %}"
-                               class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 text-sm flex items-center">
+                               class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 text-sm flex items-center">
                                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
@@ -143,29 +143,29 @@
                         </div>
 
                         <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Constitution</p>
-                        <a href="#const-name" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">I. Name & Purpose</a>
-                        <a href="#const-membership" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">II. Membership</a>
-                        <a href="#const-leadership" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">III. Leadership</a>
-                        <a href="#const-meetings" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">IV. Meetings</a>
-                        <a href="#const-committees" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">V. Committees</a>
-                        <a href="#const-amendments" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">VI. Amendments</a>
+                        <a href="#const-name" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">I. Name & Purpose</a>
+                        <a href="#const-membership" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">II. Membership</a>
+                        <a href="#const-leadership" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">III. Leadership</a>
+                        <a href="#const-meetings" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">IV. Meetings</a>
+                        <a href="#const-committees" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">V. Committees</a>
+                        <a href="#const-amendments" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">VI. Amendments</a>
 
                         <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-4">Bylaws</p>
-                        <a href="#bylaws-membership" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">I. Membership</a>
-                        <a href="#bylaws-officers" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">II. Officers</a>
-                        <a href="#bylaws-governance" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">III. Self-Governance</a>
-                        <a href="#bylaws-financial" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">IV. Financial</a>
-                        <a href="#bylaws-rituals" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">V. Rituals & Ceremonies</a>
-                        <a href="#bylaws-expectations" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">VI. Board Expectations</a>
-                        <a href="#bylaws-committees" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">VII. Committee Details</a>
-                        <a href="#bylaws-chairs" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">VIII. Chair Details</a>
-                        <a href="#bylaws-advisors" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">IX. Advisors</a>
-                        <a href="#bylaws-amendments" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">X. Amendments</a>
+                        <a href="#bylaws-membership" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">I. Membership</a>
+                        <a href="#bylaws-officers" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">II. Officers</a>
+                        <a href="#bylaws-governance" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">III. Self-Governance</a>
+                        <a href="#bylaws-financial" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">IV. Financial</a>
+                        <a href="#bylaws-rituals" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">V. Rituals & Ceremonies</a>
+                        <a href="#bylaws-expectations" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">VI. Board Expectations</a>
+                        <a href="#bylaws-committees" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">VII. Committee Details</a>
+                        <a href="#bylaws-chairs" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">VIII. Chair Details</a>
+                        <a href="#bylaws-advisors" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">IX. Advisors</a>
+                        <a href="#bylaws-amendments" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">X. Amendments</a>
 
                         <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-4">Appendix</p>
-                        <a href="#appendix-forms" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">Executive Forms</a>
-                        <a href="#appendix-gpa" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">GPA Levels</a>
-                        <a href="#appendix-terms" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">Common Terms</a>
+                        <a href="#appendix-forms" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">Executive Forms</a>
+                        <a href="#appendix-gpa" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">GPA Levels</a>
+                        <a href="#appendix-terms" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">Common Terms</a>
 
                     </nav>
                 </div>
@@ -173,22 +173,22 @@
 
             <!-- Main Content -->
             <div class="lg:col-span-3">
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 space-y-8 transition-colors duration-200">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 space-y-8 transition-colors duration-200">
 
                     <!-- Introduction -->
                     <section id="overview">
-                        <div class="bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500 dark:border-blue-400 p-6 mb-6">
-                            <h2 class="text-2xl font-bold text-blue-900 dark:text-blue-100 mb-3">About This Document</h2>
+                        <div class="bg-primary-50 dark:bg-primary-900/30 border-l-4 border-primary-500 dark:border-primary-400 p-6 mb-6">
+                            <h2 class="text-2xl font-bold text-primary-900 dark:text-primary-100 mb-3">About This Document</h2>
                             <p class="text-gray-700 dark:text-gray-300 mb-2">This Constitution and Bylaws governs the operations of the Alpha Mu chapter of Beta Theta Pi at Samford University.</p>
                             <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Last Updated:</strong> August 2025</p>
-                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2"><strong>Note:</strong> All chapter meetings are governed by <a href="{% url 'roberts_rules' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Robert's Rules of Order</a>.</p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2"><strong>Note:</strong> All chapter meetings are governed by <a href="{% url 'roberts_rules' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Robert's Rules of Order</a>.</p>
                         </div>
 
                     </section>
 
                     <!-- CONSTITUTION -->
-                    <div class="border-t-4 border-blue-600 dark:border-blue-400 pt-6">
-                        <h1 class="text-3xl font-bold text-blue-900 dark:text-blue-100 mb-6">Constitution</h1>
+                    <div class="border-t-4 border-primary-600 dark:border-primary-400 pt-6">
+                        <h1 class="text-3xl font-bold text-primary-900 dark:text-primary-100 mb-6">Constitution</h1>
 
                         <!-- Article I: Name and Purpose -->
                         <section id="const-name" class="mb-8">
@@ -198,12 +198,12 @@
                             <p class="text-gray-700 dark:text-gray-300 mb-4">The name of this organization shall be the Samford chapter, the Alpha Mu of Beta Theta Pi.</p>
 
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Section 2. Purpose</h3>
-                            <p class="text-gray-700 dark:text-gray-300 mb-4">The purpose of this chapter is to uphold the values, principles, and standards of Beta Theta Pi as outlined in the fraternity's Constitution and <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Code</a>.</p>
+                            <p class="text-gray-700 dark:text-gray-300 mb-4">The purpose of this chapter is to uphold the values, principles, and standards of Beta Theta Pi as outlined in the fraternity's Constitution and <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">Code</a>.</p>
 
                             <div class="bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-500 dark:border-yellow-400 p-4 mb-4 mt-4">
                                 <p class="text-sm font-semibold text-yellow-900 dark:text-yellow-200 mb-2">📄 Reference Document</p>
                                 <p class="text-sm text-gray-700 dark:text-gray-300">
-                                    <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Code of Beta Theta Pi (44th Edition)</a> - The fraternity's governing document that this chapter follows.
+                                    <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">Code of Beta Theta Pi (44th Edition)</a> - The fraternity's governing document that this chapter follows.
                                 </p>
                             </div>
                         </section>
@@ -221,12 +221,12 @@
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Section 2. Membership Categories</h3>
                             <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-4">
                                 <ul class="space-y-2 text-gray-700 dark:text-gray-300">
-                                    <li><strong>Collegiate Member:</strong> As defined in the <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Code of Beta Theta Pi</a>, Chapter VIII Section 1(B)(a)</li>
+                                    <li><strong>Collegiate Member:</strong> As defined in the <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">Code of Beta Theta Pi</a>, Chapter VIII Section 1(B)(a)</li>
                                     <li><strong>Active Member:</strong> A Collegiate Member who is neither a Temporarily Inactive Member nor a Suspended Member</li>
-                                    <li><strong>Temporarily Inactive Member:</strong> As defined in the <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Code of Beta Theta Pi</a>, Chapter VIII Section 1(B)(b)</li>
-                                    <li><strong>Alumnus Member:</strong> As defined in the <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Code of Beta Theta Pi</a>, Chapter VIII Section 1(B)(c)</li>
-                                    <li><strong>Suspended Member:</strong> As defined in the <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Code of Beta Theta Pi</a>, Chapter VIII Section 1(B)(d)</li>
-                                    <li><strong>Recused Member:</strong> As defined in the <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Code of Beta Theta Pi</a>, Chapter VIII Section 1(B)(e)</li>
+                                    <li><strong>Temporarily Inactive Member:</strong> As defined in the <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">Code of Beta Theta Pi</a>, Chapter VIII Section 1(B)(b)</li>
+                                    <li><strong>Alumnus Member:</strong> As defined in the <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">Code of Beta Theta Pi</a>, Chapter VIII Section 1(B)(c)</li>
+                                    <li><strong>Suspended Member:</strong> As defined in the <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">Code of Beta Theta Pi</a>, Chapter VIII Section 1(B)(d)</li>
+                                    <li><strong>Recused Member:</strong> As defined in the <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">Code of Beta Theta Pi</a>, Chapter VIII Section 1(B)(e)</li>
                                 </ul>
                             </div>
 
@@ -258,7 +258,7 @@
                             </ul>
 
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Section 3. Chapter Officers</h3>
-                            <div class="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg mb-4">
+                            <div class="bg-primary-50 dark:bg-primary-900/30 p-4 rounded-lg mb-4">
                                 <p class="text-gray-700 dark:text-gray-300 mb-2"><strong>Officer Positions:</strong></p>
                                 <ul class="grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-700 dark:text-gray-300">
                                     <li>• President</li>
@@ -283,7 +283,7 @@
 
                             <div class="bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-500 dark:border-yellow-400 p-4 mb-4">
                                 <p class="text-sm font-semibold text-yellow-900 dark:text-yellow-200 mb-2">🔗 Connection to Robert's Rules</p>
-                                <p class="text-sm text-gray-700 dark:text-gray-300">Section 4 states: "All meetings are to be governed by <a href="{% url 'roberts_rules' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Robert's Rules of Order</a>."</p>
+                                <p class="text-sm text-gray-700 dark:text-gray-300">Section 4 states: "All meetings are to be governed by <a href="{% url 'roberts_rules' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Robert's Rules of Order</a>."</p>
                             </div>
 
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Section 1. Regular Meetings</h3>
@@ -311,7 +311,7 @@
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Section 4. Meeting Processes</h3>
                             <div class="bg-yellow-50 dark:bg-yellow-900/30 p-4 rounded-lg mb-4">
                                 <p class="text-gray-700 dark:text-gray-300 mb-2"><strong>1. All meetings are to be governed by Robert's Rules of Order</strong></p>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">See our <a href="{% url 'roberts_rules' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Robert's Rules Reference</a> for detailed procedures on making motions, voting, and parliamentary procedure.</p>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">See our <a href="{% url 'roberts_rules' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Robert's Rules Reference</a> for detailed procedures on making motions, voting, and parliamentary procedure.</p>
                                 <p class="text-gray-700 dark:text-gray-300 mt-2"><strong>2. Meetings are closed to the public</strong> unless there are specific matters that permit non-members or non-pledges to attend.</p>
                             </div>
 
@@ -437,14 +437,14 @@
                             </ul>
 
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Section 2. Approval of Amendments</h3>
-                            <div class="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg mb-4">
+                            <div class="bg-primary-50 dark:bg-primary-900/30 p-4 rounded-lg mb-4">
                                 <p class="text-gray-700 dark:text-gray-300">Amendments to the constitution must be approved by a <strong>supermajority (2/3) of the active members present</strong> at a chapter or special meeting where a quorum is present.</p>
                             </div>
 
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Section 3. Amendment Authority</h3>
                             <p class="text-gray-700 dark:text-gray-300 mb-2">All amendments are subordinate to:</p>
                             <ul class="list-disc pl-6 space-y-2 text-gray-700 dark:text-gray-300 mb-4">
-                                <li>The <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Code of Beta Theta Pi</a></li>
+                                <li>The <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">Code of Beta Theta Pi</a></li>
                                 <li>The Interfraternity Council</li>
                                 <li>Samford University</li>
                                 <li>Any applicable municipal, state, or federal laws</li>
@@ -453,15 +453,15 @@
                     </div>
 
                     <!-- BYLAWS -->
-                    <div class="border-t-4 border-indigo-600 pt-6 mt-8">
-                        <h1 class="text-3xl font-bold text-indigo-900 dark:text-indigo-200 mb-6">Bylaws</h1>
+                    <div class="border-t-4 border-primary-600 pt-6 mt-8">
+                        <h1 class="text-3xl font-bold text-primary-900 dark:text-primary-200 mb-6">Bylaws</h1>
 
                         <!-- Article I: Membership -->
                         <section id="bylaws-membership" class="mb-8">
                             <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Article I: Membership</h2>
 
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Section 1. Membership Expectations</h3>
-                            <div class="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-lg mb-4">
+                            <div class="bg-primary-50 dark:bg-primary-900/30 p-4 rounded-lg mb-4">
                                 <p class="text-gray-700 dark:text-gray-300 mb-3"><strong>The Five Pillars of Beta Membership:</strong></p>
                                 <ul class="space-y-3 text-gray-700 dark:text-gray-300">
                                     <li><strong>Cultivation of the Intellect:</strong>
@@ -563,7 +563,7 @@
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Slate Approval Process</h3>
                             <div class="bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-500 dark:border-yellow-400 p-4 mb-4">
                                 <p class="text-sm font-semibold text-yellow-900 dark:text-yellow-200 mb-2">🔗 Uses Robert's Rules</p>
-                                <p class="text-sm text-gray-700 dark:text-gray-300">The slate presentation follows <a href="{% url 'roberts_rules' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Robert's Rules of Order</a> with moderated caucus and voting procedures.</p>
+                                <p class="text-sm text-gray-700 dark:text-gray-300">The slate presentation follows <a href="{% url 'roberts_rules' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Robert's Rules of Order</a> with moderated caucus and voting procedures.</p>
                             </div>
                             <ul class="list-disc pl-6 space-y-2 text-gray-700 dark:text-gray-300 mb-4">
                                 <li>Requires <strong>60% majority</strong> to pass</li>
@@ -581,13 +581,13 @@
                             <div class="bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-500 dark:border-yellow-400 p-4 mb-4">
                                 <p class="text-sm font-semibold text-yellow-900 dark:text-yellow-200 mb-2">📚 Reference Documents & Resources</p>
                                 <div class="text-sm text-gray-700 dark:text-gray-300 space-y-1">
-                                    <p>• <a href="/media/legislation_docs/Kai-Binder.pdf" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Kai Committee Binder</a> - Complete procedures and guidelines for Kai Committee operations</p>
-                                    <p>• <a href="/media/legislation_docs/Trial-By-Chapter-Overview.pdf" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Trial by Chapter Overview</a> - Process for severe violations requiring expulsion consideration</p>
+                                    <p>• <a href="/media/legislation_docs/Kai-Binder.pdf" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">Kai Committee Binder</a> - Complete procedures and guidelines for Kai Committee operations</p>
+                                    <p>• <a href="/media/legislation_docs/Trial-By-Chapter-Overview.pdf" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">Trial by Chapter Overview</a> - Process for severe violations requiring expulsion consideration</p>
                                 </div>
                             </div>
 
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Kai Committee</h3>
-                            <div class="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-lg mb-4">
+                            <div class="bg-primary-50 dark:bg-primary-900/30 p-4 rounded-lg mb-4">
                                 <p class="text-gray-700 dark:text-gray-300 mb-3"><strong>Purpose:</strong> Adjudicating breaches of membership expectations and acting as a mediating body.</p>
 
                                 <p class="text-gray-700 dark:text-gray-300 mb-2"><strong>Membership (5 to 9 members):</strong></p>
@@ -603,7 +603,7 @@
                                 <div class="text-sm space-y-2">
                                     <div class="border-l-4 border-red-500 pl-3">
                                         <p class="font-semibold text-red-900 dark:text-red-300">Severe Violations:</p>
-                                        <p class="text-gray-600 dark:text-gray-400">Illegal drugs, hazing, felonies, DUI, alcohol on property → Possible expulsion via <a href="/media/legislation_docs/Trial-By-Chapter-Overview.pdf" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Trial by Chapter</a></p>
+                                        <p class="text-gray-600 dark:text-gray-400">Illegal drugs, hazing, felonies, DUI, alcohol on property → Possible expulsion via <a href="/media/legislation_docs/Trial-By-Chapter-Overview.pdf" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">Trial by Chapter</a></p>
                                     </div>
                                     <div class="border-l-4 border-orange-500 pl-3">
                                         <p class="font-semibold text-orange-900 dark:text-orange-300">Moderate Violations:</p>
@@ -708,7 +708,7 @@
 
                             <div class="bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-500 dark:border-yellow-400 p-4 mb-4">
                                 <p class="text-sm font-semibold text-yellow-900 dark:text-yellow-200 mb-2">🔗 Connection to Robert's Rules</p>
-                                <p class="text-sm text-gray-700 dark:text-gray-300">EVP serves as parliamentarian and must understand <a href="{% url 'roberts_rules' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Robert's Rules of Order</a>. EVP must host Robert's Rules training at least once per term.</p>
+                                <p class="text-sm text-gray-700 dark:text-gray-300">EVP serves as parliamentarian and must understand <a href="{% url 'roberts_rules' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Robert's Rules of Order</a>. EVP must host Robert's Rules training at least once per term.</p>
                             </div>
 
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">All Board Members Must:</h3>
@@ -717,7 +717,7 @@
                                 <li>Attend all required campus and General Fraternity events/trainings</li>
                                 <li>Attend regularly scheduled Chapter and Executive Board meetings</li>
                                 <li>Prepare and give officer reports at each meeting</li>
-                                <li>Understand and abide by <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Code of Beta</a>, Risk Management Policy, Chapter Constitution & Bylaws, and IFC policies</li>
+                                <li>Understand and abide by <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">Code of Beta</a>, Risk Management Policy, Chapter Constitution & Bylaws, and IFC policies</li>
                                 <li>Serve as role model within chapter and campus community</li>
                             </ul>
 
@@ -809,7 +809,7 @@
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Advisory Team Structure</h3>
                             <p class="text-gray-700 dark:text-gray-300 mb-2">Recommended minimum of five (5) members serving as coaches for the Executive Board:</p>
 
-                            <div class="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-lg mb-4">
+                            <div class="bg-primary-50 dark:bg-primary-900/30 p-4 rounded-lg mb-4">
                                 <p class="font-semibold text-gray-800 dark:text-gray-200 mb-2">Core Advisors (Required):</p>
                                 <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700 dark:text-gray-300 mb-3">
                                     <li>Chapter Counselor (advises President & EVP, coordinates team)</li>
@@ -847,7 +847,7 @@
                             </ul>
 
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Section 2. Approval of Amendments</h3>
-                            <div class="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-lg mb-4">
+                            <div class="bg-primary-50 dark:bg-primary-900/30 p-4 rounded-lg mb-4">
                                 <p class="text-gray-700 dark:text-gray-300">Amendments must be approved by a <strong>simple majority of the active members present</strong> at a chapter or special meeting where a quorum is present.</p>
                                 <p class="text-sm text-gray-600 dark:text-gray-400 mt-2"><em>Note: Bylaws require simple majority (51%) vs. Constitution which requires supermajority (67%)</em></p>
                             </div>
@@ -855,7 +855,7 @@
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Section 3. Amendment Authority</h3>
                             <p class="text-gray-700 dark:text-gray-300 mb-2">All amendments are subordinate to:</p>
                             <ul class="list-disc pl-6 space-y-2 text-gray-700 dark:text-gray-300 mb-4">
-                                <li>The <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Code of Beta Theta Pi</a></li>
+                                <li>The <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">Code of Beta Theta Pi</a></li>
                                 <li>The Interfraternity Council</li>
                                 <li>Samford University</li>
                                 <li>Any applicable municipal, state, or federal laws</li>
@@ -923,7 +923,7 @@
                             <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Section 3: Definition of Common Terms</h2>
 
                             <div class="space-y-4">
-                                <div class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 dark:bg-blue-900/30">
+                                <div class="border-l-4 border-primary-500 pl-4 py-2 bg-primary-50 dark:bg-primary-900/30">
                                     <h3 class="font-semibold text-gray-900 dark:text-gray-100">Good Standing</h3>
                                     <p class="text-sm text-gray-700 dark:text-gray-300">Members in "Good Standing" are eligible to vote, hold office, and enjoy other membership privileges. Requirements:</p>
                                     <ul class="list-disc pl-6 text-sm text-gray-700 dark:text-gray-300 mt-1">
@@ -983,7 +983,7 @@
                     </div>
 
                     <!-- Cross-Reference Section -->
-                    <div class="bg-gradient-to-r from-yellow-50 to-blue-50 dark:from-yellow-900/30 dark:to-blue-900/30 border-2 border-yellow-400 dark:border-yellow-600 rounded-lg p-6 mt-8">
+                    <div class="bg-gradient-to-r from-yellow-50 to-primary-50 dark:from-yellow-900/30 dark:to-primary-900/30 border-2 border-yellow-400 dark:border-yellow-600 rounded-lg p-6 mt-8">
                         <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">📚 Relationship to Robert's Rules</h2>
                         <p class="text-gray-700 dark:text-gray-300 mb-4">This Constitution and Bylaws works in conjunction with Robert's Rules of Order to govern chapter meetings and procedures:</p>
 
@@ -991,13 +991,13 @@
                             <div class="bg-white dark:bg-gray-800 p-4 rounded-lg">
                                 <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Constitution Article IV, Section 4:</h3>
                                 <p class="text-sm text-gray-700 dark:text-gray-300 italic">"All meetings are to be governed by Robert's Rules of Order"</p>
-                                <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">→ See <a href="{% url 'roberts_rules' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Robert's Rules Reference</a> for meeting procedures</p>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">→ See <a href="{% url 'roberts_rules' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Robert's Rules Reference</a> for meeting procedures</p>
                             </div>
 
                             <div class="bg-white dark:bg-gray-800 p-4 rounded-lg">
                                 <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Executive Vice President Duties:</h3>
                                 <p class="text-sm text-gray-700 dark:text-gray-300">Must understand Robert's Rules and serve as parliamentarian during chapter meetings. Required to host Robert's Rules training at least once per term.</p>
-                                <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">→ Reference: <a href="{% url 'roberts_rules' %}#debate-rules" class="text-blue-600 dark:text-blue-400 hover:underline">Debate Rules</a> and <a href="{% url 'roberts_rules' %}#chair-duties" class="text-blue-600 dark:text-blue-400 hover:underline">Chair's Duties</a></p>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">→ Reference: <a href="{% url 'roberts_rules' %}#debate-rules" class="text-primary-600 dark:text-primary-400 hover:underline">Debate Rules</a> and <a href="{% url 'roberts_rules' %}#chair-duties" class="text-primary-600 dark:text-primary-400 hover:underline">Chair's Duties</a></p>
                             </div>
 
                             <div class="bg-white dark:bg-gray-800 p-4 rounded-lg">
@@ -1007,13 +1007,13 @@
                                     <li>Simple Majority (51%) - Most bylaws amendments, officer slate approval (60%)</li>
                                     <li>Supermajority (67%) - Constitution amendments, certain recruitment decisions</li>
                                 </ul>
-                                <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">→ See <a href="{% url 'roberts_rules' %}#voting" class="text-blue-600 dark:text-blue-400 hover:underline">Robert's Rules Voting Procedures</a> for vote execution methods</p>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">→ See <a href="{% url 'roberts_rules' %}#voting" class="text-primary-600 dark:text-primary-400 hover:underline">Robert's Rules Voting Procedures</a> for vote execution methods</p>
                             </div>
 
                             <div class="bg-white dark:bg-gray-800 p-4 rounded-lg">
                                 <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Making Motions & Amendments:</h3>
                                 <p class="text-sm text-gray-700 dark:text-gray-300">New business introduced at chapter meetings follows Robert's Rules procedures for main motions and amendments.</p>
-                                <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">→ See <a href="{% url 'roberts_rules' %}#main-motions" class="text-blue-600 dark:text-blue-400 hover:underline">Main Motions</a> and <a href="{% url 'roberts_rules' %}#subsidiary-motions" class="text-blue-600 dark:text-blue-400 hover:underline">Subsidiary Motions</a></p>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">→ See <a href="{% url 'roberts_rules' %}#main-motions" class="text-primary-600 dark:text-primary-400 hover:underline">Main Motions</a> and <a href="{% url 'roberts_rules' %}#subsidiary-motions" class="text-primary-600 dark:text-primary-400 hover:underline">Subsidiary Motions</a></p>
                             </div>
                         </div>
                     </div>
@@ -1153,13 +1153,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 const id = entry.target.getAttribute('id');
 
                 tocLinks.forEach(link => {
-                    link.classList.remove('bg-blue-100', 'dark:bg-blue-900/50', 'font-semibold', 'text-blue-700', 'dark:text-blue-300');
+                    link.classList.remove('bg-primary-100', 'dark:bg-primary-900/50', 'font-semibold', 'text-primary-700', 'dark:text-primary-300');
                     link.classList.add('text-gray-700', 'dark:text-gray-300');
                 });
 
                 const activeLink = document.querySelector(`.toc-link[href="#${id}"]`);
                 if (activeLink) {
-                    activeLink.classList.add('bg-blue-100', 'dark:bg-blue-900/50', 'font-semibold', 'text-blue-700', 'dark:text-blue-300');
+                    activeLink.classList.add('bg-primary-100', 'dark:bg-primary-900/50', 'font-semibold', 'text-primary-700', 'dark:text-primary-300');
                     activeLink.classList.remove('text-gray-700', 'dark:text-gray-300');
                 }
             }

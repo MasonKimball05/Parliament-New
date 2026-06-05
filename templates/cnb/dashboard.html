@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}C&B Management - Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200">
+
+    <!-- Banner -->
+    <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg relative overflow-hidden">
+        <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-gold-400 via-gold-500 to-gold-400 opacity-80"></div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h1 class="text-3xl font-bold mb-1">Constitution & Bylaws</h1>
+                    <p class="text-primary-100 text-sm">Management Dashboard</p>
+                </div>
+                <div class="flex gap-3">
+                    <a href="{% url 'constitution_bylaws' %}"
+                       class="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm font-medium border border-white/30 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                        View Document
+                    </a>
+                    <a href="{% url 'cnb_create_resolution' %}"
+                       class="inline-flex items-center gap-2 bg-white text-primary-700 hover:bg-primary-50 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        New Resolution
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 text-center">
+                <p class="text-3xl font-bold text-primary-600 dark:text-primary-400">{{ draft_count }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">Draft resolutions</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 text-center">
+                <p class="text-3xl font-bold text-amber-500">{{ pending_count }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">Pending vote</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 text-center">
+                <p class="text-3xl font-bold text-orange-500">{{ protected_sections|length }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">Protected sections</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 text-center">
+                <p class="text-3xl font-bold text-gray-700 dark:text-gray-200">{{ documents|length }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">Documents</p>
+            </div>
+        </div>
+
+        <!-- Governing Documents -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Governing Documents</h2>
+            </div>
+            {% if documents %}
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for doc in documents %}
+                <div class="px-6 py-4 flex items-center justify-between gap-4">
+                    <div>
+                        <p class="font-medium text-gray-900 dark:text-gray-100">{{ doc.title }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            {{ doc.articles.count }} article{{ doc.articles.count|pluralize }}
+                            {% if doc.last_reviewed %}· Reviewed {{ doc.last_reviewed|date:"M j, Y" }}{% endif %}
+                        </p>
+                    </div>
+                    <a href="{% url 'cnb_manage_document' doc_type=doc.doc_type %}"
+                       class="flex-shrink-0 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
+                        Manage →
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                No documents yet. Contact your administrator to seed the initial document structure.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Protected Sections -->
+        {% if protected_sections %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-orange-100 dark:border-orange-900/30 bg-orange-50 dark:bg-orange-900/20">
+                <h2 class="text-base font-semibold text-orange-700 dark:text-orange-400 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                    Amendment-Protected Sections
+                </h2>
+            </div>
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for section in protected_sections %}
+                <div class="px-6 py-4">
+                    <p class="font-medium text-gray-900 dark:text-gray-100 text-sm">{{ section.full_identifier }}</p>
+                    <p class="text-xs text-orange-600 dark:text-orange-400 mt-0.5">
+                        Protected until {{ section.protected_until|date:"M j, Y" }}
+                    </p>
+                    {% if section.protection_note %}
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ section.protection_note }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Recent Resolutions -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Resolutions</h2>
+                <a href="{% url 'cnb_resolution_list' %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">
+                    View all →
+                </a>
+            </div>
+            {% if resolutions %}
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for resolution in resolutions|slice:":8" %}
+                <a href="{% url 'cnb_resolution_detail' resolution_id=resolution.pk %}"
+                   class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors block">
+                    <div class="min-w-0">
+                        <p class="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{{ resolution.title }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            {{ resolution.get_resolution_type_display }}
+                            {% if resolution.vote_date %}· Vote: {{ resolution.vote_date|date:"M j, Y" }}{% endif %}
+                            · {{ resolution.amendments.count }} amendment{{ resolution.amendments.count|pluralize }}
+                        </p>
+                    </div>
+                    <span class="flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold
+                        {% if resolution.status == 'draft' %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300
+                        {% elif resolution.status == 'pending' %}bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400
+                        {% elif resolution.status == 'passed' %}bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400
+                        {% elif resolution.status == 'failed' %}bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400
+                        {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400{% endif %}">
+                        {{ resolution.get_status_display }}
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="px-6 py-8 text-center">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">No resolutions yet.</p>
+                <a href="{% url 'cnb_create_resolution' %}"
+                   class="inline-flex items-center gap-2 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Create your first resolution
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+    </div>
+</div>
+{% endblock %}

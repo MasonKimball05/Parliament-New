@@ -2,12 +2,12 @@
 
 {% block title %}Manage Report - {{ report.title }}{% endblock %}
 
-{% block content %}
-<div class="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 -m-8 p-8 min-h-screen transition-colors duration-200">
-  <div class="max-w-7xl mx-auto">
+{% block admin_content %}
+<div class="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 min-h-screen transition-colors duration-200">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
     <!-- Header Bar -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200">
       <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <!-- Left: Back + Title -->
         <div class="flex items-start space-x-4">
@@ -39,7 +39,7 @@
               </span>
               {% endif %}
               <!-- Category -->
-              <span class="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200">
+              <span class="px-3 py-1 rounded-full text-xs font-semibold bg-primary-100 dark:bg-primary-900/50 text-primary-800 dark:text-primary-200">
                 {{ report.get_category_display }}
               </span>
             </div>
@@ -48,6 +48,7 @@
 
         <!-- Right: Quick Actions -->
         <div class="flex flex-wrap items-center gap-2">
+          {% if kai_access.can_edit_open_cases %}
           {% if report.status == 'pending' %}
           <form method="post" class="inline">
             {% csrf_token %}
@@ -71,8 +72,9 @@
             </button>
           </form>
           {% endif %}
+          {% endif %}
 
-          {% if report.status != 'archived' %}
+          {% if kai_access.can_close_cases and report.status != 'archived' %}
           <form method="post" class="inline">
             {% csrf_token %}
             <input type="hidden" name="action" value="archive">
@@ -103,7 +105,7 @@
       <div class="lg:col-span-2 space-y-6">
 
         <!-- Report Content Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">
           <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
             <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Report Details</h2>
           </div>
@@ -117,19 +119,23 @@
             {% if report.targeted_to %}
             <div>
               <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Directed To</h3>
+              {% if kai_access.can_view_accused_identity %}
               <div class="flex items-center space-x-2 text-gray-700 dark:text-gray-300">
-                <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
-                  <span class="text-blue-600 dark:text-blue-400 font-semibold text-sm">{{ report.targeted_to.name|slice:":1"|upper }}</span>
+                <div class="w-8 h-8 bg-primary-100 dark:bg-primary-900/50 rounded-full flex items-center justify-center">
+                  <span class="text-primary-600 dark:text-primary-400 font-semibold text-sm">{{ report.targeted_to.name|slice:":1"|upper }}</span>
                 </div>
                 <span>{{ report.targeted_to.name }}</span>
               </div>
+              {% else %}
+              <span class="text-sm text-gray-400 dark:text-gray-500 italic">Redacted</span>
+              {% endif %}
             </div>
             {% endif %}
 
             {% if report.attachment %}
             <div>
               <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Attachment</h3>
-              <a href="{{ report.attachment.url }}" target="_blank" class="inline-flex items-center px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition">
+              <a href="{{ report.attachment.url }}" target="_blank" class="inline-flex items-center px-4 py-2 bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/50 transition">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                 </svg>
@@ -148,7 +154,7 @@
                   <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ response.field.label }}</p>
                   <div class="text-gray-700 dark:text-gray-300">
                     {% if response.field.field_type == 'file' and response.file_value %}
-                      <a href="{{ response.file_value.url }}" target="_blank" class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                      <a href="{{ response.file_value.url }}" target="_blank" class="inline-flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
                         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                         </svg>
@@ -175,13 +181,14 @@
         </div>
 
         <!-- Deliberation & Notes Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">
           <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
             <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Deliberation & Notes</h2>
           </div>
           <div class="p-6 space-y-6">
 
             <!-- Deliberation Outcome -->
+            {% if kai_access.can_edit_open_cases %}
             <div class="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
               <form method="post" id="deliberationForm">
                 {% csrf_token %}
@@ -191,7 +198,7 @@
                   <div>
                     <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Deliberation Outcome</label>
                     <select name="deliberation_outcome" id="deliberationOutcome"
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
                       <option value="pending" {% if report.deliberation_outcome == 'pending' %}selected{% endif %}>Pending Deliberation</option>
                       <option value="under_investigation" {% if report.deliberation_outcome == 'under_investigation' %}selected{% endif %}>Under Investigation</option>
                       <option value="scheduled" {% if report.deliberation_outcome == 'scheduled' %}selected{% endif %}>Scheduled for Hearing</option>
@@ -222,7 +229,7 @@
                   </label>
                   <textarea name="committee_notes" id="committeeNotesField" rows="3"
                             placeholder="Sanctions applied, hearing details, committee decisions..."
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">{{ report.committee_notes }}</textarea>
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">{{ report.committee_notes }}</textarea>
                 </div>
 
                 <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium text-sm">
@@ -230,22 +237,26 @@
                 </button>
               </form>
             </div>
+            {% endif %}
 
             <!-- Chair Notes -->
+            {% if kai_access.can_add_activity %}
             <div>
               <form method="post">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="update_notes">
                 <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Chair Notes</label>
                 <textarea name="chair_notes" rows="3" placeholder="Private notes about this report..."
-                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm mb-3">{{ report.chair_notes }}</textarea>
-                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm mb-3">{{ report.chair_notes }}</textarea>
+                <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium text-sm">
                   Save Notes
                 </button>
               </form>
             </div>
+            {% endif %}
 
             <!-- Notify Accused -->
+            {% if kai_access.can_edit_open_cases and kai_access.can_view_accused_identity %}
             <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
               <div class="flex items-center justify-between mb-3">
                 <div>
@@ -262,7 +273,7 @@
                     Notified {{ report.accused_notified_at|date:"M d, Y" }}
                   </span>
                   {% if report.accused_email_viewed_at %}
-                  <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-full text-xs font-semibold flex items-center" title="Email opened on {{ report.accused_email_viewed_at|date:'M d, Y g:i A' }}">
+                  <span class="px-3 py-1 bg-primary-100 dark:bg-primary-900/50 text-primary-800 dark:text-primary-200 rounded-full text-xs font-semibold flex items-center" title="Email opened on {{ report.accused_email_viewed_at|date:'M d, Y g:i A' }}">
                     <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
@@ -294,12 +305,12 @@
                           Select Accused Person
                         </label>
                         <label class="flex items-center space-x-1.5 cursor-pointer select-none">
-                          <input type="checkbox" id="showInactiveMembers" class="h-3.5 w-3.5 text-blue-600 border-gray-300 dark:border-gray-600 rounded">
+                          <input type="checkbox" id="showInactiveMembers" class="h-3.5 w-3.5 text-primary-600 border-gray-300 dark:border-gray-600 rounded">
                           <span class="text-xs text-gray-500 dark:text-gray-400">Show inactive members</span>
                         </label>
                       </div>
                       <select name="accused_id" id="accusedSelect"
-                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
+                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
                         <option value="">-- Select Member --</option>
                         {% for member in all_members %}
                         <option value="{{ member.user_id }}"
@@ -320,7 +331,7 @@
                       <input type="email" name="accused_email" id="accusedEmail"
                              value="{% if report.targeted_to %}{{ report.targeted_to.email|default:'' }}{% endif %}"
                              placeholder="Enter or update email address..."
-                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
+                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
                     </div>
                   </div>
 
@@ -332,7 +343,7 @@
                       No accused person currently set
                       {% endif %}
                     </p>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
+                    <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium text-sm">
                       {% if report.targeted_to %}Update Accused{% else %}Set Accused Person{% endif %}
                     </button>
                   </div>
@@ -347,7 +358,7 @@
                     <div class="flex items-center space-x-2 text-xs">
                       <span class="text-green-600 dark:text-green-400">{{ report.accused_notified_at|date:"M d, Y g:i A" }}</span>
                       {% if report.accused_email_viewed_at %}
-                      <span class="flex items-center text-blue-600 dark:text-blue-400">
+                      <span class="flex items-center text-primary-600 dark:text-primary-400">
                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                         </svg>
@@ -393,16 +404,17 @@
                   {% endif %}
                 </form>
               {% else %}
-                <div class="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
-                  <p class="text-sm text-blue-800 dark:text-blue-200">
+                <div class="p-4 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-700 rounded-lg">
+                  <p class="text-sm text-primary-800 dark:text-primary-200">
                     Select a member above to set them as the accused person, then you can send them a notification.
                   </p>
                 </div>
               {% endif %}
             </div>
+            {% endif %}{# end can_edit_open_cases and can_view_accused_identity #}
 
             <!-- Notify Submitter -->
-            {% if not report.closed_by_accused_request %}
+            {% if not report.closed_by_accused_request and kai_access.can_edit_open_cases and kai_access.can_view_submitter_identity %}
             <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
@@ -429,7 +441,7 @@
                   Notified {{ report.submitter_notified_at|date:"M d, Y" }}
                 </span>
                 {% if report.submitter_email_viewed_at %}
-                <span class="flex items-center text-blue-600 dark:text-blue-400" title="Email opened on {{ report.submitter_email_viewed_at|date:'M d, Y g:i A' }}">
+                <span class="flex items-center text-primary-600 dark:text-primary-400" title="Email opened on {{ report.submitter_email_viewed_at|date:'M d, Y g:i A' }}">
                   <svg class="w-3 h-3 mr-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                   </svg>
@@ -451,8 +463,8 @@
         </div>
 
         <!-- Closure/Drop Requests Card -->
-        {% if closure_requests %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors duration-200">
+        {% if closure_requests and kai_access.can_close_cases %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">
           <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
             <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center">
               <svg class="w-5 h-5 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -475,7 +487,7 @@
                   <div class="flex items-center space-x-2 mb-1">
                     <span class="px-2 py-0.5 text-xs font-semibold rounded
                       {% if cr.request_type == 'drop' %}bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200
-                      {% else %}bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200{% endif %}">
+                      {% else %}bg-primary-100 dark:bg-primary-900/50 text-primary-800 dark:text-primary-200{% endif %}">
                       {% if cr.request_type == 'drop' %}Drop Request{% else %}Closure Request{% endif %}
                     </span>
                   </div>
@@ -505,7 +517,7 @@
                 <div class="mb-3">
                   <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Review Notes (optional for approval, required for denial)</label>
                   <textarea id="review_notes_{{ cr.id }}" rows="2" placeholder="Add notes about your decision..."
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"></textarea>
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"></textarea>
                 </div>
                 <div class="flex items-center space-x-2">
                   <form method="post" class="inline" onsubmit="return submitClosureForm(this, {{ cr.id }}, 'approve');">
@@ -555,7 +567,7 @@
         {% endif %}
 
         <!-- Related Reports Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">
           <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
             <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Related Reports</h2>
             <span class="text-sm text-gray-500 dark:text-gray-400">{{ related_reports|length }} linked</span>
@@ -566,11 +578,11 @@
               {% for related in related_reports %}
               <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                 <div class="flex-1 min-w-0">
-                  <a href="{% url 'manage_kai_report' related.id %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm truncate block">
+                  <a href="{% url 'manage_kai_report' related.id %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium text-sm truncate block">
                     #{{ related.id }} - {{ related.title }}
                   </a>
                   <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {{ related.submitted_by.name }} • {{ related.submitted_at|date:"M d, Y" }}
+                    {% if kai_access.can_view_submitter_identity %}{{ related.submitted_by.name }}{% else %}Anonymous{% endif %} • {{ related.submitted_at|date:"M d, Y" }}
                   </p>
                 </div>
                 <form method="post" class="ml-2">
@@ -594,13 +606,13 @@
               {% csrf_token %}
               <input type="hidden" name="action" value="link_report">
               <select name="related_report_id" required
-                      class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                      class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                 <option value="">Select a report to link...</option>
                 {% for avail in available_reports %}
                 <option value="{{ avail.id }}">#{{ avail.id }} - {{ avail.title|truncatechars:40 }}</option>
                 {% endfor %}
               </select>
-              <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm whitespace-nowrap">
+              <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium text-sm whitespace-nowrap">
                 Link
               </button>
             </form>
@@ -615,19 +627,23 @@
       <div class="space-y-6">
 
         <!-- Report Info Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">
           <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
             <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Info</h2>
           </div>
           <div class="p-6 space-y-4">
             <div>
               <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Submitted By</p>
+              {% if kai_access.can_view_submitter_identity %}
               <div class="flex items-center space-x-2 mt-1">
                 <div class="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
                   <span class="text-gray-600 dark:text-gray-300 font-semibold text-sm">{{ report.submitted_by.name|slice:":1"|upper }}</span>
                 </div>
                 <span class="text-gray-800 dark:text-gray-200 font-medium">{{ report.submitted_by.name }}</span>
               </div>
+              {% else %}
+              <p class="text-gray-400 dark:text-gray-500 text-sm italic mt-1">Redacted</p>
+              {% endif %}
             </div>
 
             <div>
@@ -647,7 +663,7 @@
         </div>
 
         <!-- Tags Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">
           <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
             <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Tags</h2>
           </div>
@@ -655,24 +671,26 @@
             {% if report.get_tags_list %}
             <div class="flex flex-wrap gap-2 mb-4">
               {% for tag in report.get_tags_list %}
-              <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-full text-sm">{{ tag }}</span>
+              <span class="px-3 py-1 bg-primary-100 dark:bg-primary-900/50 text-primary-800 dark:text-primary-200 rounded-full text-sm">{{ tag }}</span>
               {% endfor %}
             </div>
             {% endif %}
+            {% if kai_access.can_edit_open_cases %}
             <form method="post">
               {% csrf_token %}
               <input type="hidden" name="action" value="update_tags">
               <input type="text" name="tags" value="{{ report.tags|join:', ' }}" placeholder="urgent, academic, follow-up..."
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm mb-2">
-              <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm mb-2">
+              <button type="submit" class="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium text-sm">
                 Update Tags
               </button>
             </form>
+            {% endif %}
           </div>
         </div>
 
         <!-- Activity Timeline Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">
           <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
             <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Activity</h2>
           </div>
@@ -684,7 +702,7 @@
                 <!-- Timeline dot -->
                 <div class="flex-shrink-0 mt-1">
                   <div class="w-2 h-2 rounded-full
-                    {% if activity.action == 'created' %}bg-blue-500
+                    {% if activity.action == 'created' %}bg-primary-500
                     {% elif activity.action == 'status_changed' %}bg-green-500
                     {% elif activity.action == 'deliberation_updated' %}bg-purple-500
                     {% elif activity.action == 'archived' or activity.action == 'minutes_closed' %}bg-gray-500

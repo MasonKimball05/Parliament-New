@@ -1,19 +1,22 @@
 {% extends 'slating/base_slating.html' %}
 
 {% block page_header %}
-<div class="flex items-center justify-between flex-wrap gap-3">
-    <div>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Officer Slating</h1>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Officer elections and nominations</p>
+<div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
+    <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
+    <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold">Officer Slating</h1>
+            <p class="text-sm text-white/75 mt-0.5">Officer elections and nominations</p>
+        </div>
+        {% if user.is_admin %}
+        <a href="{% url 'slating_create_period' %}" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/20 hover:bg-white/30 text-white transition">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            New Election Period
+        </a>
+        {% endif %}
     </div>
-    {% if user.is_admin %}
-    <a href="{% url 'slating_create_period' %}" class="inline-flex items-center px-4 py-2 rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 transition-colors">
-        <svg class="-ml-0.5 mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-        </svg>
-        New Election Period
-    </a>
-    {% endif %}
 </div>
 {% endblock %}
 
@@ -55,12 +58,12 @@
                             {% elif period.status == 'voting_open' and period.can_vote %}
                             {% if period.vote_type == 'individual' %}
                             <a href="{% url 'slating_vote_individual' period_id=period.id %}"
-                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-primary-600 hover:bg-primary-700 text-white transition-colors">
                                 Cast Vote
                             </a>
                             {% else %}
                             <a href="{% url 'slating_vote' period_id=period.id %}"
-                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-primary-600 hover:bg-primary-700 text-white transition-colors">
                                 Cast Vote
                             </a>
                             {% endif %}

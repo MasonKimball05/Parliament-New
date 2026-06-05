@@ -11,7 +11,7 @@
     </div>
 
     <!-- Form -->
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden">
         <form method="post" class="p-6 space-y-6" id="create-form">
             {% csrf_token %}
 
@@ -26,7 +26,7 @@
                     </label>
                     <input type="text" name="name" id="{{ form.name.id_for_label }}"
                            value="{{ form.name.value|default:'' }}"
-                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                            placeholder="e.g., Finance Committee" required>
                     {% if form.name.errors %}
                     <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.name.errors.0 }}</p>
@@ -40,7 +40,7 @@
                     </label>
                     <input type="text" name="code" id="{{ form.code.id_for_label }}"
                            value="{{ form.code.value|default:'' }}"
-                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase"
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent uppercase"
                            placeholder="e.g., FIN" maxlength="20" required>
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Short unique code for the committee (will be converted to uppercase)</p>
                     {% if form.code.errors %}
@@ -54,7 +54,7 @@
                         Admin Role
                     </label>
                     <select name="role" id="{{ form.role.id_for_label }}"
-                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         <option value="">No admin role (manual management)</option>
                         {% for role in roles %}
                         <option value="{{ role.id }}" {% if form.role.value == role.id %}selected{% endif %}>{{ role.name }}</option>
@@ -75,7 +75,7 @@
                     <!-- Ad Hoc Checkbox -->
                     <label class="flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition flex-1">
                         <input type="checkbox" name="is_ad_hoc" id="{{ form.is_ad_hoc.id_for_label }}"
-                               class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded"
+                               class="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded"
                                {% if form.is_ad_hoc.value %}checked{% endif %}>
                         <div class="ml-3">
                             <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Ad Hoc Committee</span>
@@ -106,7 +106,7 @@
                         Committee Chairs
                     </label>
                     <select name="initial_chairs" id="initial_chairs" multiple
-                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                             size="5">
                         {% for member in members %}
                         <option value="{{ member.user_id }}">{{ member.name }}</option>
@@ -121,7 +121,7 @@
                         Committee Members
                     </label>
                     <select name="initial_members" id="initial_members" multiple
-                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                             size="8">
                         {% for member in members %}
                         <option value="{{ member.user_id }}">{{ member.name }}</option>
@@ -152,7 +152,7 @@
 
     <!-- Back Link -->
     <div class="mt-6">
-        <a href="{% url 'committee_index' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
+        <a href="{% url 'committee_index' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium">
             &larr; Back to Committees
         </a>
     </div>

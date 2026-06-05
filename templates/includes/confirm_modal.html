@@ -23,7 +23,7 @@ Or for inline delete buttons with dynamic URLs:
      role="dialog"
      aria-modal="true"
      aria-labelledby="{{ modal_id|default:'confirmModal' }}-title">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full mx-4 overflow-hidden transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm max-w-md w-full mx-4 overflow-hidden transition-colors duration-200">
         <!-- Header -->
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 {% if danger %}bg-red-50 dark:bg-red-900/20{% else %}bg-gray-50 dark:bg-gray-700{% endif %}">
             <div class="flex items-center">
@@ -70,14 +70,14 @@ Or for inline delete buttons with dynamic URLs:
                     {{ form_fields }}
                 {% endif %}
                 <button type="submit"
-                        class="px-4 py-2 {{ confirm_class|default:'bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600' }} text-white rounded-lg transition font-medium">
+                        class="px-4 py-2 {{ confirm_class|default:'bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600' }} text-white rounded-lg transition font-medium">
                     {{ confirm_text|default:'Confirm' }}
                 </button>
             </form>
             {% else %}
             <button type="button"
                     id="{{ modal_id|default:'confirmModal' }}-confirm"
-                    class="px-4 py-2 {{ confirm_class|default:'bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600' }} text-white rounded-lg transition font-medium">
+                    class="px-4 py-2 {{ confirm_class|default:'bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600' }} text-white rounded-lg transition font-medium">
                 {{ confirm_text|default:'Confirm' }}
             </button>
             {% endif %}

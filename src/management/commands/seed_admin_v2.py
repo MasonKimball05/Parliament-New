@@ -264,7 +264,7 @@ class Command(BaseCommand):
                 'disabled_message': 'Chat is temporarily unavailable.'
             },
             {
-                'url_name': 'kai_dashboard',
+                'url_name': 'view_kai_reports',
                 'display_name': 'KAI Dashboard',
                 'description': 'KAI reporting dashboard',
                 'is_enabled': True,

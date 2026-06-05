@@ -30,7 +30,7 @@
     <div class="mb-8">
         <div class="flex items-center mb-4">
             <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 rounded-lg flex items-center justify-center mr-4">
-                <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-6 h-6 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                 </svg>
             </div>
@@ -47,13 +47,13 @@
         <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <h3 class="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-2">Quick Actions</h3>
             <div class="flex flex-wrap gap-2">
-                <a href="{% url 'calendar' %}" class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors">
+                <a href="{% url 'calendar' %}" class="inline-flex items-center px-3 py-1.5 bg-primary-600 text-white text-sm rounded-md hover:bg-primary-700 transition-colors">
                     <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                     </svg>
                     View Calendar
                 </a>
-                <a href="{% url 'preferences' %}" class="inline-flex items-center px-3 py-1.5 bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 text-sm rounded-md border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
+                <a href="{% url 'preferences' %}" class="inline-flex items-center px-3 py-1.5 bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 text-sm rounded-md border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
                     <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
                     </svg>
@@ -63,10 +63,10 @@
         </div>
 
         <!-- Section: Viewing the Calendar -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
-                    <span class="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-blue-600 dark:text-blue-400">1</span>
+                    <span class="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-primary-600 dark:text-primary-400">1</span>
                     Viewing the Calendar
                 </h2>
             </div>
@@ -108,10 +108,10 @@
         </div>
 
         <!-- Section: Calendar Subscription -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
-                    <span class="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-blue-600 dark:text-blue-400">2</span>
+                    <span class="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-primary-600 dark:text-primary-400">2</span>
                     Calendar Subscription (iCal)
                 </h2>
             </div>
@@ -124,19 +124,19 @@
                     <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">How to subscribe:</h4>
                     <ol class="space-y-3 text-sm text-gray-600 dark:text-gray-400">
                         <li class="flex items-start">
-                            <span class="w-6 h-6 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-blue-600 dark:text-blue-400 flex-shrink-0">1</span>
+                            <span class="w-6 h-6 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-primary-600 dark:text-primary-400 flex-shrink-0">1</span>
                             <span>Go to your <strong class="text-gray-900 dark:text-gray-100">Preferences</strong> page</span>
                         </li>
                         <li class="flex items-start">
-                            <span class="w-6 h-6 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-blue-600 dark:text-blue-400 flex-shrink-0">2</span>
+                            <span class="w-6 h-6 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-primary-600 dark:text-primary-400 flex-shrink-0">2</span>
                             <span>Find the <strong class="text-gray-900 dark:text-gray-100">Calendar Subscription</strong> section</span>
                         </li>
                         <li class="flex items-start">
-                            <span class="w-6 h-6 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-blue-600 dark:text-blue-400 flex-shrink-0">3</span>
+                            <span class="w-6 h-6 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-primary-600 dark:text-primary-400 flex-shrink-0">3</span>
                             <span>Copy your personal subscription URL</span>
                         </li>
                         <li class="flex items-start">
-                            <span class="w-6 h-6 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-blue-600 dark:text-blue-400 flex-shrink-0">4</span>
+                            <span class="w-6 h-6 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-primary-600 dark:text-primary-400 flex-shrink-0">4</span>
                             <span>Add this URL to your calendar app as a subscription</span>
                         </li>
                     </ol>
@@ -151,10 +151,10 @@
         </div>
 
         <!-- Section: Adding to Google Calendar -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
-                    <span class="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-blue-600 dark:text-blue-400">3</span>
+                    <span class="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-primary-600 dark:text-primary-400">3</span>
                     Adding to Popular Calendar Apps
                 </h2>
             </div>
@@ -195,7 +195,7 @@
                     <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                         <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2 flex items-center">
                             <span class="w-6 h-6 bg-blue-100 dark:bg-blue-900/50 rounded mr-2 flex items-center justify-center">
-                                <span class="text-blue-600 dark:text-blue-400 text-xs font-bold">O</span>
+                                <span class="text-primary-600 dark:text-primary-400 text-xs font-bold">O</span>
                             </span>
                             Outlook
                         </h4>
@@ -211,10 +211,10 @@
         </div>
 
         <!-- Section: Regenerating Token -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
-                    <span class="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-blue-600 dark:text-blue-400">4</span>
+                    <span class="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-primary-600 dark:text-primary-400">4</span>
                     Regenerating Your Calendar Token
                 </h2>
             </div>

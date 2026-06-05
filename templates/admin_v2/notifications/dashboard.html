@@ -1,44 +1,42 @@
-{% extends "base.html" %}
+{% extends "admin_v2/base.html" %}
 {% load static %}
 
 {% block title %}Notification Settings - Admin v2{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8 max-w-full">
     <!-- Header -->
-    <div class="bg-gradient-to-r from-indigo-600 to-indigo-800 dark:from-indigo-700 dark:to-indigo-900 rounded-lg shadow-lg p-6 mb-8">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8 transition-colors duration-200">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-                <h1 class="text-3xl font-bold text-white mb-2">Notification Settings</h1>
-                <p class="text-indigo-100">Manage notification schedules and view delivery logs</p>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">Notification Settings</h1>
+                <p class="text-gray-600 dark:text-gray-400 text-sm">Manage notification schedules and view delivery logs</p>
             </div>
-            <div class="flex gap-3">
-                <a href="{% url 'admin_v2_dashboard' %}"
-                   class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors flex items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                    </svg>
-                    Back to Dashboard
-                </a>
-            </div>
+            <a href="{% url 'admin_v2_dashboard' %}"
+               class="inline-flex items-center gap-1.5 text-sm text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors self-start">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                Back to Dashboard
+            </a>
         </div>
     </div>
 
     <!-- Quick Stats -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div class="bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-lg shadow-md p-4 text-white">
+        <div class="bg-gradient-to-br from-primary-500 to-primary-600 dark:from-primary-600 dark:to-primary-700 rounded-xl shadow-sm p-4 text-white">
             <div class="text-3xl font-bold">{{ stats.total_schedules }}</div>
             <div class="text-sm opacity-90">Total Schedules</div>
         </div>
-        <div class="bg-gradient-to-br from-green-500 to-green-600 dark:from-green-600 dark:to-green-700 rounded-lg shadow-md p-4 text-white">
+        <div class="bg-gradient-to-br from-green-500 to-green-600 dark:from-green-600 dark:to-green-700 rounded-xl shadow-sm p-4 text-white">
             <div class="text-3xl font-bold">{{ stats.active_schedules }}</div>
             <div class="text-sm opacity-90">Active Schedules</div>
         </div>
-        <div class="bg-gradient-to-br from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 rounded-lg shadow-md p-4 text-white">
+        <div class="bg-gradient-to-br from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 rounded-xl shadow-sm p-4 text-white">
             <div class="text-3xl font-bold">{{ stats.logs_today }}</div>
             <div class="text-sm opacity-90">Sent Today</div>
         </div>
-        <div class="bg-gradient-to-br from-red-500 to-red-600 dark:from-red-600 dark:to-red-700 rounded-lg shadow-md p-4 text-white">
+        <div class="bg-gradient-to-br from-red-500 to-red-600 dark:from-red-600 dark:to-red-700 rounded-xl shadow-sm p-4 text-white">
             <div class="text-3xl font-bold">{{ stats.failed_today }}</div>
             <div class="text-sm opacity-90">Failed Today</div>
         </div>
@@ -47,7 +45,7 @@
     <!-- Navigation Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <!-- Schedules Card -->
-        <a href="{% url 'admin_v2_notification_schedules' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+        <a href="{% url 'admin_v2_notification_schedules' %}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
             <div class="flex items-center mb-4">
                 <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg flex items-center justify-center mr-4">
                     <svg class="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -65,7 +63,7 @@
         </a>
 
         <!-- Logs Card -->
-        <a href="{% url 'admin_v2_notification_logs' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+        <a href="{% url 'admin_v2_notification_logs' %}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
             <div class="flex items-center mb-4">
                 <div class="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/50 rounded-lg flex items-center justify-center mr-4">
                     <svg class="w-6 h-6 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -84,7 +82,7 @@
     </div>
 
     <!-- Recent Activity -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Recent Notifications</h2>
         </div>
@@ -124,7 +122,7 @@
         </div>
         {% if recent_logs %}
         <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700">
-            <a href="{% url 'admin_v2_notification_logs' %}" class="text-indigo-600 dark:text-indigo-400 hover:underline text-sm">
+            <a href="{% url 'admin_v2_notification_logs' %}" class="text-primary-600 dark:text-primary-400 hover:underline text-sm">
                 View all logs &rarr;
             </a>
         </div>

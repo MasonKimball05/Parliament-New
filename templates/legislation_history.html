@@ -12,19 +12,19 @@
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">Your legislation submissions and polls</p>
 
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 text-center border-l-4 border-gray-400">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center border-l-4 border-gray-400">
                 <div class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ status_counts.all }}</div>
                 <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium uppercase tracking-wide">Bills Total</div>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 text-center border-l-4 border-green-500">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center border-l-4 border-green-500">
                 <div class="text-3xl font-bold text-green-600 dark:text-green-400">{{ status_counts.passed }}</div>
                 <div class="text-xs text-green-700 dark:text-green-400 mt-1 font-medium uppercase tracking-wide">Passed</div>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 text-center border-l-4 border-red-500">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center border-l-4 border-red-500">
                 <div class="text-3xl font-bold text-red-500 dark:text-red-400">{{ status_counts.failed }}</div>
                 <div class="text-xs text-red-600 dark:text-red-400 mt-1 font-medium uppercase tracking-wide">Failed</div>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 text-center border-l-4 border-purple-500">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center border-l-4 border-purple-500">
                 <div class="text-3xl font-bold text-purple-600 dark:text-purple-400">{{ my_polls|length }}</div>
                 <div class="text-xs text-purple-600 dark:text-purple-400 mt-1 font-medium uppercase tracking-wide">Polls Created</div>
             </div>
@@ -49,13 +49,13 @@
     <div id="section-legislation">
 
         <!-- Filter Buttons -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md mb-5 p-1 flex flex-wrap gap-1">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-5 p-1 flex flex-wrap gap-1">
             <a href="?status=all"
                class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors {% if status_filter == 'all' %}bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100{% else %}text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50{% endif %}">
                 All <span class="ml-1 text-xs opacity-60">{{ status_counts.all }}</span>
             </a>
             <a href="?status=active"
-               class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors {% if status_filter == 'active' %}bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300{% else %}text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50{% endif %}">
+               class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors {% if status_filter == 'active' %}bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300{% else %}text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50{% endif %}">
                 Active / Pending <span class="ml-1 text-xs opacity-60">{{ status_counts.active }}</span>
             </a>
             <a href="?status=passed"
@@ -74,7 +74,7 @@
 
         <!-- Empty State -->
         {% if not legislation_history %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-10 text-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-10 text-center">
             <svg class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
@@ -82,14 +82,14 @@
                 {% if status_filter == 'all' %}You haven't submitted or co-authored any legislation yet.{% else %}No {{ status_filter }} legislation found.{% endif %}
             </p>
             {% if status_filter != 'all' %}
-            <a href="?status=all" class="text-sm text-blue-600 dark:text-blue-400 hover:underline mt-2 inline-block">View all</a>
+            <a href="?status=all" class="text-sm text-primary-600 dark:text-primary-400 hover:underline mt-2 inline-block">View all</a>
             {% endif %}
         </div>
         {% endif %}
 
         <!-- Legislation List -->
         {% if legislation_history %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden divide-y divide-gray-200 dark:divide-gray-700">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden divide-y divide-gray-200 dark:divide-gray-700">
             {% for item in legislation_history %}
             <div class="flex gap-0">
 
@@ -202,9 +202,9 @@
 
                     <!-- Runoff parent link -->
                     {% if item.legislation.plurality_is_runoff and item.legislation.plurality_parent %}
-                    <div class="mb-3 text-xs text-indigo-600 dark:text-indigo-400">
+                    <div class="mb-3 text-xs text-primary-600 dark:text-primary-400">
                         Runoff from:
-                        <a href="{% url 'legislation_detail' item.legislation.plurality_parent.id %}" class="underline hover:text-indigo-800 dark:hover:text-indigo-300">
+                        <a href="{% url 'legislation_detail' item.legislation.plurality_parent.id %}" class="underline hover:text-primary-800 dark:hover:text-primary-300">
                             {{ item.legislation.plurality_parent.title }}
                         </a>
                     </div>
@@ -233,7 +233,7 @@
                             {% if item.winner %}
                             <span class="font-medium text-purple-700 dark:text-purple-300">Winner: {{ item.winner }}</span>
                             {% elif item.legislation.plurality_runoff_enabled %}
-                            <span class="font-medium text-indigo-600 dark:text-indigo-400">Tie — runoff may be required</span>
+                            <span class="font-medium text-primary-600 dark:text-primary-400">Tie — runoff may be required</span>
                             {% endif %}
                             <span class="text-gray-400 dark:text-gray-500 text-xs">{{ item.total_votes }} vote{{ item.total_votes|pluralize }} cast</span>
                             {% if item.legislation.plurality_votes_allowed > 1 %}
@@ -251,8 +251,8 @@
                         {% endif %}
                         <!-- Runoff child link -->
                         {% for runoff in item.legislation.runoff_votes.all %}
-                        <div class="mt-2 text-xs text-indigo-600 dark:text-indigo-400">
-                            Runoff vote: <a href="{% url 'legislation_detail' runoff.id %}" class="underline hover:text-indigo-800 dark:hover:text-indigo-300">{{ runoff.title }}</a>
+                        <div class="mt-2 text-xs text-primary-600 dark:text-primary-400">
+                            Runoff vote: <a href="{% url 'legislation_detail' runoff.id %}" class="underline hover:text-primary-800 dark:hover:text-primary-300">{{ runoff.title }}</a>
                         </div>
                         {% endfor %}
                     </div>
@@ -293,7 +293,7 @@
                         <div class="relative w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                             <div class="h-2 rounded-full transition-all {% if item.passed %}bg-green-500{% else %}bg-red-400{% endif %}" style="width: {{ item.yes_pct_num }}%"></div>
                             {% if item.required_pct %}
-                            <div class="absolute top-0 bottom-0 w-0.5 bg-blue-500 dark:bg-blue-400 rounded" style="left: {{ item.required_pct }}%"></div>
+                            <div class="absolute top-0 bottom-0 w-0.5 bg-primary-500 dark:bg-primary-400 rounded" style="left: {{ item.required_pct }}%"></div>
                             {% endif %}
                         </div>
                         {% if item.required_pct %}
@@ -310,14 +310,14 @@
                         <!-- Links (left) -->
                         <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
                             <a href="{{ item.detail_url }}"
-                               class="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
+                               class="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors">
                                 <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                 View Details
                             </a>
                             {% if item.document_viewer_url %}
                             <span class="text-gray-300 dark:text-gray-600 text-xs">&middot;</span>
                             <a href="{{ item.document_viewer_url }}"
-                               class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
+                               class="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors">
                                 <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                 Document
                             </a>
@@ -337,7 +337,7 @@
                             {% if item.voting_closed and not item.passed %}
                             <form method="POST" action="{% url 'reopen_legislation' item.legislation.id %}" class="contents">
                                 {% csrf_token %}
-                                <button type="submit" class="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+                                <button type="submit" class="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition-colors">
                                     <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                                     Reopen
                                 </button>
@@ -374,7 +374,7 @@
     <div id="section-polls" class="hidden">
 
         {% if not my_polls %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-10 text-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-10 text-center">
             <svg class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
             </svg>
@@ -382,7 +382,7 @@
             <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">Polls are created from the announcement form.</p>
         </div>
         {% else %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden divide-y divide-gray-200 dark:divide-gray-700">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden divide-y divide-gray-200 dark:divide-gray-700">
             {% for poll in my_polls %}
             {% with response_count=poll.responses.count question_count=poll.questions.count accepting=poll.is_accepting_responses %}
             <div class="flex gap-0">
@@ -434,7 +434,7 @@
                     <!-- Action row -->
                     <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
                         <a href="{% url 'poll_results' poll.announcement.id %}"
-                           class="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
+                           class="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors">
                             <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                             View Results
                         </a>

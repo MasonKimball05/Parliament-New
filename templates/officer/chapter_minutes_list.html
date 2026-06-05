@@ -1,8 +1,8 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 
 {% block title %}Chapter Minutes - Parliament{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8">
     <!-- Header -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -11,7 +11,7 @@
             <p class="text-gray-600 dark:text-gray-400 mt-1">Record and manage chapter meeting minutes</p>
         </div>
         <button type="button" onclick="document.getElementById('createModal').classList.remove('hidden')"
-                class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium py-2.5 px-6 rounded-lg transition flex items-center gap-2">
+                class="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2.5 px-6 rounded-lg transition flex items-center gap-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
@@ -21,7 +21,7 @@
 
     <!-- Minutes List -->
     {% if minutes_list %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="divide-y divide-gray-200 dark:divide-gray-700">
             {% for m in minutes_list %}
             <a href="{% url 'edit_chapter_minutes' m.id %}" class="block p-4 sm:p-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
@@ -86,7 +86,7 @@
         </div>
     </div>
     {% else %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
         <svg class="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
@@ -115,24 +115,24 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title <span class="text-red-500">*</span></label>
                         <input type="text" name="title" required placeholder="e.g. Chapter Meeting"
-                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date <span class="text-red-500">*</span></label>
                             <input type="date" name="date" required id="createDate"
-                                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time <span class="text-red-500">*</span></label>
                             <input type="time" name="start_time" required
-                                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         </div>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Link to Event <span class="text-gray-400">(optional)</span></label>
                         <select name="event"
-                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                             <option value="">-- No event --</option>
                             {% for event in events %}
                             <option value="{{ event.id }}">{{ event.title }} ({{ event.date_time|date:"M j, Y" }})</option>
@@ -146,7 +146,7 @@
                         Cancel
                     </button>
                     <button type="submit"
-                            class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition">
+                            class="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-6 rounded-lg transition">
                         Create Minutes
                     </button>
                 </div>

@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+{% extends "admin_v2/base.html" %}
 
 {% block title %}Manage Users - Admin v2{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <div class="flex items-center justify-between">
             <div>
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">👥 Manage Users</h1>
@@ -14,7 +14,7 @@
         </div>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <form method="get" class="flex flex-wrap gap-4">
             <div class="flex-1 min-w-[200px]">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Search</label>
@@ -56,13 +56,13 @@
                 </select>
             </div>
             <div class="flex items-end gap-2">
-                <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Filter</button>
+                <button type="submit" class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg">Filter</button>
                 <a href="{% url 'admin_v2_manage_users' %}" class="px-6 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg">Clear</a>
             </div>
         </form>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
         <table class="w-full">
             <thead class="bg-gray-50 dark:bg-gray-700">
@@ -84,7 +84,7 @@
                             <div class="flex items-center space-x-3">
                                 {% if user.profile_picture %}
                                 <button type="button" onclick="showProfilePicture('{{ user.profile_picture.url }}', '{{ user.get_display_name }}')" class="flex-shrink-0">
-                                    <img src="{{ user.profile_picture.url }}" alt="{{ user.get_display_name }}" class="w-8 h-8 rounded-full object-cover ring-2 ring-blue-400 cursor-pointer hover:ring-blue-600 transition">
+                                    <img src="{{ user.profile_picture.url }}" alt="{{ user.get_display_name }}" class="w-8 h-8 rounded-full object-cover ring-2 ring-primary-400 cursor-pointer hover:ring-primary-600 transition">
                                 </button>
                                 {% else %}
                                 <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
@@ -131,10 +131,10 @@
                         </td>
                         <td class="px-4 py-4">
                             <div class="flex items-center gap-2">
-                                <a href="{% url 'admin_v2_edit_user_profile' user.user_id %}" class="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded" title="Edit member profile">
+                                <a href="{% url 'admin_v2_edit_user_profile' user.user_id %}" class="px-3 py-1.5 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded" title="Edit member profile">
                                     ✏️ Edit Profile
                                 </a>
-                                <a href="{% url 'admin_v2_user_login_security' user.user_id %}" class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded" title="View login security information">
+                                <a href="{% url 'admin_v2_user_login_security' user.user_id %}" class="px-3 py-1.5 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded" title="View login security information">
                                     🔒 Login Info
                                 </a>
                                 <form method="post" action="{% url 'admin_v2_toggle_user_admin' user.user_id %}" class="inline">
@@ -165,7 +165,7 @@
                 <div class="text-sm text-gray-700 dark:text-gray-300">Showing {{ users.start_index }} to {{ users.end_index }} of {{ users.paginator.count }}</div>
                 <div class="flex gap-2">
                     {% if users.has_previous %}<a href="?page={{ users.previous_page_number }}" class="px-3 py-1 bg-white dark:bg-gray-600 border rounded">Previous</a>{% endif %}
-                    <span class="px-3 py-1 bg-blue-600 text-white rounded">{{ users.number }}</span>
+                    <span class="px-3 py-1 bg-primary-600 text-white rounded">{{ users.number }}</span>
                     {% if users.has_next %}<a href="?page={{ users.next_page_number }}" class="px-3 py-1 bg-white dark:bg-gray-600 border rounded">Next</a>{% endif %}
                 </div>
             </div>
@@ -175,7 +175,7 @@
 
 <!-- Profile Picture Modal -->
 <div id="pictureModal" class="fixed inset-0 bg-black bg-opacity-75 hidden z-50 flex items-center justify-center p-4" onclick="closePictureModal(event)">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full overflow-hidden" onclick="event.stopPropagation()">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm max-w-lg w-full overflow-hidden" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between p-4 border-b dark:border-gray-700">
             <h3 id="pictureModalName" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Profile Picture</h3>
             <button onclick="closePictureModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">

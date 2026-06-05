@@ -43,23 +43,23 @@
 <div class="max-w-4xl mx-auto space-y-6">
     {% if period.status == 'voting_open' and is_committee %}
     <!-- Live Voting Banner -->
-    <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+    <div class="bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 rounded-lg p-4">
         <div class="flex items-center justify-between">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <span class="relative flex h-3 w-3">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-primary-500"></span>
                     </span>
                 </div>
                 <div class="ml-3">
-                    <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">Live Results</h3>
-                    <p class="text-sm text-blue-700 dark:text-blue-300">
+                    <h3 class="text-sm font-medium text-primary-800 dark:text-primary-200">Live Results</h3>
+                    <p class="text-sm text-primary-700 dark:text-primary-300">
                         Voting is currently open. This page auto-refreshes every 30 seconds.
                     </p>
                 </div>
             </div>
-            <span class="text-xs text-blue-600 dark:text-blue-400">{{ total_ballots }} vote{{ total_ballots|pluralize }} cast</span>
+            <span class="text-xs text-primary-600 dark:text-primary-400">{{ total_ballots }} vote{{ total_ballots|pluralize }} cast</span>
         </div>
     </div>
     {% elif is_published %}
@@ -99,7 +99,7 @@
     {% endif %}
 
     <!-- Vote Summary -->
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-medium text-gray-900 dark:text-white">Vote Summary</h3>
         </div>
@@ -141,12 +141,12 @@
                 </p>
             </div>
             {% else %}
-            <div class="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 text-center">
-                <svg class="mx-auto h-12 w-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="bg-primary-50 dark:bg-primary-900/30 rounded-lg p-4 text-center">
+                <svg class="mx-auto h-12 w-12 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
-                <h4 class="mt-2 text-lg font-medium text-blue-800 dark:text-blue-200">{{ individual_summary.pending }} Position{{ individual_summary.pending|pluralize }} Pending</h4>
-                <p class="mt-1 text-sm text-blue-700 dark:text-blue-300">
+                <h4 class="mt-2 text-lg font-medium text-primary-800 dark:text-primary-200">{{ individual_summary.pending }} Position{{ individual_summary.pending|pluralize }} Pending</h4>
+                <p class="mt-1 text-sm text-primary-700 dark:text-primary-300">
                     Voting is still open for some positions.
                 </p>
             </div>
@@ -218,7 +218,7 @@
 
     <!-- Rejection Analysis (Committee Only) -->
     {% if is_committee and vote_tally.reject > 0 %}
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-medium text-gray-900 dark:text-white">Rejection Analysis</h3>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -256,7 +256,7 @@
     {% endif %}
 
     <!-- Elected Officers -->
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-medium text-gray-900 dark:text-white">
                 {% if individual_summary %}
@@ -299,7 +299,7 @@
 
     <!-- Individual Position Results -->
     {% if individual_results %}
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-medium text-gray-900 dark:text-white">Individual Position Results</h3>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Each position voted on separately. Requires {{ period.required_approval_percentage }}% approval.</p>
@@ -348,7 +348,7 @@
 
     <!-- Actions -->
     {% if can_publish %}
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg px-4 py-5 sm:p-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-5 sm:p-6">
         <div class="flex flex-wrap gap-3">
             {% if period.status == 'voting_open' %}
             <form method="post" action="{% url 'slating_close_voting' period_id=period.id %}" class="inline">

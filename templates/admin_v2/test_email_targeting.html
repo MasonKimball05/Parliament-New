@@ -1,12 +1,12 @@
-{% extends "base.html" %}
+{% extends "admin_v2/base.html" %}
 {% load static %}
 
 {% block title %}Test Email Targeting - Admin v2{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8 max-w-5xl">
     <!-- Header -->
-    <div class="bg-gradient-to-r from-blue-600 to-blue-800 dark:from-blue-700 dark:to-blue-900 rounded-lg shadow-lg p-6 mb-8">
+    <div class="bg-gradient-to-r from-primary-600 to-primary-800 dark:from-primary-700 dark:to-primary-900 rounded-xl shadow-sm p-6 mb-8">
         <div class="flex items-center justify-between">
             <div>
                 <h1 class="text-2xl font-bold text-white mb-2">Test Email Targeting</h1>
@@ -19,7 +19,7 @@
     </div>
 
     <!-- Test Form -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8">
         <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Select Visibility Settings</h2>
         <form method="POST" class="space-y-4">
             {% csrf_token %}
@@ -28,7 +28,7 @@
                 <label class="flex items-center space-x-2 cursor-pointer">
                     <input type="checkbox" name="visibility" value="{{ option }}"
                            {% if option in selected_visibility %}checked{% endif %}
-                           class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
+                           class="w-5 h-5 text-primary-600 rounded focus:ring-primary-500">
                     <span class="text-gray-700 dark:text-gray-300 font-medium">{{ option }}</span>
                 </label>
                 {% endfor %}
@@ -36,7 +36,7 @@
             <p class="text-sm text-gray-500 dark:text-gray-400">
                 Leave all unchecked to target ALL active users (no visibility restriction)
             </p>
-            <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
+            <button type="submit" class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors">
                 Test Targeting
             </button>
         </form>
@@ -47,23 +47,23 @@
     <div class="space-y-6">
         <!-- Summary Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
                 <div class="text-sm text-gray-500 dark:text-gray-400">Selected Visibility</div>
                 <div class="text-lg font-bold text-gray-800 dark:text-white">
                     {{ results.selected_visibility|join:", " }}
                 </div>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
                 <div class="text-sm text-gray-500 dark:text-gray-400">Expanded Types</div>
                 <div class="text-lg font-bold text-gray-800 dark:text-white">
                     {{ results.expanded_member_types|join:", " }}
                 </div>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
                 <div class="text-sm text-gray-500 dark:text-gray-400">Total Active Users</div>
                 <div class="text-xl font-bold text-gray-800 dark:text-white">{{ results.total_active_users }}</div>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
                 <div class="text-sm text-gray-500 dark:text-gray-400">Users Matching Visibility</div>
                 <div class="text-xl font-bold text-gray-800 dark:text-white">{{ results.total_targeted }}</div>
             </div>
@@ -71,16 +71,16 @@
 
         <!-- Stats Cards -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="bg-green-50 dark:bg-green-900/30 rounded-lg shadow-md p-4 border border-green-200 dark:border-green-800">
+            <div class="bg-green-50 dark:bg-green-900/30 rounded-xl shadow-sm p-4 border border-green-200 dark:border-green-800">
                 <div class="text-sm text-green-600 dark:text-green-400">Would Receive Email</div>
                 <div class="text-3xl font-bold text-green-700 dark:text-green-300">{{ results.would_receive_email }}</div>
             </div>
-            <div class="bg-orange-50 dark:bg-orange-900/30 rounded-lg shadow-md p-4 border border-orange-200 dark:border-orange-800">
+            <div class="bg-orange-50 dark:bg-orange-900/30 rounded-xl shadow-sm p-4 border border-orange-200 dark:border-orange-800">
                 <div class="text-sm text-orange-600 dark:text-orange-400">No Email / Disabled</div>
                 <div class="text-3xl font-bold text-orange-700 dark:text-orange-300">{{ results.would_not_receive_email_issues }}</div>
                 <div class="text-xs text-orange-500 mt-1">Match visibility but can't receive</div>
             </div>
-            <div class="bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md p-4 border border-gray-200 dark:border-gray-600">
+            <div class="bg-gray-100 dark:bg-gray-700 rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-600">
                 <div class="text-sm text-gray-600 dark:text-gray-400">Excluded by Visibility</div>
                 <div class="text-3xl font-bold text-gray-700 dark:text-gray-300">{{ results.excluded_by_visibility }}</div>
                 <div class="text-xs text-gray-500 mt-1">Member type not selected</div>
@@ -88,7 +88,7 @@
         </div>
 
         <!-- Users Who Would Receive Email -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             <div class="bg-green-600 px-4 py-3">
                 <h3 class="text-lg font-semibold text-white">Would Receive Email ({{ results.would_receive_email }})</h3>
             </div>
@@ -128,7 +128,7 @@
         </div>
 
         <!-- Users Who Match Visibility But Can't Receive Email -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             <div class="bg-orange-500 px-4 py-3">
                 <h3 class="text-lg font-semibold text-white">Match Visibility But Can't Receive Email ({{ results.would_not_receive_email_issues }})</h3>
                 <p class="text-orange-100 text-sm">These users are in the selected member types but have no email or disabled notifications</p>
@@ -169,7 +169,7 @@
         </div>
 
         <!-- Users Excluded by Visibility -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             <div class="bg-gray-500 px-4 py-3">
                 <h3 class="text-lg font-semibold text-white">Excluded by Visibility Settings ({{ results.excluded_by_visibility }})</h3>
                 <p class="text-gray-200 text-sm">These users won't receive email because their member type was not selected</p>

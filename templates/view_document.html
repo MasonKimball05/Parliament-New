@@ -213,7 +213,7 @@
                 </svg>
             </a>
             <div class="flex items-center space-x-2">
-                <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>
                 <h1 class="text-base font-medium text-gray-900 dark:text-white truncate max-w-xs sm:max-w-md md:max-w-lg">{{ document_title }}</h1>
@@ -255,14 +255,14 @@
                         {% if pdf_images.truncated %} (showing first {{ pdf_images.images|length }} of {{ pdf_images.total_pages }}){% endif %}
                     </span>
                     <div class="flex gap-2">
-                        <a href="{{ document_url }}" target="_blank" class="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition ios-pdf-link">Open</a>
+                        <a href="{{ document_url }}" target="_blank" class="text-xs px-2 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition ios-pdf-link">Open</a>
                         <a href="{{ document_url }}" download class="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ios-download-link">Download</a>
                     </div>
                 </div>
                 <!-- PDF pages as images -->
                 <div class="space-y-4">
                     {% for page in pdf_images.images %}
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
                         <img src="data:image/png;base64,{{ page.data }}"
                              alt="Page {{ page.page }}"
                              class="w-full h-auto"
@@ -276,7 +276,7 @@
                 {% if pdf_images.truncated %}
                 <div class="text-center py-4">
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Showing first {{ pdf_images.images|length }} pages. Open the PDF to view all {{ pdf_images.total_pages }} pages.</p>
-                    <a href="{{ document_url }}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition ios-pdf-link">
+                    <a href="{{ document_url }}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition ios-pdf-link">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                         </svg>
@@ -302,7 +302,7 @@
                         Tip: Tapping "Open PDF" will open this document in Safari.
                     </p>
                     <div class="space-y-3">
-                        <a href="{{ document_url }}" target="_blank" id="openPdfBtn" class="block w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors">
+                        <a href="{{ document_url }}" target="_blank" id="openPdfBtn" class="block w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium transition-colors">
                             <span class="flex items-center justify-center gap-2">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
@@ -347,7 +347,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
             <p class="text-gray-600 dark:text-gray-400 mb-4">Unable to preview this DOCX file. Please download it instead.</p>
-            <a href="{{ document_url }}" download class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+            <a href="{{ document_url }}" download class="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
                 Download File
             </a>
         </div>
@@ -363,7 +363,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
             <p class="text-gray-600 dark:text-gray-400 mb-4">Unable to read this text file. Please download it instead.</p>
-            <a href="{{ document_url }}" download class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+            <a href="{{ document_url }}" download class="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
                 Download File
             </a>
         </div>
@@ -373,7 +373,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
             <p class="text-gray-600 dark:text-gray-400 mb-4">This file type cannot be previewed.</p>
-            <a href="{{ document_url }}" download class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+            <a href="{{ document_url }}" download class="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
                 Download File
             </a>
         </div>

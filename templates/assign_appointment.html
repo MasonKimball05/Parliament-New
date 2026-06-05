@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-lg">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <!-- Header -->
         <div class="bg-green-50 dark:bg-green-900/20 border-b border-green-200 dark:border-green-800 px-6 py-5">
             <div class="flex items-center gap-3">
@@ -57,7 +57,7 @@
                         Assign role to <span class="text-red-500">*</span>
                     </label>
                     <select name="assign_member_id" id="assign_member_id" required
-                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         <option value="">— Select a member —</option>
                         {% for m in active_members %}
                         <option value="{{ m.user_id }}">{{ m.name }} ({{ m.member_type }})</option>
@@ -72,7 +72,7 @@
                         as <strong class="text-gray-900 dark:text-white">{{ role.name }}</strong>.
                     </p>
                     {% if member.member_type == 'Member' %}
-                    <p class="text-xs text-indigo-600 dark:text-indigo-400 mt-2">
+                    <p class="text-xs text-primary-600 dark:text-primary-400 mt-2">
                         Their member type will be updated from Member → Chair.
                     </p>
                     {% endif %}

@@ -1,187 +1,264 @@
 {% extends "base.html" %}
 
-{% block title %}Edit Channel{% endblock %}
+{% block title %}Edit {{ channel.name }}{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Header -->
     <div class="mb-6">
-        <a href="{% url 'chat_index' %}" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-            ← Back to Chats
+        <a href="{% url 'chat_index' %}"
+           class="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 text-sm mb-3">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+            Back to Chats
         </a>
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mt-2">Edit Channel: {{ channel.name }}</h1>
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Channel</h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1.5">
+                    <span>{{ channel.icon }}</span>
+                    <span>{{ channel.name }}</span>
+                </p>
+            </div>
+            <!-- Delete link -->
+            <a href="{% url 'delete_channel' channel.id %}"
+               class="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                Delete Channel
+            </a>
+        </div>
     </div>
 
-    <form method="post" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+    <form method="post" class="space-y-6">
         {% csrf_token %}
 
-        <!-- Channel Name -->
-        <div class="mb-6">
-            <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Channel Name *
-            </label>
-            <input
-                type="text"
-                id="name"
-                name="name"
-                required
-                maxlength="200"
-                value="{{ channel.name }}"
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g., Alumni Chat"
-            >
-        </div>
-
-        <!-- Description -->
-        <div class="mb-6">
-            <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Description
-            </label>
-            <textarea
-                id="description"
-                name="description"
-                rows="3"
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Brief description of this channel"
-            >{{ channel.description }}</textarea>
-        </div>
-
-        <!-- Icon -->
-        <div class="mb-6">
-            <label for="icon" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Icon (emoji)
-            </label>
-            <input
-                type="text"
-                id="icon"
-                name="icon"
-                maxlength="10"
-                value="{{ channel.icon }}"
-                class="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Use any emoji</p>
-        </div>
-
-        <!-- Color -->
-        <div class="mb-6">
-            <label for="color" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Color
-            </label>
-            <input
-                type="color"
-                id="color"
-                name="color"
-                value="{{ channel.color }}"
-                class="w-32 h-10 border border-gray-300 dark:border-gray-600 rounded-md"
-            >
-        </div>
-
-        <!-- Access Type -->
-        <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Access Type *
-            </label>
-            <div class="space-y-2">
-                <label class="flex items-center">
-                    <input type="radio" name="access_type" value="open" {% if channel.access_type == 'open' %}checked{% endif %} class="mr-2">
-                    <span class="text-gray-700 dark:text-gray-300">Open - All members can access</span>
-                </label>
-                <label class="flex items-center">
-                    <input type="radio" name="access_type" value="restricted" {% if channel.access_type == 'restricted' %}checked{% endif %} class="mr-2">
-                    <span class="text-gray-700 dark:text-gray-300">Restricted - Only specified users/roles</span>
-                </label>
+        <!-- Basic info card -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="font-semibold text-gray-900 dark:text-gray-100">Basic Info</h2>
             </div>
-        </div>
+            <div class="p-5 space-y-4">
 
-        <!-- Permissions (shown when restricted is selected) -->
-        <div id="permissions-section" class="border-t dark:border-gray-700 pt-6" {% if channel.access_type != 'restricted' %}style="display: none;"{% endif %}>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Channel Permissions</h3>
-
-            <!-- Specific Users -->
-            <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Specific Users
-                </label>
-                <div class="border border-gray-300 dark:border-gray-600 rounded-md p-3 max-h-60 overflow-y-auto">
-                    {% for user in all_users %}
-                        <label class="flex items-center py-1">
-                            <input type="checkbox" name="users" value="{{ user.user_id }}"
-                                   {% if user.user_id in current_user_permissions %}checked{% endif %}
-                                   class="mr-2">
-                            <span class="text-sm text-gray-700 dark:text-gray-300">{{ user.name }} ({{ user.user_id }})</span>
-                        </label>
-                    {% endfor %}
+                <!-- Name -->
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Channel Name <span class="text-red-500">*</span></label>
+                    <input type="text" id="name" name="name" required maxlength="200"
+                           value="{{ channel.name }}"
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                 </div>
-            </div>
 
-            <!-- Member Types -->
-            <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Member Types
-                </label>
-                <div class="space-y-2">
-                    {% for type_code, type_name in member_types %}
-                        <label class="flex items-center">
-                            <input type="checkbox" name="member_types" value="{{ type_code }}"
-                                   {% if type_code in current_member_type_permissions %}checked{% endif %}
-                                   class="mr-2">
-                            <span class="text-gray-700 dark:text-gray-300">{{ type_name }}</span>
-                        </label>
-                    {% endfor %}
+                <!-- Description -->
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                    <textarea id="description" name="description" rows="2"
+                              class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                              placeholder="Brief description of this channel">{{ channel.description }}</textarea>
                 </div>
-            </div>
 
-            <!-- Special Roles -->
-            <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Special Roles
-                </label>
+                <!-- Icon + Color row -->
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label for="icon" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Icon (emoji)</label>
+                        <input type="text" id="icon" name="icon" maxlength="10"
+                               value="{{ channel.icon }}"
+                               class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label for="color" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color</label>
+                        <input type="color" id="color" name="color"
+                               value="{{ channel.color }}"
+                               class="w-16 h-9 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer">
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Channel status card -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="font-semibold text-gray-900 dark:text-gray-100">Channel Status</h2>
+            </div>
+            <div class="p-5 space-y-4">
+
+                <!-- Active toggle -->
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <p class="text-sm font-medium text-gray-800 dark:text-gray-200">Active</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Inactive channels are hidden from all members. Admins can still see them.</p>
+                    </div>
+                    <div class="flex-shrink-0 flex items-center gap-2">
+                        <input type="hidden" name="is_active" value="false">
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="is-active-check" onchange="syncToggle('is_active', this)"
+                                   class="sr-only peer" {% if channel.is_active %}checked{% endif %}>
+                            <div class="w-9 h-5 bg-gray-200 dark:bg-gray-600 peer-checked:bg-primary-600 rounded-full transition peer-focus:ring-2 peer-focus:ring-primary-500"></div>
+                            <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-4 shadow-sm"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <hr class="border-gray-100 dark:border-gray-700">
+
+                <!-- Read-only toggle -->
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <p class="text-sm font-medium text-gray-800 dark:text-gray-200">Read-Only</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">No one can post new messages. Existing messages stay visible. Useful for announcement-style channels.</p>
+                    </div>
+                    <div class="flex-shrink-0 flex items-center gap-2">
+                        <input type="hidden" name="is_read_only" value="false">
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="is-read-only-check" onchange="syncToggle('is_read_only', this)"
+                                   class="sr-only peer" {% if channel.is_read_only %}checked{% endif %}>
+                            <div class="w-9 h-5 bg-gray-200 dark:bg-gray-600 peer-checked:bg-amber-500 rounded-full transition peer-focus:ring-2 peer-focus:ring-amber-400"></div>
+                            <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-4 shadow-sm"></div>
+                        </label>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Access card -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="font-semibold text-gray-900 dark:text-gray-100">Access</h2>
+            </div>
+            <div class="p-5 space-y-4">
+
+                <!-- Access type -->
                 <div class="space-y-2">
-                    <label class="flex items-center">
-                        <input type="checkbox" name="chairs_only" value="true"
-                               {% if current_chairs_only %}checked{% endif %}
-                               class="mr-2">
-                        <span class="text-gray-700 dark:text-gray-300">Committee Chairs</span>
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input type="radio" name="access_type" value="open"
+                               {% if channel.access_type == 'open' %}checked{% endif %}
+                               onchange="togglePermSection(this)"
+                               class="mt-0.5 text-primary-600">
+                        <div>
+                            <p class="text-sm font-medium text-gray-800 dark:text-gray-200">Open</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">All active members can access this channel</p>
+                        </div>
                     </label>
-                    <label class="flex items-center">
-                        <input type="checkbox" name="officers_only" value="true"
-                               {% if current_officers_only %}checked{% endif %}
-                               class="mr-2">
-                        <span class="text-gray-700 dark:text-gray-300">Chapter Officers</span>
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input type="radio" name="access_type" value="restricted"
+                               {% if channel.access_type == 'restricted' %}checked{% endif %}
+                               onchange="togglePermSection(this)"
+                               class="mt-0.5 text-primary-600">
+                        <div>
+                            <p class="text-sm font-medium text-gray-800 dark:text-gray-200">Restricted</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Only specified users and roles can access</p>
+                        </div>
                     </label>
                 </div>
+
+                <!-- Permissions section (restricted only) -->
+                <div id="permissions-section" {% if channel.access_type != 'restricted' %}class="hidden"{% endif %}>
+                    <hr class="border-gray-100 dark:border-gray-700 mb-4">
+
+                    <!-- Specific users -->
+                    <div class="mb-4">
+                        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Specific Users</p>
+                        <div class="relative mb-2">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            <input type="text" placeholder="Filter users…" oninput="filterUsers(this.value)"
+                                   class="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        </div>
+                        <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden max-h-48 overflow-y-auto" id="user-perm-list">
+                            {% for user in all_users %}
+                            <label class="user-perm-row flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-0"
+                                   data-name="{{ user.name|lower }}">
+                                <input type="checkbox" name="users" value="{{ user.user_id }}"
+                                       {% if user.user_id in current_user_permissions %}checked{% endif %}
+                                       class="rounded border-gray-300 dark:border-gray-600 text-primary-600">
+                                <span class="text-sm text-gray-700 dark:text-gray-300">{{ user.name }}</span>
+                                <span class="ml-auto text-xs text-gray-400 dark:text-gray-500">{{ user.member_type }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Member types -->
+                    <div class="mb-4">
+                        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Member Types</p>
+                        <div class="grid grid-cols-2 gap-2">
+                            {% for type_code, type_name in member_types %}
+                            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                <input type="checkbox" name="member_types" value="{{ type_code }}"
+                                       {% if type_code in current_member_type_permissions %}checked{% endif %}
+                                       class="rounded border-gray-300 dark:border-gray-600 text-primary-600">
+                                {{ type_name }}
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Special roles -->
+                    <div>
+                        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Special Roles</p>
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                <input type="checkbox" name="chairs_only" value="true"
+                                       {% if current_chairs_only %}checked{% endif %}
+                                       class="rounded border-gray-300 dark:border-gray-600 text-primary-600">
+                                Committee Chairs only
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                <input type="checkbox" name="officers_only" value="true"
+                                       {% if current_officers_only %}checked{% endif %}
+                                       class="rounded border-gray-300 dark:border-gray-600 text-primary-600">
+                                Chapter Officers only
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                <input type="checkbox" name="alumni_only" value="true"
+                                       {% if current_alumni_only %}checked{% endif %}
+                                       class="rounded border-gray-300 dark:border-gray-600 text-primary-600">
+                                Alumni only
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
-        <!-- Submit Button -->
-        <div class="flex justify-end gap-3 mt-6">
+        <!-- Actions -->
+        <div class="flex justify-end gap-3">
             <a href="{% url 'chat_index' %}"
-               class="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+               class="px-5 py-2.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                 Cancel
             </a>
             <button type="submit"
-                    class="px-6 py-2 rounded-md text-white font-semibold"
-                    style="background-color: #003DA5;"
-                    onmouseover="this.style.backgroundColor='#002d7a'"
-                    onmouseout="this.style.backgroundColor='#003DA5'">
+                    class="px-5 py-2.5 text-sm font-semibold rounded-lg bg-primary-600 hover:bg-primary-700 dark:bg-primary-700 dark:hover:bg-primary-800 text-white transition">
                 Save Changes
             </button>
         </div>
     </form>
+
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
-    // Show/hide permissions section based on access type
-    const accessTypeInputs = document.querySelectorAll('input[name="access_type"]');
-    const permissionsSection = document.getElementById('permissions-section');
+function togglePermSection(radio) {
+    const section = document.getElementById('permissions-section');
+    section.classList.toggle('hidden', radio.value !== 'restricted');
+}
 
-    accessTypeInputs.forEach(input => {
-        input.addEventListener('change', function() {
-            if (this.value === 'restricted') {
-                permissionsSection.style.display = 'block';
-            } else {
-                permissionsSection.style.display = 'none';
-            }
-        });
+function filterUsers(q) {
+    const lq = q.toLowerCase().trim();
+    document.querySelectorAll('.user-perm-row').forEach(row => {
+        row.style.display = (!lq || row.dataset.name.includes(lq)) ? '' : 'none';
     });
+}
+
+// Sync the toggle checkbox back to the hidden input so the POST value is correct
+function syncToggle(fieldName, checkbox) {
+    const hidden = document.querySelector(`input[type="hidden"][name="${fieldName}"]`);
+    if (hidden) hidden.value = checkbox.checked ? 'true' : 'false';
+}
 </script>
 {% endblock %}

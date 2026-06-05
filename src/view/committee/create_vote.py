@@ -17,7 +17,7 @@ def committee_create_vote(request, code):
     # Check permissions - only chairs can create votes
     if not committee.is_chair(request.user):
         messages.error(request, 'Only committee chairs can create votes.')
-        return redirect('committee_detail', code=code)
+        return redirect('committee_home', code=code)
 
     if request.method == 'POST':
         title = request.POST.get('title')

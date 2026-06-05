@@ -10,7 +10,7 @@
             <p class="text-gray-600 dark:text-gray-400">Committee: {{ committee.name }}</p>
         </div>
         <div class="flex flex-col gap-2 sm:flex-shrink-0">
-            <a href="{% url 'committee_detail' committee.code %}" class="bg-blue-600 dark:bg-blue-700 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 transition flex items-center justify-center space-x-2 text-sm sm:text-base whitespace-nowrap">
+            <a href="{% url 'committee_home' committee.code %}" class="bg-primary-600 text-white px-4 py-2.5 rounded-lg hover:bg-primary-700 transition flex items-center justify-center space-x-2 text-sm sm:text-base whitespace-nowrap">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
                 </svg>
@@ -25,7 +25,7 @@
         </div>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
         <form method="POST" enctype="multipart/form-data" class="space-y-4">
             {% csrf_token %}
 
@@ -130,7 +130,7 @@
             </script>
 
             <div class="flex gap-3">
-                <button type="submit" class="bg-blue-500 dark:bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+                <button type="submit" class="bg-primary-600 text-white px-6 py-2 rounded hover:bg-primary-700 transition-colors">
                     Upload Document
                 </button>
                 <a href="{% url 'committee_documents' committee.code %}"

@@ -21,7 +21,7 @@
                 </svg>
                 View Public Page
             </a>
-            <a href="{% url 'upload_chapter_document' %}" class="bg-blue-500 dark:bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-600 dark:hover:bg-blue-500 flex items-center transition">
+            <a href="{% url 'upload_chapter_document' %}" class="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700 flex items-center transition">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                 </svg>
@@ -41,7 +41,7 @@
     <!-- Unpublished Documents Section -->
     {% if unpublished_docs %}
         <div class="mb-6">
-            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg shadow-md overflow-hidden">
+            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl shadow-sm overflow-hidden">
                 <div class="bg-yellow-100 dark:bg-yellow-900/40 px-6 py-4 flex items-center justify-between border-b border-yellow-200 dark:border-yellow-800">
                     <div class="flex items-center space-x-3">
                         <svg class="w-6 h-6 text-yellow-700 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -78,7 +78,7 @@
         <!-- Custom Folders -->
         {% if folders_with_published_docs %}
             {% for folder, documents in folders_with_published_docs %}
-                <details class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" {% if documents %}open{% endif %}>
+                <details class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" {% if documents %}open{% endif %}>
                     <summary class="bg-purple-50 dark:bg-purple-900/30 px-6 py-4 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/50 transition flex items-center justify-between">
                         <div class="flex items-center space-x-3">
                             <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -130,7 +130,7 @@
 
         <!-- Uncategorized Documents -->
         {% if uncategorized_published_docs %}
-            <details class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" open>
+            <details class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" open>
                 <summary class="bg-gray-50 dark:bg-gray-700 px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition flex items-center justify-between">
                     <div class="flex items-center space-x-3">
                         <svg class="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -154,7 +154,7 @@
         {% endif %}
 
         {% if not folders_with_published_docs and not uncategorized_published_docs %}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center transition-colors duration-200">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 text-center transition-colors duration-200">
                 <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
@@ -179,7 +179,7 @@
                     Folder Name <span class="text-red-500">*</span>
                 </label>
                 <input type="text" name="folder_name" required
-                       class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                       class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                        placeholder="e.g., Financial Reports, Policies">
             </div>
 
@@ -188,7 +188,7 @@
                     Description (Optional)
                 </label>
                 <textarea name="folder_description" rows="2"
-                          class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                           placeholder="Brief description of this folder"></textarea>
             </div>
 

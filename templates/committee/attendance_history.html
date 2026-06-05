@@ -3,19 +3,20 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <!-- Header -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 transition-colors duration-200">
-        <div class="flex items-center justify-between mb-4">
+    <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
+        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
+        <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ committee.name }}</h1>
-                <p class="text-gray-600 dark:text-gray-400 mt-1">Attendance History</p>
+                <h1 class="text-2xl sm:text-3xl font-bold">{{ committee.name }}</h1>
+                <p class="text-white/80 mt-1">Attendance History</p>
             </div>
             <div class="flex gap-2">
                 <a href="{% url 'committee_attendance' committee.code %}"
-                   class="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors">
+                   class="px-4 py-2 bg-green-500/90 hover:bg-green-500 text-white rounded-lg transition-colors text-sm font-medium">
                     Mark Today's Attendance
                 </a>
-                <a href="{% url 'committee_detail' committee.code %}"
-                   class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                <a href="{% url 'committee_home' committee.code %}"
+                   class="px-4 py-2 bg-white/15 hover:bg-white/25 text-white rounded-lg transition-colors text-sm font-medium">
                     ← Back to Committee
                 </a>
             </div>
@@ -25,7 +26,7 @@
     <!-- Attendance Records by Date -->
     <div class="space-y-6">
         {% for date, records in attendance_by_date.items %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
             <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">{{ date|date:"l, F j, Y" }}</h2>
 
             <div class="overflow-x-auto">
@@ -104,7 +105,7 @@
             </div>
         </div>
         {% empty %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center transition-colors duration-200">
             <svg class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
             </svg>
@@ -112,7 +113,7 @@
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by marking today's attendance.</p>
             <div class="mt-6">
                 <a href="{% url 'committee_attendance' committee.code %}"
-                   class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors">
+                   class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 transition-colors">
                     Mark Attendance
                 </a>
             </div>

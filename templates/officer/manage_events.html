@@ -1,8 +1,8 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 
 {% block title %}Manage Events{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-6 flex flex-col md:flex-row md:justify-between md:items-start gap-4">
         <div>
@@ -21,7 +21,7 @@
                 Archived Events
             </a>
             {% endif %}
-            <a href="{% url 'create_event' %}" class="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium py-2.5 px-4 rounded-lg transition flex items-center justify-center gap-2">
+            <a href="{% url 'create_event' %}" class="bg-primary-600 dark:bg-primary-700 hover:bg-primary-700 dark:hover:bg-primary-600 text-white font-medium py-2.5 px-4 rounded-lg transition flex items-center justify-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                 </svg>
@@ -32,16 +32,16 @@
 
     <!-- Filter Tabs -->
     <div class="mb-6 flex flex-wrap gap-2">
-        <a href="?filter=upcoming" class="px-4 py-2 rounded-lg font-medium transition {% if current_filter == 'upcoming' %}bg-blue-600 text-white{% else %}bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600{% endif %}">
+        <a href="?filter=upcoming" class="px-4 py-2 rounded-lg font-medium transition {% if current_filter == 'upcoming' %}bg-primary-600 text-white{% else %}bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600{% endif %}">
             Upcoming
         </a>
-        <a href="?filter=past" class="px-4 py-2 rounded-lg font-medium transition {% if current_filter == 'past' %}bg-blue-600 text-white{% else %}bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600{% endif %}">
+        <a href="?filter=past" class="px-4 py-2 rounded-lg font-medium transition {% if current_filter == 'past' %}bg-primary-600 text-white{% else %}bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600{% endif %}">
             Past
         </a>
-        <a href="?filter=all" class="px-4 py-2 rounded-lg font-medium transition {% if current_filter == 'all' %}bg-blue-600 text-white{% else %}bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600{% endif %}">
+        <a href="?filter=all" class="px-4 py-2 rounded-lg font-medium transition {% if current_filter == 'all' %}bg-primary-600 text-white{% else %}bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600{% endif %}">
             All Events
         </a>
-        <a href="?filter=series" class="px-4 py-2 rounded-lg font-medium transition {% if current_filter == 'series' %}bg-blue-600 text-white{% else %}bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600{% endif %}">
+        <a href="?filter=series" class="px-4 py-2 rounded-lg font-medium transition {% if current_filter == 'series' %}bg-primary-600 text-white{% else %}bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600{% endif %}">
             <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
             </svg>
@@ -78,7 +78,7 @@
     {% endif %}
 
     {% if events %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">
             <!-- Desktop Table View (hidden on mobile) -->
             <div class="hidden md:block overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -152,7 +152,7 @@
                                             </svg>
                                         </a>
                                         {% endif %}
-                                        <a href="{% url 'edit_event' event.id %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300" title="Edit">
+                                        <a href="{% url 'edit_event' event.id %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300" title="Edit">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                             </svg>
@@ -255,7 +255,7 @@
                                 Attendance
                             </a>
                             {% endif %}
-                            <a href="{% url 'edit_event' event.id %}" class="flex-1 min-w-[120px] bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium py-2.5 px-4 rounded-lg transition flex items-center justify-center gap-2">
+                            <a href="{% url 'edit_event' event.id %}" class="flex-1 min-w-[120px] bg-primary-600 dark:bg-primary-700 hover:bg-primary-700 dark:hover:bg-primary-600 text-white font-medium py-2.5 px-4 rounded-lg transition flex items-center justify-center gap-2">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                 </svg>
@@ -284,7 +284,7 @@
             {% include 'includes/pagination.html' with page_obj=page_obj %}
         </div>
     {% else %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 text-center transition-colors duration-200">
             <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
             </svg>

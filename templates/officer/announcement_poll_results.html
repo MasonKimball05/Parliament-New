@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% load static %}
 
 {% block title %}Poll Results — {{ announcement.title }}{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     {% include 'includes/breadcrumbs.html' with back_url='/officers/announcements/' back_label='Manage Announcements' current='Poll Results' %}
 
@@ -40,7 +40,7 @@
     <!-- Aggregate Results -->
     <div class="space-y-4 mb-8">
         {% for stat in question_stats %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
             <div class="flex items-start gap-2 mb-3">
                 <span class="text-xs font-mono bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded">Q{{ forloop.counter }}</span>
                 <p class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ stat.question.text }}</p>
@@ -81,7 +81,7 @@
 
     <!-- Individual Responses (non-anonymous only) -->
     {% if not poll.is_anonymous and responses %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 mb-6">
         <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">Individual Responses</h2>
         <div class="overflow-x-auto">
             <table class="min-w-full text-sm">
@@ -146,7 +146,7 @@
     </div>
     {% else %}
     <!-- Threshold met: show who responded (names only, no answers) -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 mb-6">
         <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
             Have Responded ({{ respondent_count }})
         </h2>
@@ -162,7 +162,7 @@
 
     <!-- Who Hasn't Responded -->
     {% if non_respondents %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
         <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
             Haven't Responded
             {% if non_respondents_partial %}

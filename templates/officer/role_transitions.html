@@ -1,8 +1,8 @@
-{% extends 'base.html' %}
+{% extends "admin_base.html" %}
 
 {% block title %}Role Transitions{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8 max-w-6xl">
 
     <!-- Header -->
@@ -51,7 +51,7 @@
     {% endif %}
 
     <!-- Role table -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-700">
@@ -101,7 +101,7 @@
                             <button
                                 data-role-id="{{ data.role.id }}"
                                 onclick="openTransferModal({{ data.role.id }})"
-                                class="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition shadow-sm">
+                                class="px-3 py-1.5 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition shadow-sm">
                                 Transfer
                             </button>
                         </td>
@@ -109,7 +109,7 @@
                     {% empty %}
                     <tr>
                         <td colspan="4" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                            No roles found. <a href="{% url 'manage_roles' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Create roles first.</a>
+                            No roles found. <a href="{% url 'manage_roles' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Create roles first.</a>
                         </td>
                     </tr>
                     {% endfor %}
@@ -119,7 +119,7 @@
     </div>
 
     <div class="mt-6">
-        <a href="{% url 'officer_home' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
+        <a href="{% url 'officer_home' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium">
             &larr; Back to Officer Portal
         </a>
     </div>
@@ -150,14 +150,14 @@
                             <span class="text-xs text-gray-400 font-normal">(who is stepping down)</span>
                         </label>
                         <select id="transfer-outgoing"
-                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                             <option value="">— No current holder / not applicable —</option>
                         </select>
 
                         <!-- Demote outgoing checkbox -->
                         <label id="demote-section" class="hidden mt-2 flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" id="demote-outgoing"
-                                   class="h-4 w-4 text-indigo-600 border-gray-300 dark:border-gray-600 rounded focus:ring-indigo-500">
+                                   class="h-4 w-4 text-indigo-600 border-gray-300 dark:border-gray-600 rounded focus:ring-primary-500">
                             <span class="text-sm text-gray-700 dark:text-gray-300">
                                 Revert outgoing member's type to <strong>Member</strong>
                                 <span class="text-xs text-gray-400">(only if they hold no remaining roles)</span>
@@ -181,7 +181,7 @@
                             <span class="text-xs text-gray-400 font-normal">(who is taking over)</span>
                         </label>
                         <select id="transfer-incoming" required
-                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                             <option value="">— Select a member —</option>
                         </select>
                     </div>
@@ -193,7 +193,7 @@
                             <span class="text-xs text-gray-400 font-normal">(optional)</span>
                         </label>
                         <select id="incoming-type"
-                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                             <option value="">— No change —</option>
                             <option value="Officer">Officer</option>
                             <option value="Chair">Chair</option>
@@ -212,7 +212,7 @@
                             Cancel
                         </button>
                         <button type="submit" id="transfer-submit"
-                                class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium text-sm">
+                                class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium text-sm">
                             Confirm Transfer
                         </button>
                     </div>

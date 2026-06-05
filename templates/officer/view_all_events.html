@@ -1,11 +1,11 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 
 {% block title %}All Events - Officer Portal{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Page Header -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8 transition-colors duration-200">
         <div class="flex items-center justify-between">
             <div>
                 <div class="flex items-center space-x-3 mb-2">
@@ -17,7 +17,7 @@
                 <p class="text-gray-600 dark:text-gray-400">View and manage all chapter events</p>
             </div>
             <div class="flex space-x-3">
-                <a href="{% url 'create_event' %}" class="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition flex items-center space-x-2">
+                <a href="{% url 'create_event' %}" class="bg-primary-600 dark:bg-primary-700 hover:bg-primary-700 dark:hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition flex items-center space-x-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                     </svg>
@@ -45,7 +45,7 @@
         {% if upcoming_events %}
         <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {% for event in upcoming_events %}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border-l-4 {% if event.is_active %}border-green-500{% else %}border-gray-400 dark:border-gray-500{% endif %} transition-colors duration-200">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border-l-4 {% if event.is_active %}border-green-500{% else %}border-gray-400 dark:border-gray-500{% endif %} transition-colors duration-200">
                 <div class="flex items-start justify-between mb-3">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex-1">{{ event.title }}</h3>
                     {% if not event.is_active %}
@@ -82,7 +82,7 @@
                 </div>
 
                 <div class="flex space-x-2 pt-3 border-t dark:border-gray-700">
-                    <a href="{% url 'edit_event' event.id %}" class="flex-1 text-center bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800 text-blue-700 dark:text-blue-300 px-3 py-2 rounded text-sm font-medium transition">
+                    <a href="{% url 'edit_event' event.id %}" class="flex-1 text-center bg-primary-100 dark:bg-primary-900 hover:bg-primary-200 dark:hover:bg-primary-800 text-primary-700 dark:text-primary-300 px-3 py-2 rounded text-sm font-medium transition">
                         Edit
                     </a>
                     <a href="{% url 'delete_event' event.id %}" class="flex-1 text-center bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900 text-red-700 dark:text-red-300 px-3 py-2 rounded text-sm font-medium transition">
@@ -93,13 +93,13 @@
             {% endfor %}
         </div>
         {% else %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center transition-colors duration-200">
             <svg class="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
             </svg>
             <h3 class="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">No Upcoming Events</h3>
             <p class="text-gray-500 dark:text-gray-400 mb-4">There are no scheduled events in the future.</p>
-            <a href="{% url 'create_event' %}" class="inline-block bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition">
+            <a href="{% url 'create_event' %}" class="inline-block bg-primary-600 dark:bg-primary-700 hover:bg-primary-700 dark:hover:bg-primary-600 text-white px-6 py-2 rounded-lg transition">
                 Create an Event
             </a>
         </div>

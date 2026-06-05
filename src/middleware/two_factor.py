@@ -48,6 +48,7 @@ class Enforce2FAMiddleware:
             '/accounts/two-factor/dismiss/',
             '/accounts/two-factor/recovery/',
             '/accounts/two-factor/recovery-confirm/',
+            '/accounts/passkeys/authenticate/',  # passkey login endpoints
             '/static/',
             '/media/',
             '/api/',  # API endpoints should handle auth separately
@@ -95,8 +96,11 @@ class Enforce2FAMiddleware:
         # If 2FA is required and set up, but not verified this session
         if requires_2fa and user_has_device(request.user):
             if not request.user.is_verified() and request.path != '/accounts/two-factor/verify/':
+                # Passkey login sets this flag and counts as full authentication
+                if request.session.get('webauthn_authenticated'):
+                    pass  # passkey-authenticated — bypass TOTP step
                 # Check for a valid "remember this device" cookie before forcing verify
-                if self._check_remember_cookie(request):
+                elif self._check_remember_cookie(request):
                     pass  # auto-verified via cookie — fall through
                 else:
                     return redirect('two_factor_verify')

@@ -18,7 +18,7 @@ def committee_unpush_from_chapter(request, code):
     # Check permissions
     if not committee.is_chair(request.user):
         messages.error(request, 'Only committee chairs can unpublish results from chapter.')
-        return redirect('committee_detail', code=code)
+        return redirect('committee_home', code=code)
 
     if request.method == 'POST':
         legislation_id = request.POST.get('legislation_id')
@@ -51,7 +51,7 @@ def delete_chapter_vote_link(request, code):
     # Check permissions
     if not committee.is_chair(request.user) and not request.user.is_admin:
         messages.error(request, 'Only committee chairs or admins can delete chapter votes.')
-        return redirect('committee_detail', code=code)
+        return redirect('committee_home', code=code)
 
     if request.method == 'POST':
         legislation_id = request.POST.get('legislation_id')

@@ -13,7 +13,7 @@ def committee_upload_document(request, code):  # Make sure this says 'code' not 
     # Check permissions
     if not committee.is_chair(request.user):
         messages.error(request, 'Only committee chairs can upload documents.')
-        return redirect('committee_detail', code=code)
+        return redirect('committee_home', code=code)
 
     # Get all folders for the upload form
     folders = ChapterFolder.objects.all()

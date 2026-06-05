@@ -323,3 +323,59 @@ def sync_exec_committee_on_role_change(sender, instance, action, pk_set, model, 
         sync_exec_committee()
     except Exception as e:
         logger.error(f"Error syncing EXEC committee: {e}")
+
+    # Reset Kai permissions if a role tied to a Kai committee changed hands
+    if action in ['post_add', 'post_remove'] and pk_set:
+        try:
+            reset_kai_permissions_on_role_change(pk_set)
+        except Exception as e:
+            logger.error(f"Error resetting Kai permissions on role change: {e}")
+
+
+# ============================================================================
+# Kai Permission Reset on Exec Role Change
+# ============================================================================
+
+def reset_kai_permissions_on_role_change(changed_role_pks):
+    """
+    When a role changes hands, reset all KaiMemberPermission rows for any
+    Kai committee whose .role FK matches the changed role.
+
+    Also wipes user-specific ChatChannelPermission rows for the committee's
+    chat channel — so guest access doesn't persist across exec transitions.
+
+    The intent is: every time a new person takes the Kai chair exec position,
+    they start with a clean slate and deliberately grant permissions to members
+    they trust.
+    """
+    from src.models import Committee, KaiMemberPermission, ChatChannel, ChatChannelPermission
+
+    # Find Kai committees whose linked exec role is among the changed roles
+    kai_committees = Committee.objects.filter(
+        is_kai_committee=True,
+        role__pk__in=changed_role_pks,
+    )
+
+    for committee in kai_committees:
+        # Wipe all member-level Kai permissions
+        kai_deleted, _ = KaiMemberPermission.objects.filter(committee=committee).delete()
+        if kai_deleted:
+            logger.info(
+                f"[signals] reset_kai_permissions: wiped {kai_deleted} KaiMemberPermission rows "
+                f"for committee '{committee.name}' after role change"
+            )
+
+        # Wipe user-specific chat guest permissions for the committee channel
+        try:
+            channel = ChatChannel.objects.get(committee=committee, channel_type='committee')
+            chat_deleted, _ = ChatChannelPermission.objects.filter(
+                channel=channel,
+                user__isnull=False,
+            ).delete()
+            if chat_deleted:
+                logger.info(
+                    f"[signals] reset_kai_permissions: wiped {chat_deleted} ChatChannelPermission rows "
+                    f"for channel '{channel.name}' after role change"
+                )
+        except ChatChannel.DoesNotExist:
+            pass

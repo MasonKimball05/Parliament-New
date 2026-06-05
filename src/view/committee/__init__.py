@@ -1,5 +1,4 @@
 from src.view.committee.add_member import *
-from src.view.committee.committee_detail import *
 from src.view.committee.committee_home import *
 from src.view.committee.committee_index import *
 from src.view.committee.create_vote import *

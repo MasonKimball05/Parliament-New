@@ -1,8 +1,8 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 
 {% block title %}Edit Announcement - Parliament{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     {% include 'includes/breadcrumbs.html' with back_url='/officer/manage-announcements/' back_label='Manage Announcements' current='Edit Announcement' %}
 
@@ -13,7 +13,7 @@
     </div>
 
     <!-- Form -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
         <form method="post" class="space-y-6">
             {% csrf_token %}
 
@@ -42,7 +42,7 @@
             </div>
 
             <!-- Publish Date -->
-            <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div class="bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 rounded-lg p-4">
                 <label for="{{ form.publish_at.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {{ form.publish_at.label }}
                 </label>
@@ -127,16 +127,16 @@
                 <button type="button" id="docs-toggle-btn" onclick="toggleDocs()"
                         class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                     <span>Attach Chapter Documents</span>
-                    <span id="docs-badge" class="{% if linked_doc_ids %}{% else %}hidden{% endif %} px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400 rounded-full">{{ linked_doc_ids|length }} attached</span>
+                    <span id="docs-badge" class="{% if linked_doc_ids %}{% else %}hidden{% endif %} px-1.5 py-0.5 text-xs bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-400 rounded-full">{{ linked_doc_ids|length }} attached</span>
                     <svg id="docs-chevron" class="w-4 h-4 text-gray-500 transition-transform duration-200{% if linked_doc_ids %} rotate-180{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </button>
-                <div id="docs-panel" class="{% if not linked_doc_ids %}hidden{% endif %} border-t border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/10 px-4 py-3">
-                    <p class="text-xs text-blue-700 dark:text-blue-400 mb-3">Select chapter documents to attach as links in this announcement.</p>
+                <div id="docs-panel" class="{% if not linked_doc_ids %}hidden{% endif %} border-t border-gray-200 dark:border-gray-700 bg-primary-50 dark:bg-primary-900/10 px-4 py-3">
+                    <p class="text-xs text-primary-700 dark:text-primary-400 mb-3">Select chapter documents to attach as links in this announcement.</p>
                     <div class="mb-2">
                         <input type="text" id="docs-search" placeholder="Search documents…" oninput="filterDocs()"
-                               class="w-full text-sm rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 py-1.5 px-3">
+                               class="w-full text-sm rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 py-1.5 px-3">
                     </div>
                     <div id="docs-no-results" class="hidden text-xs text-gray-500 dark:text-gray-400 py-2">No documents match your search.</div>
                     <div class="space-y-2 max-h-56 overflow-y-auto" id="docs-list">
@@ -144,7 +144,7 @@
                         <label class="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer">
                             <input type="checkbox" name="linked_document_ids" value="{{ doc.id }}"
                                    {% if doc.id in linked_doc_ids %}checked{% endif %}
-                                   class="doc-checkbox rounded border-gray-300 dark:border-gray-600 text-blue-500 focus:ring-blue-400 dark:bg-gray-700"
+                                   class="doc-checkbox rounded border-gray-300 dark:border-gray-600 text-primary-500 focus:ring-primary-400 dark:bg-gray-700"
                                    onchange="updateDocsBadge()">
                             <span class="flex-1 min-w-0">
                                 <span class="text-sm font-medium text-gray-900 dark:text-white">{{ doc.title }}</span>
@@ -170,7 +170,7 @@
                 <a href="{% url 'manage_announcements' %}" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                     Cancel
                 </a>
-                <button type="submit" id="submit-btn" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition flex items-center space-x-2">
+                <button type="submit" id="submit-btn" class="px-6 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 transition flex items-center space-x-2">
                     <span id="submit-text">Update Announcement</span>
                     <svg id="submit-spinner" class="hidden animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -182,7 +182,7 @@
     </div>
 
     <!-- Poll Section -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md mt-6 overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mt-6 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <div class="flex items-center">
                 <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-lg flex items-center justify-center mr-3">
@@ -233,7 +233,7 @@
 
     <!-- Back Link -->
     <div class="mt-6">
-        <a href="{% url 'manage_announcements' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
+        <a href="{% url 'manage_announcements' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium">
             ← Back to Announcements
         </a>
     </div>

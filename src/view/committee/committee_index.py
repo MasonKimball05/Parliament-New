@@ -119,7 +119,7 @@ def create_committee(request):
 
             logger.info(f"{request.user.username} created committee: {committee.name} ({committee.code})")
             messages.success(request, f'Committee "{committee.name}" created successfully.')
-            return redirect('committee_detail', code=committee.code)
+            return redirect('committee_home', code=committee.code)
     else:
         form = CommitteeCreateForm()
 

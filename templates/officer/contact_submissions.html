@@ -1,9 +1,9 @@
-{% extends 'base.html' %}
+{% extends "admin_base.html" %}
 {% load static %}
 
 {% block title %}Contact Messages - Parliament{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
     <div class="mb-6 flex items-center justify-between">
@@ -21,7 +21,7 @@
         {% if unread_count %}
         <form method="post" action="{% url 'mark_all_contact_read' %}">
             {% csrf_token %}
-            <button type="submit" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+            <button type="submit" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">
                 Mark all as read ({{ unread_count }})
             </button>
         </form>
@@ -39,7 +39,7 @@
                         <span class="inline-block w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></span>
                         {% endif %}
                         <span class="font-semibold text-gray-900 dark:text-gray-100">{{ submission.name }}</span>
-                        <a href="mailto:{{ submission.email }}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">{{ submission.email }}</a>
+                        <a href="mailto:{{ submission.email }}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">{{ submission.email }}</a>
                         {% if submission.topic %}
                         <span class="px-2 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium">{{ submission.topic }}</span>
                         {% endif %}

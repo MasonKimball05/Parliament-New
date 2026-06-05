@@ -2,21 +2,22 @@
 
 {% block title %}Manage Report Templates{% endblock %}
 
-{% block content %}
-<div class="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 -m-8 p-8 min-h-screen transition-colors duration-200">
-  <div class="max-w-6xl mx-auto">
+{% block admin_content %}
+<div class="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 min-h-screen transition-colors duration-200">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Header -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 transition-colors duration-200">
-      <div class="flex justify-between items-center">
+    <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
+      <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
+      <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Report Templates</h1>
-          <p class="text-gray-600 dark:text-gray-400 mt-1">Create and manage templates for common report types</p>
+          <h1 class="text-2xl sm:text-3xl font-bold">Report Templates</h1>
+          <p class="mt-1 text-sm text-white/80">Create and manage templates for common report types</p>
         </div>
         <div class="flex gap-3">
-          <a href="{% url 'view_kai_reports' %}" class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition font-semibold shadow">
+          <a href="{% url 'view_kai_reports' %}" class="px-4 py-2 bg-white/15 hover:bg-white/25 text-white rounded-xl transition font-semibold text-sm">
             Back to Reports
           </a>
-          <a href="{% url 'create_kai_template' %}" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold shadow">
+          <a href="{% url 'create_kai_template' %}" class="px-4 py-2 bg-green-500/90 hover:bg-green-500 text-white rounded-xl transition font-semibold text-sm">
             + Create Template
           </a>
         </div>
@@ -24,18 +25,18 @@
     </div>
 
     <!-- Info Box: Templates vs Form Builder -->
-    <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+    <div class="bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 rounded-xl p-4 mb-6">
       <div class="flex items-start space-x-3">
-        <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-6 h-6 text-primary-600 dark:text-primary-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
         <div>
-          <h3 class="font-semibold text-blue-800 dark:text-blue-200 mb-1">Templates vs. Form Fields</h3>
-          <p class="text-sm text-blue-700 dark:text-blue-300 mb-2">
+          <h3 class="font-semibold text-primary-800 dark:text-primary-200 mb-1">Templates vs. Form Fields</h3>
+          <p class="text-sm text-primary-700 dark:text-primary-300 mb-2">
             <strong>Templates</strong> provide pre-filled text and guidelines for common report types.
             To customize the actual <strong>form fields</strong> (add/remove input boxes, dropdowns, checkboxes, etc.), use the Form Builder.
           </p>
-          <a href="{% url 'kai_form_builder' %}" class="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200">
+          <a href="{% url 'kai_form_builder' %}" class="inline-flex items-center text-sm font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
             </svg>
@@ -49,13 +50,13 @@
     {% if templates %}
     <div class="space-y-4">
       {% for template in templates %}
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-all duration-200 border-l-4 border-blue-500">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border-l-4 border-primary-500">
         <div class="p-6">
           <div class="flex justify-between items-start">
             <div class="flex-1">
               <div class="flex items-center space-x-3 mb-2">
                 <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100">{{ template.name }}</h3>
-                <span class="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
+                <span class="px-3 py-1 rounded-full text-xs font-semibold bg-primary-100 text-primary-800 dark:bg-primary-900/50 dark:text-primary-200">
                   {{ template.get_category_display }}
                 </span>
                 {% if template.is_active %}
@@ -94,7 +95,7 @@
             </div>
 
             <div class="ml-4 flex gap-2">
-              <a href="{% url 'edit_kai_template' template.id %}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">
+              <a href="{% url 'edit_kai_template' template.id %}" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition text-sm font-medium">
                 Edit
               </a>
               <form method="post" action="{% url 'delete_kai_template' template.id %}" class="inline" onsubmit="return confirm('Are you sure you want to delete this template? This action cannot be undone.');">
@@ -108,7 +109,7 @@
 
           <!-- Preview of description template -->
           <details class="mt-4">
-            <summary class="cursor-pointer text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+            <summary class="cursor-pointer text-sm font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
               Preview Description Template
             </summary>
             <div class="mt-2 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
@@ -126,7 +127,7 @@
       </svg>
       <h3 class="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">No templates yet</h3>
       <p class="text-gray-500 dark:text-gray-400 mb-4">Create your first report template to help standardize common report types.</p>
-      <a href="{% url 'create_kai_template' %}" class="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold">
+      <a href="{% url 'create_kai_template' %}" class="inline-block px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-semibold">
         + Create Template
       </a>
     </div>

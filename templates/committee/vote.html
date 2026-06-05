@@ -6,7 +6,7 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-6">
-        <a href="{% url 'committee_detail' committee.code %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">← Back to Committee</a>
+        <a href="{% url 'committee_home' committee.code %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">← Back to Committee</a>
     </div>
 
     <h1 class="text-3xl font-bold mb-6 text-gray-900 dark:text-gray-100">{{ committee.name }} — Voting</h1>
@@ -23,10 +23,10 @@
 
     <!-- Chair Actions -->
     {% if is_chair %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200">
             <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Chair Actions</h2>
             <a href="{% url 'create_committee_vote' committee.code %}"
-               class="inline-block bg-blue-500 dark:bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+               class="inline-block bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700 transition-colors">
                 Create New Vote
             </a>
         </div>
@@ -37,7 +37,7 @@
         <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Available Legislation</h2>
 
         {% for leg in legislation %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
             <div class="flex justify-between items-start mb-4">
                 <div>
                     <h3 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">{{ leg.title }}</h3>
@@ -56,7 +56,7 @@
             {% if leg.document %}
                 <div class="mb-4">
                     <a href="{{ leg.document.url }}" target="_blank"
-                       class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center">
+                       class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 flex items-center">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
@@ -112,12 +112,12 @@
                                     <input type="radio" name="vote_choice" value="{{ option }}" required class="sr-only peer">
                                     {% endif %}
                                     <div class="flex items-center gap-2 px-5 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700
-                                                peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/30
-                                                peer-checked:ring-2 peer-checked:ring-blue-500 peer-checked:ring-offset-2 dark:peer-checked:ring-offset-gray-800
-                                                hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20
+                                                peer-checked:border-primary-500 peer-checked:bg-primary-50 dark:peer-checked:bg-primary-900/30
+                                                peer-checked:ring-2 peer-checked:ring-primary-500 peer-checked:ring-offset-2 dark:peer-checked:ring-offset-gray-800
+                                                hover:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20
                                                 transition-all duration-200">
-                                        <div class="w-5 h-5 {% if leg.plurality_votes_allowed > 1 %}rounded{% else %}rounded-full{% endif %} border-2 border-gray-400 dark:border-gray-500 peer-checked:border-blue-500 flex items-center justify-center
-                                                    peer-checked:bg-blue-500 transition-all duration-200 vote-radio">
+                                        <div class="w-5 h-5 {% if leg.plurality_votes_allowed > 1 %}rounded{% else %}rounded-full{% endif %} border-2 border-gray-400 dark:border-gray-500 peer-checked:border-primary-500 flex items-center justify-center
+                                                    peer-checked:bg-primary-500 transition-all duration-200 vote-radio">
                                             <svg class="w-3 h-3 text-white hidden check-icon" fill="currentColor" viewBox="0 0 20 20">
                                                 <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                                             </svg>
@@ -202,7 +202,7 @@
                                    placeholder="Enter your password">
                         </div>
                         <button type="submit" onclick="return submitVote(event)"
-                                class="submit-vote-btn bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2.5 rounded-lg
+                                class="submit-vote-btn bg-primary-600 hover:bg-primary-700 text-white font-semibold px-6 py-2.5 rounded-lg
                                        transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                             <span class="btn-text">Submit Vote</span>
                             <svg class="btn-spinner hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -224,7 +224,7 @@
                     <div class="flex justify-between items-center mb-3">
                         <h4 class="font-semibold text-gray-900 dark:text-gray-100">Current Results:</h4>
                         <a href="{% url 'committee_vote_result' committee.code leg.id %}"
-                           class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm flex items-center">
+                           class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 text-sm flex items-center">
                             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
@@ -241,7 +241,7 @@
                                         <div class="flex items-center gap-2">
                                             <div class="w-32 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
                                                 {% if leg_votes.total > 0 %}
-                                                <div class="bg-blue-500 h-2 rounded-full" style="width: {% widthratio count leg_votes.total 100 %}%"></div>
+                                                <div class="bg-primary-500 h-2 rounded-full" style="width: {% widthratio count leg_votes.total 100 %}%"></div>
                                                 {% endif %}
                                             </div>
                                             <span class="text-sm font-medium text-gray-900 dark:text-gray-100 w-8 text-right">{{ count }}</span>
@@ -341,7 +341,7 @@
         </h2>
 
         {% for leg in closed_legislation %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200 border-l-4
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200 border-l-4
                     {% if leg.passed %}border-green-500{% else %}border-gray-400{% endif %}">
             <div class="flex justify-between items-start mb-4">
                 <div>
@@ -375,7 +375,7 @@
             {% if leg.document %}
                 <div class="mb-4">
                     <a href="{{ leg.document.url }}" target="_blank"
-                       class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center text-sm">
+                       class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 flex items-center text-sm">
                         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
@@ -391,7 +391,7 @@
                     <div class="flex justify-between items-center mb-3">
                         <h4 class="font-semibold text-gray-900 dark:text-gray-100">Final Results:</h4>
                         <a href="{% url 'committee_vote_result' committee.code leg.id %}"
-                           class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm flex items-center">
+                           class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 text-sm flex items-center">
                             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
@@ -408,7 +408,7 @@
                                         <div class="flex items-center gap-2">
                                             <div class="w-32 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
                                                 {% if leg_votes.total > 0 %}
-                                                <div class="bg-blue-500 h-2 rounded-full" style="width: {% widthratio count leg_votes.total 100 %}%"></div>
+                                                <div class="bg-primary-500 h-2 rounded-full" style="width: {% widthratio count leg_votes.total 100 %}%"></div>
                                                 {% endif %}
                                             </div>
                                             <span class="text-sm font-medium text-gray-900 dark:text-gray-100 w-8 text-right">{{ count }}</span>

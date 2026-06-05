@@ -6,10 +6,10 @@
 {% block content %}
 <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="mb-6">
-        <a href="{% url 'announcements' %}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">← Back to Announcements</a>
+        <a href="{% url 'announcements' %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">← Back to Announcements</a>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="border-l-4 border-primary-500 dark:border-primary-400 p-6">
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{{ poll.title }}</h1>
             <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Part of: <span class="font-medium text-gray-700 dark:text-gray-300">{{ announcement.title }}</span></p>
@@ -33,7 +33,7 @@
         <div class="px-6 pb-6">
             <div class="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-4 text-center">
                 <p class="text-gray-600 dark:text-gray-400 font-medium">This poll is no longer accepting responses.</p>
-                <a href="{% url 'announcements' %}" class="mt-3 inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline">Back to Announcements</a>
+                <a href="{% url 'announcements' %}" class="mt-3 inline-block text-sm text-primary-600 dark:text-primary-400 hover:underline">Back to Announcements</a>
             </div>
         </div>
         {% else %}
@@ -49,7 +49,7 @@
 
                 {% if question.question_type == 'text' %}
                 <textarea name="q_{{ question.id }}" rows="3" {% if question.is_required %}required{% endif %}
-                          class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
                           placeholder="Your answer…"></textarea>
 
                 {% elif question.question_type == 'single' %}
@@ -57,7 +57,7 @@
                     {% for option in question.options.all %}
                     <label class="flex items-center gap-3 cursor-pointer py-1">
                         <input type="radio" name="q_{{ question.id }}" value="{{ option.id }}" {% if question.is_required %}required{% endif %}
-                               class="text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500">
+                               class="text-primary-600 border-gray-300 dark:border-gray-600 focus:ring-primary-500">
                         <span class="text-sm text-gray-700 dark:text-gray-300">{{ option.text }}</span>
                     </label>
                     {% endfor %}
@@ -68,7 +68,7 @@
                     {% for option in question.options.all %}
                     <label class="flex items-center gap-3 cursor-pointer py-1">
                         <input type="checkbox" name="q_{{ question.id }}" value="{{ option.id }}"
-                               class="rounded text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500">
+                               class="rounded text-primary-600 border-gray-300 dark:border-gray-600 focus:ring-primary-500">
                         <span class="text-sm text-gray-700 dark:text-gray-300">{{ option.text }}</span>
                     </label>
                     {% endfor %}
@@ -78,7 +78,7 @@
             {% endfor %}
 
             <div class="flex justify-end pt-2">
-                <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-md font-medium transition">
+                <button type="submit" class="px-6 py-2 bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 text-white rounded-md font-medium transition">
                     Submit Response
                 </button>
             </div>

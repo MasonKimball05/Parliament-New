@@ -22,22 +22,22 @@
 <div class="space-y-6">
     <!-- Participation Stats -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg px-4 py-5 sm:p-6 text-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-5 sm:p-6 text-center">
             <p class="text-3xl font-bold text-gray-900 dark:text-white">{{ eligible_voters }}</p>
             <p class="text-sm text-gray-500 dark:text-gray-400">Eligible Voters</p>
         </div>
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg px-4 py-5 sm:p-6 text-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-5 sm:p-6 text-center">
             <p class="text-3xl font-bold text-primary-600 dark:text-primary-400">{{ total_unique_voters }}</p>
             <p class="text-sm text-gray-500 dark:text-gray-400">Voters Participated</p>
         </div>
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg px-4 py-5 sm:p-6 text-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-5 sm:p-6 text-center">
             <p class="text-3xl font-bold {% if participation_rate >= 50 %}text-green-600 dark:text-green-400{% else %}text-yellow-600 dark:text-yellow-400{% endif %}">{{ participation_rate|floatformat:1 }}%</p>
             <p class="text-sm text-gray-500 dark:text-gray-400">Participation Rate</p>
         </div>
     </div>
 
     <!-- Voting History -->
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-medium text-gray-900 dark:text-white">Voting History by Attempt</h3>
         </div>
@@ -92,7 +92,7 @@
     </div>
 
     <!-- Application Statistics -->
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-medium text-gray-900 dark:text-white">Application Statistics</h3>
         </div>
@@ -103,7 +103,7 @@
                     <p class="text-sm text-gray-500 dark:text-gray-400">Total</p>
                 </div>
                 <div class="text-center">
-                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ app_stats.submitted }}</p>
+                    <p class="text-2xl font-bold text-primary-600 dark:text-primary-400">{{ app_stats.submitted }}</p>
                     <p class="text-sm text-gray-500 dark:text-gray-400">Submitted</p>
                 </div>
                 <div class="text-center">
@@ -124,7 +124,7 @@
 
     <!-- Slates -->
     {% if slates %}
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-medium text-gray-900 dark:text-white">Slates</h3>
         </div>

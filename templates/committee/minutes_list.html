@@ -6,9 +6,9 @@
 <div class="container mx-auto px-4 py-8">
     <!-- Breadcrumb -->
     <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-4">
-        <a href="{% url 'committee_index' %}" class="hover:text-blue-600 dark:hover:text-blue-400 transition">Committees</a>
+        <a href="{% url 'committee_index' %}" class="hover:text-primary-600 dark:hover:text-primary-400 transition">Committees</a>
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-        <a href="{% url 'committee_home' committee.code %}" class="hover:text-blue-600 dark:hover:text-blue-400 transition">{{ committee.name }}</a>
+        <a href="{% url 'committee_home' committee.code %}" class="hover:text-primary-600 dark:hover:text-primary-400 transition">{{ committee.name }}</a>
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         <span class="text-gray-700 dark:text-gray-300">Minutes</span>
     </div>
@@ -21,7 +21,7 @@
         </div>
         {% if can_create %}
         <button type="button" onclick="document.getElementById('createModal').classList.remove('hidden')"
-                class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium py-2.5 px-6 rounded-lg transition flex items-center gap-2">
+                class="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2.5 px-6 rounded-lg transition flex items-center gap-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
@@ -32,7 +32,7 @@
 
     <!-- Minutes List -->
     {% if minutes_list %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="divide-y divide-gray-200 dark:divide-gray-700">
             {% for m in minutes_list %}
             <a href="{% if can_edit %}{% url 'edit_committee_minutes' committee.code m.id %}{% else %}{% url 'download_committee_minutes_pdf' committee.code m.id %}?preview=1{% endif %}"
@@ -93,7 +93,7 @@
         </div>
     </div>
     {% else %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
         <svg class="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
@@ -127,18 +127,18 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title <span class="text-red-500">*</span></label>
                         <input type="text" name="title" required placeholder="e.g. Committee Meeting"
-                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date <span class="text-red-500">*</span></label>
                             <input type="date" name="date" required id="createDate"
-                                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time <span class="text-red-500">*</span></label>
                             <input type="time" name="start_time" required
-                                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         </div>
                     </div>
                 </div>
@@ -148,7 +148,7 @@
                         Cancel
                     </button>
                     <button type="submit"
-                            class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition">
+                            class="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-6 rounded-lg transition">
                         Create Minutes
                     </button>
                 </div>

@@ -21,7 +21,7 @@ Or simpler usage with just back link:
             {% for crumb in breadcrumbs %}
                 {% if not forloop.last %}
                     <li class="flex items-center">
-                        <a href="{{ crumb.url }}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
+                        <a href="{{ crumb.url }}" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors">
                             {{ crumb.label }}
                         </a>
                         <svg class="w-4 h-4 mx-2 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -36,7 +36,7 @@ Or simpler usage with just back link:
             {% endfor %}
         {% elif back_url %}
             <li class="flex items-center">
-                <a href="{{ back_url }}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors flex items-center">
+                <a href="{{ back_url }}" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors flex items-center">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
                     </svg>

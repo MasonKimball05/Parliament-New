@@ -75,6 +75,7 @@ class Role(models.Model):
         (7, 'VPP', 'Vice President of Programming'),
         (8, 'VPF', 'Vice President of Finance'),
         (9, 'VPA', 'Vice President of Administration'),
+        (10, 'CNB', 'Constitution & Bylaws Chair'),
     ]
 
     name = models.CharField(max_length=100, unique=True)
@@ -244,6 +245,24 @@ class ParliamentUser(AbstractBaseUser):
         """Check if user can create/manage events (Officers and Chairs)"""
         return self.is_officer or self.member_type == MemberType.CHAIR
 
+    @property
+    def has_cnb_permission(self):
+        """Check if user can manage the Constitution & Bylaws builder.
+        Admins always have access; otherwise requires the CNB role."""
+        if self.is_admin:
+            return True
+        return self.roles.filter(code='CNB').exists()
+
+    @property
+    def can_access_kai(self):
+        """Check if user is a chair of the Kai (conduct) committee"""
+        try:
+            from src.models.committees import Committee
+            kai = Committee.objects.get(is_kai_committee=True)
+            return kai.is_chair(self)
+        except Exception:
+            return False
+
     def get_display_name(self):
         """Returns preferred name + last name if preferred name is set, otherwise full name"""
         if self.preferred_name:
@@ -343,6 +362,8 @@ def _default_user_prefs():
             'announcements': True,
             'calendar': True,
             'legislation': True,
+            'cnb': False,
+            'resolutions': False,
             'excuses': False,
             'search': True,
             'roberts_rules': False,
@@ -474,6 +495,14 @@ class UserPreferences(models.Model):
     @property
     def show_legislation_menu(self):
         return self._pref('menu', 'legislation', True)
+
+    @property
+    def show_cnb_menu(self):
+        return self._pref('menu', 'cnb', False)
+
+    @property
+    def show_resolutions_menu(self):
+        return self._pref('menu', 'resolutions', False)
 
     @property
     def show_excuses_menu(self):

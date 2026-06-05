@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% load static %}
 
 {% block title %}Event Attendance{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8">
     <!-- Header -->
     <div class="mb-6 flex flex-col md:flex-row md:justify-between md:items-start gap-4">
@@ -12,7 +12,7 @@
             <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">Mark and manage attendance for chapter events</p>
         </div>
         <div class="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-            <a href="{% url 'attendance_dashboard' %}" class="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium py-2.5 px-4 rounded-lg transition flex items-center justify-center gap-2">
+            <a href="{% url 'attendance_dashboard' %}" class="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2.5 px-4 rounded-lg transition flex items-center justify-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                 </svg>
@@ -43,7 +43,7 @@
             <span class="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-3 py-1 rounded-full text-sm mr-3">Upcoming</span>
             Events Requiring Attendance
         </h3>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">
             <!-- Desktop Table View (hidden on mobile) -->
             <div class="hidden md:block overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -87,7 +87,7 @@
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <a href="{% url 'mark_event_attendance' event.id %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 font-medium">
+                                <a href="{% url 'mark_event_attendance' event.id %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 font-medium">
                                     Mark Attendance
                                 </a>
                             </td>
@@ -134,7 +134,7 @@
                         </div>
                         {% endif %}
                     </div>
-                    <a href="{% url 'mark_event_attendance' event.id %}" class="block text-center bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium py-2.5 px-4 rounded-lg transition">
+                    <a href="{% url 'mark_event_attendance' event.id %}" class="block text-center bg-primary-600 hover:bg-primary-700 text-white font-medium py-2.5 px-4 rounded-lg transition">
                         Mark Attendance
                     </a>
                 </div>
@@ -143,12 +143,12 @@
         </div>
     </div>
     {% else %}
-    <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-6 mb-8 transition-colors duration-200">
+    <div class="bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 rounded-lg p-6 mb-8 transition-colors duration-200">
         <div class="flex items-center">
-            <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-6 h-6 text-primary-600 dark:text-primary-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            <p class="text-blue-800 dark:text-blue-300">No upcoming events require attendance tracking.</p>
+            <p class="text-primary-800 dark:text-primary-300">No upcoming events require attendance tracking.</p>
         </div>
     </div>
     {% endif %}
@@ -160,7 +160,7 @@
             <span class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-3 py-1 rounded-full text-sm mr-3">Past</span>
             Recent Events
         </h3>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">
             <!-- Desktop Table View (hidden on mobile) -->
             <div class="hidden md:block overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -203,7 +203,7 @@
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <a href="{% url 'mark_event_attendance' event.id %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
+                                <a href="{% url 'mark_event_attendance' event.id %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300">
                                     {% if event.attendance_finalized %}View{% else %}Edit{% endif %}
                                 </a>
                             </td>
@@ -250,7 +250,7 @@
                     {% else %}
                     <div class="text-sm text-gray-500 dark:text-gray-400 mb-3">No attendance data</div>
                     {% endif %}
-                    <a href="{% url 'mark_event_attendance' event.id %}" class="block text-center bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium py-2.5 px-4 rounded-lg transition">
+                    <a href="{% url 'mark_event_attendance' event.id %}" class="block text-center bg-primary-600 hover:bg-primary-700 text-white font-medium py-2.5 px-4 rounded-lg transition">
                         {% if event.attendance_finalized %}View Details{% else %}Edit Attendance{% endif %}
                     </a>
                 </div>

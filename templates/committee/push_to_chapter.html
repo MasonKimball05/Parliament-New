@@ -5,14 +5,14 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-6">
-        <a href="{% url 'committee_detail' committee.code %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">← Back to Committee</a>
+        <a href="{% url 'committee_home' committee.code %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors">← Back to Committee</a>
     </div>
 
     <h1 class="text-3xl font-bold mb-6 text-gray-900 dark:text-gray-100">Push to Chapter Vote</h1>
     <p class="text-gray-600 dark:text-gray-400 mb-6">Committee: {{ committee.name }}</p>
 
-    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6 transition-colors duration-200">
-        <p class="text-sm text-blue-800 dark:text-blue-300">
+    <div class="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-700 rounded-lg p-4 mb-6 transition-colors duration-200">
+        <p class="text-sm text-primary-800 dark:text-primary-300">
             <strong>Note:</strong> Only passed committee legislation can be pushed to a chapter-wide vote.
             Once pushed, it will appear in the general voting page for all members.
         </p>
@@ -20,7 +20,7 @@
 
     <div class="space-y-4">
         {% for leg in passed_legislation %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
             <div class="flex justify-between items-start">
                 <div class="flex-1">
                     <h3 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">{{ leg.title }}</h3>
@@ -40,7 +40,7 @@
 
                     {% if leg.document %}
                         <a href="{{ leg.document.url }}" target="_blank"
-                           class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm flex items-center mb-4 transition-colors">
+                           class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 text-sm flex items-center mb-4 transition-colors">
                             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                             </svg>

@@ -12,14 +12,14 @@ def edit_committee_chat_settings(request, code):
     # Check if user is chair or admin
     if not committee.is_chair(request.user) and not request.user.is_admin:
         messages.error(request, 'Only committee chairs can edit chat settings')
-        return redirect('committee_detail', code=code)
+        return redirect('committee_home', code=code)
 
     # Get or create the committee's chat channel
     try:
         channel = ChatChannel.objects.get(committee=committee, channel_type='committee')
     except ChatChannel.DoesNotExist:
         messages.error(request, 'Chat channel not found for this committee')
-        return redirect('committee_detail', code=code)
+        return redirect('committee_home', code=code)
 
     if request.method == 'POST':
         icon = request.POST.get('icon', '💬')

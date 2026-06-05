@@ -17,7 +17,7 @@ def committee_push_to_chapter(request, code):
     # Check permissions
     if not committee.is_chair(request.user):
         messages.error(request, 'Only committee chairs can publish results to chapter.')
-        return redirect('committee_detail', code=code)
+        return redirect('committee_home', code=code)
 
     if request.method == 'POST':
         legislation_id = request.POST.get('legislation_id')
@@ -64,7 +64,7 @@ def create_chapter_vote_from_committee(request, code, legislation_id):
     # Check permissions
     if not committee.is_chair(request.user) and not request.user.is_admin:
         messages.error(request, 'Only committee chairs or admins can create chapter votes.')
-        return redirect('committee_detail', code=code)
+        return redirect('committee_home', code=code)
 
     # Check if chapter vote already exists
     if committee_leg.chapter_legislation:

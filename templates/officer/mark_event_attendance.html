@@ -1,14 +1,14 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% load static %}
 
 {% block title %}Mark Attendance - {{ event.title }}{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8">
     <!-- Header -->
     <div class="mb-6">
         <div class="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-4">
-            <a href="{% url 'event_attendance_list' %}" class="hover:text-blue-600 dark:hover:text-blue-400">Attendance</a>
+            <a href="{% url 'event_attendance_list' %}" class="hover:text-primary-600 dark:hover:text-primary-400">Attendance</a>
             <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
             </svg>
@@ -51,8 +51,8 @@
             <div class="text-3xl font-bold text-red-600 dark:text-red-400">{{ stats.absent }}</div>
             <div class="text-sm text-gray-600 dark:text-gray-400">Absent</div>
         </div>
-        <div class="bg-blue-50 dark:bg-blue-900/30 rounded-lg shadow p-4">
-            <div class="text-3xl font-bold text-blue-600 dark:text-blue-400">{{ stats.excused }}</div>
+        <div class="bg-primary-50 dark:bg-primary-900/30 rounded-lg shadow p-4">
+            <div class="text-3xl font-bold text-primary-600 dark:text-primary-400">{{ stats.excused }}</div>
             <div class="text-sm text-gray-600 dark:text-gray-400">Excused</div>
         </div>
         <div class="bg-gray-50 dark:bg-gray-700 rounded-lg shadow p-4">
@@ -67,7 +67,7 @@
     {% endif %}
 
     <!-- Attendance Form -->
-    <form method="post" class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+    <form method="post" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         {% csrf_token %}
         <input type="hidden" name="action" value="mark_attendance">
 
@@ -76,7 +76,7 @@
                 <h3 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">Member Attendance</h3>
                 {% if not event.attendance_finalized %}
                 <div class="flex flex-wrap gap-2">
-                    <button type="button" id="selectAllPresent" class="text-sm sm:text-base px-3 py-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-lg transition font-medium">
+                    <button type="button" id="selectAllPresent" class="text-sm sm:text-base px-3 py-1.5 text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 bg-primary-50 dark:bg-primary-900/30 hover:bg-primary-100 dark:hover:bg-primary-900/50 rounded-lg transition font-medium">
                         Select All Present
                     </button>
                     <button type="button" id="clearAll" class="text-sm sm:text-base px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition font-medium">
@@ -104,7 +104,7 @@
                             <td class="px-6 py-4">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
-                                        <span class="text-blue-600 dark:text-blue-400 font-semibold text-sm">
+                                        <span class="text-primary-600 dark:text-primary-400 font-semibold text-sm">
                                             {{ data.user.name|slice:":1"|upper }}
                                         </span>
                                     </div>
@@ -144,14 +144,14 @@
                                             <div class="text-xs text-gray-500 dark:text-gray-500">Submitted: {{ data.excuse_submitted_at|date:"M j, Y g:i A" }}</div>
                                             {% endif %}
                                             {% if data.excuse_document_url %}
-                                            <a href="{{ data.excuse_document_url }}" target="_blank" class="inline-flex items-center gap-1 mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                                            <a href="{{ data.excuse_document_url }}" target="_blank" class="inline-flex items-center gap-1 mt-2 text-xs text-primary-600 dark:text-primary-400 hover:underline">
                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
                                                 View Supporting Document
                                             </a>
                                             {% endif %}
                                             {% if data.excuse_status == 'pending' %}
                                             <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
-                                                <a href="{% url 'review_excuses' event.id %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium">Review this excuse →</a>
+                                                <a href="{% url 'review_excuses' event.id %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline font-medium">Review this excuse →</a>
                                             </div>
                                             {% endif %}
                                         </div>
@@ -219,7 +219,7 @@
                                 {% endif %}
                                 {% if not data.has_excuse and not event.attendance_finalized %}
                                 <!-- Manual Excuse Toggle -->
-                                <button type="button" onclick="toggleManualExcuse('desktop-manual-{{ data.user.user_id }}')" class="ml-2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline">
+                                <button type="button" onclick="toggleManualExcuse('desktop-manual-{{ data.user.user_id }}')" class="ml-2 text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 hover:underline">
                                     Excuse
                                 </button>
                                 {% endif %}
@@ -231,12 +231,12 @@
                             <td colspan="5" class="px-6 py-3">
                                 <div class="flex items-center gap-3">
                                     <input type="checkbox" name="excuse_manual" value="{{ data.user.user_id }}"
-                                           class="attendance-checkbox excuse-checkbox h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded"
+                                           class="attendance-checkbox excuse-checkbox h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded"
                                            data-member="{{ data.user.user_id }}"
                                            {% if data.current_status == 'excused' and not data.has_excuse %}checked{% endif %}>
                                     <label class="text-sm font-medium text-blue-800 dark:text-blue-300">Mark as Excused</label>
                                     <input type="text" name="excuse_reason_{{ data.user.user_id }}" placeholder="Reason for excuse (required)"
-                                           class="flex-1 text-sm px-3 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                           class="flex-1 text-sm px-3 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                                            {% if data.attendance_record and data.current_status == 'excused' %}value="{{ data.attendance_record.notes }}"{% endif %}>
                                 </div>
                             </td>
@@ -254,7 +254,7 @@
                     <div class="flex items-start gap-3">
                         <!-- Avatar -->
                         <div class="flex-shrink-0 h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
-                            <span class="text-blue-600 dark:text-blue-400 font-semibold text-lg">
+                            <span class="text-primary-600 dark:text-primary-400 font-semibold text-lg">
                                 {{ data.user.name|slice:":1"|upper }}
                             </span>
                         </div>
@@ -297,14 +297,14 @@
                                 <div class="text-xs text-gray-500 dark:text-gray-500">Submitted: {{ data.excuse_submitted_at|date:"M j, Y g:i A" }}</div>
                                 {% endif %}
                                 {% if data.excuse_document_url %}
-                                <a href="{{ data.excuse_document_url }}" target="_blank" class="inline-flex items-center gap-1 mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                                <a href="{{ data.excuse_document_url }}" target="_blank" class="inline-flex items-center gap-1 mt-2 text-xs text-primary-600 dark:text-primary-400 hover:underline">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
                                     View Supporting Document
                                 </a>
                                 {% endif %}
                                 {% if data.excuse_status == 'pending' %}
                                 <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
-                                    <a href="{% url 'review_excuses' event.id %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium">Review this excuse &rarr;</a>
+                                    <a href="{% url 'review_excuses' event.id %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline font-medium">Review this excuse &rarr;</a>
                                 </div>
                                 {% endif %}
                             </div>
@@ -363,19 +363,19 @@
                             <!-- Manual Excuse Toggle (Mobile) -->
                             {% if not data.has_excuse %}
                             <div class="mt-2">
-                                <button type="button" onclick="toggleManualExcuse('mobile-manual-{{ data.user.user_id }}')" class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline font-medium">
+                                <button type="button" onclick="toggleManualExcuse('mobile-manual-{{ data.user.user_id }}')" class="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 hover:underline font-medium">
                                     Mark as Excused
                                 </button>
                                 <div id="mobile-manual-{{ data.user.user_id }}" class="hidden mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                                     <div class="flex items-start gap-2">
                                         <input type="checkbox" name="excuse_manual" value="{{ data.user.user_id }}"
-                                               class="attendance-checkbox excuse-checkbox mt-0.5 h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded"
+                                               class="attendance-checkbox excuse-checkbox mt-0.5 h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded"
                                                data-member="{{ data.user.user_id }}"
                                                {% if data.current_status == 'excused' and not data.has_excuse %}checked{% endif %}>
                                         <div class="flex-1">
                                             <label class="text-sm font-medium text-blue-800 dark:text-blue-300 block mb-1">Mark as Excused</label>
                                             <input type="text" name="excuse_reason_{{ data.user.user_id }}" placeholder="Reason for excuse (required)"
-                                                   class="w-full text-sm px-3 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                   class="w-full text-sm px-3 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                                                    {% if data.attendance_record and data.current_status == 'excused' %}value="{{ data.attendance_record.notes }}"{% endif %}>
                                         </div>
                                     </div>
@@ -395,7 +395,7 @@
             <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                 <a href="{% url 'event_attendance_list' %}" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-center sm:text-left">← Back to Events</a>
                 <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium py-2.5 px-6 rounded-lg transition">
+                    <button type="submit" class="bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 text-white font-medium py-2.5 px-6 rounded-lg transition">
                         Save Attendance
                     </button>
                     {% if can_finalize %}

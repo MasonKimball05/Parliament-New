@@ -2,12 +2,12 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-6">
-        <a href="{% url 'committee_detail' committee.code %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">← Back to Committee</a>
+        <a href="{% url 'committee_home' committee.code %}" class="text-primary-600 dark:text-primary-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">← Back to Committee</a>
     </div>
 
     <h2 class="text-3xl font-bold mb-6 text-gray-900 dark:text-gray-100">Manage Members - {{ committee.name }}</h2>
 
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200">
         <h3 class="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Current Members</h3>
         {% if committee.members.all %}
             <ul class="space-y-3">
@@ -31,14 +31,14 @@
         {% endif %}
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
         <h3 class="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Add Member</h3>
         <form method="POST" class="flex gap-3 items-end">
             {% csrf_token %}
             <div class="flex-1">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select User</label>
                 <select name="user_id" required
-                        class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent">
+                        class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 focus:border-transparent">
                     <option value="">Choose a user...</option>
                     {% for u in all_users %}
                         <option value="{{ u.user_id }}">{{ u.name }}</option>
@@ -46,7 +46,7 @@
                 </select>
             </div>
             <button name="action" value="add_member"
-                    class="bg-blue-500 dark:bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+                    class="bg-primary-600 text-white px-6 py-2 rounded hover:bg-primary-700 transition-colors">
                 Add Member
             </button>
         </form>

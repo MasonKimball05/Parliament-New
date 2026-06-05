@@ -752,6 +752,10 @@ class UserPreferencesForm(forms.Form):
         widget=forms.CheckboxInput(attrs={"class": _CB_MENU}))
     show_legislation_menu = forms.BooleanField(required=False, label="Show Legislation",
         widget=forms.CheckboxInput(attrs={"class": _CB_MENU}))
+    show_cnb_menu = forms.BooleanField(required=False, label="Show Constitution & Bylaws",
+        widget=forms.CheckboxInput(attrs={"class": _CB_MENU}))
+    show_resolutions_menu = forms.BooleanField(required=False, label="Show Resolutions",
+        widget=forms.CheckboxInput(attrs={"class": _CB_MENU}))
     show_excuses_menu = forms.BooleanField(required=False, label="Show My Excuses",
         widget=forms.CheckboxInput(attrs={"class": _CB_MENU}))
     show_search_menu = forms.BooleanField(required=False, label="Show Search",
@@ -788,6 +792,8 @@ class UserPreferencesForm(forms.Form):
                 'show_announcements_menu': instance.show_announcements_menu,
                 'show_calendar_menu': instance.show_calendar_menu,
                 'show_legislation_menu': instance.show_legislation_menu,
+                'show_cnb_menu': instance.show_cnb_menu,
+                'show_resolutions_menu': instance.show_resolutions_menu,
                 'show_excuses_menu': instance.show_excuses_menu,
                 'show_search_menu': instance.show_search_menu,
                 'show_roberts_rules_menu': instance.show_roberts_rules_menu,
@@ -799,8 +805,8 @@ class UserPreferencesForm(forms.Form):
         menu_fields = [
             'show_vote_menu', 'show_committees_menu', 'show_chats_menu',
             'show_documents_menu', 'show_announcements_menu', 'show_calendar_menu',
-            'show_legislation_menu', 'show_excuses_menu', 'show_search_menu',
-            'show_roberts_rules_menu',
+            'show_legislation_menu', 'show_cnb_menu', 'show_resolutions_menu', 'show_excuses_menu',
+            'show_search_menu', 'show_roberts_rules_menu',
         ]
         selected_count = sum(1 for f in menu_fields if cleaned_data.get(f))
         if selected_count > 9:
@@ -835,6 +841,8 @@ class UserPreferencesForm(forms.Form):
                 'announcements': self.cleaned_data['show_announcements_menu'],
                 'calendar': self.cleaned_data['show_calendar_menu'],
                 'legislation': self.cleaned_data['show_legislation_menu'],
+                'cnb': self.cleaned_data['show_cnb_menu'],
+                'resolutions': self.cleaned_data['show_resolutions_menu'],
                 'excuses': self.cleaned_data['show_excuses_menu'],
                 'search': self.cleaned_data['show_search_menu'],
                 'roberts_rules': self.cleaned_data['show_roberts_rules_menu'],

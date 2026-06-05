@@ -8,7 +8,7 @@
     <div class="flex items-center justify-between mb-6">
         <div>
             <div class="flex items-center space-x-2 mb-2">
-                <a href="{% url 'kai_dashboard' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
+                <a href="{% url 'view_kai_reports' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
                     Kai Dashboard
                 </a>
                 <span class="text-gray-400">/</span>
@@ -19,7 +19,7 @@
         </div>
         <div class="flex items-center space-x-3">
             <button type="button" onclick="openPreviewModal()"
-                class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                 <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
@@ -27,7 +27,7 @@
                 Preview Form
             </button>
             <button type="button" onclick="document.getElementById('addFieldModal').classList.remove('hidden')"
-                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                 <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                 </svg>
@@ -63,7 +63,7 @@
                                         <span class="text-red-500">*</span>
                                         {% endif %}
                                         {% if field.is_builtin %}
-                                        <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                                        <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-100 text-primary-800 dark:bg-primary-900/50 dark:text-primary-300">
                                             Built-in
                                         </span>
                                         {% endif %}
@@ -87,7 +87,7 @@
                                     data-is-builtin="{{ field.is_builtin|yesno:'true,false' }}"
                                     data-options="{% for opt in field.options %}{% if opt.label %}{{ opt.label|escapejs }}{% else %}{{ opt|escapejs }}{% endif %}{% if not forloop.last %}&#10;{% endif %}{% endfor %}"
                                     onclick="editFieldFromButton(this)"
-                                    class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                                    class="p-1 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
                                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                                     </svg>
@@ -146,7 +146,7 @@
                             {% csrf_token %}
                             <input type="hidden" name="action" value="toggle_field">
                             <input type="hidden" name="field_id" value="{{ field.id }}">
-                            <button type="submit" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
+                            <button type="submit" class="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
                                 Restore
                             </button>
                         </form>
@@ -185,7 +185,7 @@
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white">Quick Actions</h3>
                 </div>
                 <div class="px-4 py-4 space-y-2">
-                    <a href="{% url 'kai_dashboard' %}" class="block px-3 py-2 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
+                    <a href="{% url 'view_kai_reports' %}" class="block px-3 py-2 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
                         Back to Kai Dashboard
                     </a>
                     <a href="{% url 'view_kai_reports' %}" class="block px-3 py-2 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
@@ -215,7 +215,7 @@
                         <div id="fieldTypeContainer">
                             <label for="field_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Field Type</label>
                             <select name="field_type" id="field_type" required
-                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
                                 {% for value, display in field_types %}
                                 <option value="{{ value }}">{{ display }}</option>
                                 {% endfor %}
@@ -225,14 +225,14 @@
                         <div>
                             <label for="label" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Label</label>
                             <input type="text" name="label" id="label" required
-                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white sm:text-sm"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
                                 placeholder="e.g., Additional Information">
                         </div>
 
                         <div id="fieldNameContainer">
                             <label for="field_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Field Name (internal)</label>
                             <input type="text" name="field_name" id="field_name" required
-                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white sm:text-sm"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
                                 placeholder="e.g., additional_info" pattern="[a-z_0-9]+">
                             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Lowercase letters, numbers, and underscores only</p>
                         </div>
@@ -240,44 +240,44 @@
                         <div>
                             <label for="section" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Section</label>
                             <input type="text" name="section" id="section"
-                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white sm:text-sm"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
                                 placeholder="e.g., Report Details">
                         </div>
 
                         <div>
                             <label for="placeholder" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Placeholder</label>
                             <input type="text" name="placeholder" id="placeholder"
-                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white sm:text-sm"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
                                 placeholder="Placeholder text...">
                         </div>
 
                         <div>
                             <label for="help_text" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Help Text</label>
                             <textarea name="help_text" id="help_text" rows="2"
-                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white sm:text-sm"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
                                 placeholder="Optional guidance for users"></textarea>
                         </div>
 
                         <div id="optionsField" class="hidden">
                             <label for="options" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Options (one per line)</label>
                             <textarea name="options" id="options" rows="4"
-                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white sm:text-sm"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
                                 placeholder="Option 1&#10;Option 2&#10;Option 3"></textarea>
                         </div>
 
                         <div class="flex items-center">
                             <input type="checkbox" name="is_required" id="is_required"
-                                class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
                             <label for="is_required" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">Required field</label>
                         </div>
                     </div>
                 </div>
 
                 <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                    <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
+                    <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm">
                         Save Field
                     </button>
-                    <button type="button" onclick="closeModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                    <button type="button" onclick="closeModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
                         Cancel
                     </button>
                 </div>
@@ -294,7 +294,7 @@
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
                 <div class="flex items-center justify-between">
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white flex items-center">
-                        <svg class="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5 mr-2 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                         </svg>
@@ -420,7 +420,7 @@ function buildPreview() {
                 html += '<div class="space-y-2">';
                 if (options.length > 0) {
                     options.forEach(opt => {
-                        html += `<label class="flex items-center cursor-not-allowed"><input type="radio" disabled name="preview_${escapeHtml(fieldName)}" class="h-4 w-4 text-blue-600 border-gray-300"><span class="ml-2 text-sm text-gray-500 dark:text-gray-400">${escapeHtml(opt)}</span></label>`;
+                        html += `<label class="flex items-center cursor-not-allowed"><input type="radio" disabled name="preview_${escapeHtml(fieldName)}" class="h-4 w-4 text-primary-600 border-gray-300"><span class="ml-2 text-sm text-gray-500 dark:text-gray-400">${escapeHtml(opt)}</span></label>`;
                     });
                 } else {
                     html += '<p class="text-sm text-gray-400 italic">No options defined</p>';
@@ -428,7 +428,7 @@ function buildPreview() {
                 html += '</div>';
                 break;
             case 'checkbox':
-                html += `<label class="flex items-center cursor-not-allowed"><input type="checkbox" disabled class="h-4 w-4 text-blue-600 border-gray-300 rounded"><span class="ml-2 text-sm text-gray-500 dark:text-gray-400">Yes</span></label>`;
+                html += `<label class="flex items-center cursor-not-allowed"><input type="checkbox" disabled class="h-4 w-4 text-primary-600 border-gray-300 rounded"><span class="ml-2 text-sm text-gray-500 dark:text-gray-400">Yes</span></label>`;
                 break;
             case 'file':
                 html += `<div class="flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700">
@@ -551,7 +551,7 @@ if (fieldsList) {
     fieldsList.addEventListener('dragstart', (e) => {
         draggedItem = e.target.closest('.field-item');
         if (draggedItem) {
-            draggedItem.classList.add('opacity-50', 'bg-blue-50', 'dark:bg-blue-900/20', 'border', 'border-dashed', 'border-blue-400');
+            draggedItem.classList.add('opacity-50', 'bg-primary-50', 'dark:bg-primary-900/20', 'border', 'border-dashed', 'border-primary-400');
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/html', draggedItem.innerHTML);
         }
@@ -559,8 +559,8 @@ if (fieldsList) {
 
     fieldsList.addEventListener('dragend', (e) => {
         if (draggedItem) {
-            draggedItem.classList.remove('opacity-50', 'bg-blue-50', 'dark:bg-blue-900/20', 'border', 'border-dashed', 'border-blue-400');
-            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over', 'border-t-2', 'border-blue-500'));
+            draggedItem.classList.remove('opacity-50', 'bg-primary-50', 'dark:bg-primary-900/20', 'border', 'border-dashed', 'border-primary-400');
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over', 'border-t-2', 'border-primary-500'));
             draggedItem = null;
             saveFieldOrder();
         }
@@ -572,12 +572,12 @@ if (fieldsList) {
 
         const afterElement = getDragAfterElement(fieldsList, e.clientY);
 
-        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over', 'border-t-2', 'border-blue-500'));
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over', 'border-t-2', 'border-primary-500'));
 
         if (afterElement == null) {
             fieldsList.appendChild(draggedItem);
         } else {
-            afterElement.classList.add('drag-over', 'border-t-2', 'border-blue-500');
+            afterElement.classList.add('drag-over', 'border-t-2', 'border-primary-500');
             fieldsList.insertBefore(draggedItem, afterElement);
         }
     });

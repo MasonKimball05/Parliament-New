@@ -5,34 +5,37 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">My Service Hours</h1>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Track and submit your community service hours</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-            {% if is_vpp %}
-            <a href="{% url 'service_dashboard' %}" class="inline-flex items-center px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
-                <svg class="sm:-ml-1 sm:mr-2 h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                </svg>
-                <span class="hidden sm:inline">VPP Dashboard</span>
-                <span class="sm:hidden">VPP</span>
-            </a>
-            {% endif %}
-            <a href="{% url 'submit_service_hours' %}" class="inline-flex items-center px-3 sm:px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">
-                <svg class="sm:-ml-1 sm:mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                </svg>
-                <span class="hidden sm:inline">Submit Hours</span>
-                <span class="sm:hidden">Submit</span>
-            </a>
+    <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
+        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
+        <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold">My Service Hours</h1>
+                <p class="text-sm text-white/75 mt-0.5">Track and submit your community service hours</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                {% if is_vpp %}
+                <a href="{% url 'service_dashboard' %}" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/20 hover:bg-white/30 text-white transition">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                    <span class="hidden sm:inline">VPP Dashboard</span>
+                    <span class="sm:hidden">VPP</span>
+                </a>
+                {% endif %}
+                <a href="{% url 'submit_service_hours' %}" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/20 hover:bg-white/30 text-white transition">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    <span class="hidden sm:inline">Submit Hours</span>
+                    <span class="sm:hidden">Submit</span>
+                </a>
+            </div>
         </div>
     </div>
 
     {% if current_period and stats %}
     <!-- Progress Card -->
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6">
+    <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden mb-6">
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <div class="flex items-center justify-between">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ current_period.name }}</h2>
@@ -53,7 +56,7 @@
                     </span>
                 </div>
                 <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4">
-                    <div class="{% if stats.progress_percent >= 100 %}bg-green-600{% else %}bg-blue-600{% endif %} h-4 rounded-full transition-all duration-300"
+                    <div class="{% if stats.progress_percent >= 100 %}bg-green-600{% else %}bg-primary-600{% endif %} h-4 rounded-full transition-all duration-300"
                          style="width: {{ stats.progress_percent }}%"></div>
                 </div>
             </div>
@@ -73,9 +76,9 @@
                     <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{{ stats.pending_hours }}</div>
                     <div class="text-xs text-yellow-700 dark:text-yellow-300">Pending</div>
                 </div>
-                <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-center">
-                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ stats.expected_hours }}</div>
-                    <div class="text-xs text-blue-700 dark:text-blue-300">Required</div>
+                <div class="bg-primary-50 dark:bg-primary-900/20 rounded-lg p-3 text-center">
+                    <div class="text-2xl font-bold text-primary-600 dark:text-primary-400">{{ stats.expected_hours }}</div>
+                    <div class="text-xs text-primary-700 dark:text-primary-300">Required</div>
                     {% if stats.expectation_override %}
                     <div class="text-xs text-purple-600 dark:text-purple-400 mt-1">
                         (Default: {{ stats.expectation_override.default_hours }})
@@ -120,7 +123,7 @@
 
     {% if adjustments %}
     <!-- Hour Adjustments -->
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6">
+    <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden mb-6">
         <div class="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Hour Adjustments</h2>
             <p class="text-sm text-gray-500 dark:text-gray-400">Hours manually granted or deducted by officers</p>
@@ -160,7 +163,7 @@
     {% endif %}
 
     <!-- My Submissions -->
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden">
         <div class="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">My Submissions</h2>
         </div>
@@ -184,7 +187,7 @@
                         <span>{{ submission.service_date|date:"M d, Y" }}</span>
                     </div>
                     <div class="flex items-center gap-2">
-                        <a href="{% url 'user_view_service_submission' submission.id %}" class="text-blue-600 dark:text-blue-400 font-medium">View</a>
+                        <a href="{% url 'user_view_service_submission' submission.id %}" class="text-primary-600 dark:text-primary-400 font-medium">View</a>
                         {% if submission.can_edit %}
                         <a href="{% url 'edit_service_submission' submission.id %}" class="text-green-600 dark:text-green-400 font-medium">Edit</a>
                         {% endif %}
@@ -240,7 +243,7 @@
                             {{ submission.period.name }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <a href="{% url 'user_view_service_submission' submission.id %}" class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300">
+                            <a href="{% url 'user_view_service_submission' submission.id %}" class="text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300">
                                 View
                             </a>
                             {% if submission.can_edit %}

@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+{% extends "admin_v2/base.html" %}
 
 {% block title %}IP Whitelist - Admin v2{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <div class="flex items-center justify-between">
             <div>
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">✅ IP Whitelist</h1>
@@ -15,7 +15,7 @@
     </div>
 
     <!-- Add New IP Form -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Add New IP to Whitelist</h2>
         <form method="post" action="{% url 'admin_v2_add_ip_whitelist' %}" class="grid grid-cols-1 md:grid-cols-3 gap-4">
             {% csrf_token %}
@@ -36,7 +36,7 @@
     </div>
 
     <!-- Whitelist Entries -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="p-6">
             <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Whitelisted IPs ({{ whitelist_entries.count }})</h2>
         </div>

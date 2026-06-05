@@ -445,3 +445,69 @@ class KaiClosureRequest(models.Model):
     def __str__(self):
         type_label = 'Drop' if self.request_type == 'drop' else 'Closure'
         return f"{type_label} request for '{self.report.title}' by {self.requested_by.name}"
+
+
+class KaiMemberPermission(models.Model):
+    """
+    Granular, additive permissions for a Kai committee member.
+
+    By default, members see nothing — chairs explicitly grant each permission.
+    All permissions are wiped automatically when the exec role tied to the
+    committee (committee.role) changes holders.
+    """
+
+    committee = models.ForeignKey(
+        'Committee',
+        on_delete=models.CASCADE,
+        related_name='kai_member_permissions',
+        limit_choices_to={'is_kai_committee': True},
+    )
+    user = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.CASCADE,
+        related_name='kai_permissions',
+    )
+
+    # Read access
+    can_view_report_list = models.BooleanField(
+        default=False, help_text='Can see the list of submitted reports'
+    )
+    can_view_report_details = models.BooleanField(
+        default=False, help_text='Can open and read individual report details'
+    )
+    can_view_submitter_identity = models.BooleanField(
+        default=False,
+        help_text="Can see who submitted a report (otherwise submitter is shown as 'Anonymous')"
+    )
+    can_view_accused_identity = models.BooleanField(
+        default=False,
+        help_text="Can see who is named in a report (otherwise shown as 'Redacted')"
+    )
+
+    # Write access
+    can_edit_open_cases = models.BooleanField(
+        default=False, help_text='Can update status and deliberation stage on open cases'
+    )
+    can_add_activity = models.BooleanField(
+        default=False, help_text='Can add notes and activity log entries to any case'
+    )
+    can_close_cases = models.BooleanField(
+        default=False, help_text='Can archive or close a case'
+    )
+
+    granted_by = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='kai_permissions_granted',
+    )
+    granted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [('committee', 'user')]
+        verbose_name = 'Kai Member Permission'
+        verbose_name_plural = 'Kai Member Permissions'
+
+    def __str__(self):
+        return f"{self.committee.name} — {self.user.name}"

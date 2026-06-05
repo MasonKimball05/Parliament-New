@@ -1,41 +1,37 @@
-{% extends "base.html" %}
+{% extends "admin_v2/base.html" %}
 {% load static %}
 
 {% block title %}Admin v2 Dashboard - Parliament{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <form id="csrf-form" style="display:none">{% csrf_token %}</form>
-<div class="container mx-auto px-4 py-6 max-w-full">
+<div class="container mx-auto px-4 py-6 max-w-7xl">
     <!-- Header -->
-    <div class="bg-gradient-to-r from-red-600 to-red-800 dark:from-red-700 dark:to-red-900 rounded-lg shadow-lg p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border-l-4 border-red-600 dark:border-red-500 p-6 mb-6 transition-colors duration-200">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-                <h1 class="text-3xl font-bold text-white mb-2">Admin v2 Control Panel</h1>
-                <p class="text-red-100">Advanced site administration and security management</p>
-                <div class="flex flex-wrap gap-3 mt-2 text-sm text-red-100">
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">Control Panel</h1>
+                <p class="text-gray-600 dark:text-gray-400 text-sm">Advanced site administration and security management</p>
+                <div class="flex flex-wrap gap-3 mt-2 text-xs text-gray-500 dark:text-gray-400">
                     <span>Python {{ system_info.python_version }}</span>
+                    <span>·</span>
                     <span>Django {{ system_info.django_version }}</span>
+                    <span>·</span>
                     <span>{{ system_info.database_engine|title }}</span>
                     {% if system_info.debug_mode %}
-                    <span class="text-yellow-300 font-bold">DEBUG MODE</span>
+                    <span class="text-amber-600 dark:text-amber-400 font-semibold">⚠ DEBUG MODE</span>
                     {% endif %}
                 </div>
             </div>
             <div class="flex flex-wrap gap-2">
-                <a href="{% url 'admin_v2_security' %}" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors flex items-center gap-2 font-medium">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <a href="{% url 'admin_v2_security' %}" class="px-4 py-2 rounded-lg border-2 border-primary-700 dark:border-primary-500 text-primary-700 dark:text-primary-400 font-medium text-sm hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                     </svg>
                     Security
                 </a>
-                <a href="{% url 'home' %}" class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors flex items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                    </svg>
-                    Home
-                </a>
-                <a href="{% url 'admin_v2_logout' %}" class="px-4 py-2 bg-red-900/50 hover:bg-red-900/70 text-white rounded-lg transition-colors flex items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <a href="{% url 'admin_v2_logout' %}" class="px-4 py-2 rounded-lg border-2 border-red-600 dark:border-red-500 text-red-600 dark:text-red-400 font-medium text-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
                     </svg>
                     Logout
@@ -46,7 +42,7 @@
 
     <!-- Alert Banner (Lockdown or Critical) -->
     {% if lockdown_active %}
-    <div class="bg-red-600 text-white rounded-lg shadow-md p-4 mb-6 flex items-center justify-between">
+    <div class="bg-red-600 text-white rounded-xl shadow-sm p-4 mb-6 flex items-center justify-between">
         <div class="flex items-center">
             <svg class="w-6 h-6 mr-3 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
@@ -59,7 +55,7 @@
 
     <!-- Quick Stats -->
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow p-4 text-white">
+        <div class="bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg shadow p-4 text-white">
             <div class="text-2xl font-bold">{{ stats.users.total }}</div>
             <div class="text-sm opacity-90">Users</div>
             <div class="text-xs opacity-75">{{ stats.users.active }} active</div>
@@ -74,7 +70,7 @@
             <div class="text-sm opacity-90">Events</div>
             <div class="text-xs opacity-75">{{ stats.events.upcoming }} upcoming</div>
         </div>
-        <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg shadow p-4 text-white">
+        <div class="bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg shadow p-4 text-white">
             <div class="text-2xl font-bold">{{ stats.committees.total }}</div>
             <div class="text-sm opacity-90">Committees</div>
             <div class="text-xs opacity-75">{{ stats.committees.active }} active</div>
@@ -95,7 +91,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
 
         <!-- Security Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-card-id="security" data-expanded="true">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" data-card data-card-id="security" data-expanded="true">
             <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center mr-3">
@@ -188,11 +184,11 @@
         </div>
 
         <!-- Users Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-card-id="users" data-expanded="true">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" data-card data-card-id="users" data-expanded="true">
             <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
                 <div class="flex items-center">
-                    <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mr-3">
-                        <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="w-10 h-10 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center mr-3">
+                        <svg class="w-6 h-6 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
                         </svg>
                     </div>
@@ -220,7 +216,7 @@
                         <div class="text-xs text-gray-500 dark:text-gray-400">Alumni</div>
                     </div>
                 </div>
-                <a href="{% url 'admin_v2_manage_users' %}" class="block w-full p-3 bg-blue-600 hover:bg-blue-700 text-white text-center rounded-lg font-medium transition">
+                <a href="{% url 'admin_v2_manage_users' %}" class="block w-full p-3 bg-primary-600 hover:bg-primary-700 text-white text-center rounded-lg font-medium transition">
                     Manage Users
                 </a>
                 <a href="{% url 'admin_v2_two_factor' %}" class="block w-full p-3 mt-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 text-center rounded-lg font-medium transition">
@@ -230,7 +226,7 @@
         </div>
 
         <!-- Content Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-card-id="content" data-expanded="true">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" data-card data-card-id="content" data-expanded="true">
             <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center mr-3">
@@ -268,7 +264,7 @@
         </div>
 
         <!-- Email & Notifications Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-card-id="email" data-expanded="true">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" data-card data-card-id="email" data-expanded="true">
             <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg flex items-center justify-center mr-3">
@@ -307,11 +303,11 @@
         </div>
 
         <!-- Push Notifications Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-card-id="push" data-expanded="true">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" data-card data-card-id="push" data-expanded="true">
             <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
                 <div class="flex items-center">
-                    <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mr-3">
-                        <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="w-10 h-10 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center mr-3">
+                        <svg class="w-6 h-6 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
                         </svg>
                     </div>
@@ -341,7 +337,7 @@
                     <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Feature Flags</h4>
                     <div class="space-y-1">
                         {% for flag in push_flags %}
-                        <div class="flex items-center justify-between p-2 {% if flag.name == 'push_notifications_enabled' %}bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800{% else %}bg-gray-50 dark:bg-gray-700{% endif %} rounded">
+                        <div class="flex items-center justify-between p-2 {% if flag.name == 'push_notifications_enabled' %}bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800{% else %}bg-gray-50 dark:bg-gray-700{% endif %} rounded">
                             <span class="text-sm text-gray-900 dark:text-gray-100">{{ flag.display_name }}</span>
                             <form method="post" action="{% url 'toggle_feature_flag' flag.id %}">
                                 {% csrf_token %}
@@ -358,7 +354,7 @@
                 <!-- View all link -->
                 <a href="{% url 'admin_v2_push_subscriptions' %}" class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">
                     <span class="font-medium text-gray-900 dark:text-gray-100">View All Subscriptions</span>
-                    <span class="text-sm text-blue-600 dark:text-blue-400">{{ push_stats.total_devices }}</span>
+                    <span class="text-sm text-primary-600 dark:text-primary-400">{{ push_stats.total_devices }}</span>
                 </a>
                 <!-- Danger zone -->
                 <div class="border-t border-gray-200 dark:border-gray-700 pt-3">
@@ -374,7 +370,7 @@
         </div>
 
         <!-- System Settings Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-card-id="system" data-expanded="true">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" data-card data-card-id="system" data-expanded="true">
             <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center mr-3">
@@ -410,14 +406,22 @@
                         {% endfor %}
                     </div>
                 </div>
-                <!-- Site Settings -->
+                <!-- Chat Settings -->
                 <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Chat Settings</h4>
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">Chat Settings</h4>
+                        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full font-medium">
+                            <span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
+                            WebSocket (v3.0.0)
+                        </span>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Messages are delivered in real time via WebSocket (Django Channels + Redis). HTTP message polling was removed in v3.0.0.</p>
                     <div class="space-y-2">
                         {% for setting in chat_settings %}
                         <div>
                             <label class="text-xs text-gray-500 dark:text-gray-400">{{ setting.display_name }}</label>
-                            <form method="post" action="{% url 'update_site_setting' setting.id %}" class="flex gap-2 mt-1">
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mb-1">{{ setting.description }}</p>
+                            <form method="post" action="{% url 'update_site_setting' setting.id %}" class="flex gap-2">
                                 {% csrf_token %}
                                 <input type="number" name="value" value="{{ setting.value }}" min="1000" step="1000" class="flex-1 px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
                                 <button type="submit" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm">Save</button>
@@ -430,7 +434,7 @@
         </div>
 
         <!-- Performance Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" data-card data-card-id="performance" data-expanded="true">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" data-card data-card-id="performance" data-expanded="true">
             <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center mr-3">
@@ -475,10 +479,10 @@
     </div>
 
     <!-- Page Toggles Section -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6" data-card data-card-id="page-toggles" data-expanded="true">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6" data-card data-card-id="page-toggles" data-expanded="true">
         <div class="flex items-center justify-between mb-4 cursor-pointer" onclick="toggleCard(this.closest('[data-card]'))">
             <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
-                <svg class="w-6 h-6 mr-2 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-6 h-6 mr-2 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
                 </svg>
                 Page Toggles
@@ -511,7 +515,7 @@
     <!-- Recent Activity -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Recent Activity Logs -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
                 <svg class="w-5 h-5 mr-2 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -531,11 +535,11 @@
                 <p class="text-gray-500 dark:text-gray-400">No recent activity</p>
                 {% endfor %}
             </div>
-            <a href="{% url 'activity_logs' %}" class="block mt-4 text-center text-blue-600 hover:underline text-sm">View All Logs</a>
+            <a href="{% url 'activity_logs' %}" class="block mt-4 text-center text-primary-600 hover:underline text-sm">View All Logs</a>
         </div>
 
         <!-- Recent Logins -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
                 <svg class="w-5 h-5 mr-2 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
@@ -557,7 +561,7 @@
                 <p class="text-gray-500 dark:text-gray-400">No recent logins</p>
                 {% endfor %}
             </div>
-            <a href="{% url 'admin_v2_login_history' %}" class="block mt-4 text-center text-blue-600 hover:underline text-sm">View All Logins</a>
+            <a href="{% url 'admin_v2_login_history' %}" class="block mt-4 text-center text-primary-600 hover:underline text-sm">View All Logins</a>
         </div>
     </div>
 </div>
@@ -590,6 +594,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (stored !== null) isExpanded = stored === '1';
             } catch (e) {}
         }
+        // Sync dataset so toggleCard reads the correct state on first click
+        card.dataset.expanded = isExpanded ? 'true' : 'false';
         const body = card.querySelector('.card-body');
         const chevron = card.querySelector('.chevron-icon');
         if (body) body.style.display = isExpanded ? '' : 'none';

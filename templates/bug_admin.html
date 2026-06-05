@@ -1,8 +1,8 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 
 {% block title %}Bug Admin - Parliament{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Header -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
@@ -48,16 +48,16 @@
                 </div>
             </div>
         </a>
-        <a href="?status=in_progress" class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors duration-200 hover:shadow-lg {% if current_status == 'in_progress' %}ring-2 ring-blue-500{% endif %}">
+        <a href="?status=in_progress" class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors duration-200 hover:shadow-lg {% if current_status == 'in_progress' %}ring-2 ring-primary-500{% endif %}">
             <div class="flex items-center">
                 <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-6 h-6 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                     </svg>
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-gray-500 dark:text-gray-400">In Progress</p>
-                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ in_progress_count }}</p>
+                    <p class="text-2xl font-bold text-primary-600 dark:text-primary-400">{{ in_progress_count }}</p>
                 </div>
             </div>
         </a>
@@ -77,7 +77,7 @@
     </div>
 
     <!-- Filters -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-6 transition-colors duration-200">
         <form method="get" class="flex flex-col sm:flex-row gap-4">
             <div class="flex-1">
                 <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
@@ -123,7 +123,7 @@
     {% if bug_reports %}
     <div class="space-y-4">
         {% for report in bug_reports %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">
             <div class="p-5">
                 <div class="flex flex-col lg:flex-row gap-4">
                     <!-- Left side: Bug info -->
@@ -217,7 +217,7 @@
     </div>
     {% else %}
     <!-- Empty State -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center transition-colors duration-200">
         <svg class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>

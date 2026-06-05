@@ -3,7 +3,7 @@
 
 {% block title %}Delete Resolution{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8 max-w-2xl">
     <!-- Header -->
     <div class="mb-6">
@@ -31,7 +31,7 @@
     </div>
 
     <!-- Resolution Details -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6 border-l-4 border-gray-600">
+    <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border-l-4 border-gray-600">
         <h3 class="text-xl font-bold text-gray-900 mb-2">{{ resolution.title }}</h3>
         <p class="text-gray-700 mb-2">{{ resolution.description }}</p>
         <p class="text-sm text-gray-600 mb-3">Passed: <strong>{{ resolution.date_passed|date:"F j, Y" }}</strong></p>
@@ -51,7 +51,7 @@
     </div>
 
     <!-- Confirmation Form -->
-    <div class="bg-white rounded-lg shadow-md p-6">
+    <div class="bg-white rounded-xl shadow-sm p-6">
         <form method="post">
             {% csrf_token %}
             <div class="flex items-center justify-between">

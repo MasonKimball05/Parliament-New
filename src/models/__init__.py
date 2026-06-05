@@ -79,6 +79,7 @@ from src.models.kai import (
     KaiFormField,
     KaiReportFieldResponse,
     KaiClosureRequest,
+    KaiMemberPermission,
 )
 
 # Slating
@@ -124,6 +125,9 @@ from src.models.security import (
     EmailVerificationToken,
 )
 
+# Passkeys / WebAuthn
+from src.models.webauthn import WebAuthnCredential
+
 # Notifications
 from src.models.notifications import (
     Notification,
@@ -161,6 +165,19 @@ from src.models.landing import (
     LandingPageSocialLink,
     LandingPageContactTopic,
     LandingPageFormLink,
+)
+
+# Analytics
+from src.models.analytics import PageVisit
+
+# Constitution & Bylaws Builder
+from src.models.cnb import (
+    GoverningDocument,
+    Article,
+    Section,
+    Resolution,
+    ResolutionAmendment,
+    ResolutionCollaborator,
 )
 
 # Feature Flags (defined in separate module)
@@ -223,6 +240,7 @@ __all__ = [
     'KaiFormField',
     'KaiReportFieldResponse',
     'KaiClosureRequest',
+    'KaiMemberPermission',
     # Slating
     'SlatingPeriod',
     'SlatingPosition',
@@ -281,6 +299,15 @@ __all__ = [
     'LandingPageSocialLink',
     'LandingPageContactTopic',
     'LandingPageFormLink',
+    # Analytics
+    'PageVisit',
+    # Constitution & Bylaws Builder
+    'GoverningDocument',
+    'Article',
+    'Section',
+    'Resolution',
+    'ResolutionAmendment',
+    'ResolutionCollaborator',
     # Feature Flags
     'FeatureFlag',
     'PageToggle',

@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% load custom_filters %}
 
 {% block title %}Manage Announcements - Parliament{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Header -->
     <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -14,7 +14,7 @@
                 {% if total_count %}<span class="text-gray-400 dark:text-gray-500">({{ total_count }} total)</span>{% endif %}
             </p>
         </div>
-        <a href="{% url 'create_announcement' %}" class="bg-green-600 dark:bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-700 dark:hover:bg-green-600 transition flex items-center justify-center space-x-2 shadow-md">
+        <a href="{% url 'create_announcement' %}" class="bg-green-600 dark:bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-700 dark:hover:bg-green-600 transition flex items-center justify-center space-x-2 shadow-sm">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
@@ -25,7 +25,7 @@
     <!-- Messages -->
     {% if messages %}
         {% for message in messages %}
-        <div class="mb-4 p-4 rounded-lg {% if message.tags == 'success' %}bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700{% else %}bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-700{% endif %}">
+        <div class="mb-4 p-4 rounded-lg {% if message.tags == 'success' %}bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700{% else %}bg-primary-50 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 border border-primary-200 dark:border-primary-700{% endif %}">
             {{ message }}
         </div>
         {% endfor %}
@@ -36,7 +36,7 @@
         <div class="space-y-4">
             {% for announcement in announcements %}
             {% with stats=announcement.get_view_stats %}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border-l-4 {% if announcement.is_active %}border-green-500{% else %}border-gray-400 dark:border-gray-600{% endif %}">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden border-l-4 {% if announcement.is_active %}border-green-500{% else %}border-gray-400 dark:border-gray-600{% endif %}">
                 <div class="p-6">
                     <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                         <div class="flex-1">
@@ -68,7 +68,7 @@
                             </div>
                             <div class="announcement-content-wrapper mb-3">
                                 <p class="text-gray-700 dark:text-gray-300 whitespace-pre-wrap line-clamp-4 announcement-content">{{ announcement.content|linkify }}</p>
-                                <button type="button" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium mt-1 expand-btn hidden">
+                                <button type="button" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 text-sm font-medium mt-1 expand-btn hidden">
                                     Show more ↓
                                 </button>
                             </div>
@@ -83,7 +83,7 @@
                             {% endif %}
 
                             {% if announcement.event_date %}
-                            <div class="flex items-center space-x-2 text-sm text-blue-600 dark:text-blue-400 mb-2">
+                            <div class="flex items-center space-x-2 text-sm text-primary-600 dark:text-primary-400 mb-2">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                 </svg>
@@ -105,7 +105,7 @@
                                 <div class="text-xs text-gray-600 dark:text-gray-400 mb-2">View Rate</div>
                                 <div class="flex justify-center gap-4 text-xs">
                                     <div class="text-center">
-                                        <div class="font-semibold text-blue-600 dark:text-blue-400">{{ stats.site_views }}</div>
+                                        <div class="font-semibold text-primary-600 dark:text-primary-400">{{ stats.site_views }}</div>
                                         <div class="text-gray-500 dark:text-gray-400">Site</div>
                                     </div>
                                     <div class="text-center">
@@ -113,7 +113,7 @@
                                         <div class="text-gray-500 dark:text-gray-400">Email</div>
                                     </div>
                                 </div>
-                                <a href="{% url 'announcement_stats' announcement.id %}" class="mt-3 inline-block text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium">
+                                <a href="{% url 'announcement_stats' announcement.id %}" class="mt-3 inline-block text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 font-medium">
                                     View Details →
                                 </a>
                             </div>
@@ -122,7 +122,7 @@
 
                     <!-- Actions -->
                     <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <a href="{% url 'edit_announcement' announcement.id %}" class="bg-blue-600 dark:bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700 dark:hover:bg-blue-600 transition text-sm">
+                        <a href="{% url 'edit_announcement' announcement.id %}" class="bg-primary-600 dark:bg-primary-500 text-white px-4 py-2 rounded hover:bg-primary-700 dark:hover:bg-primary-600 transition text-sm">
                             Edit
                         </a>
                         <a href="{% url 'toggle_announcement_status' announcement.id %}" class="bg-yellow-600 dark:bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-700 dark:hover:bg-yellow-600 transition text-sm">
@@ -155,7 +155,7 @@
             {% include 'includes/pagination.html' with page_obj=page_obj %}
         </div>
     {% else %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
             <svg class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/>
             </svg>
@@ -174,7 +174,7 @@
 
     <!-- Back to Officer Home -->
     <div class="mt-8">
-        <a href="{% url 'officer_home' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
+        <a href="{% url 'officer_home' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium">
             ← Back to Officer Home
         </a>
     </div>

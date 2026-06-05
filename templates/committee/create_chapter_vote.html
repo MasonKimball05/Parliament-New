@@ -6,7 +6,7 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-6">
-        <a href="/committee/{{ committee.code }}/vote/" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
+        <a href="/committee/{{ committee.code }}/vote/" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">
             &larr; Back to {{ committee.name }} Votes
         </a>
     </div>
@@ -18,7 +18,7 @@
         </p>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
         <form method="POST" class="space-y-6">
             {% csrf_token %}
 
@@ -29,7 +29,7 @@
                 </label>
                 <input type="text" name="title" required
                        value="[{{ committee.code }}] {{ committee_leg.title }}"
-                       class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                       class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
             </div>
 
             <!-- Description -->
@@ -38,7 +38,7 @@
                     Description
                 </label>
                 <textarea name="description" rows="4"
-                          class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">{{ committee_leg.description }}</textarea>
+                          class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">{{ committee_leg.description }}</textarea>
             </div>
 
             <!-- Vote Settings Grid -->
@@ -49,7 +49,7 @@
                         Voting Mode <span class="text-red-500">*</span>
                     </label>
                     <select id="vote_mode" name="vote_mode" required
-                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         <option value="percentage" {% if committee_leg.vote_mode == 'percentage' %}selected{% endif %}>Percentage (Yes/No/Abstain)</option>
                         <option value="piecewise" {% if committee_leg.vote_mode == 'piecewise' %}selected{% endif %}>Piecewise (Fixed number of Yes votes)</option>
                         <option value="plurality" {% if committee_leg.vote_mode == 'plurality' %}selected{% endif %}>Plurality (Multiple options)</option>
@@ -62,7 +62,7 @@
                         Available At <span class="text-red-500">*</span>
                     </label>
                     <input type="datetime-local" name="available_at" required
-                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">When the chapter can start voting</p>
                 </div>
             </div>
@@ -73,7 +73,7 @@
                     Required Percentage to Pass
                 </label>
                 <select name="required_percentage"
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     <option value="51" {% if committee_leg.required_percentage == '51' %}selected{% endif %}>51% (Simple Majority)</option>
                     <option value="60" {% if committee_leg.required_percentage == '60' %}selected{% endif %}>60%</option>
                     <option value="67" {% if committee_leg.required_percentage == '67' %}selected{% endif %}>67% (Two-Thirds)</option>
@@ -89,7 +89,7 @@
                 </label>
                 <input type="number" name="required_number" min="1" placeholder="e.g., 15"
                        value="{{ committee_leg.required_number }}"
-                       class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                       class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Exact number of "Yes" votes needed to pass</p>
             </div>
 
@@ -102,24 +102,24 @@
                     {% for option in committee_leg.plurality_options %}
                     <input type="text" name="plurality_option_{{ forloop.counter }}" placeholder="Option {{ forloop.counter }}"
                            value="{{ option }}"
-                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     {% empty %}
                     <input type="text" name="plurality_option_1" placeholder="Option 1"
-                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     <input type="text" name="plurality_option_2" placeholder="Option 2"
-                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     {% endfor %}
                     {% if committee_leg.plurality_options|length < 3 %}
                     <input type="text" name="plurality_option_3" placeholder="Option 3 (optional)"
-                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     {% endif %}
                     {% if committee_leg.plurality_options|length < 4 %}
                     <input type="text" name="plurality_option_4" placeholder="Option 4 (optional)"
-                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     {% endif %}
                     {% if committee_leg.plurality_options|length < 5 %}
                     <input type="text" name="plurality_option_5" placeholder="Option 5 (optional)"
-                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     {% endif %}
                 </div>
             </div>
@@ -128,12 +128,12 @@
             <div class="flex flex-wrap gap-4">
                 <label class="flex items-center">
                     <input type="checkbox" name="anonymous_vote" {% if committee_leg.anonymous_vote %}checked{% endif %}
-                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+                           class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded">
                     <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Anonymous Voting</span>
                 </label>
                 <label class="flex items-center" id="removeAbstainWrapper">
                     <input type="checkbox" name="remove_abstain" {% if not committee_leg.allow_abstain %}checked{% endif %}
-                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+                           class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded">
                     <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Remove Abstain Option</span>
                 </label>
             </div>
@@ -142,12 +142,12 @@
             <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Committee Vote Result</h3>
 
-                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                <div class="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-4 mb-4">
                     <div class="flex items-start">
-                        <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5 text-primary-600 dark:text-primary-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
-                        <div class="text-sm text-blue-800 dark:text-blue-300">
+                        <div class="text-sm text-primary-800 dark:text-primary-300">
                             <p>You can include the committee's vote result in the chapter vote description so members can see how the committee voted.</p>
                         </div>
                     </div>
@@ -155,7 +155,7 @@
 
                 <label class="flex items-center mb-4">
                     <input type="checkbox" name="show_committee_result" id="show_committee_result" checked
-                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+                           class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded">
                     <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Include committee vote result in description</span>
                 </label>
 
@@ -182,7 +182,7 @@
                         </label>
                         <textarea name="committee_vote_summary" rows="3"
                                   placeholder="e.g., Passed unanimously by voice vote&#10;or: Yes: 5, No: 2, Abstain: 1 - Passed"
-                                  class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                                  class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"></textarea>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             If filled in, this will be shown instead of the automatically recorded result
                         </p>

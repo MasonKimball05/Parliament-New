@@ -1,20 +1,20 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 
 {% block title %}Edit Minutes - {{ minutes.title }} - {% if is_committee_minutes %}{{ committee.name }}{% else %}Parliament{% endif %}{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8 max-w-5xl">
     <!-- Header -->
     <div class="mb-6">
         <div class="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-4">
             {% if is_committee_minutes %}
-            <a href="{% url 'committee_home' committee.code %}" class="hover:text-blue-600 dark:hover:text-blue-400">{{ committee.name }}</a>
+            <a href="{% url 'committee_home' committee.code %}" class="hover:text-primary-600 dark:hover:text-primary-400">{{ committee.name }}</a>
             <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
             </svg>
-            <a href="{% url 'committee_minutes_list' committee.code %}" class="hover:text-blue-600 dark:hover:text-blue-400">Minutes</a>
+            <a href="{% url 'committee_minutes_list' committee.code %}" class="hover:text-primary-600 dark:hover:text-primary-400">Minutes</a>
             {% else %}
-            <a href="{% url 'chapter_minutes_list' %}" class="hover:text-blue-600 dark:hover:text-blue-400">Chapter Minutes</a>
+            <a href="{% url 'chapter_minutes_list' %}" class="hover:text-primary-600 dark:hover:text-primary-400">Chapter Minutes</a>
             {% endif %}
             <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
@@ -31,15 +31,15 @@
                     <span class="flex items-center gap-1.5">
                         <span>Adjourned:</span>
                         <input type="time" id="endTimeInput" value="{{ end_time_value }}"
-                               class="px-2 py-0.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               class="px-2 py-0.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                                onchange="saveEndTime(this.value)">
                         <button type="button" onclick="setEndTimeNow()" title="Set to now"
-                                class="p-0.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                                class="p-0.5 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition rounded hover:bg-gray-100 dark:hover:bg-gray-700">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         </button>
                     </span>
                     {% if minutes.event %}
-                    <span class="text-blue-600 dark:text-blue-400">Linked: {{ minutes.event.title }}</span>
+                    <span class="text-primary-600 dark:text-primary-400">Linked: {{ minutes.event.title }}</span>
                     {% endif %}
                     {% if minutes.status == 'draft' %}
                     <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300">Draft</span>
@@ -53,7 +53,7 @@
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">
                 <button type="button" onclick="previewPDF()" id="previewPdfBtn"
-                        class="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-medium py-2 px-3 rounded-lg transition flex items-center gap-1.5 text-sm whitespace-nowrap"
+                        class="bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 text-white font-medium py-2 px-3 rounded-lg transition flex items-center gap-1.5 text-sm whitespace-nowrap"
                         title="Preview the minutes as a PDF">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                     Preview PDF
@@ -66,7 +66,7 @@
                 </button>
                 <div class="w-px h-8 bg-gray-300 dark:bg-gray-600"></div>
                 <button type="button" onclick="saveDraft()" id="saveDraftBtn"
-                        class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium py-2 px-3 rounded-lg transition flex items-center gap-1.5 text-sm whitespace-nowrap"
+                        class="bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 text-white font-medium py-2 px-3 rounded-lg transition flex items-center gap-1.5 text-sm whitespace-nowrap"
                         title="Save your minutes as a draft (does not publish)">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
                     Save Draft
@@ -97,7 +97,7 @@
     <!-- ============================== -->
     <!-- ATTENDANCE SECTION -->
     <!-- ============================== -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md mb-6 overflow-hidden" id="attendanceSection">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-6 overflow-hidden" id="attendanceSection">
         <div class="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex justify-between items-center" onclick="toggleAttendance()">
             <div class="flex items-center gap-3">
                 <h3 class="text-lg font-bold text-gray-900 dark:text-white">Attendance</h3>
@@ -113,12 +113,12 @@
             <div class="p-4 sm:p-6">
                 {% if has_linked_event %}
                 <!-- Linked Event Sync Banner -->
-                <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div class="mb-4 p-3 bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 rounded-lg">
                     <div class="flex items-start gap-2">
-                        <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5 text-primary-600 dark:text-primary-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
-                        <div class="text-sm text-blue-800 dark:text-blue-300">
+                        <div class="text-sm text-primary-800 dark:text-primary-300">
                             <span class="font-semibold">Linked to event: {{ minutes.event.title }}</span><br>
                             Attendance saved here will sync to the event. Members with approved excuses are pre-marked as excused. Pending excuses are shown for your review.
                         </div>
@@ -133,7 +133,7 @@
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
                     <div class="flex items-center gap-3">
                         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sort by:</label>
-                        <select id="attendanceSortBy" onchange="sortAttendance()" class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <select id="attendanceSortBy" onchange="sortAttendance()" class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                             <option value="user_id">Member ID</option>
                             <option value="name">Name</option>
                             <option value="member_type">Role</option>
@@ -181,8 +181,8 @@
                         <div class="font-bold text-red-600 dark:text-red-400" id="statAbsent">0</div>
                         <div class="text-gray-500 dark:text-gray-400">Absent</div>
                     </div>
-                    <div class="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-2">
-                        <div class="font-bold text-blue-600 dark:text-blue-400" id="statExcused">0</div>
+                    <div class="bg-primary-50 dark:bg-primary-900/30 rounded-lg p-2">
+                        <div class="font-bold text-primary-600 dark:text-primary-400" id="statExcused">0</div>
                         <div class="text-gray-500 dark:text-gray-400">Excused</div>
                     </div>
                 </div>
@@ -203,7 +203,7 @@
     <!-- ============================== -->
     <!-- MINUTES EDITOR SECTION -->
     <!-- ============================== -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md mb-6 overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-6 overflow-hidden">
         <div class="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-bold text-gray-900 dark:text-white">Meeting Minutes</h3>
             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Type notes directly in the text area. Place your cursor where you want to insert a motion or section header, then use the insert buttons below the editor.</p>
@@ -244,9 +244,9 @@
     <!-- ============================== -->
     <!-- MOTION FORM (hidden by default) -->
     <!-- ============================== -->
-    <div id="motionFormContainer" class="hidden bg-white dark:bg-gray-800 rounded-lg shadow-md mb-6 border-2 border-blue-300 dark:border-blue-700 overflow-hidden">
-        <div class="p-4 sm:p-6 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800">
-            <h3 class="text-lg font-bold text-blue-900 dark:text-blue-200 flex items-center gap-2">
+    <div id="motionFormContainer" class="hidden bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-6 border-2 border-primary-300 dark:border-primary-700 overflow-hidden">
+        <div class="p-4 sm:p-6 bg-primary-50 dark:bg-primary-900/20 border-b border-primary-200 dark:border-primary-800">
+            <h3 class="text-lg font-bold text-primary-900 dark:text-primary-200 flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
                 Add Motion / Vote
             </h3>
@@ -257,7 +257,7 @@
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quick Presets</label>
                 <div class="flex flex-wrap gap-2">
                     <button type="button" onclick="applyPreset('approve_prev_minutes_uc')" class="text-sm px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition">Approve Prev. Minutes (UC)</button>
-                    <button type="button" onclick="applyPreset('approve_prev_minutes')" class="text-sm px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition">Approve Prev. Minutes</button>
+                    <button type="button" onclick="applyPreset('approve_prev_minutes')" class="text-sm px-3 py-1.5 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border border-primary-200 dark:border-primary-800 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/50 transition">Approve Prev. Minutes</button>
                     <button type="button" onclick="applyPreset('adjourn')" class="text-sm px-3 py-1.5 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">Motion to Adjourn</button>
                     <button type="button" onclick="applyPreset('recess')" class="text-sm px-3 py-1.5 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">Motion to Recess</button>
                     <button type="button" onclick="applyPreset('table_motion')" class="text-sm px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-900/50 transition">Motion to Table</button>
@@ -269,7 +269,7 @@
                 <!-- Motion Type -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Motion Type</label>
-                    <select id="motionType" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <select id="motionType" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                         {% for value, label in motion_type_choices %}
                         <option value="{{ value }}">{{ label }}</option>
                         {% endfor %}
@@ -280,12 +280,12 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Author of Motion</label>
                     <div class="flex gap-2">
-                        <select id="motionAuthorSelect" onchange="syncAuthorField()" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <select id="motionAuthorSelect" onchange="syncAuthorField()" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                             <option value="">-- Select member --</option>
                         </select>
                         <span class="self-center text-gray-400 text-sm">or</span>
                         <input type="text" id="motionAuthorText" placeholder="Type name" onchange="clearAuthorSelect()"
-                               class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                               class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                     </div>
                 </div>
             </div>
@@ -294,14 +294,14 @@
             <div class="mt-4">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Motion Text <span class="text-red-500">*</span></label>
                 <textarea id="motionText" rows="2" placeholder="Describe the motion..."
-                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"></textarea>
             </div>
 
             <!-- Context Notes -->
             <div class="mt-4">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Context Notes <span class="text-gray-400 text-xs">(minutes relevant to this motion)</span></label>
                 <textarea id="motionContextNotes" rows="3" placeholder="Any additional context or discussion notes for this motion..."
-                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"></textarea>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
@@ -309,18 +309,18 @@
                 <div>
                     <label class="flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" id="motionSecond" onchange="toggleSecondField()"
-                               class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded">
+                               class="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded">
                         <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Received Second</span>
                     </label>
                     <input type="text" id="motionSecondedBy" placeholder="Seconded by" disabled
-                           class="mt-2 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
+                           class="mt-2 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 disabled:opacity-50">
                 </div>
 
                 <!-- Vote Method -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vote Method</label>
                     <select id="motionVoteMethod" onchange="toggleVoteCountFields()"
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                         {% for value, label in vote_method_choices %}
                         <option value="{{ value }}">{{ label }}</option>
                         {% endfor %}
@@ -331,7 +331,7 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Result</label>
                     <select id="motionResult"
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                         {% for value, label in result_choices %}
                         <option value="{{ value }}">{{ label }}</option>
                         {% endfor %}
@@ -344,17 +344,17 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Votes For</label>
                     <input type="number" id="motionVotesFor" min="0" placeholder="0"
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Votes Against</label>
                     <input type="number" id="motionVotesAgainst" min="0" placeholder="0"
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Abstentions</label>
                     <input type="number" id="motionVotesAbstain" min="0" placeholder="0"
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                 </div>
             </div>
 
@@ -362,19 +362,19 @@
             <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                 <label class="flex items-center gap-2 cursor-pointer mb-3">
                     <input type="checkbox" id="motionCaucus" onchange="toggleCaucusFields()"
-                           class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded">
+                           class="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded">
                     <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Caucus Held</span>
                 </label>
                 <div id="caucusFields" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Duration (minutes)</label>
                         <input type="number" id="motionCaucusDuration" min="1" placeholder="5"
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
                         <select id="motionCaucusType" onchange="toggleSpeakerTime()"
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                             <option value="">-- Select --</option>
                             {% for value, label in caucus_type_choices %}
                             <option value="{{ value }}">{{ label }}</option>
@@ -384,7 +384,7 @@
                     <div id="speakerTimeField" class="hidden">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Seconds per Speaker</label>
                         <input type="number" id="motionSpeakerTime" min="1" placeholder="60"
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                     </div>
                 </div>
             </div>
@@ -396,7 +396,7 @@
                     Cancel
                 </button>
                 <button type="button" onclick="saveMotion()"
-                        class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition flex items-center gap-2">
+                        class="bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 text-white font-medium py-2 px-6 rounded-lg transition flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                     Save Motion
                 </button>
@@ -407,7 +407,7 @@
     <!-- ============================== -->
     <!-- SECTION HEADER FORM (hidden by default) -->
     <!-- ============================== -->
-    <div id="sectionFormContainer" class="hidden bg-white dark:bg-gray-800 rounded-lg shadow-md mb-6 border-2 border-purple-300 dark:border-purple-700 overflow-hidden">
+    <div id="sectionFormContainer" class="hidden bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-6 border-2 border-purple-300 dark:border-purple-700 overflow-hidden">
         <div class="p-4 sm:p-6 bg-purple-50 dark:bg-purple-900/20 border-b border-purple-200 dark:border-purple-800">
             <h3 class="text-lg font-bold text-purple-900 dark:text-purple-200 flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
@@ -457,7 +457,7 @@
     <!-- ============================== -->
     <!-- ADJOURN BUTTON -->
     <!-- ============================== -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 mb-6">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
                 <h3 class="text-lg font-bold text-gray-900 dark:text-white">Adjourn Meeting</h3>
@@ -480,7 +480,7 @@
     <!-- PUBLISH SECTION -->
     <!-- ============================== -->
     {% if minutes.status != 'published' %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6">
         <h3 class="text-lg font-bold text-gray-900 dark:text-white">Publish to Documents</h3>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">Generates a PDF and makes these minutes visible to members. Attendance will be saved automatically before publishing. This action can be undone by editing the minutes.</p>
         <form method="post" action="{% if is_committee_minutes %}{% url 'publish_committee_minutes' committee.code minutes.id %}{% else %}{% url 'publish_chapter_minutes' minutes.id %}{% endif %}" id="publishForm">
@@ -489,7 +489,7 @@
                 <div class="flex flex-col sm:flex-row items-start sm:items-end gap-4">
                     <div class="flex-1">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Visibility</label>
-                        <select name="visibility" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <select name="visibility" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                             {% if is_committee_minutes %}
                             <option value="committee_only">Committee Members Only</option>
                             <option value="all_members">All Chapter Members</option>
@@ -508,7 +508,7 @@
                 </div>
                 {% if is_committee_minutes %}
                 <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                    <input type="checkbox" name="publish_to_chapter" class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500">
+                    <input type="checkbox" name="publish_to_chapter" class="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500">
                     Also publish to Chapter Documents
                 </label>
                 {% endif %}
@@ -592,14 +592,14 @@ function renderExcuseSummary() {
     let html = '';
 
     if (approved.length > 0) {
-        html += `<div class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-2">
+        html += `<div class="p-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg mb-2">
             <div class="flex items-center gap-2 mb-1">
-                <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <span class="text-sm font-semibold text-blue-800 dark:text-blue-300">Approved Excuses (${approved.length})</span>
+                <svg class="w-4 h-4 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span class="text-sm font-semibold text-primary-800 dark:text-primary-300">Approved Excuses (${approved.length})</span>
             </div>
             <div class="flex flex-wrap gap-2 mt-1">`;
         approved.forEach(m => {
-            html += `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 cursor-help" title="${escapeHtml(m.excuse_reason || '')}">${escapeHtml(m.name)}</span>`;
+            html += `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-800 dark:text-primary-300 cursor-help" title="${escapeHtml(m.excuse_reason || '')}">${escapeHtml(m.name)}</span>`;
         });
         html += `</div></div>`;
     }
@@ -636,14 +636,14 @@ function renderAttendance() {
             present: 'bg-green-50 dark:bg-green-900/20',
             late: 'bg-yellow-50 dark:bg-yellow-900/20',
             absent: 'bg-red-50 dark:bg-red-900/20',
-            excused: 'bg-blue-50 dark:bg-blue-900/20',
+            excused: 'bg-primary-50 dark:bg-primary-900/20',
         };
         if (statusColors[m.status]) row.className = statusColors[m.status];
 
         // Build excuse badge HTML
         let excuseBadge = '';
         if (m.excuse_status === 'approved') {
-            excuseBadge = `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 cursor-help" title="${escapeHtml(m.excuse_reason || '')}">
+            excuseBadge = `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 cursor-help" title="${escapeHtml(m.excuse_reason || '')}">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"/></svg>
                 Excused</span>`;
         } else if (m.excuse_status === 'pending') {
@@ -659,8 +659,8 @@ function renderAttendance() {
         row.innerHTML = `
             <td class="px-4 py-3">
                 <div class="flex items-center gap-3">
-                    <div class="flex-shrink-0 h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
-                        <span class="text-blue-600 dark:text-blue-400 font-semibold text-xs">${m.name.charAt(0).toUpperCase()}</span>
+                    <div class="flex-shrink-0 h-8 w-8 rounded-full bg-primary-100 dark:bg-primary-900/50 flex items-center justify-center">
+                        <span class="text-primary-600 dark:text-primary-400 font-semibold text-xs">${m.name.charAt(0).toUpperCase()}</span>
                     </div>
                     <div>
                         <div class="flex items-center gap-2">
@@ -689,7 +689,7 @@ function renderAttendance() {
             <td class="px-4 py-3 text-center">
                 <input type="radio" name="att_${m.user_id}" value="excused" ${m.status === 'excused' ? 'checked' : ''}
                        onchange="setAttendanceStatus(${idx}, 'excused')"
-                       class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+                       class="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700">
             </td>
         `;
         tbody.appendChild(row);
@@ -889,7 +889,7 @@ function renderSections() {
     // Single textarea
     const textarea = document.createElement('textarea');
     textarea.id = 'mainTextarea';
-    textarea.className = 'w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y';
+    textarea.className = 'w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-y';
     textarea.rows = Math.max(6, (combinedText.match(/\n/g) || []).length + 3);
     textarea.value = combinedText;
     textarea.placeholder = 'Start typing your minutes here...';
@@ -972,7 +972,7 @@ function renderSections() {
     // "Add Motion at Cursor" button
     const addMotionBtn = document.createElement('button');
     addMotionBtn.type = 'button';
-    addMotionBtn.className = 'flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition px-2.5 py-1.5 rounded-md bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800';
+    addMotionBtn.className = 'flex items-center gap-1.5 text-xs font-medium text-primary-700 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition px-2.5 py-1.5 rounded-md bg-primary-50 dark:bg-primary-900/30 hover:bg-primary-100 dark:hover:bg-primary-900/50 border border-primary-200 dark:border-primary-800';
     addMotionBtn.title = 'Insert a motion or vote record at your cursor position';
     addMotionBtn.innerHTML = `
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
@@ -1129,7 +1129,7 @@ function insertMotionAtCursor() {
 function createMotionCard(motion, motionIdx) {
     const m = motion;
     const div = document.createElement('div');
-    div.className = 'border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20 rounded-r-lg p-4';
+    div.className = 'border-l-4 border-primary-500 bg-primary-50 dark:bg-primary-900/20 rounded-r-lg p-4';
 
     const authorName = m.author_id
         ? (memberChoices.find(c => String(c.user_id) === String(m.author_id)) || {}).name || m.author_text
@@ -1138,11 +1138,11 @@ function createMotionCard(motion, motionIdx) {
     let html = `
         <div class="flex justify-between items-start">
             <div>
-                <div class="text-sm font-bold text-blue-900 dark:text-blue-200">${MOTION_TYPE_LABELS[m.motion_type] || m.motion_type}</div>
+                <div class="text-sm font-bold text-primary-900 dark:text-primary-200">${MOTION_TYPE_LABELS[m.motion_type] || m.motion_type}</div>
                 <div class="text-sm text-gray-700 dark:text-gray-300 mt-1">${escapeHtml(m.motion_text || '')}</div>
             </div>
             <div class="flex gap-1 ml-3 flex-shrink-0">
-                <button type="button" onclick="editMotion(${motionIdx})" class="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded" title="Edit">
+                <button type="button" onclick="editMotion(${motionIdx})" class="p-1 text-primary-600 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-900/50 rounded" title="Edit">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                 </button>
                 <button type="button" onclick="deleteMotion(${motionIdx})" class="p-1 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 rounded" title="Delete">
@@ -1171,7 +1171,7 @@ function createMotionCard(motion, motionIdx) {
     html += '</div>';
 
     if (m.context_notes) {
-        html += `<div class="mt-2 text-xs text-gray-600 dark:text-gray-400 italic border-t border-blue-200 dark:border-blue-800 pt-2">${escapeHtml(m.context_notes)}</div>`;
+        html += `<div class="mt-2 text-xs text-gray-600 dark:text-gray-400 italic border-t border-primary-200 dark:border-primary-800 pt-2">${escapeHtml(m.context_notes)}</div>`;
     }
 
     div.innerHTML = html;

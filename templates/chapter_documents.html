@@ -29,7 +29,7 @@
                     </svg>
                     Manage Documents
                 </a>
-                <a href="{% url 'upload_chapter_document' %}" class="bg-blue-500 dark:bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-600 dark:hover:bg-blue-700 flex items-center justify-center text-sm sm:text-base whitespace-nowrap transition-colors">
+                <a href="{% url 'upload_chapter_document' %}" class="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700 flex items-center justify-center text-sm sm:text-base whitespace-nowrap transition-colors">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                     </svg>
@@ -51,10 +51,10 @@
 
         <div class="space-y-4">
             {% for data in committees_data %}
-            <details class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
-                <summary class="bg-blue-50 dark:bg-blue-900/20 px-4 sm:px-6 py-4 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition flex items-center justify-between gap-2">
+            <details class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">
+                <summary class="bg-primary-50 dark:bg-primary-900/20 px-4 sm:px-6 py-4 cursor-pointer hover:bg-primary-100 dark:hover:bg-primary-900/30 transition flex items-center justify-between gap-2">
                     <div class="flex items-center space-x-2 sm:space-x-3 min-w-0">
-                        <svg class="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5 sm:w-6 sm:h-6 text-primary-600 dark:text-primary-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                         </svg>
                         <span class="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">{{ data.committee.name }}</span>
@@ -110,7 +110,7 @@
                                                     <div class="flex items-center gap-2">
                                                         <div class="w-24 bg-gray-200 dark:bg-gray-600 rounded-full h-1.5">
                                                             {% if tally.total > 0 %}
-                                                            <div class="bg-blue-500 h-1.5 rounded-full" style="width: {% widthratio count tally.total 100 %}%"></div>
+                                                            <div class="bg-primary-500 h-1.5 rounded-full" style="width: {% widthratio count tally.total 100 %}%"></div>
                                                             {% endif %}
                                                         </div>
                                                         <span class="font-medium text-gray-900 dark:text-gray-100 w-6 text-right">{{ count }}</span>
@@ -142,7 +142,7 @@
 
                                 {% if vote.document %}
                                 <div class="mt-3">
-                                    <a href="{{ vote.document.url }}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline text-sm flex items-center">
+                                    <a href="{{ vote.document.url }}" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline text-sm flex items-center">
                                         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                         </svg>
@@ -158,7 +158,7 @@
                                 <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 flex flex-wrap gap-2 sm:gap-3">
                                     <!-- View Full Results -->
                                     <a href="{% url 'committee_vote_result' data.committee.code vote.id %}"
-                                       class="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                                       class="inline-flex items-center gap-1 text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 px-2 py-1 rounded hover:bg-primary-50 dark:hover:bg-primary-900/20">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
@@ -214,7 +214,7 @@
         <!-- Custom Folders -->
         {% if folders_with_documents %}
             {% for folder, documents in folders_with_documents %}
-                <details class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
+                <details class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">
                     <summary class="bg-purple-50 dark:bg-purple-900/20 px-4 sm:px-6 py-4 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/30 transition flex items-center justify-between gap-2">
                         <div class="flex items-center space-x-2 sm:space-x-3 min-w-0">
                             <svg class="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -269,15 +269,15 @@
 
         <!-- Documents by Committee (for docs without a folder) -->
         {% for group in committee_doc_groups %}
-            <details class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-colors duration-200">
-                <summary class="bg-blue-50 dark:bg-blue-900/20 px-4 sm:px-6 py-4 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition flex items-center justify-between gap-2">
+            <details class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">
+                <summary class="bg-primary-50 dark:bg-primary-900/20 px-4 sm:px-6 py-4 cursor-pointer hover:bg-primary-100 dark:hover:bg-primary-900/30 transition flex items-center justify-between gap-2">
                     <div class="flex items-center space-x-2 sm:space-x-3 min-w-0">
-                        <svg class="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5 sm:w-6 sm:h-6 text-primary-600 dark:text-primary-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                         </svg>
                         <span class="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">{{ group.committee_name }}</span>
                     </div>
-                    <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-medium px-2 sm:px-2.5 py-0.5 rounded whitespace-nowrap flex-shrink-0">
+                    <span class="bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 text-xs font-medium px-2 sm:px-2.5 py-0.5 rounded whitespace-nowrap flex-shrink-0">
                         {{ group.documents|length }} <span class="hidden xs:inline">document{{ group.documents|length|pluralize }}</span><span class="xs:hidden">doc{{ group.documents|length|pluralize }}</span>
                     </span>
                 </summary>
@@ -293,7 +293,7 @@
         {% endfor %}
 
         {% if not folders_with_documents and not committee_doc_groups %}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center transition-colors duration-200">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 text-center transition-colors duration-200">
                 <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>

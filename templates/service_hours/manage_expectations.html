@@ -21,14 +21,14 @@
     </div>
 
     <!-- Info Banner -->
-    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+    <div class="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-4 mb-6">
         <div class="flex items-start">
-            <svg class="h-5 w-5 text-blue-600 dark:text-blue-400 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="h-5 w-5 text-primary-600 dark:text-primary-400 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
             <div>
-                <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">About Member Expectations</h3>
-                <p class="mt-1 text-sm text-blue-700 dark:text-blue-300">
+                <h3 class="text-sm font-medium text-primary-800 dark:text-primary-200">About Member Expectations</h3>
+                <p class="mt-1 text-sm text-primary-700 dark:text-primary-300">
                     By default, all members are required to complete <strong>{{ period.default_hours_required }} hours</strong> for this period.
                     Use this page to set custom hour requirements for individual members (e.g., reduced hours for new members or increased hours for leadership).
                 </p>
@@ -121,12 +121,12 @@
                                     <div class="text-xs text-gray-500 dark:text-gray-400">{{ expectation.member.member_type }}</div>
                                 </td>
                                 <td class="px-6 py-4 text-center">
-                                    <span class="text-lg font-bold {% if expectation.expected_hours < period.default_hours_required %}text-blue-600 dark:text-blue-400{% elif expectation.expected_hours > period.default_hours_required %}text-purple-600 dark:text-purple-400{% else %}text-gray-900 dark:text-white{% endif %}">
+                                    <span class="text-lg font-bold {% if expectation.expected_hours < period.default_hours_required %}text-primary-600 dark:text-primary-400{% elif expectation.expected_hours > period.default_hours_required %}text-purple-600 dark:text-purple-400{% else %}text-gray-900 dark:text-white{% endif %}">
                                         {{ expectation.expected_hours }}
                                     </span>
                                     <span class="text-sm text-gray-500 dark:text-gray-400">hours</span>
                                     {% if expectation.expected_hours != period.default_hours_required %}
-                                    <div class="text-xs {% if expectation.expected_hours < period.default_hours_required %}text-blue-500{% else %}text-purple-500{% endif %}">
+                                    <div class="text-xs {% if expectation.expected_hours < period.default_hours_required %}text-primary-500{% else %}text-purple-500{% endif %}">
                                         {% if expectation.expected_hours < period.default_hours_required %}
                                         {{ period.default_hours_required|add:expectation.expected_hours|add:"-"|add:period.default_hours_required }} fewer than default
                                         {% else %}
@@ -184,7 +184,7 @@
 
     <!-- Back Link -->
     <div class="mt-6">
-        <a href="{% url 'manage_service_periods' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
+        <a href="{% url 'manage_service_periods' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium">
             &larr; Back to Periods
         </a>
     </div>

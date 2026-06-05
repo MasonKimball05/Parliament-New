@@ -8,6 +8,21 @@ from src.models_feature_flags import SiteSetting, FeatureFlag
 from src.feature_flag_decorators import require_feature_flag
 
 
+def _ws_broadcast(group_name, payload):
+    """
+    Send a message to a Channels group. Silently no-ops if the channel layer
+    is not configured (e.g., running without Redis in a bare dev environment).
+    """
+    try:
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        layer = get_channel_layer()
+        if layer:
+            async_to_sync(layer.group_send)(group_name, payload)
+    except Exception:
+        pass  # Never let a WS broadcast error break the HTTP response
+
+
 def _parse_mentions(message_text, channel):
     """
     Parse @username patterns from message text and return a set of matching user PKs.
@@ -175,9 +190,7 @@ def channel_chat(request, channel_id=None, code=None):
     if channel.channel_type == 'committee' and channel.committee:
         committee_code = channel.committee.code
 
-    # Get chat polling settings from database (with defaults)
-    chat_active_poll_interval = SiteSetting.get_setting('chat_active_poll_interval', 3000)
-    chat_inactive_poll_interval = SiteSetting.get_setting('chat_inactive_poll_interval', 20000)
+    # Active users poll interval (messages are real-time via WebSocket — no message polling)
     chat_active_users_poll_interval = SiteSetting.get_setting('chat_active_users_poll_interval', 5000)
 
     # Check if chat feature is enabled (for JavaScript polling control)
@@ -203,8 +216,6 @@ def channel_chat(request, channel_id=None, code=None):
         'can_send_messages': can_send_messages,
         'can_delete_own_messages': can_delete_own_messages,
         'committee_code': committee_code,
-        'chat_active_poll_interval': chat_active_poll_interval,
-        'chat_inactive_poll_interval': chat_inactive_poll_interval,
         'chat_active_users_poll_interval': chat_active_users_poll_interval,
         'chat_enabled': chat_enabled,
         'notif_pref': notif_pref,
@@ -233,9 +244,16 @@ def get_channel_messages(request, channel_id=None, code=None):
 
     if since:
         # Polling: get messages after this timestamp (newest activity)
+        try:
+            from django.utils.dateparse import parse_datetime
+            since_dt = parse_datetime(since)
+            if since_dt is None:
+                raise ValueError('unparseable')
+        except (ValueError, TypeError):
+            return JsonResponse({'error': 'Invalid since timestamp'}, status=400)
         messages = ChatMessage.objects.filter(
             channel=channel,
-            created_at__gt=since,
+            created_at__gt=since_dt,
             is_deleted=False
         ).select_related('sender').order_by('created_at')
     elif before:
@@ -298,6 +316,14 @@ def send_channel_message(request, channel_id=None, code=None):
     if not channel.can_write(request.user):
         return JsonResponse({'error': 'You do not have permission to send messages in this channel'}, status=403)
 
+    # Rate limit: max 5 messages per 3 seconds per user
+    from django.core.cache import cache as _rate_cache
+    _rate_key = f'chat_send_rate_{request.user.pk}'
+    _send_count = _rate_cache.get(_rate_key, 0)
+    if _send_count >= 5:
+        return JsonResponse({'error': 'You are sending messages too quickly. Please slow down.'}, status=429)
+    _rate_cache.set(_rate_key, _send_count + 1, 3)
+
     message_text = request.POST.get('message', '').strip()
 
     if not message_text:
@@ -326,6 +352,47 @@ def send_channel_message(request, channel_id=None, code=None):
     # Parse @mentions and dispatch targeted push notifications
     mentioned_pks = _parse_mentions(message_text, channel)
     _dispatch_chat_push(channel, message, mentioned_pks=mentioned_pks)
+
+    # Create in-app mention notifications and collect user_ids for WS broadcast
+    mentioned_user_ids = []
+    if mentioned_pks:
+        from src.models import Notification, ParliamentUser as _PUser
+        from django.core.cache import cache as _notif_cache
+
+        if channel.channel_type == 'committee' and channel.committee:
+            channel_url = reverse('committee_channel_chat', kwargs={'code': channel.committee.code})
+        else:
+            channel_url = reverse('channel_chat', kwargs={'channel_id': channel.id})
+
+        for mentioned_user in _PUser.objects.filter(pk__in=mentioned_pks):
+            mentioned_user_ids.append(str(mentioned_user.user_id))
+            if mentioned_user.pk == request.user.pk:
+                continue  # Don't self-notify
+            Notification.objects.create(
+                recipient=mentioned_user,
+                notification_type='chat_mention',
+                title=f'{request.user.name} mentioned you in #{channel.name}',
+                message=message_text[:200],
+                link=channel_url,
+                source_type='chatmessage',
+                source_id=message.id,
+            )
+            _notif_cache.delete(f'notif_count_{mentioned_user.pk}')
+
+    # Broadcast to WebSocket group so all connected clients receive it in real-time
+    _ws_broadcast(f'chat_{channel.id}', {
+        'type': 'chat.message',
+        'message': {
+            'id': message.id,
+            'sender_id': message.sender.user_id,
+            'sender_name': message.sender.name,
+            'sender_profile_picture': message.sender.profile_picture.url if message.sender.profile_picture else None,
+            'message': message.message,
+            'created_at': message.created_at.isoformat(),
+            'edited_at': None,
+            'mentioned_user_ids': mentioned_user_ids,
+        },
+    })
 
     return JsonResponse({
         'success': True,
@@ -362,6 +429,10 @@ def edit_channel_message(request, message_id, channel_id=None, code=None):
     if message.sender != request.user:
         return JsonResponse({'error': 'Only the sender can edit this message'}, status=403)
 
+    # Check channel edit permission (committee members always pass; guests need can_edit=True)
+    if not channel.can_edit_messages(request.user):
+        return JsonResponse({'error': 'You do not have permission to edit messages in this channel'}, status=403)
+
     # Check if message is within 1 hour edit window
     from datetime import timedelta
     time_since_creation = timezone.now() - message.created_at
@@ -380,6 +451,16 @@ def edit_channel_message(request, message_id, channel_id=None, code=None):
     message.message = new_message_text
     message.edited_at = timezone.now()
     message.save()
+
+    # Broadcast edit to WebSocket group
+    _ws_broadcast(f'chat_{channel.id}', {
+        'type': 'chat.edit',
+        'message': {
+            'id': message.id,
+            'message': message.message,
+            'edited_at': message.edited_at.isoformat(),
+        },
+    })
 
     return JsonResponse({
         'success': True,
@@ -426,6 +507,12 @@ def delete_channel_message(request, message_id, channel_id=None, code=None):
     # Soft delete
     message.is_deleted = True
     message.save()
+
+    # Broadcast deletion to WebSocket group
+    _ws_broadcast(f'chat_{channel.id}', {
+        'type': 'chat.delete',
+        'message_id': message.id,
+    })
 
     return JsonResponse({'success': True})
 

@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% load static %}
 
 {% block title %}Review Excuse Requests{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8 max-w-6xl">
     {% include 'includes/breadcrumbs.html' with back_url='/officers/attendance/' back_label='Attendance' current='Review Excuses' %}
 
@@ -15,7 +15,7 @@
         </div>
         <label class="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" id="showArchivedToggle" {% if show_archived %}checked{% endif %}
-                   onchange="toggleArchived()" class="rounded text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600">
+                   onchange="toggleArchived()" class="rounded text-primary-600 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600">
             <span class="text-gray-700 dark:text-gray-300">Show Past Events</span>
         </label>
     </div>
@@ -47,7 +47,7 @@
             <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Filter:</span>
             <div class="flex flex-wrap gap-2">
                 <a href="?{% if show_archived %}show_archived=true{% endif %}"
-                   class="px-3 py-1.5 text-sm font-medium rounded-lg transition {% if selected_status == 'all' %}bg-blue-600 text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600{% endif %}">
+                   class="px-3 py-1.5 text-sm font-medium rounded-lg transition {% if selected_status == 'all' %}bg-primary-600 text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600{% endif %}">
                     All
                 </a>
                 <a href="?status=pending{% if show_archived %}&show_archived=true{% endif %}"
@@ -109,7 +109,7 @@
                         <!-- Member Info -->
                         <div class="flex items-center gap-3 lg:w-48 flex-shrink-0">
                             <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center flex-shrink-0">
-                                <span class="text-blue-600 dark:text-blue-300 font-semibold">{{ excuse.user.name|slice:":1"|upper }}</span>
+                                <span class="text-primary-600 dark:text-primary-300 font-semibold">{{ excuse.user.name|slice:":1"|upper }}</span>
                             </div>
                             <div class="min-w-0">
                                 <div class="font-medium text-gray-900 dark:text-white truncate">{{ excuse.user.get_display_name }}</div>
@@ -123,7 +123,7 @@
                                 <p class="whitespace-pre-wrap break-words">{{ excuse.reason }}</p>
                             </div>
                             {% if excuse.supporting_document %}
-                            <a href="{{ excuse.supporting_document.url }}" target="_blank" class="inline-flex items-center text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 mt-2">
+                            <a href="{{ excuse.supporting_document.url }}" target="_blank" class="inline-flex items-center text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-blue-300 mt-2">
                                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                                 </svg>
@@ -233,7 +233,7 @@
                         Notes <span class="text-gray-400 font-normal">(optional)</span>
                     </label>
                     <textarea name="notes" id="notes" rows="3"
-                              class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                              class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500"
                               placeholder="Add a note about your decision..."></textarea>
                 </div>
             </div>

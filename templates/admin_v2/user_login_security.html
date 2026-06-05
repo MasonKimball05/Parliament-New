@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+{% extends "admin_v2/base.html" %}
 
 {% block title %}Login Security - {{ target_user.name }} - Admin v2{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <div class="flex items-center justify-between">
             <div>
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">🔒 Login Security</h1>
@@ -16,7 +16,7 @@
 
     <!-- Temporary Password Display (shown once after password reset) -->
     {% if temp_password_data %}
-    <div class="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-xl shadow-sm p-6 mb-6">
         <div class="flex items-start">
             <div class="flex-shrink-0">
                 <svg class="h-6 w-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -39,7 +39,7 @@
                             <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">New Password:</div>
                             <div class="text-xl font-mono font-bold text-gray-900 dark:text-gray-100" id="temp-password">{{ temp_password_data.password }}</div>
                         </div>
-                        <button onclick="copyPassword()" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">
+                        <button onclick="copyPassword()" class="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded text-sm">
                             📋 Copy
                         </button>
                     </div>
@@ -65,7 +65,7 @@
     {% endif %}
 
     <!-- User Information Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">👤 User Information</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div>
@@ -127,13 +127,13 @@
                 </div>
             </div>
         </div>
-        <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-sm text-blue-800 dark:text-blue-200">
+        <div class="mt-4 p-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded text-sm text-primary-800 dark:text-primary-200">
             <strong>Note:</strong> Passwords are securely hashed using one-way encryption and cannot be decrypted. Use "Force Password Reset" below to generate a new temporary password.
         </div>
     </div>
 
     <!-- Watch Flag Panel -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 border-l-4 {% if watch_flag and watch_flag.is_active %}border-red-500{% elif watch_flag %}border-yellow-400{% else %}border-gray-300 dark:border-gray-600{% endif %}">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 border-l-4 {% if watch_flag and watch_flag.is_active %}border-red-500{% elif watch_flag %}border-yellow-400{% else %}border-gray-300 dark:border-gray-600{% endif %}">
         <div class="flex items-start justify-between gap-4">
             <div class="flex-1">
                 <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
@@ -168,7 +168,7 @@
                     </form>
                     {% endif %}
                     <button id="watch-flag-edit-btn"
-                            class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded font-medium">
+                            class="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded font-medium">
                         Edit
                     </button>
                     <form method="post" action="{% url 'admin_v2_toggle_watch_flag' target_user.user_id %}"
@@ -220,7 +220,7 @@
                 <textarea name="notes" rows="2"
                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">{{ watch_flag.notes }}</textarea>
             </div>
-            <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded">Save Changes</button>
+            <button type="submit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded">Save Changes</button>
         </form>
         {% endif %}
     </div>
@@ -245,7 +245,7 @@
         </div>
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
             <div class="text-sm text-gray-500 dark:text-gray-400">Unique IPs</div>
-            <div class="text-2xl font-bold text-blue-600">{{ stats.unique_ips }}</div>
+            <div class="text-2xl font-bold text-primary-600">{{ stats.unique_ips }}</div>
         </div>
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
             <div class="text-sm text-gray-500 dark:text-gray-400">Locations</div>
@@ -254,7 +254,7 @@
     </div>
 
     <!-- Security Controls -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">⚠️ Security Actions</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <!-- Force Password Reset -->
@@ -305,7 +305,7 @@
 
     <!-- Security Alerts -->
     {% if alerts %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">🚨 Security Alerts</h2>
         <div class="space-y-3">
             {% for alert in alerts %}
@@ -332,7 +332,7 @@
     {% endif %}
 
     <!-- IP Addresses -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">🌐 IP Addresses & Locations</h2>
         <div class="overflow-x-auto">
             <table class="w-full">
@@ -417,7 +417,7 @@
     </div>
 
     <!-- Activity History -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">
                 🗂 Activity History
@@ -440,7 +440,7 @@
                     <option value="90" {% if selected_activity_date == '90' %}selected{% endif %}>Last 90 days</option>
                     <option value="all" {% if selected_activity_date == 'all' %}selected{% endif %}>All time</option>
                 </select>
-                <button type="submit" class="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded">Filter</button>
+                <button type="submit" class="px-3 py-1 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded">Filter</button>
             </form>
         </div>
         <div class="overflow-x-auto">
@@ -491,7 +491,7 @@
                             <button type="button"
                                     onclick="toggleMeta(this)"
                                     data-meta="{{ entry.metadata|default:'' }}"
-                                    class="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                                    class="text-xs text-primary-600 dark:text-primary-400 hover:underline">
                                 Show
                             </button>
                             <pre class="hidden mt-1 text-xs bg-gray-100 dark:bg-gray-700 rounded p-2 whitespace-pre-wrap max-w-xs overflow-auto"></pre>
@@ -509,12 +509,12 @@
             </table>
         </div>
         {% if user_activity|length == 100 %}
-        <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">Showing 100 most recent entries. Use filters or the <a href="{% url 'activity_logs' %}?user={{ target_user.user_id }}" class="text-blue-600 dark:text-blue-400 hover:underline">Activity Logs page</a> for more.</p>
+        <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">Showing 100 most recent entries. Use filters or the <a href="{% url 'activity_logs' %}?user={{ target_user.user_id }}" class="text-primary-600 dark:text-primary-400 hover:underline">Activity Logs page</a> for more.</p>
         {% endif %}
     </div>
 
     <!-- Login History -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
         <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">📋 Recent Login History (Last 50)</h2>
         <div class="overflow-x-auto">
             <table class="w-full">

@@ -1,12 +1,12 @@
-{% extends "base.html" %}
+{% extends "admin_v2/base.html" %}
 
 {% block title %}Login Lockouts - Admin v2{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8">
 
     <!-- Header -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <div class="flex items-center justify-between">
             <div>
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">Login Lockouts</h1>
@@ -42,7 +42,7 @@
     {% endif %}
 
     <!-- Active Lockouts -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <div class="flex items-center mb-4">
             <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">Active Lockouts</h2>
             {% if active_count > 0 %}
@@ -119,7 +119,7 @@
                                     <input type="hidden" name="ip_address" value="{{ lockout.ip_address }}">
                                     <button type="submit"
                                         onclick="return confirm('Whitelist {{ lockout.ip_address }} and clear lockout? Whitelisted IPs bypass all rate limiting.')"
-                                        class="px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 dark:text-blue-300 rounded font-medium">
+                                        class="px-2 py-1 text-xs bg-primary-100 hover:bg-primary-200 text-primary-800 dark:bg-primary-900/40 dark:hover:bg-primary-900/60 dark:text-primary-300 rounded font-medium">
                                         Whitelist
                                     </button>
                                 </form>
@@ -137,7 +137,7 @@
 
     <!-- Expired (not yet cleared) -->
     {% if expired_lockouts %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Recently Expired (Awaiting Cleanup)</h2>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -168,7 +168,7 @@
 
     <!-- Recently Cleared -->
     {% if recent_cleared %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
         <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Recently Cleared</h2>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">

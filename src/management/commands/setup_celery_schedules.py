@@ -63,6 +63,11 @@ SCHEDULES = [
         'task': 'tasks.expire_stale_ip_blacklist_entries',
         'crontab': {'hour': '9', 'minute': '10'},  # 3:10 AM CST daily
     },
+    {
+        'name': 'Prune expired chat permissions',
+        'task': 'tasks.prune_expired_chat_permissions',
+        'crontab': {'hour': '9', 'minute': '12'},  # 3:12 AM CST daily
+    },
 
     # -------------------------------------------------------------------------
     # Housekeeping — monthly tasks (1st of month, 3:15 AM CST = 09:15 UTC)

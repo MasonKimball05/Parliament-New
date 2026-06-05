@@ -3,12 +3,12 @@
 
 {% block title %}Manage Section Impacts - {{ resolution.title }}{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8 max-w-6xl">
     <!-- Header -->
     <div class="mb-6">
         <nav class="text-sm text-gray-600 mb-2">
-            <a href="{% url 'manage_resolutions' %}" class="hover:text-blue-600">Manage Resolutions</a>
+            <a href="{% url 'manage_resolutions' %}" class="hover:text-primary-600">Manage Resolutions</a>
             <span class="mx-2">›</span>
             <span class="text-gray-900">{{ resolution.title }}</span>
         </nav>
@@ -19,14 +19,14 @@
     <!-- Messages -->
     {% if messages %}
         {% for message in messages %}
-            <div class="mb-4 p-4 rounded-lg {% if message.tags == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
+            <div class="mb-4 p-4 rounded-lg {% if message.tags == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200{% else %}bg-primary-50 text-primary-800 border border-primary-200{% endif %}">
                 {{ message }}
             </div>
         {% endfor %}
     {% endif %}
 
     <!-- Resolution Info -->
-    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 p-6 mb-6 rounded-r-lg">
+    <div class="bg-gradient-to-r from-primary-50 to-indigo-50 border-l-4 border-primary-600 p-6 mb-6 rounded-r-lg">
         <h2 class="text-xl font-bold text-gray-900 mb-2">{{ resolution.title }}</h2>
         <p class="text-gray-700 mb-2">{{ resolution.description }}</p>
         <p class="text-sm text-gray-600">Passed: <strong>{{ resolution.date_passed|date:"F j, Y" }}</strong></p>
@@ -44,7 +44,7 @@
 
     <!-- Section Impacts List -->
     {% if section_impacts %}
-        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
@@ -72,7 +72,7 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                                 {% if impact.external_url %}
-                                    <span class="text-blue-600">{{ impact.external_url|truncatechars:30 }}</span>
+                                    <span class="text-primary-600">{{ impact.external_url|truncatechars:30 }}</span>
                                 {% elif impact.section_anchor %}
                                     <span class="text-green-600">{{ impact.section_anchor }}</span>
                                 {% else %}
@@ -85,7 +85,7 @@
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <a href="{% url 'edit_section_impact' impact.id %}" class="text-blue-600 hover:text-blue-900 mr-3">Edit</a>
+                                <a href="{% url 'edit_section_impact' impact.id %}" class="text-primary-600 hover:text-primary-900 mr-3">Edit</a>
                                 <a href="{% url 'delete_section_impact' impact.id %}" class="text-red-600 hover:text-red-900">Delete</a>
                             </td>
                         </tr>
@@ -95,7 +95,7 @@
         </div>
     {% else %}
         <!-- Empty State -->
-        <div class="bg-white rounded-lg shadow-md p-12 text-center">
+        <div class="bg-white rounded-xl shadow-sm p-12 text-center">
             <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
             </svg>
@@ -112,7 +112,7 @@
 
     <!-- Back Button -->
     <div class="mt-8">
-        <a href="{% url 'manage_resolutions' %}" class="inline-flex items-center text-blue-600 hover:text-blue-800">
+        <a href="{% url 'manage_resolutions' %}" class="inline-flex items-center text-primary-600 hover:text-primary-800">
             <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
             </svg>

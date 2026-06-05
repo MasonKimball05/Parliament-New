@@ -13,7 +13,7 @@ def committee_remove_member(request, code):
     # Check permissions
     if not (committee.is_vp(request.user) or request.user.is_admin):
         messages.error(request, 'You do not have permission to manage this committee.')
-        return redirect('committee_detail', code=code)
+        return redirect('committee_home', code=code)
 
     user_id = request.POST.get('user_id')
     role_type = request.POST.get('role_type')
@@ -23,7 +23,13 @@ def committee_remove_member(request, code):
 
         if role_type == 'member':
             committee.members.remove(user)
-            messages.success(request, f'{user.name} has been removed from members.')
+            # Also remove from voting members if present — no reason to retain a vote
+            # on a non-member, and leaving them in causes a confusing orphan state
+            if committee.voting_members.filter(pk=user.pk).exists():
+                committee.voting_members.remove(user)
+                messages.success(request, f'{user.name} has been removed from members and voting members.')
+            else:
+                messages.success(request, f'{user.name} has been removed from members.')
         elif role_type == 'chair':
             committee.chairs.remove(user)
             messages.success(request, f'{user.name} has been removed from chairs.')
@@ -36,4 +42,4 @@ def committee_remove_member(request, code):
     except ParliamentUser.DoesNotExist:
         messages.error(request, 'User not found.')
 
-    return redirect('committee_detail', code=code)
+    return redirect('committee_home', code=code)

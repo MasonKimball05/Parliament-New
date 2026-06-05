@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}Kai Member Permissions — {{ committee.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Header -->
+    <div class="mb-6">
+        <a href="{% url 'committee_home' committee.code %}"
+           class="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 text-sm mb-3">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+            Back to Committee
+        </a>
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Kai Member Permissions</h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ committee.name }}</p>
+            </div>
+            <button onclick="confirmReset()"
+                    class="inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition self-start whitespace-nowrap">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Reset All to No Access
+            </button>
+        </div>
+    </div>
+
+    <!-- Info banner -->
+    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4 text-sm text-amber-800 dark:text-amber-200 mb-6">
+        <strong>Default is no access.</strong> Members only see what you explicitly grant them below. Chairs always have full access regardless of this table. Permissions reset automatically when the exec role tied to this committee changes.
+    </div>
+
+    <!-- Search -->
+    <div class="mb-3">
+        <input type="text" id="member-search" oninput="filterRows()"
+               placeholder="Search members…"
+               class="w-full sm:w-72 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500">
+    </div>
+
+    <!-- Permissions table -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto">
+        <table class="min-w-full">
+            <thead>
+                <tr class="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[180px]">Member</th>
+                    <th class="px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider" title="Can see the report list">
+                        <span class="hidden sm:block">View List</span>
+                        <span class="sm:hidden">List</span>
+                    </th>
+                    <th class="px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider" title="Can open individual reports">
+                        <span class="hidden sm:block">View Details</span>
+                        <span class="sm:hidden">Details</span>
+                    </th>
+                    <th class="px-3 py-3 text-center text-xs font-semibold text-blue-500 dark:text-blue-400 uppercase tracking-wider" title="Can see submitter names">
+                        <span class="hidden sm:block">Submitter ID</span>
+                        <span class="sm:hidden">Subm.</span>
+                    </th>
+                    <th class="px-3 py-3 text-center text-xs font-semibold text-blue-500 dark:text-blue-400 uppercase tracking-wider" title="Can see accused names">
+                        <span class="hidden sm:block">Accused ID</span>
+                        <span class="sm:hidden">Acc.</span>
+                    </th>
+                    <th class="px-3 py-3 text-center text-xs font-semibold text-orange-500 dark:text-orange-400 uppercase tracking-wider" title="Can update case status/deliberation">
+                        <span class="hidden sm:block">Edit Cases</span>
+                        <span class="sm:hidden">Edit</span>
+                    </th>
+                    <th class="px-3 py-3 text-center text-xs font-semibold text-orange-500 dark:text-orange-400 uppercase tracking-wider" title="Can add notes/activity">
+                        <span class="hidden sm:block">Add Activity</span>
+                        <span class="sm:hidden">Notes</span>
+                    </th>
+                    <th class="px-3 py-3 text-center text-xs font-semibold text-red-500 dark:text-red-400 uppercase tracking-wider" title="Can archive/close cases">
+                        <span class="hidden sm:block">Close Cases</span>
+                        <span class="sm:hidden">Close</span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody id="member-table-body" class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for row in member_rows %}
+                <tr id="kai-row-{{ row.member.user_id }}"
+                    data-name="{{ row.member.name|lower }}"
+                    class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <td class="px-4 py-3">
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {{ row.member.name }}
+                            {% if row.is_chair %}
+                            <span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">Chair</span>
+                            {% endif %}
+                        </p>
+                        <p class="text-xs text-gray-400 dark:text-gray-500">{{ row.member.member_type }}</p>
+                    </td>
+                    {% if row.is_chair %}
+                    <td class="px-3 py-3 text-center"><input type="checkbox" checked disabled class="rounded border-gray-300 dark:border-gray-600 text-green-500 opacity-60 cursor-not-allowed"></td>
+                    <td class="px-3 py-3 text-center"><input type="checkbox" checked disabled class="rounded border-gray-300 dark:border-gray-600 text-green-500 opacity-60 cursor-not-allowed"></td>
+                    <td class="px-3 py-3 text-center"><input type="checkbox" checked disabled class="rounded border-gray-300 dark:border-gray-600 text-green-500 opacity-60 cursor-not-allowed"></td>
+                    <td class="px-3 py-3 text-center"><input type="checkbox" checked disabled class="rounded border-gray-300 dark:border-gray-600 text-green-500 opacity-60 cursor-not-allowed"></td>
+                    <td class="px-3 py-3 text-center"><input type="checkbox" checked disabled class="rounded border-gray-300 dark:border-gray-600 text-green-500 opacity-60 cursor-not-allowed"></td>
+                    <td class="px-3 py-3 text-center"><input type="checkbox" checked disabled class="rounded border-gray-300 dark:border-gray-600 text-green-500 opacity-60 cursor-not-allowed"></td>
+                    <td class="px-3 py-3 text-center"><input type="checkbox" checked disabled class="rounded border-gray-300 dark:border-gray-600 text-green-500 opacity-60 cursor-not-allowed"></td>
+                    {% else %}
+                    <td class="px-3 py-3 text-center">
+                        <input type="checkbox" data-field="can_view_report_list" {% if row.can_view_report_list %}checked{% endif %}
+                               onchange="updateKaiPerm('{{ row.member.user_id }}', this)"
+                               class="rounded border-gray-300 dark:border-gray-600 text-primary-600 cursor-pointer">
+                    </td>
+                    <td class="px-3 py-3 text-center">
+                        <input type="checkbox" data-field="can_view_report_details" {% if row.can_view_report_details %}checked{% endif %}
+                               onchange="updateKaiPerm('{{ row.member.user_id }}', this)"
+                               class="rounded border-gray-300 dark:border-gray-600 text-primary-600 cursor-pointer">
+                    </td>
+                    <td class="px-3 py-3 text-center">
+                        <input type="checkbox" data-field="can_view_submitter_identity" {% if row.can_view_submitter_identity %}checked{% endif %}
+                               onchange="updateKaiPerm('{{ row.member.user_id }}', this)"
+                               class="rounded border-gray-300 dark:border-gray-600 text-primary-600 cursor-pointer">
+                    </td>
+                    <td class="px-3 py-3 text-center">
+                        <input type="checkbox" data-field="can_view_accused_identity" {% if row.can_view_accused_identity %}checked{% endif %}
+                               onchange="updateKaiPerm('{{ row.member.user_id }}', this)"
+                               class="rounded border-gray-300 dark:border-gray-600 text-primary-600 cursor-pointer">
+                    </td>
+                    <td class="px-3 py-3 text-center">
+                        <input type="checkbox" data-field="can_edit_open_cases" {% if row.can_edit_open_cases %}checked{% endif %}
+                               onchange="updateKaiPerm('{{ row.member.user_id }}', this)"
+                               class="rounded border-gray-300 dark:border-gray-600 text-primary-600 cursor-pointer">
+                    </td>
+                    <td class="px-3 py-3 text-center">
+                        <input type="checkbox" data-field="can_add_activity" {% if row.can_add_activity %}checked{% endif %}
+                               onchange="updateKaiPerm('{{ row.member.user_id }}', this)"
+                               class="rounded border-gray-300 dark:border-gray-600 text-primary-600 cursor-pointer">
+                    </td>
+                    <td class="px-3 py-3 text-center">
+                        <input type="checkbox" data-field="can_close_cases" {% if row.can_close_cases %}checked{% endif %}
+                               onchange="updateKaiPerm('{{ row.member.user_id }}', this)"
+                               class="rounded border-gray-300 dark:border-gray-600 text-primary-600 cursor-pointer">
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- No results state (after search filter) -->
+        <div id="no-results" class="hidden py-10 text-center text-sm text-gray-400 dark:text-gray-500">
+            No members match your search.
+        </div>
+    </div>
+
+    <!-- Column legend -->
+    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs text-gray-500 dark:text-gray-400">
+        <div><span class="font-semibold text-gray-700 dark:text-gray-300">View List</span> — Can see the report list</div>
+        <div><span class="font-semibold text-gray-700 dark:text-gray-300">View Details</span> — Can open individual reports</div>
+        <div><span class="font-semibold text-primary-600 dark:text-primary-400">Submitter ID</span> — Sees submitter name (not anonymous)</div>
+        <div><span class="font-semibold text-primary-600 dark:text-primary-400">Accused ID</span> — Sees accused name (not redacted)</div>
+        <div><span class="font-semibold text-orange-600 dark:text-orange-400">Edit Cases</span> — Can update status/deliberation</div>
+        <div><span class="font-semibold text-orange-600 dark:text-orange-400">Add Activity</span> — Can add notes to a case</div>
+        <div><span class="font-semibold text-red-600 dark:text-red-400">Close Cases</span> — Can archive or close a case</div>
+        <div class="text-gray-400 dark:text-gray-500 italic">Checkboxes save automatically on click.</div>
+    </div>
+
+</div>
+
+<!-- Toast container -->
+<div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+<script nonce="{{ request.csp_nonce }}">
+const COMMITTEE_CODE = '{{ committee.code }}';
+const CSRF = '{{ csrf_token }}';
+const PERM_FIELDS = ['can_view_report_list','can_view_report_details','can_view_submitter_identity','can_view_accused_identity','can_edit_open_cases','can_add_activity','can_close_cases'];
+
+function toast(msg, isError = false) {
+    const el = document.createElement('div');
+    el.className = `pointer-events-auto px-4 py-2.5 rounded-lg shadow-lg text-sm font-medium ${
+        isError ? 'bg-red-600 text-white' : 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+    }`;
+    el.textContent = msg;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+}
+
+function filterRows() {
+    const q = document.getElementById('member-search').value.toLowerCase();
+    const rows = document.querySelectorAll('#member-table-body tr');
+    let visible = 0;
+    rows.forEach(row => {
+        const name = row.dataset.name || '';
+        const show = name.includes(q);
+        row.classList.toggle('hidden', !show);
+        if (show) visible++;
+    });
+    document.getElementById('no-results').classList.toggle('hidden', visible > 0);
+}
+
+async function updateKaiPerm(userId, changedCb) {
+    const row = document.getElementById(`kai-row-${userId}`);
+    const payload = new URLSearchParams({ csrfmiddlewaretoken: CSRF });
+
+    PERM_FIELDS.forEach(field => {
+        const cb = row.querySelector(`[data-field="${field}"]`);
+        payload.append(field, cb ? cb.checked : false);
+    });
+
+    try {
+        const res = await fetch(`/api/committee/${COMMITTEE_CODE}/kai-permissions/${userId}/update/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': CSRF },
+            body: payload,
+        });
+        const data = await res.json();
+        if (data.success) {
+            toast(`Updated ${data.user_name}`);
+        } else {
+            changedCb.checked = !changedCb.checked; // revert
+            toast(data.error || 'Failed to update', true);
+        }
+    } catch (e) {
+        changedCb.checked = !changedCb.checked;
+        toast('Network error', true);
+    }
+}
+
+async function confirmReset() {
+    if (!confirm('Reset ALL member permissions to no access? This cannot be undone.')) return;
+
+    try {
+        const res = await fetch(`/api/committee/${COMMITTEE_CODE}/kai-permissions/reset/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': CSRF },
+            body: new URLSearchParams({ csrfmiddlewaretoken: CSRF }),
+        });
+        const data = await res.json();
+        if (data.success) {
+            toast(data.message);
+            document.querySelectorAll('[data-field]').forEach(cb => cb.checked = false);
+        } else {
+            toast(data.error || 'Reset failed', true);
+        }
+    } catch (e) {
+        toast('Network error', true);
+    }
+}
+</script>
+{% endblock %}

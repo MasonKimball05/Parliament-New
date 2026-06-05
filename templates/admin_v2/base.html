@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block subnav %}
+<div class="bg-gray-900 dark:bg-gray-950 border-b border-gray-700 dark:border-gray-800 text-gray-300">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-10 gap-4">
+            <!-- Left: label + quick links -->
+            <div class="flex items-center gap-0 overflow-x-auto scrollbar-none">
+                <!-- Admin v2 label -->
+                <span class="flex items-center gap-1.5 pr-3 mr-1 border-r border-gray-700 text-xs font-semibold tracking-widest text-red-400 uppercase whitespace-nowrap flex-shrink-0">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                    Admin v2
+                </span>
+
+                <!-- Nav links -->
+                <nav class="flex items-center">
+                    <a href="{% url 'admin_v2_dashboard' %}"
+                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
+                              {% if request.resolver_match.url_name == 'admin_v2_dashboard' %}text-white bg-gray-800{% endif %}">
+                        Dashboard
+                    </a>
+                    <a href="{% url 'admin_v2_security' %}"
+                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
+                              {% if 'security' in request.resolver_match.url_name %}text-white bg-gray-800{% endif %}">
+                        Security
+                    </a>
+                    <a href="{% url 'admin_v2_manage_users' %}"
+                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
+                              {% if request.resolver_match.url_name == 'admin_v2_manage_users' %}text-white bg-gray-800{% endif %}">
+                        Users
+                    </a>
+                    <a href="{% url 'admin_v2_manage_committees' %}"
+                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
+                              {% if request.resolver_match.url_name == 'admin_v2_manage_committees' %}text-white bg-gray-800{% endif %}">
+                        Committees
+                    </a>
+                    <a href="{% url 'admin_v2_notifications' %}"
+                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
+                              {% if 'notification' in request.resolver_match.url_name %}text-white bg-gray-800{% endif %}">
+                        Notifications
+                    </a>
+                    <a href="{% url 'admin_v2_email_logs' %}"
+                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
+                              {% if 'email' in request.resolver_match.url_name %}text-white bg-gray-800{% endif %}">
+                        Email Logs
+                    </a>
+                    <a href="{% url 'admin_v2_push_subscriptions' %}"
+                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
+                              {% if request.resolver_match.url_name == 'admin_v2_push_subscriptions' %}text-white bg-gray-800{% endif %}">
+                        Push
+                    </a>
+                    <a href="{% url 'admin_v2_two_factor' %}"
+                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
+                              {% if 'two_factor' in request.resolver_match.url_name %}text-white bg-gray-800{% endif %}">
+                        2FA
+                    </a>
+                    <a href="{% url 'admin_v2_manage_events' %}"
+                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
+                              {% if 'event' in request.resolver_match.url_name and 'admin_v2' in request.resolver_match.url_name %}text-white bg-gray-800{% endif %}">
+                        Events
+                    </a>
+                    <a href="{% url 'admin_v2_manage_legislation' %}"
+                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
+                              {% if 'legislation' in request.resolver_match.url_name %}text-white bg-gray-800{% endif %}">
+                        Legislation
+                    </a>
+                    <a href="{% url 'admin_v2_page_visits' %}"
+                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
+                              {% if request.resolver_match.url_name == 'admin_v2_page_visits' %}text-white bg-gray-800{% endif %}">
+                        Page Visits
+                    </a>
+                </nav>
+            </div>
+
+            <!-- Right: logout -->
+            <a href="{% url 'admin_v2_logout' %}"
+               class="flex-shrink-0 flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-400 transition-colors whitespace-nowrap">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                </svg>
+                Exit Admin
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{% block admin_content %}{% endblock %}
+{% endblock %}

@@ -8,18 +8,23 @@
 <div class="container mx-auto px-4 py-6 max-w-5xl">
 
     <!-- Page Header -->
-    <div class="flex items-center gap-4 mb-6">
-        <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms"
-             class="w-12 h-12 rounded-full object-contain bg-white dark:bg-gray-800 p-1 shadow">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Legislation</h1>
-            <p class="text-sm text-gray-500 dark:text-gray-400">Active chapter votes</p>
+    <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
+        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
+        <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms"
+                     class="w-10 h-10 rounded-full object-contain bg-white/20 p-1">
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-bold">Legislation</h1>
+                    <p class="text-sm text-white/75 mt-0.5">Active chapter votes</p>
+                </div>
+            </div>
+            {% if legislation %}
+            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-white/20 text-white">
+                {{ legislation|length }} active
+            </span>
+            {% endif %}
         </div>
-        {% if legislation %}
-        <span class="ml-auto inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
-            {{ legislation|length }} active
-        </span>
-        {% endif %}
     </div>
 
     <!-- Officer Panel (Officers/Chairs only) -->
@@ -28,7 +33,7 @@
         <!-- Tabs -->
         <div class="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60">
             <button type="button" id="tab-legislation" onclick="switchLegislationTab('legislation')"
-                    class="leg-tab px-5 py-3 text-sm font-medium border-b-2 border-blue-500 text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 -mb-px transition-colors">
+                    class="leg-tab px-5 py-3 text-sm font-medium border-b-2 border-primary-500 text-primary-600 dark:text-primary-400 bg-white dark:bg-gray-800 -mb-px transition-colors">
                 Upload Legislation
             </button>
             <button type="button" id="tab-appointment" onclick="switchLegislationTab('appointment')"
@@ -56,12 +61,12 @@
                 <div>
                     <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Title</label>
                     <input type="text" name="title" required
-                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Voting Mode</label>
                     <select id="vote_mode" name="vote_mode"
-                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         <option value="percentage" selected>Percentage</option>
                         <option value="piecewise">Piecewise</option>
                         <option value="plurality">Plurality</option>
@@ -72,28 +77,28 @@
             <div>
                 <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Description</label>
                 <textarea name="description" required rows="3"
-                          class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"></textarea>
+                          class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"></textarea>
             </div>
 
             <div class="grid md:grid-cols-3 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Available At</label>
                     <input type="datetime-local" name="available_at" required
-                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
                         Voting Starts <span class="font-normal normal-case text-gray-400">(optional)</span>
                     </label>
                     <input type="datetime-local" name="voting_starts_at"
-                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
                         Voting Ends <span class="font-normal normal-case text-gray-400">(optional)</span>
                     </label>
                     <input type="datetime-local" name="voting_ends_at"
-                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                 </div>
             </div>
 
@@ -108,12 +113,12 @@
             <div class="flex flex-wrap gap-5">
                 <label class="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" name="anonymous" id="anonymous"
-                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+                           class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded">
                     <span class="text-sm text-gray-700 dark:text-gray-300">Anonymous Vote</span>
                 </label>
                 <label class="flex items-center gap-2 cursor-pointer" id="removeAbstainWrapper">
                     <input type="checkbox" name="remove_abstain" id="remove_abstain"
-                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+                           class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded">
                     <span class="text-sm text-gray-700 dark:text-gray-300">Remove Abstain Option</span>
                 </label>
             </div>
@@ -122,7 +127,7 @@
             <div id="percentage-section">
                 <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Pass Threshold</label>
                 <select name="required_percentage"
-                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     <option value="51">51% — Simple majority</option>
                     <option value="60">60%</option>
                     <option value="67">67% — Two-thirds</option>
@@ -135,7 +140,7 @@
             <div id="piecewise-section" class="hidden">
                 <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Required Yes Votes</label>
                 <input type="number" name="required_number" min="1" placeholder="e.g., 15"
-                       class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                       class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Exact number of "Yes" votes needed to pass</p>
             </div>
 
@@ -146,21 +151,21 @@
                         Options <span class="font-normal normal-case">(at least 2, up to 10)</span>
                     </label>
                     <div id="plurality-options-list" class="space-y-2">
-                        <input type="text" name="plurality_option_1" placeholder="Option 1" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <input type="text" name="plurality_option_2" placeholder="Option 2" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <input type="text" name="plurality_option_3" placeholder="Option 3 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <input type="text" name="plurality_option_4" placeholder="Option 4 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <input type="text" name="plurality_option_5" placeholder="Option 5 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_1" placeholder="Option 1" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_2" placeholder="Option 2" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_3" placeholder="Option 3 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_4" placeholder="Option 4 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_5" placeholder="Option 5 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     </div>
                     <div id="plurality-extra-options" class="space-y-2 mt-2 hidden">
-                        <input type="text" name="plurality_option_6" placeholder="Option 6 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <input type="text" name="plurality_option_7" placeholder="Option 7 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <input type="text" name="plurality_option_8" placeholder="Option 8 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <input type="text" name="plurality_option_9" placeholder="Option 9 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <input type="text" name="plurality_option_10" placeholder="Option 10 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_6" placeholder="Option 6 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_7" placeholder="Option 7 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_8" placeholder="Option 8 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_9" placeholder="Option 9 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <input type="text" name="plurality_option_10" placeholder="Option 10 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     </div>
                     <button type="button" id="toggle-extra-options" onclick="toggleExtraOptions()"
-                            class="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                            class="mt-2 text-xs text-primary-600 dark:text-primary-400 hover:underline">
                         + Add more options (6–10)
                     </button>
                 </div>
@@ -169,7 +174,7 @@
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Votes Per Person</label>
                         <select name="plurality_votes_allowed" id="plurality_votes_allowed"
-                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                             <option value="1">1 vote</option>
                             <option value="2">2 votes</option>
                             <option value="3">3 votes</option>
@@ -181,12 +186,12 @@
                         <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Runoff Voting</label>
                         <label class="flex items-center gap-2 cursor-pointer mt-2">
                             <input type="checkbox" name="plurality_runoff_enabled" id="plurality_runoff_enabled"
-                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                   class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
                             <span class="text-sm text-gray-700 dark:text-gray-300">Enable runoff</span>
                         </label>
                         <div id="runoff-settings" class="mt-2 hidden">
                             <select name="plurality_runoff_count"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                                 <option value="2">Top 2 options</option>
                                 <option value="3">Top 3 options</option>
                                 <option value="4">Top 4 options</option>
@@ -199,7 +204,7 @@
 
             <div class="flex justify-end pt-1">
                 <button type="submit"
-                        class="px-5 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
+                        class="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
                     Upload Legislation
                 </button>
             </div>
@@ -219,7 +224,7 @@
                     </label>
                     <select name="appointment_role_id" id="appt_role" required
                             onchange="toggleNewRoleFields(this.value)"
-                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         <option value="">— Select role —</option>
                         {% for role in appointment_roles %}
                         <option value="{{ role.id }}">{{ role.name }} ({{ role.code }})</option>
@@ -230,7 +235,7 @@
                 <div>
                     <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Voting Mode</label>
                     <select name="appt_vote_mode" id="appt_vote_mode" onchange="updateApptMode(this.value)"
-                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         <option value="percentage">Percentage</option>
                         <option value="piecewise">Piecewise</option>
                         <option value="plurality">Plurality (multiple nominees)</option>
@@ -246,7 +251,7 @@
                     </label>
                     <input type="text" name="new_role_name" id="new_role_name"
                            placeholder="e.g. Sergeant at Arms"
-                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
@@ -255,7 +260,7 @@
                     </label>
                     <input type="text" name="new_role_code" id="new_role_code"
                            placeholder="e.g. SAA"
-                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                 </div>
             </div>
 
@@ -265,7 +270,7 @@
                     Nominee <span class="text-red-500">*</span>
                 </label>
                 <select name="appointment_member_id" id="appt_member"
-                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     <option value="">— Select member —</option>
                     {% for m in appointment_members %}
                     <option value="{{ m.user_id }}">{{ m.name }} ({{ m.member_type }})</option>
@@ -281,7 +286,7 @@
                 {% for i in "12345"|make_list %}
                 <input type="text" name="appt_plurality_option_{{ i }}"
                        placeholder="Candidate {{ i }}{% if forloop.counter > 2 %} (optional){% endif %}"
-                       class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                       class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                 {% endfor %}
             </div>
 
@@ -291,7 +296,7 @@
                         Title <span class="font-normal normal-case text-gray-400">(auto-generated if blank)</span>
                     </label>
                     <input type="text" name="appt_title"
-                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                            placeholder="e.g. Chair Appointment: Bryan Javorek as Sergeant at Arms">
                 </div>
                 <div>
@@ -299,7 +304,7 @@
                         Description <span class="font-normal normal-case text-gray-400">(auto-generated if blank)</span>
                     </label>
                     <input type="text" name="appt_description"
-                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                 </div>
             </div>
 
@@ -309,14 +314,14 @@
                         Available At <span class="text-red-500">*</span>
                     </label>
                     <input type="datetime-local" name="appt_available_at" required
-                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
                         Voting Ends <span class="font-normal normal-case text-gray-400">(optional)</span>
                     </label>
                     <input type="datetime-local" name="appt_voting_ends_at"
-                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                 </div>
             </div>
 
@@ -324,7 +329,7 @@
             <div id="appt-percentage-section">
                 <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Pass Threshold</label>
                 <select name="appt_required_percentage"
-                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     <option value="51">51% — Simple majority</option>
                     <option value="60">60%</option>
                     <option value="67">67% — Two-thirds</option>
@@ -337,25 +342,25 @@
             <div id="appt-piecewise-section" class="hidden">
                 <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Required Yes Votes</label>
                 <input type="number" name="appt_required_number" min="1" placeholder="e.g. 15"
-                       class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                       class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
             </div>
 
             <div class="flex gap-5">
                 <label class="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" name="appt_anonymous"
-                           class="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500">
+                           class="h-4 w-4 text-primary-600 border-gray-300 dark:border-gray-600 rounded focus:ring-primary-500">
                     <span class="text-sm text-gray-700 dark:text-gray-300">Anonymous vote</span>
                 </label>
                 <label class="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" name="appt_remove_abstain"
-                           class="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500">
+                           class="h-4 w-4 text-primary-600 border-gray-300 dark:border-gray-600 rounded focus:ring-primary-500">
                     <span class="text-sm text-gray-700 dark:text-gray-300">Remove abstain</span>
                 </label>
             </div>
 
             <div class="flex justify-end pt-1">
                 <button type="submit"
-                        class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
+                        class="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
                     Create Appointment Vote
                 </button>
             </div>
@@ -385,7 +390,7 @@
 
             <!-- Search -->
             <input type="text" id="att-search" placeholder="Search members…" oninput="filterAttendance(this.value)"
-                   class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                   class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
 
             <!-- Member list -->
             <div class="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg" id="att-member-list">
@@ -450,7 +455,7 @@
         <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">No Active Legislation</h3>
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">Nothing is currently up for vote.</p>
         <a href="{% url 'passed_legislation' %}"
-           class="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">
+           class="inline-flex items-center gap-1.5 text-sm text-primary-600 dark:text-primary-400 hover:underline font-medium">
             View passed legislation
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -527,7 +532,7 @@
                 <div class="flex flex-wrap items-center gap-2">
                     {% if leg.document %}
                     <a href="{{ leg.document.url }}" target="_blank"
-                       class="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
+                       class="inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
@@ -561,7 +566,7 @@
                             {% for option, count in data.items %}
                             {% if option != "total" %}
                             <div class="text-center bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
-                                <div class="text-xl font-bold text-blue-600 dark:text-blue-400" data-tally-field="{{ option }}">{{ count }}</div>
+                                <div class="text-xl font-bold text-primary-600 dark:text-primary-400" data-tally-field="{{ option }}">{{ count }}</div>
                                 <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">{{ option }}</div>
                             </div>
                             {% endif %}
@@ -613,13 +618,13 @@
 
                 <!-- Voting Not Started -->
                 {% if not leg.voting_has_started %}
-                <div class="flex items-start gap-2.5 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/60">
-                    <svg class="w-4 h-4 text-blue-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <div class="flex items-start gap-2.5 p-3 rounded-lg bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800/60">
+                    <svg class="w-4 h-4 text-primary-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
                     </svg>
                     <div>
-                        <p class="text-sm font-medium text-blue-700 dark:text-blue-300">Voting opens {{ leg.get_voting_start_time|date:"M j" }} at {{ leg.get_voting_start_time|time:"g:i a" }}</p>
-                        <p class="text-xs text-blue-600 dark:text-blue-400 mt-0.5">You can review the document now; voting is not yet available.</p>
+                        <p class="text-sm font-medium text-primary-700 dark:text-primary-300">Voting opens {{ leg.get_voting_start_time|date:"M j" }} at {{ leg.get_voting_start_time|time:"g:i a" }}</p>
+                        <p class="text-xs text-primary-600 dark:text-primary-400 mt-0.5">You can review the document now; voting is not yet available.</p>
                     </div>
                 </div>
                 {% endif %}
@@ -646,7 +651,7 @@
                     <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                         Cast Your Vote
                         {% if leg.vote_mode == "plurality" and leg.plurality_votes_allowed > 1 %}
-                        <span class="normal-case font-normal text-blue-600 dark:text-blue-400">— select up to {{ leg.plurality_votes_allowed }}</span>
+                        <span class="normal-case font-normal text-primary-600 dark:text-primary-400">— select up to {{ leg.plurality_votes_allowed }}</span>
                         {% endif %}
                     </p>
 
@@ -657,7 +662,7 @@
                             {% for option in leg.plurality_options %}
                             <label class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                 <input type="checkbox" name="vote_choices" value="{{ option }}"
-                                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded plurality-checkbox"
+                                       class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded plurality-checkbox"
                                        data-max-votes="{{ leg.plurality_votes_allowed }}">
                                 <span class="text-sm text-gray-700 dark:text-gray-200">{{ option }}</span>
                             </label>
@@ -673,8 +678,8 @@
                                        class="peer sr-only">
                                 <label for="opt_{{ leg.id }}_{{ forloop.counter }}"
                                        class="flex items-center gap-3 p-3 rounded-lg border-2 border-gray-200 dark:border-gray-600 cursor-pointer
-                                              hover:border-blue-300 dark:hover:border-blue-600 transition-colors
-                                              peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:border-blue-500 dark:peer-checked:bg-blue-900/20">
+                                              hover:border-primary-300 dark:hover:border-primary-600 transition-colors
+                                              peer-checked:border-primary-500 peer-checked:bg-primary-50 dark:peer-checked:border-primary-500 dark:peer-checked:bg-primary-900/20">
                                     <span class="text-sm text-gray-700 dark:text-gray-200">{{ option }}</span>
                                 </label>
                             </div>
@@ -740,9 +745,9 @@
 
                     <div class="flex gap-2 pt-1">
                         <input type="password" name="password" placeholder="Confirm your password" required
-                               class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                               class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         <button type="submit"
-                                class="px-5 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm whitespace-nowrap">
+                                class="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm whitespace-nowrap">
                             Submit Vote
                         </button>
                     </div>
@@ -755,7 +760,7 @@
                     <div class="flex flex-wrap gap-2 pt-1 border-t border-gray-100 dark:border-gray-700/60">
                         {% if not leg.is_available and profile == leg.posted_by %}
                         <a href="{% url 'edit_legislation' leg.id %}"
-                           class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                             </svg>
@@ -807,10 +812,10 @@
             const btn = document.getElementById('tab-' + t);
             if (!btn) return;
             if (t === tab) {
-                btn.classList.add('border-blue-500', 'text-blue-600', 'dark:text-blue-400', 'bg-white', 'dark:bg-gray-800');
+                btn.classList.add('border-primary-500', 'text-primary-600', 'dark:text-primary-400', 'bg-white', 'dark:bg-gray-800');
                 btn.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
             } else {
-                btn.classList.remove('border-blue-500', 'text-blue-600', 'dark:text-blue-400', 'bg-white', 'dark:bg-gray-800');
+                btn.classList.remove('border-primary-500', 'text-primary-600', 'dark:text-primary-400', 'bg-white', 'dark:bg-gray-800');
                 btn.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400');
             }
         });

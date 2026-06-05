@@ -6,19 +6,19 @@
 {% block content %}
 <div class="container mx-auto px-4 py-6 max-w-7xl">
     <!-- Header -->
-    <div class="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 rounded-lg shadow-lg p-6 mb-6 transition-colors duration-200">
+    <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-6 mb-6 transition-colors duration-200">
         <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">Robert's Rules of Order</h1>
-        <p class="text-blue-100 dark:text-blue-200 text-sm md:text-base">Quick Reference Guide for Parliamentary Procedure</p>
+        <p class="text-primary-100 dark:text-primary-200 text-sm md:text-base">Quick Reference Guide for Parliamentary Procedure</p>
     </div>
 
     <!-- Search Bar -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-6 transition-colors duration-200">
         <div class="relative">
             <input
                 type="text"
                 id="searchInput"
                 placeholder="Search Robert's Rules... (e.g., 'motion to table', 'quorum', 'amendment')"
-                class="w-full px-4 py-3 pl-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
+                class="w-full px-4 py-3 pl-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200"
             >
             <svg class="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -31,7 +31,7 @@
     <div class="px-4 py-6">
         <div class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
             <!-- Home Card -->
-            <a href="{% url 'home' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 group">
+            <a href="{% url 'home' %}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 group">
                 <div class="flex flex-col items-center text-center">
                     <svg class="w-8 h-8 text-primary-600 dark:text-primary-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
@@ -41,7 +41,7 @@
             </a>
 
             <!-- Constitution & Bylaws Card -->
-            <a href="{% url 'constitution_bylaws' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 group">
+            <a href="{% url 'constitution_bylaws' %}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 group">
                 <div class="flex flex-col items-center text-center">
                     <svg class="w-8 h-8 text-primary-600 dark:text-primary-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
@@ -51,7 +51,7 @@
             </a>
 
             <!-- Legislation Card -->
-            <a href="{% url 'passed_legislation' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 group">
+            <a href="{% url 'passed_legislation' %}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 group">
                 <div class="flex flex-col items-center text-center">
                     <svg class="w-8 h-8 text-primary-600 dark:text-primary-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -61,7 +61,7 @@
             </a>
 
             <!-- Documents Card -->
-            <a href="{% url 'chapter_documents' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 group">
+            <a href="{% url 'chapter_documents' %}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 group">
                 <div class="flex flex-col items-center text-center">
                     <svg class="w-8 h-8 text-primary-600 dark:text-primary-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
@@ -71,7 +71,7 @@
             </a>
 
             <!-- Committees Card -->
-            <a href="{% url 'committee_index' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 group">
+            <a href="{% url 'committee_index' %}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 group">
                 <div class="flex flex-col items-center text-center">
                     <svg class="w-8 h-8 text-primary-600 dark:text-primary-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
@@ -81,7 +81,7 @@
             </a>
 
             <!-- Calendar Card -->
-            <a href="{% url 'calendar' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 group">
+            <a href="{% url 'calendar' %}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 group">
                 <div class="flex flex-col items-center text-center">
                     <svg class="w-8 h-8 text-primary-600 dark:text-primary-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -95,30 +95,30 @@
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <!-- Table of Contents (Sticky Sidebar) -->
         <div class="lg:col-span-1">
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 lg:sticky lg:top-6 max-h-[calc(100vh-2rem)] overflow-y-auto transition-colors duration-200">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 lg:sticky lg:top-6 max-h-[calc(100vh-2rem)] overflow-y-auto transition-colors duration-200">
                 <h2 class="text-lg font-bold mb-4 text-gray-900 dark:text-gray-100">Table of Contents</h2>
                 <nav class="space-y-2" id="tocNav">
-                    <a href="#overview" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Overview</a>
-                    <a href="#quorum" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Quorum Requirements</a>
-                    <a href="#order-of-business" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Order of Business</a>
-                    <a href="#special-meetings" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Special Meetings</a>
-                    <a href="#main-motions" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Main Motions</a>
-                    <a href="#subsidiary-motions" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Subsidiary Motions</a>
-                    <a href="#privileged-motions" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Privileged Motions</a>
-                    <a href="#incidental-motions" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Incidental Motions</a>
-                    <a href="#reconsider-rescind" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Reconsider & Rescind</a>
-                    <a href="#voting" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Voting Procedures</a>
-                    <a href="#secret-ballot" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Secret Ballot Details</a>
-                    <a href="#unanimous-consent" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Unanimous Consent</a>
-                    <a href="#debate-rules" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Debate Rules</a>
-                    <a href="#chair-duties" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Chair's Duties</a>
-                    <a href="#committees" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Committee Procedures</a>
-                    <a href="#nominations-elections" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Nominations & Elections</a>
-                    <a href="#minutes-records" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Minutes & Records</a>
-                    <a href="#executive-sessions" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Executive Sessions</a>
-                    <a href="#amending-bylaws" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Amending Bylaws</a>
-                    <a href="#common-situations" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Common Situations</a>
-                    <a href="#quick-reference" class="toc-link block px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Quick Reference Table</a>
+                    <a href="#overview" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Overview</a>
+                    <a href="#quorum" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Quorum Requirements</a>
+                    <a href="#order-of-business" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Order of Business</a>
+                    <a href="#special-meetings" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Special Meetings</a>
+                    <a href="#main-motions" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Main Motions</a>
+                    <a href="#subsidiary-motions" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Subsidiary Motions</a>
+                    <a href="#privileged-motions" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Privileged Motions</a>
+                    <a href="#incidental-motions" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Incidental Motions</a>
+                    <a href="#reconsider-rescind" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Reconsider & Rescind</a>
+                    <a href="#voting" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Voting Procedures</a>
+                    <a href="#secret-ballot" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Secret Ballot Details</a>
+                    <a href="#unanimous-consent" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Unanimous Consent</a>
+                    <a href="#debate-rules" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Debate Rules</a>
+                    <a href="#chair-duties" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Chair's Duties</a>
+                    <a href="#committees" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Committee Procedures</a>
+                    <a href="#nominations-elections" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Nominations & Elections</a>
+                    <a href="#minutes-records" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Minutes & Records</a>
+                    <a href="#executive-sessions" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Executive Sessions</a>
+                    <a href="#amending-bylaws" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Amending Bylaws</a>
+                    <a href="#common-situations" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Common Situations</a>
+                    <a href="#quick-reference" class="toc-link block px-3 py-2 rounded hover:bg-primary-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">Quick Reference Table</a>
                 </nav>
             </div>
         </div>
@@ -127,8 +127,8 @@
         <div class="lg:col-span-3 space-y-6" id="mainContent">
 
             <!-- Overview Section -->
-            <section id="overview" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Overview</h2>
+            <section id="overview" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Overview</h2>
                 <div class="prose max-w-none">
                     <p class="mb-4 dark:text-gray-300">Robert's Rules of Order is the most widely used manual of parliamentary procedure in the United States. It governs the meetings of a deliberative assembly, ensuring fairness, efficiency, and order in the decision-making process.</p>
 
@@ -141,19 +141,19 @@
                     </ul>
 
                     <h3 class="text-lg font-semibold mt-4 mb-2 dark:text-gray-100">Quorum</h3>
-                    <p class="dark:text-gray-300">A quorum is the minimum number of members that must be present for business to be conducted legally. See the <a href="#quorum" class="text-blue-600 dark:text-blue-400 hover:underline dark:hover:text-blue-300 transition-colors duration-200">Quorum Requirements</a> section for detailed information.</p>
+                    <p class="dark:text-gray-300">A quorum is the minimum number of members that must be present for business to be conducted legally. See the <a href="#quorum" class="text-primary-600 dark:text-primary-400 hover:underline dark:hover:text-primary-300 transition-colors duration-200">Quorum Requirements</a> section for detailed information.</p>
                 </div>
             </section>
 
             <!-- Quorum Requirements Section -->
-            <section id="quorum" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Quorum Requirements</h2>
+            <section id="quorum" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Quorum Requirements</h2>
                 <div class="prose max-w-none">
                     <p class="mb-4 dark:text-gray-300">A quorum is the minimum number of voting members who must be present at a meeting for business to be legally transacted.</p>
 
-                    <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400 p-4 mb-4 transition-colors duration-200">
-                        <p class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">🔗 Alpha Mu Chapter Requirement</p>
-                        <p class="text-sm text-gray-700 dark:text-gray-300">According to our <a href="{% url 'constitution_bylaws' %}#const-meetings" class="text-blue-600 dark:text-blue-400 hover:underline dark:hover:text-blue-300 transition-colors duration-200">Constitution Article IV, Section 3</a>, quorum is defined as a <strong>simple majority of Active Members</strong>.</p>
+                    <div class="bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 dark:border-primary-400 p-4 mb-4 transition-colors duration-200">
+                        <p class="text-sm font-semibold text-primary-900 dark:text-primary-300 mb-2">🔗 Alpha Mu Chapter Requirement</p>
+                        <p class="text-sm text-gray-700 dark:text-gray-300">According to our <a href="{% url 'constitution_bylaws' %}#const-meetings" class="text-primary-600 dark:text-primary-400 hover:underline dark:hover:text-primary-300 transition-colors duration-200">Constitution Article IV, Section 3</a>, quorum is defined as a <strong>simple majority of Active Members</strong>.</p>
                     </div>
 
                     <h3 class="text-lg font-semibold mt-6 mb-2 dark:text-gray-100">General Quorum Principles</h3>
@@ -223,8 +223,8 @@
             </section>
 
             <!-- Order of Business Section -->
-            <section id="order-of-business" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Order of Business</h2>
+            <section id="order-of-business" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Order of Business</h2>
                 <div class="prose max-w-none">
                     <p class="mb-4 dark:text-gray-300">The standard order of business for a meeting:</p>
                     <ol class="list-decimal pl-6 space-y-3 dark:text-gray-300">
@@ -242,14 +242,14 @@
             </section>
 
             <!-- Special Meetings Section -->
-            <section id="special-meetings" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Special Meetings</h2>
+            <section id="special-meetings" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Special Meetings</h2>
                 <div class="prose max-w-none">
                     <p class="mb-4 dark:text-gray-300">A special meeting is a meeting called at a time other than the regular meeting schedule to address specific urgent or important business.</p>
 
-                    <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400 p-4 mb-4 transition-colors duration-200">
-                        <p class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">🔗 Alpha Mu Chapter Requirements</p>
-                        <p class="text-sm text-gray-700 dark:text-gray-300">According to our <a href="{% url 'constitution_bylaws' %}#const-meetings" class="text-blue-600 dark:text-blue-400 hover:underline dark:hover:text-blue-300 transition-colors duration-200">Constitution Article IV, Section 2</a>:</p>
+                    <div class="bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 dark:border-primary-400 p-4 mb-4 transition-colors duration-200">
+                        <p class="text-sm font-semibold text-primary-900 dark:text-primary-300 mb-2">🔗 Alpha Mu Chapter Requirements</p>
+                        <p class="text-sm text-gray-700 dark:text-gray-300">According to our <a href="{% url 'constitution_bylaws' %}#const-meetings" class="text-primary-600 dark:text-primary-400 hover:underline dark:hover:text-primary-300 transition-colors duration-200">Constitution Article IV, Section 2</a>:</p>
                         <ul class="list-disc pl-6 mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
                             <li>Special meetings require <strong>4 hours advance notice</strong></li>
                             <li>May be called by: President, Executive Board, Advisory Team, or Supermajority of active members</li>
@@ -327,12 +327,12 @@
             </section>
 
             <!-- Main Motions Section -->
-            <section id="main-motions" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Main Motions</h2>
+            <section id="main-motions" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Main Motions</h2>
                 <div class="prose max-w-none">
                     <p class="mb-4 dark:text-gray-300">Main motions introduce new business for the assembly's consideration.</p>
 
-                    <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400 p-4 mb-4 transition-colors duration-200">
+                    <div class="bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 dark:border-primary-400 p-4 mb-4 transition-colors duration-200">
                         <h3 class="font-semibold mb-2 dark:text-gray-100">How to Make a Main Motion</h3>
                         <ol class="list-decimal pl-6 space-y-2">
                             <li class="dark:text-gray-100">Wait to be recognized by the chair</li>
@@ -355,8 +355,8 @@
             </section>
 
             <!-- Subsidiary Motions Section -->
-            <section id="subsidiary-motions" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Subsidiary Motions</h2>
+            <section id="subsidiary-motions" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Subsidiary Motions</h2>
                 <div class="prose max-w-none">
                     <p class="mb-4 dark:text-gray-300">Subsidiary motions change or affect how a main motion is handled. Listed in order of precedence (highest to lowest):</p>
 
@@ -464,8 +464,8 @@
             </section>
 
             <!-- Privileged Motions Section -->
-            <section id="privileged-motions" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Privileged Motions</h2>
+            <section id="privileged-motions" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Privileged Motions</h2>
                 <div class="prose max-w-none">
                     <p class="mb-4 dark:text-gray-300">Privileged motions relate to special matters of immediate importance. Listed in order of precedence (highest to lowest):</p>
 
@@ -548,8 +548,8 @@
             </section>
 
             <!-- Incidental Motions Section -->
-            <section id="incidental-motions" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Incidental Motions</h2>
+            <section id="incidental-motions" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Incidental Motions</h2>
                 <div class="prose max-w-none">
                     <p class="mb-4 dark:text-gray-300">Incidental motions arise out of other questions and must be decided before the pending question. No order of precedence among themselves.</p>
 
@@ -633,14 +633,14 @@
             </section>
 
             <!-- Reconsider and Rescind Section -->
-            <section id="reconsider-rescind" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Reconsider and Rescind</h2>
+            <section id="reconsider-rescind" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Reconsider and Rescind</h2>
                 <div class="prose max-w-none">
                     <p class="mb-4 dark:text-gray-300">These motions allow an assembly to revisit and potentially reverse previous decisions.</p>
 
-                    <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400 p-4 mb-6 transition-colors duration-200">
-                        <p class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">🔗 Alpha Mu Chapter Protection Periods</p>
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Our <a href="{% url 'constitution_bylaws' %}#const-amendments" class="text-blue-600 dark:text-blue-400 hover:underline dark:hover:text-blue-300 transition-colors duration-200">Constitution and Bylaws</a> establish "protection periods" for failed amendments:</p>
+                    <div class="bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 dark:border-primary-400 p-4 mb-6 transition-colors duration-200">
+                        <p class="text-sm font-semibold text-primary-900 dark:text-primary-300 mb-2">🔗 Alpha Mu Chapter Protection Periods</p>
+                        <p class="text-sm text-gray-700 dark:text-gray-300">Our <a href="{% url 'constitution_bylaws' %}#const-amendments" class="text-primary-600 dark:text-primary-400 hover:underline dark:hover:text-primary-300 transition-colors duration-200">Constitution and Bylaws</a> establish "protection periods" for failed amendments:</p>
                         <ul class="list-disc pl-6 mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
                             <li><strong class="dark:text-gray-100">Constitution amendments:</strong> Cannot be reintroduced for 15 chapter meetings after failure</li>
                             <li><strong class="dark:text-gray-100">Bylaws amendments:</strong> Cannot be reintroduced for 10 chapter meetings after failure</li>
@@ -769,8 +769,8 @@
             </section>
 
             <!-- Voting Section -->
-            <section id="voting" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Voting Procedures</h2>
+            <section id="voting" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Voting Procedures</h2>
                 <div class="prose max-w-none">
                     <h3 class="text-lg font-semibold mt-4 mb-2 dark:text-gray-100">Methods of Voting</h3>
                     <div class="space-y-3">
@@ -840,7 +840,7 @@
                         </table>
                     </div>
 
-                    <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400 p-4 mt-4 transition-colors duration-200">
+                    <div class="bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 dark:border-primary-400 p-4 mt-4 transition-colors duration-200">
                         <h4 class="font-semibold mb-2 dark:text-gray-100">Important Notes</h4>
                         <ul class="list-disc pl-6 space-y-1 text-sm dark:text-gray-300">
                             <li>Abstentions are not counted in determining if a majority or two-thirds vote has been achieved.</li>
@@ -853,13 +853,13 @@
             </section>
 
             <!-- Secret Ballot Procedures Section -->
-            <section id="secret-ballot" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Secret Ballot Procedures (Detailed)</h2>
+            <section id="secret-ballot" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Secret Ballot Procedures (Detailed)</h2>
                 <div class="prose max-w-none">
                     <p class="mb-4 dark:text-gray-300">Secret ballots protect voter privacy and prevent coercion, commonly used for elections, sensitive motions, and membership decisions.</p>
 
-                    <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400 p-4 mb-6 transition-colors duration-200">
-                        <p class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">🔗 Alpha Mu Chapter Requirements</p>
+                    <div class="bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 dark:border-primary-400 p-4 mb-6 transition-colors duration-200">
+                        <p class="text-sm font-semibold text-primary-900 dark:text-primary-300 mb-2">🔗 Alpha Mu Chapter Requirements</p>
                         <p class="text-sm text-gray-700 dark:text-gray-300">Our Constitution and Bylaws require secret ballots for:</p>
                         <ul class="list-disc pl-6 mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
                             <li><strong class="dark:text-gray-100">Officer Elections:</strong> All Executive Board positions (Article IV, Section 5)</li>
@@ -953,7 +953,7 @@
                             <p class="text-xs text-gray-600 dark:text-gray-400 mt-2 italic">Illegal ballots are not counted toward any candidate but are included in "ballots cast" total.</p>
                         </div>
 
-                        <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded transition-colors duration-200">
+                        <div class="bg-primary-50 dark:bg-primary-900/20 p-4 rounded transition-colors duration-200">
                             <p class="font-semibold mb-2 dark:text-gray-100">Blank Ballots:</p>
                             <p class="text-sm text-gray-700 dark:text-gray-300">A blank ballot (left completely unmarked) is legal but counts as abstention. It is counted in "ballots cast" but not counted for any candidate.</p>
                         </div>
@@ -1017,8 +1017,8 @@
             </section>
 
             <!-- Unanimous Consent Section -->
-            <section id="unanimous-consent" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Unanimous Consent (General Consent)</h2>
+            <section id="unanimous-consent" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Unanimous Consent (General Consent)</h2>
                 <div class="prose max-w-none">
                     <p class="mb-4 dark:text-gray-300">Unanimous consent is a time-saving procedure that allows the assembly to approve routine or non-controversial matters without taking a formal vote. This is one of the most frequently used procedures in actual practice.</p>
 
@@ -1045,8 +1045,8 @@
 
                     <h3 class="text-lg font-semibold mt-6 mb-2 dark:text-gray-100">Common Uses</h3>
                     <div class="grid md:grid-cols-2 gap-4 mb-4">
-                        <div class="border-l-4 border-blue-500 dark:border-blue-400 pl-4 bg-blue-50 dark:bg-blue-900/20 p-3 transition-colors duration-200">
-                            <p class="font-semibold text-blue-900 dark:text-blue-300 mb-2">Typical Applications:</p>
+                        <div class="border-l-4 border-primary-500 dark:border-primary-400 pl-4 bg-primary-50 dark:bg-primary-900/20 p-3 transition-colors duration-200">
+                            <p class="font-semibold text-primary-900 dark:text-primary-300 mb-2">Typical Applications:</p>
                             <ul class="list-disc pl-6 space-y-1 text-xs text-gray-700 dark:text-gray-300">
                                 <li>Approving meeting minutes</li>
                                 <li>Accepting committee reports (informational)</li>
@@ -1135,8 +1135,8 @@
             </section>
 
             <!-- Debate Rules Section -->
-            <section id="debate-rules" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Debate Rules</h2>
+            <section id="debate-rules" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Debate Rules</h2>
                 <div class="prose max-w-none">
                     <h3 class="text-lg font-semibold mt-4 mb-2 dark:text-gray-100">Basic Principles of Debate</h3>
                     <ul class="list-disc pl-6 space-y-2 dark:text-gray-300">
@@ -1179,8 +1179,8 @@
             </section>
 
             <!-- Chair Duties Section -->
-            <section id="chair-duties" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Chair's Duties</h2>
+            <section id="chair-duties" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Chair's Duties</h2>
                 <div class="prose max-w-none">
                     <h3 class="text-lg font-semibold mt-4 mb-2 dark:text-gray-100">Primary Responsibilities</h3>
                     <ul class="list-disc pl-6 space-y-2 dark:text-gray-300">
@@ -1195,7 +1195,7 @@
                     </ul>
 
                     <h3 class="text-lg font-semibold mt-6 mb-2 dark:text-gray-100">Handling Motions (Template)</h3>
-                    <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded transition-colors duration-200">
+                    <div class="bg-primary-50 dark:bg-primary-900/20 p-4 rounded transition-colors duration-200">
                         <p class="font-semibold mb-2 dark:text-gray-100">When a motion is made:</p>
                         <ol class="list-decimal pl-6 space-y-2 text-sm dark:text-gray-300">
                             <li><strong class="dark:text-gray-100">Member:</strong> "I move that..." (make motion)</li>
@@ -1237,14 +1237,14 @@
             </section>
 
             <!-- Committee Procedures Section -->
-            <section id="committees" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Committee Procedures</h2>
+            <section id="committees" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Committee Procedures</h2>
                 <div class="prose max-w-none">
                     <p class="mb-4 dark:text-gray-300">Committees are smaller groups formed to consider matters in greater detail than would be practical in the full assembly.</p>
 
                     <h3 class="text-lg font-semibold mt-4 mb-2 dark:text-gray-100">Types of Committees</h3>
                     <div class="space-y-4">
-                        <div class="border-l-4 border-blue-400 dark:border-blue-500 pl-4 bg-blue-50 dark:bg-blue-900/20 p-4 transition-colors duration-200">
+                        <div class="border-l-4 border-primary-400 dark:border-primary-500 pl-4 bg-primary-50 dark:bg-primary-900/20 p-4 transition-colors duration-200">
                             <h4 class="font-semibold text-gray-800 dark:text-gray-100 mb-2">Standing Committees</h4>
                             <p class="text-sm text-gray-700 dark:text-gray-300 mb-2">Permanent committees established in the bylaws with ongoing responsibilities.</p>
                             <p class="text-xs text-gray-600 dark:text-gray-400"><strong>Examples:</strong> Finance Committee, Kai Committee, Recruitment Committee</p>
@@ -1288,7 +1288,7 @@
 
                     <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 dark:border-yellow-400 p-4 transition-colors duration-200 mt-6">
                         <p class="text-sm font-semibold text-yellow-900 mb-2">📋 Alpha Mu Standing Committees</p>
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Our chapter maintains 11 standing committees as defined in <a href="{% url 'constitution_bylaws' %}#const-committees" class="text-blue-600 dark:text-blue-400 hover:underline dark:hover:text-blue-300 transition-colors duration-200">Constitution Article V</a>.</p>
+                        <p class="text-sm text-gray-700 dark:text-gray-300">Our chapter maintains 11 standing committees as defined in <a href="{% url 'constitution_bylaws' %}#const-committees" class="text-primary-600 dark:text-primary-400 hover:underline dark:hover:text-primary-300 transition-colors duration-200">Constitution Article V</a>.</p>
                     </div>
 
                     <h3 class="text-lg font-semibold mt-6 mb-2 dark:text-gray-100">Creating a Committee</h3>
@@ -1315,7 +1315,7 @@
                     </ul>
 
                     <h3 class="text-lg font-semibold mt-6 mb-2 dark:text-gray-100">Committee Reports</h3>
-                    <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400 p-4 mb-4 transition-colors duration-200">
+                    <div class="bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 dark:border-primary-400 p-4 mb-4 transition-colors duration-200">
                         <p class="mb-2 dark:text-gray-300"><strong class="dark:text-gray-100">Report Format:</strong></p>
                         <ol class="list-decimal pl-6 space-y-1 text-sm dark:text-gray-300">
                             <li>Identification of committee</li>
@@ -1340,8 +1340,8 @@
             </section>
 
             <!-- Nominations and Elections Section -->
-            <section id="nominations-elections" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Nominations and Elections</h2>
+            <section id="nominations-elections" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Nominations and Elections</h2>
                 <div class="prose max-w-none">
                     <p class="mb-4 dark:text-gray-300">Elections are how an organization chooses its officers and other leaders. Nominations are the formal process of proposing candidates.</p>
 
@@ -1391,7 +1391,7 @@
 
                     <h3 class="text-lg font-semibold mt-6 mb-2 dark:text-gray-100">Election Methods</h3>
                     <div class="space-y-3">
-                        <div class="border-l-4 border-blue-400 dark:border-blue-500 pl-4">
+                        <div class="border-l-4 border-primary-400 dark:border-primary-500 pl-4">
                             <h4 class="font-semibold dark:text-gray-100">Ballot Vote</h4>
                             <p class="text-sm text-gray-700 dark:text-gray-300">Most formal method. Ensures secrecy. Members write choice on paper ballot.</p>
                         </div>
@@ -1410,7 +1410,7 @@
                     </div>
 
                     <h3 class="text-lg font-semibold mt-6 mb-2 dark:text-gray-100">Vote Required to Elect</h3>
-                    <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg transition-colors duration-200 mb-4">
+                    <div class="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-lg transition-colors duration-200 mb-4">
                         <p class="mb-2 dark:text-gray-300"><strong>Majority Vote:</strong> More than half of votes cast (blank ballots not counted)</p>
                         <p class="mb-2 dark:text-gray-300"><strong>Plurality:</strong> Candidate with most votes wins (even if less than majority). Only valid if bylaws specifically authorize.</p>
                         <p class="text-sm text-gray-600 dark:text-gray-400">If no candidate receives majority, balloting continues. Chair may declare lowest candidate eliminated, or assembly may vote to do so.</p>
@@ -1432,13 +1432,13 @@
             </section>
 
             <!-- Minutes and Record-Keeping Section -->
-            <section id="minutes-records" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Minutes and Record-Keeping</h2>
+            <section id="minutes-records" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Minutes and Record-Keeping</h2>
                 <div class="prose max-w-none">
                     <p class="mb-4 dark:text-gray-300">Minutes are the official record of an organization's meetings. They provide an objective account of what was done, not what was said.</p>
 
                     <h3 class="text-lg font-semibold mt-4 mb-2 dark:text-gray-100">What Minutes Should Include</h3>
-                    <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400 p-4 mb-4 transition-colors duration-200">
+                    <div class="bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 dark:border-primary-400 p-4 mb-4 transition-colors duration-200">
                         <ol class="list-decimal pl-6 space-y-2 text-sm dark:text-gray-300">
                             <li><strong class="dark:text-gray-100">Opening Information:</strong>
                                 <ul class="list-disc pl-6 mt-1">
@@ -1514,14 +1514,14 @@
             </section>
 
             <!-- Executive Sessions Section -->
-            <section id="executive-sessions" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Executive Sessions (Closed Meetings)</h2>
+            <section id="executive-sessions" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Executive Sessions (Closed Meetings)</h2>
                 <div class="prose max-w-none">
                     <p class="mb-4 dark:text-gray-300">An executive session is a meeting, or portion of a meeting, held in secret with limited attendance for discussion of sensitive matters.</p>
 
-                    <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400 p-4 mb-6 transition-colors duration-200">
-                        <p class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">🔗 Alpha Mu Chapter Practice</p>
-                        <p class="text-sm text-gray-700 dark:text-gray-300">Our <a href="{% url 'constitution_bylaws' %}#const-meetings" class="text-blue-600 dark:text-blue-400 hover:underline dark:hover:text-blue-300 transition-colors duration-200">Constitution Article IV, Section 4</a> states: "Meetings are closed to the public unless there are specific matters that permit non-members or non-pledges to attend."</p>
+                    <div class="bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 dark:border-primary-400 p-4 mb-6 transition-colors duration-200">
+                        <p class="text-sm font-semibold text-primary-900 dark:text-primary-300 mb-2">🔗 Alpha Mu Chapter Practice</p>
+                        <p class="text-sm text-gray-700 dark:text-gray-300">Our <a href="{% url 'constitution_bylaws' %}#const-meetings" class="text-primary-600 dark:text-primary-400 hover:underline dark:hover:text-primary-300 transition-colors duration-200">Constitution Article IV, Section 4</a> states: "Meetings are closed to the public unless there are specific matters that permit non-members or non-pledges to attend."</p>
                         <ul class="list-disc pl-6 mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
                             <li>Most chapter meetings are already "closed" (members-only)</li>
                             <li>Executive sessions go further by excluding certain members or records</li>
@@ -1595,7 +1595,7 @@
                     </div>
 
                     <h3 class="text-lg font-semibold mt-6 mb-2 dark:text-gray-100">Conducting Executive Session</h3>
-                    <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded mb-4 transition-colors duration-200">
+                    <div class="bg-primary-50 dark:bg-primary-900/20 p-4 rounded mb-4 transition-colors duration-200">
                         <p class="mb-2 dark:text-gray-300"><strong class="dark:text-gray-100">During Executive Session:</strong></p>
                         <ul class="list-disc pl-6 space-y-2 text-sm dark:text-gray-300">
                             <li><strong class="dark:text-gray-100">Confidentiality rule:</strong> All attendees pledge not to discuss proceedings outside the room</li>
@@ -1650,17 +1650,17 @@
             </section>
 
             <!-- Amending Bylaws/Constitution Section -->
-            <section id="amending-bylaws" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Amending the Constitution and Bylaws</h2>
+            <section id="amending-bylaws" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Amending the Constitution and Bylaws</h2>
                 <div class="prose max-w-none">
                     <p class="mb-4 dark:text-gray-300">Amending governing documents (constitution, bylaws) is different from amending ordinary motions. These procedures protect the organization's fundamental rules from hasty changes.</p>
 
-                    <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400 p-4 mb-6 transition-colors duration-200">
-                        <p class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">🔗 Alpha Mu Chapter Requirements</p>
-                        <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">Our <a href="{% url 'constitution_bylaws' %}" class="text-blue-600 dark:text-blue-400 hover:underline dark:hover:text-blue-300 transition-colors duration-200">Constitution and Bylaws</a> establish specific amendment procedures:</p>
+                    <div class="bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 dark:border-primary-400 p-4 mb-6 transition-colors duration-200">
+                        <p class="text-sm font-semibold text-primary-900 dark:text-primary-300 mb-2">🔗 Alpha Mu Chapter Requirements</p>
+                        <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">Our <a href="{% url 'constitution_bylaws' %}" class="text-primary-600 dark:text-primary-400 hover:underline dark:hover:text-primary-300 transition-colors duration-200">Constitution and Bylaws</a> establish specific amendment procedures:</p>
 
                         <div class="bg-white p-3 rounded mb-2 dark:bg-gray-800">
-                            <p class="font-semibold text-sm text-indigo-900 dark:text-blue-600">Constitution Amendments (Article VI):</p>
+                            <p class="font-semibold text-sm text-indigo-900 dark:text-indigo-400">Constitution Amendments (Article VI):</p>
                             <ol class="list-decimal pl-6 space-y-1 text-xs mt-1">
                                 <li class="dark:text-gray-100">Submit in writing to Executive Board for approval</li>
                                 <li class="dark:text-gray-100">Requires <strong>supermajority (2/3)</strong> of Executive Board</li>
@@ -1671,7 +1671,7 @@
                         </div>
 
                         <div class="bg-white p-3 rounded dark:bg-gray-800">
-                            <p class="font-semibold text-sm text-purple-900 dark:text-blue-600">Bylaws Amendments (Article X):</p>
+                            <p class="font-semibold text-sm text-purple-900 dark:text-purple-400">Bylaws Amendments (Article X):</p>
                             <ol class="list-decimal pl-6 space-y-1 text-xs mt-1">
                                 <li class="dark:text-gray-100">Submit in writing to Executive Board for approval</li>
                                 <li class="dark:text-gray-100">Requires <strong>simple majority</strong> of Executive Board</li>
@@ -1774,8 +1774,8 @@
 
                     <h3 class="text-lg font-semibold mt-6 mb-2 dark:text-gray-100">Special Considerations</h3>
                     <div class="space-y-3">
-                        <div class="border-l-4 border-blue-500 dark:border-blue-400 pl-4 bg-blue-50 dark:bg-blue-900/20 p-3 transition-colors duration-200">
-                            <p class="font-semibold text-blue-900 dark:text-blue-300 mb-2">Subordination:</p>
+                        <div class="border-l-4 border-primary-500 dark:border-primary-400 pl-4 bg-primary-50 dark:bg-primary-900/20 p-3 transition-colors duration-200">
+                            <p class="font-semibold text-primary-900 dark:text-primary-300 mb-2">Subordination:</p>
                             <p class="text-sm text-gray-700 dark:text-gray-300">Amendments must not conflict with superior governing documents (parent organization's rules, state law, federal law). Such amendments are null and void even if adopted.</p>
                         </div>
 
@@ -1808,8 +1808,8 @@
             </section>
 
             <!-- Common Parliamentary Situations Section -->
-            <section id="common-situations" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Common Parliamentary Situations</h2>
+            <section id="common-situations" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Common Parliamentary Situations</h2>
                 <div class="prose max-w-none">
                     <p class="mb-4 dark:text-gray-300">Practical guidance for handling frequently encountered scenarios in meetings.</p>
 
@@ -1884,8 +1884,8 @@
             </section>
 
             <!-- Quick Reference Table Section -->
-            <section id="quick-reference" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 scroll-mt-6 transition-colors duration-200">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-blue-500 dark:border-blue-400 pb-2">Quick Reference Table</h2>
+            <section id="quick-reference" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 scroll-mt-6 transition-colors duration-200">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100 border-b-2 border-primary-500 dark:border-primary-400 pb-2">Quick Reference Table</h2>
                 <div class="prose max-w-none">
                     <div class="overflow-x-auto">
                         <table class="min-w-full border border-gray-300 dark:border-gray-600 text-sm">
@@ -1900,7 +1900,7 @@
                             </thead>
                             <tbody>
                                 <!-- Main Motions -->
-                                <tr class="bg-blue-50 font-semibold">
+                                <tr class="bg-primary-50 font-semibold">
                                     <td colspan="5" class="border border-gray-300 px-3 py-2 dark:text-gray-800">MAIN MOTIONS</td>
                                 </tr>
                                 <tr>
@@ -2133,8 +2133,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
                 // Update active state
-                tocLinks.forEach(l => l.classList.remove('bg-blue-100', 'text-blue-700', 'font-semibold'));
-                this.classList.add('bg-blue-100', 'text-blue-700', 'font-semibold');
+                tocLinks.forEach(l => l.classList.remove('bg-primary-100', 'text-primary-700', 'font-semibold'));
+                this.classList.add('bg-primary-100', 'text-primary-700', 'font-semibold');
             }
         });
     });
@@ -2147,9 +2147,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     const id = entry.target.getAttribute('id');
                     const correspondingLink = document.querySelector(`a[href="#${id}"]`);
 
-                    tocLinks.forEach(l => l.classList.remove('bg-blue-100', 'text-blue-700', 'font-semibold'));
+                    tocLinks.forEach(l => l.classList.remove('bg-primary-100', 'text-primary-700', 'font-semibold'));
                     if (correspondingLink) {
-                        correspondingLink.classList.add('bg-blue-100', 'text-blue-700', 'font-semibold');
+                        correspondingLink.classList.add('bg-primary-100', 'text-primary-700', 'font-semibold');
                     }
                 }
             });

@@ -1,19 +1,19 @@
-{% extends "base.html" %}
+{% extends "admin_v2/base.html" %}
 
 {% block title %}Edit Profile — {{ target.get_display_name }} — Admin v2{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8 max-w-3xl">
 
     <!-- Header -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-4">
                 {% if target.profile_picture %}
                 <img src="{{ target.profile_picture.url }}" alt="{{ target.name }}" class="w-14 h-14 rounded-full object-cover">
                 {% else %}
-                <div class="w-14 h-14 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center">
-                    <span class="text-indigo-600 dark:text-indigo-300 font-bold text-xl">{{ target.name|slice:":1"|upper }}</span>
+                <div class="w-14 h-14 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
+                    <span class="text-primary-600 dark:text-primary-300 font-bold text-xl">{{ target.name|slice:":1"|upper }}</span>
                 </div>
                 {% endif %}
                 <div>
@@ -26,7 +26,7 @@
     </div>
 
     <!-- Core Info -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Core Info</h2>
         <form method="POST">
             {% csrf_token %}
@@ -35,17 +35,17 @@
                 <div>
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Full name</label>
                     <input type="text" name="name" value="{{ target.name }}" required
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Preferred first name</label>
                     <input type="text" name="preferred_name" value="{{ target.preferred_name|default:'' }}"
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Member type</label>
                     <select name="member_type"
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                         {% for val, label in target.MEMBER_TYPES %}
                         <option value="{{ val }}" {% if target.member_type == val %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
@@ -54,7 +54,7 @@
                 <div>
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Member status</label>
                     <select name="member_status"
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                         {% for val, label in target.MEMBER_STATUS %}
                         <option value="{{ val }}" {% if target.member_status == val %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
@@ -63,22 +63,22 @@
                 <div>
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Email</label>
                     <input type="email" name="email" value="{{ target.email|default:'' }}"
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Phone number</label>
                     <input type="text" name="phone_number" value="{{ target.phone_number|default:'' }}"
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Roll number</label>
                     <input type="text" name="role_number" value="{{ target.role_number|default:'' }}"
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">House</label>
                     <select name="house"
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                         <option value="">— None —</option>
                         {% for val, label in target.HOUSE_CHOICES %}
                         <option value="{{ val }}" {% if target.house == val %}selected{% endif %}>{{ label }}</option>
@@ -86,12 +86,12 @@
                     </select>
                 </div>
             </div>
-            <button type="submit" class="mt-4 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition">Save Core Info</button>
+            <button type="submit" class="mt-4 px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition">Save Core Info</button>
         </form>
     </div>
 
     <!-- Extended Profile -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Public Profile</h2>
         <form method="POST">
             {% csrf_token %}
@@ -102,7 +102,7 @@
                 <div>
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">About me</label>
                     <textarea name="about_me" rows="3"
-                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm resize-none">{{ target.about_me }}</textarea>
+                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm resize-none">{{ target.about_me }}</textarea>
                 </div>
 
                 <!-- Chapter -->
@@ -112,17 +112,17 @@
                         <div>
                             <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Pledge class semester</label>
                             <input type="text" name="pledge_class" value="{{ target.pledge_class }}" placeholder="e.g. Spring 2024"
-                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Pledge class Greek name</label>
                             <input type="text" name="pledge_class_greek" value="{{ target.pledge_class_greek }}" placeholder="e.g. Beta"
-                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Big brother</label>
                             <select name="big_brother"
-                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                                 <option value="">— None —</option>
                                 {% for m in all_members %}
                                 <option value="{{ m.user_id }}" {% if target.big_brother_id == m.user_id %}selected{% endif %}>
@@ -147,7 +147,7 @@
                         <div>
                             <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Graduation semester</label>
                             <select name="graduation_semester"
-                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                                 <option value="">— Not set —</option>
                                 <option value="Spring" {% if target.graduation_semester == 'Spring' %}selected{% endif %}>Spring</option>
                                 <option value="Fall"   {% if target.graduation_semester == 'Fall' %}selected{% endif %}>Fall</option>
@@ -156,12 +156,12 @@
                         <div>
                             <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Graduation year</label>
                             <input type="number" name="graduation_year" value="{{ target.graduation_year|default:'' }}" min="2000" max="2060" placeholder="e.g. 2027"
-                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Other / secondary email</label>
                             <input type="email" name="other_email" value="{{ target.other_email|default:'' }}"
-                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                         </div>
                     </div>
                 </div>
@@ -173,37 +173,37 @@
                         <div class="flex items-center gap-2">
                             <span class="text-xs text-gray-500 dark:text-gray-400 w-20 flex-shrink-0">Instagram</span>
                             <input type="text" name="instagram" value="{{ target.instagram }}"
-                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-xs text-gray-500 dark:text-gray-400 w-20 flex-shrink-0">Twitter / X</span>
                             <input type="text" name="twitter" value="{{ target.twitter }}"
-                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-xs text-gray-500 dark:text-gray-400 w-20 flex-shrink-0">LinkedIn</span>
                             <input type="text" name="linkedin" value="{{ target.linkedin }}"
-                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-xs text-gray-500 dark:text-gray-400 w-20 flex-shrink-0">Snapchat</span>
                             <input type="text" name="snapchat" value="{{ target.snapchat }}"
-                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-xs text-gray-500 dark:text-gray-400 w-20 flex-shrink-0">Facebook</span>
                             <input type="text" name="facebook" value="{{ target.facebook }}"
-                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                         </div>
                     </div>
                 </div>
             </div>
-            <button type="submit" class="mt-5 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition">Save Public Profile</button>
+            <button type="submit" class="mt-5 px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition">Save Public Profile</button>
         </form>
     </div>
 
     <!-- Role History -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Role History</h2>
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Positions this member has held in the chapter.</p>
 
@@ -241,26 +241,26 @@
             <div>
                 <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Position</label>
                 <input type="text" name="rh_role_name" placeholder="e.g. President" required
-                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Start semester</label>
                 <input type="text" name="rh_start_semester" placeholder="e.g. Spring 2026" required
-                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">End semester <span class="text-gray-400 font-normal">(blank = current)</span></label>
                 <div class="flex gap-2">
                     <input type="text" name="rh_end_semester" placeholder="e.g. Fall 2026"
-                           class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
-                    <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
+                           class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
+                    <button type="submit" class="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
                 </div>
             </div>
         </form>
     </div>
 
     <!-- Custom Socials -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Custom Social Links</h2>
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Extra social handles beyond the standard five (Signal, WhatsApp, etc.).</p>
 
@@ -295,21 +295,21 @@
             <div>
                 <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Platform</label>
                 <input type="text" name="cs_platform" placeholder="e.g. Signal" required
-                       class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm w-36">
+                       class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm w-36">
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Handle</label>
                 <div class="flex gap-2">
                     <input type="text" name="cs_handle" placeholder="username" required
-                           class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm w-40">
-                    <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
+                           class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm w-40">
+                    <button type="submit" class="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
                 </div>
             </div>
         </form>
     </div>
 
     <!-- Academics -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Academics</h2>
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Majors, minors, and concentrations. Add multiple if applicable.</p>
 
@@ -341,15 +341,15 @@
                 <input type="hidden" name="action" value="academic_item_add">
                 <input type="hidden" name="ai_type" value="{{ field_type }}">
                 <input type="text" name="ai_value" placeholder="Add {{ label|lower }}…"
-                       class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm w-64">
-                <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
+                       class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm w-64">
+                <button type="submit" class="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
             </form>
         </div>
         {% endfor %}
     </div>
 
     <!-- Initiation Chapters -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Initiation Chapters</h2>
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Where this member was initiated. Empty defaults to Alpha Mu — Samford University. Add multiple for dual-chapter members.</p>
 
@@ -387,19 +387,19 @@
             <div>
                 <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">School</label>
                 <input type="text" name="ic_school" placeholder="e.g. Auburn University" required
-                       class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm w-52">
+                       class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm w-52">
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Chapter</label>
                 <input type="text" name="ic_chapter" placeholder="e.g. Delta Zeta" required
-                       class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm w-40">
+                       class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm w-40">
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Role # <span class="font-normal text-gray-400">(optional)</span></label>
                 <div class="flex gap-2">
                     <input type="text" name="ic_role_number" placeholder="e.g. 42"
-                           class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm w-24">
-                    <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
+                           class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm w-24">
+                    <button type="submit" class="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
                 </div>
             </div>
         </form>
@@ -407,7 +407,7 @@
 
     <!-- Quick links -->
     <div class="flex gap-3 flex-wrap">
-        <a href="{% url 'admin_v2_user_login_security' target.user_id %}" class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg">🔒 Login Security</a>
+        <a href="{% url 'admin_v2_user_login_security' target.user_id %}" class="px-4 py-2 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded-lg">🔒 Login Security</a>
         <a href="{% url 'admin_v2_manage_users' %}" class="px-4 py-2 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded-lg">← Back to Users</a>
     </div>
 

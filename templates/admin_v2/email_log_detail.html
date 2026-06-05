@@ -1,18 +1,18 @@
-{% extends "base.html" %}
+{% extends "admin_v2/base.html" %}
 {% load static %}
 
 {% block title %}Email Log Detail - Admin v2{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8 max-w-6xl">
     <!-- Header -->
-    <div class="bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-700 dark:to-purple-700 rounded-lg shadow-lg p-6 mb-8">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8">
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-2xl font-bold text-white mb-2">Email Log Details</h1>
-                <p class="text-indigo-100">{{ log.announcement.title }}</p>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Email Log Details</h1>
+                <p class="text-gray-600 dark:text-gray-400">{{ log.announcement.title }}</p>
             </div>
-            <a href="{% url 'admin_v2_email_logs' %}" class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors">
+            <a href="{% url 'admin_v2_email_logs' %}" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg transition-colors">
                 Back to Logs
             </a>
         </div>
@@ -20,27 +20,27 @@
 
     <!-- Summary Cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 text-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
             <div class="text-2xl font-bold text-gray-800 dark:text-white">{{ log.total_active_users }}</div>
             <div class="text-xs text-gray-500 dark:text-gray-400">Active Users</div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 text-center">
-            <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ log.users_matching_visibility }}</div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
+            <div class="text-2xl font-bold text-primary-600 dark:text-primary-400">{{ log.users_matching_visibility }}</div>
             <div class="text-xs text-gray-500 dark:text-gray-400">Matching Visibility</div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 text-center">
-            <div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{{ log.users_with_valid_email }}</div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
+            <div class="text-2xl font-bold text-primary-600 dark:text-primary-400">{{ log.users_with_valid_email }}</div>
             <div class="text-xs text-gray-500 dark:text-gray-400">Valid Email</div>
         </div>
-        <div class="bg-green-50 dark:bg-green-900/30 rounded-lg shadow-md p-4 text-center border border-green-200 dark:border-green-800">
+        <div class="bg-green-50 dark:bg-green-900/30 rounded-xl shadow-sm p-4 text-center border border-green-200 dark:border-green-800">
             <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ log.emails_sent }}</div>
             <div class="text-xs text-green-600 dark:text-green-400">Sent</div>
         </div>
-        <div class="bg-red-50 dark:bg-red-900/30 rounded-lg shadow-md p-4 text-center border border-red-200 dark:border-red-800">
+        <div class="bg-red-50 dark:bg-red-900/30 rounded-xl shadow-sm p-4 text-center border border-red-200 dark:border-red-800">
             <div class="text-2xl font-bold text-red-600 dark:text-red-400">{{ log.emails_failed }}</div>
             <div class="text-xs text-red-600 dark:text-red-400">Failed</div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 text-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
             <span class="px-2 py-1 text-sm font-medium rounded-full
                 {% if log.status == 'completed' %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
                 {% elif log.status == 'partial' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
@@ -55,7 +55,7 @@
     </div>
 
     <!-- Metadata -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8">
         <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Send Details</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
@@ -97,7 +97,7 @@
 
     <!-- Console Log -->
     {% if log.console_log %}
-    <div class="bg-gray-900 rounded-lg shadow-md overflow-hidden mb-8">
+    <div class="bg-gray-900 rounded-xl shadow-sm overflow-hidden mb-8">
         <div class="px-4 py-3 bg-gray-800 border-b border-gray-700 flex items-center justify-between">
             <h2 class="text-lg font-semibold text-green-400 flex items-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -130,7 +130,7 @@
 
     <!-- Recipients by Status -->
     {% for status, recipients in recipients_by_status.items %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mb-6">
         <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between
             {% if 'Sent' in status %}bg-green-50 dark:bg-green-900/30
             {% elif 'Skipped' in status %}bg-gray-50 dark:bg-gray-700/50
@@ -186,7 +186,7 @@
         </div>
     </div>
     {% empty %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 text-center">
         <p class="text-gray-500 dark:text-gray-400">No recipient details available</p>
     </div>
     {% endfor %}

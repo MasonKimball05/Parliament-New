@@ -16,10 +16,10 @@
                     name="q"
                     value="{{ query }}"
                     placeholder="Search pages, legislation, events, documents, and more..."
-                    class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base sm:text-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+                    class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-base sm:text-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
                     autofocus
                 >
-                <button type="submit" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium whitespace-nowrap">
+                <button type="submit" class="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium whitespace-nowrap">
                     Search
                 </button>
             </div>
@@ -41,14 +41,14 @@
         <div class="space-y-6">
             <!-- Pages (Navigation) -->
             {% if results.pages %}
-            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-lg shadow-md p-6 border border-blue-200 dark:border-blue-800">
+            <div class="bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-900/50 rounded-xl shadow-sm p-6 border border-primary-200 dark:border-primary-800">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                    <span class="text-blue-600 dark:text-blue-400 mr-2">🔗</span>
+                    <span class="text-primary-600 dark:text-primary-400 mr-2">🔗</span>
                     Pages ({{ results.pages|length }})
                 </h2>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                     {% for page in results.pages %}
-                    <a href="{% url page.url %}" class="flex items-center p-3 bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-400 dark:hover:border-blue-600 transition shadow-sm">
+                    <a href="{% url page.url %}" class="flex items-center p-3 bg-white dark:bg-gray-800 border border-primary-200 dark:border-primary-700 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/30 hover:border-primary-400 dark:hover:border-primary-600 transition shadow-sm">
                         <span class="text-xl mr-3">{{ page.icon }}</span>
                         <div class="min-w-0">
                             <span class="font-medium text-gray-900 dark:text-white block truncate">{{ page.name }}</span>
@@ -62,9 +62,9 @@
 
             <!-- Chat Channels Results -->
             {% if results.chat_channels %}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                    <span class="text-blue-600 dark:text-blue-400 mr-2">💬</span>
+                    <span class="text-primary-600 dark:text-primary-400 mr-2">💬</span>
                     Chat Channels ({{ results.chat_channels|length }})
                 </h2>
                 <div class="space-y-3">
@@ -98,7 +98,7 @@
 
             <!-- Committees Results -->
             {% if results.committees %}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <span class="text-purple-600 dark:text-purple-400 mr-2">👥</span>
                     Committees ({{ results.committees.count }})
@@ -126,9 +126,9 @@
 
             <!-- Legislation Results -->
             {% if results.legislation %}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                    <span class="text-blue-600 dark:text-blue-400 mr-2">📄</span>
+                    <span class="text-primary-600 dark:text-primary-400 mr-2">📄</span>
                     Active Legislation ({{ results.legislation.count }})
                 </h2>
                 <div class="space-y-3">
@@ -148,7 +148,7 @@
 
             <!-- Passed Resolutions Results -->
             {% if results.passed_resolutions %}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <span class="text-green-600 dark:text-green-400 mr-2">📜</span>
                     Passed Resolutions ({{ results.passed_resolutions.count }})
@@ -169,7 +169,7 @@
 
             <!-- Announcements Results -->
             {% if results.announcements %}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <span class="text-green-600 dark:text-green-400 mr-2">📢</span>
                     Announcements ({{ results.announcements|length }})
@@ -190,7 +190,7 @@
 
             <!-- Events Results -->
             {% if results.events %}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <span class="text-purple-600 dark:text-purple-400 mr-2">📅</span>
                     Events ({{ results.events|length }})
@@ -211,7 +211,7 @@
 
             <!-- Chapter Documents Results -->
             {% if results.chapter_documents %}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <span class="text-yellow-600 dark:text-yellow-400 mr-2">📁</span>
                     Chapter Documents ({{ results.chapter_documents.count }})
@@ -235,7 +235,7 @@
 
             <!-- Committee Documents Results -->
             {% if results.committee_documents %}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <span class="text-indigo-600 dark:text-indigo-400 mr-2">📋</span>
                     Committee Documents ({{ results.committee_documents.count }})
@@ -258,7 +258,7 @@
 
             <!-- Slating Periods Results (Officers/Admins) -->
             {% if results.slating_periods %}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <span class="text-orange-600 dark:text-orange-400 mr-2">🗳️</span>
                     Election Periods ({{ results.slating_periods.count }})
@@ -284,7 +284,7 @@
 
             <!-- Kai Reports Results -->
             {% if results.kai_reports %}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <span class="text-red-600 dark:text-red-400 mr-2">📊</span>
                     Kai Reports ({{ results.kai_reports.count }})
@@ -308,7 +308,7 @@
 
             <!-- Users Results (Officers only) -->
             {% if results.users %}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <span class="text-teal-600 dark:text-teal-400 mr-2">👤</span>
                     Members ({{ results.users.count }})
@@ -336,7 +336,7 @@
             {% endif %}
         </div>
     {% elif query %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 text-center">
             <div class="text-6xl mb-4">🔍</div>
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">No results found</h2>
             <p class="text-gray-600 dark:text-gray-400 mb-4">Try different keywords or check your spelling</p>
@@ -352,7 +352,7 @@
             </div>
         </div>
     {% else %}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 text-center">
             <div class="text-6xl mb-4">🔍</div>
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Search Parliament</h2>
             <p class="text-gray-600 dark:text-gray-400 mb-6">Search across pages, legislation, events, documents, and more</p>

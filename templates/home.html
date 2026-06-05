@@ -8,16 +8,18 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4">
 
     <!-- ── WELCOME HEADER ───────────────────────────────────────── -->
-    <div class="bg-gradient-to-r from-primary-600 to-primary-700 rounded-xl shadow-md p-4 text-white flex items-center justify-between gap-3">
-        <div>
+    <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 text-white flex items-center justify-between gap-3 relative overflow-hidden">
+        <!-- Gold accent bar at bottom -->
+        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
+        <div class="relative">
             <h1 class="text-xl sm:text-2xl font-bold leading-tight">Welcome, {{ user.get_display_name }}</h1>
-            <p class="text-sm opacity-85 mt-0.5">{{ user.member_type }}{% if not user.is_pledge %} · {{ user.user_id }}{% endif %}</p>
+            <p class="text-sm text-white/75 mt-0.5">{{ user.member_type }}{% if not user.is_pledge %} · {{ user.user_id }}{% endif %}</p>
         </div>
-        <button onclick="document.getElementById('coat-modal').classList.remove('hidden')" class="flex-shrink-0 focus:outline-none group flex flex-col items-center gap-1">
+        <button onclick="document.getElementById('coat-modal').classList.remove('hidden')" class="relative flex-shrink-0 focus:outline-none group flex flex-col items-center gap-1">
             <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-0.5 shadow-lg transition-transform duration-200 group-hover:scale-110 cursor-pointer">
-            <span class="text-white/80 text-center leading-tight">
+            <span class="text-white/70 text-center leading-tight">
                 <span class="block text-xs">Ἀρετὴ Μονάζει</span>
-                <span class="block text-xs italic opacity-75">Virtue Stands Alone</span>
+                <span class="block text-[10px] italic opacity-75">Virtue Stands Alone</span>
             </span>
         </button>
     </div>
@@ -337,25 +339,25 @@
     <!-- ── FEATURED CARDS (Kai / Service / Songbook) ─────────────── -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
 
-        <a href="{% url 'user_kai_dashboard' %}" class="flex items-center gap-4 rounded-xl shadow-sm p-4 group transition-shadow hover:shadow-md" style="background: linear-gradient(135deg, #10B981 0%, #059669 100%);">
+        <a href="{% url 'user_kai_dashboard' %}" class="flex items-center gap-4 rounded-xl shadow-sm p-4 group transition-shadow hover:shadow-md bg-gradient-to-br from-emerald-500 to-emerald-700">
             <img src="{% static 'images/beta-dragon.jpeg' %}" alt="Beta Dragon" class="w-12 h-12 rounded-xl object-cover border-2 border-white/30 shadow flex-shrink-0">
             <div>
                 <p class="text-base font-bold text-white leading-tight">Kai Report</p>
-                <p class="text-xs text-green-100 mt-0.5">View reports or submit a new one</p>
+                <p class="text-xs text-emerald-100 mt-0.5">View reports or submit a new one</p>
             </div>
         </a>
 
-        <a href="{% url 'user_service_dashboard' %}" class="flex items-center gap-4 rounded-xl shadow-sm p-4 group transition-shadow hover:shadow-md" style="background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%);">
+        <a href="{% url 'user_service_dashboard' %}" class="flex items-center gap-4 rounded-xl shadow-sm p-4 group transition-shadow hover:shadow-md bg-gradient-to-br from-violet-500 to-violet-700">
             <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
                 <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
             </div>
             <div>
                 <p class="text-base font-bold text-white leading-tight">Service Hours</p>
-                <p class="text-xs text-purple-100 mt-0.5">Track and submit service hours</p>
+                <p class="text-xs text-violet-100 mt-0.5">Track and submit service hours</p>
             </div>
         </a>
 
-        <a href="{% url 'songbook' %}" class="flex items-center gap-4 rounded-xl shadow-sm p-4 group transition-shadow hover:shadow-md" style="background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);">
+        <a href="{% url 'songbook' %}" class="flex items-center gap-4 rounded-xl shadow-sm p-4 group transition-shadow hover:shadow-md bg-gradient-to-br from-blue-500 to-blue-700">
             <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
                 <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
             </div>

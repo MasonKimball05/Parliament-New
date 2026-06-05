@@ -1,12 +1,12 @@
 {% if documents %}
 <div class="space-y-4">
     {% for doc in documents %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
         <div class="flex items-start justify-between mb-3">
             <div class="flex-1">
                 <div class="flex items-center space-x-3 mb-2">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                        <a href="{{ doc.document.url }}" target="_blank" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                        <a href="{{ doc.document.url }}" target="_blank" class="hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
                             {{ doc.title }}
                         </a>
                     </h3>
@@ -28,7 +28,7 @@
                 </div>
 
                 <div class="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mb-3">
-                    <span class="inline-flex items-center px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded font-medium">
+                    <span class="inline-flex items-center px-2 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 rounded font-medium">
                         {{ doc.committee.code }}
                     </span>
                     <span class="inline-flex items-center px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded font-medium">
@@ -65,7 +65,7 @@
             </div>
 
             <div class="ml-4">
-                <a href="{{ doc.document.url }}" target="_blank" class="inline-flex items-center space-x-1 bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition text-sm">
+                <a href="{{ doc.document.url }}" target="_blank" class="inline-flex items-center space-x-1 bg-primary-600 dark:bg-primary-700 hover:bg-primary-700 dark:hover:bg-primary-600 text-white px-4 py-2 rounded-lg font-medium transition text-sm">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
@@ -77,13 +77,13 @@
     {% endfor %}
 </div>
 {% else %}
-<div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center">
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
     <svg class="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
     </svg>
     <h3 class="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">No Documents Found</h3>
     <p class="text-gray-500 dark:text-gray-400 mb-4">There are no {{ title|lower }} to display.</p>
-    <a href="{% url 'upload_report' %}" class="inline-block bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition">
+    <a href="{% url 'upload_report' %}" class="inline-block bg-primary-600 dark:bg-primary-700 hover:bg-primary-700 dark:hover:bg-primary-600 text-white px-6 py-2 rounded-lg transition">
         Upload a Document
     </a>
 </div>

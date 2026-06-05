@@ -1,11 +1,11 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 
 {% block title %}All Documents - Officer Portal{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Page Header -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8 transition-colors duration-200">
         <div class="flex items-center justify-between">
             <div>
                 <div class="flex items-center space-x-3 mb-2">
@@ -17,7 +17,7 @@
                 <p class="text-gray-600 dark:text-gray-400">View all committee documents, including unpublished items</p>
             </div>
             <div class="flex space-x-3">
-                <a href="{% url 'upload_report' %}" class="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition flex items-center space-x-2">
+                <a href="{% url 'upload_report' %}" class="bg-primary-600 dark:bg-primary-700 hover:bg-primary-700 dark:hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition flex items-center space-x-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                     </svg>
@@ -31,9 +31,9 @@
     </div>
 
     <!-- Tab Navigation -->
-    <div class="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-md p-2 transition-colors duration-200">
+    <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-2 transition-colors duration-200">
         <div class="flex space-x-1" role="tablist">
-            <button onclick="showTab('all')" id="tab-all" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+            <button onclick="showTab('all')" id="tab-all" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300">
                 All Documents ({{ all_documents|length }})
             </button>
             <button onclick="showTab('reports')" id="tab-reports" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
@@ -96,7 +96,7 @@ function showTab(tabName) {
     // Reset all tab buttons
     const buttons = document.querySelectorAll('.tab-button');
     buttons.forEach(button => {
-        button.classList.remove('bg-blue-100', 'dark:bg-blue-900', 'text-blue-700', 'dark:text-blue-300');
+        button.classList.remove('bg-primary-100', 'dark:bg-primary-900', 'text-primary-700', 'dark:text-primary-300');
         button.classList.add('text-gray-700', 'dark:text-gray-300', 'hover:bg-gray-100', 'dark:hover:bg-gray-700');
     });
 
@@ -109,7 +109,7 @@ function showTab(tabName) {
     // Highlight selected tab button
     const selectedButton = document.getElementById('tab-' + tabName);
     if (selectedButton) {
-        selectedButton.classList.add('bg-blue-100', 'dark:bg-blue-900', 'text-blue-700', 'dark:text-blue-300');
+        selectedButton.classList.add('bg-primary-100', 'dark:bg-primary-900', 'text-primary-700', 'dark:text-primary-300');
         selectedButton.classList.remove('text-gray-700', 'dark:text-gray-300', 'hover:bg-gray-100', 'dark:hover:bg-gray-700');
     }
 }

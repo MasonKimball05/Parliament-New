@@ -1,0 +1,499 @@
+{% extends "base.html" %}
+
+{% block title %}Constitution & Bylaws - Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200">
+
+    <!-- Banner -->
+    <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg relative overflow-hidden">
+        <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-gold-400 via-gold-500 to-gold-400 opacity-80"></div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h1 class="text-3xl font-bold mb-1">Constitution & Bylaws</h1>
+                    <p class="text-primary-100 text-sm">Alpha Mu Chapter · Beta Theta Pi · Samford University</p>
+                </div>
+                {% if user_can_manage %}
+                <a href="{% url 'cnb_create_resolution' %}"
+                   class="inline-flex items-center gap-2 bg-white text-primary-700 hover:bg-primary-50 px-4 py-2 rounded-lg text-sm font-semibold transition-colors self-start flex-shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    New Resolution
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <nav class="flex gap-1" aria-label="Tabs">
+                <button onclick="switchTab('document')" id="tab-btn-document"
+                        class="tab-btn px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap">
+                    Document
+                </button>
+                <button onclick="switchTab('resolutions')" id="tab-btn-resolutions"
+                        class="tab-btn px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap">
+                    Resolutions
+                    {% if pending_count %}
+                    <span class="ml-1.5 inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">{{ pending_count }}</span>
+                    {% endif %}
+                </button>
+                {% if user_can_manage %}
+                <button onclick="switchTab('manage')" id="tab-btn-manage"
+                        class="tab-btn px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap">
+                    Manage
+                    {% if draft_count %}
+                    <span class="ml-1.5 inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">{{ draft_count }}</span>
+                    {% endif %}
+                </button>
+                {% endif %}
+            </nav>
+        </div>
+    </div>
+
+    <!-- ── DOCUMENT TAB ──────────────────────────────────────────────────────── -->
+    <div id="tab-document" class="tab-panel">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {% if not documents %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
+            <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">No documents yet</h2>
+            <p class="text-gray-500 dark:text-gray-400 text-sm">
+                The Constitution & Bylaws text hasn't been entered yet.
+                {% if user_can_manage %}
+                Switch to the <button onclick="switchTab('manage')" class="text-primary-600 dark:text-primary-400 underline">Manage tab</button> to get started.
+                {% endif %}
+            </p>
+        </div>
+        {% else %}
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+
+            <!-- Table of Contents sidebar -->
+            <div class="lg:col-span-1">
+                <div class="sticky top-16 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 max-h-[calc(100vh-8rem)] overflow-y-auto">
+                    <h2 class="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide mb-4">Table of Contents</h2>
+                    {% for doc in documents %}
+                    <div class="mb-4">
+                        <p class="text-xs font-semibold text-primary-600 dark:text-primary-400 uppercase tracking-wide mb-2">
+                            {{ doc.get_doc_type_display }}
+                        </p>
+                        <nav class="space-y-1">
+                            {% for article in doc.articles.all %}
+                            <a href="#{{ doc.doc_type }}-art-{{ article.number }}"
+                               class="block text-sm {% if article.is_active %}text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400{% else %}text-gray-400 dark:text-gray-600 line-through{% endif %} transition-colors py-0.5 pl-2 border-l-2 border-transparent hover:border-primary-400">
+                                Art. {{ article.number }} — {{ article.title }}
+                                {% if not article.is_active %}<span class="text-xs text-amber-500 no-underline not-italic">(suspended)</span>{% endif %}
+                            </a>
+                            {% endfor %}
+                        </nav>
+                    </div>
+                    {% endfor %}
+                    <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4 space-y-2">
+                        <a href="{% url 'view_reference_document' 'constitution-bylaws' %}"
+                           class="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 hover:underline">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            Official PDF
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Document body -->
+            <div class="lg:col-span-3 space-y-10">
+                {% for doc in documents %}
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{{ doc.title }}</h2>
+                    {% if doc.preamble %}
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 text-sm text-gray-700 dark:text-gray-300 leading-relaxed border-l-4 border-primary-300 dark:border-primary-700">
+                        <p class="text-xs font-semibold text-primary-600 dark:text-primary-400 uppercase tracking-wide mb-3">Preamble</p>
+                        {{ doc.preamble|linebreaks }}
+                    </div>
+                    {% endif %}
+
+                    {% for article in doc.articles.all %}
+                    <div id="{{ doc.doc_type }}-art-{{ article.number }}"
+                         class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-6 overflow-hidden {% if not article.is_active %}opacity-60{% endif %}">
+
+                        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                            <div>
+                                <span class="text-xs font-semibold text-primary-600 dark:text-primary-400 uppercase tracking-wide">Article {{ article.number }}</span>
+                                <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ article.title }}</h3>
+                            </div>
+                            {% if not article.is_active %}
+                            <span class="flex items-center gap-1 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-semibold">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                </svg>
+                                Suspended
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        {% if not article.is_active and article.deactivation_reason %}
+                        <div class="px-6 py-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-100 dark:border-amber-800">
+                            <p class="text-xs text-amber-700 dark:text-amber-400">
+                                <strong>Suspension reason:</strong> {{ article.deactivation_reason }}
+                                {% if article.deactivated_at %}· {{ article.deactivated_at|date:"M j, Y" }}{% endif %}
+                            </p>
+                        </div>
+                        {% endif %}
+
+                        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                            {% for section in article.sections.all %}
+                            <div id="{{ doc.doc_type }}-art-{{ article.number }}-sec-{{ section.number }}"
+                                 class="px-6 py-5 {% if not section.is_active %}opacity-60{% endif %}">
+                                <div class="flex items-start justify-between gap-4 mb-2">
+                                    <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                        § {{ section.number }}{% if section.title %} — {{ section.title }}{% endif %}
+                                    </span>
+                                    <div class="flex items-center gap-2 flex-shrink-0">
+                                        {% if section.amendment_protected %}
+                                        <span title="Protected until {{ section.protected_until }}"
+                                              class="flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-xs font-medium">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                            </svg>
+                                            Protected
+                                        </span>
+                                        {% endif %}
+                                        {% if section.partial_suspensions %}
+                                        <span class="flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-medium"
+                                              title="{{ section.partial_suspensions|length }} sub-item{{ section.partial_suspensions|length|pluralize }} partially suspended">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                            {{ section.partial_suspensions|length }} partial
+                                        </span>
+                                        {% endif %}
+                                        {% if not section.is_active %}
+                                        <span class="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-xs font-medium">Suspended</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                {% if not section.is_active and section.deactivation_reason %}
+                                <p class="text-xs text-amber-600 dark:text-amber-400 mb-2 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-lg">
+                                    <strong>Suspension reason:</strong> {{ section.deactivation_reason }}
+                                </p>
+                                {% endif %}
+
+                                <p class="cnb-linkify text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">{{ section.content }}</p>
+
+                                {% if section.partial_suspensions %}
+                                <div class="mt-3 space-y-1.5">
+                                    {% for ps in section.partial_suspensions %}
+                                    <div class="flex items-start gap-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg px-3 py-2 text-xs">
+                                        <svg class="w-3.5 h-3.5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                        </svg>
+                                        <div class="text-yellow-800 dark:text-yellow-300">
+                                            <span class="font-semibold">§ {{ ps.ref }}</span> — Partially suspended
+                                            {% if ps.reason %}: {{ ps.reason }}{% endif %}
+                                            {% if ps.suspended_at %}<span class="text-yellow-600 dark:text-yellow-500 ml-1">({{ ps.suspended_at }})</span>{% endif %}
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+
+                                {% if section.amendment_protected and section.protected_until %}
+                                <p class="text-xs text-orange-500 dark:text-orange-400 mt-2">
+                                    Amendment protection expires {{ section.protected_until|date:"M j, Y" }}. {{ section.protection_note }}
+                                </p>
+                                {% endif %}
+                            </div>
+                            {% empty %}
+                            <div class="px-6 py-4 text-sm text-gray-400 dark:text-gray-600 italic">No sections added yet.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-sm text-gray-500 dark:text-gray-400 italic">No articles added yet.</p>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+
+        </div>
+        {% endif %}
+    </div>
+    </div>
+
+    <!-- ── RESOLUTIONS TAB ───────────────────────────────────────────────────── -->
+    <div id="tab-resolutions" class="tab-panel hidden">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {% if not resolutions %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
+            <p class="text-gray-500 dark:text-gray-400 text-sm">No resolutions yet.</p>
+            {% if user_can_manage %}
+            <a href="{% url 'cnb_create_resolution' %}" class="inline-flex items-center gap-2 mt-4 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Create the first resolution
+            </a>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <!-- Filter bar -->
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center gap-3">
+                <span class="text-sm font-semibold text-gray-900 dark:text-gray-100">All Resolutions</span>
+                <div class="flex gap-1 ml-auto flex-wrap">
+                    <button onclick="filterResolutions('')" class="res-filter-btn px-3 py-1 rounded-full text-xs font-medium transition-colors bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300" data-filter="">All</button>
+                    <button onclick="filterResolutions('draft')" class="res-filter-btn px-3 py-1 rounded-full text-xs font-medium transition-colors bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300" data-filter="draft">Draft</button>
+                    <button onclick="filterResolutions('pending')" class="res-filter-btn px-3 py-1 rounded-full text-xs font-medium transition-colors bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300" data-filter="pending">Pending</button>
+                    <button onclick="filterResolutions('passed')" class="res-filter-btn px-3 py-1 rounded-full text-xs font-medium transition-colors bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300" data-filter="passed">Passed</button>
+                    <button onclick="filterResolutions('failed')" class="res-filter-btn px-3 py-1 rounded-full text-xs font-medium transition-colors bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300" data-filter="failed">Failed</button>
+                </div>
+            </div>
+            <div class="divide-y divide-gray-100 dark:divide-gray-700" id="resolutionList">
+                {% for resolution in resolutions %}
+                <a href="{% url 'cnb_resolution_detail' resolution_id=resolution.pk %}"
+                   class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors block res-row"
+                   data-status="{{ resolution.status }}">
+                    <div class="min-w-0">
+                        <p class="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{{ resolution.title }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {{ resolution.get_resolution_type_display }}
+                            {% if resolution.authors %}· {{ resolution.authors }}{% endif %}
+                            {% if resolution.vote_date %}· Vote: {{ resolution.vote_date|date:"M j, Y" }}{% endif %}
+                            · {{ resolution.amendments.count }} amendment{{ resolution.amendments.count|pluralize }}
+                        </p>
+                    </div>
+                    <span class="flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold
+                        {% if resolution.status == 'draft' %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300
+                        {% elif resolution.status == 'pending' %}bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400
+                        {% elif resolution.status == 'passed' %}bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400
+                        {% elif resolution.status == 'failed' %}bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400
+                        {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400{% endif %}">
+                        {{ resolution.get_status_display }}
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    </div>
+
+    <!-- ── MANAGE TAB (CNB only) ─────────────────────────────────────────────── -->
+    {% if user_can_manage %}
+    <div id="tab-manage" class="tab-panel hidden">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- Summary cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 text-center">
+                <p class="text-3xl font-bold text-primary-600 dark:text-primary-400">{{ draft_count }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">Draft resolutions</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 text-center">
+                <p class="text-3xl font-bold text-amber-500">{{ pending_count }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">Pending vote</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 text-center">
+                <p class="text-3xl font-bold text-orange-500">{{ protected_sections|length }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">Protected sections</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 text-center">
+                <p class="text-3xl font-bold text-gray-700 dark:text-gray-200">{{ documents|length }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">Documents</p>
+            </div>
+        </div>
+
+        <!-- Governing documents -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Governing Documents</h2>
+            </div>
+            {% if documents %}
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for doc in documents %}
+                <div class="px-6 py-4 flex items-center justify-between gap-4">
+                    <div>
+                        <p class="font-medium text-gray-900 dark:text-gray-100">{{ doc.title }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            {{ doc.articles.count }} article{{ doc.articles.count|pluralize }}
+                            {% if doc.last_reviewed %}· Reviewed {{ doc.last_reviewed|date:"M j, Y" }}{% endif %}
+                        </p>
+                    </div>
+                    <a href="{% url 'cnb_manage_document' doc_type=doc.doc_type %}"
+                       class="flex-shrink-0 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
+                        Manage →
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                No documents yet. Run <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">python manage.py seed_cnb_documents</code> to populate the initial structure.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Protected sections -->
+        {% if protected_sections %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-orange-100 dark:border-orange-900/30 bg-orange-50 dark:bg-orange-900/20">
+                <h2 class="text-base font-semibold text-orange-700 dark:text-orange-400 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                    Amendment-Protected Sections
+                </h2>
+            </div>
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for section in protected_sections %}
+                <div class="px-6 py-4">
+                    <p class="font-medium text-gray-900 dark:text-gray-100 text-sm">{{ section.full_identifier }}</p>
+                    <p class="text-xs text-orange-600 dark:text-orange-400 mt-0.5">Protected until {{ section.protected_until|date:"M j, Y" }}</p>
+                    {% if section.protection_note %}
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ section.protection_note }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Draft / pending resolutions needing action -->
+        {% if draft_count or pending_count %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Needing Action</h2>
+                <button onclick="switchTab('resolutions')" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">All resolutions →</button>
+            </div>
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for resolution in resolutions %}
+                {% if resolution.status == 'draft' or resolution.status == 'pending' %}
+                <a href="{% url 'cnb_resolution_detail' resolution_id=resolution.pk %}"
+                   class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors block">
+                    <div class="min-w-0">
+                        <p class="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{{ resolution.title }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {{ resolution.amendments.count }} amendment{{ resolution.amendments.count|pluralize }}
+                            {% if resolution.vote_date %}· Vote: {{ resolution.vote_date|date:"M j, Y" }}{% endif %}
+                        </p>
+                    </div>
+                    <span class="flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold
+                        {% if resolution.status == 'draft' %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300
+                        {% else %}bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400{% endif %}">
+                        {{ resolution.get_status_display }}
+                    </span>
+                </a>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    var ACTIVE_TAB_CLASSES    = ['border-primary-500', 'text-primary-700', 'dark:text-primary-400'];
+    var INACTIVE_TAB_CLASSES  = ['border-transparent', 'text-gray-500', 'dark:text-gray-400', 'hover:text-gray-700', 'dark:hover:text-gray-300', 'hover:border-gray-300', 'dark:hover:border-gray-600'];
+
+    window.switchTab = function(name) {
+        // Hide all panels
+        document.querySelectorAll('.tab-panel').forEach(function(el) {
+            el.classList.add('hidden');
+        });
+        // Deactivate all buttons
+        document.querySelectorAll('.tab-btn').forEach(function(btn) {
+            btn.classList.remove.apply(btn.classList, ACTIVE_TAB_CLASSES);
+            btn.classList.add.apply(btn.classList, INACTIVE_TAB_CLASSES);
+        });
+        // Show target
+        var panel = document.getElementById('tab-' + name);
+        var btn   = document.getElementById('tab-btn-' + name);
+        if (panel) panel.classList.remove('hidden');
+        if (btn) {
+            btn.classList.add.apply(btn.classList, ACTIVE_TAB_CLASSES);
+            btn.classList.remove.apply(btn.classList, INACTIVE_TAB_CLASSES);
+        }
+        // Update URL without reload
+        var url = new URL(window.location.href);
+        if (name === 'document') {
+            url.searchParams.delete('tab');
+        } else {
+            url.searchParams.set('tab', name);
+        }
+        history.replaceState(null, '', url.toString());
+    };
+
+    // Initialise from server-rendered active_tab
+    switchTab('{{ active_tab }}');
+
+    // Resolution status filter
+    window.filterResolutions = function(status) {
+        document.querySelectorAll('.res-row').forEach(function(row) {
+            row.style.display = (!status || row.dataset.status === status) ? '' : 'none';
+        });
+        // Update active filter button styling
+        document.querySelectorAll('.res-filter-btn').forEach(function(btn) {
+            var isActive = btn.dataset.filter === status;
+            btn.classList.toggle('bg-primary-100', isActive);
+            btn.classList.toggle('dark:bg-primary-900/30', isActive);
+            btn.classList.toggle('text-primary-700', isActive);
+            btn.classList.toggle('dark:text-primary-300', isActive);
+            btn.classList.toggle('bg-gray-100', !isActive);
+            btn.classList.toggle('dark:bg-gray-700', !isActive);
+            btn.classList.toggle('text-gray-600', !isActive);
+            btn.classList.toggle('dark:text-gray-300', !isActive);
+        });
+    };
+})();
+</script>
+
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    var CNB_URL = '{% url "constitution_bylaws" %}?tab=document';
+    var pattern = /\[?((?:Constitution|Bylaws) Art\. [IVXLCDM]+ \u00a7 \d+)\]?/g;
+
+    function linkify(root) {
+        var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+        var nodes = [];
+        var node;
+        while ((node = walker.nextNode())) nodes.push(node);
+        nodes.forEach(function(textNode) {
+            var val = textNode.nodeValue;
+            if (!pattern.test(val)) return;
+            pattern.lastIndex = 0;
+            var frag = document.createDocumentFragment();
+            var last = 0, m;
+            while ((m = pattern.exec(val)) !== null) {
+                if (m.index > last) frag.appendChild(document.createTextNode(val.slice(last, m.index)));
+                var a = document.createElement('a');
+                a.href = CNB_URL;
+                a.textContent = m[1];
+                a.className = 'text-primary-600 dark:text-primary-400 underline decoration-dotted hover:decoration-solid font-medium';
+                frag.appendChild(a);
+                last = m.index + m[0].length;
+            }
+            if (last < val.length) frag.appendChild(document.createTextNode(val.slice(last)));
+            textNode.parentNode.replaceChild(frag, textNode);
+        });
+    }
+
+    document.querySelectorAll('.cnb-linkify').forEach(linkify);
+})();
+</script>
+
+{% endblock %}

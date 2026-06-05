@@ -1,11 +1,11 @@
-{% extends "base.html" %}
+{% extends "admin_v2/base.html" %}
 {% load static %}
 
 {% block title %}Manage Events - Admin v2{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <div class="flex items-center justify-between">
             <div>
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">📅 Manage Events</h1>
@@ -15,7 +15,7 @@
         </div>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <form method="get" class="flex flex-wrap gap-4">
             <div class="flex-1 min-w-[200px]">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Search</label>
@@ -38,13 +38,13 @@
                 </select>
             </div>
             <div class="flex items-end gap-2">
-                <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Filter</button>
+                <button type="submit" class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg">Filter</button>
                 <a href="{% url 'admin_v2_manage_events' %}" class="px-6 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg">Clear</a>
             </div>
         </form>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full">
                 <thead class="bg-gray-50 dark:bg-gray-700">
@@ -89,7 +89,7 @@
                     {% if events.has_previous %}
                         <a href="?page={{ events.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if archived_filter %}&archived={{ archived_filter }}{% endif %}{% if active_filter %}&active={{ active_filter }}{% endif %}" class="px-3 py-1 bg-white dark:bg-gray-600 border rounded hover:bg-gray-50">Previous</a>
                     {% endif %}
-                    <span class="px-3 py-1 bg-blue-600 text-white rounded">{{ events.number }}</span>
+                    <span class="px-3 py-1 bg-primary-600 text-white rounded">{{ events.number }}</span>
                     {% if events.has_next %}
                         <a href="?page={{ events.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if archived_filter %}&archived={{ archived_filter }}{% endif %}{% if active_filter %}&active={{ active_filter }}{% endif %}" class="px-3 py-1 bg-white dark:bg-gray-600 border rounded hover:bg-gray-50">Next</a>
                     {% endif %}

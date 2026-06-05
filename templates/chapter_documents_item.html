@@ -2,7 +2,7 @@
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div class="flex-1 min-w-0">
             <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">
-                <a href="{% url 'view_chapter_document' doc.id %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-start transition-colors">
+                <a href="{% url 'view_chapter_document' doc.id %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 flex items-start transition-colors">
                     <svg class="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                     </svg>
@@ -13,7 +13,7 @@
                 <p class="text-gray-600 dark:text-gray-400 text-sm mt-1 ml-6">{{ doc.description }}</p>
             {% endif %}
             <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6 flex flex-wrap items-center gap-1">
-                <span class="text-blue-600 dark:text-blue-400">{{ doc.committee.code }}</span>
+                <span class="text-primary-600 dark:text-primary-400">{{ doc.committee.code }}</span>
                 <span class="hidden sm:inline">•</span>
                 <span class="w-full sm:w-auto">Uploaded by {{ doc.uploaded_by.name }} on {{ doc.uploaded_at|date:"M d, Y" }}</span>
                 {% if doc.meeting_date %}
@@ -56,7 +56,7 @@
                 </svg>
                 <span class="hidden sm:inline">View</span>
             </a>
-            <a href="{{ doc.document.url }}" download class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm flex items-center transition-colors">
+            <a href="{{ doc.document.url }}" download class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 text-sm flex items-center transition-colors">
                 <svg class="w-4 h-4 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                 </svg>

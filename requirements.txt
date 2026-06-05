@@ -55,3 +55,11 @@ qrcode==7.4.2
 
 # REST API (3.0.0 foundation)
 djangorestframework==3.16.0
+
+# WebSockets (3.0.0 — replaces HTTP polling for chat)
+channels==4.2.0
+channels-redis==4.2.0
+daphne==4.1.2
+
+# Passkeys / WebAuthn (3.0.0 — optional fast-path login bypassing password + 2FA)
+webauthn==2.7.1

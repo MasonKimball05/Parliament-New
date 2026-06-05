@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-6">
-        <a href="{% url 'committee_detail' committee.code %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">← Back to Committee</a>
+        <a href="{% url 'committee_home' committee.code %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors">← Back to Committee</a>
     </div>
 
     <h2 class="text-3xl font-bold mb-6 text-gray-900 dark:text-gray-100">{{ committee.name }} Documents</h2>
@@ -13,13 +13,13 @@
     {% if perm.can_upload_docs %}
     <div class="mb-6">
         <a href="{% url 'upload_document' committee.code %}"
-           class="bg-blue-500 dark:bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+           class="bg-primary-500 dark:bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-600 dark:hover:bg-primary-700 transition-colors">
             Upload Document
         </a>
     </div>
     {% endif %}
 
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
         {% if documents %}
             <div class="space-y-4">
                 {% for doc in documents %}
@@ -27,7 +27,7 @@
                         <div class="flex justify-between items-start">
                             <div class="flex-1">
                                 <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                                    <a href="{% url 'view_committee_document' committee.code doc.id %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
+                                    <a href="{% url 'view_committee_document' committee.code doc.id %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors">
                                         {{ doc.title }}
                                     </a>
                                 </h3>
@@ -44,7 +44,7 @@
                                             📋 Minutes
                                         </span>
                                     {% elif doc.document_type == 'agenda' %}
-                                        <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
+                                        <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300">
                                             📅 Agenda
                                         </span>
                                     {% elif doc.document_type == 'report' %}
@@ -67,7 +67,7 @@
                                 <a href="{% url 'view_committee_document' committee.code doc.id %}" class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors">
                                     View
                                 </a>
-                                <a href="{{ doc.document.url }}" download class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
+                                <a href="{{ doc.document.url }}" download class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors">
                                     Download
                                 </a>
                                 {% if perm.can_upload_docs %}

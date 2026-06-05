@@ -3,7 +3,7 @@
 
 {% block title %}{{ action }} Resolution{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8 max-w-4xl">
     <!-- Header -->
     <div class="mb-6">
@@ -14,14 +14,14 @@
     <!-- Messages -->
     {% if messages %}
         {% for message in messages %}
-            <div class="mb-4 p-4 rounded-lg {% if message.tags == 'success' %}bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800{% elif message.tags == 'error' %}bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800{% else %}bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800{% endif %}">
+            <div class="mb-4 p-4 rounded-lg {% if message.tags == 'success' %}bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800{% elif message.tags == 'error' %}bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800{% else %}bg-primary-50 dark:bg-primary-900/20 text-primary-800 dark:text-primary-300 border border-primary-200 dark:border-primary-800{% endif %}">
                 {{ message }}
             </div>
         {% endfor %}
     {% endif %}
 
     <!-- Form -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8">
         <form method="post" enctype="multipart/form-data" class="space-y-6">
             {% csrf_token %}
 
@@ -94,7 +94,7 @@
                     {{ form.document.label }}
                 </label>
                 {% if resolution.document %}
-                    <div class="mb-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded">
+                    <div class="mb-2 p-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded">
                         <p class="text-sm text-blue-900 dark:text-blue-200">
                             <strong>Current document:</strong>
                             <a href="{{ resolution.document.url }}" target="_blank" class="underline">{{ resolution.document.name }}</a>
@@ -201,7 +201,7 @@
                 <a href="{% url 'manage_resolutions' %}" class="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-semibold">
                     Cancel
                 </a>
-                <button type="submit" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow transition-colors">
+                <button type="submit" class="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg shadow transition-colors">
                     {{ action }} Resolution
                 </button>
             </div>

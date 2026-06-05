@@ -3,14 +3,14 @@
 
 {% block title %}Delete Section Impact{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8 max-w-2xl">
     <!-- Header -->
     <div class="mb-6">
         <nav class="text-sm text-gray-600 mb-2">
-            <a href="{% url 'manage_resolutions' %}" class="hover:text-blue-600">Manage Resolutions</a>
+            <a href="{% url 'manage_resolutions' %}" class="hover:text-primary-600">Manage Resolutions</a>
             <span class="mx-2">›</span>
-            <a href="{% url 'manage_section_impacts' resolution.id %}" class="hover:text-blue-600">{{ resolution.title }}</a>
+            <a href="{% url 'manage_section_impacts' resolution.id %}" class="hover:text-primary-600">{{ resolution.title }}</a>
             <span class="mx-2">›</span>
             <span class="text-gray-900">Delete Section Impact</span>
         </nav>
@@ -31,7 +31,7 @@
     </div>
 
     <!-- Section Impact Details -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">Section Impact to Delete:</h3>
         <div class="bg-gray-50 p-4 rounded-lg">
             <div class="mb-2">
@@ -66,7 +66,7 @@
     </div>
 
     <!-- Confirmation Form -->
-    <div class="bg-white rounded-lg shadow-md p-6">
+    <div class="bg-white rounded-xl shadow-sm p-6">
         <form method="post">
             {% csrf_token %}
             <div class="flex items-center justify-between">

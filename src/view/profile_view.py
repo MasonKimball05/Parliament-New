@@ -389,6 +389,10 @@ def profile_view(request):
             except (signing.BadSignature, signing.SignatureExpired, ValueError):
                 pass
 
+    from src.models.webauthn import WebAuthnCredential
+    passkeys = list(WebAuthnCredential.objects.filter(user=user))
+    passkey_count = len(passkeys)
+
     from src.models import RoleHistory
     role_histories = RoleHistory.objects.filter(user=user)
     eligible_big_bros = (
@@ -412,6 +416,8 @@ def profile_view(request):
         'backup_codes_acknowledged': user.backup_codes_acknowledged,
         'backup_codes_warning': backup_codes_warning,
         'two_factor_device_remembered': two_factor_device_remembered,
+        'passkeys': passkeys,
+        'passkey_count': passkey_count,
         'role_histories': role_histories,
         'eligible_big_bros': eligible_big_bros,
         'academic_sections': academic_sections,

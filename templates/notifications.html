@@ -5,53 +5,56 @@
 {% block content %}
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Notifications</h1>
+    <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
+        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
+        <div class="relative flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold">Notifications</h1>
+                {% if unread_count %}
+                <p class="text-sm text-white/75 mt-0.5">{{ unread_count }} unread</p>
+                {% endif %}
+            </div>
             {% if unread_count %}
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ unread_count }} unread</p>
+            <button id="mark-all-read-page" class="bg-white/15 hover:bg-white/25 text-white text-sm font-medium py-2 px-4 rounded-lg transition">
+                Mark all as read
+            </button>
             {% endif %}
         </div>
-        {% if unread_count %}
-        <button id="mark-all-read-page" class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-lg transition">
-            Mark all as read
-        </button>
-        {% endif %}
     </div>
 
     <!-- Filter Tabs -->
     <div class="flex flex-wrap gap-2 mb-6">
         <a href="{% url 'notifications' %}"
-           class="px-4 py-2 rounded-lg text-sm font-medium transition {% if filter_type == 'all' %}bg-blue-600 text-white{% else %}bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
+           class="px-4 py-2 rounded-lg text-sm font-medium transition {% if filter_type == 'all' %}bg-primary-600 text-white{% else %}bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
             All
         </a>
         <a href="{% url 'notifications' %}?filter=unread"
-           class="px-4 py-2 rounded-lg text-sm font-medium transition {% if filter_type == 'unread' %}bg-blue-600 text-white{% else %}bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
+           class="px-4 py-2 rounded-lg text-sm font-medium transition {% if filter_type == 'unread' %}bg-primary-600 text-white{% else %}bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
             Unread
         </a>
         <a href="{% url 'notifications' %}?filter=announcement"
-           class="px-4 py-2 rounded-lg text-sm font-medium transition {% if filter_type == 'announcement' %}bg-blue-600 text-white{% else %}bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
+           class="px-4 py-2 rounded-lg text-sm font-medium transition {% if filter_type == 'announcement' %}bg-primary-600 text-white{% else %}bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
             Announcements
         </a>
         <a href="{% url 'notifications' %}?filter=legislation_new"
-           class="px-4 py-2 rounded-lg text-sm font-medium transition {% if filter_type == 'legislation_new' %}bg-blue-600 text-white{% else %}bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
+           class="px-4 py-2 rounded-lg text-sm font-medium transition {% if filter_type == 'legislation_new' %}bg-primary-600 text-white{% else %}bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
             New Legislation
         </a>
         <a href="{% url 'notifications' %}?filter=vote_ended"
-           class="px-4 py-2 rounded-lg text-sm font-medium transition {% if filter_type == 'vote_ended' %}bg-blue-600 text-white{% else %}bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
+           class="px-4 py-2 rounded-lg text-sm font-medium transition {% if filter_type == 'vote_ended' %}bg-primary-600 text-white{% else %}bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
             Vote Results
         </a>
         <a href="{% url 'notifications' %}?filter=event_new"
-           class="px-4 py-2 rounded-lg text-sm font-medium transition {% if filter_type == 'event_new' %}bg-blue-600 text-white{% else %}bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
+           class="px-4 py-2 rounded-lg text-sm font-medium transition {% if filter_type == 'event_new' %}bg-primary-600 text-white{% else %}bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
             Events
         </a>
     </div>
 
     <!-- Notification List -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         {% if page_obj.object_list %}
             {% for notification in page_obj %}
-            <div class="notif-row flex items-start gap-4 px-5 py-4 border-b border-gray-100 dark:border-gray-700 {% if not notification.is_read %}bg-blue-50/50 dark:bg-blue-900/10{% endif %} hover:bg-gray-50 dark:hover:bg-gray-700/50 transition"
+            <div class="notif-row flex items-start gap-4 px-5 py-4 border-b border-gray-100 dark:border-gray-700 {% if not notification.is_read %}bg-primary-50/50 dark:bg-primary-900/10{% endif %} hover:bg-gray-50 dark:hover:bg-gray-700/50 transition"
                  data-id="{{ notification.id }}">
                 <!-- Type Icon -->
                 <div class="flex-shrink-0 mt-0.5">
@@ -87,7 +90,7 @@
                     <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0">
                             {% if notification.link %}
-                            <a href="{{ notification.link }}" class="notif-link text-sm font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 block truncate">
+                            <a href="{{ notification.link }}" class="notif-link text-sm font-semibold text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400 block truncate">
                                 {{ notification.title }}
                             </a>
                             {% else %}
@@ -100,8 +103,8 @@
                         </div>
                         <div class="flex items-center gap-2 flex-shrink-0">
                             {% if not notification.is_read %}
-                            <span class="notif-dot w-2.5 h-2.5 bg-blue-500 rounded-full" title="Unread"></span>
-                            <button onclick="markRead({{ notification.id }}, this)" class="mark-read-btn text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition p-1" title="Mark as read">
+                            <span class="notif-dot w-2.5 h-2.5 bg-primary-500 rounded-full" title="Unread"></span>
+                            <button onclick="markRead({{ notification.id }}, this)" class="mark-read-btn text-gray-400 hover:text-primary-500 dark:hover:text-primary-400 transition p-1" title="Mark as read">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                 </svg>
@@ -147,7 +150,7 @@
 
             {% for num in page_obj.paginator.page_range %}
                 {% if page_obj.number == num %}
-                <span class="px-4 py-2 border border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-sm font-medium text-blue-600 dark:text-blue-400">
+                <span class="px-4 py-2 border border-primary-500 bg-primary-50 dark:bg-primary-900/30 text-sm font-medium text-primary-600 dark:text-primary-400">
                     {{ num }}
                 </span>
                 {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
@@ -227,7 +230,7 @@ function markRead(id, btn) {
         if (data.success) {
             const row = btn.closest('.notif-row');
             // Remove unread background
-            row.classList.remove('bg-blue-50/50', 'dark:bg-blue-900/10');
+            row.classList.remove('bg-primary-50/50', 'dark:bg-primary-900/10');
             // Remove the blue dot and mark-read button
             const dot = row.querySelector('.notif-dot');
             if (dot) dot.remove();

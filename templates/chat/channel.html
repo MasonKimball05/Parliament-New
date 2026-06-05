@@ -24,7 +24,7 @@
     <div class="mb-2 sm:mb-4">
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
             <div class="flex-1">
-                <a href="{% url 'chat_index' %}{% if admin_preview_mode %}?view_all=true{% endif %}" class="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm sm:text-base">
+                <a href="{% url 'chat_index' %}{% if admin_preview_mode %}?view_all=true{% endif %}" class="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 text-sm sm:text-base">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                     Back to Chats
                 </a>
@@ -54,12 +54,25 @@
                 </div>
             </div>
 
+            <!-- Chat Settings Button (for custom channels - admins only) -->
+            {% if channel.channel_type == 'custom' and is_admin and not admin_preview_mode %}
+                <a href="{% url 'edit_channel' channel.id %}"
+                   class="px-3 sm:px-4 py-2 rounded-lg border-2 border-primary-700 dark:border-primary-500 text-primary-700 dark:text-primary-400 font-medium text-xs sm:text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition flex items-center gap-2 self-start">
+                    <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    <span class="hidden sm:inline">Chat Settings</span>
+                    <span class="sm:hidden">Settings</span>
+                </a>
+            {% endif %}
+
             <!-- Chat Settings Button (for committee channels - chairs/VPs only) -->
             {% if channel.channel_type == 'committee' and channel.committee and not admin_preview_mode %}
                 {% if is_chair or is_vp or is_admin %}
                     <div class="flex gap-2">
                         <a href="{% url 'edit_committee_chat_settings' channel.committee.code %}"
-                           class="px-3 sm:px-4 py-2 rounded-lg border-2 border-blue-700 dark:border-blue-500 text-blue-700 dark:text-blue-400 font-medium text-xs sm:text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition flex items-center gap-2 self-start">
+                           class="px-3 sm:px-4 py-2 rounded-lg border-2 border-primary-700 dark:border-primary-500 text-primary-700 dark:text-primary-400 font-medium text-xs sm:text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition flex items-center gap-2 self-start">
                             <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -68,7 +81,7 @@
                             <span class="sm:hidden">Settings</span>
                         </a>
                         <a href="{% url 'manage_chat_permissions' channel.committee.code %}"
-                           class="px-3 sm:px-4 py-2 rounded-lg border-2 border-blue-700 dark:border-blue-500 bg-blue-600 dark:bg-blue-700 text-white font-medium text-xs sm:text-sm hover:bg-blue-700 dark:hover:bg-blue-800 transition flex items-center gap-2 self-start">
+                           class="px-3 sm:px-4 py-2 rounded-lg border-2 border-primary-700 dark:border-primary-500 bg-primary-600 dark:bg-primary-700 text-white font-medium text-xs sm:text-sm hover:bg-primary-700 dark:hover:bg-primary-800 transition flex items-center gap-2 self-start">
                             <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
                             </svg>
@@ -81,7 +94,7 @@
         </div>
     </div>
 
-    <!-- Notification preference + poll indicator row -->
+    <!-- Notification preference + connection indicator row -->
     <div class="flex items-center justify-between mb-1 sm:mb-2">
         <div id="poll-status" class="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
             <span id="poll-dot" class="w-1.5 h-1.5 rounded-full bg-yellow-400 inline-block"></span>
@@ -104,7 +117,7 @@
                 <p class="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Notify me about</p>
                 {% for value, label in notif_pref_choices %}
                 <button onclick="setNotifPref('{{ value }}')"
-                        class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 {% if notif_pref == value %}text-blue-600 dark:text-blue-400 font-medium{% else %}text-gray-700 dark:text-gray-300{% endif %}"
+                        class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 {% if notif_pref == value %}text-primary-600 dark:text-primary-400 font-medium{% else %}text-gray-700 dark:text-gray-300{% endif %}"
                         data-pref-value="{{ value }}">
                     <span class="notif-check {% if notif_pref == value %}opacity-100{% else %}opacity-0{% endif %}">✓</span>
                     {{ label }}
@@ -116,7 +129,8 @@
     </div>
 
     <!-- Chat Messages Container -->
-    <div id="chat-container" class="flex-1 rounded-lg shadow-md p-2 sm:p-4 overflow-y-auto mb-2 sm:mb-4 border transition-colors duration-200 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+    <div class="relative flex-1 min-h-0 mb-2 sm:mb-4">
+    <div id="chat-container" class="absolute inset-0 rounded-xl shadow-sm p-2 sm:p-4 overflow-y-auto border transition-colors duration-200 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
         <div id="messages-list">
             {% if has_more_messages %}
             <div id="load-older-wrapper" class="flex items-center gap-3 mb-4">
@@ -129,7 +143,7 @@
             </div>
             {% endif %}
             {% for msg in initial_messages %}
-                <div id="msg-{{ msg.id }}" class="flex gap-2 sm:gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/60 mb-0.5 group transition-colors {% if msg.sender == request.user %}border-l-2 border-blue-300 dark:border-blue-600 pl-3{% endif %}">
+                <div id="msg-{{ msg.id }}" data-sender-id="{{ msg.sender.user_id }}" data-timestamp="{{ msg.created_at.isoformat }}" class="msg-row flex gap-2 sm:gap-3 px-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 group transition-colors {% if msg.sender == request.user %}border-l-2 border-primary-300 dark:border-primary-600 pl-3{% endif %}" style="padding-top:2px;padding-bottom:2px;">
                     <!-- Avatar with profile picture or initials -->
                     {% if msg.sender.profile_picture %}
                     <img src="{{ msg.sender.profile_picture.url }}" alt="{{ msg.sender.name }}"
@@ -158,13 +172,10 @@
                                 <span class="text-xs text-gray-400 dark:text-gray-500 italic">(edited)</span>
                             {% endif %}
                             {% if msg.sender == request.user %}
-                                {% now "U" as current_timestamp %}
-                                {% if msg.created_at|date:"U"|add:"3600" >= current_timestamp %}
-                                    <button class="edit-btn text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                                            onclick="editMessage({{ msg.id }})">
-                                        Edit
-                                    </button>
-                                {% endif %}
+                                <button class="edit-btn text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onclick="editMessage({{ msg.id }})">
+                                    Edit
+                                </button>
                             {% endif %}
                             {% if is_admin or is_chair %}
                                 <button class="delete-btn text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
@@ -178,17 +189,30 @@
                                 </button>
                             {% endif %}
                         </div>
-                        <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="{{ msg.id }}">{{ msg.message|linebreaksbr }}</div>
+                        <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="{{ msg.id }}" data-raw="{{ msg.message|escapejs }}">{{ msg.message|linebreaksbr }}</div>
                     </div>
                 </div>
             {% endfor %}
         </div>
+
+        <!-- Typing indicator -->
+        <div id="typing-indicator" class="hidden px-3 py-1 text-xs text-gray-400 dark:text-gray-500 italic h-5"></div>
+    </div>
+
+    <!-- Jump-to-bottom button -->
+    <button id="jump-to-bottom"
+            onclick="scrollToBottom()"
+            class="hidden absolute bottom-2 right-4 z-10 w-8 h-8 rounded-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 shadow-sm flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+    </button>
     </div>
 
     <!-- Message Input -->
     {% if not admin_preview_mode %}
         {% if can_send_messages %}
-            <div class="rounded-xl shadow-md border transition-colors duration-200 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus-within:border-blue-400 dark:focus-within:border-blue-500">
+            <div class="rounded-xl shadow-sm border transition-colors duration-200 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus-within:border-primary-400 dark:focus-within:border-primary-500">
                 <!-- @mention autocomplete dropdown -->
                 <div id="mention-dropdown" class="hidden px-2 pt-2">
                     <div id="mention-list" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-44 overflow-y-auto">
@@ -209,10 +233,10 @@
                         ></textarea>
                         <button
                             type="submit"
-                            class="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-white bg-blue-700 dark:bg-blue-600 hover:bg-blue-800 dark:hover:bg-blue-700 transition-colors disabled:opacity-40"
+                            class="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-white bg-primary-700 dark:bg-primary-600 hover:bg-primary-800 dark:hover:bg-primary-700 transition-colors disabled:opacity-40"
                             title="Send (Enter)"
                         >
-                            <svg class="w-4 h-4 rotate-90" fill="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                             </svg>
                         </button>
@@ -237,7 +261,7 @@
             </div>
         {% endif %}
     {% else %}
-        <div class="bg-gray-100 dark:bg-gray-800 rounded-lg shadow-md p-3 sm:p-4 border-2 border-gray-300 dark:border-gray-600 text-center transition-colors duration-200">
+        <div class="bg-gray-100 dark:bg-gray-800 rounded-xl shadow-sm p-3 sm:p-4 border-2 border-gray-300 dark:border-gray-600 text-center transition-colors duration-200">
             <p class="text-gray-600 dark:text-gray-400 text-sm sm:text-base">Message sending disabled in admin preview mode</p>
         </div>
     {% endif %}
@@ -246,13 +270,14 @@
 <script nonce="{{ request.csp_nonce }}">
     const channelId = {{ channel.id }};
     const committeeCode = {% if committee_code %}"{{ committee_code }}"{% else %}null{% endif %};
-    const currentUserId = {{ request.user.user_id }};
+    const currentUserId = "{{ request.user.user_id }}";
     const currentUserName = "{{ request.user.name }}";
     const currentUserProfilePicture = {% if request.user.profile_picture %}"{{ request.user.profile_picture.url }}"{% else %}null{% endif %};
     const canDeleteOwnMessages = {{ can_delete_own_messages|lower }};
     let lastMessageTimestamp = null;
     let oldestMessageTimestamp = null;
-    let isPolling = false;
+    let lastMsgSenderId = null;   // for message stacking
+    let lastMsgTime = null;       // for message stacking
 
     // Render message text: HTML-escape, autolink URLs, highlight @mentions, convert newlines to <br>
     function renderMessageText(text) {
@@ -268,10 +293,11 @@
             if (match[0].startsWith('http')) {
                 // URL → clickable link
                 const url = match[0];
-                parts.push(`<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 underline hover:text-blue-800">${escapeHtml(url)}</a>`);
+                parts.push(`<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="text-primary-600 dark:text-primary-400 underline hover:text-primary-800">${escapeHtml(url)}</a>`);
             } else {
-                // @mention → highlight
-                parts.push(`<span class="mention bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded px-0.5 font-medium">${escapeHtml(match[0])}</span>`);
+                // @mention → clickable highlight
+                const uname = match[1];
+                parts.push(`<button type="button" class="mention bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 rounded px-0.5 font-medium hover:bg-primary-200 dark:hover:bg-primary-900/70 cursor-pointer" data-username="${escapeHtml(uname)}" onclick="handleMentionClick(this)">${escapeHtml(match[0])}</button>`);
             }
             lastIndex = match.index + match[0].length;
         }
@@ -306,26 +332,33 @@
         }
     {% endif %}
 
-    // Linkify and apply line breaks to server-rendered initial messages
+    // Linkify, stack, and seed tracking vars from server-rendered initial messages
     document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.message-text').forEach(el => {
             const text = el.textContent;
             el.innerHTML = renderMessageText(text);
         });
+
+        insertInitialDateSeparators();
+        stackMessages();
+
+        // Seed stacking and date tracker from the last server-rendered message
+        const rendered = document.querySelectorAll('#messages-list > [data-sender-id]');
+        if (rendered.length > 0) {
+            const last = rendered[rendered.length - 1];
+            lastMsgSenderId = last.dataset.senderId;
+            lastMsgTime = new Date(last.dataset.timestamp);
+            lastMsgDateLabel = getDateLabel(lastMsgTime);
+        }
     });
 
-    // Chat feature flag (controls whether polling is active)
+    // Chat feature flag
     const CHAT_ENABLED = {{ chat_enabled|yesno:"true,false" }};
 
-    // Configurable polling intervals (from admin settings)
-    const ACTIVE_POLL_INTERVAL = {{ chat_active_poll_interval|default:3000 }};
-    const INACTIVE_POLL_INTERVAL = {{ chat_inactive_poll_interval|default:20000 }};
+    // Active users poll interval (WebSocket replaces message polling; active users still HTTP)
     const ACTIVE_USERS_POLL_INTERVAL = {{ chat_active_users_poll_interval|default:5000 }};
 
-    // Adaptive polling based on page visibility
-    let messagesPollInterval = null;
     let activeUsersPollInterval = null;
-    let isPageVisible = !document.hidden;
 
     function setPollStatus(dot, text) {
         const dotEl = document.getElementById('poll-dot');
@@ -334,93 +367,99 @@
         if (textEl) textEl.textContent = text;
     }
 
-    function startPolling(isVisible) {
-        // Clear existing intervals
-        if (messagesPollInterval) clearInterval(messagesPollInterval);
-        if (activeUsersPollInterval) clearInterval(activeUsersPollInterval);
+    // ── WebSocket connection ──────────────────────────────────────────────────
 
-        // Don't start polling if chat feature is disabled
+    let ws = null;
+    let wsReconnectDelay = 1000;  // starts at 1s, doubles on each failure (max 30s)
+    let wsReconnectTimer = null;
+    let wsIntentionallyClosed = false;
+
+    function connectWebSocket() {
         if (!CHAT_ENABLED) {
             setPollStatus('bg-gray-400', 'Chat disabled');
             return;
         }
 
-        if (isVisible) {
-            // Active: use configured active poll intervals
-            messagesPollInterval = setInterval(pollForMessages, ACTIVE_POLL_INTERVAL);
-            activeUsersPollInterval = setInterval(updateActiveUsers, ACTIVE_USERS_POLL_INTERVAL);
+        wsIntentionallyClosed = false;
+        const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const wsUrl = `${scheme}://${window.location.host}/ws/chat/${channelId}/`;
+
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = function() {
+            wsReconnectDelay = 1000;  // reset backoff on successful connect
             setPollStatus('bg-green-400', 'Live');
-        } else {
-            // Inactive: use configured inactive poll interval
-            const inactiveUsersPoll = INACTIVE_POLL_INTERVAL + 10000;
-            messagesPollInterval = setInterval(pollForMessages, INACTIVE_POLL_INTERVAL);
-            activeUsersPollInterval = setInterval(updateActiveUsers, inactiveUsersPoll);
-            setPollStatus('bg-yellow-400', 'Background');
-        }
+        };
+
+        ws.onmessage = function(e) {
+            let data;
+            try { data = JSON.parse(e.data); } catch { return; }
+
+            if (data.type === 'message') {
+                const msg = data.message;
+                msg.is_own_message = (String(msg.sender_id) === String(currentUserId));
+                appendMessage(msg);
+                scrollToBottom();
+                if (!msg.is_own_message && msg.mentioned_user_ids && msg.mentioned_user_ids.includes(String(currentUserId))) {
+                    showMentionToast(msg);
+                }
+            } else if (data.type === 'edit') {
+                const msg = data.message;
+                const textEl = document.querySelector(`[data-message-id="${msg.id}"]`);
+                if (textEl) {
+                    textEl.innerHTML = renderMessageText(msg.message);
+                    const container = document.getElementById(`msg-${msg.id}`);
+                    if (container && !container.querySelector('.italic')) {
+                        const timeSpan = container.querySelector('.text-xs.text-gray-500');
+                        if (timeSpan) {
+                            const editedSpan = document.createElement('span');
+                            editedSpan.className = 'text-xs text-gray-400 dark:text-gray-500 italic';
+                            editedSpan.textContent = '(edited)';
+                            timeSpan.after(editedSpan);
+                        }
+                    }
+                }
+            } else if (data.type === 'delete') {
+                const el = document.getElementById(`msg-${data.message_id}`);
+                if (el) el.remove();
+            } else if (data.type === 'typing') {
+                handleTypingEvent(String(data.user_id), data.name);
+            }
+        };
+
+        ws.onclose = function(e) {
+            if (wsIntentionallyClosed) return;
+            setPollStatus('bg-yellow-400', 'Reconnecting…');
+            wsReconnectTimer = setTimeout(() => {
+                wsReconnectDelay = Math.min(wsReconnectDelay * 2, 30000);
+                connectWebSocket();
+            }, wsReconnectDelay);
+        };
+
+        ws.onerror = function() {
+            setPollStatus('bg-red-400', 'Connection error');
+        };
     }
 
-    // Listen for visibility changes
+    // Reconnect when tab becomes visible again (WS may have gone idle)
     document.addEventListener('visibilitychange', function() {
-        isPageVisible = !document.hidden;
-        startPolling(isPageVisible);
-
-        // If page becomes visible, poll immediately to catch up
-        if (isPageVisible) {
-            pollForMessages();
-            updateActiveUsers();
+        if (!document.hidden && (!ws || ws.readyState === WebSocket.CLOSED)) {
+            connectWebSocket();
         }
     });
 
-    // Start polling based on initial visibility
-    startPolling(isPageVisible);
-    updateActiveUsers(); // Initial call
+    // Clean up on page unload
+    window.addEventListener('beforeunload', function() {
+        wsIntentionallyClosed = true;
+        if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+        if (ws) ws.close();
+    });
 
-    function pollForMessages() {
-        if (isPolling) return;
-        if (!CHAT_ENABLED) return;  // Don't poll if chat is disabled
-        isPolling = true;
+    connectWebSocket();
 
-        let url = getApiUrl('messages/');
-        if (lastMessageTimestamp) {
-            url += `?since=${encodeURIComponent(lastMessageTimestamp)}`;
-        }
-
-        fetch(url)
-            .then(response => {
-                if (response.status === 403) {
-                    // Feature was disabled - stop polling
-                    if (messagesPollInterval) clearInterval(messagesPollInterval);
-                    if (activeUsersPollInterval) clearInterval(activeUsersPollInterval);
-                    setPollStatus('bg-gray-400', 'Chat disabled');
-                    throw new Error('Chat feature disabled');
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.messages && data.messages.length > 0) {
-                    data.messages.forEach(msg => {
-                        appendMessage(msg);
-                        lastMessageTimestamp = msg.created_at;
-                    });
-                    scrollToBottom();
-                }
-
-                // Update poll indicator
-                if (isPageVisible) {
-                    setPollStatus('bg-green-400', 'Live');
-                } else {
-                    setPollStatus('bg-yellow-400', 'Background');
-                }
-            })
-            .catch(error => {
-                if (error.message !== 'Chat feature disabled') {
-                    console.error('Error polling messages:', error);
-                }
-            })
-            .finally(() => {
-                isPolling = false;
-            });
-    }
+    // Active users — still HTTP polled (lightweight, not real-time critical)
+    activeUsersPollInterval = setInterval(updateActiveUsers, ACTIVE_USERS_POLL_INTERVAL);
+    updateActiveUsers();
 
     // Textarea auto-grow + char counter (declared early so handlers below can use it)
     const messageInput = document.getElementById('message-input');
@@ -480,35 +519,22 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Replace temporary message with real one from server
+                    // Remove temp element — the WS broadcast will append the confirmed
+                    // message with the correct ID, edit button, and stacking applied.
                     const tempElement = document.getElementById(`msg-${tempId}`);
-                    if (tempElement) {
-                        tempElement.id = `msg-${data.message.id}`;
-                        // Update checkmark to delivered
-                        const checkmark = tempElement.querySelector('.delivery-indicator');
-                        if (checkmark) {
-                            checkmark.innerHTML = '✓';
-                            checkmark.style.color = '#003DA5';
-                        }
-                    }
+                    if (tempElement) tempElement.remove();
                     lastMessageTimestamp = data.message.created_at;
                 } else {
-                    // Remove failed message
                     const tempElement = document.getElementById(`msg-${tempId}`);
-                    if (tempElement) {
-                        tempElement.remove();
-                    }
-                    alert(data.error || 'Failed to send message');
+                    if (tempElement) tempElement.remove();
+                    showChatError(data.error || 'Failed to send message.');
                 }
             })
             .catch(error => {
                 console.error('Error sending message:', error);
-                // Remove failed message
                 const tempElement = document.getElementById(`msg-${tempId}`);
-                if (tempElement) {
-                    tempElement.remove();
-                }
-                alert('Failed to send message');
+                if (tempElement) tempElement.remove();
+                showChatError('Failed to send message. Check your connection.');
             });
         });
     }
@@ -517,112 +543,134 @@
     function appendMessage(msg) {
         const messagesList = document.getElementById('messages-list');
 
-        // Check if message already exists (skip duplicates from polling)
         if (document.getElementById(`msg-${msg.id}`) && !msg.id.toString().startsWith('temp-')) {
             return;
         }
 
         const msgDate = new Date(msg.created_at);
-        const timestamp = msgDate.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric'
-        }) + ', ' + msgDate.toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            minute: '2-digit'
-        });
-
-        // Get initials for avatar (fallback)
+        const isSender = String(msg.sender_id) === String(currentUserId);
+        const ownBorder = msg.is_own_message ? 'border-l-2 border-primary-300 dark:border-primary-600 pl-3' : '';
+        const profilePicture = msg.sender_profile_picture || (msg.is_own_message ? currentUserProfilePicture : null);
+        const avatarBg = msg.is_own_message ? '#003DA5' : '#4B6CB7';
         const nameParts = msg.sender_name.split(' ');
-        const initials = nameParts.length >= 2
+        const initials = (nameParts.length >= 2
             ? nameParts[0][0] + nameParts[nameParts.length - 1][0]
-            : nameParts[0][0];
+            : nameParts[0][0]).toUpperCase();
+
+        const canDelete = {{ is_admin|lower }} || {{ is_chair|lower }};
+
+        // Build edit button (only for sender, non-pending, within 1 hour)
+        // stacked variant strips per-button opacity — wrapper handles it
+        let editButtonFull = '';
+        let editButtonStacked = '';
+        if (isSender && !msg.pending) {
+            editButtonFull    = `<button class="edit-btn text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 opacity-0 group-hover:opacity-100 transition-opacity" onclick="editMessage(${msg.id})">Edit</button>`;
+            editButtonStacked = `<button class="edit-btn text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300" onclick="editMessage(${msg.id})">Edit</button>`;
+        }
+
+        // Build delete button (same pattern)
+        let deleteButtonFull = '';
+        let deleteButtonStacked = '';
+        if (canDelete || (isSender && canDeleteOwnMessages)) {
+            deleteButtonFull    = `<button class="delete-btn text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" onclick="deleteMessage('${msg.id}', 'msg-${msg.id}')">Delete</button>`;
+            deleteButtonStacked = `<button class="delete-btn text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-opacity" onclick="deleteMessage('${msg.id}', 'msg-${msg.id}')">Delete</button>`;
+        }
+
+        // Determine if this message stacks with the previous one
+        const STACK_GAP_MS = 15 * 60 * 1000;
+        const isStacked = !msg.pending
+            && lastMsgSenderId !== null
+            && String(msg.sender_id) === String(lastMsgSenderId)
+            && lastMsgTime !== null
+            && (msgDate - lastMsgTime) < STACK_GAP_MS;
 
         const messageDiv = document.createElement('div');
         messageDiv.id = `msg-${msg.id}`;
-        messageDiv.className = `flex gap-2 sm:gap-3 p-1.5 sm:p-2 rounded hover:bg-gray-50 mb-1.5 sm:mb-2 ${msg.is_own_message ? 'bg-pink-50' : ''}`;
+        messageDiv.dataset.senderId = String(msg.sender_id);
+        messageDiv.dataset.timestamp = msg.created_at;
 
-        const avatarBg = msg.is_own_message ? '#003DA5' : '#4B6CB7';
+        // Group break: add top margin when switching senders (or after a long gap)
+        const isGroupBreak = !isStacked && lastMsgSenderId !== null;
 
-        // Determine profile picture URL
-        const profilePicture = msg.sender_profile_picture || (msg.is_own_message ? currentUserProfilePicture : null);
-
-        // Delivery indicator for own messages
-        let deliveryIndicator = '';
-        if (msg.is_own_message) {
-            if (msg.pending) {
-                // Sending (clock icon)
-                deliveryIndicator = `<span class="delivery-indicator text-xs ml-2" style="color: #999;">⏱</span>`;
-            } else {
-                // Delivered (checkmark)
-                deliveryIndicator = `<span class="delivery-indicator text-xs ml-2" style="color: #003DA5;">✓</span>`;
+        if (isStacked) {
+            // Update previous row's rounding: was last/solo → now first/middle
+            const prevEl = messagesList.lastElementChild;
+            if (prevEl) {
+                const wasLast = prevEl.classList.contains('rounded-b-lg');
+                const wasSolo = prevEl.classList.contains('rounded-lg') && !prevEl.classList.contains('rounded-t-lg');
+                prevEl.classList.remove('rounded-lg', 'rounded-b-lg');
+                if (wasSolo || wasLast) {
+                    // It was a cap — becomes first (top-only) or middle (no rounding)
+                    // If it already had rounded-t-lg it's already a first row, leave it
+                    if (!prevEl.classList.contains('rounded-t-lg')) {
+                        prevEl.classList.add('rounded-t-lg');
+                    }
+                }
             }
-        }
+            const shortTime = msgDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+            const editedIndicator = msg.edited_at ? `<span class="text-xs text-gray-400 dark:text-gray-500 italic">(edited)</span>` : '';
+            const hasButtons = editButtonStacked || deleteButtonStacked;
+            messageDiv.className = `msg-row flex gap-2 sm:gap-3 px-2 rounded-b-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 group transition-colors ${ownBorder}`;
+            messageDiv.style.paddingTop = '1px';
+            messageDiv.style.paddingBottom = '1px';
+            messageDiv.innerHTML = `
+                <div class="w-8 sm:w-9 flex-shrink-0 flex items-center justify-end">
+                    <span class="text-xs text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">${shortTime}</span>
+                </div>
+                <div class="flex-1 min-w-0 flex items-center gap-2">
+                    <div class="flex-1 min-w-0">
+                        ${editedIndicator ? `<span class="text-xs text-gray-400 dark:text-gray-500 italic mr-1">${editedIndicator}</span>` : ''}
+                        <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="${msg.id}" data-raw="${escapeHtml(msg.message)}">${renderMessageText(msg.message)}</div>
+                    </div>
+                    ${hasButtons ? `<div class="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">${editButtonStacked}${deleteButtonStacked}</div>` : ''}
+                </div>
+            `;
+        } else {
+            // Full message with avatar, name, and timestamp
+            const timestamp = msgDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                + ', ' + msgDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+            const editedIndicator = msg.edited_at ? `<span class="text-xs text-gray-400 dark:text-gray-500 italic">(edited)</span>` : '';
+            const deliveryIndicator = msg.is_own_message
+                ? (msg.pending
+                    ? `<span class="delivery-indicator text-xs ml-2" style="color:#999;">⏱</span>`
+                    : `<span class="delivery-indicator text-xs ml-2" style="color:#003DA5;">✓</span>`)
+                : '';
+            const avatarHtml = profilePicture
+                ? `<img src="${escapeHtml(profilePicture)}" alt="${escapeHtml(msg.sender_name)}" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover flex-shrink-0 mt-0.5">`
+                : `<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0 mt-0.5" style="background-color:${avatarBg}">${initials}</div>`;
 
-        // Edited indicator
-        let editedIndicator = '';
-        if (msg.edited_at) {
-            editedIndicator = `<span class="text-xs text-gray-400 dark:text-gray-500 italic">(edited)</span>`;
-        }
-
-        // Edit button for sender (only if within 1 hour)
-        let editButton = '';
-        const isSender = msg.sender_id === currentUserId;
-        if (isSender && !msg.pending) {
-            // Check if message is within 1 hour edit window
-            const messageTime = new Date(msg.created_at);
-            const now = new Date();
-            const hourInMs = 60 * 60 * 1000;
-            const timeSinceMessage = now - messageTime;
-
-            if (timeSinceMessage < hourInMs) {
-                editButton = `
-                    <button class="edit-btn text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                            onclick="editMessage(${msg.id})">
-                        Edit
-                    </button>
-                `;
-            }
-        }
-
-        // Delete button for admins/chairs/sender with permission
-        const canDelete = {{ is_admin|lower }} || {{ is_chair|lower }};
-        let deleteButton = '';
-
-        if (canDelete || (isSender && canDeleteOwnMessages)) {
-            deleteButton = `
-                <button class="delete-btn text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                        onclick="deleteMessage('${msg.id}', 'msg-${msg.id}')">
-                    Delete
-                </button>
+            messageDiv.className = `msg-row flex gap-2 sm:gap-3 px-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 group transition-colors ${ownBorder}`;
+            messageDiv.style.paddingTop = '2px';
+            messageDiv.style.paddingBottom = '2px';
+            if (isGroupBreak) messageDiv.style.marginTop = '8px';
+            messageDiv.innerHTML = `
+                ${avatarHtml}
+                <div class="flex-1 min-w-0">
+                    <div class="flex flex-wrap items-baseline gap-1 sm:gap-2 mb-1">
+                        <span class="font-bold text-gray-900 dark:text-gray-100 text-sm sm:text-base">${escapeHtml(msg.sender_name)}</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">${timestamp}</span>
+                        ${editedIndicator}
+                        ${deliveryIndicator}
+                        ${editButtonFull}
+                        ${deleteButtonFull}
+                    </div>
+                    <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="${msg.id}" data-raw="${escapeHtml(msg.message)}">${renderMessageText(msg.message)}</div>
+                </div>
             `;
         }
 
-        messageDiv.className = `flex gap-2 sm:gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/60 mb-0.5 group transition-colors ${msg.is_own_message ? 'border-l-2 border-blue-300 dark:border-blue-600 pl-3' : ''}`;
-
-        // Generate avatar HTML - profile picture or initials
-        let avatarHtml;
-        if (profilePicture) {
-            avatarHtml = `<img src="${escapeHtml(profilePicture)}" alt="${escapeHtml(msg.sender_name)}" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover flex-shrink-0 mt-0.5">`;
-        } else {
-            avatarHtml = `<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0 mt-0.5" style="background-color: ${avatarBg}">${initials.toUpperCase()}</div>`;
+        // Insert date separator if the day changed (not for pending — timestamp is approximate)
+        if (!msg.pending) {
+            maybeInsertDateSeparator(msgDate);
         }
 
-        messageDiv.innerHTML = `
-            ${avatarHtml}
-            <div class="flex-1 min-w-0">
-                <div class="flex flex-wrap items-baseline gap-1 sm:gap-2 mb-1">
-                    <span class="font-bold text-gray-900 dark:text-gray-100 text-sm sm:text-base">${escapeHtml(msg.sender_name)}</span>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">${timestamp}</span>
-                    ${editedIndicator}
-                    ${deliveryIndicator}
-                    ${editButton}
-                    ${deleteButton}
-                </div>
-                <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="${msg.id}">${renderMessageText(msg.message)}</div>
-            </div>
-        `;
-
         messagesList.appendChild(messageDiv);
+
+        // Update stacking tracker (not for pending — real timestamp unknown)
+        if (!msg.pending) {
+            lastMsgSenderId = String(msg.sender_id);
+            lastMsgTime = msgDate;
+        }
     }
 
     // Prepend a message at the top of the list (for load-older)
@@ -639,16 +687,29 @@
             ? nameParts[0][0] + nameParts[nameParts.length - 1][0]
             : nameParts[0][0];
 
-        const isSender = msg.sender_id === currentUserId;
+        const isSender = String(msg.sender_id) === String(currentUserId);
         const avatarBg = isSender ? '#003DA5' : '#4B6CB7';
         const profilePicture = msg.sender_profile_picture || (isSender ? currentUserProfilePicture : null);
         const avatarHtml = profilePicture
             ? `<img src="${escapeHtml(profilePicture)}" alt="${escapeHtml(msg.sender_name)}" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover flex-shrink-0 mt-0.5">`
             : `<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0 mt-0.5" style="background-color: ${avatarBg}">${initials.toUpperCase()}</div>`;
 
+        const ownBorderPrepend = isSender ? 'border-l-2 border-primary-300 dark:border-primary-600 pl-3' : '';
+        const editButtonPrepend = isSender
+            ? `<button class="edit-btn text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 opacity-0 group-hover:opacity-100 transition-opacity" onclick="editMessage(${msg.id})">Edit</button>`
+            : '';
+        const canDeletePrepend = {{ is_admin|lower }} || {{ is_chair|lower }};
+        const deleteButtonPrepend = (canDeletePrepend || (isSender && canDeleteOwnMessages))
+            ? `<button class="delete-btn text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity" onclick="deleteMessage('${msg.id}', 'msg-${msg.id}')">Delete</button>`
+            : '';
+
         const messageDiv = document.createElement('div');
         messageDiv.id = `msg-${msg.id}`;
-        messageDiv.className = `flex gap-2 sm:gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/60 mb-0.5 group transition-colors ${isSender ? 'border-l-2 border-blue-300 dark:border-blue-600 pl-3' : ''}`;
+        messageDiv.dataset.senderId = String(msg.sender_id);
+        messageDiv.dataset.timestamp = msg.created_at;
+        messageDiv.className = `msg-row flex gap-2 sm:gap-3 px-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 group transition-colors ${ownBorderPrepend}`;
+        messageDiv.style.paddingTop = '2px';
+        messageDiv.style.paddingBottom = '2px';
         messageDiv.innerHTML = `
             ${avatarHtml}
             <div class="flex-1 min-w-0">
@@ -656,8 +717,10 @@
                     <span class="font-bold text-gray-900 dark:text-gray-100 text-sm sm:text-base">${escapeHtml(msg.sender_name)}</span>
                     <span class="text-xs text-gray-500 dark:text-gray-400">${timestamp}</span>
                     ${msg.edited_at ? '<span class="text-xs text-gray-400 dark:text-gray-500 italic">(edited)</span>' : ''}
+                    ${editButtonPrepend}
+                    ${deleteButtonPrepend}
                 </div>
-                <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="${msg.id}">${renderMessageText(msg.message)}</div>
+                <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="${msg.id}" data-raw="${escapeHtml(msg.message)}">${renderMessageText(msg.message)}</div>
             </div>
         `;
 
@@ -695,6 +758,10 @@
                 // Maintain scroll position after prepending
                 container.scrollTop += container.scrollHeight - scrollHeightBefore;
 
+                // Re-run separators and stacking — both are idempotent for already-processed rows
+                insertInitialDateSeparators();
+                stackMessages();
+
                 if (data.messages.length < 50) {
                     // No more history
                     document.getElementById('load-older-wrapper')?.remove();
@@ -717,34 +784,53 @@
         const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
         if (!messageElement) return;
 
-        const currentText = messageElement.textContent;
+        const currentText = messageElement.dataset.raw ?? messageElement.textContent;
 
-        // Create edit input
         const editForm = document.createElement('div');
-        editForm.className = 'flex gap-2 mt-1';
+        editForm.className = 'edit-form flex flex-col gap-1.5 mt-1';
         editForm.innerHTML = `
-            <input type="text"
-                   id="edit-input-${messageId}"
-                   value="${escapeHtml(currentText)}"
-                   maxlength="2000"
-                   class="flex-1 border border-blue-500 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <button onclick="saveEdit(${messageId})"
-                    class="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">
-                Save
-            </button>
-            <button onclick="cancelEdit(${messageId}, '${escapeHtml(currentText)}')"
-                    class="px-3 py-1 bg-gray-300 text-gray-700 text-xs rounded hover:bg-gray-400">
-                Cancel
-            </button>
+            <textarea id="edit-input-${messageId}"
+                      maxlength="2000"
+                      rows="2"
+                      class="flex-1 border border-primary-500 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none w-full"></textarea>
+            <div class="flex gap-2">
+                <button onclick="saveEdit(${messageId})"
+                        class="px-3 py-1 bg-primary-600 text-white text-xs rounded hover:bg-primary-700">
+                    Save
+                </button>
+                <button onclick="cancelEdit(${messageId})"
+                        class="px-3 py-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs rounded hover:bg-gray-400 dark:hover:bg-gray-500">
+                    Cancel
+                </button>
+                <span class="text-xs text-gray-400 self-center">Shift+Enter for newline · Escape to cancel</span>
+            </div>
         `;
 
-        // Replace message text with edit form
         messageElement.style.display = 'none';
         messageElement.parentNode.appendChild(editForm);
 
-        // Focus the input
-        document.getElementById(`edit-input-${messageId}`).focus();
-        document.getElementById(`edit-input-${messageId}`).select();
+        const textarea = document.getElementById(`edit-input-${messageId}`);
+        textarea.value = currentText;
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+        // Auto-grow
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+        });
+        textarea.dispatchEvent(new Event('input'));
+
+        // Keyboard shortcuts
+        textarea.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                saveEdit(messageId);
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelEdit(messageId);
+            }
+        });
     }
 
     function saveEdit(messageId) {
@@ -752,7 +838,7 @@
         const newText = input.value.trim();
 
         if (!newText) {
-            alert('Message cannot be empty');
+            showChatError('Message cannot be empty.');
             return;
         }
 
@@ -769,8 +855,9 @@
             if (data.success) {
                 // Update the message text
                 const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
-                messageElement.textContent = data.message.message;
-                messageElement.style.display = 'block';
+                messageElement.innerHTML = renderMessageText(data.message.message);
+                messageElement.dataset.raw = data.message.message;
+                messageElement.style.display = '';  // restore — don't force block, breaks flex stacked rows
 
                 // Remove edit form
                 const editForm = input.closest('div');
@@ -788,21 +875,20 @@
                     timeSpan.after(editedSpan);
                 }
             } else {
-                alert(data.error || 'Failed to edit message');
+                showChatError(data.error || 'Failed to edit message.');
             }
         })
         .catch(error => {
             console.error('Error editing message:', error);
-            alert('Failed to edit message');
+            showChatError('Failed to edit message. Check your connection.');
         });
     }
 
-    function cancelEdit(messageId, originalText) {
+    function cancelEdit(messageId) {
         const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
-        const editForm = document.getElementById(`edit-input-${messageId}`).closest('div');
-
-        messageElement.style.display = 'block';
-        editForm.remove();
+        const editForm = document.getElementById(`edit-input-${messageId}`)?.closest('.edit-form');
+        messageElement.style.display = '';
+        if (editForm) editForm.remove();
     }
 
     // Delete message function
@@ -833,13 +919,213 @@
                     element.remove();
                 }
             } else {
-                alert(data.error || 'Failed to delete message');
+                showChatError(data.error || 'Failed to delete message.');
             }
         })
         .catch(error => {
             console.error('Error deleting message:', error);
-            alert('Failed to delete message');
+            showChatError('Failed to delete message. Check your connection.');
         });
+    }
+
+    // ── Message stacking (Discord-style) ─────────────────────────────────────
+
+    const STACK_GAP_MS = 15 * 60 * 1000;
+
+    // Transform a server-rendered full message element into a compact stacked one
+    function convertToStacked(el, time) {
+        if (el.dataset.stackConverted) return;  // idempotent — safe to call multiple times
+        el.dataset.stackConverted = '1';
+        el.classList.remove('py-2', 'mb-0.5', 'py-1', 'py-0.5', 'rounded-lg');
+        el.style.paddingTop = '1px';
+        el.style.paddingBottom = '1px';
+
+        // Replace avatar with a spacer that shows the short time on hover
+        const avatar = el.firstElementChild;
+        if (avatar) {
+            const timeStr = time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+            const spacer = document.createElement('div');
+            spacer.className = 'w-8 sm:w-9 flex-shrink-0 flex items-center justify-end';
+            spacer.innerHTML = `<span class="text-xs text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">${escapeHtml(timeStr)}</span>`;
+            avatar.replaceWith(spacer);
+        }
+
+        // Move edit/delete buttons inline with message text, then hide the header row entirely
+        const headerRow = el.querySelector('.items-baseline');
+        const textEl = el.querySelector('.message-text');
+        if (headerRow && textEl) {
+            const buttons = Array.from(headerRow.querySelectorAll('.edit-btn, .delete-btn'));
+            if (buttons.length > 0) {
+                const btnWrapper = document.createElement('div');
+                btnWrapper.className = 'flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity';
+                buttons.forEach(btn => {
+                    // Strip per-button opacity classes — the wrapper handles visibility
+                    btn.classList.remove('opacity-100', 'sm:opacity-0', 'sm:group-hover:opacity-100');
+                    btnWrapper.appendChild(btn);
+                });
+                const wrapper = document.createElement('div');
+                wrapper.className = 'flex items-start gap-2 flex-1 min-w-0';
+                const textWrapper = document.createElement('div');
+                textWrapper.className = 'flex-1 min-w-0';
+                textEl.replaceWith(wrapper);
+                textWrapper.appendChild(textEl);
+                wrapper.appendChild(textWrapper);
+                wrapper.appendChild(btnWrapper);
+            }
+            headerRow.classList.add('hidden');
+        }
+    }
+
+    // Walk server-rendered messages after load.
+    // Uses look-ahead to determine each row's role (solo/first/middle/last)
+    // before applying rounding and stacking, avoiding class conflicts.
+    function stackMessages() {
+        const msgs = Array.from(document.querySelectorAll('#messages-list > [data-sender-id]'));
+
+        function stacksWith(a, b) {
+            if (!a || !b) return false;
+            if (a.dataset.senderId !== b.dataset.senderId) return false;
+            return (new Date(b.dataset.timestamp) - new Date(a.dataset.timestamp)) < STACK_GAP_MS;
+        }
+
+        for (let i = 0; i < msgs.length; i++) {
+            const el = msgs[i];
+            const prev = msgs[i - 1];
+            const next = msgs[i + 1];
+
+            const withPrev = stacksWith(prev, el);
+            const withNext = stacksWith(el, next);
+
+            // Group break margin — any row that doesn't continue from the previous
+            if (!withPrev && i > 0) el.style.marginTop = '8px';
+
+            if (!withPrev && !withNext) {
+                // Solo — keep rounded-lg as-is
+            } else if (!withPrev && withNext) {
+                // First in group — top rounding only
+                el.classList.remove('rounded-lg', 'rounded-b-lg');
+                el.classList.add('rounded-t-lg');
+            } else if (withPrev && withNext) {
+                // Middle — no rounding
+                convertToStacked(el, new Date(el.dataset.timestamp));
+                el.classList.remove('rounded-lg', 'rounded-t-lg', 'rounded-b-lg');
+            } else {
+                // Last in group — bottom rounding only
+                convertToStacked(el, new Date(el.dataset.timestamp));
+                el.classList.remove('rounded-lg', 'rounded-t-lg');
+                el.classList.add('rounded-b-lg');
+            }
+        }
+    }
+
+    // ── Date separators ───────────────────────────────────────────────────────
+
+    function getDateLabel(date) {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const msgDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        if (msgDay.getTime() === today.getTime()) return 'Today';
+        if (msgDay.getTime() === yesterday.getTime()) return 'Yesterday';
+        const opts = { month: 'long', day: 'numeric' };
+        if (date.getFullYear() !== now.getFullYear()) opts.year = 'numeric';
+        return date.toLocaleDateString('en-US', opts);
+    }
+
+    function makeDateSeparator(label) {
+        const el = document.createElement('div');
+        el.className = 'date-sep flex items-center gap-3 my-3 px-2';
+        el.dataset.dateLabel = label;
+        el.innerHTML = `
+            <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+            <span class="text-xs text-gray-400 dark:text-gray-500 font-medium whitespace-nowrap">${escapeHtml(label)}</span>
+            <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+        `;
+        return el;
+    }
+
+    // Insert date separators between messages — idempotent (skips already-labeled dates)
+    function insertInitialDateSeparators() {
+        const msgs = Array.from(document.querySelectorAll('#messages-list > [data-sender-id]'));
+        // Build a set of labels already present so we don't double-insert
+        const existing = new Set(
+            Array.from(document.querySelectorAll('#messages-list .date-sep')).map(el => el.dataset.dateLabel)
+        );
+        let lastLabel = null;
+        msgs.forEach(el => {
+            const label = getDateLabel(new Date(el.dataset.timestamp));
+            if (label !== lastLabel) {
+                if (!existing.has(label)) {
+                    el.before(makeDateSeparator(label));
+                    existing.add(label);
+                }
+                lastLabel = label;
+            }
+        });
+    }
+
+    // Check whether a date separator is needed before appending a new message
+    let lastMsgDateLabel = null;
+
+    function maybeInsertDateSeparator(msgDate) {
+        const label = getDateLabel(msgDate);
+        if (label !== lastMsgDateLabel) {
+            document.getElementById('messages-list').appendChild(makeDateSeparator(label));
+            lastMsgDateLabel = label;
+        }
+    }
+
+    // ── Jump-to-bottom ────────────────────────────────────────────────────────
+
+    const chatContainer = document.getElementById('chat-container');
+    const jumpBtn = document.getElementById('jump-to-bottom');
+
+    chatContainer.addEventListener('scroll', function() {
+        const distFromBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight;
+        jumpBtn.classList.toggle('hidden', distFromBottom < 150);
+    });
+
+    // ── Typing indicator ──────────────────────────────────────────────────────
+
+    const typingUsers = {};  // { userId: { name, timerId } }
+    let typingSendTimer = null;
+
+    function renderTypingIndicator() {
+        const names = Object.values(typingUsers).map(u => u.name);
+        const el = document.getElementById('typing-indicator');
+        if (!el) return;
+        if (names.length === 0) {
+            el.classList.add('hidden');
+            el.textContent = '';
+        } else if (names.length === 1) {
+            el.textContent = `${names[0]} is typing…`;
+            el.classList.remove('hidden');
+        } else if (names.length === 2) {
+            el.textContent = `${names[0]} and ${names[1]} are typing…`;
+            el.classList.remove('hidden');
+        } else {
+            el.textContent = 'Several people are typing…';
+            el.classList.remove('hidden');
+        }
+    }
+
+    function handleTypingEvent(userId, name) {
+        if (userId === currentUserId) return;  // don't show own indicator
+        if (typingUsers[userId]) clearTimeout(typingUsers[userId].timerId);
+        typingUsers[userId] = {
+            name,
+            timerId: setTimeout(() => {
+                delete typingUsers[userId];
+                renderTypingIndicator();
+            }, 4000),
+        };
+        renderTypingIndicator();
+    }
+
+    function sendTypingEvent() {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        ws.send(JSON.stringify({ type: 'typing' }));
     }
 
     // Auto-scroll to bottom
@@ -858,7 +1144,46 @@
         messageInput.style.height = Math.min(messageInput.scrollHeight, 140) + 'px';
     }
     if (messageInput) {
-        messageInput.addEventListener('input', updateCharCount);
+        messageInput.addEventListener('input', function() {
+            updateCharCount();
+            // Debounce typing indicator — send at most once every 2.5s while typing
+            if (!typingSendTimer) {
+                sendTypingEvent();
+                typingSendTimer = setTimeout(() => { typingSendTimer = null; }, 2500);
+            }
+        });
+    }
+
+    // Show a non-blocking inline error above the input box (auto-dismisses after 4s)
+    function showChatError(msg) {
+        let el = document.getElementById('chat-error-toast');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'chat-error-toast';
+            el.className = 'mx-1 mb-1 px-3 py-2 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg transition-opacity';
+            const inputArea = document.getElementById('message-form')?.closest('div') ?? document.getElementById('chat-container');
+            inputArea?.parentNode?.insertBefore(el, inputArea);
+        }
+        el.textContent = msg;
+        el.style.opacity = '1';
+        clearTimeout(el._dismissTimer);
+        el._dismissTimer = setTimeout(() => { el.style.opacity = '0'; }, 4000);
+    }
+
+    // Show a top-of-screen toast when the current user is @mentioned
+    function showMentionToast(msg) {
+        const toast = document.createElement('div');
+        toast.className = 'fixed top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-primary-600 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg pointer-events-none transition-opacity duration-300';
+        toast.style.opacity = '0';
+        toast.innerHTML = `<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/></svg><span><strong>${escapeHtml(msg.sender_name)}</strong> mentioned you</span>`;
+        document.body.appendChild(toast);
+        // Fade in
+        requestAnimationFrame(() => { toast.style.opacity = '1'; });
+        // Fade out after 4s
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
     }
 
     // HTML escape
@@ -875,8 +1200,9 @@
         fetch(getApiUrl('active/'))
             .then(response => {
                 if (response.status === 403) {
-                    // Feature was disabled - stop polling
-                    if (messagesPollInterval) clearInterval(messagesPollInterval);
+                    // Feature was disabled — close WS and stop active-users poll
+                    wsIntentionallyClosed = true;
+                    if (ws) ws.close();
                     if (activeUsersPollInterval) clearInterval(activeUsersPollInterval);
                     setPollStatus('bg-gray-400', 'Chat disabled');
                     throw new Error('Chat feature disabled');
@@ -910,7 +1236,8 @@
 
     // ─── @mention autocomplete ─────────────────────────────────────────────────
 
-    let channelMembers = [];  // Loaded once on first @
+    let channelMembers = [];  // Loaded once on first @ or mention click
+    let memberByUsername = new Map();  // username → {id, name, username}
     let mentionQuery = '';
     let mentionActive = false;
     let mentionStart = -1;
@@ -922,8 +1249,20 @@
             const resp = await fetch(getApiUrl('members/'));
             const data = await resp.json();
             channelMembers = data.members || [];
+            memberByUsername = new Map(channelMembers.map(m => [m.username, m]));
         } catch (e) {
             console.error('Could not load channel members:', e);
+        }
+    }
+
+    // Handle click on an @mention span — open profile modal
+    async function handleMentionClick(el) {
+        const username = el.dataset.username;
+        if (!username) return;
+        if (memberByUsername.size === 0) await loadChannelMembers();
+        const member = memberByUsername.get(username);
+        if (member) {
+            openProfileModal(member.id);
         }
     }
 
@@ -936,7 +1275,7 @@
         }
         list.innerHTML = matches.slice(0, 8).map((m, i) =>
             `<button type="button"
-                     class="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors flex items-center gap-2 text-gray-800 dark:text-gray-200"
+                     class="w-full text-left px-3 py-2 text-sm hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors flex items-center gap-2 text-gray-800 dark:text-gray-200"
                      onclick="insertMention('${escapeHtml(m.username)}')">
                 <span class="font-medium">@${escapeHtml(m.username)}</span>
                 <span class="text-gray-500 dark:text-gray-400 text-xs">${escapeHtml(m.name)}</span>
@@ -1047,11 +1386,11 @@
                 document.querySelectorAll('[data-pref-value]').forEach(btn => {
                     const check = btn.querySelector('.notif-check');
                     if (btn.dataset.prefValue === level) {
-                        btn.classList.add('text-blue-600', 'dark:text-blue-400', 'font-medium');
+                        btn.classList.add('text-primary-600', 'dark:text-primary-400', 'font-medium');
                         btn.classList.remove('text-gray-700', 'dark:text-gray-300');
                         if (check) check.classList.remove('opacity-0');
                     } else {
-                        btn.classList.remove('text-blue-600', 'dark:text-blue-400', 'font-medium');
+                        btn.classList.remove('text-primary-600', 'dark:text-primary-400', 'font-medium');
                         btn.classList.add('text-gray-700', 'dark:text-gray-300');
                         if (check) check.classList.add('opacity-0');
                     }
@@ -1074,9 +1413,280 @@
 
     // Initial scroll
     scrollToBottom();
+</script>
 
-    // Initial scroll
-    // (moved below)
+<!-- Profile Card Modal (opened by clicking @mentions) -->
+<div id="profileModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full sm:max-w-lg overflow-hidden">
+    <div class="overflow-y-auto max-h-[85vh]">
+        <div id="profileModalLoading" class="flex flex-col items-center justify-center py-10 px-6">
+            <div class="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Loading profile…</p>
+        </div>
+        <div id="profileModalContent" class="hidden">
+            <div class="flex items-start gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
+                <div id="pm-avatar" class="flex-shrink-0"></div>
+                <div class="flex-1 min-w-0">
+                    <h2 id="profileModalTitle" class="text-lg font-bold text-gray-900 dark:text-white leading-tight"></h2>
+                    <p id="pm-type-badge" class="mt-0.5"></p>
+                    <p id="pm-roll" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5"></p>
+                </div>
+                <button type="button" onclick="closeProfileModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0 p-1 -mr-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-4 space-y-3">
+                <div id="pm-about-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">About</h3>
+                    <p id="pm-about" class="text-sm text-gray-700 dark:text-gray-300"></p>
+                </div>
+                <div id="pm-contact-section">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Contact</h3>
+                    <div id="pm-contact-list" class="space-y-1"></div>
+                </div>
+                <div id="pm-academics-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Academics</h3>
+                    <div id="pm-academics-list" class="space-y-1"></div>
+                </div>
+                <div id="pm-chapter-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Chapter</h3>
+                    <div id="pm-chapter-list" class="space-y-1"></div>
+                </div>
+                <div id="pm-roles-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Current Roles</h3>
+                    <div id="pm-roles-list" class="flex flex-wrap gap-1.5"></div>
+                </div>
+                <div id="pm-history-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Role History</h3>
+                    <div id="pm-history-list" class="space-y-1"></div>
+                </div>
+                <div id="pm-socials-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Socials</h3>
+                    <div id="pm-socials-list" class="flex flex-wrap gap-1.5"></div>
+                </div>
+                <div id="pm-house-section">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">House</h3>
+                    <span id="pm-house-badge" class="hidden px-2.5 py-0.5 rounded-full text-sm font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300"></span>
+                    <span id="pm-house-none" class="text-sm text-gray-400 italic">Not assigned</span>
+                </div>
+            </div>
+        </div>
+        <div id="profileModalError" class="hidden flex flex-col items-center justify-center py-10 px-6 text-center">
+            <svg class="w-8 h-8 text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Failed to load profile.</p>
+        </div>
+    </div>
+    </div>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+// ── Profile modal (for @mention clicks) ─────────────────────────────────────
+
+const _PM_GREEK = {
+    'alpha':'α','beta':'β','gamma':'γ','delta':'δ','epsilon':'ε',
+    'zeta':'ζ','eta':'η','theta':'θ','iota':'ι','kappa':'κ',
+    'lambda':'λ','mu':'μ','nu':'ν','xi':'ξ','omicron':'ο',
+    'pi':'π','rho':'ρ','sigma':'σ','tau':'τ','upsilon':'υ',
+    'phi':'φ','chi':'χ','psi':'ψ','omega':'ω',
+};
+
+const _PM_SOCIAL = {
+    instagram: { label: 'Instagram', color: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300' },
+    twitter:   { label: 'Twitter / X', color: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' },
+    linkedin:  { label: 'LinkedIn', color: 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300' },
+    snapchat:  { label: 'Snapchat', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' },
+    facebook:  { label: 'Facebook', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' },
+};
+
+const _PM_TYPE_COLORS = {
+    Officer: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+    Chair:   'bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300',
+    Member:  'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+    Pledge:  'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
+    Advisor: 'bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300',
+    Alumni:  'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
+    Removed: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+};
+
+function _pmEsc(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function _pmShow(id) { document.getElementById(id).classList.remove('hidden'); }
+function _pmHide(id) { document.getElementById(id).classList.add('hidden'); }
+function _pmText(id, val) { document.getElementById(id).textContent = val; }
+function _pmRow(label, val) {
+    return `<div class="flex gap-2 text-sm"><span class="text-gray-500 dark:text-gray-400 w-24 flex-shrink-0">${label}</span><span class="text-gray-800 dark:text-gray-200 min-w-0">${val}</span></div>`;
+}
+
+function openProfileModal(userId) {
+    const modal = document.getElementById('profileModal');
+    document.getElementById('profileModalLoading').classList.remove('hidden');
+    document.getElementById('profileModalContent').classList.add('hidden');
+    document.getElementById('profileModalError').classList.add('hidden');
+    modal.classList.remove('hidden');
+
+    fetch(`/directory/${encodeURIComponent(userId)}/card/`)
+        .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+        .then(d => {
+            _pmRenderProfile(d);
+            document.getElementById('profileModalLoading').classList.add('hidden');
+            document.getElementById('profileModalContent').classList.remove('hidden');
+        })
+        .catch(() => {
+            document.getElementById('profileModalLoading').classList.add('hidden');
+            document.getElementById('profileModalError').classList.remove('hidden');
+        });
+}
+
+function closeProfileModal() {
+    document.getElementById('profileModal').classList.add('hidden');
+}
+
+document.getElementById('profileModal').addEventListener('click', function(e) {
+    if (e.target === this) closeProfileModal();
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeProfileModal();
+});
+
+function _pmRenderProfile(d) {
+    // Avatar
+    const avatarEl = document.getElementById('pm-avatar');
+    if (d.profile_picture_url) {
+        avatarEl.innerHTML = `<img src="${d.profile_picture_url}" alt="${_pmEsc(d.name)}" class="w-12 h-12 rounded-full object-cover">`;
+    } else {
+        const initial = d.name ? d.name[0].toUpperCase() : '?';
+        avatarEl.innerHTML = `<div class="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center"><span class="text-primary-600 dark:text-primary-300 font-bold text-xl">${initial}</span></div>`;
+    }
+
+    // Name + type badge
+    _pmText('profileModalTitle', d.name);
+    const typeLabel = (d.member_status === 'Alumni' || d.member_status === 'Removed') ? d.member_status : d.member_type;
+    const typeColor = _PM_TYPE_COLORS[typeLabel] || _PM_TYPE_COLORS.Member;
+    document.getElementById('pm-type-badge').innerHTML = `<span class="px-2 py-0.5 text-xs rounded-full font-medium ${typeColor}">${typeLabel}</span>`;
+    const rollParts = [];
+    if (d.role_number) rollParts.push(`#${d.role_number}`);
+    if (d.user_id) rollParts.push(`ID ${d.user_id}`);
+    const rollEl = document.getElementById('pm-roll');
+    if (rollParts.length) {
+        rollEl.textContent = rollParts.join(' · ');
+        rollEl.classList.remove('hidden');
+    } else {
+        rollEl.classList.add('hidden');
+    }
+
+    // About
+    if (d.about_me) {
+        _pmText('pm-about', d.about_me);
+        _pmShow('pm-about-section');
+    } else { _pmHide('pm-about-section'); }
+
+    // Contact
+    let contactRows = '';
+    if (d.email)       contactRows += `<div class="text-sm"><a href="mailto:${_pmEsc(d.email)}" class="text-primary-600 dark:text-primary-400 hover:underline">${_pmEsc(d.email)}</a></div>`;
+    if (d.other_email) contactRows += `<div class="text-sm text-gray-500 dark:text-gray-400"><a href="mailto:${_pmEsc(d.other_email)}" class="hover:underline">${_pmEsc(d.other_email)}</a></div>`;
+    if (d.phone)       contactRows += `<div class="text-sm text-gray-600 dark:text-gray-400">${_pmEsc(d.phone)}</div>`;
+    document.getElementById('pm-contact-list').innerHTML = contactRows || '<p class="text-sm text-gray-400">No contact info</p>';
+
+    // Academics
+    const acad = d.academics || {};
+    let acadRows = '';
+    if (acad.majors && acad.majors.length)         acadRows += _pmRow('Major', acad.majors.map(_pmEsc).join('<br>'));
+    if (acad.minors && acad.minors.length)         acadRows += _pmRow('Minor', acad.minors.map(_pmEsc).join('<br>'));
+    if (acad.concentrations && acad.concentrations.length) acadRows += _pmRow('Concentration', acad.concentrations.map(_pmEsc).join('<br>'));
+    if (acadRows) {
+        document.getElementById('pm-academics-list').innerHTML = acadRows;
+        _pmShow('pm-academics-section');
+    } else { _pmHide('pm-academics-section'); }
+
+    // Chapter info
+    let chapterRows = '';
+    if (d.pledge_class) {
+        let pcLabel = _pmEsc(d.pledge_class);
+        if (d.pledge_class_greek) {
+            const glyphs = d.pledge_class_greek.trim().split(/\s+/).map(w => _PM_GREEK[w.toLowerCase()] || '').join('');
+            const greekDisplay = glyphs ? `${_pmEsc(d.pledge_class_greek)} (${glyphs})` : _pmEsc(d.pledge_class_greek);
+            pcLabel = `${greekDisplay} Class · ${_pmEsc(d.pledge_class)}`;
+        }
+        chapterRows += _pmRow('Pledge class', pcLabel);
+    }
+    if (d.graduation)   chapterRows += _pmRow('Graduation', _pmEsc(d.graduation));
+    if (d.big_brother) {
+        const bigRn = d.big_brother.role_number ? ` <span class="text-gray-400">#${_pmEsc(d.big_brother.role_number)}</span>` : '';
+        chapterRows += _pmRow('Big brother', _pmEsc(d.big_brother.name) + bigRn);
+    }
+    if (d.little_brothers && d.little_brothers.length) {
+        chapterRows += _pmRow('Little brothers', d.little_brothers.map(l => {
+            const rn = l.role_number ? ` <span class="text-gray-400">#${_pmEsc(l.role_number)}</span>` : '';
+            return _pmEsc(l.name) + rn;
+        }).join(', '));
+    }
+    const initChapters = (d.initiation_chapters && d.initiation_chapters.length)
+        ? d.initiation_chapters
+        : [{ school: 'Samford University', chapter: 'Alpha Mu' }];
+    const initLabels = initChapters.map(c => {
+        const glyphs = c.chapter.trim().split(/\s+/).map(w => _PM_GREEK[w.toLowerCase()] || '').join('');
+        const chapterDisplay = glyphs ? `${_pmEsc(c.chapter)} (${glyphs})` : _pmEsc(c.chapter);
+        const roleTag = c.role_number ? ` <span class="text-gray-400">#${_pmEsc(c.role_number)}</span>` : '';
+        return `${chapterDisplay} — ${_pmEsc(c.school)}${roleTag}`;
+    });
+    chapterRows += _pmRow('Initiated at', initLabels.join('<br>'));
+    if (chapterRows) {
+        document.getElementById('pm-chapter-list').innerHTML = chapterRows;
+        _pmShow('pm-chapter-section');
+    } else { _pmHide('pm-chapter-section'); }
+
+    // Current roles
+    if (d.roles && d.roles.length) {
+        document.getElementById('pm-roles-list').innerHTML = d.roles.map(r =>
+            `<span class="px-2 py-0.5 text-xs rounded-full bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300">${_pmEsc(r.name)}</span>`
+        ).join('');
+        _pmShow('pm-roles-section');
+    } else { _pmHide('pm-roles-section'); }
+
+    // Role history
+    if (d.role_history && d.role_history.length) {
+        document.getElementById('pm-history-list').innerHTML = d.role_history.map(h => {
+            const range = h.end ? `${h.start} – ${h.end}` : `${h.start} – present`;
+            return `<div class="text-sm flex flex-wrap gap-x-2 gap-y-0.5"><span class="font-medium text-gray-800 dark:text-gray-200">${_pmEsc(h.role)}</span><span class="text-gray-500 dark:text-gray-400">${range}</span></div>`;
+        }).join('');
+        _pmShow('pm-history-section');
+    } else { _pmHide('pm-history-section'); }
+
+    // Socials
+    const socials = d.socials || {};
+    const customSocials = d.custom_socials || [];
+    const allSocials = [
+        ...Object.keys(socials).map(k => {
+            const info = _PM_SOCIAL[k] || { label: k, color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' };
+            return `<a href="${socials[k].url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${info.color} hover:opacity-80 transition-opacity">${info.label}: @${_pmEsc(socials[k].handle)}</a>`;
+        }),
+        ...customSocials.map(s =>
+            `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700/60 dark:text-gray-300">${_pmEsc(s.platform)}: @${_pmEsc(s.handle)}</span>`
+        ),
+    ];
+    if (allSocials.length) {
+        document.getElementById('pm-socials-list').innerHTML = allSocials.join('');
+        _pmShow('pm-socials-section');
+    } else { _pmHide('pm-socials-section'); }
+
+    // House
+    const houseBadge = document.getElementById('pm-house-badge');
+    const houseNone  = document.getElementById('pm-house-none');
+    if (d.house) {
+        houseBadge.textContent = d.house + ' House';
+        houseBadge.classList.remove('hidden');
+        houseNone.classList.add('hidden');
+    } else {
+        houseBadge.classList.add('hidden');
+        houseNone.classList.remove('hidden');
+    }
+}
 </script>
 
 <style>

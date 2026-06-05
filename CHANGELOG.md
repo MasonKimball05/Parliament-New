@@ -161,13 +161,456 @@ Breaks the 6280-line monolithic `src/models.py` into 16 focused sub-modules unde
 
 ---
 
-### v2.30.0 - Chat Overhaul + PWA (2026-06-02)
+### v2.30.0 - Chat Overhaul, UI Refresh & Guest Permissions Overhaul (2026-06-02 → 2026-06-03)
 
 Push notifications fire when a message is sent and you're not actively viewing the channel. New per-channel notification preference (All / @Mentions Only / None) stored in `ChatNotificationPreference` model. @mentions with autocomplete, highlighted in rendered messages, used to route push notifications. Red unread badge on Chats nav link. URLs autolink. Newlines render. "Load older messages" for history. PWA: Parliament can now be installed as a standalone desktop/mobile app via any modern browser — install prompt appears in Chrome/Edge address bar. Run migration 0185 and purge Cloudflare cache on deploy.
 
+**Chat UI refresh (2026-06-02):** Circular avatars, own-message left-border accent (replaced pink background), auto-growing textarea input with Enter-to-send, smaller poll status dot, pill-style load-older button, channel icon chip in header, SVG back button.
+
+**Admin & Officer base templates (2026-06-02):** Two new dedicated base templates — `admin_v2/base.html` (dark charcoal, red "Admin v2" label) and a rewritten `admin_base.html` (gray-800 officer toolbar with links to all officer tools). Added `{% block subnav %}` hook to `base.html` so both bases render a toolbar below the main nav without touching it. 58 templates migrated to use the correct base. `can_access_kai` property added to `ParliamentUser` — Kai link in officer toolbar gated on actual Kai chair role, not just `is_admin`.
+
+**Bug fixes (2026-06-03):** Admin v2 dashboard card double-click bug — `DOMContentLoaded` was restoring visual state from localStorage but not syncing `data-expanded`, so `toggleCard()` always read the stale HTML default on first click. Fixed by writing the resolved state back to `card.dataset.expanded`. Chat message hover highlight invisible in dark mode — `dark:hover:bg-gray-700/60` was not in the compiled Tailwind CSS; replaced with `/50` variant which is. Chat settings gear button added to custom (non-committee) channel header for admins.
+
+**Committee chat guest permissions overhaul (2026-06-03):**
+- Alumni users now appear in the guest list (previously filtered to Active only)
+- Bulk add: select multiple users with a shared permission level, submit all at once
+- Bulk remove: row checkboxes + master select-all; "Remove Selected" button appears when any row is checked
+- Inline permission update bug fixed: revert logic now correctly restores only the changed checkbox rather than blindly setting it to `true`, preventing a `can_read=False, can_write=True` inconsistent state
+- `update_or_create` used in add endpoint — adding an already-existing guest updates their permissions rather than erroring
+- Available users list split into Active / Alumni optgroups; already-added users shown as disabled with a label
+- Toast notifications replace `alert()` throughout
+- Bulk endpoints: `POST /api/committee/<code>/chat/permissions/bulk-add/` and `bulk-remove/`
+
+**Kai member permission system (2026-06-03):** New `KaiMemberPermission` model (migration 0188) — granular, additive access control for Kai committee members who are not chairs. Default is **no access**. Seven independent permission flags: `can_view_report_list`, `can_view_report_details`, `can_view_submitter_identity`, `can_view_accused_identity`, `can_edit_open_cases`, `can_add_activity`, `can_close_cases`. Chairs always have full access regardless. New `/committee/<code>/kai-permissions/` page (chair-gated, linked from committee home) shows all non-chair members in a permission grid — inline checkbox updates fire `update_kai_member_permission` via AJAX, "Reset All to No Access" fires `reset_kai_permissions`. **Auto-reset on exec change**: `signals.py` extended — when any role tied to a Kai committee's `.role` FK changes holders (`m2m_changed post_add/post_remove`), all `KaiMemberPermission` rows for that committee are wiped, and all user-specific `ChatChannelPermission` rows for the committee's chat channel are also cleared. This ensures a new Kai chair inherits a clean slate.
+
+**Custom channel settings overhaul (2026-06-03):** `edit_channel.html` fully redesigned — card-based layout replacing the single flat form; Basic Info, Channel Status, and Access cards. Channel Status card exposes two new toggles: **Active** (hides the channel from all members when off) and **Read-Only** (prevents new messages, useful for announcement channels). New **Alumni only** special-role permission type added. Delete Channel link moved into the edit page header so admins don't have to hunt for it. After saving, the page now redirects back to the edit form (not the channel list) so you can keep adjusting. Alumni-only access is enforced in `has_access`. `is_read_only` short-circuits `can_write` before any other check. Migration 0187 adds `ChatChannel.is_read_only` and `ChatChannelPermission.alumni_only`.
+
+**Guest permission expiry + `can_edit` (2026-06-03):** Two new fields on `ChatChannelPermission` (migration 0186). `can_edit` (default `False`) gates whether a guest can edit their own messages — enforced in `edit_channel_message` so committee members always pass but guests need the flag. `expires_at` (nullable `DateTimeField`) makes access temporary — all `can_read/write/delete/edit_messages` channel methods filter out expired rows, and an `is_expired` property is exposed for template rendering. UI additions: "Can Edit Own" toggle and "Access Expiry" datetime picker in the Add Guests panel; "Edit" column in the guests table; expiry badge per row (orange = future, red = expired) with an inline editor (Save / Clear) that fires `update_guest_permission`. New `prune_expired_chat_permissions` Celery task (nightly 3:12 AM CST) and matching `prune_expired_chat_permissions` management command with `--dry-run` flag clean up stale rows automatically.
+
+**QoL — auto-remove voting member on member removal (2026-06-03):** When a user is removed from committee members via `committee_remove_member`, they are also automatically removed from `voting_members` if present. Prevents a confusing orphan state where a non-member retains a vote.
+
+**`committee_detail` page removed (2026-06-03):** The committee detail page (`/committee/<code>/details/`) has been archived. All internal references (`{% url 'committee_detail' %}` in 9 templates, `redirect('committee_detail')` in 8 view files) updated to point to `committee_home`. The old URL now returns a 301 permanent redirect to `committee_home` to preserve any bookmarks. `committee_detail.py` view file retained as an archive; removed from `__init__.py` and `urls.py` imports.
+
+**Kai permissions page overhaul (2026-06-03):** `manage_kai_permissions` now shows all committee members — chairs appear with all checkboxes checked and greyed out (disabled) with a "Chair" badge, making it clear they have inherent full access. Previously the page excluded chairs from the table entirely and only queried `committee.members`, missing anyone added via `voting_members`. Query updated to union `members | voting_members` and the `update_kai_member_permission` endpoint updated to match. Member search bar added. The `-m-8 p-8` layout pattern across all five Kai admin templates (`view_reports.html`, `manage_templates.html`, `create_template.html`, `edit_template.html`, `manage_report.html`) was causing the officer toolbar to be visually hidden (content overflowed upward into it) and the page to horizontally scroll; replaced with standard `min-h-screen` outer div and `px-4 sm:px-6 lg:px-8 py-8` on the inner container.
+
+**Kai dashboard consolidated into reports page (2026-06-03):** `kai_dashboard` view is now a redirect to `view_kai_reports`. All analytics context (status counts, category bar chart, monthly submission trend line, deliberation outcomes, recent activity feed) merged into `view_kai_reports`. `view_reports.html` redesigned: four clickable stat cards at the top act as status filters (replacing the separate tab bar), a collapsible "Analytics" accordion holds the charts and deliberation/activity data (charts initialize lazily on first open), action buttons (Member Perms, Form Builder, Templates, Export CSV, Submit) consolidated into the page header. Old `dashboard.html` archived to `templates/kai/archive/`. All `kai_dashboard` URL references in `admin_base.html`, `form_builder.html`, `user_dashboard.html`, and `seed_admin_v2.py` updated to `view_kai_reports`.
+
+**Files changed:** `templates/base.html`, `templates/admin_base.html`, `templates/admin_v2/base.html`, `templates/admin_v2/dashboard.html`, `templates/chat/channel.html`, `templates/committee/manage_chat_permissions.html`, `templates/committee/attendance_history.html`, `templates/committee/push_to_chapter.html`, `templates/committee/vote.html`, `templates/committee/documents.html`, `templates/committee/attendance.html`, `templates/committee/manage_members.html`, `templates/committee/committee_index.html`, `templates/committee/upload_document.html`, `src/view/committee/manage_chat_permissions.py`, `src/view/committee/committee_index.py`, `src/view/committee/add_member.py`, `src/view/committee/remove_member.py`, `src/view/committee/edit_committee_chat.py`, `src/view/committee/create_vote.py`, `src/view/committee/push_to_chapter.py`, `src/view/committee/unpush_from_chapter.py`, `src/view/committee/upload_document.py`, `src/view/committee/__init__.py`, `src/urls.py`, `src/models/users.py` (27 admin_v2 templates + 31 officer templates migrated)
+
 ---
 
-### v2.29.0 - Daily Site Digest, Automated Housekeeping & Email Change Verification (2026-06-02)
+### v2.31.0 - Page Visit Analytics & Constitution & Bylaws Builder (2026-06-04)
+
+**Page visit tracking (Admin v2):** `PageVisit` model (migration 0191) tracks per-user, per-path visit counts. A `sendBeacon` fires post-load in `base.html` — non-blocking, fires even on navigate-away. Single PostgreSQL `INSERT ... ON CONFLICT DO UPDATE` upsert (no race conditions, one DB round-trip). Admin v2 dashboard at `/admin-v2/page-visits/` shows sortable aggregate and per-user drill-down. Admin paths excluded.
+
+**Constitution & Bylaws Builder (foundation — v2.31.0, migration 0192):** Full in-app structured C&B document system replacing the static `constitution_bylaws.html` template. The `/constitution-bylaws/` URL now renders from the database.
+
+- **New models** in `src/models/cnb.py`: `GoverningDocument`, `Article`, `Section`, `Resolution`, `ResolutionAmendment`
+- **`GoverningDocument`** — Constitution or Bylaws record (title, preamble, last_reviewed)
+- **`Article`** — Article within a document (number, title, activatable/deactivatable with reason + audit trail)
+- **`Section`** — Section within an article (stores actual text, activatable/deactivatable, amendment protection tracking with expiry date and auto-generated note)
+- **`Resolution`** — In-progress resolution builder (separate from legacy `PassedResolution`). Stores WHEREAS clauses (one per line, auto-formatted), BE IT RESOLVED text, type (amendment/general/emergency), status (draft → pending → passed/failed/withdrawn), configurable protection period (default 180 days)
+- **`ResolutionAmendment`** — Links a resolution to a specific section + proposed replacement text. Auto-captures the section's current text as a snapshot at creation time for side-by-side diff display.
+- **`Resolution.apply_amendments()`** — When a resolution passes: applies all proposed texts to their sections, clears protection flags
+- **`Resolution.apply_failure_protection()`** — When a resolution fails: locks all targeted sections for `protection_days` days; auto-fills `protection_note` with the resolution title and dates
+- **New permission**: `ParliamentUser.has_cnb_permission` — True if admin OR has `CNB` role. `cnb_required` decorator added to `src/decorators.py`
+- **CNB role** added to `Role.DEFAULT_ROLES` (ID 10, code `CNB`, name "Constitution & Bylaws Chair") — restored by `restore_committees_and_roles` management command
+- **Views** (`src/view/officer/cnb.py`): CNB viewer, dashboard, manage document, edit section, toggle section/article active, resolution list/detail/create/edit, add/remove amendment, set status, section context JSON API
+- **Templates** (`templates/cnb/`): viewer, dashboard, manage_document, edit_section, resolution_list, resolution_detail, resolution_form — all dark mode aware, gradient banners, primary color scale
+- **Navigation**: "C&B Manager" link added to officer_home.html (gated on `has_cnb_permission`) and admin_base.html sidebar
+
+**What's not built yet (next session):** Seeder management command to populate the initial document text from the existing static template content; section anchor links for deep-linking from resolutions pages.
+
+---
+
+### v2.30.1 - KaiMemberPermission Enforcement (2026-06-03)
+
+Wires the seven `KaiMemberPermission` flags into actual view and template enforcement. Previously the model and management UI existed but all Kai views still gated solely on `is_chair or is_admin`, making the granular flags inert.
+
+**View-level access gates** — non-chairs with no permission row are redirected to home:
+- `view_kai_reports` and `export_kai_reports_csv` → `can_view_report_list`
+- `manage_kai_report` and `print_kai_report` → `can_view_report_details`
+- `bulk_actions_kai_reports` → `can_view_report_list` at entry; per-action checks gate further
+
+**Action-level gates within `manage_kai_report`** — wrong permission returns a redirect with an error message, not a 403 page:
+- Mark reviewed/pending, update deliberation, update tags, link/unlink reports, update accused, notify accused/submitter → `can_edit_open_cases`
+- Add activity, update notes → `can_add_activity`
+- Archive, approve/deny closure requests → `can_close_cases`
+
+**Bulk action gates** in `bulk_actions_kai_reports`:
+- `mark_reviewed` / `mark_pending` → `can_edit_open_cases`
+- `archive` → `can_close_cases`
+
+**Identity redaction in templates** — sensitive names are hidden rather than raising an error, so members can see a report exists without learning who filed it or who it targets:
+- Submitter name in report list and detail sidebar → shows "Anonymous" / "Redacted" without `can_view_submitter_identity`
+- Accused name in detail "Directed To" section and notify-accused form → shows "Redacted" without `can_view_accused_identity`
+- Notify Accused section hidden without both `can_edit_open_cases` and `can_view_accused_identity`
+- Notify Submitter section hidden without both `can_edit_open_cases` and `can_view_submitter_identity`
+- Submitter name in Related Reports list → "Anonymous" without `can_view_submitter_identity`
+- CSV export redacts submitter and accused columns for members lacking the identity flags
+
+**Helper added:** `_get_kai_access(user, committee)` in `kai_reports.py` — returns a dict of all seven boolean flags. Chairs and admins always get all `True`. Other users get their `KaiMemberPermission` row values; users with no row get all `False`. Passed as `kai_access` in context to all affected views so templates can conditionally render sections.
+
+**Files changed:** `src/view/kai_reports.py`, `src/models/__init__.py` (added `KaiMemberPermission` import), `templates/kai/view_reports.html`, `templates/kai/manage_report.html`
+
+---
+
+### v3.0.0 - WebSocket Chat, Passkeys, C&B Resolution Builder & Security Hardening (2026-06-05) ✅ Deployed
+
+Major version release replacing HTTP polling with persistent WebSocket connections, overhauling the chat UI, adding passkeys, a comprehensive overhaul of the C&B resolution builder with word-level diff and amendment tracking, and targeted security hardening across the admin and chat layers.
+
+---
+
+#### C&B Resolution Builder — Amendment Type System (migration 0195)
+
+Formalizes what kind of change each resolution amendment makes and where it applies.
+
+**Model changes (`src/models/cnb.py`):**
+- `ResolutionAmendment.amendment_type` — `CharField` with choices: `change` / `addition` / `deletion`; default `change`
+- `ResolutionAmendment.scope_note` — optional `CharField(300)` for specifying a sub-item (`§ 3.a.i`, `second sentence`, etc.)
+- `proposed_text` set to `blank=True` to support whole-section deletions (no replacement text needed)
+
+**Auto-detection in view (`add_amendment`):**
+Type is inferred from the submitted text rather than a user-selected radio — no UI friction:
+- Empty `proposed_text` → `deletion`
+- `original_text` is a substring of `proposed_text` → `addition`
+- Otherwise → `change`
+
+**`apply_amendments` logic:**
+- Whole-section deletion (`deletion` + no `scope_note` + no `proposed_text`) → clears content, suspends section, sets `deactivation_reason`
+- All other cases → writes `proposed_text` to section content
+
+**Files changed:** `src/models/cnb.py`, `src/migrations/0195_resolutionamendment_amendment_type_scope_note.py` (new), `src/view/officer/cnb.py`
+
+---
+
+#### Amendment Editor on Edit Page
+
+The full amendment editor (section selector, original/proposed text fields, diff preview, tracked amendment cards) was previously only on the detail page. It is now also present on the **edit resolution page** so writers can manage amendments while drafting.
+
+**Changes:**
+- Amendment cards added after the form in `resolution_form.html` — shows existing amendments with type badge, scope note, before/after diff, and "Copy [ref]" button per card
+- Add Amendment modal added with section selector (uses `ref_docs` context already in view — no view changes needed)
+- Redirect control: `<input type="hidden" name="next" value="edit">` in both the add and remove forms so actions from the edit page redirect back to the edit page instead of the detail page
+- `add_amendment` and `remove_amendment` views both check `request.POST.get('next') == 'edit'` to select redirect target
+
+**Files changed:** `templates/cnb/resolution_form.html`, `src/view/officer/cnb.py`
+
+---
+
+#### Word-Level Diff Engine (Tracked Changes Preview)
+
+Live tracked-changes preview in the amendment editor modal using a word-level LCS (Longest Common Subsequence) diff algorithm — shows exactly which words were added or removed between the original and proposed section text.
+
+**Algorithm details:**
+- Tokenizer: `/\s*\S+/g` — each token includes its preceding whitespace to prevent space tokens from being matched across locations (fixes a prior bug where tokens like "Pi." would appear between unrelated words)
+- Similarity threshold: if fewer than 40% of tokens are shared, falls back to a clean block replacement view instead of showing a garbled interleaved diff (handles complete text rewrites)
+- Renders: unchanged text normally, additions in green, deletions in red strikethrough
+
+**Files changed:** `templates/cnb/resolution_form.html`, `templates/cnb/resolution_detail.html`
+
+---
+
+#### Copy [ref] Citation System
+
+Replaces the "Insert at cursor" button in the C&B reference drawer with a clipboard copy button that generates a bracketed reference code. The code can be pasted anywhere in the form, as many times as needed.
+
+**Code format:**
+- Basic: `[Constitution Art. III § 2]`
+- With type (non-change): `[Constitution Art. III § 2 (Addition)]`
+- With scope note: `[Constitution Art. III § 2 (Addition) — second sentence]`
+- With sequential counter (from amendment cards): `[Constitution Art. III § 2 (Addition) - 1]`
+
+The counter increments per amendment in display order, making each code unique even for the same section. Visual copy feedback: button text flips to "Copied!" in green for 1.8 s.
+
+**Files changed:** `templates/cnb/resolution_form.html`
+
+---
+
+#### Protected Citation Markers
+
+Pasted `[ref]` codes in all textareas are protected from accidental editing or partial deletion.
+
+**Body textarea (Section II):**
+- Full protection — markers can only be removed via the × chip button in the "Cited Sections" panel below the textarea
+- Pasting new markers is allowed; the panel updates immediately and adds a new chip
+- Each chip is per-occurrence (not deduplicated) — clicking × removes only the first occurrence of that marker, leaving duplicates intact
+- ▾ expand button shows a section text preview pulled from the drawer DOM
+
+**Other textareas (whereas, resolved, notes — Sections I & III):**
+- Same full protection via `setupMarkerArea()` — a generic function wired to each textarea by ID
+- Each textarea has its own "Cited Sections" chip panel below it (same × removal mechanic, no text preview)
+- Markers can only be removed via their × chip
+
+**Files changed:** `templates/cnb/resolution_form.html`
+
+---
+
+#### PDF Preview Button
+
+A "Preview PDF" button is now shown in the edit page header (edit mode only). Opens the existing `resolution_print` view in a new tab. Tooltip prompts "Cmd+P / Ctrl+P to save as PDF."
+
+**Files changed:** `templates/cnb/resolution_form.html`
+
+---
+
+#### Print View — Inline Amendment Callouts & Appendix
+
+The resolution print/PDF view now processes `[ref]` codes in the body text and renders a proper amendment-aware document.
+
+**Inline callouts (where the marker appears in body text):**
+Each `[ref]` code is replaced by a small indented callout block showing:
+- Section identifier + amendment type in bold (e.g., `Constitution Art. I § 1 (Addition)`)
+- Only the delta text — the specific words added, changed, or deleted — not the full section. Computed client-side via the LCS diff algorithm.
+- Added text in green, deleted text in red strikethrough
+
+**Appendix (appended to document by JS):**
+For each amendment, a full entry showing:
+- Section identifier, title, and amendment type
+- Descriptive context sentence in formal resolution style: *"The following shall be added to Article I (Name and Purpose) of the Bylaws of the Samford Chapter, the Alpha Mu of Beta Theta Pi, under § 1: Name:"*
+- Full word-level diff of original vs. proposed text with green/red highlights
+
+The appendix is built entirely in JavaScript using the amendments data array rendered into the page by Django. This avoids Django template queryset double-evaluation issues that caused the appendix to silently not render.
+
+**Files changed:** `templates/cnb/resolution_print.html`
+
+---
+
+#### WebSocket Chat (Django Channels)
+
+Replaces HTTP long-polling for chat messages with a persistent WebSocket connection using Django Channels + Redis channel layer. Each chat channel gets a group (`chat_{id}`); `ChatConsumer` enforces read permissions on connect and receives broadcast events from the HTTP send/edit/delete views. The HTTP endpoints are unchanged — they still handle auth, CSRF, and push-notification dispatch, then call `_ws_broadcast()` after saving.
+
+**Client changes (`templates/chat/channel.html`):**
+- Connects at `wss://<host>/ws/chat/<channel_id>/` on load; auto-reconnects with exponential backoff (1s → 30s cap)
+- Status dot: green "Live" (connected), yellow "Reconnecting…" (backoff), red "Connection error"
+- `onmessage` handles three event types: `message` (append), `edit` (update text + `(edited)` label), `delete` (remove from DOM)
+- Active users list still HTTP-polled (lightweight, not real-time critical)
+- Optimistic send: temp element appended immediately on submit; HTTP success removes the temp; WS echo creates the real element — no race condition
+
+**Server changes:**
+- `Parliament/asgi.py` — `ProtocolTypeRouter` routes HTTP to Django, WebSocket to `AuthMiddlewareStack(URLRouter(...))`
+- `src/consumers.py` — `ChatConsumer(AsyncWebsocketConsumer)`: checks `can_read` on connect, joins group; handles `chat.message`, `chat.edit`, `chat.delete` broadcast events
+- `src/routing.py` — WebSocket URL pattern: `ws/chat/<channel_id>/`
+- `src/view/chat/channel_chat.py` — `_ws_broadcast()` helper added; called after send, edit, and delete to push events to the group
+- `Parliament/settings_postgres.py` — `daphne` added first in `INSTALLED_APPS`; `channels` added; `ASGI_APPLICATION` set; `CHANNEL_LAYERS` gated on `REDIS_URL and not DEBUG` (InMemoryChannelLayer used in dev)
+- `requirements.txt` — added `channels==4.2.0`, `channels-redis==4.2.0`, `daphne==4.1.2`
+
+**Deployment — required steps before going live:**
+```bash
+pip install channels channels-redis daphne
+# Switch process manager from Gunicorn to Daphne:
+# Edit parliament-gunicorn.service ExecStart:
+#   was: gunicorn Parliament.wsgi:application ...
+#   now: daphne -u /run/parliament.sock Parliament.asgi:application
+# Add nginx WebSocket proxy headers to the location block:
+#   proxy_http_version 1.1;
+#   proxy_set_header Upgrade $http_upgrade;
+#   proxy_set_header Connection "upgrade";
+systemctl daemon-reload
+systemctl restart parliament-gunicorn
+```
+
+---
+
+#### Discord-Style Message Stacking
+
+Consecutive messages from the same user within 15 minutes are stacked into a compact group — no repeated avatar or name, just the message text. Groups are visually separated by extra spacing.
+
+**How it works:**
+- Server-rendered messages get `data-sender-id`, `data-timestamp`, and `data-raw` attributes
+- `stackMessages()` runs on `DOMContentLoaded` and assigns each row a role: `solo`, `first`, `middle`, or `last` using a look-ahead `stacksWith(a, b)` comparison
+- `convertToStacked()` mutates server-rendered rows: hides avatar + header, moves edit/delete buttons inline beside the message text, applies compact padding
+- `appendMessage()` uses live `lastMsgSenderId`/`lastMsgTime` tracking variables to determine stacking for newly received WS messages
+- `prependMessage()` (load-older path) updated to include edit button, delete button, and `data-raw` — previously these were missing
+
+---
+
+#### Continuous Left Border Accent
+
+Own messages have a left border accent (`border-l-4 border-blue-400`). Previously each row applied `rounded-lg` which caused the border to curve inward between stacked rows, making it appear as disconnected segments.
+
+**Fix:** `stackMessages()` applies precise border-radius per role — `rounded-t-lg` for first, no rounding for middle, `rounded-b-lg` for last, `rounded-lg` for solo — so the left border runs as a single unbroken bar through the full group.
+
+---
+
+#### Edit Button & Flow Fixes
+
+Several independent bugs in the edit flow were fixed:
+
+- **Timezone bug removed:** Client-side 1-hour edit check compared CST server timestamps against the local browser clock. For users outside CST (e.g. Europe), this always evaluated as >1 hour and blocked editing. Client check removed entirely — the server enforces the 1-hour window with a 403 response.
+- **`data-raw` for accurate re-editing:** `editMessage()` previously read `messageElement.textContent`, which included `<br>` tags injected by `renderMessageText()`. Messages with newlines would re-open with escaped HTML. Fixed by storing the original text in `data-raw` on the message element; `editMessage()` reads `dataset.raw` and `saveEdit()` updates `data-raw` after a successful save.
+- **Send icon direction:** SVG path naturally points right; removed incorrect rotation that was pointing it down.
+- **`prependMessage` completeness:** Load-older path now includes edit button (sender only), delete button (admin/chair/sender), `data-raw` attribute, `msg-row` class, and inline padding — matching the `appendMessage` path.
+
+---
+
+#### Passkeys (WebAuthn)
+
+Optional fast-path login that bypasses both password and 2FA. Users register passkeys from their profile and can sign in with Face ID, Touch ID, or their device PIN — no TOTP code required. Multiple passkeys per user are supported (e.g. phone + laptop). The existing username/password + TOTP flow is completely unchanged.
+
+**How it works:**
+- On registration, the browser generates a public/private key pair; the public key is stored in `WebAuthnCredential`. The private key never leaves the device.
+- On authentication, the browser signs a server-issued challenge with the private key; the server verifies the signature against the stored public key.
+- Successful passkey auth calls Django's `login()` and sets `webauthn_authenticated = True` in the session. `Enforce2FAMiddleware` checks this flag and skips the TOTP verify step.
+- If the user also has a TOTP device, `otp_login()` is called so `is_verified()` returns True for any code that checks it directly.
+
+**New model — `WebAuthnCredential`:**
+- `credential_id` (BinaryField, unique) — raw credential ID from the authenticator
+- `public_key` (BinaryField) — COSE-encoded public key
+- `sign_count` (PositiveIntegerField) — incremented on each use; replay attack detection
+- `name` (CharField) — user-assigned display name (e.g. "iPhone 15")
+- `aaguid` (CharField) — authenticator model identifier
+- `created_at`, `last_used_at` — timestamps
+
+**New views (`src/view/webauthn.py`):**
+- `passkey_register_begin` / `passkey_register_complete` — authenticated; adds a passkey from the profile page
+- `passkey_authenticate_begin` / `passkey_authenticate_complete` — unauthenticated; signs in via passkey on the login page
+- `passkey_delete` — removes one of the user's passkeys
+
+**New URLs:** `/accounts/passkeys/register/begin|complete/`, `/accounts/passkeys/authenticate/begin|complete/`, `/accounts/passkeys/<pk>/delete/`
+
+**Login page:** "Sign in with a Passkey" button with divider; hidden automatically if the browser doesn't support WebAuthn.
+
+**Profile page:** Passkeys accordion (between Two-Factor Authentication and Change Password) showing registered passkeys with add/remove controls. Badge shows count when passkeys are registered.
+
+**Middleware:** `Enforce2FAMiddleware` updated — checks `webauthn_authenticated` session flag before redirecting to TOTP verify; `/accounts/passkeys/authenticate/` added to exempt paths.
+
+**Deployment:**
+```bash
+pip install webauthn==2.7.1
+python manage.py migrate   # migration 0189
+```
+
+**Files changed:** `requirements.txt`, `src/models/webauthn.py` (new), `src/models/__init__.py`, `src/migrations/0189_webauthn_credential.py` (new), `src/view/webauthn.py` (new), `src/urls.py`, `src/middleware/two_factor.py`, `src/view/profile_view.py`, `templates/profile.html`, `templates/registration/login.html`
+
+---
+
+#### Chat Polish & Date Separators
+
+Several UI improvements built on top of the WebSocket foundation.
+
+**Features added:**
+- **Date separators** — horizontal rule with date label (`Today`, `Yesterday`, `Mon Jun 2`, etc.) inserted between messages from different days; idempotent insertion for both initial load and load-older
+- **Jump-to-bottom button** — arrow button anchored to the bottom-right of the message area; appears when scrolled more than 150 px above the bottom; animated in/out
+- **Typing indicator** — `{"type":"typing"}` WS event sent from client (debounced 2.5 s) on keypress; server broadcasts to group; clients show `X is typing…` below the message list, auto-clears after 4 s of silence per user, hidden for own events
+- **Inline error toasts** — `showChatError(msg)` replaces all `alert()` calls with a dismissing bar above the input box
+
+**Fixes:**
+- Edit flow `style.display` reset changed from `'block'` to `''` so stacked-row flex layout is preserved after cancel
+- `stackMessages()` + `insertInitialDateSeparators()` re-run after `loadOlderMessages` so newly prepended messages get correct stacking and separators
+- `convertToStacked()` guarded with `data-stack-converted` to prevent double-conversion on re-runs
+
+**Files changed:** `src/consumers.py`, `templates/chat/channel.html`
+
+---
+
+#### Admin Dashboard — Chat Settings Update
+
+The Chat Settings section of Admin v2 now reflects v3.0.0's WebSocket architecture.
+
+**Changed:**
+- Removed two dead settings from the seed command and query: `chat_active_poll_interval`, `chat_inactive_poll_interval` — these controlled HTTP polling which no longer exists
+- Chat Settings card now shows a "WebSocket (v3.0.0)" green badge and explanatory copy: *Messages are delivered in real time via WebSocket (Django Channels + Redis). HTTP message polling was removed in v3.0.0.*
+
+**Files changed:** `src/view/admin_v2.py`, `src/view/chat/channel_chat.py`, `templates/admin_v2/dashboard.html`
+
+---
+
+#### @Mention Notifications & Clickable Mentions
+
+In-app notifications for `@mentions` in chat, plus Discord-style clickable mention spans that open a profile card popup.
+
+**Notification bell:**
+- Added `chat_mention` to `Notification.NOTIFICATION_TYPES` (migration 0190)
+- `send_channel_message` now creates a `Notification` record for each mentioned user (skips self-mentions), sets `link` to the channel URL, and invalidates the recipient's notification badge cache immediately
+- Chat mention notifications appear in the bell dropdown with an `@` icon
+
+**@mention toast:**
+- WS broadcast payload now includes `mentioned_user_ids` (list of `user_id` strings)
+- When a `message` event arrives and `currentUserId` is in `mentioned_user_ids`, a blue fade-in toast appears at the top of the page: *"Name mentioned you"* — auto-dismisses after 4 s
+
+**Clickable @mention spans:**
+- `renderMessageText()` now renders `@username` as a `<button>` with `data-username` and `onclick="handleMentionClick(this)"`
+- `handleMentionClick` lazy-loads channel members (same `loadChannelMembers()` call used by autocomplete) and opens a full profile card popup via `openProfileModal(userId)`
+- `channelMembers` array now populates a `memberByUsername` Map on load for O(1) username → user_id lookups
+
+**Profile card popup:**
+- Full profile modal added to `channel.html` — same fields as the directory popup (avatar, type badge, roll number, about, contact, academics, chapter info, current roles, role history, socials, house)
+- House assignment edit UI intentionally omitted (read-only view only); house badge still shown
+- `_renderProfile` logic refactored with `_pm`-prefixed helpers to avoid conflicts if directory.html code is ever present
+
+**Files changed:** `src/models/notifications.py`, `src/migrations/0190_notification_chat_mention.py` (new), `src/view/chat/channel_chat.py`, `templates/chat/channel.html`, `templates/base.html`
+
+**Deployment:**
+```bash
+python manage.py migrate   # migration 0190
+```
+
+---
+
+#### Security Hardening — Admin v2 Rate Limiting & Env Config
+
+Two red-severity findings from the automated security report (2026-06-05).
+
+**Admin v2 rate limiting (`src/view/admin_v2.py`):**
+- Added cache-based attempt counter per user (`admin_v2_attempts_{pk}`) with a 5-attempt ceiling and 15-minute lockout window
+- Counter increments on each bad user-password or bad secret-key submission; clears on successful login
+- Mirrors the pattern already used on the main login lockout
+
+**ALLOWED_USER_IDS env var:**
+- Replaced hardcoded `ALLOWED_USER_ID = '73'` with `ADMIN_V2_USER_IDS` env var (comma-separated, e.g. `73,81`)
+- Falls back to legacy `ADMIN_V2_USER_ID` for backwards-compatibility during deploy
+- Add `ADMIN_V2_USER_IDS=73` to the server's env; add future officers by appending their ID
+
+**Files changed:** `src/view/admin_v2.py`, `.env`
+
+---
+
+#### Security Hardening — Chat Endpoint Fixes
+
+Two yellow-severity findings from the automated security report (2026-06-05).
+
+**Timestamp validation in `get_channel_messages` (`src/view/chat/channel_chat.py`):**
+- The `since` query-param was passed directly to `created_at__gt=since`; Django coerces it but a malformed value would raise an unhandled exception
+- Wrapped in `parse_datetime()` + try/except; returns 400 `Invalid since timestamp` on failure
+
+**Chat send rate limiting:**
+- Added per-user rate limit on `send_channel_message`: max 5 messages per 3-second window via cache key `chat_send_rate_{pk}`
+- Returns 429 `You are sending messages too quickly` when exceeded
+
+**Files changed:** `src/view/chat/channel_chat.py`
+
+---
+
+#### C&B Resolution Builder — QoL Improvements
+
+Four usability improvements approved 2026-06-05.
+
+**Save & Preview button:**
+- Added to the edit resolution form alongside the existing "Edit Resolution" submit button
+- On click, sets a hidden `save_and_preview` field and submits the form; the view detects this and redirects to the print view URL instead of the detail page
+- Eliminates the save → navigate → open-print-view sequence
+
+**Unsaved changes warning:**
+- `beforeunload` event fires a browser confirm dialog if any field in the resolution form has been edited without saving
+- Dirty flag is set on `input`/`change` events; cleared on form submit and on "Save & Preview"
+
+**Amendment editing:**
+- "Edit" button added to each amendment card (only shown for unapplied amendments)
+- Clicking pre-fills the amendment modal with the existing section selection, proposed text, and scope note, and renders the diff from the stored original text snapshot
+- Submitting re-uses the existing `add_amendment` view which already upserts by `(resolution, section)` — no new endpoint needed
+
+**Section search in C&B drawer:**
+- Live-filter `<input>` added at the top of the reference drawer, between the document tabs and the scrollable content
+- Filters section rows within the active document tab by matching against identifier, title, and content text
+- Matching articles auto-expand; non-matching articles are hidden entirely
+- Search clears when switching document tabs
+
+**Files changed:** `templates/cnb/resolution_form.html`, `src/view/officer/cnb.py`
+
+---
+
+### v2.29.0 - Daily Site Digest, Automated Housekeeping & Email Change Verification (2026-06-02) ✅ Deployed
 
 Replaces the weekly system audit and daily honeypot digest with a single unified `send_daily_digest` task that runs nightly at 3:30 AM CST. Always sends (even on clean runs), shows all check results (OK and flagged), and includes a honeypot activity section. Adds four new housekeeping tasks: `prune_expired_login_lockouts` (daily), `expire_stale_ip_blacklist_entries` (daily), `prune_stale_push_subscriptions` (monthly), and `prune_old_auth_tokens` (monthly). Closes HIGH severity gap: email address changes now require confirmation to the new address before taking effect — first-time email set is still immediate. Run `migrate` and `setup_celery_schedules --reset` on deploy.
 
@@ -672,7 +1115,7 @@ Full overhaul of the member profile system adding rich optional profile data, a 
 ### v2.20.0 - Push Notification Admin Management (05-28-2026)
 Adds admin-v2 tools for managing push subscriptions and a member-facing reconfigure button. Admins can view all registered devices, delete individual subscriptions, toggle push on/off globally or per notification type, and mass-clear all subscriptions from the dashboard — no database access required. Members can now resync their push subscription in one click from the preferences page, which handles rotated endpoints, expired subscriptions, or post-admin-clear scenarios.
 
-**Deployment Status:** Not yet deployed
+**Deployment Status:** ✅ Deployed
 
 **New Files:**
 - **`templates/admin_v2/push_subscriptions.html`** — Table listing every registered device with user, user agent, subscribed date, last used date, truncated endpoint, and individual delete buttons.
@@ -697,7 +1140,7 @@ Adds admin-v2 tools for managing push subscriptions and a member-facing reconfig
 ### v2.19.0 - PWA & Web Push Notifications (05-27-2026)
 Adds Progressive Web App support and Web Push notifications. Members can add Parliament to their home screen for a native-app feel. Every in-app notification now fires a push to all subscribed devices simultaneously.
 
-**Deployment Status:** Not yet deployed
+**Deployment Status:** ✅ Deployed
 
 **New Files:**
 - **`static/manifest.json`** — PWA manifest. Enables "Add to Home Screen" on iOS/Android. Sets app name, icon (coat of arms), theme color (#1d4ed8), standalone display mode, and start URL (/home/).
@@ -731,7 +1174,7 @@ Adds Progressive Web App support and Web Push notifications. Members can add Par
 ### v2.18.0 - Celery + Async Infrastructure & Live Vote Tallies (05-27-2026)
 Introduces Celery + django-celery-beat as the async task queue and periodic scheduler. Emails no longer block gunicorn threads. Votes open and close on schedule without a page load. Scheduled announcements fire on time via Beat. Vote tallies now update live without a page reload.
 
-**Deployment Status:** Not yet deployed
+**Deployment Status:** ✅ Deployed
 
 **Type:** Infrastructure / Feature
 
@@ -766,7 +1209,7 @@ Introduces Celery + django-celery-beat as the async task queue and periodic sche
 ### v2.17.0 - Pledge Onboarding, Security Hardening & Admin Dashboard Fixes (05-27-2026)
 Adds pledge welcome emails, pledge activity logging, slating dashboard UI refresh, FK auto-discovery for pledge initiation, quarantine session enforcement, and fixes several admin-v2 dashboard bugs.
 
-**Deployment Status:** Not yet deployed
+**Deployment Status:** ✅ Deployed
 
 **Type:** Feature / Improvement / Bug Fix
 
@@ -789,7 +1232,7 @@ Adds pledge welcome emails, pledge activity logging, slating dashboard UI refres
 ### v2.16.9 - Slating Results Bug Fixes (05-26-2026)
 Fixes several bugs across the slating results flow: transition officer crash, dark mode home page banner, individual vote summary display, and election results document not saving to chapter documents.
 
-**Deployment Status:** Not yet deployed
+**Deployment Status:** ✅ Deployed
 
 **Type:** Bug Fix
 
@@ -811,7 +1254,7 @@ Fixes several bugs across the slating results flow: transition officer crash, da
 ### v2.16.8 - Individual Position Voting Overhaul & Per-Position Abstain Toggle (05-26-2026)
 Rewrote individual position voting with a card-per-position UI, added per-position abstain control, and added individual vote breakdowns to the results page.
 
-**Deployment Status:** Not yet deployed
+**Deployment Status:** ✅ Deployed
 
 **Type:** Feature
 
@@ -830,7 +1273,7 @@ Rewrote individual position voting with a card-per-position UI, added per-positi
 ### v2.16.7 - Edit Approved Slate During Voting (05-26-2026)
 Chairs and admins can now replace any candidate on the approved slate during voting.
 
-**Deployment Status:** Not yet deployed
+**Deployment Status:** ✅ Deployed
 
 **Type:** Feature
 
@@ -849,7 +1292,7 @@ Chairs and admins can now replace any candidate on the approved slate during vot
 ### v2.16.6 - Slating Publish/Unpublish & Slate Change Detection (05-26-2026)
 Fixes access control on the results page, adds unpublish capability, and adds a live-change notification when the slate is updated during voting.
 
-**Deployment Status:** Not yet deployed
+**Deployment Status:** ✅ Deployed
 
 **Type:** Feature / Bug Fix
 
@@ -867,7 +1310,7 @@ Fixes access control on the results page, adds unpublish capability, and adds a 
 ### v2.16.5 - Slating Pause UX & Public Slate View (05-26-2026)
 Improves the pause-voting flow and adds a way for voting members to view the approved slate.
 
-**Deployment Status:** Not yet deployed
+**Deployment Status:** ✅ Deployed
 
 **Type:** Feature / UX
 
@@ -887,7 +1330,7 @@ Improves the pause-voting flow and adds a way for voting members to view the app
 ### v2.16.4 - Slating Auto-Created Ad Hoc Committee (05-26-2026)
 Each slating period now automatically creates its own invisible ad hoc committee instead of being linked to a pre-existing one.
 
-**Deployment Status:** Not yet deployed
+**Deployment Status:** ✅ Deployed
 
 **Type:** Feature
 
@@ -906,7 +1349,7 @@ Each slating period now automatically creates its own invisible ad hoc committee
 ### v2.16.3 - Slating Committee Member & Template Fixes (05-26-2026)
 Bug fixes for the committee member card and a template syntax error.
 
-**Deployment Status:** Not yet deployed
+**Deployment Status:** ✅ Deployed
 
 **Type:** Bug Fix
 
@@ -925,7 +1368,7 @@ Bug fixes for the committee member card and a template syntax error.
 ### v2.16.2 - Slating Write-in Markers, Vote Reset & Minor Fixes (05-26-2026)
 Three additions to the slating voting and write-in flows.
 
-**Deployment Status:** Not yet deployed
+**Deployment Status:** ✅ Deployed
 
 **Type:** Feature / Bug Fix
 
@@ -943,7 +1386,7 @@ Three additions to the slating voting and write-in flows.
 ### v2.16.1 - Slating Confidentiality & Voting Controls (05-26-2026)
 Three targeted fixes to the slating module: pause voting, committee access via the admin FK, and full confidentiality enforcement.
 
-**Deployment Status:** Not yet deployed
+**Deployment Status:** ✅ Deployed
 
 **Type:** Feature / Security
 
@@ -960,7 +1403,7 @@ Three targeted fixes to the slating module: pause voting, committee access via t
 ### v2.16.0 - Slating Voting Session & Attendance System (05-26-2026)
 Major additions to the officer slating module: attendance tracking for voting sessions, quorum enforcement, a designated slating manager role, committee member management, and several UX improvements to the period setup page.
 
-**Deployment Status:** Not yet deployed
+**Deployment Status:** ✅ Deployed
 
 **Type:** Feature
 
@@ -985,14 +1428,14 @@ Major additions to the officer slating module: attendance tracking for voting se
 ### v2.15.0 - User Watch Flag + Performance Improvements (05-23-2026)
 New `UserWatchFlag` model allows admins to secretly flag a user for monitoring. When active, any successful login or ≥2 repeated failed login attempts trigger an immediate alert email (HTML, with geo/IP/device/risk details) to the security alert address and create a `LoginAlert` record. Managed from the Admin-v2 Login Security page with add/edit/pause/remove controls. Also replaces the bcrypt-based `has_default_password()` method with a cached `BooleanField`, eliminating the slow popup load on the officer manage users page. Migration required (backfills existing users via one-time bcrypt check).
 
-**Deployment Status:** Not yet deployed
+**Deployment Status:** ✅ Deployed
 
 **Type:** Feature / Security
 
 ### v2.14.1 - Archive Detail Pages (05-12-2026)
 7 standalone detail pages (Officer Duties, Committee Details, Kai Procedures, Slating & Elections, Advisors, Academic Standards, Passed Resolutions) archived and removed from routing. All links to these pages removed from `constitution_bylaws.html`, `roberts_rules.html`, and `manage_resolutions.html`. No migration required.
 
-**Deployment Status:** Not yet deployed
+**Deployment Status:** ✅ Deployed
 
 **Type:** Cleanup
 

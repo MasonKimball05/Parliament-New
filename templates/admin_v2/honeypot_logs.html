@@ -1,13 +1,13 @@
-{% extends "base.html" %}
+{% extends "admin_v2/base.html" %}
 {% load custom_filters %}
 
 {% block title %}Honeypot Logs - Admin v2{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8">
 
     <!-- Header -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">Honeypot Logs</h1>
@@ -51,12 +51,12 @@
 
     <!-- Top IPs -->
     {% if top_ips %}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-6">
         <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Top Attacking IPs</h3>
         <div class="flex flex-wrap gap-2">
             {% for ip in top_ips %}
             <div class="flex items-center gap-1 bg-gray-50 dark:bg-gray-700 rounded-lg px-2 py-1">
-                <a href="?ip={{ ip.ip_address }}" class="text-sm font-mono text-blue-600 dark:text-blue-400 hover:underline">{{ ip.ip_address }}</a>
+                <a href="?ip={{ ip.ip_address }}" class="text-sm font-mono text-primary-600 dark:text-primary-400 hover:underline">{{ ip.ip_address }}</a>
                 <span class="text-xs text-gray-500 dark:text-gray-400">({{ ip.count }})</span>
                 {% if ip.ip_address in blacklisted_ips %}
                 <span class="text-xs text-red-600 dark:text-red-400 font-medium">blocked</span>
@@ -75,7 +75,7 @@
     {% endif %}
 
     <!-- Filter -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-6">
         <form method="get" class="flex flex-wrap gap-3 items-end">
             <div class="flex-1 min-w-[160px]">
                 <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Endpoint</label>
@@ -88,7 +88,7 @@
                     class="w-full px-3 py-2 text-sm border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600">
             </div>
             <div class="flex gap-2">
-                <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm">Filter</button>
+                <button type="submit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm">Filter</button>
                 <a href="{% url 'admin_v2_honeypot_logs' %}" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg text-sm">Clear</a>
             </div>
         </form>
@@ -122,7 +122,7 @@
     </div>
 
     <!-- Logs Table -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">Access Attempts</h2>
             <span class="text-sm text-gray-500 dark:text-gray-400">Click any row to expand details</span>
@@ -152,7 +152,7 @@
                             <code class="text-amber-600 dark:text-amber-400 text-xs">{{ log.endpoint }}</code>
                         </td>
                         <td class="py-2 px-3">
-                            <a href="?ip={{ log.ip_address }}" class="font-mono text-blue-600 dark:text-blue-400 hover:underline text-xs" onclick="event.stopPropagation()">{{ log.ip_address }}</a>
+                            <a href="?ip={{ log.ip_address }}" class="font-mono text-primary-600 dark:text-primary-400 hover:underline text-xs" onclick="event.stopPropagation()">{{ log.ip_address }}</a>
                             {% if log.ip_address in blacklisted_ips %}
                             <span class="ml-1 px-1 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs rounded">blocked</span>
                             {% endif %}
@@ -253,7 +253,7 @@
                                             {% if geo.lat and geo.lon %}
                                             <div class="flex flex-wrap gap-x-4 gap-y-1">
                                                 <span><span class="text-gray-400">Coords:</span> <span class="font-mono text-gray-800 dark:text-gray-200">{{ geo.lat }}, {{ geo.lon }}</span></span>
-                                                <a href="https://www.openstreetmap.org/?mlat={{ geo.lat }}&mlon={{ geo.lon }}&zoom=10" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline">View on map ↗</a>
+                                                <a href="https://www.openstreetmap.org/?mlat={{ geo.lat }}&mlon={{ geo.lon }}&zoom=10" target="_blank" rel="noopener noreferrer" class="text-primary-600 dark:text-primary-400 hover:underline">View on map ↗</a>
                                             </div>
                                             {% endif %}
                                             {% if geo.isp %}<div><span class="text-gray-400">ISP:</span> <span class="font-medium text-gray-800 dark:text-gray-200">{{ geo.isp }}</span></div>{% endif %}
@@ -268,7 +268,7 @@
                                     </div>
                                     {% endwith %}
                                     <div class="flex flex-wrap gap-2 pt-1">
-                                        <a href="?ip={{ log.ip_address }}" class="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50">
+                                        <a href="?ip={{ log.ip_address }}" class="text-xs px-2 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded hover:bg-primary-200 dark:hover:bg-primary-900/50">
                                             All logs from this IP
                                         </a>
                                         <a href="?endpoint={{ log.endpoint }}" class="text-xs px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded hover:bg-amber-200 dark:hover:bg-amber-900/50">

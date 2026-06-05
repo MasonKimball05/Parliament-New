@@ -5,12 +5,12 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-6">
-        <a href="{% url 'chapter_documents' %}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">← Back to Chapter Documents</a>
+        <a href="{% url 'chapter_documents' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">← Back to Chapter Documents</a>
     </div>
 
     <h2 class="text-3xl font-bold mb-6 text-gray-900 dark:text-gray-100">Manage Document</h2>
 
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
         <form method="POST" class="space-y-4">
             {% csrf_token %}
             <input type="hidden" name="action" value="update">
@@ -20,7 +20,7 @@
                     Document Title <span class="text-red-500 dark:text-red-400">*</span>
                 </label>
                 <input type="text" name="title" value="{{ document.title }}" required
-                       class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                       class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
             </div>
 
             <div class="grid md:grid-cols-2 gap-4">
@@ -28,7 +28,7 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Document Type <span class="text-red-500 dark:text-red-400">*</span>
                     </label>
-                    <select name="document_type" required class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <select name="document_type" required class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
                         <option value="general" {% if document.document_type == 'general' %}selected{% endif %}>General Document</option>
                         <option value="minutes" {% if document.document_type == 'minutes' %}selected{% endif %}>Meeting Minutes</option>
                         <option value="agenda" {% if document.document_type == 'agenda' %}selected{% endif %}>Meeting Agenda</option>
@@ -41,7 +41,7 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Source
                     </label>
-                    <select name="committee" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <select name="committee" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
                         <option value="" {% if not document.committee %}selected{% endif %}>Chapter (General)</option>
                         {% for committee in available_committees %}
                             <option value="{{ committee.id }}" {% if document.committee and document.committee.id == committee.id %}selected{% endif %}>
@@ -59,7 +59,7 @@
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Folder
                 </label>
-                <select name="chapter_folder" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <select name="chapter_folder" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
                     <option value="">-- No Folder --</option>
                     {% for folder in folders %}
                         <option value="{{ folder.id }}" {% if document.chapter_folder and document.chapter_folder.id == folder.id %}selected{% endif %}>
@@ -76,14 +76,14 @@
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Description
                 </label>
-                <textarea name="description" rows="3" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{{ document.description }}</textarea>
+                <textarea name="description" rows="3" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500">{{ document.description }}</textarea>
             </div>
 
             <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
                 <label class="flex items-center space-x-2">
                     <input type="checkbox" name="published_to_chapter" value="true"
                            {% if document.published_to_chapter %}checked{% endif %}
-                           class="rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-blue-600 focus:ring-blue-500">
+                           class="rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-primary-600 focus:ring-primary-500">
                     <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Published to Chapter (visible to all members)
                     </span>
@@ -98,12 +98,12 @@
                 <div class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                     <p><strong class="text-gray-700 dark:text-gray-300">Uploaded by:</strong> {{ document.uploaded_by.name }}</p>
                     <p><strong class="text-gray-700 dark:text-gray-300">Uploaded on:</strong> {{ document.uploaded_at|date:"F d, Y \a\t g:i A" }}</p>
-                    <p><strong class="text-gray-700 dark:text-gray-300">File:</strong> <a href="{{ document.document.url }}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">View Document</a></p>
+                    <p><strong class="text-gray-700 dark:text-gray-300">File:</strong> <a href="{{ document.document.url }}" target="_blank" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">View Document</a></p>
                 </div>
             </div>
 
             <div class="flex gap-3 pt-4">
-                <button type="submit" class="bg-blue-500 dark:bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+                <button type="submit" class="bg-primary-600 text-white px-6 py-2 rounded hover:bg-primary-700 transition-colors">
                     Save Changes
                 </button>
                 <a href="{% url 'chapter_documents' %}"

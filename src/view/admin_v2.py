@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
 from django.db import transaction
 from datetime import datetime, timedelta
 from src.models_feature_flags import FeatureFlag, PageToggle, SiteSetting
@@ -17,7 +17,7 @@ from src.models import (
     Announcement, ActivityLog, LoginHistory, LoginAlert,
     IPWhitelist, IPBlacklist, AnnouncementEmailLog, AnnouncementEmailRecipient,
     QuarantinedAccount, HoneypotAccess, SecurityNotificationLog, UserWatchFlag,
-    PushSubscription,
+    PushSubscription, PageVisit,
 )
 import os
 import secrets
@@ -34,7 +34,11 @@ from src.notifications import send_announcement_notification
 from src.notification_service import notify_all_active_members
 
 
-ALLOWED_USER_ID = '73'  # Your user ID
+_raw_allowed_ids = os.environ.get('ADMIN_V2_USER_IDS', os.environ.get('ADMIN_V2_USER_ID', ''))
+ALLOWED_USER_IDS = {uid.strip() for uid in _raw_allowed_ids.split(',') if uid.strip()}
+
+ADMIN_V2_MAX_ATTEMPTS = 5
+ADMIN_V2_LOCKOUT_SECONDS = 15 * 60  # 15 minutes
 
 
 def generate_random_password(length=16):
@@ -53,7 +57,7 @@ def admin_v2_login(request):
         return redirect('login')
 
     # Check if user is authorized
-    if not hasattr(request.user, 'user_id') or request.user.user_id != ALLOWED_USER_ID:
+    if not hasattr(request.user, 'user_id') or request.user.user_id not in ALLOWED_USER_IDS:
         messages.error(request, 'Unauthorized access')
         return redirect('home')
 
@@ -72,11 +76,18 @@ def admin_v2_login(request):
                 pass  # Invalid time, continue to login form
 
     if request.method == 'POST':
+        _rate_key = f'admin_v2_attempts_{request.user.pk}'
+        _attempts = cache.get(_rate_key, 0)
+        if _attempts >= ADMIN_V2_MAX_ATTEMPTS:
+            messages.error(request, 'Too many failed attempts. Try again in 15 minutes.')
+            return render(request, 'admin_v2/login.html')
+
         user_password = request.POST.get('user_password', '')
         secret_key = request.POST.get('secret_key', '')
 
         # Verify user password
         if not request.user.check_password(user_password):
+            cache.set(_rate_key, _attempts + 1, ADMIN_V2_LOCKOUT_SECONDS)
             messages.error(request, 'Invalid user password')
             return render(request, 'admin_v2/login.html')
 
@@ -87,6 +98,7 @@ def admin_v2_login(request):
             return render(request, 'admin_v2/login.html')
 
         if secret_key != env_secret:
+            cache.set(_rate_key, _attempts + 1, ADMIN_V2_LOCKOUT_SECONDS)
             messages.error(request, 'Invalid secret key')
             ActivityLog.log_activity(
                 action_type='security_violation',
@@ -97,6 +109,7 @@ def admin_v2_login(request):
             return render(request, 'admin_v2/login.html')
 
         # Both passwords correct - grant access
+        cache.delete(_rate_key)
         request.session['admin_v2_authenticated'] = True
         request.session['admin_v2_auth_time'] = timezone.now().isoformat()
         # Explicitly mark session as modified to ensure it's saved
@@ -129,7 +142,7 @@ def require_admin_v2_auth(view_func):
             return redirect('login')
 
         # Check if user is authorized
-        if not hasattr(request.user, 'user_id') or request.user.user_id != ALLOWED_USER_ID:
+        if not hasattr(request.user, 'user_id') or request.user.user_id not in ALLOWED_USER_IDS:
             messages.error(request, 'Unauthorized access')
             return redirect('home')
 
@@ -273,27 +286,13 @@ def admin_v2_dashboard(request):
     page_toggles = PageToggle.objects.all().order_by('display_name')
 
     # Ensure chat settings exist
+    # Note: chat_active_poll_interval and chat_inactive_poll_interval were removed in v3.0.0
+    # — messages are now pushed via WebSocket (Django Channels), not polled.
     chat_settings_defaults = [
-        {
-            'key': 'chat_active_poll_interval',
-            'display_name': 'Chat Active Poll Interval',
-            'description': 'How often (in milliseconds) to poll for new messages when the page is active/visible',
-            'category': 'chat',
-            'setting_type': 'integer',
-            'default_value': '3000',
-        },
-        {
-            'key': 'chat_inactive_poll_interval',
-            'display_name': 'Chat Inactive Poll Interval',
-            'description': 'How often (in milliseconds) to poll for new messages when the page is in the background',
-            'category': 'chat',
-            'setting_type': 'integer',
-            'default_value': '20000',
-        },
         {
             'key': 'chat_active_users_poll_interval',
             'display_name': 'Active Users Poll Interval',
-            'description': 'How often (in milliseconds) to update the active users list when page is active',
+            'description': 'How often (in milliseconds) to refresh the active users list. Messages are real-time via WebSocket.',
             'category': 'chat',
             'setting_type': 'integer',
             'default_value': '5000',
@@ -312,8 +311,11 @@ def admin_v2_dashboard(request):
             }
         )
 
-    # Get chat settings
-    chat_settings = SiteSetting.objects.filter(category='chat').order_by('display_name')
+    # Get chat settings (excludes legacy polling keys if they still exist in DB)
+    chat_settings = SiteSetting.objects.filter(
+        category='chat',
+        key='chat_active_users_poll_interval',
+    )
 
     # Seed push notification feature flags
     push_flag_defaults = [
@@ -2695,4 +2697,95 @@ def security_notifications_log(request):
         'severity_filter': severity_filter,
         'event_filter': event_filter,
         'event_types': event_types,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Page Visit Tracking
+# ---------------------------------------------------------------------------
+
+@require_POST
+def track_page_visit(request):
+    """
+    Lightweight POST endpoint called via sendBeacon after page load.
+    Uses a single-query PostgreSQL upsert to atomically increment the counter.
+    Admin-v2 paths are excluded so Mason's own browsing doesn't skew the data.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    path = request.POST.get('path', '').strip()
+    if not path or len(path) > 255:
+        return JsonResponse({'error': 'Bad request'}, status=400)
+
+    # Skip admin-v2 paths — no point tracking the admin's own usage
+    if path.startswith('/admin-v2/') or path.startswith('/admin_v2/'):
+        return JsonResponse({'ok': True}, status=200)
+
+    # Single-query atomic upsert (PostgreSQL ON CONFLICT) — avoids the
+    # get_or_create+update race condition and halves the round-trips.
+    from django.db import connection
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            INSERT INTO src_pagevisit (user_id, path, count)
+            VALUES (%s, %s, 1)
+            ON CONFLICT (user_id, path) DO UPDATE
+                SET count = src_pagevisit.count + 1
+            """,
+            [request.user.pk, path],
+        )
+
+    return JsonResponse({'ok': True}, status=200)
+
+
+@require_admin_v2_auth
+def page_visits_dashboard(request):
+    """
+    Admin v2 view: aggregated page visit stats, sortable by total visits or user count.
+    Supports drilling into a specific path to see per-user breakdown.
+    """
+    sort = request.GET.get('sort', 'total')
+    drill_path = request.GET.get('path', '').strip()
+    user_filter = request.GET.get('user', '').strip()
+
+    if drill_path:
+        # Per-user breakdown for a specific path
+        rows = (
+            PageVisit.objects
+            .filter(path=drill_path)
+            .select_related('user')
+            .order_by('-count')
+        )
+        if user_filter:
+            rows = rows.filter(
+                Q(user__first_name__icontains=user_filter) |
+                Q(user__last_name__icontains=user_filter)
+            )
+        return render(request, 'admin_v2/page_visits.html', {
+            'drill_path': drill_path,
+            'rows': rows,
+            'sort': sort,
+            'user_filter': user_filter,
+        })
+
+    # Aggregate by path
+    qs = (
+        PageVisit.objects
+        .values('path')
+        .annotate(
+            total=Sum('count'),
+            unique_users=Count('user', distinct=True),
+        )
+    )
+    if sort == 'users':
+        qs = qs.order_by('-unique_users', '-total')
+    else:
+        qs = qs.order_by('-total', '-unique_users')
+
+    return render(request, 'admin_v2/page_visits.html', {
+        'pages': qs,
+        'sort': sort,
+        'drill_path': None,
+        'user_filter': user_filter,
     })

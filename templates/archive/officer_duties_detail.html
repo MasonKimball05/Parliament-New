@@ -5,7 +5,7 @@
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800">
     <!-- Header -->
-    <div class="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 text-white py-8 shadow-lg">
+    <div class="bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-700 dark:to-primary-800 text-white py-8 shadow-lg">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center mb-4">
                 <a href="{% url 'constitution_bylaws' %}" class="text-blue-100 dark:text-blue-200 hover:text-white mr-4">
@@ -23,12 +23,12 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         <!-- Overview -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 mb-8">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 mb-8">
             <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">About the Executive Board</h2>
             <p class="text-gray-700 dark:text-gray-300 mb-4">The Executive Board consists of 9 elected officers who lead the Alpha Mu chapter. Each officer has specific responsibilities outlined in the Constitution and Bylaws.</p>
 
-            <div class="bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500 dark:border-blue-400 p-4 mb-4">
-                <p class="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-2">📋 The 9 Executive Board Officers</p>
+            <div class="bg-primary-50 dark:bg-primary-900/30 border-l-4 border-primary-500 dark:border-primary-400 p-4 mb-4">
+                <p class="text-sm font-semibold text-primary-900 dark:text-primary-200 mb-2">📋 The 9 Executive Board Officers</p>
                 <ul class="list-disc pl-6 space-y-1 text-sm text-gray-700 dark:text-gray-300">
                     <li>President</li>
                     <li>Executive Vice President & IFC Delegate</li>
@@ -50,7 +50,7 @@
                     <li>Attend all required campus and General Fraternity events/trainings</li>
                     <li>Attend regularly scheduled Chapter and Executive Board meetings</li>
                     <li>Prepare and give officer reports at each meeting</li>
-                    <li>Understand and abide by <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Code of Beta</a>, Risk Management Policy, Chapter Constitution & Bylaws, and IFC policies</li>
+                    <li>Understand and abide by <a href="/media/legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">Code of Beta</a>, Risk Management Policy, Chapter Constitution & Bylaws, and IFC policies</li>
                     <li>Serve as role model within chapter and campus community</li>
                 </ul>
             </div>
@@ -72,16 +72,16 @@
 
             <div class="bg-green-50 dark:bg-green-900/30 border-l-4 border-green-500 dark:border-green-400 p-4 mt-6">
                 <p class="text-sm font-semibold text-green-900 dark:text-green-200 mb-2">🗳️ Officer Elections</p>
-                <p class="text-sm text-gray-700 dark:text-gray-300">For information on officer elections, slating process, and eligibility requirements, see our <a href="{% url 'slating_elections_detail' %}" class="text-blue-600 dark:text-blue-400 hover:underline font-semibold">Officer Slating & Elections Guide</a>.</p>
+                <p class="text-sm text-gray-700 dark:text-gray-300">For information on officer elections, slating process, and eligibility requirements, see our <a href="{% url 'slating_elections_detail' %}" class="text-primary-600 dark:text-primary-400 hover:underline font-semibold">Officer Slating & Elections Guide</a>.</p>
             </div>
         </div>
 
         <!-- The 9 Executive Board Officers -->
 
         <!-- President -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 mb-6" id="president">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 mb-6" id="president">
             <div class="flex items-center mb-4">
-                <div class="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mr-4">P</div>
+                <div class="w-16 h-16 bg-primary-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mr-4">P</div>
                 <div>
                     <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100">President</h2>
                     <p class="text-gray-600 dark:text-gray-400">Chief Executive Officer of the Chapter</p>
@@ -119,7 +119,7 @@
 
                     <div class="bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-500 dark:border-yellow-400 p-4 mt-4">
                         <p class="text-sm font-semibold text-yellow-900 dark:text-yellow-200 mb-1">🔗 Related Procedures</p>
-                        <p class="text-sm text-gray-700 dark:text-gray-300">See <a href="{% url 'roberts_rules' %}#chair-duties" class="text-blue-600 dark:text-blue-400 hover:underline">Robert's Rules: Chair's Duties</a></p>
+                        <p class="text-sm text-gray-700 dark:text-gray-300">See <a href="{% url 'roberts_rules' %}#chair-duties" class="text-primary-600 dark:text-primary-400 hover:underline">Robert's Rules: Chair's Duties</a></p>
                     </div>
                 </div>
             </div>
@@ -130,9 +130,9 @@
         </div>
 
         <!-- Executive Vice President & IFC Delegate -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 mb-6" id="evp">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 mb-6" id="evp">
             <div class="flex items-center mb-4">
-                <div class="w-16 h-16 bg-indigo-600 rounded-full flex items-center justify-center text-white text-lg font-bold mr-4">EVP</div>
+                <div class="w-16 h-16 bg-primary-600 rounded-full flex items-center justify-center text-white text-lg font-bold mr-4">EVP</div>
                 <div>
                     <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Executive Vice President & IFC Delegate</h2>
                     <p class="text-gray-600 dark:text-gray-400">Parliamentarian & Second-in-Command</p>
@@ -147,7 +147,7 @@
                     <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700 dark:text-gray-300">
                         <li>Serve as chapter parliamentarian</li>
                         <li>Assume President's duties in their absence</li>
-                        <li>Enforce <a href="{% url 'roberts_rules' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Robert's Rules of Order</a></li>
+                        <li>Enforce <a href="{% url 'roberts_rules' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Robert's Rules of Order</a></li>
                         <li>Conduct Robert's Rules training (minimum once per term)</li>
                         <li>Oversee chapter bylaws and constitution</li>
                         <li>Manage amendment process</li>
@@ -169,7 +169,7 @@
 
                     <div class="bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-500 dark:border-yellow-400 p-4 mt-4">
                         <p class="text-sm font-semibold text-yellow-900 dark:text-yellow-200 mb-1">🔗 Related Procedures</p>
-                        <p class="text-sm text-gray-700 dark:text-gray-300">See <a href="{% url 'roberts_rules' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Robert's Rules of Order</a></p>
+                        <p class="text-sm text-gray-700 dark:text-gray-300">See <a href="{% url 'roberts_rules' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Robert's Rules of Order</a></p>
                     </div>
                 </div>
             </div>
@@ -180,7 +180,7 @@
         </div>
 
         <!-- Vice President of Administration -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 mb-6" id="vpa">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 mb-6" id="vpa">
             <div class="flex items-center mb-4">
                 <div class="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center text-white text-lg font-bold mr-4">VPA</div>
                 <div>
@@ -192,7 +192,7 @@
             <p class="text-sm text-gray-700 dark:text-gray-300 mb-4 italic">Detailed duties and responsibilities are specified in the Constitution and Bylaws.</p>
 
             <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700 dark:text-gray-300 mb-4">
-                <li>Record and maintain meeting minutes per <a href="{% url 'roberts_rules' %}#minutes-records" class="text-blue-600 dark:text-blue-400 hover:underline">Robert's Rules standards</a></li>
+                <li>Record and maintain meeting minutes per <a href="{% url 'roberts_rules' %}#minutes-records" class="text-primary-600 dark:text-primary-400 hover:underline">Robert's Rules standards</a></li>
                 <li>Manage chapter correspondence</li>
                 <li>Maintain attendance records</li>
                 <li>Distribute meeting agendas and minutes</li>
@@ -204,12 +204,12 @@
 
             <div class="bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-500 dark:border-yellow-400 p-4 mt-4">
                 <p class="text-sm font-semibold text-yellow-900 dark:text-yellow-200 mb-1">🔗 Related Procedures</p>
-                <p class="text-sm text-gray-700 dark:text-gray-300">See <a href="{% url 'roberts_rules' %}#minutes-records" class="text-blue-600 dark:text-blue-400 hover:underline">Minutes & Record-Keeping</a></p>
+                <p class="text-sm text-gray-700 dark:text-gray-300">See <a href="{% url 'roberts_rules' %}#minutes-records" class="text-primary-600 dark:text-primary-400 hover:underline">Minutes & Record-Keeping</a></p>
             </div>
         </div>
 
         <!-- Vice President of Brotherhood -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 mb-6" id="vpb">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 mb-6" id="vpb">
             <div class="flex items-center mb-4">
                 <div class="w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center text-white text-lg font-bold mr-4">VPB</div>
                 <div>
@@ -224,7 +224,7 @@
                 <div>
                     <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">Core Responsibilities</h3>
                     <ul class="list-disc pl-6 space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                        <li>Chair the <a href="{% url 'kai_procedures_detail' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Kai Committee</a></li>
+                        <li>Chair the <a href="{% url 'kai_procedures_detail' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Kai Committee</a></li>
                         <li>Plan and execute brotherhood events</li>
                         <li>Foster positive chapter culture</li>
                         <li>Manage member conduct issues</li>
@@ -249,7 +249,7 @@
 
                     <div class="bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-500 dark:border-yellow-400 p-4 mt-4">
                         <p class="text-sm font-semibold text-yellow-900 dark:text-yellow-200 mb-1">🔗 Related Procedures</p>
-                        <p class="text-sm text-gray-700 dark:text-gray-300">See <a href="{% url 'kai_procedures_detail' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Kai Committee Procedures</a></p>
+                        <p class="text-sm text-gray-700 dark:text-gray-300">See <a href="{% url 'kai_procedures_detail' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Kai Committee Procedures</a></p>
                     </div>
                 </div>
             </div>
@@ -263,7 +263,7 @@
         <div class="grid md:grid-cols-2 gap-6">
 
             <!-- Vice President of Finance -->
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <div class="flex items-center mb-3">
                     <div class="w-12 h-12 bg-yellow-600 rounded-full flex items-center justify-center text-white text-lg font-bold mr-3">VPF</div>
                     <div>
@@ -288,7 +288,7 @@
             </div>
 
             <!-- Vice President of Risk Management -->
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <div class="flex items-center mb-3">
                     <div class="w-12 h-12 bg-red-700 rounded-full flex items-center justify-center text-white text-xs font-bold mr-3">VPRM</div>
                     <div>
@@ -306,13 +306,13 @@
                     <li>Review all chapter events for risk</li>
                     <li>Ensure chapter follows all safety protocols</li>
                 </ul>
-                <div class="bg-blue-50 dark:bg-blue-900/30 p-3 rounded text-xs text-gray-700 dark:text-gray-300">
+                <div class="bg-primary-50 dark:bg-primary-900/30 p-3 rounded text-xs text-gray-700 dark:text-gray-300">
                     <strong>Works closely with:</strong> President, Advisors, Risk Management Committee
                 </div>
             </div>
 
             <!-- Vice President of Recruitment -->
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <div class="flex items-center mb-3">
                     <div class="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center text-white text-lg font-bold mr-3">VPR</div>
                     <div>
@@ -331,13 +331,13 @@
                     <li>Coordinate with Alumni for recruitment support</li>
                     <li>Lead Recruitment Committee (5-9 members)</li>
                 </ul>
-                <div class="bg-blue-50 dark:bg-blue-900/30 p-3 rounded text-xs text-gray-700 dark:text-gray-300">
+                <div class="bg-primary-50 dark:bg-primary-900/30 p-3 rounded text-xs text-gray-700 dark:text-gray-300">
                     <strong>Works closely with:</strong> Rush Chair, President, Recruitment Advisor
                 </div>
             </div>
 
             <!-- Vice President of Education -->
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <div class="flex items-center mb-3">
                     <div class="w-12 h-12 bg-orange-600 rounded-full flex items-center justify-center text-white text-lg font-bold mr-3">VPE</div>
                     <div>
@@ -355,13 +355,13 @@
                     <li>Track new member progress</li>
                     <li>Lead Education Committee</li>
                 </ul>
-                <div class="bg-blue-50 dark:bg-blue-900/30 p-3 rounded text-xs text-gray-700 dark:text-gray-300">
+                <div class="bg-primary-50 dark:bg-primary-900/30 p-3 rounded text-xs text-gray-700 dark:text-gray-300">
                     <strong>Works closely with:</strong> Vice President of Brotherhood, Education Advisor
                 </div>
             </div>
 
             <!-- Vice President of Programming -->
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <div class="flex items-center mb-3">
                     <div class="w-12 h-12 bg-teal-600 rounded-full flex items-center justify-center text-white text-lg font-bold mr-3">VPP</div>
                     <div>
@@ -379,7 +379,7 @@
                     <li>Lead Programming Committee</li>
                     <li>Coordinate with campus organizations</li>
                 </ul>
-                <div class="bg-blue-50 dark:bg-blue-900/30 p-3 rounded text-xs text-gray-700 dark:text-gray-300">
+                <div class="bg-primary-50 dark:bg-primary-900/30 p-3 rounded text-xs text-gray-700 dark:text-gray-300">
                     <strong>Works closely with:</strong> President, Social Chair, Programming Committee
                 </div>
             </div>
@@ -387,17 +387,17 @@
         </div>
 
         <!-- Back Navigation -->
-        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-700 dark:to-indigo-700 text-white rounded-lg shadow-lg p-8 mt-8">
+        <div class="bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-700 dark:to-primary-800 text-white rounded-xl shadow-sm p-8 mt-8">
             <h2 class="text-2xl font-bold mb-4">Additional Information</h2>
             <p class="mb-4">For complete officer requirements, GPA standards, and election procedures, consult the Constitution & Bylaws.</p>
             <div class="flex gap-4 flex-wrap">
-                <a href="{% url 'slating_elections_detail' %}" class="inline-block bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition">
+                <a href="{% url 'slating_elections_detail' %}" class="inline-block bg-white text-primary-600 px-6 py-3 rounded-lg font-semibold hover:bg-primary-50 transition">
                     Officer Elections Process →
                 </a>
-                <a href="{% url 'constitution_bylaws' %}" class="inline-block bg-blue-700 dark:bg-blue-800 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-800 dark:hover:bg-blue-900 transition">
+                <a href="{% url 'constitution_bylaws' %}" class="inline-block bg-primary-700 dark:bg-primary-800 text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-800 dark:hover:bg-primary-900 transition">
                     View Constitution & Bylaws →
                 </a>
-                <a href="{% url 'committee_details' %}" class="inline-block bg-blue-700 dark:bg-blue-800 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-800 dark:hover:bg-blue-900 transition">
+                <a href="{% url 'committee_details' %}" class="inline-block bg-primary-700 dark:bg-primary-800 text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-800 dark:hover:bg-primary-900 transition">
                     View Committee Details →
                 </a>
             </div>

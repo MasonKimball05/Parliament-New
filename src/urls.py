@@ -1,4 +1,5 @@
 from django.urls import path
+from django.views.generic import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
@@ -41,7 +42,7 @@ from src.view.committee.committee_index import (
     committee_index, create_committee, manage_committees, committee_detail_api, delete_committee
 )
 from src.view.committee.committee_home import committee_home
-from src.view.committee.committee_detail import committee_detail
+# committee_detail view archived — URL now redirects to committee_home
 from src.view.committee.documents import committee_documents
 from src.view.committee.vote import committee_vote, create_committee_runoff
 from src.view.committee.vote_result import committee_vote_result
@@ -64,7 +65,8 @@ from src.view.committee.committee_minutes_editor import (
     save_committee_minutes_data, save_committee_minutes_attendance,
     publish_committee_minutes, download_committee_minutes_pdf, delete_committee_minutes
 )
-from src.view.committee.manage_chat_permissions import manage_chat_permissions, add_guest_permission, update_guest_permission, remove_guest_permission
+from src.view.committee.manage_chat_permissions import manage_chat_permissions, add_guest_permission, bulk_add_guest_permissions, update_guest_permission, remove_guest_permission, bulk_remove_guest_permissions
+from src.view.committee.manage_kai_permissions import manage_kai_permissions, update_kai_member_permission, reset_kai_permissions
 from src.view.chat import (
     chat_index, channel_chat, get_channel_messages, send_channel_message,
     edit_channel_message, delete_channel_message, get_channel_active_users,
@@ -120,6 +122,7 @@ from src.view.admin_v2 import (
     delete_honeypot_log, clear_honeypot_logs, blacklist_all_honeypot_ips,
     manage_lockouts, clear_push_subscriptions,
     push_subscriptions_list, delete_push_subscription,
+    track_page_visit, page_visits_dashboard,
 )
 from src.view.admin_v2 import manage_events as admin_v2_manage_events, delete_event as admin_v2_delete_event
 from src.view.notification_admin import (
@@ -143,6 +146,11 @@ from src.view.two_factor import (
 )
 from src.view.two_factor_recovery import (
     two_factor_recovery_request, two_factor_recovery_confirm,
+)
+from src.view.webauthn import (
+    passkey_register_begin, passkey_register_complete,
+    passkey_authenticate_begin, passkey_authenticate_complete,
+    passkey_delete,
 )
 from src.view.admin_two_factor import (
     two_factor_dashboard as admin_v2_two_factor_dashboard,
@@ -173,6 +181,15 @@ from src.view.submit_new_version import submit_new_version
 from src.view.login_as_view import login_as_view, login_as_user, return_to_original_user
 from src.view.roberts_rules import roberts_rules
 from src.view.constitution_bylaws import constitution_bylaws
+from src.view.officer.cnb import (
+    cnb_viewer,
+    manage_document, edit_section, toggle_section_active, toggle_article_active,
+    resolution_detail, create_resolution as cnb_create_resolution,
+    edit_resolution as cnb_edit_resolution,
+    add_amendment, remove_amendment, set_resolution_status, section_context_api,
+    add_collaborator, remove_collaborator, resolution_print,
+    add_section, add_article, add_partial_suspension, remove_partial_suspension,
+)
 from src.view.view_document import (
     view_legislation_document, view_chapter_document,
     view_committee_document, view_passed_legislation_document,
@@ -239,7 +256,7 @@ urlpatterns = [
     path('login/', login_view, name='login'),
     path('logout/', logout_view, name='logout'),
     path('roberts-rules/', roberts_rules, name='roberts_rules'),
-    path('constitution-bylaws/', constitution_bylaws, name='constitution_bylaws'),
+    path('constitution-bylaws/', cnb_viewer, name='constitution_bylaws'),
     path('reference-document/<str:doc_slug>/', view_reference_document, name='view_reference_document'),
 
     # Password Reset URLs
@@ -445,6 +462,29 @@ urlpatterns = [
     path('officers/resolutions/sections/<int:impact_id>/edit/', edit_section_impact, name='edit_section_impact'),
     path('officers/resolutions/sections/<int:impact_id>/delete/', delete_section_impact, name='delete_section_impact'),
 
+    # Constitution & Bylaws Builder
+    # /resolutions/ and /cnb/ both redirect to the unified hub at /constitution-bylaws/
+    path('resolutions/', RedirectView.as_view(url='/constitution-bylaws/?tab=resolutions', permanent=False), name='cnb_resolution_list'),
+    path('resolutions/<int:resolution_id>/', resolution_detail, name='cnb_resolution_detail'),
+    path('cnb/', RedirectView.as_view(url='/constitution-bylaws/?tab=manage', permanent=False), name='cnb_dashboard'),
+    path('cnb/document/<str:doc_type>/', manage_document, name='cnb_manage_document'),
+    path('cnb/section/<int:section_id>/edit/', edit_section, name='cnb_edit_section'),
+    path('cnb/section/<int:section_id>/toggle/', toggle_section_active, name='cnb_toggle_section'),
+    path('cnb/article/<int:article_id>/toggle/', toggle_article_active, name='cnb_toggle_article'),
+    path('cnb/resolutions/new/', cnb_create_resolution, name='cnb_create_resolution'),
+    path('cnb/resolutions/<int:resolution_id>/edit/', cnb_edit_resolution, name='cnb_edit_resolution'),
+    path('cnb/resolutions/<int:resolution_id>/amendment/add/', add_amendment, name='cnb_add_amendment'),
+    path('cnb/resolutions/<int:resolution_id>/amendment/<int:amendment_id>/remove/', remove_amendment, name='cnb_remove_amendment'),
+    path('cnb/resolutions/<int:resolution_id>/status/', set_resolution_status, name='cnb_set_status'),
+    path('cnb/resolutions/<int:resolution_id>/collaborators/add/', add_collaborator, name='cnb_add_collaborator'),
+    path('cnb/resolutions/<int:resolution_id>/collaborators/<int:collaborator_id>/remove/', remove_collaborator, name='cnb_remove_collaborator'),
+    path('cnb/resolutions/<int:resolution_id>/print/', resolution_print, name='cnb_resolution_print'),
+    path('cnb/api/section/<int:section_id>/', section_context_api, name='cnb_section_api'),
+    path('cnb/article/<int:article_id>/section/add/', add_section, name='cnb_add_section'),
+    path('cnb/document/<str:doc_type>/article/add/', add_article, name='cnb_add_article'),
+    path('cnb/section/<int:section_id>/partial/add/', add_partial_suspension, name='cnb_add_partial_suspension'),
+    path('cnb/section/<int:section_id>/partial/<int:idx>/remove/', remove_partial_suspension, name='cnb_remove_partial_suspension'),
+
     # Legislation / Voting Pages
     path('vote/', vote_view, name='vote'),
     path('vote/tally/', vote_tally_json, name='vote_tally'),
@@ -480,7 +520,7 @@ urlpatterns = [
     path('committees/manage/', manage_committees, name='manage_committees'),
     path('committees/<int:committee_id>/', committee_detail_api, name='committee_detail_api'),
     path('committees/<int:committee_id>/delete/', delete_committee, name='delete_committee'),
-    path('committee/<str:code>/details/', committee_detail, name='committee_detail'),
+    path('committee/<str:code>/details/', RedirectView.as_view(pattern_name='committee_home', permanent=True), name='committee_detail'),
     path('committee/<str:code>/', committee_home, name='committee_home'),
     path('committee/<str:code>/documents/', committee_documents, name='committee_documents'),
     path('committee/<str:code>/vote/', committee_vote, name='vote'),  # Keep as 'vote'
@@ -577,8 +617,15 @@ urlpatterns = [
     path('api/committee/<str:code>/chat/delete/<int:message_id>/', delete_chat_message, name='delete_chat_message'),
     path('api/committee/<str:code>/chat/active/', get_active_users, name='get_active_users'),
     path('api/committee/<str:code>/chat/permissions/add/', add_guest_permission, name='add_guest_permission'),
+    path('api/committee/<str:code>/chat/permissions/bulk-add/', bulk_add_guest_permissions, name='bulk_add_guest_permissions'),
+    path('api/committee/<str:code>/chat/permissions/bulk-remove/', bulk_remove_guest_permissions, name='bulk_remove_guest_permissions'),
     path('api/committee/<str:code>/chat/permissions/<str:user_id>/update/', update_guest_permission, name='update_guest_permission'),
     path('api/committee/<str:code>/chat/permissions/<str:user_id>/remove/', remove_guest_permission, name='remove_guest_permission'),
+
+    # Kai member permissions
+    path('committee/<str:code>/kai-permissions/', manage_kai_permissions, name='manage_kai_permissions'),
+    path('api/committee/<str:code>/kai-permissions/<str:user_id>/update/', update_kai_member_permission, name='update_kai_member_permission'),
+    path('api/committee/<str:code>/kai-permissions/reset/', reset_kai_permissions, name='reset_kai_permissions'),
 
     # New Channel-based Chat URLs
     path('chats/', chat_index, name='chat_index'),
@@ -630,6 +677,13 @@ urlpatterns = [
     path('accounts/two-factor/recovery/', two_factor_recovery_request, name='two_factor_recovery_request'),
     path('accounts/two-factor/recovery-confirm/<str:uidb64>/<str:token>/', two_factor_recovery_confirm, name='two_factor_recovery_confirm'),
 
+    # Passkeys (WebAuthn)
+    path('accounts/passkeys/register/begin/', passkey_register_begin, name='passkey_register_begin'),
+    path('accounts/passkeys/register/complete/', passkey_register_complete, name='passkey_register_complete'),
+    path('accounts/passkeys/authenticate/begin/', passkey_authenticate_begin, name='passkey_authenticate_begin'),
+    path('accounts/passkeys/authenticate/complete/', passkey_authenticate_complete, name='passkey_authenticate_complete'),
+    path('accounts/passkeys/<int:pk>/delete/', passkey_delete, name='passkey_delete'),
+
     # Session Management
     path('account/sessions/', session_list, name='session_list'),
     path('account/sessions/<str:session_key>/revoke/', revoke_session, name='revoke_session'),
@@ -663,6 +717,8 @@ urlpatterns = [
     path('csp-report/', csp_report, name='csp_report'),
 
     path('admin-v2/logout/', admin_v2_logout, name='admin_v2_logout'),
+    path('admin-v2/page-visits/', page_visits_dashboard, name='admin_v2_page_visits'),
+    path('internal/track-visit/', track_page_visit, name='track_page_visit'),
 
     # Admin v2 - Management Pages
     path('admin-v2/legislation/', manage_legislation, name='admin_v2_manage_legislation'),

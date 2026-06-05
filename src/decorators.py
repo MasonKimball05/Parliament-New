@@ -104,6 +104,19 @@ def kai_chair_required(view_func):
     return wrapper
 
 
+def cnb_required(view_func):
+    """Restrict access to admins and users with the CNB (Constitution & Bylaws Chair) role."""
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('login')
+        if not request.user.has_cnb_permission:
+            messages.error(request, 'Constitution & Bylaws Chair access required.')
+            return redirect('home')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
 def bug_admin_required(view_func):
     """Restrict access to the designated bug-tracker admin (user_id 73)."""
     @wraps(view_func)

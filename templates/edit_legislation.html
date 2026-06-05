@@ -7,8 +7,8 @@
     <div class="max-w-3xl mx-auto">
         {% include 'includes/breadcrumbs.html' with back_url='/vote/' back_label='Vote' current='Edit Legislation' %}
 
-        <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
-            <div class="bg-blue-50 dark:bg-blue-900/20 px-6 py-4 border-b border-blue-100 dark:border-blue-800">
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden">
+            <div class="bg-primary-50 dark:bg-primary-900/20 px-6 py-4 border-b border-primary-100 dark:border-primary-800">
                 <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Edit Legislation</h2>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ legislation.title }}</p>
             </div>
@@ -19,20 +19,20 @@
                 <div>
                     <label for="title" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Title</label>
                     <input type="text" name="title" id="title" value="{{ form.title.value|default:legislation.title }}"
-                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
                 </div>
 
                 <div>
                     <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</label>
                     <textarea name="description" id="description" rows="4"
-                              class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>{{ form.description.value|default:legislation.description }}</textarea>
+                              class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>{{ form.description.value|default:legislation.description }}</textarea>
                 </div>
 
                 {% if legislation.status == 'tabled' or legislation.status == 'pending' %}
                 <div>
                     <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
                     <select name="status" id="status"
-                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         <option value="pending" {% if legislation.status == 'pending' %}selected{% endif %}>Pending</option>
                         <option value="active" {% if legislation.status == 'active' %}selected{% endif %}>Active (Reintroduce to Voting)</option>
                         <option value="tabled" {% if legislation.status == 'tabled' %}selected{% endif %}>Tabled</option>
@@ -52,7 +52,7 @@
                         <label for="available_at" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Document Available At</label>
                         <input type="datetime-local" name="available_at" id="available_at"
                                value="{{ legislation.available_at|date:'Y-m-d\TH:i' }}"
-                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">When the document becomes visible</p>
                     </div>
 
@@ -60,7 +60,7 @@
                         <label for="voting_starts_at" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Voting Starts At <span class="text-gray-400">(optional)</span></label>
                         <input type="datetime-local" name="voting_starts_at" id="voting_starts_at"
                                value="{% if legislation.voting_starts_at %}{{ legislation.voting_starts_at|date:'Y-m-d\TH:i' }}{% endif %}"
-                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave blank to start voting when available</p>
                     </div>
                 </div>
@@ -69,7 +69,7 @@
                     <label for="voting_ends_at" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Voting Ends At <span class="text-gray-400">(optional)</span></label>
                     <input type="datetime-local" name="voting_ends_at" id="voting_ends_at"
                            value="{% if legislation.voting_ends_at %}{{ legislation.voting_ends_at|date:'Y-m-d\TH:i' }}{% endif %}"
-                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave blank for manual close only</p>
                 </div>
 
@@ -77,7 +77,7 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Document</label>
                     {% if legislation.document %}
                     <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                        <a href="{{ legislation.document.url }}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">
+                        <a href="{{ legislation.document.url }}" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">
                             {{ legislation.document.name|truncatechars:50 }}
                         </a>
                     </p>
@@ -86,14 +86,14 @@
                     {% endif %}
                     <label for="document" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Replace Document <span class="text-gray-400">(optional)</span></label>
                     <input type="file" name="document" id="document" accept=".pdf,.docx"
-                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                 </div>
 
                 <div class="grid md:grid-cols-2 gap-4">
                     <div>
                         <label for="vote_mode" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Vote Mode</label>
                         <select name="vote_mode" id="vote_mode"
-                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                             <option value="percentage" {% if legislation.vote_mode == 'percentage' %}selected{% endif %}>Percentage</option>
                             <option value="piecewise" {% if legislation.vote_mode == 'piecewise' %}selected{% endif %}>Piecewise</option>
                             <option value="plurality" {% if legislation.vote_mode == 'plurality' %}selected{% endif %}>Plurality</option>
@@ -103,7 +103,7 @@
                     <div id="percentage-section">
                         <label for="required_percentage" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Required Vote to Pass</label>
                         <select name="required_percentage" id="required_percentage"
-                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                             <option value="51" {% if legislation.required_percentage == 51 %}selected{% endif %}>51%</option>
                             <option value="60" {% if legislation.required_percentage == 60 %}selected{% endif %}>60%</option>
                             <option value="67" {% if legislation.required_percentage == 67 %}selected{% endif %}>67%</option>
@@ -117,7 +117,7 @@
                     <label for="required_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Required Number of Yes Votes</label>
                     <input type="number" name="required_number" id="required_number" min="1"
                            value="{{ legislation.required_number|default:'' }}"
-                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Enter the exact number of "Yes" votes needed</p>
                 </div>
 
@@ -125,19 +125,19 @@
                     <label for="plurality_options" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Plurality Options (comma separated)</label>
                     <input type="text" name="plurality_options" id="plurality_options"
                            value="{{ legislation.plurality_options|join:', ' }}"
-                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Enter at least 2 options separated by commas</p>
                 </div>
 
                 <div class="flex flex-wrap gap-4">
                     <label class="flex items-center">
                         <input type="checkbox" name="anonymous_vote" id="anonymous_vote" {% if legislation.anonymous_vote %}checked{% endif %}
-                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+                               class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded">
                         <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Anonymous Voting</span>
                     </label>
                     <label class="flex items-center">
                         <input type="checkbox" name="allow_abstain" id="allow_abstain" {% if legislation.allow_abstain %}checked{% endif %}
-                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+                               class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded">
                         <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Allow Abstain</span>
                     </label>
                 </div>
@@ -150,14 +150,14 @@
                     </label>
                     <div class="relative mb-2">
                         <input type="text" id="co-author-search" placeholder="Search members..."
-                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
                     </div>
                     <div id="co-author-list" class="max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg divide-y divide-gray-100 dark:divide-gray-700">
                         {% for member in all_members %}
                         <label class="co-author-item flex items-center gap-3 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" data-name="{{ member.name|lower }}">
                             <input type="checkbox" name="co_author_ids" value="{{ member.user_id }}"
                                    {% if member.user_id in current_co_authors %}checked{% endif %}
-                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded">
+                                   class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded">
                             <span class="text-sm text-gray-700 dark:text-gray-300">{{ member.name }}</span>
                             <span class="text-xs text-gray-400 dark:text-gray-500 ml-auto">{{ member.member_type }}</span>
                         </label>
@@ -173,7 +173,7 @@
                         Cancel
                     </a>
                     <button type="submit"
-                            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                            class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition">
                         Save Changes
                     </button>
                 </div>
@@ -263,7 +263,7 @@
                     <input type="hidden" name="action_type" value="transfer_authorship">
                     <div class="flex gap-2">
                         <select name="transfer_to_id"
-                                class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                             <option value="">Select new primary author…</option>
                             {% for member in all_members %}
                             <option value="{{ member.user_id }}">{{ member.name }} ({{ member.member_type }})</option>

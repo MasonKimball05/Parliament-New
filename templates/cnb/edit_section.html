@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Section - Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200">
+
+    <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg relative overflow-hidden">
+        <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-gold-400 via-gold-500 to-gold-400 opacity-80"></div>
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <a href="{% url 'cnb_manage_document' doc_type=section.article.document.doc_type %}"
+               class="text-primary-200 hover:text-white text-sm flex items-center gap-1 mb-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                {{ section.article.document.get_doc_type_display }}
+            </a>
+            <h1 class="text-2xl font-bold">Edit Section</h1>
+            <p class="text-primary-100 text-sm mt-1">{{ section.full_identifier }}</p>
+        </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <form method="post" class="px-6 py-6 space-y-5">
+                {% csrf_token %}
+
+                {% if section.amendment_protected %}
+                <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg px-4 py-3 flex items-start gap-3">
+                    <svg class="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                    <div>
+                        <p class="text-sm font-semibold text-orange-700 dark:text-orange-400">Amendment Protection Active</p>
+                        <p class="text-xs text-orange-600 dark:text-orange-300 mt-0.5">
+                            This section is protected from amendment resolutions until {{ section.protected_until|date:"M j, Y" }}.
+                            Direct edits by the CNB Chair are still permitted (for clerical corrections only).
+                        </p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Section Title <span class="text-gray-400 font-normal">(optional)</span></label>
+                    <input type="text" name="title" value="{{ section.title }}"
+                           placeholder="e.g. Election of Officers"
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Section Content <span class="text-red-500">*</span></label>
+                    <textarea name="content" rows="14" required
+                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent leading-relaxed font-mono">{{ section.content }}</textarea>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Direct edits apply immediately. For formal chapter amendments use the
+                        <a href="{% url 'cnb_create_resolution' %}" class="text-primary-600 dark:text-primary-400 underline">resolution builder</a> instead.
+                    </p>
+                </div>
+
+                <div class="flex justify-end gap-3">
+                    <a href="{% url 'cnb_manage_document' doc_type=section.article.document.doc_type %}"
+                       class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                        Cancel
+                    </a>
+                    <button type="submit"
+                            class="px-5 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

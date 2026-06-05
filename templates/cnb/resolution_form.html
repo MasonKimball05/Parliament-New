@@ -1,0 +1,1209 @@
+{% extends "base.html" %}
+
+{% block title %}{{ action }} Resolution - Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200">
+
+    <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg relative overflow-hidden">
+        <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-gold-400 via-gold-500 to-gold-400 opacity-80"></div>
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <a href="{% url 'constitution_bylaws' %}?tab=manage" class="text-primary-200 hover:text-white text-sm flex items-center gap-1 mb-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                Constitution &amp; Bylaws
+            </a>
+            <div class="flex items-center justify-between gap-4">
+                <h1 class="text-3xl font-bold">{{ action }} Resolution</h1>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    {% if action == 'Edit' and resolution %}
+                    <a href="{% url 'cnb_resolution_print' resolution.id %}" target="_blank"
+                       class="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 border border-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                       title="Open print preview in a new tab — use Cmd+P / Ctrl+P to save as PDF">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                        </svg>
+                        Preview PDF
+                    </a>
+                    {% endif %}
+                    {% if ref_docs %}
+                    <button id="refToggle" type="button"
+                            class="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 border border-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                            title="Open C&B reference panel">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                        </svg>
+                        C&B Reference
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <form method="post" class="space-y-8">
+            {% csrf_token %}
+
+            <!-- ── Header ─────────────────────────────────────────────────── -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                <div class="px-6 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
+                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Header</p>
+                </div>
+                <div class="px-6 py-5 space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Type</label>
+                            <select name="resolution_type"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                <option value="amendment" {% if resolution.resolution_type == 'amendment' or not resolution %}selected{% endif %}>Constitutional/Bylaws Amendment</option>
+                                <option value="general" {% if resolution.resolution_type == 'general' %}selected{% endif %}>General Resolution</option>
+                                <option value="emergency" {% if resolution.resolution_type == 'emergency' %}selected{% endif %}>Emergency Resolution</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Vote Date</label>
+                            <input type="date" name="vote_date"
+                                   value="{{ resolution.vote_date|date:'Y-m-d'|default:'' }}"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Author(s)</label>
+                        <input type="text" name="authors"
+                               value="{{ resolution.authors|default:'' }}"
+                               placeholder='e.g. "Mason Kimball (αμ 73)" or "Jonathan Hall (αμ 80), Mason Kimball (αμ 73)"'
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Sponsor(s)</label>
+                        <input type="text" name="sponsors"
+                               value="{{ resolution.sponsors|default:'' }}"
+                               placeholder='e.g. "Executive Board" or "Recruitment Committee"'
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Section I — Preamble ───────────────────────────────────── -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                <div class="px-6 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
+                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Section I — Preamble</p>
+                </div>
+                <div class="px-6 py-5 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                            Title <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" name="title" required
+                               value="{{ resolution.title|default:'' }}"
+                               placeholder='e.g. "On the Clarification of the Sweetheart Position"'
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Format: "On the [Subject]"</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Whereas Clauses</label>
+                        <textarea id="whereasTextarea" name="whereas_clauses" rows="5"
+                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent leading-relaxed"
+                                  placeholder="One clause per line — the system will add 'Whereas,' and '; and' automatically.">{{ resolution.whereas_clauses|default:'' }}</textarea>
+                        <div id="whereasChipsPanel" class="hidden mt-2 bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-800 rounded-lg px-3 py-2">
+                            <p class="text-xs font-semibold text-primary-700 dark:text-primary-300 uppercase tracking-wide mb-1.5">Cited Sections</p>
+                            <div id="whereasChips" class="flex flex-wrap gap-1.5"></div>
+                            <p class="text-xs text-amber-600 dark:text-amber-400 mt-1.5">References are protected — use × to remove one.</p>
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">e.g. "the current election process does not allow sufficient time for deliberation"</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">THEREFORE, BE IT RESOLVED,</label>
+                        <textarea id="resolvedTextarea" name="resolved_text" rows="3"
+                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent leading-relaxed"
+                                  placeholder="the chapter adopt the following amendments to the Constitution…">{{ resolution.resolved_text|default:'' }}</textarea>
+                        <div id="resolvedChipsPanel" class="hidden mt-2 bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-800 rounded-lg px-3 py-2">
+                            <p class="text-xs font-semibold text-primary-700 dark:text-primary-300 uppercase tracking-wide mb-1.5">Cited Sections</p>
+                            <div id="resolvedChips" class="flex flex-wrap gap-1.5"></div>
+                            <p class="text-xs text-amber-600 dark:text-amber-400 mt-1.5">References are protected — use × to remove one.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Section II — Body ─────────────────────────────────────── -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                <div class="px-6 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
+                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Section II — Body of the Resolution</p>
+                </div>
+                <div class="px-6 py-5 space-y-3">
+                    <textarea id="bodyTextarea" name="resolution_body" rows="12"
+                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent leading-relaxed font-mono"
+                              placeholder="Article 1 — Title&#10;1.1 General. The chapter shall…&#10;&#10;Article 2 — Amendment to the Bylaws&#10;2.1 Bylaw Amendment — Addition of Article III, Section V: …">{{ resolution.resolution_body|default:'' }}</textarea>
+
+                    <!-- Cited sections chips — populated by JS -->
+                    <div id="citationsPanel" class="hidden bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-800 rounded-lg px-3 py-2.5">
+                        <p class="text-xs font-semibold text-primary-700 dark:text-primary-300 uppercase tracking-wide mb-2">Cited Sections</p>
+                        <div id="citationChips" class="flex flex-col gap-2"></div>
+                        <p class="text-xs text-amber-600 dark:text-amber-400 mt-2">Section references are protected — use the × button to remove one. Click ▾ to preview the section text. Use <strong>Copy [ref]</strong> in the C&amp;B drawer to paste a reference anywhere, as many times as needed.</p>
+                    </div>
+
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Full text of proposed amendments. Use the <strong>C&B Reference</strong> button to look up and insert cited sections.</p>
+                </div>
+            </div>
+
+            <!-- ── Section III — Conclusion Notes ───────────────────────── -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                <div class="px-6 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
+                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Section III — Conclusion Notes <span class="font-normal normal-case">(optional)</span></p>
+                </div>
+                <div class="px-6 py-5">
+                    <textarea id="notesTextarea" name="additional_notes" rows="5"
+                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent leading-relaxed"
+                              placeholder="3.1 Effective Date and Threshold. Should this resolution reach the required threshold…&#10;3.2 Note on Article V, Section 5.1(g). Subsection g is in violation of recent IFC guidelines…">{{ resolution.additional_notes|default:'' }}</textarea>
+                    <div id="notesChipsPanel" class="hidden mt-2 bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-800 rounded-lg px-3 py-2">
+                        <p class="text-xs font-semibold text-primary-700 dark:text-primary-300 uppercase tracking-wide mb-1.5">Cited Sections</p>
+                        <div id="notesChips" class="flex flex-wrap gap-1.5"></div>
+                        <p class="text-xs text-amber-600 dark:text-amber-400 mt-1.5">References are protected — use × to remove one.</p>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Numbered conclusion clauses (effective date, IFC notes, etc.). The certification block is generated automatically in the print view.</p>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pb-2">
+                <a href="{% url 'constitution_bylaws' %}?tab=manage"
+                   class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                    Cancel
+                </a>
+                {% if action == 'Edit' and resolution %}
+                <input type="hidden" name="save_and_preview" id="saveAndPreviewFlag" value="">
+                <button type="button" onclick="submitSaveAndPreview()"
+                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 hover:bg-primary-100 dark:hover:bg-primary-900/50 border border-primary-300 dark:border-primary-700 rounded-lg transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                    </svg>
+                    Save &amp; Preview
+                </button>
+                {% endif %}
+                <button type="submit"
+                        class="px-5 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
+                    {{ action }} Resolution
+                </button>
+            </div>
+        </form>
+
+        {% if action == 'Edit' and resolution %}
+        <!-- ── Section Amendments ───────────────────────────────────────── -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mt-8">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">
+                    Tracked Section Amendments
+                    {% if resolution.amendments.count %}
+                    <span class="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">({{ resolution.amendments.count }})</span>
+                    {% endif %}
+                </h2>
+                <button onclick="openAmendmentModal()"
+                        class="inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Add
+                </button>
+            </div>
+
+            {% if resolution.amendments.all %}
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for amendment in resolution.amendments.all %}
+                <div class="px-6 py-5">
+                    <div class="flex items-start justify-between gap-4 mb-3">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ amendment.section.full_identifier }}</p>
+                                <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+                                    {% if amendment.amendment_type == 'addition' %}bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400
+                                    {% elif amendment.amendment_type == 'deletion' %}bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400
+                                    {% else %}bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400{% endif %}">
+                                    {% if amendment.amendment_type == 'addition' %}Addition{% elif amendment.amendment_type == 'deletion' %}Deletion{% else %}Change{% endif %}
+                                </span>
+                            </div>
+                            {% if amendment.section.title %}
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ amendment.section.title }}</p>
+                            {% endif %}
+                            {% if amendment.scope_note %}
+                            <p class="text-xs text-gray-600 dark:text-gray-300 mt-0.5"><span class="font-medium">Scope:</span> {{ amendment.scope_note }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="flex items-center gap-3 flex-shrink-0">
+                            <button type="button"
+                                    onclick="copyRef('{{ amendment.section.full_identifier }}', this, '{{ amendment.amendment_type }}', '{{ amendment.scope_note|escapejs }}', {{ forloop.counter }})"
+                                    class="text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                                    title="Copy bracketed reference — paste into the resolution body">
+                                Copy [ref]
+                            </button>
+                            {% if not amendment.applied %}
+                            <button type="button"
+                                    onclick="editAmendment('{{ amendment.section.pk }}', '{{ amendment.proposed_text|escapejs }}', '{{ amendment.scope_note|escapejs }}', '{{ amendment.original_text_snapshot|escapejs }}')"
+                                    class="text-xs text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
+                                Edit
+                            </button>
+                            <form method="post" action="{% url 'cnb_remove_amendment' resolution_id=resolution.pk amendment_id=amendment.pk %}"
+                                  onsubmit="return confirm('Remove this amendment?')">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="edit">
+                                <button type="submit" class="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400">Remove</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if amendment.amendment_type == 'deletion' and not amendment.proposed_text %}
+                    <div>
+                        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Entire section to be deleted</p>
+                        <div class="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg p-3 text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto line-through opacity-70">{{ amendment.original_text_snapshot }}</div>
+                        <p class="text-xs text-red-600 dark:text-red-400 mt-1.5">This section will be cleared and suspended if the resolution passes.</p>
+                    </div>
+                    {% else %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                                {% if amendment.amendment_type == 'addition' %}Current text (being added to){% else %}Current text{% endif %}
+                            </p>
+                            <div class="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg p-3 text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">{{ amendment.original_text_snapshot }}</div>
+                        </div>
+                        <div>
+                            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                                {% if amendment.amendment_type == 'addition' %}Proposed text (with addition){% else %}Proposed replacement{% endif %}
+                            </p>
+                            <div class="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-lg p-3 text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">{{ amendment.proposed_text }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                No section amendments added yet.
+                <button onclick="openAmendmentModal()" class="text-primary-600 dark:text-primary-400 underline ml-1">Add one</button>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<!-- ── Sticky C&B Reference FAB ───────────────────────────────────────────── -->
+{% if ref_docs %}
+<button id="refFab" type="button" onclick="openRef()"
+        class="fixed bottom-6 right-6 z-30 inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white pl-4 pr-5 py-3 rounded-full shadow-xl text-sm font-semibold transition-colors">
+    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+    </svg>
+    C&amp;B Reference
+</button>
+{% endif %}
+
+<!-- ── C&B Reference Drawer ───────────────────────────────────────────────── -->
+{% if ref_docs %}
+<!-- Backdrop -->
+<div id="refBackdrop" class="hidden fixed inset-0 bg-black/30 z-40" onclick="closeRef()"></div>
+
+<!-- Drawer panel -->
+<div id="refDrawer"
+     style="transform: translateX(100%); transition: transform 0.3s ease;"
+     class="fixed top-0 right-0 h-full w-full sm:w-[480px] lg:w-[560px] bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col">
+
+    <!-- Drawer header -->
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
+        <div>
+            <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">C&B Reference</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Copy identifiers or bracketed refs — paste anywhere, as many times as needed</p>
+        </div>
+        <button onclick="closeRef()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded-lg">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Document tabs -->
+    <div class="flex border-b border-gray-200 dark:border-gray-700 flex-shrink-0 bg-white dark:bg-gray-900">
+        {% for doc in ref_docs %}
+        <button onclick="showDoc('ref-doc-{{ doc.doc_type }}')"
+                id="ref-tab-{{ doc.doc_type }}"
+                class="ref-tab px-5 py-3 text-sm font-medium border-b-2 transition-colors
+                       {% if forloop.first %}border-primary-500 text-primary-600 dark:text-primary-400{% else %}border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300{% endif %}">
+            {{ doc.get_doc_type_display }}
+        </button>
+        {% endfor %}
+    </div>
+
+    <!-- Section search -->
+    <div class="px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0">
+        <input type="text" id="refSearch" placeholder="Search sections…"
+               class="w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500">
+    </div>
+
+    <!-- Scrollable content -->
+    <div class="flex-1 overflow-y-auto">
+        {% for doc in ref_docs %}
+        <div id="ref-doc-{{ doc.doc_type }}" class="ref-doc-panel {% if not forloop.first %}hidden{% endif %}">
+
+            {% if doc.preamble %}
+            <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-800 bg-primary-50 dark:bg-primary-900/10">
+                <p class="text-xs font-semibold text-primary-600 dark:text-primary-400 uppercase tracking-wide mb-1">Preamble</p>
+                <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{{ doc.preamble }}</p>
+            </div>
+            {% endif %}
+
+            {% for article in doc.articles.all %}
+            <div class="{% if not article.is_active %}opacity-50{% endif %}">
+
+                <!-- Article heading (collapsible) -->
+                <button onclick="toggleArticle('ref-art-{{ doc.doc_type }}-{{ article.number }}')"
+                        class="w-full flex items-center justify-between px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/60 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-left">
+                    <span class="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                        Art. {{ article.number }} — {{ article.title }}
+                    </span>
+                    <svg class="w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ref-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+
+                <!-- Sections list -->
+                <div id="ref-art-{{ doc.doc_type }}-{{ article.number }}" class="divide-y divide-gray-100 dark:divide-gray-800">
+                    {% for section in article.sections.all %}
+                    <div class="px-5 py-3 {% if not section.is_active %}opacity-50{% endif %}">
+
+                        <!-- Identifier row with copy + insert buttons -->
+                        <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 text-xs font-mono font-semibold text-primary-700 dark:text-primary-300">
+                                {{ section.full_identifier }}
+                            </span>
+                            <button type="button"
+                                    onclick="copyIdentifier(this, '{{ section.full_identifier }}')"
+                                    class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    title="Copy identifier to clipboard">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                                Copy
+                            </button>
+                            <button type="button"
+                                    onclick="copyRef('{{ section.full_identifier }}', this)"
+                                    class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-primary-300 dark:border-primary-700 text-xs text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors"
+                                    title="Copy bracketed reference — paste anywhere, as many times as needed">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                                </svg>
+                                Copy [ref]
+                            </button>
+                            {% if section.title %}
+                            <span class="text-xs text-gray-500 dark:text-gray-400">{{ section.title }}</span>
+                            {% endif %}
+                            {% if section.amendment_protected %}
+                            <span class="text-xs text-orange-500 dark:text-orange-400 font-medium">Protected</span>
+                            {% endif %}
+                            {% if not section.is_active %}
+                            <span class="text-xs text-amber-500 font-medium">Suspended</span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Section text (collapsible) -->
+                        <div class="ref-section-content">
+                            <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-3 whitespace-pre-wrap">{{ section.content }}</p>
+                            <button type="button" onclick="toggleSectionText(this)"
+                                    class="text-xs text-primary-500 dark:text-primary-400 hover:underline mt-1 expand-btn">Show more</button>
+                        </div>
+
+                    </div>
+                    {% empty %}
+                    <p class="px-5 py-3 text-xs text-gray-400 dark:text-gray-600 italic">No sections.</p>
+                    {% endfor %}
+                </div>
+
+            </div>
+            {% empty %}
+            <p class="px-5 py-6 text-sm text-gray-400 dark:text-gray-600 italic text-center">No articles yet.</p>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Copy toast -->
+    <div id="copyToast" class="hidden absolute bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs font-medium px-4 py-2 rounded-full shadow-lg pointer-events-none">
+        Copied!
+    </div>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    var drawer  = document.getElementById('refDrawer');
+    var backdrop = document.getElementById('refBackdrop');
+    var toggle  = document.getElementById('refToggle');
+    var fab     = document.getElementById('refFab');
+    var toast   = document.getElementById('copyToast');
+    var toastTimer;
+
+    // ── Protected body markers ────────────────────────────────────────────
+    // Matches both plain refs  [Constitution Art. III § 2]
+    // and extended amendment refs [Constitution Art. III § 2 (Addition) — scope - 1]
+    var MARKER_RE = /\[(?:Constitution|Bylaws) Art\. [IVXLCDM]+ § \d+[^\]]*\]/g;
+    var bodyTA    = document.getElementById('bodyTextarea');
+    var lastBodyText     = bodyTA ? bodyTA.value : '';
+    var expectedMarkers  = extractMarkers(lastBodyText);
+
+    function extractMarkers(text) {
+        return text.match(MARKER_RE) || [];
+    }
+
+    function showToast(msg) {
+        clearTimeout(toastTimer);
+        toast.textContent = msg;
+        toast.classList.remove('hidden');
+        toastTimer = setTimeout(function() { toast.classList.add('hidden'); }, 1800);
+    }
+
+    // Map identifier → section text, populated from drawer when sections are visible
+    var sectionTextCache = {};
+
+    // Build cache from the reference drawer's rendered section content
+    function buildSectionCache() {
+        document.querySelectorAll('.ref-section-content').forEach(function(el) {
+            // Find the identifier badge in the same section row
+            var row = el.closest('.px-5.py-3') || el.parentElement;
+            if (!row) return;
+            var badge = row.querySelector('.font-mono.font-semibold');
+            if (!badge) return;
+            var id = badge.textContent.trim();
+            var p = el.querySelector('p');
+            if (p) sectionTextCache[id] = p.textContent.trim();
+        });
+    }
+
+    function renderCitations() {
+        var panel  = document.getElementById('citationsPanel');
+        var chips  = document.getElementById('citationChips');
+        if (!expectedMarkers.length) {
+            panel.classList.add('hidden');
+            chips.innerHTML = '';
+            return;
+        }
+        buildSectionCache();
+        panel.classList.remove('hidden');
+        // One chip per occurrence — × removes only that one instance
+        chips.innerHTML = '';
+        expectedMarkers.forEach(function(marker) {
+            var label = marker.slice(1, -1); // strip [ ]
+            var sectionText = sectionTextCache[label] || '';
+
+            // Wrapper (block-level so preview can sit below)
+            var wrap = document.createElement('div');
+            wrap.className = 'w-full';
+
+            // Chip row
+            var chip = document.createElement('div');
+            chip.className = 'inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-700 text-xs font-mono font-semibold text-primary-700 dark:text-primary-300';
+
+            var expandBtn = sectionText
+                ? '<button type="button" title="Preview section text" style="font-size:11px;padding:0 3px;" ' +
+                  'class="text-primary-400 hover:text-primary-600 dark:hover:text-primary-200 transition-colors">▾</button>'
+                : '';
+
+            chip.innerHTML =
+                '<span>' + label + '</span>' +
+                expandBtn +
+                '<button type="button" title="Remove this citation" ' +
+                'style="font-size:14px;line-height:1;padding:0 2px;" ' +
+                'class="text-primary-400 hover:text-red-500 dark:hover:text-red-400 transition-colors font-bold">' +
+                '&times;</button>';
+
+            // Section text preview (hidden by default)
+            var preview = document.createElement('div');
+            preview.className = 'hidden mt-1.5 ml-2 pl-3 border-l-2 border-primary-200 dark:border-primary-700 text-xs text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap max-h-24 overflow-y-auto';
+            preview.textContent = sectionText;
+
+            // Wire expand button
+            if (sectionText) {
+                chip.querySelectorAll('button')[0].addEventListener('click', function() {
+                    var isHidden = preview.classList.contains('hidden');
+                    preview.classList.toggle('hidden', !isHidden);
+                    this.textContent = isHidden ? '▴' : '▾';
+                });
+            }
+
+            // Wire remove button (last button)
+            var btns = chip.querySelectorAll('button');
+            btns[btns.length - 1].addEventListener('click', function() {
+                removeCitation(marker);
+            });
+
+            wrap.appendChild(chip);
+            if (sectionText) wrap.appendChild(preview);
+            chips.appendChild(wrap);
+        });
+    }
+
+    window.removeCitation = function(marker) {
+        if (!bodyTA) return;
+        // Remove only the first occurrence of this marker
+        bodyTA.value = bodyTA.value.replace(marker, '');
+        expectedMarkers = extractMarkers(bodyTA.value);
+        lastBodyText = bodyTA.value;
+        renderCitations();
+    };
+
+    // Returns true if all markers in `expected` still appear in `current` (in order).
+    // Additions are fine; removals/modifications are not.
+    function markersIntact(expected, current) {
+        var ei = 0;
+        for (var ci = 0; ci < current.length && ei < expected.length; ci++) {
+            if (current[ci] === expected[ei]) ei++;
+        }
+        return ei === expected.length;
+    }
+
+    if (bodyTA) {
+        // Protect markers — allow pasting new ones in, block removing/editing existing ones.
+        bodyTA.addEventListener('input', function() {
+            var current = extractMarkers(this.value);
+            if (!markersIntact(expectedMarkers, current)) {
+                var pos = this.selectionStart;
+                this.value = lastBodyText;
+                this.selectionStart = this.selectionEnd = Math.min(pos, lastBodyText.length);
+                showToast('Use the × button to remove a cited section');
+                return;
+            }
+            // Accept — update tracking and refresh chips if new markers were pasted in
+            if (current.length !== expectedMarkers.length) {
+                expectedMarkers = current;
+                renderCitations();
+            }
+            lastBodyText = this.value;
+        });
+
+        // Initialize chips for edit mode (existing markers in saved text)
+        renderCitations();
+    }
+
+    // Generic full-protection setup for non-body textareas.
+    // Markers are fully blocked from editing/deletion — only the × chip can remove one.
+    function setupMarkerArea(taId, panelId, chipsId) {
+        var ta = document.getElementById(taId);
+        if (!ta) return;
+        var lastVal = ta.value;
+        var tracked = extractMarkers(lastVal);
+
+        function renderChips() {
+            var panel = document.getElementById(panelId);
+            var chips = document.getElementById(chipsId);
+            if (!panel || !chips) return;
+            if (!tracked.length) { panel.classList.add('hidden'); chips.innerHTML = ''; return; }
+            panel.classList.remove('hidden');
+            // One chip per occurrence — × removes only that one instance
+            chips.innerHTML = '';
+            tracked.forEach(function(marker) {
+                var chip = document.createElement('span');
+                chip.className = 'inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-700 text-xs font-mono font-semibold text-primary-700 dark:text-primary-300';
+                chip.innerHTML =
+                    '<span>' + marker.slice(1, -1) + '</span>' +
+                    '<button type="button" title="Remove this citation" ' +
+                    'style="font-size:14px;line-height:1;padding:0 2px;" ' +
+                    'class="text-primary-400 hover:text-red-500 dark:hover:text-red-400 transition-colors font-bold">&times;</button>';
+                chip.querySelector('button').addEventListener('click', function() {
+                    // Remove only the first occurrence of this marker
+                    ta.value = ta.value.replace(marker, '');
+                    tracked = extractMarkers(ta.value);
+                    lastVal = ta.value;
+                    renderChips();
+                });
+                chips.appendChild(chip);
+            });
+        }
+
+        ta.addEventListener('input', function() {
+            var current = extractMarkers(this.value);
+            if (!markersIntact(tracked, current)) {
+                var pos = this.selectionStart;
+                this.value = lastVal;
+                this.selectionStart = this.selectionEnd = Math.min(pos, lastVal.length);
+                showToast('Use the \u00d7 button to remove a cited section');
+                return;
+            }
+            if (current.length !== tracked.length) {
+                tracked = current;
+                renderChips();
+            }
+            lastVal = this.value;
+        });
+
+        renderChips();
+    }
+
+    setupMarkerArea('whereasTextarea',  'whereasChipsPanel',  'whereasChips');
+    setupMarkerArea('resolvedTextarea', 'resolvedChipsPanel', 'resolvedChips');
+    setupMarkerArea('notesTextarea',    'notesChipsPanel',    'notesChips');
+
+    // Copy the bracketed reference code to clipboard — paste it wherever you need it, as many times as needed.
+    // type, scope, and num are optional — used on amendment cards to make the code more specific
+    window.copyRef = function(text, btn, type, scope, num) {
+        var code = '[' + text;
+        if (type && type !== 'change') {
+            code += ' (' + type.charAt(0).toUpperCase() + type.slice(1) + ')';
+        }
+        if (scope) {
+            code += ' \u2014 ' + scope;
+        }
+        if (num) {
+            code += ' - ' + num;
+        }
+        code += ']';
+        navigator.clipboard.writeText(code).then(function() {
+            if (btn) {
+                var orig = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.style.color = '#16a34a';
+                setTimeout(function() {
+                    btn.textContent = orig;
+                    btn.style.color = '';
+                }, 1800);
+            }
+        });
+    };
+
+    // ── Drawer open / close ───────────────────────────────────────────────
+    window.openRef = function() {
+        drawer.style.transform = 'translateX(0)';
+        backdrop.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        if (fab) fab.style.display = 'none';
+    };
+    window.closeRef = function() {
+        drawer.style.transform = 'translateX(100%)';
+        backdrop.classList.add('hidden');
+        document.body.style.overflow = '';
+        if (fab) fab.style.display = '';
+    };
+
+    if (toggle) toggle.addEventListener('click', openRef);
+
+    // Document tab switching
+    window.showDoc = function(panelId) {
+        document.querySelectorAll('.ref-doc-panel').forEach(function(el) {
+            el.classList.add('hidden');
+        });
+        document.getElementById(panelId).classList.remove('hidden');
+
+        var docType = panelId.replace('ref-doc-', '');
+        document.querySelectorAll('.ref-tab').forEach(function(tab) {
+            tab.classList.remove('border-primary-500', 'text-primary-600', 'dark:text-primary-400');
+            tab.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+        });
+        var activeTab = document.getElementById('ref-tab-' + docType);
+        if (activeTab) {
+            activeTab.classList.add('border-primary-500', 'text-primary-600', 'dark:text-primary-400');
+            activeTab.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+        }
+    };
+
+    // Article collapse/expand
+    window.toggleArticle = function(id) {
+        var el = document.getElementById(id);
+        var btn = el.previousElementSibling;
+        var chevron = btn ? btn.querySelector('.ref-chevron') : null;
+        if (el.classList.contains('hidden')) {
+            el.classList.remove('hidden');
+            if (chevron) chevron.style.transform = '';
+        } else {
+            el.classList.add('hidden');
+            if (chevron) chevron.style.transform = 'rotate(-90deg)';
+        }
+    };
+
+    // Section text expand
+    window.toggleSectionText = function(btn) {
+        var p = btn.previousElementSibling;
+        if (p.classList.contains('line-clamp-3')) {
+            p.classList.remove('line-clamp-3');
+            btn.textContent = 'Show less';
+        } else {
+            p.classList.add('line-clamp-3');
+            btn.textContent = 'Show more';
+        }
+    };
+
+    // Copy section identifier
+    window.copyIdentifier = function(btn, text) {
+        navigator.clipboard.writeText(text).then(function() {
+            clearTimeout(toastTimer);
+            toast.classList.remove('hidden');
+            toastTimer = setTimeout(function() { toast.classList.add('hidden'); }, 1800);
+        });
+    };
+
+    // ── Section search ────────────────────────────────────────────────────────
+    var refSearchInput = document.getElementById('refSearch');
+    if (refSearchInput) {
+        refSearchInput.addEventListener('input', function() {
+            var term = this.value.trim().toLowerCase();
+            // Filter within the currently visible doc panel
+            var activePanel = document.querySelector('.ref-doc-panel:not(.hidden)');
+            if (!activePanel) return;
+
+            // Article blocks
+            activePanel.querySelectorAll('.ref-doc-panel > div, div[id^="ref-art-"]').forEach(function() {});
+            // Walk article containers (the outer div wrapping the button + section list)
+            var articleContainers = activePanel.querySelectorAll(':scope > div');
+            articleContainers.forEach(function(artDiv) {
+                if (!artDiv.querySelector('button[onclick*="toggleArticle"]')) return; // skip preamble etc.
+                var sectionList = artDiv.querySelector('[id^="ref-art-"]');
+                if (!sectionList) { artDiv.style.display = ''; return; }
+
+                var sectionRows = sectionList.querySelectorAll(':scope > div');
+                var anyVisible = false;
+
+                sectionRows.forEach(function(row) {
+                    if (!term) {
+                        row.style.display = '';
+                        anyVisible = true;
+                        return;
+                    }
+                    // Match against identifier badge text, title text, and content text
+                    var text = row.textContent.toLowerCase();
+                    if (text.includes(term)) {
+                        row.style.display = '';
+                        anyVisible = true;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                // Show/hide the whole article block; if searching, auto-expand
+                if (!term) {
+                    artDiv.style.display = '';
+                } else if (anyVisible) {
+                    artDiv.style.display = '';
+                    if (sectionList.classList.contains('hidden')) {
+                        sectionList.classList.remove('hidden');
+                    }
+                } else {
+                    artDiv.style.display = 'none';
+                }
+            });
+        });
+
+        // Clear search when switching tabs so it doesn't bleed across docs
+        document.querySelectorAll('.ref-tab').forEach(function(tab) {
+            tab.addEventListener('click', function() {
+                if (refSearchInput.value) {
+                    refSearchInput.value = '';
+                    refSearchInput.dispatchEvent(new Event('input'));
+                }
+            });
+        });
+    }
+})();
+</script>
+{% endif %}
+
+{% if action == 'Edit' and resolution %}
+<!-- ── Amendment Editor Modal ─────────────────────────────────────────────── -->
+<div id="addAmendmentModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-5xl flex flex-col" style="max-height: 92vh;">
+
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+            <div>
+                <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Amendment Editor</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Select a section, edit its text, and see exactly what changes before submitting.</p>
+            </div>
+            <button onclick="closeAmendmentModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <form method="post" action="{% url 'cnb_add_amendment' resolution_id=resolution.pk %}" class="flex flex-col flex-1 overflow-hidden" id="amendmentForm">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="edit">
+
+            <div class="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Target Section <span class="text-red-500">*</span></label>
+                        <select name="section_id" id="sectionSelect"
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                required>
+                            <option value="">— Select a section to edit —</option>
+                            {% for doc in ref_docs %}
+                            <optgroup label="{{ doc.get_doc_type_display }}">
+                                {% for article in doc.articles.all %}
+                                {% for section in article.sections.all %}
+                                <option value="{{ section.pk }}" {% if section.amendment_protected %}disabled{% endif %}>
+                                    {{ section.full_identifier }}{% if section.title %} — {{ section.title }}{% endif %}{% if section.amendment_protected %} [PROTECTED until {{ section.protected_until }}]{% endif %}
+                                </option>
+                                {% endfor %}
+                                {% endfor %}
+                            </optgroup>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                            Specific clause <span class="font-normal text-gray-400">(optional)</span>
+                        </label>
+                        <input type="text" name="scope_note" id="scopeNoteInput"
+                               placeholder='e.g. "§ 3.a.i" or "the second sentence"'
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    </div>
+                </div>
+
+                <div id="sectionContextRow" class="hidden">
+                    <details class="group">
+                        <summary class="text-xs text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 cursor-pointer select-none list-none flex items-center gap-1">
+                            <svg class="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            <span id="contextSummaryText">Show article context</span>
+                        </summary>
+                        <div class="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2" id="contextPanels"></div>
+                    </details>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-hidden">
+                <div id="editorEmptyState" class="h-full flex items-center justify-center text-center px-8">
+                    <div>
+                        <svg class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Select a section above to start editing</p>
+                    </div>
+                </div>
+
+                <div id="editorPanels" class="hidden h-full grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-100 dark:divide-gray-700" style="height: 100%;">
+                    <div class="flex flex-col overflow-hidden">
+                        <div class="px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Edit Section Text</span>
+                            <button type="button" id="resetTextBtn" onclick="resetToOriginal()"
+                                    class="text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors">
+                                Reset to original
+                            </button>
+                        </div>
+                        <textarea name="proposed_text" id="proposedTextArea"
+                                  class="flex-1 px-4 py-3 border-0 dark:bg-gray-800 dark:text-gray-100 text-sm leading-relaxed resize-none focus:outline-none focus:ring-0"
+                                  style="min-height: 240px;"
+                                  placeholder="Select a section above to load its text here…"></textarea>
+                        <div class="px-4 py-2 border-t border-gray-100 dark:border-gray-700 flex-shrink-0">
+                            <p class="text-xs text-gray-400 dark:text-gray-500" id="editorHint">Edit the section text directly. The diff preview updates live.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col overflow-hidden">
+                        <div class="px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Tracked Changes</span>
+                            <div class="flex items-center gap-3 text-xs text-gray-400">
+                                <span style="background:rgba(34,197,94,.2);padding:0 4px;border-radius:2px;">Added</span>
+                                <span style="background:rgba(239,68,68,.15);text-decoration:line-through;padding:0 4px;border-radius:2px;">Removed</span>
+                            </div>
+                        </div>
+                        <div id="diffPreview"
+                             class="flex-1 overflow-y-auto px-4 py-3 text-sm leading-relaxed dark:text-gray-200 whitespace-pre-wrap"
+                             style="min-height: 240px;">
+                            <span class="text-gray-400 dark:text-gray-600 italic text-xs">No changes yet — start editing the text on the left.</span>
+                        </div>
+                        <div id="diffStats" class="hidden px-4 py-2 border-t border-gray-100 dark:border-gray-700 flex-shrink-0 text-xs text-gray-400 flex items-center gap-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="deletionNotice" class="hidden px-6 py-3 border-t border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/20 flex-shrink-0">
+                <p class="text-xs text-red-700 dark:text-red-300">
+                    <strong>Deleting entire section:</strong> Clear all text in the editor to flag this section for complete removal. If removing only specific clauses, leave the rest of the text intact.
+                </p>
+            </div>
+
+            <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+                <p class="text-xs text-gray-400 dark:text-gray-500" id="amendTypeHint">When this resolution passes, the section text will be replaced with what you write on the left.</p>
+                <div class="flex gap-3">
+                    <button type="button" onclick="closeAmendmentModal()"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" id="amendSubmitBtn"
+                            class="px-4 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
+                        Save Amendment
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+// ── Amendment Editor ──────────────────────────────────────────────────────────
+(function() {
+    var modal        = document.getElementById('addAmendmentModal');
+    var select       = document.getElementById('sectionSelect');
+    var proposedTA   = document.getElementById('proposedTextArea');
+    var diffEl       = document.getElementById('diffPreview');
+    var diffStats    = document.getElementById('diffStats');
+    var emptyState   = document.getElementById('editorEmptyState');
+    var editorPanels = document.getElementById('editorPanels');
+    var typeHint     = document.getElementById('amendTypeHint');
+    var editorHint   = document.getElementById('editorHint');
+    var deletionNote = document.getElementById('deletionNotice');
+    var scopeInput   = document.getElementById('scopeNoteInput');
+    var contextRow   = document.getElementById('sectionContextRow');
+    var contextSum   = document.getElementById('contextSummaryText');
+    var contextPanels= document.getElementById('contextPanels');
+    var originalText = '';
+    var diffTimer    = null;
+
+    // ── Word-level LCS diff ───────────────────────────────────────────────────
+    function tokenize(text) { return text.match(/\s*\S+/g) || []; }
+
+    function lcs(a, b) {
+        var m = a.length, n = b.length;
+        if (m * n > 200000) return null; // fall back to line diff
+        var dp = [];
+        for (var i = 0; i <= m; i++) { dp[i] = []; for (var j = 0; j <= n; j++) dp[i][j] = 0; }
+        for (var i = 1; i <= m; i++) for (var j = 1; j <= n; j++)
+            dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+        var res = [], i = m, j = n;
+        while (i > 0 && j > 0) {
+            if (a[i-1] === b[j-1]) { res.unshift({tok: a[i-1], type: 'same'}); i--; j--; }
+            else if (dp[i-1][j] > dp[i][j-1]) { res.unshift({tok: a[i-1], type: 'del'}); i--; }
+            else { res.unshift({tok: b[j-1], type: 'add'}); j--; }
+        }
+        while (i-- > 0) res.unshift({tok: a[i], type: 'del'});
+        while (j-- > 0) res.unshift({tok: b[j], type: 'add'});
+        return res;
+    }
+
+    function lineDiff(a, b) {
+        var al = a.split('\n'), bl = b.split('\n'), res = [];
+        var m = al.length, n = bl.length;
+        var dp = [];
+        for (var i = 0; i <= m; i++) { dp[i] = []; for (var j = 0; j <= n; j++) dp[i][j] = 0; }
+        for (var i = 1; i <= m; i++) for (var j = 1; j <= n; j++)
+            dp[i][j] = al[i-1] === bl[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+        var i = m, j = n;
+        while (i > 0 && j > 0) {
+            if (al[i-1] === bl[j-1]) { res.unshift({tok: al[i-1] + '\n', type: 'same'}); i--; j--; }
+            else if (dp[i-1][j] > dp[i][j-1]) { res.unshift({tok: al[i-1] + '\n', type: 'del'}); i--; }
+            else { res.unshift({tok: bl[j-1] + '\n', type: 'add'}); j--; }
+        }
+        while (i-- > 0) res.unshift({tok: al[i] + '\n', type: 'del'});
+        while (j-- > 0) res.unshift({tok: bl[j] + '\n', type: 'add'});
+        return res;
+    }
+
+    function renderDiff(original, proposed) {
+        if (!diffEl) return;
+        var tA = tokenize(original), tB = tokenize(proposed);
+        var rawOps = lcs(tA, tB);
+        var ops;
+        if (!rawOps) {
+            ops = lineDiff(original, proposed);
+        } else {
+            // If the texts share very few tokens, the word diff becomes unreadable.
+            // Fall back to a clean block replacement instead.
+            var sameCount = rawOps.filter(function(o) { return o.type === 'same'; }).length;
+            if (sameCount < Math.min(tA.length, tB.length) * 0.4) {
+                ops = tA.map(function(t) { return {tok: t, type: 'del'}; })
+                        .concat(tB.map(function(t) { return {tok: t, type: 'add'}; }));
+            } else {
+                ops = rawOps;
+            }
+        }
+        var frag = document.createDocumentFragment();
+        var added = 0, removed = 0;
+        ops.forEach(function(op) {
+            var span = document.createElement('span');
+            span.textContent = op.tok;
+            if (op.type === 'add') {
+                span.style.cssText = 'background:rgba(34,197,94,.25);border-radius:2px;';
+                added += op.tok.replace(/\s/g, '').length;
+            } else if (op.type === 'del') {
+                span.style.cssText = 'background:rgba(239,68,68,.18);text-decoration:line-through;color:#9ca3af;border-radius:2px;';
+                removed += op.tok.replace(/\s/g, '').length;
+            }
+            frag.appendChild(span);
+        });
+        diffEl.innerHTML = '';
+        if (frag.childNodes.length === 0) {
+            diffEl.innerHTML = '<span style="color:#9ca3af;font-style:italic;font-size:0.75rem;">No changes yet — start editing the text on the left.</span>';
+        } else {
+            diffEl.appendChild(frag);
+        }
+        if (diffStats) {
+            if (added || removed) {
+                diffStats.classList.remove('hidden');
+                diffStats.innerHTML =
+                    (added   ? '<span style="color:#16a34a;">+' + added   + ' chars added</span>'   : '') +
+                    (removed ? '<span style="color:#dc2626;">−' + removed + ' chars removed</span>' : '');
+            } else {
+                diffStats.classList.add('hidden');
+            }
+        }
+    }
+
+    function scheduleDiff() {
+        clearTimeout(diffTimer);
+        diffTimer = setTimeout(function() {
+            var proposed = proposedTA ? proposedTA.value : '';
+            var isDeletion = proposed.trim() === '' && originalText.trim() !== '';
+            if (deletionNote) deletionNote.classList.toggle('hidden', !isDeletion);
+            renderDiff(originalText, proposed);
+        }, 80);
+    }
+
+    // ── Section load ──────────────────────────────────────────────────────────
+    function loadSection(sectionId) {
+        fetch('/cnb/api/section/' + sectionId + '/')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                originalText = data.content || '';
+                if (proposedTA) {
+                    proposedTA.value = originalText;
+                    proposedTA.focus();
+                    proposedTA.selectionStart = proposedTA.selectionEnd = proposedTA.value.length;
+                }
+                renderDiff(originalText, originalText);
+                if (diffStats) diffStats.classList.add('hidden');
+                if (emptyState) emptyState.classList.add('hidden');
+                if (editorPanels) editorPanels.classList.remove('hidden');
+                buildContextPanels(data);
+            })
+            .catch(function() {
+                originalText = '';
+                if (emptyState) emptyState.classList.remove('hidden');
+                if (editorPanels) editorPanels.classList.add('hidden');
+            });
+    }
+
+    function buildContextPanels(data) {
+        if (!contextRow || !contextPanels) return;
+        var hasContext = data.article_title || data.prev_section || data.next_section;
+        if (!hasContext) { contextRow.classList.add('hidden'); return; }
+        contextRow.classList.remove('hidden');
+        if (contextSum) contextSum.textContent = 'Art. ' + data.article_number + ' — ' + data.article_title;
+        var panels = [
+            data.prev_section ? {label: '▲ Previous', s: data.prev_section, dim: true} : null,
+            {label: '● This section', s: {number: data.section_number, title: data.section_title, content: data.content}, highlight: true},
+            data.next_section ? {label: '▼ Next', s: data.next_section, dim: true} : null,
+        ];
+        contextPanels.innerHTML = '';
+        panels.forEach(function(p) {
+            if (!p) { contextPanels.appendChild(document.createElement('div')); return; }
+            var el = document.createElement('div');
+            el.className = p.highlight
+                ? 'rounded-lg border border-primary-300 dark:border-primary-700 bg-primary-50 dark:bg-primary-900/20 p-2'
+                : 'rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-2 opacity-70';
+            el.innerHTML = '<p class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">' + p.label + '</p>' +
+                '<p class="text-xs font-medium text-gray-700 dark:text-gray-300">§ ' + p.s.number + (p.s.title ? ' — ' + p.s.title : '') + '</p>' +
+                '<p class="text-xs text-gray-500 dark:text-gray-500 mt-1 leading-relaxed line-clamp-3 whitespace-pre-wrap">' + (p.s.content || '').slice(0, 200) + '</p>';
+            contextPanels.appendChild(el);
+        });
+    }
+
+    // ── Event wiring ──────────────────────────────────────────────────────────
+    if (select) {
+        select.addEventListener('change', function() {
+            var id = this.value;
+            if (!id) {
+                originalText = '';
+                if (emptyState) emptyState.classList.remove('hidden');
+                if (editorPanels) editorPanels.classList.add('hidden');
+                if (contextRow) contextRow.classList.add('hidden');
+                return;
+            }
+            loadSection(id);
+        });
+    }
+
+    if (proposedTA) {
+        proposedTA.addEventListener('input', scheduleDiff);
+    }
+
+    // ── Modal open / close ────────────────────────────────────────────────────
+    window.closeAmendmentModal = function() {
+        if (modal) modal.classList.add('hidden');
+    };
+
+    window.openAmendmentModal = function() {
+        if (!modal) return;
+        originalText = '';
+        if (select) select.value = '';
+        if (proposedTA) proposedTA.value = '';
+        if (diffEl) diffEl.innerHTML = '<span style="color:#9ca3af;font-style:italic;font-size:0.75rem;">No changes yet — start editing the text on the left.</span>';
+        if (diffStats) diffStats.classList.add('hidden');
+        if (emptyState) emptyState.classList.remove('hidden');
+        if (editorPanels) editorPanels.classList.add('hidden');
+        if (contextRow) contextRow.classList.add('hidden');
+        if (deletionNote) deletionNote.classList.add('hidden');
+        if (scopeInput) scopeInput.value = '';
+        modal.classList.remove('hidden');
+    };
+
+    window.resetToOriginal = function() {
+        if (!proposedTA || !originalText) return;
+        proposedTA.value = originalText;
+        renderDiff(originalText, originalText);
+        if (diffStats) diffStats.classList.add('hidden');
+    };
+
+    // ── Edit existing amendment ───────────────────────────────────────────────
+    window.editAmendment = function(sectionId, proposed, scope, original) {
+        if (!modal) return;
+        originalText = original;
+        if (select) {
+            select.value = sectionId;
+            fetch('/cnb/api/section/' + sectionId + '/')
+                .then(function(r) { return r.json(); })
+                .then(function(data) { buildContextPanels(data); })
+                .catch(function() {});
+        }
+        if (proposedTA) proposedTA.value = proposed;
+        if (scopeInput) scopeInput.value = scope;
+        if (deletionNote) deletionNote.classList.toggle('hidden', proposed.trim() !== '' || original.trim() === '');
+        if (emptyState) emptyState.classList.add('hidden');
+        if (editorPanels) editorPanels.classList.remove('hidden');
+        if (contextRow) contextRow.classList.add('hidden');
+        if (diffStats) diffStats.classList.add('hidden');
+        renderDiff(original, proposed);
+        modal.classList.remove('hidden');
+    };
+})();
+</script>
+
+<script nonce="{{ request.csp_nonce }}">
+// ── Save & Preview ────────────────────────────────────────────────────────────
+window.submitSaveAndPreview = function() {
+    var flag = document.getElementById('saveAndPreviewFlag');
+    var form = flag ? flag.closest('form') : null;
+    if (!flag || !form) return;
+    flag.value = '1';
+    window._isDirty = false;
+    form.submit();
+};
+
+// ── Unsaved changes warning ───────────────────────────────────────────────────
+window._isDirty = false;
+(function() {
+    var resForm = document.querySelector('form[method="post"]');
+    if (!resForm) return;
+    resForm.querySelectorAll('input, select, textarea').forEach(function(el) {
+        el.addEventListener('input', function() { window._isDirty = true; });
+        el.addEventListener('change', function() { window._isDirty = true; });
+    });
+    resForm.addEventListener('submit', function() { window._isDirty = false; });
+    window.addEventListener('beforeunload', function(e) {
+        if (window._isDirty) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+})();
+</script>
+{% endif %}
+
+{% endblock %}

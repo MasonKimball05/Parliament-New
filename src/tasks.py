@@ -398,6 +398,28 @@ def prune_old_auth_tokens():
         logger.error(f"[tasks] prune_old_auth_tokens failed: {exc}")
 
 
+@shared_task(name='tasks.prune_expired_chat_permissions')
+def prune_expired_chat_permissions():
+    """
+    Delete ChatChannelPermission rows whose expires_at has passed.
+
+    Guest permissions can have an optional expiry date. When that date passes
+    the permission is functionally dead (can_* checks filter it out), but the
+    row remains. This task prunes those rows nightly so the guest list stays
+    clean and the DB doesn't accumulate stale entries.
+    """
+    try:
+        from src.models import ChatChannelPermission
+        deleted, _ = ChatChannelPermission.objects.filter(
+            expires_at__isnull=False,
+            expires_at__lte=timezone.now(),
+        ).delete()
+        if deleted:
+            logger.info(f"[tasks] prune_expired_chat_permissions: removed {deleted} expired permission(s)")
+    except Exception as exc:
+        logger.error(f"[tasks] prune_expired_chat_permissions failed: {exc}")
+
+
 # ---------------------------------------------------------------------------
 # Daily Digest — combined site health report
 # ---------------------------------------------------------------------------

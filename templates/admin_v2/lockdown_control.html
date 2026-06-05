@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+{% extends "admin_v2/base.html" %}
 
 {% block title %}Emergency Lockdown - Admin v2{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="container mx-auto px-4 py-8">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <div class="flex items-center justify-between">
             <div>
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Emergency Lockdown Control</h1>
@@ -15,7 +15,7 @@
     </div>
 
     <!-- Current Status -->
-    <div class="{% if lockdown.is_active %}bg-red-600{% else %}bg-green-600{% endif %} text-white rounded-lg shadow-md p-6 mb-6">
+    <div class="{% if lockdown.is_active %}bg-red-600{% else %}bg-green-600{% endif %} text-white rounded-xl shadow-sm p-6 mb-6">
         <div class="flex items-center justify-between">
             <div class="flex items-center">
                 {% if lockdown.is_active %}
@@ -49,7 +49,7 @@
 
     {% if lockdown.is_active %}
     <!-- Deactivate Lockdown -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Deactivate Lockdown</h2>
         <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
             <p class="text-amber-800 dark:text-amber-200">
@@ -67,7 +67,7 @@
 
     <!-- Update Settings While Active -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Update Whitelist</h2>
             <form method="post">
                 {% csrf_token %}
@@ -77,11 +77,11 @@
                     <textarea name="whitelisted_ips" rows="4" class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="Enter IPs separated by commas">{{ lockdown.whitelisted_ips|join:', ' }}</textarea>
                     <p class="text-xs text-gray-500 mt-1">Your current IP: <code>{{ current_ip }}</code></p>
                 </div>
-                <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Update Whitelist</button>
+                <button type="submit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg">Update Whitelist</button>
             </form>
         </div>
 
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Update Message</h2>
             <form method="post">
                 {% csrf_token %}
@@ -90,14 +90,14 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Lockdown Message</label>
                     <textarea name="message" rows="4" class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">{{ lockdown.message }}</textarea>
                 </div>
-                <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Update Message</button>
+                <button type="submit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg">Update Message</button>
             </form>
         </div>
     </div>
 
     {% else %}
     <!-- Activate Lockdown -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h2 class="text-xl font-bold text-red-600 dark:text-red-400 mb-4">Activate Emergency Lockdown</h2>
         <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
             <div class="flex items-start">
@@ -138,9 +138,9 @@
     {% endif %}
 
     <!-- Info Box -->
-    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
-        <h3 class="font-bold text-blue-800 dark:text-blue-300 mb-2">About Emergency Lockdown</h3>
-        <div class="text-sm text-blue-700 dark:text-blue-400 space-y-2">
+    <div class="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-6">
+        <h3 class="font-bold text-primary-800 dark:text-primary-300 mb-2">About Emergency Lockdown</h3>
+        <div class="text-sm text-primary-700 dark:text-primary-400 space-y-2">
             <p>Emergency lockdown is a last-resort security measure that blocks all access to the system except from explicitly whitelisted IP addresses.</p>
             <p><strong>When to use:</strong></p>
             <ul class="list-disc list-inside ml-4">
