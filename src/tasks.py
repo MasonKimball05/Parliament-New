@@ -1061,3 +1061,159 @@ def send_push_notification(self, user_id, title, body, url='/home/', tag='parlia
 
     if expired_ids:
         PushSubscription.objects.filter(pk__in=expired_ids).delete()
+
+
+# ---------------------------------------------------------------------------
+# Event Reminder Push Notifications
+# ---------------------------------------------------------------------------
+
+@shared_task(name='tasks.send_event_reminder_pushes')
+def send_event_reminder_pushes():
+    """
+    Send push notification reminders for upcoming events.
+
+    Runs every 15 minutes via Celery Beat. For each event where:
+      - send_reminder=True
+      - reminder_sent_at is None (not yet sent)
+      - is_active=True
+      - date_time is in the future but within the per-event reminder window
+        (i.e., now >= event.date_time - reminder_hours_before hours)
+
+    Skips silently if the global feature flag or SiteSetting is disabled.
+    Respects per-user push_events preference.
+    """
+    from src.models import ParliamentUser, PushSubscription, Event, EventReminderLog, EventReminderRecipient
+    from src.models_feature_flags import FeatureFlag, SiteSetting
+    from datetime import timedelta
+    from django.db.models import Q
+
+    now = timezone.now()
+
+    # Global master flag check
+    master_flag = FeatureFlag.objects.filter(name='push_notifications_enabled').first()
+    if master_flag and not master_flag.is_enabled:
+        logger.debug('[event_reminders] push_notifications_enabled flag is OFF — skipping')
+        return
+
+    push_events_flag = FeatureFlag.objects.filter(name='push_events').first()
+    if push_events_flag and not push_events_flag.is_enabled:
+        logger.debug('[event_reminders] push_events flag is OFF — skipping')
+        return
+
+    reminders_enabled = SiteSetting.get_setting('event_reminders_enabled', True)
+    if not reminders_enabled:
+        logger.debug('[event_reminders] event_reminders_enabled setting is OFF — skipping')
+        return
+
+    # Find events that may have a reminder due (cap scan at 7 days out)
+    candidates = Event.objects.filter(
+        is_active=True,
+        date_time__gt=now,
+        date_time__lte=now + timedelta(days=7),
+    ).filter(
+        Q(reminder_1_enabled=True, reminder_1_sent_at__isnull=True) |
+        Q(reminder_2_enabled=True, reminder_2_sent_at__isnull=True)
+    )
+
+    sent_count = 0
+
+    for event in candidates:
+        # Build list of (slot_num, sent_at_field) for each due reminder
+        due_slots = []
+        if (event.reminder_1_enabled and event.reminder_1_sent_at is None and
+                now >= event.date_time - timedelta(hours=event.reminder_1_hours_before)):
+            due_slots.append((1, 'reminder_1_sent_at'))
+        if (event.reminder_2_enabled and event.reminder_2_sent_at is None and
+                now >= event.date_time - timedelta(hours=event.reminder_2_hours_before)):
+            due_slots.append((2, 'reminder_2_sent_at'))
+
+        if not due_slots:
+            continue
+
+        # Determine eligible users (active, visibility-filtered)
+        all_active = ParliamentUser.objects.filter(member_status='Active', is_active=True)
+        if event.visible_to:
+            visible_types = set(event.visible_to)
+            eligible_pks = [
+                u.pk for u in all_active
+                if u.member_type in visible_types
+                or ('Member' in visible_types and u.member_type in ('Chair', 'Officer'))
+            ]
+            eligible_users = all_active.filter(pk__in=eligible_pks)
+        else:
+            eligible_users = all_active
+
+        subscribed_user_ids = set(
+            PushSubscription.objects.filter(user__in=eligible_users).values_list('user_id', flat=True)
+        )
+
+        event_url = f'/officer/manage-events/{event.pk}/attendance/'
+        local_dt = timezone.localtime(event.date_time)
+        time_str = local_dt.strftime('%a, %b %-d at %-I:%M %p')
+        base_body = time_str + (f' — {event.location}' if event.location else '')
+
+        for slot_num, sent_at_field in due_slots:
+            title = f'Upcoming Event: {event.title}'
+            tag = f'event_reminder_{slot_num}'
+
+            recipient_rows = []
+            dispatched = 0
+            opted_out = 0
+
+            for user in eligible_users:
+                if user.pk not in subscribed_user_ids:
+                    recipient_rows.append(EventReminderRecipient(
+                        user=user,
+                        user_name=user.name or user.username,
+                        user_member_type=user.member_type or '',
+                        status='skipped_no_subscription',
+                    ))
+                    continue
+
+                try:
+                    push_on = user.preferences.push_events
+                except Exception:
+                    push_on = True
+
+                if not push_on:
+                    opted_out += 1
+                    recipient_rows.append(EventReminderRecipient(
+                        user=user,
+                        user_name=user.name or user.username,
+                        user_member_type=user.member_type or '',
+                        status='skipped_opted_out',
+                    ))
+                    continue
+
+                send_push_notification.delay(user.pk, title, base_body, event_url, tag=tag)
+                dispatched += 1
+                recipient_rows.append(EventReminderRecipient(
+                    user=user,
+                    user_name=user.name or user.username,
+                    user_member_type=user.member_type or '',
+                    status='dispatched',
+                ))
+
+            # Write log entry + recipients
+            reminder_log = EventReminderLog.objects.create(
+                event=event,
+                reminder_slot=slot_num,
+                users_eligible=eligible_users.count(),
+                users_subscribed=len(subscribed_user_ids),
+                users_opted_out=opted_out,
+                notifications_dispatched=dispatched,
+                status='dispatched',
+            )
+            for row in recipient_rows:
+                row.reminder_log = reminder_log
+            EventReminderRecipient.objects.bulk_create(recipient_rows)
+
+            Event.objects.filter(pk=event.pk).update(**{sent_at_field: now})
+            sent_count += 1
+            logger.info(
+                f'[event_reminders] Slot {slot_num} reminder sent for "{event.title}" '
+                f'(id={event.pk}) — dispatched={dispatched}, opted_out={opted_out}'
+            )
+
+    if sent_count:
+        logger.info(f'[event_reminders] send_event_reminder_pushes: dispatched {sent_count} reminder(s)')

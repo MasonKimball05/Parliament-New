@@ -1,0 +1,120 @@
+{% extends "admin_v2/base.html" %}
+
+{% block title %}Reminder Log Detail - Admin v2{% endblock %}
+
+{% block admin_content %}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+
+    <!-- Header -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ log.event.title }}</h1>
+                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                        Reminder {{ log.reminder_slot }}
+                    </span>
+                </div>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    Sent {{ log.sent_at|date:"M j, Y g:i A" }}
+                    &bull; Event: {{ log.event.date_time|date:"M j, Y g:i A" }}
+                    {% if log.event.location %}&bull; {{ log.event.location }}{% endif %}
+                </p>
+            </div>
+            <a href="{% url 'admin_v2_event_reminder_logs' %}"
+               class="inline-flex items-center gap-1.5 text-sm text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                All Reminder Logs
+            </a>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
+            <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ log.users_eligible }}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Eligible Users</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
+            <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ log.users_subscribed }}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Subscribed</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
+            <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ log.notifications_dispatched }}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Dispatched</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
+            <div class="text-2xl font-bold text-gray-500 dark:text-gray-400">{{ log.users_opted_out }}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Opted Out</div>
+        </div>
+    </div>
+
+    <!-- Status badge -->
+    <div class="mb-6 flex items-center gap-2">
+        <span class="px-3 py-1 text-sm font-medium rounded-full
+            {% if log.status == 'dispatched' %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+            {% elif log.status == 'error' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+            {% else %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+            {{ log.get_status_display }}
+        </span>
+        {% if log.error_message %}
+        <span class="text-sm text-red-600 dark:text-red-400">{{ log.error_message }}</span>
+        {% endif %}
+    </div>
+
+    <!-- Dispatched Recipients -->
+    {% if dispatched %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mb-6">
+        <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="font-semibold text-gray-900 dark:text-gray-100">
+                Notifications Dispatched
+                <span class="ml-1 text-sm font-normal text-green-600 dark:text-green-400">({{ dispatched|length }})</span>
+            </h2>
+        </div>
+        <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for r in dispatched %}
+            <li class="flex items-center justify-between px-4 py-3">
+                <div>
+                    <span class="font-medium text-gray-900 dark:text-gray-100">{{ r.user_name }}</span>
+                    <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">{{ r.user_member_type }}</span>
+                </div>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-medium">
+                    Dispatched
+                </span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- Skipped Recipients -->
+    {% if skipped %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="font-semibold text-gray-900 dark:text-gray-100">
+                Skipped
+                <span class="ml-1 text-sm font-normal text-gray-500 dark:text-gray-400">({{ skipped|length }})</span>
+            </h2>
+        </div>
+        <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for r in skipped %}
+            <li class="flex items-center justify-between px-4 py-3">
+                <div>
+                    <span class="font-medium text-gray-900 dark:text-gray-100">{{ r.user_name }}</span>
+                    <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">{{ r.user_member_type }}</span>
+                </div>
+                <span class="text-xs px-2 py-0.5 rounded-full
+                    {% if r.status == 'skipped_opted_out' %}bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300
+                    {% else %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400{% endif %} font-medium">
+                    {{ r.get_status_display }}
+                </span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

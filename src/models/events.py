@@ -105,6 +105,34 @@ class Event(models.Model):
         help_text='When attendance was finalized'
     )
 
+    # Push notification reminder fields (up to 2 reminders per event)
+    reminder_1_enabled = models.BooleanField(
+        default=False,
+        help_text='Send a push notification reminder to members before this event'
+    )
+    reminder_1_hours_before = models.PositiveIntegerField(
+        default=24,
+        help_text='How many hours before the event to send the first reminder'
+    )
+    reminder_1_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When the first push reminder was dispatched (null = not yet sent)'
+    )
+    reminder_2_enabled = models.BooleanField(
+        default=False,
+        help_text='Send a second push notification reminder before this event'
+    )
+    reminder_2_hours_before = models.PositiveIntegerField(
+        default=1,
+        help_text='How many hours before the event to send the second reminder'
+    )
+    reminder_2_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When the second push reminder was dispatched (null = not yet sent)'
+    )
+
     class Meta:
         ordering = ['date_time']
 
@@ -413,3 +441,81 @@ class AttendanceExcuse(models.Model):
         self.reviewed_at = timezone.now()
         self.review_notes = notes
         self.save()
+
+
+class EventReminderLog(models.Model):
+    """
+    Log of each push notification reminder dispatch for an event.
+    One record per reminder slot (1 or 2) per event send attempt.
+    """
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name='reminder_logs',
+    )
+    reminder_slot = models.PositiveSmallIntegerField(
+        help_text='Which reminder slot triggered this log (1 or 2)'
+    )
+
+    # Counts
+    users_eligible = models.IntegerField(default=0, help_text='Active users matched by visibility filter')
+    users_subscribed = models.IntegerField(default=0, help_text='Eligible users with at least one push subscription')
+    users_opted_out = models.IntegerField(default=0, help_text='Subscribed users who opted out of push_events')
+    notifications_dispatched = models.IntegerField(default=0, help_text='Number of send_push_notification tasks queued')
+
+    # Status
+    STATUS_CHOICES = (
+        ('dispatched', 'Dispatched'),
+        ('skipped_flag', 'Skipped — Feature Flag Off'),
+        ('skipped_setting', 'Skipped — Global Setting Off'),
+        ('error', 'Error'),
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='dispatched')
+    error_message = models.TextField(blank=True)
+
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-sent_at']
+        verbose_name = 'Event Reminder Log'
+        verbose_name_plural = 'Event Reminder Logs'
+
+    def __str__(self):
+        return f'Reminder {self.reminder_slot} for "{self.event.title}" — {self.sent_at:%Y-%m-%d %H:%M}'
+
+
+class EventReminderRecipient(models.Model):
+    """
+    Per-user record for an EventReminderLog dispatch.
+    """
+    reminder_log = models.ForeignKey(
+        EventReminderLog,
+        on_delete=models.CASCADE,
+        related_name='recipients',
+    )
+    user = models.ForeignKey(
+        ParliamentUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='event_reminder_receipts',
+    )
+
+    # Snapshot of user info at send time
+    user_name = models.CharField(max_length=255)
+    user_member_type = models.CharField(max_length=50)
+
+    STATUS_CHOICES = (
+        ('dispatched', 'Dispatched'),
+        ('skipped_no_subscription', 'Skipped — No Push Subscription'),
+        ('skipped_opted_out', 'Skipped — Opted Out'),
+        ('skipped_visibility', 'Skipped — Not in Visibility'),
+    )
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES)
+
+    class Meta:
+        ordering = ['status', 'user_name']
+        verbose_name = 'Reminder Recipient'
+        verbose_name_plural = 'Reminder Recipients'
+
+    def __str__(self):
+        return f'{self.user_name} — {self.get_status_display()}'

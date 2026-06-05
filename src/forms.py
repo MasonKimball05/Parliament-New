@@ -176,7 +176,9 @@ class EventForm(forms.ModelForm):
         fields = ['title', 'description', 'date_time', 'location', 'visible_to', 'is_active',
                   'requires_attendance', 'allow_excuses', 'excuse_deadline',
                   'is_recurring', 'recurrence_type', 'recurrence_interval', 'recurrence_unit',
-                  'recurrence_days', 'recurrence_end_date']
+                  'recurrence_days', 'recurrence_end_date',
+                  'reminder_1_enabled', 'reminder_1_hours_before',
+                  'reminder_2_enabled', 'reminder_2_hours_before']
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
@@ -227,7 +229,23 @@ class EventForm(forms.ModelForm):
             'recurrence_end_date': forms.DateInput(attrs={
                 'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
                 'type': 'date'
-            })
+            }),
+            'reminder_1_enabled': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+            }),
+            'reminder_1_hours_before': forms.NumberInput(attrs={
+                'class': 'w-32 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'min': 1,
+                'max': 168,
+            }),
+            'reminder_2_enabled': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+            }),
+            'reminder_2_hours_before': forms.NumberInput(attrs={
+                'class': 'w-32 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'min': 1,
+                'max': 168,
+            }),
         }
         labels = {
             'title': 'Event Title',
@@ -244,7 +262,11 @@ class EventForm(forms.ModelForm):
             'recurrence_interval': 'Every',
             'recurrence_unit': '',
             'recurrence_days': 'Repeat on Days',
-            'recurrence_end_date': 'End Date (Optional)'
+            'recurrence_end_date': 'End Date (Optional)',
+            'reminder_1_enabled': 'Reminder 1',
+            'reminder_1_hours_before': 'Hours Before',
+            'reminder_2_enabled': 'Reminder 2',
+            'reminder_2_hours_before': 'Hours Before',
         }
         help_texts = {
             'date_time': 'When the event will occur',

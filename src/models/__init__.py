@@ -60,6 +60,8 @@ from src.models.events import (
     Event,
     Attendance,
     AttendanceExcuse,
+    EventReminderLog,
+    EventReminderRecipient,
 )
 
 # Chat
@@ -227,6 +229,8 @@ __all__ = [
     'Event',
     'Attendance',
     'AttendanceExcuse',
+    'EventReminderLog',
+    'EventReminderRecipient',
     # Chat
     'ChatChannel',
     'ChatChannelPermission',

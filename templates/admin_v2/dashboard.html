@@ -285,6 +285,9 @@
                 <a href="{% url 'admin_v2_email_logs' %}" class="block p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">
                     <span class="font-medium text-gray-900 dark:text-gray-100">Email Logs</span>
                 </a>
+                <a href="{% url 'admin_v2_event_reminder_logs' %}" class="block p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">
+                    <span class="font-medium text-gray-900 dark:text-gray-100">Event Reminder Logs</span>
+                </a>
                 <a href="{% url 'admin_v2_notifications' %}" class="block p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">
                     <span class="font-medium text-gray-900 dark:text-gray-100">Notification Schedules</span>
                 </a>
@@ -348,6 +351,35 @@
                         </div>
                         {% empty %}
                         <p class="text-sm text-gray-500 dark:text-gray-400">No push flags seeded yet — reload the page.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                <!-- Event Reminder Settings -->
+                <div class="border-t border-gray-200 dark:border-gray-700 pt-3">
+                    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Event Reminder Settings</h4>
+                    <div class="space-y-2">
+                        {% for setting in event_reminder_settings %}
+                        <div>
+                            <label class="text-xs font-medium text-gray-700 dark:text-gray-300">{{ setting.display_name }}</label>
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mb-1">{{ setting.description }}</p>
+                            {% if setting.setting_type == 'boolean' %}
+                            <form method="post" action="{% url 'update_site_setting' setting.id %}" class="flex gap-2 items-center">
+                                {% csrf_token %}
+                                <select name="value" class="px-3 py-1.5 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
+                                    <option value="true" {% if setting.value == 'true' %}selected{% endif %}>Enabled</option>
+                                    <option value="false" {% if setting.value == 'false' %}selected{% endif %}>Disabled</option>
+                                </select>
+                                <button type="submit" class="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm">Save</button>
+                            </form>
+                            {% else %}
+                            <form method="post" action="{% url 'update_site_setting' setting.id %}" class="flex gap-2 items-center">
+                                {% csrf_token %}
+                                <input type="number" name="value" value="{{ setting.value }}" min="1" max="168" class="w-24 px-3 py-1.5 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
+                                <span class="text-xs text-gray-500 dark:text-gray-400">hours</span>
+                                <button type="submit" class="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm">Save</button>
+                            </form>
+                            {% endif %}
+                        </div>
                         {% endfor %}
                     </div>
                 </div>

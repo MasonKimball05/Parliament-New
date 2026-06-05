@@ -116,6 +116,7 @@ from src.view.admin_v2 import (
     update_site_setting, send_test_announcement_email, preview_test_email,
     health_check, check_default_password, test_email_targeting,
     email_logs, email_log_detail, send_scheduled_announcement_email,
+    event_reminder_logs, event_reminder_log_detail,
     security_dashboard, quarantine_management, lockdown_control,
     honeypot_logs, security_notifications_log,
     dismiss_alert, dismiss_all_alerts,
@@ -702,6 +703,8 @@ urlpatterns = [
     path('admin-v2/email-logs/', email_logs, name='admin_v2_email_logs'),
     path('admin-v2/email-logs/<int:log_id>/', email_log_detail, name='admin_v2_email_log_detail'),
     path('admin-v2/email-logs/send-scheduled/<int:announcement_id>/', send_scheduled_announcement_email, name='admin_v2_send_scheduled_email'),
+    path('admin-v2/event-reminder-logs/', event_reminder_logs, name='admin_v2_event_reminder_logs'),
+    path('admin-v2/event-reminder-logs/<int:log_id>/', event_reminder_log_detail, name='admin_v2_event_reminder_log_detail'),
 
     # Admin v2 - Security Management
     path('admin-v2/security/', security_dashboard, name='admin_v2_security'),

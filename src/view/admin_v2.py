@@ -18,6 +18,7 @@ from src.models import (
     IPWhitelist, IPBlacklist, AnnouncementEmailLog, AnnouncementEmailRecipient,
     QuarantinedAccount, HoneypotAccess, SecurityNotificationLog, UserWatchFlag,
     PushSubscription, PageVisit,
+    EventReminderLog, EventReminderRecipient,
 )
 import os
 import secrets
@@ -317,6 +318,41 @@ def admin_v2_dashboard(request):
         key='chat_active_users_poll_interval',
     )
 
+    # Ensure event reminder settings exist
+    event_reminder_defaults = [
+        {
+            'key': 'event_reminders_enabled',
+            'display_name': 'Event Reminder Notifications',
+            'description': 'Master switch for event push reminder notifications. When off, no reminders are sent regardless of per-event settings.',
+            'category': 'notifications',
+            'setting_type': 'boolean',
+            'default_value': 'true',
+        },
+        {
+            'key': 'event_reminder_default_hours',
+            'display_name': 'Default Reminder Lead Time (hours)',
+            'description': 'Default number of hours before an event to send the push reminder. Officers can override this per event.',
+            'category': 'notifications',
+            'setting_type': 'integer',
+            'default_value': '24',
+        },
+    ]
+    for setting_data in event_reminder_defaults:
+        SiteSetting.objects.get_or_create(
+            key=setting_data['key'],
+            defaults={
+                'display_name': setting_data['display_name'],
+                'description': setting_data['description'],
+                'category': setting_data['category'],
+                'setting_type': setting_data['setting_type'],
+                'value': setting_data['default_value'],
+                'default_value': setting_data['default_value'],
+            }
+        )
+    event_reminder_settings = SiteSetting.objects.filter(
+        key__in=['event_reminders_enabled', 'event_reminder_default_hours']
+    ).order_by('key')
+
     # Seed push notification feature flags
     push_flag_defaults = [
         {
@@ -405,6 +441,7 @@ def admin_v2_dashboard(request):
         'all_feature_flags': FeatureFlag.objects.all().order_by('category', 'name'),
         'page_toggles': page_toggles,
         'chat_settings': chat_settings,
+        'event_reminder_settings': event_reminder_settings,
         'push_flags': push_flags,
         'push_stats': push_stats,
         'recent_logs': recent_logs,
@@ -2789,3 +2826,54 @@ def page_visits_dashboard(request):
         'drill_path': None,
         'user_filter': user_filter,
     })
+
+
+# =============================================================================
+# EVENT REMINDER LOGS
+# =============================================================================
+
+@require_admin_v2_auth
+def event_reminder_logs(request):
+    """
+    List all event reminder push notification dispatches.
+    Shows upcoming events with pending reminders and completed reminder history.
+    """
+    from django.utils import timezone as tz
+    from django.db.models import Q
+    now = tz.now()
+
+    logs = EventReminderLog.objects.select_related('event').order_by('-sent_at')[:100]
+
+    # Events with at least one reminder enabled that hasn't fired yet
+    pending_events = Event.objects.filter(
+        is_active=True,
+        date_time__gt=now,
+    ).filter(
+        Q(reminder_1_enabled=True, reminder_1_sent_at__isnull=True) |
+        Q(reminder_2_enabled=True, reminder_2_sent_at__isnull=True)
+    ).order_by('date_time')
+
+    return render(request, 'admin_v2/event_reminder_logs.html', {
+        'logs': logs,
+        'pending_events': pending_events,
+        'now': now,
+    })
+
+
+@require_admin_v2_auth
+def event_reminder_log_detail(request, log_id):
+    """
+    Detail view for a single EventReminderLog — shows per-user recipient breakdown.
+    """
+    log = get_object_or_404(EventReminderLog, id=log_id)
+    recipients = log.recipients.select_related('user').order_by('status', 'user_name')
+
+    dispatched = recipients.filter(status='dispatched')
+    skipped = recipients.exclude(status='dispatched')
+
+    return render(request, 'admin_v2/event_reminder_log_detail.html', {
+        'log': log,
+        'dispatched': dispatched,
+        'skipped': skipped,
+    })
+

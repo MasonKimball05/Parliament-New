@@ -46,6 +46,15 @@ SCHEDULES = [
     },
 
     # -------------------------------------------------------------------------
+    # Event reminder push notifications — every 15 minutes
+    # -------------------------------------------------------------------------
+    {
+        'name': 'Send event reminder push notifications',
+        'task': 'tasks.send_event_reminder_pushes',
+        'interval': {'every': 15, 'period': IntervalSchedule.MINUTES},
+    },
+
+    # -------------------------------------------------------------------------
     # Housekeeping — daily tasks (3:00–3:30 AM CST = 09:00–09:30 UTC)
     # -------------------------------------------------------------------------
     {

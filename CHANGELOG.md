@@ -255,6 +255,12 @@ Wires the seven `KaiMemberPermission` flags into actual view and template enforc
 
 ---
 
+### v3.1.0 — Event Push Reminder Notifications (2026-06-05) — Not yet deployed
+
+Per-event push notification reminders with global on/off controls in Admin v2. Officers enable a reminder on any event and set the lead time; a Celery Beat task fires every 15 minutes to dispatch reminders on schedule. Respects master feature flags and per-user opt-out.
+
+---
+
 ### v3.0.0 - WebSocket Chat, Passkeys, C&B Resolution Builder & Security Hardening (2026-06-05) ✅ Deployed
 
 Major version release replacing HTTP polling with persistent WebSocket connections, overhauling the chat UI, adding passkeys, a comprehensive overhaul of the C&B resolution builder with word-level diff and amendment tracking, and targeted security hardening across the admin and chat layers.

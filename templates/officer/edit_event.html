@@ -241,6 +241,57 @@
                 </div>
             </div>
 
+            <!-- Push Reminder Section -->
+            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
+                <h3 class="text-sm font-semibold text-yellow-900 dark:text-yellow-200 mb-3">Push Notification Reminders</h3>
+                <div class="space-y-4">
+                    <!-- Reminder 1 -->
+                    <div>
+                        <div class="flex items-start">
+                            {{ form.reminder_1_enabled }}
+                            <label for="{{ form.reminder_1_enabled.id_for_label }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                                <span class="font-medium">First Reminder</span>
+                                <span class="block text-gray-500 dark:text-gray-400 text-xs mt-1">Send a push notification to members before this event</span>
+                            </label>
+                        </div>
+                        <div id="reminder-1-hours" class="pl-6 mt-2 {% if not form.instance.reminder_1_enabled %}hidden{% endif %}">
+                            <div class="flex items-center gap-2">
+                                {{ form.reminder_1_hours_before }}
+                                <span class="text-sm text-gray-500 dark:text-gray-400">hours before the event</span>
+                            </div>
+                            {% if form.reminder_1_hours_before.errors %}
+                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.reminder_1_hours_before.errors.0 }}</p>
+                            {% endif %}
+                            {% if event.reminder_1_sent_at %}
+                            <p class="mt-1 text-xs text-green-600 dark:text-green-400">Sent {{ event.reminder_1_sent_at|date:"M j, Y g:i A" }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <!-- Reminder 2 -->
+                    <div>
+                        <div class="flex items-start">
+                            {{ form.reminder_2_enabled }}
+                            <label for="{{ form.reminder_2_enabled.id_for_label }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                                <span class="font-medium">Second Reminder</span>
+                                <span class="block text-gray-500 dark:text-gray-400 text-xs mt-1">Send a second reminder closer to the event</span>
+                            </label>
+                        </div>
+                        <div id="reminder-2-hours" class="pl-6 mt-2 {% if not form.instance.reminder_2_enabled %}hidden{% endif %}">
+                            <div class="flex items-center gap-2">
+                                {{ form.reminder_2_hours_before }}
+                                <span class="text-sm text-gray-500 dark:text-gray-400">hours before the event</span>
+                            </div>
+                            {% if form.reminder_2_hours_before.errors %}
+                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.reminder_2_hours_before.errors.0 }}</p>
+                            {% endif %}
+                            {% if event.reminder_2_sent_at %}
+                            <p class="mt-1 text-xs text-green-600 dark:text-green-400">Sent {{ event.reminder_2_sent_at|date:"M j, Y g:i A" }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="flex justify-end space-x-3 pt-4">
                 <a href="{% url 'manage_events' %}" class="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded-lg transition">
                     Cancel
@@ -318,6 +369,16 @@ document.addEventListener('DOMContentLoaded', function() {
             weeklyDaysOptions.classList.add('hidden');
         }
     }
+
+    // Reminder show/hide
+    function bindReminderToggle(checkboxId, hoursId) {
+        const cb = document.getElementById(checkboxId);
+        const panel = document.getElementById(hoursId);
+        if (!cb || !panel) return;
+        cb.addEventListener('change', function() { panel.classList.toggle('hidden', !cb.checked); });
+    }
+    bindReminderToggle('{{ form.reminder_1_enabled.id_for_label }}', 'reminder-1-hours');
+    bindReminderToggle('{{ form.reminder_2_enabled.id_for_label }}', 'reminder-2-hours');
 
     // Initial state
     updateRecurringVisibility();
