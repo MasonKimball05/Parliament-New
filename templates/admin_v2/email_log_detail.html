@@ -105,7 +105,7 @@
                 </svg>
                 Console Output
             </h2>
-            <button onclick="toggleConsole()" id="console-toggle" class="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors">
+            <button type="button" id="console-toggle" class="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors">
                 Collapse
             </button>
         </div>
@@ -125,6 +125,10 @@
                 btn.textContent = 'Expand';
             }
         }
+        document.addEventListener('DOMContentLoaded', function() {
+            var btn = document.getElementById('console-toggle');
+            if (btn) btn.addEventListener('click', toggleConsole);
+        });
     </script>
     {% endif %}
 

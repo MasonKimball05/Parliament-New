@@ -56,7 +56,7 @@
                             {% endif %}
                         </td>
                         <td class="px-6 py-4">
-                            <form method="post" action="{% url 'admin_v2_delete_announcement' announcement.id %}" onsubmit="return confirm('Delete this announcement?');">
+                            <form method="post" action="{% url 'admin_v2_delete_announcement' announcement.id %}" class="js-confirm-submit" data-confirm-msg="Delete this announcement?">
                                 {% csrf_token %}
                                 <button type="submit" class="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded">Delete</button>
                             </form>
@@ -79,4 +79,13 @@
         {% endif %}
     </div>
 </div>
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(this.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+});
+</script>
 {% endblock %}

@@ -71,7 +71,7 @@
                             </span>
                         </td>
                         <td class="px-6 py-4">
-                            <form method="post" action="{% url 'admin_v2_remove_ip_blacklist' %}" onsubmit="return confirm('Remove {{ entry.ip_address }} from blacklist?');">
+                            <form method="post" action="{% url 'admin_v2_remove_ip_blacklist' %}" class="js-confirm-submit" data-confirm-msg="Remove {{ entry.ip_address }} from blacklist?">
                                 {% csrf_token %}
                                 <input type="hidden" name="ip_address" value="{{ entry.ip_address }}">
                                 <button type="submit" class="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-200">
@@ -92,4 +92,13 @@
         </div>
     </div>
 </div>
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(this.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+});
+</script>
 {% endblock %}

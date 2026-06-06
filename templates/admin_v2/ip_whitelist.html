@@ -65,7 +65,7 @@
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{{ entry.added_at|date:"M d, Y h:i A" }}</td>
                         <td class="px-6 py-4">
-                            <form method="post" action="{% url 'admin_v2_remove_ip_whitelist' %}" onsubmit="return confirm('Remove {{ entry.ip_address }} from whitelist?');">
+                            <form method="post" action="{% url 'admin_v2_remove_ip_whitelist' %}" class="js-confirm-submit" data-confirm-msg="Remove {{ entry.ip_address }} from whitelist?">
                                 {% csrf_token %}
                                 <input type="hidden" name="ip_address" value="{{ entry.ip_address }}">
                                 <button type="submit" class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200">
@@ -86,4 +86,13 @@
         </div>
     </div>
 </div>
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(this.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+});
+</script>
 {% endblock %}

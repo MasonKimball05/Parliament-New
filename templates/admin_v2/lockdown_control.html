@@ -116,7 +116,7 @@
             </div>
         </div>
 
-        <form method="post" class="space-y-4">
+        <form method="post" class="space-y-4 js-confirm-submit" data-confirm-msg="Are you SURE you want to activate emergency lockdown? This will block all non-whitelisted users immediately.">
             {% csrf_token %}
             <input type="hidden" name="action" value="activate">
             <div>
@@ -129,7 +129,7 @@
                 <p class="text-xs text-gray-500 mt-1">Your current IP (<code>{{ current_ip }}</code>) has been pre-filled. Add additional IPs as needed.</p>
             </div>
             <div class="pt-4">
-                <button type="submit" class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white text-lg font-bold rounded-lg" onclick="return confirm('Are you SURE you want to activate emergency lockdown? This will block all non-whitelisted users immediately.')">
+                <button type="submit" class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white text-lg font-bold rounded-lg">
                     ACTIVATE EMERGENCY LOCKDOWN
                 </button>
             </div>
@@ -153,4 +153,13 @@
         </div>
     </div>
 </div>
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(this.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+});
+</script>
 {% endblock %}

@@ -131,8 +131,8 @@
                                     </a>
                                     <form method="post"
                                           action="{% url 'admin_v2_delete_legislation' leg.id %}"
-                                          onsubmit="return confirm('Are you sure you want to delete this legislation? This cannot be undone.');"
-                                          class="inline">
+                                          class="inline js-confirm-submit"
+                                          data-confirm-msg="Are you sure you want to delete this legislation? This cannot be undone.">
                                         {% csrf_token %}
                                         <button type="submit"
                                                 class="inline-flex items-center px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors">
@@ -185,4 +185,13 @@
         {% endif %}
     </div>
 </div>
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(this.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+});
+</script>
 {% endblock %}
