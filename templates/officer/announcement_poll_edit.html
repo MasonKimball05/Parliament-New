@@ -13,7 +13,7 @@
             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Attached to: <span class="font-medium text-gray-700 dark:text-gray-300">{{ announcement.title }}</span></p>
         </div>
         {% if is_edit %}
-        <form method="post" onsubmit="return confirm('Delete this poll and all responses?')">
+        <form method="post" class="js-confirm-submit" data-confirm-msg="Delete this poll and all responses?">
             {% csrf_token %}
             <input type="hidden" name="action" value="delete">
             <button type="submit" class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition">Delete Poll</button>
@@ -72,7 +72,7 @@
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200">Questions</h2>
-                <button type="button" onclick="addQuestion()"
+                <button type="button" id="js-add-question"
                         class="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition flex items-center gap-1.5">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     Add Question
@@ -88,8 +88,8 @@
                             <input type="text" name="question_text_{{ forloop.counter0 }}" value="{{ question.text }}" placeholder="Question text" required
                                    class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500">
                             <div class="flex flex-wrap gap-4 items-center">
-                                <select name="question_type_{{ forloop.counter0 }}" onchange="onTypeChange(this)"
-                                        class="rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500">
+                                <select name="question_type_{{ forloop.counter0 }}"
+                                        class="js-question-type-select rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500">
                                     <option value="single" {% if question.question_type == 'single' %}selected{% endif %}>Single Choice</option>
                                     <option value="multiple" {% if question.question_type == 'multiple' %}selected{% endif %}>Multiple Choice</option>
                                     <option value="text" {% if question.question_type == 'text' %}selected{% endif %}>Text Response</option>
@@ -101,7 +101,7 @@
                                 </label>
                             </div>
                         </div>
-                        <button type="button" onclick="removeQuestion(this)" class="text-red-400 hover:text-red-600 transition mt-1">
+                        <button type="button" class="js-remove-question text-red-400 hover:text-red-600 transition mt-1">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                     </div>
@@ -112,13 +112,13 @@
                             <input type="hidden" name="option_id_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" value="{{ option.id }}">
                             <input type="text" name="option_text_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" value="{{ option.text }}" placeholder="Option text"
                                    class="flex-1 rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500">
-                            <button type="button" onclick="this.closest('.option-row').remove()" class="text-red-400 hover:text-red-600 transition">
+                            <button type="button" class="js-remove-option text-red-400 hover:text-red-600 transition">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                             </button>
                         </div>
                         {% endfor %}
-                        <button type="button" onclick="addOption(this, {{ forloop.counter0 }})"
-                                class="text-sm text-primary-600 dark:text-primary-400 hover:underline">+ Add option</button>
+                        <button type="button" class="js-add-option text-sm text-primary-600 dark:text-primary-400 hover:underline"
+                                data-q-idx="{{ forloop.counter0 }}">+ Add option</button>
                     </div>
                 </div>
                 {% empty %}
@@ -155,8 +155,8 @@ function addQuestion() {
                 <input type="text" name="question_text_${idx}" placeholder="Question text" required
                        class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500">
                 <div class="flex flex-wrap gap-4 items-center">
-                    <select name="question_type_${idx}" onchange="onTypeChange(this)"
-                            class="rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500">
+                    <select name="question_type_${idx}"
+                            class="js-question-type-select rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500">
                         <option value="single">Single Choice</option>
                         <option value="multiple">Multiple Choice</option>
                         <option value="text">Text Response</option>
@@ -168,13 +168,13 @@ function addQuestion() {
                     </label>
                 </div>
             </div>
-            <button type="button" onclick="removeQuestion(this)" class="text-red-400 hover:text-red-600 transition mt-1">
+            <button type="button" class="js-remove-question text-red-400 hover:text-red-600 transition mt-1">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
         <div class="options-container space-y-2 pl-2">
-            <button type="button" onclick="addOption(this, ${idx})"
-                    class="text-sm text-primary-600 dark:text-primary-400 hover:underline">+ Add option</button>
+            <button type="button" class="js-add-option text-sm text-primary-600 dark:text-primary-400 hover:underline"
+                    data-q-idx="${idx}">+ Add option</button>
         </div>
     `;
     container.appendChild(block);
@@ -193,12 +193,41 @@ function addOption(btn, qIdx) {
     row.innerHTML = `
         <input type="text" name="option_text_${qIdx}_${oIdx}" placeholder="Option text"
                class="flex-1 rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500">
-        <button type="button" onclick="this.closest('.option-row').remove()" class="text-red-400 hover:text-red-600 transition">
+        <button type="button" class="js-remove-option text-red-400 hover:text-red-600 transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
     `;
     btn.before(row);
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(form.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+
+    var addQuestionBtn = document.getElementById('js-add-question');
+    if (addQuestionBtn) addQuestionBtn.addEventListener('click', addQuestion);
+
+    var container = document.getElementById('questions-container');
+    if (container) {
+        container.addEventListener('click', function(e) {
+            var removeQ = e.target.closest('.js-remove-question');
+            if (removeQ) { removeQuestion(removeQ); return; }
+
+            var removeOpt = e.target.closest('.js-remove-option');
+            if (removeOpt) { removeOpt.closest('.option-row').remove(); return; }
+
+            var addOpt = e.target.closest('.js-add-option');
+            if (addOpt) { addOption(addOpt, parseInt(addOpt.dataset.qIdx)); return; }
+        });
+        container.addEventListener('change', function(e) {
+            var sel = e.target.closest('.js-question-type-select');
+            if (sel) onTypeChange(sel);
+        });
+    }
+});
 
 function onTypeChange(select) {
     const block = select.closest('.question-block');
