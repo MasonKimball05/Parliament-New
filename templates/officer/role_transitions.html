@@ -99,9 +99,8 @@
                         </td>
                         <td class="px-6 py-4 text-center">
                             <button
-                                data-role-id="{{ data.role.id }}"
-                                onclick="openTransferModal({{ data.role.id }})"
-                                class="px-3 py-1.5 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition shadow-sm">
+                                class="js-open-transfer-modal px-3 py-1.5 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition shadow-sm"
+                                data-role-id="{{ data.role.id }}">
                                 Transfer
                             </button>
                         </td>
@@ -128,19 +127,19 @@
 <!-- Transfer Modal -->
 <div id="transfer-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeTransferModal()"></div>
+        <div class="js-close-transfer-modal fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"></div>
         <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
             <div class="bg-white dark:bg-gray-800 px-6 pt-5 pb-4">
                 <div class="flex justify-between items-center mb-5">
                     <h3 id="transfer-modal-title" class="text-lg font-semibold text-gray-900 dark:text-white">Transfer Role</h3>
-                    <button onclick="closeTransferModal()" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+                    <button class="js-close-transfer-modal text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
                     </button>
                 </div>
 
-                <form id="transfer-form" onsubmit="submitTransfer(event)" class="space-y-4">
+                <form id="transfer-form" class="space-y-4">
                     <input type="hidden" id="transfer-role-id">
 
                     <!-- Outgoing holder -->
@@ -207,8 +206,8 @@
                     <div id="transfer-error" class="hidden p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
 
                     <div class="pt-2 flex justify-end gap-3">
-                        <button type="button" onclick="closeTransferModal()"
-                                class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium text-sm">
+                        <button type="button"
+                                class="js-close-transfer-modal px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium text-sm">
                             Cancel
                         </button>
                         <button type="submit" id="transfer-submit"
@@ -228,6 +227,16 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.js-open-transfer-modal').forEach(function(btn) {
+        btn.addEventListener('click', function() { openTransferModal(parseInt(btn.dataset.roleId)); });
+    });
+    document.querySelectorAll('.js-close-transfer-modal').forEach(function(el) {
+        el.addEventListener('click', closeTransferModal);
+    });
+    document.getElementById('transfer-form').addEventListener('submit', submitTransfer);
+});
+
 const ROLES = {{ roles_json|safe }};
 const ALL_MEMBERS = {{ assignable_json|safe }};
 
