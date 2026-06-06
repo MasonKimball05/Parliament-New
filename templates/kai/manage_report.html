@@ -379,7 +379,7 @@
                 </div>
                 {% endif %}
 
-                <form method="post">
+                <form method="post" class="js-confirm-submit" data-confirm-msg="This will send an official notification email to {{ report.targeted_to.name }} informing them of this case. Are you sure you want to proceed?">
                   {% csrf_token %}
                   <input type="hidden" name="action" value="notify_accused">
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -390,8 +390,7 @@
                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm mb-3">{{ report.accused_notification_message }}</textarea>
                   <button type="submit"
                           {% if not report.targeted_to.email %}disabled{% endif %}
-                          class="px-4 py-2 {% if report.targeted_to.email %}bg-red-600 hover:bg-red-700{% else %}bg-gray-400 cursor-not-allowed{% endif %} text-white rounded-lg transition font-medium text-sm flex items-center space-x-2"
-                          onclick="return confirm('This will send an official notification email to {{ report.targeted_to.name }} informing them of this case. Are you sure you want to proceed?')">
+                          class="px-4 py-2 {% if report.targeted_to.email %}bg-red-600 hover:bg-red-700{% else %}bg-gray-400 cursor-not-allowed{% endif %} text-white rounded-lg transition font-medium text-sm flex items-center space-x-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                     </svg>
@@ -424,13 +423,12 @@
                     {% if report.submitted_by.email %}({{ report.submitted_by.email }}){% endif %}
                   </p>
                 </div>
-                <form method="post" class="shrink-0">
+                <form method="post" class="shrink-0 js-confirm-submit" data-confirm-msg="Send notification to {{ report.submitted_by.name }}?">
                   {% csrf_token %}
                   <input type="hidden" name="action" value="notify_submitter">
                   <button type="submit"
                           {% if not report.submitted_by.email %}disabled{% endif %}
-                          class="px-4 py-2 {% if report.submitted_by.email %}bg-orange-600 hover:bg-orange-700{% else %}bg-gray-400 cursor-not-allowed{% endif %} text-white rounded-lg transition font-medium text-sm whitespace-nowrap"
-                          onclick="return confirm('Send notification to {{ report.submitted_by.name }}?')">
+                          class="px-4 py-2 {% if report.submitted_by.email %}bg-orange-600 hover:bg-orange-700{% else %}bg-gray-400 cursor-not-allowed{% endif %} text-white rounded-lg transition font-medium text-sm whitespace-nowrap">
                     {% if report.submitter_notified_at %}Send Again{% else %}Send Email{% endif %}
                   </button>
                 </form>
@@ -520,7 +518,7 @@
                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"></textarea>
                 </div>
                 <div class="flex items-center space-x-2">
-                  <form method="post" class="inline" onsubmit="return submitClosureForm(this, {{ cr.id }}, 'approve');">
+                  <form method="post" class="inline js-closure-form" data-closure-id="{{ cr.id }}" data-closure-action="approve">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="approve_closure">
                     <input type="hidden" name="closure_request_id" value="{{ cr.id }}">
@@ -532,7 +530,7 @@
                       <span>Approve & Archive</span>
                     </button>
                   </form>
-                  <form method="post" class="inline" onsubmit="return submitClosureForm(this, {{ cr.id }}, 'deny');">
+                  <form method="post" class="inline js-closure-form" data-closure-id="{{ cr.id }}" data-closure-action="deny">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="deny_closure">
                     <input type="hidden" name="closure_request_id" value="{{ cr.id }}">
@@ -589,8 +587,7 @@
                   {% csrf_token %}
                   <input type="hidden" name="action" value="unlink_report">
                   <input type="hidden" name="related_report_id" value="{{ related.id }}">
-                  <button type="submit" class="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition"
-                          onclick="return confirm('Unlink this report?')" title="Unlink">
+                  <button type="submit" class="js-confirm-unlink p-1.5 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition" title="Unlink">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
@@ -893,6 +890,30 @@
           <span>Sending...</span>
         `;
       }
+    });
+  });
+
+  // ── Inline-handler wiring ──
+  // Generic confirm-before-submit forms
+  document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+    form.addEventListener('submit', function(e) {
+      if (!confirm(this.dataset.confirmMsg)) e.preventDefault();
+    });
+  });
+
+  // Closure forms (approve / deny) — loop-bound cr.id
+  document.querySelectorAll('.js-closure-form').forEach(function(form) {
+    form.addEventListener('submit', function(e) {
+      if (!submitClosureForm(this, parseInt(this.dataset.closureId), this.dataset.closureAction)) {
+        e.preventDefault();
+      }
+    });
+  });
+
+  // Unlink confirm buttons
+  document.querySelectorAll('.js-confirm-unlink').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      if (!confirm('Unlink this report?')) e.preventDefault();
     });
   });
 </script>

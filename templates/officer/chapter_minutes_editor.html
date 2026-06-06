@@ -32,8 +32,8 @@
                         <span>Adjourned:</span>
                         <input type="time" id="endTimeInput" value="{{ end_time_value }}"
                                class="px-2 py-0.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                               onchange="saveEndTime(this.value)">
-                        <button type="button" onclick="setEndTimeNow()" title="Set to now"
+                               >
+                        <button type="button" id="js-set-end-time-now" title="Set to now"
                                 class="p-0.5 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition rounded hover:bg-gray-100 dark:hover:bg-gray-700">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         </button>
@@ -52,20 +52,20 @@
                 </div>
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">
-                <button type="button" onclick="previewPDF()" id="previewPdfBtn"
+                <button type="button" id="previewPdfBtn"
                         class="bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 text-white font-medium py-2 px-3 rounded-lg transition flex items-center gap-1.5 text-sm whitespace-nowrap"
                         title="Preview the minutes as a PDF">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                     Preview PDF
                 </button>
-                <button type="button" onclick="downloadPDF()" id="downloadPdfBtn"
+                <button type="button" id="downloadPdfBtn"
                         class="bg-gray-600 hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600 text-white font-medium py-2 px-3 rounded-lg transition flex items-center gap-1.5 text-sm whitespace-nowrap"
                         title="Download the current PDF">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     Download PDF
                 </button>
                 <div class="w-px h-8 bg-gray-300 dark:bg-gray-600"></div>
-                <button type="button" onclick="saveDraft()" id="saveDraftBtn"
+                <button type="button" id="saveDraftBtn"
                         class="bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 text-white font-medium py-2 px-3 rounded-lg transition flex items-center gap-1.5 text-sm whitespace-nowrap"
                         title="Save your minutes as a draft (does not publish)">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
@@ -98,7 +98,7 @@
     <!-- ATTENDANCE SECTION -->
     <!-- ============================== -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-6 overflow-hidden" id="attendanceSection">
-        <div class="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex justify-between items-center" onclick="toggleAttendance()">
+        <div class="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex justify-between items-center" id="js-toggle-attendance">
             <div class="flex items-center gap-3">
                 <h3 class="text-lg font-bold text-gray-900 dark:text-white">Attendance</h3>
                 {% if minutes.attendance_taken %}
@@ -133,15 +133,15 @@
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
                     <div class="flex items-center gap-3">
                         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sort by:</label>
-                        <select id="attendanceSortBy" onchange="sortAttendance()" class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
+                        <select id="attendanceSortBy" class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                             <option value="user_id">Member ID</option>
                             <option value="name">Name</option>
                             <option value="member_type">Role</option>
                         </select>
                     </div>
                     <div class="flex gap-2">
-                        <button type="button" onclick="markAllAttendance('present')" class="text-sm px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition font-medium">All Present</button>
-                        <button type="button" onclick="markAllAttendance('pending')" class="text-sm px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition font-medium">Clear All</button>
+                        <button type="button" id="js-att-all-present" class="text-sm px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition font-medium">All Present</button>
+                        <button type="button" id="js-att-clear-all" class="text-sm px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition font-medium">Clear All</button>
                     </div>
                 </div>
 
@@ -190,7 +190,7 @@
                 <!-- Save Attendance Button -->
                 <div class="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <p class="text-xs text-gray-500 dark:text-gray-400">Attendance saves separately from the minutes content. If publishing, attendance is saved automatically.</p>
-                    <button type="button" onclick="saveAttendance()" id="saveAttendanceBtn"
+                    <button type="button" id="saveAttendanceBtn"
                             class="flex-shrink-0 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white font-medium py-2 px-6 rounded-lg transition flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                         Save Attendance
@@ -256,12 +256,12 @@
             <div class="mb-6">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quick Presets</label>
                 <div class="flex flex-wrap gap-2">
-                    <button type="button" onclick="applyPreset('approve_prev_minutes_uc')" class="text-sm px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition">Approve Prev. Minutes (UC)</button>
-                    <button type="button" onclick="applyPreset('approve_prev_minutes')" class="text-sm px-3 py-1.5 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border border-primary-200 dark:border-primary-800 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/50 transition">Approve Prev. Minutes</button>
-                    <button type="button" onclick="applyPreset('adjourn')" class="text-sm px-3 py-1.5 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">Motion to Adjourn</button>
-                    <button type="button" onclick="applyPreset('recess')" class="text-sm px-3 py-1.5 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">Motion to Recess</button>
-                    <button type="button" onclick="applyPreset('table_motion')" class="text-sm px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-900/50 transition">Motion to Table</button>
-                    <button type="button" onclick="applyPreset('call_question')" class="text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition">Call the Question</button>
+                    <button type="button" class="js-apply-preset text-sm px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition" data-preset="approve_prev_minutes_uc">Approve Prev. Minutes (UC)</button>
+                    <button type="button" class="js-apply-preset text-sm px-3 py-1.5 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border border-primary-200 dark:border-primary-800 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/50 transition" data-preset="approve_prev_minutes">Approve Prev. Minutes</button>
+                    <button type="button" class="js-apply-preset text-sm px-3 py-1.5 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition" data-preset="adjourn">Motion to Adjourn</button>
+                    <button type="button" class="js-apply-preset text-sm px-3 py-1.5 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition" data-preset="recess">Motion to Recess</button>
+                    <button type="button" class="js-apply-preset text-sm px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-900/50 transition" data-preset="table_motion">Motion to Table</button>
+                    <button type="button" class="js-apply-preset text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition" data-preset="call_question">Call the Question</button>
                 </div>
             </div>
 
@@ -280,11 +280,11 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Author of Motion</label>
                     <div class="flex gap-2">
-                        <select id="motionAuthorSelect" onchange="syncAuthorField()" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
+                        <select id="motionAuthorSelect" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                             <option value="">-- Select member --</option>
                         </select>
                         <span class="self-center text-gray-400 text-sm">or</span>
-                        <input type="text" id="motionAuthorText" placeholder="Type name" onchange="clearAuthorSelect()"
+                        <input type="text" id="motionAuthorText" placeholder="Type name"
                                class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                     </div>
                 </div>
@@ -308,7 +308,7 @@
                 <!-- Received Second -->
                 <div>
                     <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" id="motionSecond" onchange="toggleSecondField()"
+                        <input type="checkbox" id="motionSecond"
                                class="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded">
                         <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Received Second</span>
                     </label>
@@ -319,7 +319,7 @@
                 <!-- Vote Method -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vote Method</label>
-                    <select id="motionVoteMethod" onchange="toggleVoteCountFields()"
+                    <select id="motionVoteMethod"
                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                         {% for value, label in vote_method_choices %}
                         <option value="{{ value }}">{{ label }}</option>
@@ -361,7 +361,7 @@
             <!-- Caucus -->
             <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                 <label class="flex items-center gap-2 cursor-pointer mb-3">
-                    <input type="checkbox" id="motionCaucus" onchange="toggleCaucusFields()"
+                    <input type="checkbox" id="motionCaucus"
                            class="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded">
                     <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Caucus Held</span>
                 </label>
@@ -373,7 +373,7 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
-                        <select id="motionCaucusType" onchange="toggleSpeakerTime()"
+                        <select id="motionCaucusType"
                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                             <option value="">-- Select --</option>
                             {% for value, label in caucus_type_choices %}
@@ -391,11 +391,11 @@
 
             <!-- Action Buttons -->
             <div class="mt-6 flex justify-end gap-3">
-                <button type="button" onclick="cancelMotion()"
+                <button type="button" id="js-cancel-motion"
                         class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                     Cancel
                 </button>
-                <button type="button" onclick="saveMotion()"
+                <button type="button" id="js-save-motion"
                         class="bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 text-white font-medium py-2 px-6 rounded-lg transition flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                     Save Motion
@@ -420,15 +420,15 @@
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quick Presets</label>
                 <div class="flex flex-wrap gap-2">
-                    <button type="button" onclick="applySectionPreset('President\'s')" class="text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition">Presidents</button>
-                    <button type="button" onclick="applySectionPreset('Vice President\'s')" class="text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition">VPs</button>
-                    <button type="button" onclick="applySectionPreset('Finance\'s')" class="text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition">Finance</button>
-                    <button type="button" onclick="applySectionPreset('Administration\'s')" class="text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition">Administration</button>
-                    <button type="button" onclick="applySectionPreset('Recruitment')" class="text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition">Recruitment</button>
-                    <button type="button" onclick="applySectionPreset('Risk Management')" class="text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition">Risk Management</button>
-                    <button type="button" onclick="applySectionPreset('Old Business')" class="text-sm px-3 py-1.5 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">Old Business</button>
-                    <button type="button" onclick="applySectionPreset('New Business')" class="text-sm px-3 py-1.5 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">New Business</button>
-                    <button type="button" onclick="applySectionPreset('Announcements')" class="text-sm px-3 py-1.5 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">Announcements</button>
+                    <button type="button" class="js-apply-section-preset text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition" data-preset="President's">Presidents</button>
+                    <button type="button" class="js-apply-section-preset text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition" data-preset="Vice President's">VPs</button>
+                    <button type="button" class="js-apply-section-preset text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition" data-preset="Finance's">Finance</button>
+                    <button type="button" class="js-apply-section-preset text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition" data-preset="Administration's">Administration</button>
+                    <button type="button" class="js-apply-section-preset text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition" data-preset="Recruitment">Recruitment</button>
+                    <button type="button" class="js-apply-section-preset text-sm px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition" data-preset="Risk Management">Risk Management</button>
+                    <button type="button" class="js-apply-section-preset text-sm px-3 py-1.5 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition" data-preset="Old Business">Old Business</button>
+                    <button type="button" class="js-apply-section-preset text-sm px-3 py-1.5 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition" data-preset="New Business">New Business</button>
+                    <button type="button" class="js-apply-section-preset text-sm px-3 py-1.5 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition" data-preset="Announcements">Announcements</button>
                 </div>
             </div>
 
@@ -441,11 +441,11 @@
 
             <!-- Action Buttons -->
             <div class="mt-6 flex justify-end gap-3">
-                <button type="button" onclick="cancelSection()"
+                <button type="button" id="js-cancel-section"
                         class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                     Cancel
                 </button>
-                <button type="button" onclick="saveSection()"
+                <button type="button" id="js-save-section"
                         class="bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white font-medium py-2 px-6 rounded-lg transition flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                     Add Section
@@ -467,7 +467,7 @@
                 <span id="adjournedTimeDisplay" class="text-sm text-gray-600 dark:text-gray-400 hidden">
                     Adjourned at <span id="adjournedTimeValue" class="font-semibold text-gray-900 dark:text-white"></span>
                 </span>
-                <button type="button" onclick="adjournMeeting()"
+                <button type="button" id="js-adjourn-meeting"
                         class="bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white font-medium py-2 px-6 rounded-lg transition flex items-center gap-2 whitespace-nowrap">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     Adjourn Meeting
@@ -673,25 +673,25 @@ function renderAttendance() {
             </td>
             <td class="px-4 py-3 text-center">
                 <input type="radio" name="att_${m.user_id}" value="present" ${m.status === 'present' ? 'checked' : ''}
-                       onchange="setAttendanceStatus(${idx}, 'present')"
                        class="h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700">
             </td>
             <td class="px-4 py-3 text-center">
                 <input type="radio" name="att_${m.user_id}" value="late" ${m.status === 'late' ? 'checked' : ''}
-                       onchange="setAttendanceStatus(${idx}, 'late')"
                        class="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700">
             </td>
             <td class="px-4 py-3 text-center">
                 <input type="radio" name="att_${m.user_id}" value="absent" ${m.status === 'absent' ? 'checked' : ''}
-                       onchange="setAttendanceStatus(${idx}, 'absent')"
                        class="h-5 w-5 text-red-600 focus:ring-red-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700">
             </td>
             <td class="px-4 py-3 text-center">
                 <input type="radio" name="att_${m.user_id}" value="excused" ${m.status === 'excused' ? 'checked' : ''}
-                       onchange="setAttendanceStatus(${idx}, 'excused')"
                        class="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700">
             </td>
         `;
+        // Wire radio change listeners — idx captured in closure
+        row.querySelectorAll('input[type="radio"]').forEach(function(radio) {
+            radio.addEventListener('change', function() { setAttendanceStatus(idx, this.value); });
+        });
         tbody.appendChild(row);
     });
     updateAttendanceStats();
@@ -1089,15 +1089,17 @@ function createSectionCard(title, sectionIdx) {
                 <span class="text-xs text-purple-500 dark:text-purple-400">(section start)</span>
             </div>
             <div class="flex gap-1 ml-3 flex-shrink-0">
-                <button type="button" onclick="editSection(${sectionIdx})" class="p-1 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded" title="Edit">
+                <button type="button" class="js-edit-section-btn p-1 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded" title="Edit">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                 </button>
-                <button type="button" onclick="deleteSection(${sectionIdx})" class="p-1 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 rounded" title="Delete">
+                <button type="button" class="js-delete-section-btn p-1 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 rounded" title="Delete">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 </button>
             </div>
         </div>
     `;
+    div.querySelector('.js-edit-section-btn').addEventListener('click', function() { editSection(sectionIdx); });
+    div.querySelector('.js-delete-section-btn').addEventListener('click', function() { deleteSection(sectionIdx); });
     return div;
 }
 
@@ -1111,11 +1113,12 @@ function createSectionEndCard(enderIdx) {
                 <svg class="w-4 h-4 text-purple-400 dark:text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8"/></svg>
                 <span class="text-sm text-purple-700 dark:text-purple-300">↑ Section End</span>
             </div>
-            <button type="button" onclick="deleteSectionEnd(${enderIdx})" class="p-1 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 rounded" title="Delete">
+            <button type="button" class="js-delete-section-end-btn p-1 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 rounded" title="Delete">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
             </button>
         </div>
     `;
+    div.querySelector('.js-delete-section-end-btn').addEventListener('click', function() { deleteSectionEnd(enderIdx); });
     return div;
 }
 
@@ -1142,10 +1145,10 @@ function createMotionCard(motion, motionIdx) {
                 <div class="text-sm text-gray-700 dark:text-gray-300 mt-1">${escapeHtml(m.motion_text || '')}</div>
             </div>
             <div class="flex gap-1 ml-3 flex-shrink-0">
-                <button type="button" onclick="editMotion(${motionIdx})" class="p-1 text-primary-600 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-900/50 rounded" title="Edit">
+                <button type="button" class="js-edit-motion-btn p-1 text-primary-600 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-900/50 rounded" title="Edit">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                 </button>
-                <button type="button" onclick="deleteMotion(${motionIdx})" class="p-1 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 rounded" title="Delete">
+                <button type="button" class="js-delete-motion-btn p-1 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 rounded" title="Delete">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 </button>
             </div>
@@ -1175,6 +1178,8 @@ function createMotionCard(motion, motionIdx) {
     }
 
     div.innerHTML = html;
+    div.querySelector('.js-edit-motion-btn').addEventListener('click', function() { editMotion(motionIdx); });
+    div.querySelector('.js-delete-motion-btn').addEventListener('click', function() { deleteMotion(motionIdx); });
     return div;
 }
 
@@ -1890,6 +1895,50 @@ document.querySelectorAll('details').forEach(function(el) {
         const arrow = el.querySelector('.fmt-arrow');
         if (arrow) arrow.style.transform = el.open ? 'rotate(90deg)' : '';
     });
+});
+
+// ── Inline-handler wiring ──
+document.addEventListener('DOMContentLoaded', function() {
+    // Header controls
+    document.getElementById('endTimeInput')?.addEventListener('change', function() { saveEndTime(this.value); });
+    document.getElementById('js-set-end-time-now')?.addEventListener('click', setEndTimeNow);
+    document.getElementById('previewPdfBtn')?.addEventListener('click', previewPDF);
+    document.getElementById('downloadPdfBtn')?.addEventListener('click', downloadPDF);
+    document.getElementById('saveDraftBtn')?.addEventListener('click', saveDraft);
+
+    // Attendance section
+    document.getElementById('js-toggle-attendance')?.addEventListener('click', toggleAttendance);
+    document.getElementById('attendanceSortBy')?.addEventListener('change', sortAttendance);
+    document.getElementById('js-att-all-present')?.addEventListener('click', function() { markAllAttendance('present'); });
+    document.getElementById('js-att-clear-all')?.addEventListener('click', function() { markAllAttendance('pending'); });
+    document.getElementById('saveAttendanceBtn')?.addEventListener('click', saveAttendance);
+
+    // Motion preset buttons
+    document.querySelectorAll('.js-apply-preset').forEach(function(btn) {
+        btn.addEventListener('click', function() { applyPreset(this.dataset.preset); });
+    });
+
+    // Motion form controls
+    document.getElementById('motionAuthorSelect')?.addEventListener('change', syncAuthorField);
+    document.getElementById('motionAuthorText')?.addEventListener('change', clearAuthorSelect);
+    document.getElementById('motionSecond')?.addEventListener('change', toggleSecondField);
+    document.getElementById('motionVoteMethod')?.addEventListener('change', toggleVoteCountFields);
+    document.getElementById('motionCaucus')?.addEventListener('change', toggleCaucusFields);
+    document.getElementById('motionCaucusType')?.addEventListener('change', toggleSpeakerTime);
+    document.getElementById('js-cancel-motion')?.addEventListener('click', cancelMotion);
+    document.getElementById('js-save-motion')?.addEventListener('click', saveMotion);
+
+    // Section preset buttons
+    document.querySelectorAll('.js-apply-section-preset').forEach(function(btn) {
+        btn.addEventListener('click', function() { applySectionPreset(this.dataset.preset); });
+    });
+
+    // Section form controls
+    document.getElementById('js-cancel-section')?.addEventListener('click', cancelSection);
+    document.getElementById('js-save-section')?.addEventListener('click', saveSection);
+
+    // Adjourn
+    document.getElementById('js-adjourn-meeting')?.addEventListener('click', adjournMeeting);
 });
 </script>
 {% endblock %}
