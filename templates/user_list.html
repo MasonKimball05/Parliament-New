@@ -17,7 +17,7 @@
         </div>
         <div class="flex flex-wrap gap-2">
             <!-- Initiate Button (hidden by default, shown when pledges selected) -->
-            <button id="initiate-btn" onclick="openInitiateModal()" class="hidden px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
+            <button id="initiate-btn" class="hidden px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
                 <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
@@ -25,7 +25,7 @@
             </button>
             <!-- Sync Officer Admins Button (admin only) -->
             {% if user.is_admin %}
-            <button id="sync-admins-btn" onclick="openSyncAdminsModal()" class="px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
+            <button id="sync-admins-btn" class="px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
                 <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                 </svg>
@@ -34,21 +34,21 @@
             </button>
             {% endif %}
             <!-- Add Member Button -->
-            <button id="add-member-btn" onclick="openAddModal()" class="px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
+            <button id="add-member-btn" class="px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
                 <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                 </svg>
                 <span>Add Member</span>
             </button>
             <!-- Batch Add Button -->
-            <button onclick="openBatchAddModal()" class="px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
+            <button id="js-open-batch-modal" class="px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
                 <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
                 </svg>
                 <span>Batch Add</span>
             </button>
             <!-- Import CSV Button -->
-            <button onclick="openImportCsvModal()" class="px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
+            <button id="js-open-csv-modal" class="px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center space-x-2 text-sm sm:text-base font-medium shadow-sm">
                 <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
                 </svg>
@@ -126,7 +126,7 @@
                         <!-- Checkbox column for pledges - only shown when pledges exist -->
                         {% if has_pledges %}
                         <th scope="col" class="px-2 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-8">
-                            <input type="checkbox" id="select-all-pledges" onclick="toggleAllPledges()" class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer" title="Select all pledges">
+                            <input type="checkbox" id="select-all-pledges" class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer" title="Select all pledges">
                         </th>
                         {% endif %}
                         <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -216,7 +216,7 @@
                             {% if has_pledges %}
                             <td class="px-2 py-4 text-center w-8">
                                 {% if data.role == 'Pledge' %}
-                                <input type="checkbox" class="pledge-checkbox h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer" value="{{ data.user.user_id }}" data-name="{{ data.username }}" onchange="updateInitiateButton()">
+                                <input type="checkbox" class="pledge-checkbox h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer" value="{{ data.user.user_id }}" data-name="{{ data.username }}">
                                 {% endif %}
                             </td>
                             {% endif %}
@@ -311,7 +311,7 @@
                                 <div class="text-sm text-gray-600 dark:text-gray-400">{{ data.last_login }}</div>
                             </td>
                             <td class="px-4 py-4 text-center">
-                                <button onclick="openEditModal('{{ data.user.user_id }}')" class="p-1.5 text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded transition" title="Edit member">
+                                <button class="js-open-edit-modal p-1.5 text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded transition" data-user-id="{{ data.user.user_id }}" title="Edit member">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                     </svg>
@@ -341,7 +341,7 @@
                     <!-- Checkbox for pledges (mobile) -->
                     {% if data.role == 'Pledge' %}
                     <div class="flex-shrink-0 pt-1">
-                        <input type="checkbox" class="pledge-checkbox h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer" value="{{ data.user.user_id }}" data-name="{{ data.username }}" onchange="updateInitiateButton()">
+                        <input type="checkbox" class="pledge-checkbox h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer" value="{{ data.user.user_id }}" data-name="{{ data.username }}">
                     </div>
                     {% endif %}
                     <!-- Avatar -->
@@ -356,7 +356,7 @@
                         <!-- Name with edit button -->
                         <div class="flex items-center justify-between">
                             <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-1">{{ data.username }}</h3>
-                            <button onclick="openEditModal('{{ data.user.user_id }}')" class="p-1.5 text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded transition" title="Edit member">
+                            <button class="js-open-edit-modal p-1.5 text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded transition" data-user-id="{{ data.user.user_id }}" title="Edit member">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                 </svg>
@@ -494,21 +494,21 @@
 <div id="add-member-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <!-- Background overlay -->
-        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeAddModal()"></div>
+        <div class="js-close-add-modal fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"></div>
 
         <!-- Modal panel -->
         <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
             <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="modal-title">Add New Member</h3>
-                    <button onclick="closeAddModal()" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+                    <button class="js-close-add-modal text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
                 </div>
 
-                <form id="add-member-form" onsubmit="submitAddMember(event)">
+                <form id="add-member-form">
                     <div class="space-y-4">
                         <!-- Name -->
                         <div>
@@ -521,7 +521,7 @@
                             <label for="add-user-id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Member ID *</label>
                             <div class="flex gap-2">
                                 <input type="text" id="add-user-id" name="user_id" required class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Unique identifier">
-                                <button type="button" id="generate-id-btn" onclick="generatePledgeId()" class="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500 transition whitespace-nowrap" title="Auto-generate a temporary ID for pledges">
+                                <button type="button" id="generate-id-btn" class="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500 transition whitespace-nowrap" title="Auto-generate a temporary ID for pledges">
                                     <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                                     </svg>
@@ -591,7 +591,7 @@
 
                     <!-- Buttons -->
                     <div class="mt-6 flex justify-end gap-3">
-                        <button type="button" onclick="closeAddModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
+                        <button type="button" class="js-close-add-modal px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
                             Cancel
                         </button>
                         <button type="submit" id="add-member-submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium">
@@ -612,7 +612,7 @@
             <div class="bg-white dark:bg-gray-800 px-6 pt-5 pb-4">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Batch Add Members</h3>
-                    <button onclick="closeBatchAddModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">&times;</button>
+                    <button id="js-close-batch-x" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">&times;</button>
                 </div>
 
                 <!-- Entry form -->
@@ -655,7 +655,7 @@
                     </div>
                 </div>
                 <div id="batch-entry-error" class="hidden mb-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-400 text-sm"></div>
-                <button onclick="batchAddToQueue()" class="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition text-sm font-medium mb-4">
+                <button id="js-batch-add-to-queue" class="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition text-sm font-medium mb-4">
                     + Add to Queue
                 </button>
 
@@ -695,14 +695,14 @@
                             <tbody id="batch-results-tbody" class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800"></tbody>
                         </table>
                     </div>
-                    <button onclick="closeBatchAddModal(); location.reload();" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm font-medium">
+                    <button id="js-batch-done" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm font-medium">
                         Done — Refresh Page
                     </button>
                 </div>
 
                 <div id="batch-submit-area" class="hidden">
                     <div id="batch-submit-error" class="hidden mb-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-400 text-sm"></div>
-                    <button id="batch-submit-btn" onclick="batchSubmit()" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium">
+                    <button id="batch-submit-btn" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium">
                         Create All (<span id="batch-submit-count">0</span> members)
                     </button>
                 </div>
@@ -719,7 +719,7 @@
             <div class="bg-white dark:bg-gray-800 px-6 pt-5 pb-4">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Import Members from CSV</h3>
-                    <button onclick="closeImportCsvModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">&times;</button>
+                    <button id="js-close-csv-x" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">&times;</button>
                 </div>
 
                 <div id="csv-upload-area">
@@ -731,7 +731,7 @@
                         <p>Optional: <code class="bg-gray-200 dark:bg-gray-600 px-1 rounded">email</code>, <code class="bg-gray-200 dark:bg-gray-600 px-1 rounded">pledge_class</code>, <code class="bg-gray-200 dark:bg-gray-600 px-1 rounded">graduation_year</code>, <code class="bg-gray-200 dark:bg-gray-600 px-1 rounded">phone_number</code></p>
                         <p class="mt-1">member_type values: Pledge, Member, Officer, Chair, Advisor</p>
                     </div>
-                    <button onclick="downloadCsvTemplate()" class="w-full mb-3 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm font-medium border border-gray-300 dark:border-gray-600">
+                    <button id="js-download-csv-template" class="w-full mb-3 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm font-medium border border-gray-300 dark:border-gray-600">
                         Download Template CSV
                     </button>
                     <div class="mb-3">
@@ -739,7 +739,7 @@
                         <input id="csv-file-input" type="file" accept=".csv" class="w-full text-sm text-gray-600 dark:text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 dark:file:bg-purple-900/20 dark:file:text-purple-400 hover:file:bg-purple-100 dark:hover:file:bg-purple-900/30">
                     </div>
                     <div id="csv-upload-error" class="hidden mb-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-400 text-sm"></div>
-                    <button id="csv-upload-btn" onclick="submitCsvImport()" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium">
+                    <button id="csv-upload-btn" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium">
                         Upload &amp; Import
                     </button>
                 </div>
@@ -763,7 +763,7 @@
                             <tbody id="csv-results-tbody" class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800"></tbody>
                         </table>
                     </div>
-                    <button onclick="closeImportCsvModal(); location.reload();" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm font-medium">
+                    <button id="js-csv-done" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm font-medium">
                         Done — Refresh Page
                     </button>
                 </div>
@@ -776,21 +776,21 @@
 <div id="edit-member-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="edit-modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <!-- Background overlay -->
-        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeEditModal()"></div>
+        <div class="js-close-edit-modal fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"></div>
 
         <!-- Modal panel -->
         <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
             <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="edit-modal-title">Edit Member</h3>
-                    <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+                    <button class="js-close-edit-modal text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
                 </div>
 
-                <form id="edit-member-form" onsubmit="submitEditMember(event)">
+                <form id="edit-member-form">
                     <input type="hidden" id="edit-user-id" name="user_id">
 
                     <div class="space-y-4">
@@ -874,11 +874,11 @@
 
                     <!-- Buttons -->
                     <div class="mt-6 flex justify-between">
-                        <button type="button" onclick="confirmDeleteMember()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium">
+                        <button type="button" id="js-confirm-delete-member" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium">
                             Delete
                         </button>
                         <div class="flex gap-3">
-                            <button type="button" onclick="closeEditModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
+                            <button type="button" class="js-close-edit-modal px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
                                 Cancel
                             </button>
                             <button type="submit" id="edit-member-submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium">
@@ -896,14 +896,14 @@
 <div id="initiate-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="initiate-modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <!-- Background overlay -->
-        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeInitiateModal()"></div>
+        <div class="js-close-initiate-modal fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"></div>
 
         <!-- Modal panel -->
         <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
             <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="initiate-modal-title">Initiate Pledges</h3>
-                    <button onclick="closeInitiateModal()" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+                    <button class="js-close-initiate-modal text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
@@ -930,10 +930,10 @@
 
                 <!-- Buttons -->
                 <div class="flex justify-end gap-3">
-                    <button type="button" onclick="closeInitiateModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
+                    <button type="button" class="js-close-initiate-modal px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
                         Cancel
                     </button>
-                    <button type="button" onclick="confirmInitiate()" id="confirm-initiate-btn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium flex items-center gap-2">
+                    <button type="button" id="confirm-initiate-btn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
@@ -949,7 +949,7 @@
 <div id="sync-admins-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="sync-admins-modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <!-- Background overlay -->
-        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeSyncAdminsModal()"></div>
+        <div class="js-close-sync-modal fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"></div>
 
         <!-- Modal panel -->
         <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
@@ -1010,13 +1010,13 @@
                 <div id="sync-error" class="hidden mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
 
                 <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
-                    <button type="button" onclick="confirmSyncAdmins()" id="confirm-sync-btn" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-purple-600 text-base font-medium text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 sm:w-auto sm:text-sm">
+                    <button type="button" id="confirm-sync-btn" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-purple-600 text-base font-medium text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 sm:w-auto sm:text-sm">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                         </svg>
                         Sync Now
                     </button>
-                    <button type="button" onclick="closeSyncAdminsModal()" class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:w-auto sm:text-sm">
+                    <button type="button" class="js-close-sync-modal mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:w-auto sm:text-sm">
                         Cancel
                     </button>
                 </div>
@@ -1029,7 +1029,7 @@
 <div id="delete-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="delete-modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <!-- Background overlay -->
-        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeDeleteModal()"></div>
+        <div class="js-close-delete-modal fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"></div>
 
         <!-- Modal panel -->
         <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full">
@@ -1066,10 +1066,10 @@
                 <div id="delete-error" class="hidden mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
 
                 <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
-                    <button type="button" onclick="confirmDelete()" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:w-auto sm:text-sm">
+                    <button type="button" id="js-confirm-delete" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:w-auto sm:text-sm">
                         Delete
                     </button>
-                    <button type="button" onclick="closeDeleteModal()" class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:w-auto sm:text-sm">
+                    <button type="button" class="js-close-delete-modal mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:w-auto sm:text-sm">
                         Cancel
                     </button>
                 </div>
@@ -1739,7 +1739,7 @@ function renderBatchQueue() {
             <td class="px-3 py-2 text-gray-600 dark:text-gray-300 font-mono text-xs">${m.username}</td>
             <td class="px-3 py-2 text-gray-600 dark:text-gray-300">${m.member_type}</td>
             <td class="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs">${m.email || '—'}</td>
-            <td class="px-3 py-2 text-right"><button onclick="batchRemove(${i})" class="text-red-500 hover:text-red-700 text-xs">Remove</button></td>
+            <td class="px-3 py-2 text-right"><button class="js-batch-remove text-red-500 hover:text-red-700 text-xs" data-index="${i}">Remove</button></td>
         `;
         tbody.appendChild(tr);
     });
@@ -1848,6 +1848,80 @@ async function submitCsvImport() {
         btn.textContent = 'Upload & Import';
     }
 }
+
+// =============================================================================
+// Event wiring (DOMContentLoaded)
+// =============================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    // Header buttons
+    document.getElementById('initiate-btn').addEventListener('click', openInitiateModal);
+    var syncBtn = document.getElementById('sync-admins-btn');
+    if (syncBtn) syncBtn.addEventListener('click', openSyncAdminsModal);
+    document.getElementById('add-member-btn').addEventListener('click', openAddModal);
+    document.getElementById('js-open-batch-modal').addEventListener('click', openBatchAddModal);
+    document.getElementById('js-open-csv-modal').addEventListener('click', openImportCsvModal);
+
+    // Pledge select-all + checkboxes
+    document.getElementById('select-all-pledges').addEventListener('click', toggleAllPledges);
+    document.querySelectorAll('.pledge-checkbox').forEach(function(cb) {
+        cb.addEventListener('change', updateInitiateButton);
+    });
+
+    // Open edit modal (loop buttons, desktop + mobile)
+    document.querySelectorAll('.js-open-edit-modal').forEach(function(btn) {
+        btn.addEventListener('click', function() { openEditModal(this.dataset.userId); });
+    });
+
+    // Add modal
+    document.querySelectorAll('.js-close-add-modal').forEach(function(el) {
+        el.addEventListener('click', closeAddModal);
+    });
+    document.getElementById('add-member-form').addEventListener('submit', submitAddMember);
+    document.getElementById('generate-id-btn').addEventListener('click', generatePledgeId);
+
+    // Batch modal
+    document.getElementById('js-close-batch-x').addEventListener('click', closeBatchAddModal);
+    document.getElementById('js-batch-add-to-queue').addEventListener('click', batchAddToQueue);
+    document.getElementById('js-batch-done').addEventListener('click', function() { closeBatchAddModal(); location.reload(); });
+    document.getElementById('batch-submit-btn').addEventListener('click', batchSubmit);
+
+    // Batch queue remove (delegation — tbody is rebuilt by renderBatchQueue)
+    document.getElementById('batch-queue-tbody').addEventListener('click', function(e) {
+        var btn = e.target.closest('.js-batch-remove');
+        if (btn) batchRemove(parseInt(btn.dataset.index));
+    });
+
+    // CSV modal
+    document.getElementById('js-close-csv-x').addEventListener('click', closeImportCsvModal);
+    document.getElementById('js-download-csv-template').addEventListener('click', downloadCsvTemplate);
+    document.getElementById('csv-upload-btn').addEventListener('click', submitCsvImport);
+    document.getElementById('js-csv-done').addEventListener('click', function() { closeImportCsvModal(); location.reload(); });
+
+    // Edit modal
+    document.querySelectorAll('.js-close-edit-modal').forEach(function(el) {
+        el.addEventListener('click', closeEditModal);
+    });
+    document.getElementById('edit-member-form').addEventListener('submit', submitEditMember);
+    document.getElementById('js-confirm-delete-member').addEventListener('click', confirmDeleteMember);
+
+    // Initiate modal
+    document.querySelectorAll('.js-close-initiate-modal').forEach(function(el) {
+        el.addEventListener('click', closeInitiateModal);
+    });
+    document.getElementById('confirm-initiate-btn').addEventListener('click', confirmInitiate);
+
+    // Sync modal
+    document.querySelectorAll('.js-close-sync-modal').forEach(function(el) {
+        el.addEventListener('click', closeSyncAdminsModal);
+    });
+    document.getElementById('confirm-sync-btn').addEventListener('click', confirmSyncAdmins);
+
+    // Delete modal
+    document.querySelectorAll('.js-close-delete-modal').forEach(function(el) {
+        el.addEventListener('click', closeDeleteModal);
+    });
+    document.getElementById('js-confirm-delete').addEventListener('click', confirmDelete);
+});
 
 // =============================================================================
 // Shared results renderer
