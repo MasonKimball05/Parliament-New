@@ -113,7 +113,7 @@
                                             <div class="text-sm font-medium text-gray-900 dark:text-white">{{ data.user.get_display_name }}</div>
                                             {% if data.excuse_status %}
                                                 {% if data.excuse_status == 'pending' %}
-                                                    <button type="button" onclick="toggleExcusePreview('desktop-excuse-{{ data.user.user_id }}')" class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-full bg-yellow-200 dark:bg-yellow-800/70 text-yellow-900 dark:text-yellow-200 border border-yellow-400 dark:border-yellow-600 hover:bg-yellow-300 dark:hover:bg-yellow-800 transition-colors cursor-pointer">
+                                                    <button type="button" class="js-toggle-excuse-preview inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-full bg-yellow-200 dark:bg-yellow-800/70 text-yellow-900 dark:text-yellow-200 border border-yellow-400 dark:border-yellow-600 hover:bg-yellow-300 dark:hover:bg-yellow-800 transition-colors cursor-pointer" data-target-id="desktop-excuse-{{ data.user.user_id }}">
                                                         <span class="relative flex h-2 w-2">
                                                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-500 opacity-75"></span>
                                                             <span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-600"></span>
@@ -122,12 +122,12 @@
                                                         <svg class="w-3 h-3 transition-transform" id="desktop-excuse-arrow-{{ data.user.user_id }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                                     </button>
                                                 {% elif data.excuse_status == 'approved' %}
-                                                    <button type="button" onclick="toggleExcusePreview('desktop-excuse-{{ data.user.user_id }}')" class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/70 transition-colors cursor-pointer">
+                                                    <button type="button" class="js-toggle-excuse-preview inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/70 transition-colors cursor-pointer" data-target-id="desktop-excuse-{{ data.user.user_id }}">
                                                         Excuse Approved
                                                         <svg class="w-3 h-3 transition-transform" id="desktop-excuse-arrow-{{ data.user.user_id }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                                     </button>
                                                 {% elif data.excuse_status == 'denied' %}
-                                                    <button type="button" onclick="toggleExcusePreview('desktop-excuse-{{ data.user.user_id }}')" class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/70 transition-colors cursor-pointer">
+                                                    <button type="button" class="js-toggle-excuse-preview inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/70 transition-colors cursor-pointer" data-target-id="desktop-excuse-{{ data.user.user_id }}">
                                                         Excuse Denied
                                                         <svg class="w-3 h-3 transition-transform" id="desktop-excuse-arrow-{{ data.user.user_id }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                                     </button>
@@ -219,7 +219,7 @@
                                 {% endif %}
                                 {% if not data.has_excuse and not event.attendance_finalized %}
                                 <!-- Manual Excuse Toggle -->
-                                <button type="button" onclick="toggleManualExcuse('desktop-manual-{{ data.user.user_id }}')" class="ml-2 text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 hover:underline">
+                                <button type="button" class="js-toggle-manual-excuse ml-2 text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 hover:underline" data-target-id="desktop-manual-{{ data.user.user_id }}">
                                     Excuse
                                 </button>
                                 {% endif %}
@@ -266,7 +266,7 @@
                                 <span class="text-xs text-gray-500 dark:text-gray-400">{{ data.user.user_id }}</span>
                                 {% if data.excuse_status %}
                                     {% if data.excuse_status == 'pending' %}
-                                        <button type="button" onclick="toggleExcusePreview('mobile-excuse-{{ data.user.user_id }}')" class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-full bg-yellow-200 dark:bg-yellow-800/70 text-yellow-900 dark:text-yellow-200 border border-yellow-400 dark:border-yellow-600 hover:bg-yellow-300 dark:hover:bg-yellow-800 transition-colors cursor-pointer">
+                                        <button type="button" class="js-toggle-excuse-preview inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-full bg-yellow-200 dark:bg-yellow-800/70 text-yellow-900 dark:text-yellow-200 border border-yellow-400 dark:border-yellow-600 hover:bg-yellow-300 dark:hover:bg-yellow-800 transition-colors cursor-pointer" data-target-id="mobile-excuse-{{ data.user.user_id }}">
                                             <span class="relative flex h-2 w-2">
                                                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-500 opacity-75"></span>
                                                 <span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-600"></span>
@@ -275,12 +275,12 @@
                                             <svg class="w-3 h-3 transition-transform" id="mobile-excuse-arrow-{{ data.user.user_id }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                         </button>
                                     {% elif data.excuse_status == 'approved' %}
-                                        <button type="button" onclick="toggleExcusePreview('mobile-excuse-{{ data.user.user_id }}')" class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/70 transition-colors cursor-pointer">
+                                        <button type="button" class="js-toggle-excuse-preview inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/70 transition-colors cursor-pointer" data-target-id="mobile-excuse-{{ data.user.user_id }}">
                                             Excuse Approved
                                             <svg class="w-3 h-3 transition-transform" id="mobile-excuse-arrow-{{ data.user.user_id }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                         </button>
                                     {% elif data.excuse_status == 'denied' %}
-                                        <button type="button" onclick="toggleExcusePreview('mobile-excuse-{{ data.user.user_id }}')" class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/70 transition-colors cursor-pointer">
+                                        <button type="button" class="js-toggle-excuse-preview inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/70 transition-colors cursor-pointer" data-target-id="mobile-excuse-{{ data.user.user_id }}">
                                             Excuse Denied
                                             <svg class="w-3 h-3 transition-transform" id="mobile-excuse-arrow-{{ data.user.user_id }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                         </button>
@@ -363,7 +363,7 @@
                             <!-- Manual Excuse Toggle (Mobile) -->
                             {% if not data.has_excuse %}
                             <div class="mt-2">
-                                <button type="button" onclick="toggleManualExcuse('mobile-manual-{{ data.user.user_id }}')" class="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 hover:underline font-medium">
+                                <button type="button" class="js-toggle-manual-excuse text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 hover:underline font-medium" data-target-id="mobile-manual-{{ data.user.user_id }}">
                                     Mark as Excused
                                 </button>
                                 <div id="mobile-manual-{{ data.user.user_id }}" class="hidden mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -399,9 +399,8 @@
                         Save Attendance
                     </button>
                     {% if can_finalize %}
-                    <button type="submit" name="action" value="finalize"
-                            class="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white font-medium py-2.5 px-6 rounded-lg transition"
-                            onclick="return confirm('Are you sure you want to finalize attendance? This cannot be undone.')">
+                    <button type="submit" name="action" value="finalize" id="js-finalize-btn"
+                            class="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white font-medium py-2.5 px-6 rounded-lg transition">
                         Finalize Attendance
                     </button>
                     {% endif %}
@@ -438,6 +437,21 @@ function toggleManualExcuse(id) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('click', function(e) {
+        var toggleExcuse = e.target.closest('.js-toggle-excuse-preview');
+        if (toggleExcuse) { toggleExcusePreview(toggleExcuse.dataset.targetId); return; }
+
+        var toggleManual = e.target.closest('.js-toggle-manual-excuse');
+        if (toggleManual) { toggleManualExcuse(toggleManual.dataset.targetId); return; }
+    });
+
+    var finalizeBtn = document.getElementById('js-finalize-btn');
+    if (finalizeBtn) {
+        finalizeBtn.addEventListener('click', function(e) {
+            if (!confirm('Are you sure you want to finalize attendance? This cannot be undone.')) e.preventDefault();
+        });
+    }
+
     // Handle mutually exclusive checkboxes
     const checkboxes = document.querySelectorAll('.attendance-checkbox');
     checkboxes.forEach(checkbox => {
