@@ -43,7 +43,7 @@
         {% if not articles %}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-10 text-center">
             <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">No articles yet.</p>
-            <button onclick="togglePanel('add-article-form')"
+            <button data-toggle-panel="add-article-form"
                     class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -78,7 +78,7 @@
                     <!-- Article actions -->
                     <div class="flex items-center gap-3 flex-shrink-0 text-sm">
                         {% if article.is_active %}
-                        <button onclick="togglePanel('suspend-article-{{ article.pk }}')"
+                        <button data-toggle-panel="suspend-article-{{ article.pk }}"
                                 class="text-amber-600 dark:text-amber-400 hover:underline">Suspend Article</button>
                         {% else %}
                         <form method="post" action="{% url 'cnb_toggle_article' article_id=article.pk %}">
@@ -96,7 +96,7 @@
                         <input type="text" name="reason" required placeholder="Reason for suspending this article…"
                                class="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent">
                         <button type="submit" class="px-3 py-1.5 text-sm bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium">Confirm</button>
-                        <button type="button" onclick="togglePanel('suspend-article-{{ article.pk }}')"
+                        <button type="button" data-toggle-panel="suspend-article-{{ article.pk }}"
                                 class="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancel</button>
                     </form>
                 </div>
@@ -165,16 +165,16 @@
 
                         <!-- Section action buttons -->
                         <div class="flex flex-wrap items-center gap-4 mt-3">
-                            <button onclick="togglePanel('edit-{{ section.pk }}')"
+                            <button data-toggle-panel="edit-{{ section.pk }}"
                                     class="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline">
                                 Edit Text
                             </button>
-                            <button onclick="togglePanel('partial-{{ section.pk }}')"
+                            <button data-toggle-panel="partial-{{ section.pk }}"
                                     class="text-xs font-medium text-yellow-600 dark:text-yellow-400 hover:underline">
                                 + Partial Suspension
                             </button>
                             {% if section.is_active %}
-                            <button onclick="togglePanel('suspend-section-{{ section.pk }}')"
+                            <button data-toggle-panel="suspend-section-{{ section.pk }}"
                                     class="text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline">
                                 Suspend Section
                             </button>
@@ -215,7 +215,7 @@
                                 </p>
                             </div>
                             <div class="flex gap-2 justify-end">
-                                <button type="button" onclick="togglePanel('edit-{{ section.pk }}')"
+                                <button type="button" data-toggle-panel="edit-{{ section.pk }}"
                                         class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">Cancel</button>
                                 <button type="submit"
                                         class="px-4 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">Save</button>
@@ -242,7 +242,7 @@
                                 </div>
                             </div>
                             <div class="flex gap-2 justify-end">
-                                <button type="button" onclick="togglePanel('partial-{{ section.pk }}')"
+                                <button type="button" data-toggle-panel="partial-{{ section.pk }}"
                                         class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">Cancel</button>
                                 <button type="submit"
                                         class="px-4 py-2 text-sm font-semibold text-white bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors">Suspend Sub-item</button>
@@ -258,7 +258,7 @@
                             <input type="text" name="reason" required placeholder="Reason for suspending this section (IFC ruling, etc.)…"
                                    class="flex-1 px-3 py-2 text-sm border border-amber-300 dark:border-amber-700 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent">
                             <button type="submit" class="px-3 py-2 text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white rounded-lg">Confirm</button>
-                            <button type="button" onclick="togglePanel('suspend-section-{{ section.pk }}')"
+                            <button type="button" data-toggle-panel="suspend-section-{{ section.pk }}"
                                     class="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancel</button>
                         </form>
                     </div>
@@ -270,7 +270,7 @@
 
                 <!-- Add section form -->
                 <div class="border-t border-dashed border-gray-200 dark:border-gray-700">
-                    <button onclick="togglePanel('add-section-{{ article.pk }}')"
+                    <button data-toggle-panel="add-section-{{ article.pk }}"
                             class="w-full px-6 py-3 text-left text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/10 transition-colors flex items-center gap-2">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -300,7 +300,7 @@
                                           placeholder="Section text…"></textarea>
                             </div>
                             <div class="flex gap-2 justify-end">
-                                <button type="button" onclick="togglePanel('add-section-{{ article.pk }}')"
+                                <button type="button" data-toggle-panel="add-section-{{ article.pk }}"
                                         class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">Cancel</button>
                                 <button type="submit"
                                         class="px-4 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">Add Section</button>
@@ -315,7 +315,7 @@
 
         <!-- Add Article -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden border-2 border-dashed border-gray-200 dark:border-gray-700">
-            <button onclick="togglePanel('add-article-form')"
+            <button data-toggle-panel="add-article-form"
                     class="w-full px-6 py-4 text-left text-sm font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/10 transition-colors flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -339,7 +339,7 @@
                         </div>
                     </div>
                     <div class="flex gap-2 justify-end">
-                        <button type="button" onclick="togglePanel('add-article-form')"
+                        <button type="button" data-toggle-panel="add-article-form"
                                 class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">Cancel</button>
                         <button type="submit"
                                 class="px-4 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">Add Article</button>
@@ -359,5 +359,10 @@ function togglePanel(id) {
     // Close any other open form of the same type to keep things tidy
     // (optional — comment out if you prefer allowing multiple open at once)
 }
+
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest('[data-toggle-panel]');
+    if (btn) togglePanel(btn.dataset.togglePanel);
+});
 </script>
 {% endblock %}
