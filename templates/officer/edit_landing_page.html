@@ -82,7 +82,7 @@
                 <div>
                     <p class="text-xs text-gray-600 dark:text-gray-400 max-w-[120px] truncate">{{ photo.caption|default:"No caption" }}</p>
                     <form method="post" action="{% url 'edit_landing_page' %}" class="mt-1"
-                          onsubmit="return confirm('Delete this photo?');">
+                          class="js-confirm-submit" data-confirm-msg="Delete this photo?">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="delete_photo">
                         <input type="hidden" name="photo_id" value="{{ photo.pk }}">
@@ -144,7 +144,7 @@
 
             <!-- Who We Are -->
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <button type="button" onclick="toggleSection('wwa')"
+                <button type="button" data-toggle-section="wwa"
                         class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <div>
                         <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Who We Are</h2>
@@ -162,7 +162,7 @@
 
             <!-- What We Believe -->
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <button type="button" onclick="toggleSection('bel')"
+                <button type="button" data-toggle-section="bel"
                         class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <div>
                         <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">What We Believe</h2>
@@ -180,7 +180,7 @@
 
             <!-- Chapter History -->
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <button type="button" onclick="toggleSection('his')"
+                <button type="button" data-toggle-section="his"
                         class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <div>
                         <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Chapter History</h2>
@@ -335,7 +335,7 @@
                        class="text-xs text-gray-400 truncate max-w-[200px] hover:underline">{{ link.url }}</a>
                 </div>
                 <form method="post" action="{% url 'edit_landing_page' %}" class="ml-3 flex-shrink-0"
-                      onsubmit="return confirm('Delete \'{{ link.label }}\'?');">
+                      class="js-confirm-submit" data-confirm-msg="Delete '{{ link.label }}'?">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="delete_social_link">
                     <input type="hidden" name="link_id" value="{{ link.pk }}">
@@ -404,7 +404,7 @@
                         </button>
                     </form>
                     <form method="post" action="{% url 'edit_landing_page' %}"
-                          onsubmit="return confirm('Delete topic \'{{ topic.label }}\'?');">
+                          class="js-confirm-submit" data-confirm-msg="Delete topic '{{ topic.label }}'?">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="delete_contact_topic">
                         <input type="hidden" name="topic_id" value="{{ topic.pk }}">
@@ -491,7 +491,7 @@
                         </button>
                     </form>
                     <form method="post" action="{% url 'edit_landing_page' %}"
-                          onsubmit="return confirm('Delete \'{{ link.title }}\'?');">
+                          class="js-confirm-submit" data-confirm-msg="Delete '{{ link.title }}'?">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="delete_form_link">
                         <input type="hidden" name="link_id" value="{{ link.pk }}">
@@ -619,15 +619,15 @@
 <!-- ── Image controls (position, shown on click) ─────────────────────────── -->
 <div id="img-controls">
     <span class="ic-label">Position</span>
-    <button id="ic-left"   onclick="imgAlign('left')"   title="Float left — text wraps to the right">&#9664; Left</button>
-    <button id="ic-center" onclick="imgAlign('center')" title="Centered block">&#9632; Center</button>
-    <button id="ic-right"  onclick="imgAlign('right')"  title="Float right — text wraps to the left">Right &#9654;</button>
+    <button id="ic-left"   title="Float left — text wraps to the right">&#9664; Left</button>
+    <button id="ic-center" title="Centered block">&#9632; Center</button>
+    <button id="ic-right"  title="Float right — text wraps to the left">Right &#9654;</button>
     <div class="ic-sep"></div>
     <span class="ic-label">Size</span>
-    <button id="ic-s"    onclick="imgSize('130px')" title="Small — 130 px">S</button>
-    <button id="ic-m"    onclick="imgSize('260px')" title="Medium — 260 px">M</button>
-    <button id="ic-l"    onclick="imgSize('420px')" title="Large — 420 px">L</button>
-    <button id="ic-full" onclick="imgSize('100%')"  title="Full width">Full</button>
+    <button id="ic-s"    title="Small — 130 px">S</button>
+    <button id="ic-m"    title="Medium — 260 px">M</button>
+    <button id="ic-l"    title="Large — 420 px">L</button>
+    <button id="ic-full" title="Full width">Full</button>
 </div>
 
 <!-- ── Resize overlay (visual border only — drag is detected on the image itself) ── -->
@@ -638,13 +638,13 @@
     <div id="photo-picker-box">
         <div class="flex items-center justify-between">
             <h3 class="text-base font-semibold">Insert Photo</h3>
-            <button onclick="closePhotoPicker()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+            <button id="js-close-photo-picker" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
         </div>
         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Click a photo to insert it at your cursor. Upload more photos in the Photo Library above.</p>
         {% if photos %}
         <div id="photo-picker-grid">
             {% for photo in photos %}
-            <div class="photo-picker-item" onclick="pickPhoto('{{ photo.image.url }}')" >
+            <div class="photo-picker-item" data-photo-url="{{ photo.image.url }}" >
                 <img src="{{ photo.image.url }}" alt="{{ photo.caption }}">
                 <p>{{ photo.caption|default:"No caption" }}</p>
             </div>
@@ -981,6 +981,42 @@
             }
             body.style.display = 'none';           // hide again
         });
+    });
+
+    // ── Inline handlers replaced with addEventListener ─────────────────────────
+
+    // Section accordion toggle buttons
+    document.querySelectorAll('[data-toggle-section]').forEach(function(btn) {
+        btn.addEventListener('click', function() { toggleSection(this.dataset.toggleSection); });
+    });
+
+    // Confirm-on-submit forms (delete photo, social link, topic, form link)
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(this.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+
+    // Image controls — position
+    document.getElementById('ic-left').addEventListener('click', function() { imgAlign('left'); });
+    document.getElementById('ic-center').addEventListener('click', function() { imgAlign('center'); });
+    document.getElementById('ic-right').addEventListener('click', function() { imgAlign('right'); });
+
+    // Image controls — size
+    document.getElementById('ic-s').addEventListener('click', function() { imgSize('130px'); });
+    document.getElementById('ic-m').addEventListener('click', function() { imgSize('260px'); });
+    document.getElementById('ic-l').addEventListener('click', function() { imgSize('420px'); });
+    document.getElementById('ic-full').addEventListener('click', function() { imgSize('100%'); });
+
+    // Photo picker close button
+    var closePickerBtn = document.getElementById('js-close-photo-picker');
+    if (closePickerBtn) closePickerBtn.addEventListener('click', closePhotoPicker);
+
+    // Photo picker items — delegation on grid
+    var pickerGrid = document.getElementById('photo-picker-grid');
+    if (pickerGrid) pickerGrid.addEventListener('click', function(e) {
+        var item = e.target.closest('.photo-picker-item');
+        if (item && item.dataset.photoUrl) pickPhoto(item.dataset.photoUrl);
     });
 
     // ── Save ──────────────────────────────────────────────────────────────────
