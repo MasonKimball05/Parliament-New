@@ -195,11 +195,11 @@
 
                         <!-- PWA install instructions modal -->
                         <div id="pwa-instructions-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center p-4">
-                            <div class="absolute inset-0 bg-black/50" onclick="document.getElementById('pwa-instructions-modal').classList.add('hidden')"></div>
+                            <div class="absolute inset-0 bg-black/50" id="js-pwa-modal-backdrop"></div>
                             <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700">
                                 <div class="flex items-center justify-between mb-4">
                                     <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">Install Parliament</h3>
-                                    <button onclick="document.getElementById('pwa-instructions-modal').classList.add('hidden')"
+                                    <button id="js-pwa-modal-close"
                                             class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl leading-none">&times;</button>
                                 </div>
                                 <div id="pwa-instructions-content" class="space-y-4 text-sm text-gray-700 dark:text-gray-300">
@@ -396,7 +396,7 @@
                 <span class="sm:hidden text-sm text-blue-100 mr-3">
                     In {{ upcoming_maintenance.time_until }}
                 </span>
-                <button onclick="this.parentElement.parentElement.parentElement.style.display='none'"
+                <button id="js-maintenance-dismiss"
                         class="text-blue-200 hover:text-white transition-colors p-1"
                         title="Dismiss">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -439,7 +439,7 @@
                         {{ maintenance_info.duration }} · {{ maintenance_info.blocked_requests }} blocked
                     </span>
                     {% endif %}
-                    <button onclick="window.DevTools.toggle()"
+                    <button id="js-devtools-toggle-banner"
                             class="bg-amber-600 dark:bg-amber-700 hover:bg-amber-700 dark:hover:bg-amber-800 px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap flex items-center space-x-1">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
@@ -472,12 +472,12 @@
                 <button data-tab="users" class="devtools-tab px-3 py-1.5 text-xs rounded hover:bg-gray-700 transition text-gray-400">Users</button>
             </div>
             <div class="flex items-center space-x-2">
-                <button onclick="window.DevTools.refresh()" class="p-1 hover:bg-gray-700 rounded transition" title="Refresh">
+                <button id="js-devtools-refresh" class="p-1 hover:bg-gray-700 rounded transition" title="Refresh">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                     </svg>
                 </button>
-                <button onclick="window.DevTools.toggle()" class="p-1 hover:bg-gray-700 rounded transition" title="Close">
+                <button id="js-devtools-close" class="p-1 hover:bg-gray-700 rounded transition" title="Close">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
@@ -751,7 +751,7 @@
                         </div>
                         ` : ''}
                         <div class="mt-4">
-                            <button onclick="window.DevTools.clearCache('__all__')" class="bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded text-xs font-medium transition">
+                            <button data-devtools-action="clearCache" data-key="__all__" class="bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded text-xs font-medium transition">
                                 Clear All Cache
                             </button>
                         </div>
@@ -764,7 +764,7 @@
                                     <div class="flex-1">
                                         ${kvRow(k, v)}
                                     </div>
-                                    <button onclick="window.DevTools.clearCache('${k}')" class="text-red-400 hover:text-red-300 text-xs ml-2">Clear</button>
+                                    <button data-devtools-action="clearCache" data-key="${k}" class="text-red-400 hover:text-red-300 text-xs ml-2">Clear</button>
                                 </div>
                             `).join('') : '<div class="text-gray-500">No known cache values</div>'}
                         </div>
@@ -791,7 +791,7 @@
                             ${kvRow('Expiry Date', data.expiry_date)}
                         </div>
                         <div class="mt-4">
-                            <button onclick="window.DevTools.clearSession()" class="bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded text-xs font-medium transition">
+                            <button data-devtools-action="clearSession" class="bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded text-xs font-medium transition">
                                 Clear Session
                             </button>
                         </div>
@@ -805,7 +805,7 @@
                                         <div class="text-xs text-cyan-300">${k}</div>
                                         <div class="text-xs text-gray-400 font-mono mt-1 break-all">${typeof v === 'object' ? JSON.stringify(v) : v}</div>
                                     </div>
-                                    <button onclick="window.DevTools.deleteSessionKey('${k}')" class="text-red-400 hover:text-red-300 text-xs ml-2">Delete</button>
+                                    <button data-devtools-action="deleteSessionKey" data-key="${k}" class="text-red-400 hover:text-red-300 text-xs ml-2">Delete</button>
                                 </div>
                             `).join('') : '<div class="text-gray-500">No session data</div>'}
                         </div>
@@ -826,7 +826,7 @@
                                         <span class="text-sm ${f.is_enabled ? 'text-green-400' : 'text-gray-400'}">${f.name}</span>
                                         ${f.description ? `<div class="text-xs text-gray-500">${f.description}</div>` : ''}
                                     </div>
-                                    <button onclick="window.DevTools.toggleFlag(${f.id}, 'feature')"
+                                    <button data-devtools-action="toggleFlag" data-flag-id="${f.id}" data-flag-type="feature"
                                             class="px-2 py-1 rounded text-xs font-medium transition ${f.is_enabled ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700'}">
                                         ${f.is_enabled ? 'ON' : 'OFF'}
                                     </button>
@@ -843,7 +843,7 @@
                                         <span class="text-sm ${p.is_enabled ? 'text-green-400' : 'text-gray-400'}">${p.display_name || p.url_name}</span>
                                         <div class="text-xs text-gray-500">${p.url_name}</div>
                                     </div>
-                                    <button onclick="window.DevTools.toggleFlag(${p.id}, 'page')"
+                                    <button data-devtools-action="toggleFlag" data-flag-id="${p.id}" data-flag-type="page"
                                             class="px-2 py-1 rounded text-xs font-medium transition ${p.is_enabled ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700'}">
                                         ${p.is_enabled ? 'ON' : 'OFF'}
                                     </button>
@@ -886,7 +886,7 @@
                     <div class="flex items-center justify-between">
                         <div class="flex items-center space-x-4">
                             <h3 class="text-red-400 font-semibold text-xs uppercase tracking-wider">Recent Errors/Warnings (${data.total_errors || 0})</h3>
-                            <button onclick="window.DevTools.clearLogs()" class="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs font-medium transition flex items-center space-x-1">
+                            <button data-devtools-action="clearLogs" class="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs font-medium transition flex items-center space-x-1">
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                 </svg>
@@ -1147,7 +1147,7 @@
             <p class="text-sm text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900 border border-primary-200 dark:border-primary-700 rounded-md p-3 mb-4">
                 <strong>Note:</strong> Please use your Samford email address (@samford.edu)
             </p>
-            <form id="emailForm" method="POST" action="{% url 'set_email' %}" class="space-y-4" onsubmit="console.log('Email form submitting with:', document.getElementById('email').value);">
+            <form id="emailForm" method="POST" action="{% url 'set_email' %}" class="space-y-4">
                 {% csrf_token %}
                 <div>
                     <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
@@ -1171,7 +1171,7 @@
                     </button>
                     <button
                         type="button"
-                        onclick="closeEmailModal()"
+                        id="js-close-email-modal"
                         class="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition font-medium"
                     >
                         Skip for Now
@@ -1246,7 +1246,7 @@
                     </button>
                     <button
                         type="button"
-                        onclick="closeEmailFlaggedModal()"
+                        id="js-close-email-flagged-modal"
                         class="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition font-medium"
                     >
                         Dismiss
@@ -1300,7 +1300,7 @@
                             </a>
                         </div>
                     </div>
-                    <button onclick="dismissAnnouncement({{ announcement.id }})" class="ml-4 text-blue-200 hover:text-white transition">
+                    <button class="js-dismiss-announcement ml-4 text-blue-200 hover:text-white transition" data-announcement-id="{{ announcement.id }}">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
@@ -1822,6 +1822,50 @@
                 focusFirst: '#email'
             });
         }
+
+        // PWA instructions modal
+        document.getElementById('js-pwa-modal-backdrop')?.addEventListener('click', function() {
+            document.getElementById('pwa-instructions-modal').classList.add('hidden');
+        });
+        document.getElementById('js-pwa-modal-close')?.addEventListener('click', function() {
+            document.getElementById('pwa-instructions-modal').classList.add('hidden');
+        });
+
+        // Maintenance banner dismiss
+        document.getElementById('js-maintenance-dismiss')?.addEventListener('click', function() {
+            this.parentElement.parentElement.parentElement.style.display = 'none';
+        });
+
+        // DevTools toolbar buttons (static HTML)
+        document.getElementById('js-devtools-toggle-banner')?.addEventListener('click', function() { window.DevTools?.toggle(); });
+        document.getElementById('js-devtools-refresh')?.addEventListener('click', function() { window.DevTools?.refresh(); });
+        document.getElementById('js-devtools-close')?.addEventListener('click', function() { window.DevTools?.toggle(); });
+
+        // DevTools panel delegation — handles data-devtools-action buttons injected by renderCache/Session/Flags/Errors
+        document.getElementById('devtools-panel')?.addEventListener('click', function(e) {
+            const btn = e.target.closest('[data-devtools-action]');
+            if (!btn) return;
+            const action = btn.dataset.devtoolsAction;
+            const key = btn.dataset.key;
+            const flagId = btn.dataset.flagId ? parseInt(btn.dataset.flagId) : null;
+            const flagType = btn.dataset.flagType;
+            if (action === 'clearCache') window.DevTools?.clearCache(key);
+            else if (action === 'clearSession') window.DevTools?.clearSession();
+            else if (action === 'deleteSessionKey') window.DevTools?.deleteSessionKey(key);
+            else if (action === 'toggleFlag') window.DevTools?.toggleFlag(flagId, flagType);
+            else if (action === 'clearLogs') window.DevTools?.clearLogs();
+        });
+
+        // Email modal close buttons
+        document.getElementById('js-close-email-modal')?.addEventListener('click', closeEmailModal);
+        document.getElementById('js-close-email-flagged-modal')?.addEventListener('click', closeEmailFlaggedModal);
+
+        // Announcement dismiss buttons — delegation (loop-rendered)
+        document.querySelectorAll('.js-dismiss-announcement').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                dismissAnnouncement(parseInt(this.dataset.announcementId));
+            });
+        });
     });
     </script>
 

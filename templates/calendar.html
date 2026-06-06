@@ -25,7 +25,7 @@
                     Export
                 </a>
                 {% if feature_flags.ical_export %}
-                <button onclick="openSubscriptionModal()" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-teal-500/80 hover:bg-teal-500 text-white transition" title="Subscribe to auto-updating calendar feed">
+                <button id="js-open-sub-modal" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-teal-500/80 hover:bg-teal-500 text-white transition" title="Subscribe to auto-updating calendar feed">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                     </svg>
@@ -55,13 +55,13 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mb-8 transition-colors duration-200">
         <!-- Month Navigation -->
         <div class="bg-primary-600 text-white px-6 py-4 flex items-center justify-between relative">
-            <button id="prevMonthBtn" onclick="navigateMonth(-1)" class="hover:bg-primary-700 p-2 rounded transition {% if not can_go_prev %}opacity-50 cursor-not-allowed{% endif %}" {% if not can_go_prev %}disabled{% endif %}>
+            <button id="prevMonthBtn" class="hover:bg-primary-700 p-2 rounded transition {% if not can_go_prev %}opacity-50 cursor-not-allowed{% endif %}" {% if not can_go_prev %}disabled{% endif %}>
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                 </svg>
             </button>
             <div class="relative">
-                <button onclick="toggleMonthDropdown()" class="text-2xl font-bold hover:bg-primary-700 px-4 py-2 rounded transition flex items-center space-x-2">
+                <button id="js-toggle-month" class="text-2xl font-bold hover:bg-primary-700 px-4 py-2 rounded transition flex items-center space-x-2">
                     <span id="monthYearTitle">{{ month_name }} {{ year }}</span>
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
@@ -73,7 +73,7 @@
                     </div>
                 </div>
             </div>
-            <button id="nextMonthBtn" onclick="navigateMonth(1)" class="hover:bg-primary-700 p-2 rounded transition {% if not can_go_next %}opacity-50 cursor-not-allowed{% endif %}" {% if not can_go_next %}disabled{% endif %}>
+            <button id="nextMonthBtn" class="hover:bg-primary-700 p-2 rounded transition {% if not can_go_next %}opacity-50 cursor-not-allowed{% endif %}" {% if not can_go_next %}disabled{% endif %}>
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                 </svg>
@@ -105,20 +105,11 @@
                                 {% if day in events_by_day %}
                                     <div class="mt-1 space-y-1">
                                         {% for event in events_by_day|get_item:day %}
-                                            <div class="bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded cursor-pointer hover:bg-primary-200 dark:hover:bg-primary-800 transition"
-                                                 onclick="showEventDetails{{ event.id }}()">
+                                            <div class="bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded cursor-pointer hover:bg-primary-200 dark:hover:bg-primary-800 transition js-static-event-open"
+                                                 data-event-id="{{ event.id }}">
                                                 <div class="font-semibold truncate text-[10px] sm:text-xs">{{ event.date_time|date:"g:i A" }}</div>
                                                 <div class="truncate text-[10px] sm:text-xs">{{ event.title }}</div>
                                             </div>
-                                            <!-- Hidden event details modal trigger -->
-                                            <script nonce="{{ request.csp_nonce }}">
-                                                function showEventDetails{{ event.id }}() {
-                                                    document.getElementById('eventModal{{ event.id }}').classList.remove('hidden');
-                                                }
-                                                function closeEventDetails{{ event.id }}() {
-                                                    document.getElementById('eventModal{{ event.id }}').classList.add('hidden');
-                                                }
-                                            </script>
                                         {% endfor %}
                                     </div>
                                 {% endif %}
@@ -148,11 +139,11 @@
     {% for day, day_events in events_by_day.items %}
         {% for event in day_events %}
             {% load custom_filters %}
-            <div id="eventModal{{ event.id }}" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="if(event.target === this) closeEventDetails{{ event.id }}()">
+            <div id="eventModal{{ event.id }}" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 js-static-event-modal" data-event-id="{{ event.id }}">
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6 transition-colors duration-200">
                     <div class="flex justify-between items-start mb-4">
                         <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ event.title }}</h3>
-                        <button onclick="closeEventDetails{{ event.id }}()" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
+                        <button class="js-static-event-close text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                             </svg>
@@ -251,7 +242,7 @@
                         {% endif %}
                     </div>
                     <div class="mt-6 flex justify-end">
-                        <button onclick="closeEventDetails{{ event.id }}()" class="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded-lg transition">
+                        <button class="js-static-event-close bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded-lg transition">
                             Close
                         </button>
                     </div>
@@ -266,7 +257,7 @@
             <h3 class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100">Upcoming Events</h3>
             <div class="space-y-3">
                 {% for event in upcoming_events %}
-                    <div class="border-l-4 border-blue-500 dark:border-blue-400 bg-gray-50 dark:bg-gray-700 p-4 rounded-r-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition cursor-pointer" onclick="showEventDetails{{ event.id }}()">
+                    <div class="border-l-4 border-blue-500 dark:border-blue-400 bg-gray-50 dark:bg-gray-700 p-4 rounded-r-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition cursor-pointer js-static-event-open" data-event-id="{{ event.id }}">
                         <h4 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ event.title }}</h4>
                         <p class="text-gray-600 dark:text-gray-400 text-sm mt-1">{{ event.description|truncatewords:15 }}</p>
                         <div class="flex items-center space-x-4 mt-2 text-sm text-gray-500 dark:text-gray-400">
@@ -314,19 +305,58 @@
     let canGoPrev = {{ can_go_prev|yesno:"true,false" }};
     let canGoNext = {{ can_go_next|yesno:"true,false" }};
 
-    // Cache for calendar data
+    // Cache for calendar data and dynamically-fetched event metadata
     const calendarCache = {};
+    window._calEventData = {};
 
     // Preload adjacent months on page load
     window.addEventListener('DOMContentLoaded', function() {
         preloadAdjacentMonths();
         populateMonthDropdown();
+
+        // Navigation buttons
+        document.getElementById('prevMonthBtn').addEventListener('click', function() { navigateMonth(-1); });
+        document.getElementById('nextMonthBtn').addEventListener('click', function() { navigateMonth(1); });
+        document.getElementById('js-toggle-month').addEventListener('click', toggleMonthDropdown);
+
+        // Dynamic calendar grid — delegation for AJAX-rendered events
+        document.getElementById('calendarGrid').addEventListener('click', function(e) {
+            const card = e.target.closest('.js-dyn-event-open');
+            if (!card) return;
+            const evId = parseInt(card.dataset.eventId);
+            const ev = window._calEventData[evId];
+            if (ev) showEventModal(ev.id, ev.title, ev.description, ev.full_datetime, ev.location, ev.created_by, ev.requires_attendance, ev.allow_excuses, ev.can_submit_excuse, ev.has_excuse, ev.excuse_status);
+        });
+
+        // Static Django-rendered event modals (calendar grid + upcoming list)
+        document.addEventListener('click', function(e) {
+            const opener = e.target.closest('.js-static-event-open');
+            if (opener) {
+                document.getElementById('eventModal' + opener.dataset.eventId)?.classList.remove('hidden');
+                return;
+            }
+            const closer = e.target.closest('.js-static-event-close');
+            if (closer) {
+                closer.closest('.js-static-event-modal')?.classList.add('hidden');
+                return;
+            }
+            const backdrop = e.target.closest('.js-static-event-modal');
+            if (backdrop && e.target === backdrop) {
+                backdrop.classList.add('hidden');
+            }
+        });
+
+        {% if feature_flags.ical_export %}
+        // Subscription modal open/close
+        document.getElementById('js-open-sub-modal')?.addEventListener('click', openSubscriptionModal);
+        document.getElementById('js-close-sub-modal')?.addEventListener('click', closeSubscriptionModal);
+        {% endif %}
     });
 
     // Close dropdown when clicking outside
     document.addEventListener('click', function(event) {
         const dropdown = document.getElementById('monthDropdown');
-        const button = event.target.closest('button[onclick="toggleMonthDropdown()"]');
+        const button = event.target.closest('#js-toggle-month');
 
         if (!button && !dropdown.contains(event.target)) {
             dropdown.classList.add('hidden');
@@ -466,9 +496,10 @@
                     if (data.events[day]) {
                         html += '<div class="mt-1 space-y-1">';
                         data.events[day].forEach(event => {
+                            window._calEventData[event.id] = event;
                             html += `
-                                <div class="bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded cursor-pointer hover:bg-primary-200 dark:hover:bg-primary-800 transition"
-                                     onclick="showEventModal(${event.id}, '${escapeForJs(event.title)}', '${escapeForJs(event.description)}', '${event.full_datetime}', '${escapeForJs(event.location)}', '${escapeForJs(event.created_by)}', ${event.requires_attendance}, ${event.allow_excuses}, ${event.can_submit_excuse}, ${event.has_excuse}, '${event.excuse_status}')">
+                                <div class="bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded cursor-pointer hover:bg-primary-200 dark:hover:bg-primary-800 transition js-dyn-event-open"
+                                     data-event-id="${event.id}">
                                     <div class="font-semibold truncate text-[10px] sm:text-xs">${event.time}</div>
                                     <div class="truncate text-[10px] sm:text-xs">${escapeHtml(event.title)}</div>
                                 </div>
@@ -584,11 +615,11 @@
         }
 
         const modalHtml = `
-            <div id="eventModal${id}" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="if(event.target === this) closeEventModal(${id})">
+            <div id="eventModal${id}" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 js-dyn-modal-backdrop">
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6 transition-colors duration-200">
                     <div class="flex justify-between items-start mb-4">
                         <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100">${title}</h3>
-                        <button onclick="closeEventModal(${id})" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
+                        <button class="js-dyn-modal-close text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                             </svg>
@@ -620,7 +651,7 @@
                         ${excuseHtml}
                     </div>
                     <div class="mt-6 flex justify-end">
-                        <button onclick="closeEventModal(${id})" class="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded-lg transition">
+                        <button class="js-dyn-modal-close bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded-lg transition">
                             Close
                         </button>
                     </div>
@@ -629,6 +660,12 @@
         `;
 
         document.getElementById('dynamicModals').innerHTML = modalHtml;
+        // Wire close handlers on the freshly-injected modal
+        const modalEl = document.getElementById(`eventModal${id}`);
+        modalEl.addEventListener('click', function(e) { if (e.target === modalEl) closeEventModal(id); });
+        modalEl.querySelectorAll('.js-dyn-modal-close').forEach(function(btn) {
+            btn.addEventListener('click', function() { closeEventModal(id); });
+        });
     }
 
     function closeEventModal(id) {
@@ -677,7 +714,7 @@
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700';
 
             html += `
-                <button onclick="navigateToMonth(${year}, ${month})" class="w-full text-left px-4 py-2 rounded transition ${bgClass}">
+                <button class="js-nav-month w-full text-left px-4 py-2 rounded transition ${bgClass}" data-year="${year}" data-month="${month}">
                     ${monthNames[month - 1]} ${year}
                 </button>
             `;
@@ -686,6 +723,10 @@
         }
 
         content.innerHTML = html;
+        content.addEventListener('click', function(e) {
+            const btn = e.target.closest('.js-nav-month');
+            if (btn) navigateToMonth(parseInt(btn.dataset.year), parseInt(btn.dataset.month));
+        });
     }
 
     function navigateToMonth(year, month) {
@@ -744,8 +785,7 @@
                     <div class="flex gap-2">
                         <input type="text" id="subscriptionUrl" readonly value="${data.webcal_url}"
                                class="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100">
-                        <button onclick="copySubscriptionUrl()"
-                                class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium">Copy</button>
+                        <button class="js-copy-sub-url px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium">Copy</button>
                     </div>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
                         Last accessed: ${data.last_accessed ? new Date(data.last_accessed).toLocaleString() : 'Never'}
@@ -754,12 +794,15 @@
                 </div>
                 <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
                     <p class="text-sm text-yellow-800 dark:text-yellow-200 mb-2"><strong>⚠️ Security Note:</strong> This link is personal to you. Don't share it publicly.</p>
-                    <button onclick="regenerateToken()" class="text-sm text-yellow-700 dark:text-yellow-300 hover:text-yellow-900 dark:hover:text-yellow-100 underline">Regenerate link if compromised</button>
+                    <button class="js-regen-token text-sm text-yellow-700 dark:text-yellow-300 hover:text-yellow-900 dark:hover:text-yellow-100 underline">Regenerate link if compromised</button>
                 </div>
             </div>
         `;
 
-        document.getElementById('subscriptionContent').innerHTML = content;
+        const subContent = document.getElementById('subscriptionContent');
+        subContent.innerHTML = content;
+        subContent.querySelector('.js-copy-sub-url')?.addEventListener('click', copySubscriptionUrl);
+        subContent.querySelector('.js-regen-token')?.addEventListener('click', regenerateToken);
     }
 
     function copySubscriptionUrl() {
@@ -802,7 +845,7 @@
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-auto my-8 p-6 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100">📅 Subscribe to Calendar</h3>
-            <button onclick="closeSubscriptionModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+            <button id="js-close-sub-modal" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>

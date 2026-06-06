@@ -32,15 +32,15 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-6 overflow-hidden">
         <!-- Tabs -->
         <div class="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60">
-            <button type="button" id="tab-legislation" onclick="switchLegislationTab('legislation')"
+            <button type="button" id="tab-legislation" data-tab="legislation"
                     class="leg-tab px-5 py-3 text-sm font-medium border-b-2 border-primary-500 text-primary-600 dark:text-primary-400 bg-white dark:bg-gray-800 -mb-px transition-colors">
                 Upload Legislation
             </button>
-            <button type="button" id="tab-appointment" onclick="switchLegislationTab('appointment')"
+            <button type="button" id="tab-appointment" data-tab="appointment"
                     class="leg-tab px-5 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 -mb-px transition-colors">
                 Chair Appointment
             </button>
-            <button type="button" id="tab-attendance" onclick="switchLegislationTab('attendance')"
+            <button type="button" id="tab-attendance" data-tab="attendance"
                     class="leg-tab px-5 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 -mb-px transition-colors flex items-center gap-2">
                 Attendance
                 {% if attendance_present_count > 0 %}
@@ -164,7 +164,7 @@
                         <input type="text" name="plurality_option_9" placeholder="Option 9 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         <input type="text" name="plurality_option_10" placeholder="Option 10 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     </div>
-                    <button type="button" id="toggle-extra-options" onclick="toggleExtraOptions()"
+                    <button type="button" id="toggle-extra-options"
                             class="mt-2 text-xs text-primary-600 dark:text-primary-400 hover:underline">
                         + Add more options (6–10)
                     </button>
@@ -223,7 +223,6 @@
                         Role <span class="text-red-500">*</span>
                     </label>
                     <select name="appointment_role_id" id="appt_role" required
-                            onchange="toggleNewRoleFields(this.value)"
                             class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         <option value="">— Select role —</option>
                         {% for role in appointment_roles %}
@@ -234,7 +233,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Voting Mode</label>
-                    <select name="appt_vote_mode" id="appt_vote_mode" onchange="updateApptMode(this.value)"
+                    <select name="appt_vote_mode" id="appt_vote_mode"
                             class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         <option value="percentage">Percentage</option>
                         <option value="piecewise">Piecewise</option>
@@ -377,11 +376,11 @@
                     / {{ members_attendance|length }} present
                 </p>
                 <div class="flex gap-2">
-                    <button type="button" onclick="markAllAttendance('present')"
+                    <button type="button" id="js-att-all-present"
                             class="px-3 py-1 text-xs font-medium bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-800/60 transition">
                         All Present
                     </button>
-                    <button type="button" onclick="markAllAttendance('absent')"
+                    <button type="button" id="js-att-clear-all"
                             class="px-3 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition">
                         Clear All
                     </button>
@@ -389,7 +388,7 @@
             </div>
 
             <!-- Search -->
-            <input type="text" id="att-search" placeholder="Search members…" oninput="filterAttendance(this.value)"
+            <input type="text" id="att-search" placeholder="Search members…"
                    class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
 
             <!-- Member list -->
@@ -411,21 +410,18 @@
                     </div>
                     <div class="flex items-center gap-1 flex-shrink-0 ml-3">
                         <button type="button"
-                                onclick="markAttendance('{{ item.member.user_id }}', 'present', this)"
                                 class="att-btn px-2 py-1 text-xs rounded font-medium transition
                                     {% if item.status == 'present' %}bg-green-500 text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-green-100 dark:hover:bg-green-900/40 hover:text-green-700 dark:hover:text-green-300{% endif %}"
                                 data-status-btn="present">
                             Present
                         </button>
                         <button type="button"
-                                onclick="markAttendance('{{ item.member.user_id }}', 'late', this)"
                                 class="att-btn px-2 py-1 text-xs rounded font-medium transition
                                     {% if item.status == 'late' %}bg-yellow-500 text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 hover:text-yellow-700 dark:hover:text-yellow-300{% endif %}"
                                 data-status-btn="late">
                             Late
                         </button>
                         <button type="button"
-                                onclick="markAttendance('{{ item.member.user_id }}', 'absent', this)"
                                 class="att-btn px-2 py-1 text-xs rounded font-medium transition
                                     {% if item.status == 'absent' %}bg-red-500 text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 dark:hover:text-red-400{% endif %}"
                                 data-status-btn="absent">
@@ -778,7 +774,7 @@
                         {% endif %}
                         {% if profile.is_admin or not leg.is_available %}
                         <form method="post" action="{% url 'delete_chapter_legislation' leg.id %}"
-                              onsubmit="return confirm('Delete this legislation?')">
+                              class="js-confirm-delete-leg">
                             {% csrf_token %}
                             <button type="submit"
                                     class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors">
@@ -1039,5 +1035,41 @@
 
         start();
     })();
+
+    // ── Inline-handler wiring ──
+    // Tab buttons
+    document.querySelectorAll('.leg-tab[data-tab]').forEach(function(btn) {
+        btn.addEventListener('click', function() { switchLegislationTab(this.dataset.tab); });
+    });
+
+    // Extra plurality options toggle
+    document.getElementById('toggle-extra-options')?.addEventListener('click', toggleExtraOptions);
+
+    // Appointment role / vote-mode selects
+    document.getElementById('appt_role')?.addEventListener('change', function() { toggleNewRoleFields(this.value); });
+    document.getElementById('appt_vote_mode')?.addEventListener('change', function() { updateApptMode(this.value); });
+
+    // Attendance: all-present / clear-all
+    document.getElementById('js-att-all-present')?.addEventListener('click', function() { markAllAttendance('present'); });
+    document.getElementById('js-att-clear-all')?.addEventListener('click', function() { markAllAttendance('absent'); });
+
+    // Attendance search
+    document.getElementById('att-search')?.addEventListener('input', function() { filterAttendance(this.value); });
+
+    // Attendance mark buttons — delegation on the member list
+    document.getElementById('att-member-list')?.addEventListener('click', function(e) {
+        const btn = e.target.closest('.att-btn');
+        if (!btn) return;
+        const row = btn.closest('.att-member-row');
+        if (!row) return;
+        markAttendance(row.dataset.userId, btn.dataset.statusBtn, btn);
+    });
+
+    // Delete-legislation confirm dialogs
+    document.querySelectorAll('.js-confirm-delete-leg').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm('Delete this legislation?')) e.preventDefault();
+        });
+    });
 </script>
 {% endblock %}
