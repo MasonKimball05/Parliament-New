@@ -19,7 +19,7 @@
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Kai Member Permissions</h1>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ committee.name }}</p>
             </div>
-            <button onclick="confirmReset()"
+            <button id="js-confirm-reset"
                     class="inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition self-start whitespace-nowrap">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
@@ -36,7 +36,7 @@
 
     <!-- Search -->
     <div class="mb-3">
-        <input type="text" id="member-search" oninput="filterRows()"
+        <input type="text" id="member-search"
                placeholder="Search members…"
                class="w-full sm:w-72 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500">
     </div>
@@ -101,38 +101,31 @@
                     <td class="px-3 py-3 text-center"><input type="checkbox" checked disabled class="rounded border-gray-300 dark:border-gray-600 text-green-500 opacity-60 cursor-not-allowed"></td>
                     {% else %}
                     <td class="px-3 py-3 text-center">
-                        <input type="checkbox" data-field="can_view_report_list" {% if row.can_view_report_list %}checked{% endif %}
-                               onchange="updateKaiPerm('{{ row.member.user_id }}', this)"
+                        <input type="checkbox" data-field="can_view_report_list" data-user-id="{{ row.member.user_id }}" {% if row.can_view_report_list %}checked{% endif %}
                                class="rounded border-gray-300 dark:border-gray-600 text-primary-600 cursor-pointer">
                     </td>
                     <td class="px-3 py-3 text-center">
-                        <input type="checkbox" data-field="can_view_report_details" {% if row.can_view_report_details %}checked{% endif %}
-                               onchange="updateKaiPerm('{{ row.member.user_id }}', this)"
+                        <input type="checkbox" data-field="can_view_report_details" data-user-id="{{ row.member.user_id }}" {% if row.can_view_report_details %}checked{% endif %}
                                class="rounded border-gray-300 dark:border-gray-600 text-primary-600 cursor-pointer">
                     </td>
                     <td class="px-3 py-3 text-center">
-                        <input type="checkbox" data-field="can_view_submitter_identity" {% if row.can_view_submitter_identity %}checked{% endif %}
-                               onchange="updateKaiPerm('{{ row.member.user_id }}', this)"
+                        <input type="checkbox" data-field="can_view_submitter_identity" data-user-id="{{ row.member.user_id }}" {% if row.can_view_submitter_identity %}checked{% endif %}
                                class="rounded border-gray-300 dark:border-gray-600 text-primary-600 cursor-pointer">
                     </td>
                     <td class="px-3 py-3 text-center">
-                        <input type="checkbox" data-field="can_view_accused_identity" {% if row.can_view_accused_identity %}checked{% endif %}
-                               onchange="updateKaiPerm('{{ row.member.user_id }}', this)"
+                        <input type="checkbox" data-field="can_view_accused_identity" data-user-id="{{ row.member.user_id }}" {% if row.can_view_accused_identity %}checked{% endif %}
                                class="rounded border-gray-300 dark:border-gray-600 text-primary-600 cursor-pointer">
                     </td>
                     <td class="px-3 py-3 text-center">
-                        <input type="checkbox" data-field="can_edit_open_cases" {% if row.can_edit_open_cases %}checked{% endif %}
-                               onchange="updateKaiPerm('{{ row.member.user_id }}', this)"
+                        <input type="checkbox" data-field="can_edit_open_cases" data-user-id="{{ row.member.user_id }}" {% if row.can_edit_open_cases %}checked{% endif %}
                                class="rounded border-gray-300 dark:border-gray-600 text-primary-600 cursor-pointer">
                     </td>
                     <td class="px-3 py-3 text-center">
-                        <input type="checkbox" data-field="can_add_activity" {% if row.can_add_activity %}checked{% endif %}
-                               onchange="updateKaiPerm('{{ row.member.user_id }}', this)"
+                        <input type="checkbox" data-field="can_add_activity" data-user-id="{{ row.member.user_id }}" {% if row.can_add_activity %}checked{% endif %}
                                class="rounded border-gray-300 dark:border-gray-600 text-primary-600 cursor-pointer">
                     </td>
                     <td class="px-3 py-3 text-center">
-                        <input type="checkbox" data-field="can_close_cases" {% if row.can_close_cases %}checked{% endif %}
-                               onchange="updateKaiPerm('{{ row.member.user_id }}', this)"
+                        <input type="checkbox" data-field="can_close_cases" data-user-id="{{ row.member.user_id }}" {% if row.can_close_cases %}checked{% endif %}
                                class="rounded border-gray-300 dark:border-gray-600 text-primary-600 cursor-pointer">
                     </td>
                     {% endif %}
@@ -165,6 +158,15 @@
 <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
 <script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('js-confirm-reset').addEventListener('click', confirmReset);
+    document.getElementById('member-search').addEventListener('input', filterRows);
+    document.getElementById('member-table-body').addEventListener('change', function(e) {
+        var cb = e.target.closest('[data-field][data-user-id]');
+        if (cb) updateKaiPerm(cb.dataset.userId, cb);
+    });
+});
+
 const COMMITTEE_CODE = '{{ committee.code }}';
 const CSRF = '{{ csrf_token }}';
 const PERM_FIELDS = ['can_view_report_list','can_view_report_details','can_view_submitter_identity','can_view_accused_identity','can_edit_open_cases','can_add_activity','can_close_cases'];
