@@ -10,7 +10,7 @@
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Manage Committees</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ total_committees }} committee{{ total_committees|pluralize }}</p>
         </div>
-        <button onclick="openAddCommitteeModal()" class="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center space-x-2 text-sm font-medium shadow-sm">
+        <button id="js-open-add-committee-modal" class="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center space-x-2 text-sm font-medium shadow-sm">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
             </svg>
@@ -82,25 +82,25 @@
                         </td>
                         <td class="px-6 py-4 text-center">
                             <div class="flex items-center justify-center space-x-1">
-                                <button onclick="openEditCommitteeModal({{ data.committee.id }})" class="p-1.5 text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded transition" title="Edit committee">
+                                <button class="js-open-edit-committee-modal p-1.5 text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded transition" data-committee-id="{{ data.committee.id }}" title="Edit committee">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                     </svg>
                                 </button>
                                 {% if data.committee.is_archived %}
-                                <button onclick="toggleArchiveCommittee({{ data.committee.id }}, '{{ data.committee.name|escapejs }}', false)" class="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition" title="Restore committee">
+                                <button class="js-toggle-archive p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition" data-committee-id="{{ data.committee.id }}" data-committee-name="{{ data.committee.name|escapejs }}" data-archive="false" title="Restore committee">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                                     </svg>
                                 </button>
                                 {% else %}
-                                <button onclick="toggleArchiveCommittee({{ data.committee.id }}, '{{ data.committee.name|escapejs }}', true)" class="p-1.5 text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded transition" title="Archive committee">
+                                <button class="js-toggle-archive p-1.5 text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded transition" data-committee-id="{{ data.committee.id }}" data-committee-name="{{ data.committee.name|escapejs }}" data-archive="true" title="Archive committee">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
                                     </svg>
                                 </button>
                                 {% endif %}
-                                <button onclick="openDeleteCommitteeModal({{ data.committee.id }}, '{{ data.committee.name|escapejs }}')" class="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition" title="Delete committee">
+                                <button class="js-open-delete-committee-modal p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition" data-committee-id="{{ data.committee.id }}" data-committee-name="{{ data.committee.name|escapejs }}" title="Delete committee">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                     </svg>
@@ -131,12 +131,12 @@
 <!-- Add Committee Modal -->
 <div id="add-committee-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="add-committee-modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeAddCommitteeModal()"></div>
+        <div class="js-close-add-committee-modal fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"></div>
         <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
             <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="add-committee-modal-title">Add New Committee</h3>
-                    <button onclick="closeAddCommitteeModal()" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+                    <button class="js-close-add-committee-modal text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
@@ -165,7 +165,7 @@
                         </div>
                         <div class="flex flex-col sm:flex-row gap-4">
                             <label class="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition flex-1">
-                                <input type="checkbox" id="add-committee-ad-hoc" name="is_ad_hoc" class="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 dark:border-gray-600 rounded" onchange="toggleAddExpirationField()">
+                                <input type="checkbox" id="add-committee-ad-hoc" name="is_ad_hoc" class="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 dark:border-gray-600 rounded">
                                 <div class="ml-3">
                                     <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Ad Hoc</span>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">Temporary committee</p>
@@ -188,7 +188,7 @@
                     </div>
 
                     <div class="mt-6 flex justify-end gap-3">
-                        <button type="button" onclick="closeAddCommitteeModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">Cancel</button>
+                        <button type="button" class="js-close-add-committee-modal px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">Cancel</button>
                         <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium">Add Committee</button>
                     </div>
                 </form>
@@ -200,19 +200,19 @@
 <!-- Edit Committee Modal -->
 <div id="edit-committee-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="edit-committee-modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeEditCommitteeModal()"></div>
+        <div class="js-close-edit-committee-modal fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"></div>
         <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
             <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="edit-committee-modal-title">Edit Committee</h3>
-                    <button onclick="closeEditCommitteeModal()" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+                    <button class="js-close-edit-committee-modal text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
                 </div>
 
-                <form id="edit-committee-form" onsubmit="submitEditCommittee(event)">
+                <form id="edit-committee-form">
                     <input type="hidden" id="edit-committee-id">
 
                     <div class="space-y-4">
@@ -235,7 +235,7 @@
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <label class="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-                                <input type="checkbox" id="edit-committee-ad-hoc" name="is_ad_hoc" class="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 dark:border-gray-600 rounded" onchange="toggleEditExpirationField()">
+                                <input type="checkbox" id="edit-committee-ad-hoc" name="is_ad_hoc" class="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 dark:border-gray-600 rounded">
                                 <div class="ml-3">
                                     <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Ad Hoc</span>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">Temporary</p>
@@ -267,7 +267,7 @@
                     <div id="edit-committee-error" class="hidden mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
 
                     <div class="mt-6 flex justify-end gap-3">
-                        <button type="button" onclick="closeEditCommitteeModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">Cancel</button>
+                        <button type="button" class="js-close-edit-committee-modal px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">Cancel</button>
                         <button type="submit" id="edit-committee-submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium">Save Changes</button>
                     </div>
                 </form>
@@ -279,7 +279,7 @@
 <!-- Delete Committee Modal -->
 <div id="delete-committee-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="delete-committee-modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeDeleteCommitteeModal()"></div>
+        <div class="js-close-delete-committee-modal fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"></div>
         <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full">
             <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div class="sm:flex sm:items-start">
@@ -303,13 +303,69 @@
                 <div id="delete-committee-error" class="hidden mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
 
                 <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
-                    <button type="button" onclick="confirmDeleteCommittee()" id="delete-committee-submit" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:w-auto sm:text-sm">Delete</button>
-                    <button type="button" onclick="closeDeleteCommitteeModal()" class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:w-auto sm:text-sm">Cancel</button>
+                    <button type="button" id="delete-committee-submit" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:w-auto sm:text-sm">Delete</button>
+                    <button type="button" class="js-close-delete-committee-modal mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:w-auto sm:text-sm">Cancel</button>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    // Open add committee modal
+    document.getElementById('js-open-add-committee-modal').addEventListener('click', openAddCommitteeModal);
+
+    // Close add committee modal
+    document.querySelectorAll('.js-close-add-committee-modal').forEach(function(el) {
+        el.addEventListener('click', closeAddCommitteeModal);
+    });
+
+    // Ad-hoc checkbox toggle (add modal)
+    document.getElementById('add-committee-ad-hoc').addEventListener('change', toggleAddExpirationField);
+
+    // Open edit committee modal (loop buttons)
+    document.querySelectorAll('.js-open-edit-committee-modal').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            openEditCommitteeModal(parseInt(this.dataset.committeeId));
+        });
+    });
+
+    // Close edit committee modal
+    document.querySelectorAll('.js-close-edit-committee-modal').forEach(function(el) {
+        el.addEventListener('click', closeEditCommitteeModal);
+    });
+
+    // Edit committee form submit
+    document.getElementById('edit-committee-form').addEventListener('submit', submitEditCommittee);
+
+    // Ad-hoc checkbox toggle (edit modal)
+    document.getElementById('edit-committee-ad-hoc').addEventListener('change', toggleEditExpirationField);
+
+    // Toggle archive/restore buttons (loop)
+    document.querySelectorAll('.js-toggle-archive').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var archive = this.dataset.archive === 'true';
+            toggleArchiveCommittee(parseInt(this.dataset.committeeId), this.dataset.committeeName, archive);
+        });
+    });
+
+    // Open delete committee modal (loop buttons)
+    document.querySelectorAll('.js-open-delete-committee-modal').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            openDeleteCommitteeModal(parseInt(this.dataset.committeeId), this.dataset.committeeName);
+        });
+    });
+
+    // Close delete committee modal
+    document.querySelectorAll('.js-close-delete-committee-modal').forEach(function(el) {
+        el.addEventListener('click', closeDeleteCommitteeModal);
+    });
+
+    // Confirm delete committee button
+    document.getElementById('delete-committee-submit').addEventListener('click', confirmDeleteCommittee);
+});
+</script>
 
 <script nonce="{{ request.csp_nonce }}">
 function getCsrf() {
