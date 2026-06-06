@@ -60,7 +60,7 @@
                     </button>
                 </form>
                 <form method="post" action="{% url 'slating_reset_votes' period_id=period.id %}"
-                    onsubmit="return confirm('Clear all {{ current_attempt }} attempt votes? This cannot be undone.')">
+                    class="js-confirm-submit" data-confirm-msg="Clear all {{ current_attempt }} attempt votes? This cannot be undone.">
                     {% csrf_token %}
                     <button type="submit"
                         class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors">
@@ -97,7 +97,7 @@
 <!-- Slate update notification (hidden until JS detects a change) -->
 <div id="slate-update-banner" class="hidden bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-lg p-3 flex items-center justify-between gap-3">
     <p class="text-sm text-amber-800 dark:text-amber-200 font-medium">The slate has been updated by the committee.</p>
-    <button onclick="window.location.reload()" class="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-amber-900 dark:text-amber-100 bg-amber-100 dark:bg-amber-800 border border-amber-300 dark:border-amber-600 rounded-md hover:bg-amber-200 dark:hover:bg-amber-700 transition-colors">
+    <button id="js-reload-page" type="button" class="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-amber-900 dark:text-amber-100 bg-amber-100 dark:bg-amber-800 border border-amber-300 dark:border-amber-600 rounded-md hover:bg-amber-200 dark:hover:bg-amber-700 transition-colors">
         Refresh
     </button>
 </div>
@@ -190,19 +190,17 @@
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Your Vote</label>
                 <div class="space-y-3">
-                    <div class="flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-green-500 dark:hover:border-green-500 cursor-pointer" onclick="document.getElementById('vote_approve').click()">
+                    <div class="js-radio-card flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-green-500 dark:hover:border-green-500 cursor-pointer" data-radio-id="vote_approve">
                         <input type="radio" name="vote_choice" id="vote_approve" value="approve" required
-                            class="h-4 w-4 border-gray-300 text-green-600 focus:ring-green-500"
-                            onchange="toggleRejectionReasons()">
+                            class="js-vote-radio h-4 w-4 border-gray-300 text-green-600 focus:ring-green-500">
                         <label for="vote_approve" class="ml-3 flex-1 cursor-pointer">
                             <span class="block text-sm font-medium text-gray-900 dark:text-white">Approve</span>
                             <span class="block text-sm text-gray-500 dark:text-gray-400">I approve this slate of officers</span>
                         </label>
                     </div>
-                    <div class="flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-red-500 dark:hover:border-red-500 cursor-pointer" onclick="document.getElementById('vote_reject').click()">
+                    <div class="js-radio-card flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-red-500 dark:hover:border-red-500 cursor-pointer" data-radio-id="vote_reject">
                         <input type="radio" name="vote_choice" id="vote_reject" value="reject" required
-                            class="h-4 w-4 border-gray-300 text-red-600 focus:ring-red-500"
-                            onchange="toggleRejectionReasons()">
+                            class="js-vote-radio h-4 w-4 border-gray-300 text-red-600 focus:ring-red-500">
                         <label for="vote_reject" class="ml-3 flex-1 cursor-pointer">
                             <span class="block text-sm font-medium text-gray-900 dark:text-white">Reject</span>
                             <span class="block text-sm text-gray-500 dark:text-gray-400">I do not approve this slate</span>
@@ -228,10 +226,9 @@
                         </div>
                     </div>
                     {% if period.allow_abstain %}
-                    <div class="flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-gray-400 dark:hover:border-gray-400 cursor-pointer" onclick="document.getElementById('vote_abstain').click()">
+                    <div class="js-radio-card flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-gray-400 dark:hover:border-gray-400 cursor-pointer" data-radio-id="vote_abstain">
                         <input type="radio" name="vote_choice" id="vote_abstain" value="abstain" required
-                            class="h-4 w-4 border-gray-300 text-gray-600 focus:ring-gray-500"
-                            onchange="toggleRejectionReasons()">
+                            class="js-vote-radio h-4 w-4 border-gray-300 text-gray-600 focus:ring-gray-500">
                         <label for="vote_abstain" class="ml-3 flex-1 cursor-pointer">
                             <span class="block text-sm font-medium text-gray-900 dark:text-white">Abstain</span>
                             <span class="block text-sm text-gray-500 dark:text-gray-400">I choose not to vote on this slate</span>
@@ -296,6 +293,31 @@ function toggleRejectionReasons() {
 
 // Form validation
 document.addEventListener('DOMContentLoaded', function() {
+    // Reload button
+    var reloadBtn = document.getElementById('js-reload-page');
+    if (reloadBtn) reloadBtn.addEventListener('click', function() { window.location.reload(); });
+
+    // Confirm-on-submit forms
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(this.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+
+    // Click-through vote cards
+    document.querySelectorAll('.js-radio-card').forEach(function(card) {
+        card.addEventListener('click', function(e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'LABEL') return;
+            var radio = document.getElementById(this.dataset.radioId);
+            if (radio) { radio.click(); }
+        });
+    });
+
+    // toggleRejectionReasons on radio change
+    document.querySelectorAll('.js-vote-radio').forEach(function(radio) {
+        radio.addEventListener('change', toggleRejectionReasons);
+    });
+
     const form = document.querySelector('form');
     if (form) {
         form.addEventListener('submit', function(e) {
