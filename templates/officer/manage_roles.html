@@ -10,7 +10,7 @@
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Manage Roles</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ total_roles }} role{{ total_roles|pluralize }}</p>
         </div>
-        <button onclick="openAddRoleModal()" class="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center space-x-2 text-sm font-medium shadow-sm">
+        <button id="js-open-add-role-modal" class="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center space-x-2 text-sm font-medium shadow-sm">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
             </svg>
@@ -80,12 +80,12 @@
                         </td>
                         <td class="px-6 py-4 text-center">
                             <div class="flex items-center justify-center space-x-2">
-                                <button onclick="openEditRoleModal({{ data.role.id }})" class="p-1.5 text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded transition" title="Edit role">
+                                <button class="js-open-edit-role-modal p-1.5 text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded transition" data-role-id="{{ data.role.id }}" title="Edit role">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                     </svg>
                                 </button>
-                                <button onclick="openDeleteRoleModal({{ data.role.id }}, '{{ data.role.name|escapejs }}', {{ data.holder_count }})" class="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition" title="Delete role">
+                                <button class="js-open-delete-role-modal p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition" data-role-id="{{ data.role.id }}" data-role-name="{{ data.role.name|escapejs }}" data-holder-count="{{ data.holder_count }}" title="Delete role">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                     </svg>
@@ -116,19 +116,19 @@
 <!-- Add Role Modal -->
 <div id="add-role-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="add-role-modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeAddRoleModal()"></div>
+        <div class="js-close-add-role-modal fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"></div>
         <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
             <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="add-role-modal-title">Add New Role</h3>
-                    <button onclick="closeAddRoleModal()" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+                    <button class="js-close-add-role-modal text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
                 </div>
 
-                <form id="add-role-form" onsubmit="submitAddRole(event)">
+                <form id="add-role-form">
                     <div class="space-y-4">
                         <div>
                             <label for="add-role-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role Name *</label>
@@ -166,7 +166,7 @@
                     <div id="add-role-error" class="hidden mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
 
                     <div class="mt-6 flex justify-end gap-3">
-                        <button type="button" onclick="closeAddRoleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">Cancel</button>
+                        <button type="button" class="js-close-add-role-modal px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">Cancel</button>
                         <button type="submit" id="add-role-submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium">Add Role</button>
                     </div>
                 </form>
@@ -178,19 +178,19 @@
 <!-- Edit Role Modal -->
 <div id="edit-role-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="edit-role-modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeEditRoleModal()"></div>
+        <div class="js-close-edit-role-modal fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"></div>
         <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
             <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="edit-role-modal-title">Edit Role</h3>
-                    <button onclick="closeEditRoleModal()" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+                    <button class="js-close-edit-role-modal text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
                 </div>
 
-                <form id="edit-role-form" onsubmit="submitEditRole(event)">
+                <form id="edit-role-form">
                     <input type="hidden" id="edit-role-id">
 
                     <div class="space-y-4">
@@ -235,7 +235,7 @@
                                 <select id="edit-role-add-member" class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
                                     <option value="">— Add a member —</option>
                                 </select>
-                                <button type="button" onclick="assignMember()" class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg">Add</button>
+                                <button type="button" id="js-assign-member" class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg">Add</button>
                             </div>
                             <p id="edit-role-one-per-chapter-blocked" class="hidden text-xs text-amber-600 dark:text-amber-400 italic">This role is limited to one member per chapter. Remove the current holder before assigning someone new.</p>
                         </div>
@@ -244,7 +244,7 @@
                     <div id="edit-role-error" class="hidden mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
 
                     <div class="mt-6 flex justify-end gap-3">
-                        <button type="button" onclick="closeEditRoleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">Cancel</button>
+                        <button type="button" class="js-close-edit-role-modal px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">Cancel</button>
                         <button type="submit" id="edit-role-submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium">Save Changes</button>
                     </div>
                 </form>
@@ -256,7 +256,7 @@
 <!-- Delete Role Modal -->
 <div id="delete-role-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="delete-role-modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeDeleteRoleModal()"></div>
+        <div class="js-close-delete-role-modal fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"></div>
         <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full">
             <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div class="sm:flex sm:items-start">
@@ -281,13 +281,71 @@
                 <div id="delete-role-error" class="hidden mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
 
                 <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
-                    <button type="button" onclick="confirmDeleteRole()" id="delete-role-submit" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:w-auto sm:text-sm">Delete</button>
-                    <button type="button" onclick="closeDeleteRoleModal()" class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:w-auto sm:text-sm">Cancel</button>
+                    <button type="button" id="delete-role-submit" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:w-auto sm:text-sm">Delete</button>
+                    <button type="button" class="js-close-delete-role-modal mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:w-auto sm:text-sm">Cancel</button>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    // Open add role modal
+    document.getElementById('js-open-add-role-modal').addEventListener('click', openAddRoleModal);
+
+    // Close add role modal
+    document.querySelectorAll('.js-close-add-role-modal').forEach(function(el) {
+        el.addEventListener('click', closeAddRoleModal);
+    });
+
+    // Add role form submit
+    document.getElementById('add-role-form').addEventListener('submit', submitAddRole);
+
+    // Open edit role modal (loop buttons)
+    document.querySelectorAll('.js-open-edit-role-modal').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            openEditRoleModal(parseInt(this.dataset.roleId));
+        });
+    });
+
+    // Open delete role modal (loop buttons)
+    document.querySelectorAll('.js-open-delete-role-modal').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            openDeleteRoleModal(
+                parseInt(this.dataset.roleId),
+                this.dataset.roleName,
+                parseInt(this.dataset.holderCount)
+            );
+        });
+    });
+
+    // Close edit role modal
+    document.querySelectorAll('.js-close-edit-role-modal').forEach(function(el) {
+        el.addEventListener('click', closeEditRoleModal);
+    });
+
+    // Edit role form submit
+    document.getElementById('edit-role-form').addEventListener('submit', submitEditRole);
+
+    // Assign member button
+    document.getElementById('js-assign-member').addEventListener('click', assignMember);
+
+    // Unassign member buttons (delegated — rendered dynamically)
+    document.getElementById('edit-role-holders').addEventListener('click', function(e) {
+        var btn = e.target.closest('.js-unassign-member');
+        if (btn) unassignMember(btn.dataset.userId, btn.dataset.name);
+    });
+
+    // Close delete role modal
+    document.querySelectorAll('.js-close-delete-role-modal').forEach(function(el) {
+        el.addEventListener('click', closeDeleteRoleModal);
+    });
+
+    // Confirm delete role button
+    document.getElementById('delete-role-submit').addEventListener('click', confirmDeleteRole);
+});
+</script>
 
 <script nonce="{{ request.csp_nonce }}">
 function getCsrf() {
@@ -413,8 +471,8 @@ function renderHolders(holders) {
         div.innerHTML = holders.map(h => `
             <span class="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-xs">
                 ${h.name}
-                <button type="button" onclick="unassignMember('${h.user_id}', '${h.name.replace(/'/g, "\\'")}')"
-                    class="ml-1 text-primary-600 dark:text-primary-300 hover:text-red-600 dark:hover:text-red-400 font-bold leading-none"
+                <button type="button" class="js-unassign-member ml-1 text-primary-600 dark:text-primary-300 hover:text-red-600 dark:hover:text-red-400 font-bold leading-none"
+                    data-user-id="${h.user_id}" data-name="${h.name.replace(/'/g, "\\'")}"
                     title="Remove from role">&times;</button>
             </span>`).join('');
     }
