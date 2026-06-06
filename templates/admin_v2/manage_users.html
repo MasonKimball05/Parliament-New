@@ -83,7 +83,7 @@
                         <td class="px-4 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
                             <div class="flex items-center space-x-3">
                                 {% if user.profile_picture %}
-                                <button type="button" onclick="showProfilePicture('{{ user.profile_picture.url }}', '{{ user.get_display_name }}')" class="flex-shrink-0">
+                                <button type="button" class="js-show-pic flex-shrink-0" data-pic-url="{{ user.profile_picture.url }}" data-pic-name="{{ user.get_display_name }}">
                                     <img src="{{ user.profile_picture.url }}" alt="{{ user.get_display_name }}" class="w-8 h-8 rounded-full object-cover ring-2 ring-primary-400 cursor-pointer hover:ring-primary-600 transition">
                                 </button>
                                 {% else %}
@@ -124,8 +124,8 @@
                         </td>
                         <td class="px-4 py-4">
                             <button type="button"
-                                    onclick="checkPassword('{{ user.user_id }}', this)"
-                                    class="px-2 py-1 text-xs rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
+                                    class="js-check-password px-2 py-1 text-xs rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                                    data-user-id="{{ user.user_id }}">
                                 Check
                             </button>
                         </td>
@@ -144,7 +144,7 @@
                                     </button>
                                 </form>
                                 {% if user.profile_picture %}
-                                <form method="post" action="{% url 'admin_v2_remove_user_profile_picture' user.user_id %}" class="inline" onsubmit="return confirm('Remove profile picture for {{ user.get_display_name }}?');">
+                                <form method="post" action="{% url 'admin_v2_remove_user_profile_picture' user.user_id %}" class="inline js-confirm-submit" data-confirm-msg="Remove profile picture for {{ user.get_display_name }}?">
                                     {% csrf_token %}
                                     <button type="submit" class="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded" title="Remove profile picture">
                                         🖼️ Remove Picture
@@ -174,11 +174,11 @@
 </div>
 
 <!-- Profile Picture Modal -->
-<div id="pictureModal" class="fixed inset-0 bg-black bg-opacity-75 hidden z-50 flex items-center justify-center p-4" onclick="closePictureModal(event)">
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm max-w-lg w-full overflow-hidden" onclick="event.stopPropagation()">
+<div id="pictureModal" class="fixed inset-0 bg-black bg-opacity-75 hidden z-50 flex items-center justify-center p-4">
+    <div id="pictureModalInner" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm max-w-lg w-full overflow-hidden">
         <div class="flex items-center justify-between p-4 border-b dark:border-gray-700">
             <h3 id="pictureModalName" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Profile Picture</h3>
-            <button onclick="closePictureModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+            <button id="js-close-pic-modal" type="button" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -199,8 +199,7 @@ function showProfilePicture(url, name) {
     document.body.style.overflow = 'hidden';
 }
 
-function closePictureModal(event) {
-    if (event && event.target !== document.getElementById('pictureModal')) return;
+function closePictureModal() {
     document.getElementById('pictureModal').classList.add('hidden');
     document.body.style.overflow = '';
 }
@@ -210,6 +209,37 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape' && !document.getElementById('pictureModal').classList.contains('hidden')) {
         closePictureModal();
     }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Backdrop click (only fires when clicking the backdrop, not the inner content)
+    var modal = document.getElementById('pictureModal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) closePictureModal();
+        });
+    }
+    var closeBtn = document.getElementById('js-close-pic-modal');
+    if (closeBtn) closeBtn.addEventListener('click', closePictureModal);
+
+    // Profile picture thumbnails
+    document.querySelectorAll('.js-show-pic').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            showProfilePicture(this.dataset.picUrl, this.dataset.picName);
+        });
+    });
+
+    // Check password buttons
+    document.querySelectorAll('.js-check-password').forEach(function(btn) {
+        btn.addEventListener('click', function() { checkPassword(this.dataset.userId, this); });
+    });
+
+    // Confirm-on-submit forms
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(this.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
 });
 
 function getCsrf() {

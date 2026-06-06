@@ -39,7 +39,7 @@
                             <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">New Password:</div>
                             <div class="text-xl font-mono font-bold text-gray-900 dark:text-gray-100" id="temp-password">{{ temp_password_data.password }}</div>
                         </div>
-                        <button onclick="copyPassword()" class="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded text-sm">
+                        <button type="button" id="js-copy-password-btn" class="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded text-sm">
                             📋 Copy
                         </button>
                     </div>
@@ -61,6 +61,10 @@
             console.error('Failed to copy password:', err);
         });
     }
+    document.addEventListener('DOMContentLoaded', function() {
+        var copyBtn = document.getElementById('js-copy-password-btn');
+        if (copyBtn) copyBtn.addEventListener('click', copyPassword);
+    });
     </script>
     {% endif %}
 
@@ -172,7 +176,7 @@
                         Edit
                     </button>
                     <form method="post" action="{% url 'admin_v2_toggle_watch_flag' target_user.user_id %}"
-                          onsubmit="return confirm('Remove the watch flag from {{ target_user.name }}?')">
+                          class="js-confirm-submit" data-confirm-msg="Remove the watch flag from {{ target_user.name }}?">
                         {% csrf_token %}<input type="hidden" name="action" value="remove">
                         <button type="submit" class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded font-medium">Remove Flag</button>
                     </form>
@@ -261,7 +265,7 @@
             <div class="border dark:border-gray-700 rounded-lg p-4">
                 <h3 class="font-bold text-gray-900 dark:text-gray-100 mb-2">Force Password Reset</h3>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Generate a new temporary password for this user</p>
-                <form method="post" action="{% url 'admin_v2_force_password_reset' target_user.user_id %}" onsubmit="return confirm('This will reset the user password. Continue?');">
+                <form method="post" action="{% url 'admin_v2_force_password_reset' target_user.user_id %}" class="js-confirm-submit" data-confirm-msg="This will reset the user password. Continue?">
                     {% csrf_token %}
                     <div class="mb-3">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason</label>
@@ -272,11 +276,11 @@
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Password Type</label>
                         <div class="space-y-2">
                             <label class="flex items-center">
-                                <input type="radio" name="password_type" value="random" checked onclick="document.getElementById('custom_password_field').style.display='none';" class="mr-2">
+                                <input type="radio" name="password_type" value="random" id="js-pw-random" checked class="mr-2">
                                 <span class="text-sm text-gray-700 dark:text-gray-300">Generate random password (16 characters)</span>
                             </label>
                             <label class="flex items-center">
-                                <input type="radio" name="password_type" value="custom" onclick="document.getElementById('custom_password_field').style.display='block';" class="mr-2">
+                                <input type="radio" name="password_type" value="custom" id="js-pw-custom" class="mr-2">
                                 <span class="text-sm text-gray-700 dark:text-gray-300">Set custom password</span>
                             </label>
                         </div>
@@ -387,7 +391,7 @@
                             {% endif %}
 
                             {% if not ip_data.is_blacklisted %}
-                            <form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}" class="inline" onsubmit="return confirm('Blacklist this IP address?');">
+                            <form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}" class="inline js-confirm-submit" data-confirm-msg="Blacklist this IP address?">
                                 {% csrf_token %}
                                 <input type="hidden" name="ip_address" value="{{ ip_data.ip }}">
                                 <input type="hidden" name="reason" value="Suspicious activity for user {{ target_user.name }}">
@@ -489,9 +493,8 @@
                         <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                             {% if entry.metadata %}
                             <button type="button"
-                                    onclick="toggleMeta(this)"
-                                    data-meta="{{ entry.metadata|default:'' }}"
-                                    class="text-xs text-primary-600 dark:text-primary-400 hover:underline">
+                                    class="js-toggle-meta text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                                    data-meta="{{ entry.metadata|default:'' }}">
                                 Show
                             </button>
                             <pre class="hidden mt-1 text-xs bg-gray-100 dark:bg-gray-700 rounded p-2 whitespace-pre-wrap max-w-xs overflow-auto"></pre>
@@ -600,5 +603,28 @@ function toggleMeta(btn) {
         btn.textContent = 'Show';
     }
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Confirm-on-submit forms
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(this.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+    // Password type radio buttons
+    var pwRandom = document.getElementById('js-pw-random');
+    var pwCustom = document.getElementById('js-pw-custom');
+    var customField = document.getElementById('custom_password_field');
+    if (pwRandom && customField) pwRandom.addEventListener('change', function() {
+        if (this.checked) customField.style.display = 'none';
+    });
+    if (pwCustom && customField) pwCustom.addEventListener('change', function() {
+        if (this.checked) customField.style.display = 'block';
+    });
+    // Toggle meta buttons (loop-rendered)
+    document.querySelectorAll('.js-toggle-meta').forEach(function(btn) {
+        btn.addEventListener('click', function() { toggleMeta(this); });
+    });
+});
 </script>
 {% endblock %}
