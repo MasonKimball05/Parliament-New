@@ -104,7 +104,6 @@
         <!-- Per-channel notification preference -->
         <div class="relative" id="notif-pref-container">
             <button id="notif-pref-btn"
-                    onclick="toggleNotifPrefDropdown()"
                     class="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     title="Notification preferences for this channel">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -116,8 +115,7 @@
                  class="hidden absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20 w-44 py-1">
                 <p class="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Notify me about</p>
                 {% for value, label in notif_pref_choices %}
-                <button onclick="setNotifPref('{{ value }}')"
-                        class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 {% if notif_pref == value %}text-primary-600 dark:text-primary-400 font-medium{% else %}text-gray-700 dark:text-gray-300{% endif %}"
+                <button class="js-set-notif-pref w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 {% if notif_pref == value %}text-primary-600 dark:text-primary-400 font-medium{% else %}text-gray-700 dark:text-gray-300{% endif %}"
                         data-pref-value="{{ value }}">
                     <span class="notif-check {% if notif_pref == value %}opacity-100{% else %}opacity-0{% endif %}">✓</span>
                     {{ label }}
@@ -135,7 +133,7 @@
             {% if has_more_messages %}
             <div id="load-older-wrapper" class="flex items-center gap-3 mb-4">
                 <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
-                <button id="load-older-btn" onclick="loadOlderMessages()"
+                <button id="load-older-btn"
                         class="px-3 py-1 text-xs rounded-full border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors whitespace-nowrap">
                     Load older messages
                 </button>
@@ -173,18 +171,18 @@
                             {% endif %}
                             {% if msg.sender == request.user %}
                                 <button class="edit-btn text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        onclick="editMessage({{ msg.id }})">
+                                        data-message-id="{{ msg.id }}">
                                     Edit
                                 </button>
                             {% endif %}
                             {% if is_admin or is_chair %}
                                 <button class="delete-btn text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                                        onclick="deleteMessage({{ msg.id }}, 'msg-{{ msg.id }}')">
+                                        data-message-id="{{ msg.id }}" data-msg-elem-id="msg-{{ msg.id }}">
                                     Delete
                                 </button>
                             {% elif msg.sender == request.user and can_delete_own_messages %}
                                 <button class="delete-btn text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                                        onclick="deleteMessage({{ msg.id }}, 'msg-{{ msg.id }}')">
+                                        data-message-id="{{ msg.id }}" data-msg-elem-id="msg-{{ msg.id }}">
                                     Delete
                                 </button>
                             {% endif %}
@@ -201,7 +199,6 @@
 
     <!-- Jump-to-bottom button -->
     <button id="jump-to-bottom"
-            onclick="scrollToBottom()"
             class="hidden absolute bottom-2 right-4 z-10 w-8 h-8 rounded-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 shadow-sm flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
@@ -297,7 +294,7 @@
             } else {
                 // @mention → clickable highlight
                 const uname = match[1];
-                parts.push(`<button type="button" class="mention bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 rounded px-0.5 font-medium hover:bg-primary-200 dark:hover:bg-primary-900/70 cursor-pointer" data-username="${escapeHtml(uname)}" onclick="handleMentionClick(this)">${escapeHtml(match[0])}</button>`);
+                parts.push(`<button type="button" class="mention bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 rounded px-0.5 font-medium hover:bg-primary-200 dark:hover:bg-primary-900/70 cursor-pointer" data-username="${escapeHtml(uname)}">${escapeHtml(match[0])}</button>`);
             }
             lastIndex = match.index + match[0].length;
         }
@@ -564,16 +561,16 @@
         let editButtonFull = '';
         let editButtonStacked = '';
         if (isSender && !msg.pending) {
-            editButtonFull    = `<button class="edit-btn text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 opacity-0 group-hover:opacity-100 transition-opacity" onclick="editMessage(${msg.id})">Edit</button>`;
-            editButtonStacked = `<button class="edit-btn text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300" onclick="editMessage(${msg.id})">Edit</button>`;
+            editButtonFull    = `<button class="edit-btn text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 opacity-0 group-hover:opacity-100 transition-opacity" data-message-id="${msg.id}">Edit</button>`;
+            editButtonStacked = `<button class="edit-btn text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300" data-message-id="${msg.id}">Edit</button>`;
         }
 
         // Build delete button (same pattern)
         let deleteButtonFull = '';
         let deleteButtonStacked = '';
         if (canDelete || (isSender && canDeleteOwnMessages)) {
-            deleteButtonFull    = `<button class="delete-btn text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" onclick="deleteMessage('${msg.id}', 'msg-${msg.id}')">Delete</button>`;
-            deleteButtonStacked = `<button class="delete-btn text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-opacity" onclick="deleteMessage('${msg.id}', 'msg-${msg.id}')">Delete</button>`;
+            deleteButtonFull    = `<button class="delete-btn text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" data-message-id="${msg.id}" data-msg-elem-id="msg-${msg.id}">Delete</button>`;
+            deleteButtonStacked = `<button class="delete-btn text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-opacity" data-message-id="${msg.id}" data-msg-elem-id="msg-${msg.id}">Delete</button>`;
         }
 
         // Determine if this message stacks with the previous one
@@ -696,11 +693,11 @@
 
         const ownBorderPrepend = isSender ? 'border-l-2 border-primary-300 dark:border-primary-600 pl-3' : '';
         const editButtonPrepend = isSender
-            ? `<button class="edit-btn text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 opacity-0 group-hover:opacity-100 transition-opacity" onclick="editMessage(${msg.id})">Edit</button>`
+            ? `<button class="edit-btn text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 opacity-0 group-hover:opacity-100 transition-opacity" data-message-id="${msg.id}">Edit</button>`
             : '';
         const canDeletePrepend = {{ is_admin|lower }} || {{ is_chair|lower }};
         const deleteButtonPrepend = (canDeletePrepend || (isSender && canDeleteOwnMessages))
-            ? `<button class="delete-btn text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity" onclick="deleteMessage('${msg.id}', 'msg-${msg.id}')">Delete</button>`
+            ? `<button class="delete-btn text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity" data-message-id="${msg.id}" data-msg-elem-id="msg-${msg.id}">Delete</button>`
             : '';
 
         const messageDiv = document.createElement('div');
@@ -794,17 +791,19 @@
                       rows="2"
                       class="flex-1 border border-primary-500 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none w-full"></textarea>
             <div class="flex gap-2">
-                <button onclick="saveEdit(${messageId})"
+                <button id="edit-save-${messageId}"
                         class="px-3 py-1 bg-primary-600 text-white text-xs rounded hover:bg-primary-700">
                     Save
                 </button>
-                <button onclick="cancelEdit(${messageId})"
+                <button id="edit-cancel-${messageId}"
                         class="px-3 py-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs rounded hover:bg-gray-400 dark:hover:bg-gray-500">
                     Cancel
                 </button>
                 <span class="text-xs text-gray-400 self-center">Shift+Enter for newline · Escape to cancel</span>
             </div>
         `;
+        editForm.querySelector(`#edit-save-${messageId}`).addEventListener('click', function() { saveEdit(messageId); });
+        editForm.querySelector(`#edit-cancel-${messageId}`).addEventListener('click', function() { cancelEdit(messageId); });
 
         messageElement.style.display = 'none';
         messageElement.parentNode.appendChild(editForm);
@@ -1275,8 +1274,8 @@
         }
         list.innerHTML = matches.slice(0, 8).map((m, i) =>
             `<button type="button"
-                     class="w-full text-left px-3 py-2 text-sm hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors flex items-center gap-2 text-gray-800 dark:text-gray-200"
-                     onclick="insertMention('${escapeHtml(m.username)}')">
+                     class="js-insert-mention w-full text-left px-3 py-2 text-sm hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors flex items-center gap-2 text-gray-800 dark:text-gray-200"
+                     data-mention-username="${escapeHtml(m.username)}">
                 <span class="font-medium">@${escapeHtml(m.username)}</span>
                 <span class="text-gray-500 dark:text-gray-400 text-xs">${escapeHtml(m.name)}</span>
              </button>`
@@ -1411,6 +1410,45 @@
         }
     });
 
+    // ─── Static event listeners (replacing inline handlers) ───────────────────
+
+    // Notif pref dropdown button
+    const notifPrefBtn = document.getElementById('notif-pref-btn');
+    if (notifPrefBtn) notifPrefBtn.addEventListener('click', toggleNotifPrefDropdown);
+
+    // Notif pref option buttons (loop-rendered, wired by delegation)
+    const notifPrefDropdown = document.getElementById('notif-pref-dropdown');
+    if (notifPrefDropdown) {
+        notifPrefDropdown.addEventListener('click', function(e) {
+            var btn = e.target.closest('.js-set-notif-pref');
+            if (btn) setNotifPref(btn.dataset.prefValue);
+        });
+    }
+
+    // Load older messages button (may not be present)
+    const loadOlderBtn = document.getElementById('load-older-btn');
+    if (loadOlderBtn) loadOlderBtn.addEventListener('click', loadOlderMessages);
+
+    // Jump-to-bottom button
+    const jumpToBottomBtn = document.getElementById('jump-to-bottom');
+    if (jumpToBottomBtn) jumpToBottomBtn.addEventListener('click', scrollToBottom);
+
+    // Edit and delete buttons on initial messages (and dynamically added ones) — delegated
+    document.getElementById('messages-list').addEventListener('click', function(e) {
+        var editBtn = e.target.closest('.edit-btn');
+        if (editBtn) { editMessage(editBtn.dataset.messageId); return; }
+        var deleteBtn = e.target.closest('.delete-btn');
+        if (deleteBtn) { deleteMessage(deleteBtn.dataset.messageId, deleteBtn.dataset.msgElemId); return; }
+        var mention = e.target.closest('.mention');
+        if (mention) { handleMentionClick(mention); return; }
+    });
+
+    // Mention dropdown — delegated on mention-list
+    document.getElementById('mention-list').addEventListener('click', function(e) {
+        var btn = e.target.closest('.js-insert-mention');
+        if (btn) insertMention(btn.dataset.mentionUsername);
+    });
+
     // Initial scroll
     scrollToBottom();
 </script>
@@ -1431,7 +1469,7 @@
                     <p id="pm-type-badge" class="mt-0.5"></p>
                     <p id="pm-roll" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5"></p>
                 </div>
-                <button type="button" onclick="closeProfileModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0 p-1 -mr-1">
+                <button type="button" id="js-close-profile-modal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0 p-1 -mr-1">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
@@ -1549,6 +1587,8 @@ function closeProfileModal() {
 document.getElementById('profileModal').addEventListener('click', function(e) {
     if (e.target === this) closeProfileModal();
 });
+
+document.getElementById('js-close-profile-modal').addEventListener('click', closeProfileModal);
 
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeProfileModal();
