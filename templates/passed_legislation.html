@@ -20,7 +20,7 @@
                 </div>
             </div>
             {% if user.is_admin or user.member_type == 'Officer' %}
-            <button type="button" onclick="document.getElementById('addLegislationModal').classList.remove('hidden')"
+            <button type="button" id="js-open-add-legislation-modal"
                 class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/20 hover:bg-white/30 text-white transition shrink-0">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
@@ -186,8 +186,8 @@
 
                 <!-- Toggle Voting Details Button -->
                 <button
-                    class="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-colors focus:outline-none mb-4"
-                    onclick="toggleVotingDetails('{{ legislation.legislation.id }}')">
+                    class="js-toggle-voting-details flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-colors focus:outline-none mb-4"
+                    data-legislation-id="{{ legislation.legislation.id }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                     </svg>
@@ -272,8 +272,8 @@
                 {% if user.member_type == 'Officer' %}
                 <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
                     <button
-                        class="flex items-center space-x-2 text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 font-medium transition-colors focus:outline-none"
-                        onclick="togglePresentMembers('{{ legislation.legislation.id }}')">
+                        class="js-toggle-present-members flex items-center space-x-2 text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 font-medium transition-colors focus:outline-none"
+                        data-legislation-id="{{ legislation.legislation.id }}">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
                         </svg>
@@ -315,9 +315,9 @@
                         </div>
                         {% if user.is_admin or user.member_type == 'Officer' %}
                         <button type="button"
-                                data-note="{{ legislation.legislation.admin_note|escapejs }}"
-                                onclick="showNoteEditor('{{ legislation.legislation.id }}', this.dataset.note)"
-                                class="shrink-0 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 font-medium transition-colors">
+                                class="js-show-note-editor shrink-0 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 font-medium transition-colors"
+                                data-legislation-id="{{ legislation.legislation.id }}"
+                                data-note="{{ legislation.legislation.admin_note|escapejs }}">
                             Edit
                         </button>
                         {% endif %}
@@ -329,8 +329,9 @@
                     <div id="note-editor-{{ legislation.legislation.id }}" class="{% if legislation.legislation.admin_note %}hidden{% endif %}">
                         {% if not legislation.legislation.admin_note %}
                         <button type="button"
-                                onclick="showNoteEditor('{{ legislation.legislation.id }}', '')"
-                                class="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-amber-600 dark:hover:text-amber-400 font-medium transition-colors">
+                                class="js-show-note-editor inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-amber-600 dark:hover:text-amber-400 font-medium transition-colors"
+                                data-legislation-id="{{ legislation.legislation.id }}"
+                                data-note="">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                             </svg>
@@ -344,14 +345,14 @@
                                       class="w-full px-3 py-2 text-sm border border-amber-300 dark:border-amber-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none mb-2"></textarea>
                             <div class="flex items-center gap-2">
                                 <button type="button"
-                                        onclick="saveNote('{{ legislation.legislation.id }}')"
-                                        class="text-xs font-medium bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-md transition-colors">
+                                        class="js-save-note text-xs font-medium bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-md transition-colors"
+                                        data-legislation-id="{{ legislation.legislation.id }}">
                                     Save Note
                                 </button>
                                 <button type="button"
-                                        data-has-note="{% if legislation.legislation.admin_note %}1{% else %}0{% endif %}"
-                                        onclick="cancelNote('{{ legislation.legislation.id }}', this.dataset.hasNote === '1')"
-                                        class="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-2 py-1.5 transition-colors">
+                                        class="js-cancel-note text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-2 py-1.5 transition-colors"
+                                        data-legislation-id="{{ legislation.legislation.id }}"
+                                        data-has-note="{% if legislation.legislation.admin_note %}1{% else %}0{% endif %}">
                                     Cancel
                                 </button>
                                 <span id="note-status-{{ legislation.legislation.id }}" class="text-xs text-gray-400 dark:text-gray-500 ml-auto hidden"></span>
@@ -448,7 +449,7 @@
 {% if user.is_admin or user.member_type == 'Officer' %}
 <div id="addLegislationModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="closeAddLegislationModal()"></div>
+        <div class="js-close-add-legislation-modal fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"></div>
 
         <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full max-h-[90vh] flex flex-col">
             <form method="post" action="{% url 'add_legislation' %}" enctype="multipart/form-data" id="addLegislationForm">
@@ -462,7 +463,7 @@
                             </svg>
                             Add Legislation
                         </h3>
-                        <button type="button" onclick="closeAddLegislationModal()" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+                        <button type="button" class="js-close-add-legislation-modal text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
                             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                             </svg>
@@ -526,7 +527,7 @@
                                 Vote Results (Optional)
                             </label>
                             <label class="flex items-center">
-                                <input type="checkbox" id="includeVotes" name="include_votes" onchange="toggleVoteInputs()"
+                                <input type="checkbox" id="includeVotes" name="include_votes"
                                     class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
                                 <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">Include vote counts</span>
                             </label>
@@ -568,8 +569,8 @@
                 <!-- Fixed Footer -->
                 <div class="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-t border-gray-200 dark:border-gray-600 flex-shrink-0">
                     <div class="flex justify-end space-x-3">
-                        <button type="button" onclick="closeAddLegislationModal()"
-                            class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition">
+                        <button type="button"
+                            class="js-close-add-legislation-modal px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition">
                             Cancel
                         </button>
                         <button type="submit"
@@ -701,6 +702,41 @@
                 if (statusEl) { statusEl.textContent = 'Error: ' + err.message; }
             });
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var openBtn = document.getElementById('js-open-add-legislation-modal');
+        if (openBtn) {
+            openBtn.addEventListener('click', function() {
+                document.getElementById('addLegislationModal').classList.remove('hidden');
+            });
+        }
+
+        document.querySelectorAll('.js-close-add-legislation-modal').forEach(function(el) {
+            el.addEventListener('click', closeAddLegislationModal);
+        });
+
+        var includeVotes = document.getElementById('includeVotes');
+        if (includeVotes) {
+            includeVotes.addEventListener('change', toggleVoteInputs);
+        }
+
+        document.addEventListener('click', function(e) {
+            var toggleVoting = e.target.closest('.js-toggle-voting-details');
+            if (toggleVoting) { toggleVotingDetails(toggleVoting.dataset.legislationId); return; }
+
+            var toggleMembers = e.target.closest('.js-toggle-present-members');
+            if (toggleMembers) { togglePresentMembers(toggleMembers.dataset.legislationId); return; }
+
+            var showNote = e.target.closest('.js-show-note-editor');
+            if (showNote) { showNoteEditor(showNote.dataset.legislationId, showNote.dataset.note); return; }
+
+            var saveNoteBtn = e.target.closest('.js-save-note');
+            if (saveNoteBtn) { saveNote(saveNoteBtn.dataset.legislationId); return; }
+
+            var cancelNoteBtn = e.target.closest('.js-cancel-note');
+            if (cancelNoteBtn) { cancelNote(cancelNoteBtn.dataset.legislationId, cancelNoteBtn.dataset.hasNote === '1'); return; }
+        });
+    });
 
     // JavaScript function to toggle the visibility of the present members list
     function togglePresentMembers(legislationId) {
