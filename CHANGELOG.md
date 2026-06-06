@@ -255,7 +255,29 @@ Wires the seven `KaiMemberPermission` flags into actual view and template enforc
 
 ---
 
-### v3.1.0 — Event Push Reminder Notifications (2026-06-05) — Not yet deployed
+### v3.1.1 — Security & Performance Fixes (2026-06-06) ✅ Deployed
+
+Patch release addressing all findings from the automated code review of v3.1.0. Security fixes, performance improvements, async email migration, and wildcard import cleanup.
+
+**Security:**
+- `middleware/security.py` — Passkey authenticate complete endpoint now covered by rate limiter (was previously unprotected, allowing unlimited brute-force attempts)
+- `view/webauthn.py` — User verification changed from `PREFERRED` to `REQUIRED` on both register and authenticate; removed dead `csrf_exempt` import
+- `apps.py` — `CRYPTOGRAPHY_KEY` validated at startup via `ImproperlyConfigured`; silent failure on missing env var is no longer possible
+
+**Performance:**
+- `tasks.py` — `send_event_reminder_pushes`: added `select_related('preferences')` to eliminate N+1 (up to 50 extra queries per task run); visibility filter moved to DB-level queryset filter; redundant `eligible_users.count()` after loop removed
+- `signals.py` — `sync_exec_committee_on_role_change` receiver moved `sender=ParliamentUser.roles.through` filter to the decorator, eliminating per-signal-change function call overhead
+
+**Form Validation:**
+- `forms.py` — Added `clean()` method to `EventForm` enforcing `reminder_hours_before` in range 1–168 server-side (HTML `min/max` attributes are bypass-able)
+
+**Code Quality:**
+- `view/kai_reports.py`, `view/kai_user_dashboard.py`, `view/service_user_dashboard.py`, `view/profile_view.py` — Synchronous `send_mail()` calls replaced with `send_email.delay()` (async via Celery)
+- `view/end_vote.py`, `view/upload_legislation.py`, `view/vote_view.py`, and others — Wildcard `from ..decorators import *` / `from ..models import *` replaced with explicit imports
+
+---
+
+### v3.1.0 — Event Push Reminder Notifications (2026-06-05) ✅ Deployed
 
 Per-event push notification reminders with global on/off controls in Admin v2. Officers enable a reminder on any event and set the lead time; a Celery Beat task fires every 15 minutes to dispatch reminders on schedule. Respects master feature flags and per-user opt-out.
 

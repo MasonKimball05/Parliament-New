@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.core.mail import send_mail
+from src.tasks import send_email
 from django.conf import settings
 from django.utils import timezone
 from django.utils.timezone import localtime
@@ -136,14 +136,8 @@ Please log in to the Kai Committee page to review this report.
                         kai_logger = logging.getLogger('src')
                         kai_logger.info(f"[KAI EMAIL] Sending notification to {len(recipient_emails)} recipients: {recipient_emails}")
 
-                        send_mail(
-                            subject,
-                            message,
-                            settings.DEFAULT_FROM_EMAIL,
-                            recipient_emails,
-                            fail_silently=False,
-                        )
-                        kai_logger.info(f"[KAI EMAIL] Email sent successfully for report: {report.title}")
+                        send_email.delay(subject, message, settings.DEFAULT_FROM_EMAIL, recipient_emails)
+                        kai_logger.info(f"[KAI EMAIL] Email queued for report: {report.title}")
                     else:
                         import logging
                         kai_logger = logging.getLogger('src')
@@ -613,17 +607,11 @@ Reviewed at: {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}
 
 You can view the full report details at the Kai Committee page.
                     """
-                    send_mail(
-                        subject,
-                        message,
-                        settings.DEFAULT_FROM_EMAIL,
-                        [report.submitted_by.email],
-                        fail_silently=True,
-                    )
+                    send_email.delay(subject, message, settings.DEFAULT_FROM_EMAIL, [report.submitted_by.email])
             except Exception as e:
                 import logging
                 logger = logging.getLogger('function_calls')
-                logger.error(f"Failed to send status update email: {e}")
+                logger.error(f"Failed to queue status update email: {e}")
 
         elif action == 'mark_pending':
             report.status = 'pending'
@@ -819,17 +807,11 @@ Updated at: {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}
                             message = None
 
                         if message:
-                            send_mail(
-                                subject,
-                                message,
-                                settings.DEFAULT_FROM_EMAIL,
-                                [report.targeted_to.email],
-                                fail_silently=True,
-                            )
+                            send_email.delay(subject, message, settings.DEFAULT_FROM_EMAIL, [report.targeted_to.email])
                     except Exception as e:
                         import logging
                         logger = logging.getLogger('function_calls')
-                        logger.error(f"Failed to send deliberation update email: {e}")
+                        logger.error(f"Failed to queue deliberation update email: {e}")
             else:
                 messages.error(request, 'Please select a deliberation outcome.')
 
@@ -1264,10 +1246,9 @@ Beta Theta Pi - Samford Chapter
 
                         # Notify the requester
                         if closure_request.requested_by.email:
-                            try:
-                                send_mail(
-                                    subject=f'[Kai] Closure Request Approved: {report.title}',
-                                    message=f"""Your closure request has been approved.
+                            send_email.delay(
+                                f'[Kai] Closure Request Approved: {report.title}',
+                                f"""Your closure request has been approved.
 
 Report: {report.title}
 Decision: Approved
@@ -1275,14 +1256,9 @@ Decision: Approved
 
 The case has been archived.
 """,
-                                    from_email=settings.DEFAULT_FROM_EMAIL,
-                                    recipient_list=[closure_request.requested_by.email],
-                                    fail_silently=True,
-                                )
-                            except Exception as e:
-                                import logging
-                                logger = logging.getLogger('function_calls')
-                                logger.error(f"Failed to send closure approval notification: {e}")
+                                settings.DEFAULT_FROM_EMAIL,
+                                [closure_request.requested_by.email],
+                            )
 
                         messages.success(request, 'Closure request approved. Report has been archived.')
                     else:
@@ -1328,10 +1304,9 @@ The case has been archived.
 
                             # Notify the requester
                             if closure_request.requested_by.email:
-                                try:
-                                    send_mail(
-                                        subject=f'[Kai] Closure Request Denied: {report.title}',
-                                        message=f"""Your closure request has been denied.
+                                send_email.delay(
+                                    f'[Kai] Closure Request Denied: {report.title}',
+                                    f"""Your closure request has been denied.
 
 Report: {report.title}
 Decision: Denied
@@ -1339,14 +1314,9 @@ Reason: {review_notes}
 
 You may submit another closure request in the future if circumstances change.
 """,
-                                        from_email=settings.DEFAULT_FROM_EMAIL,
-                                        recipient_list=[closure_request.requested_by.email],
-                                        fail_silently=True,
-                                    )
-                                except Exception as e:
-                                    import logging
-                                    logger = logging.getLogger('function_calls')
-                                    logger.error(f"Failed to send closure denial notification: {e}")
+                                    settings.DEFAULT_FROM_EMAIL,
+                                    [closure_request.requested_by.email],
+                                )
 
                             messages.success(request, 'Closure request denied.')
                     else:

@@ -286,6 +286,14 @@ class EventForm(forms.ModelForm):
         if self.instance and self.instance.pk and self.instance.recurrence_days:
             self.initial['recurrence_days'] = [str(d) for d in self.instance.recurrence_days]
 
+    def clean(self):
+        cleaned = super().clean()
+        for field in ('reminder_1_hours_before', 'reminder_2_hours_before'):
+            val = cleaned.get(field)
+            if val is not None and not (1 <= val <= 168):
+                self.add_error(field, 'Must be between 1 and 168 hours (1 week).')
+        return cleaned
+
     def save(self, commit=True):
         instance = super().save(commit=False)
         # Convert the list from MultipleChoiceField to JSON for storage

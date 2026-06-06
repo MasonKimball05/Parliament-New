@@ -1,5 +1,5 @@
-from ..decorators import *
-from ..models import *
+from ..decorators import log_function_call
+from ..models import Legislation, Vote, ActivityLog, ParliamentUser
 from django.db.models import Count
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required

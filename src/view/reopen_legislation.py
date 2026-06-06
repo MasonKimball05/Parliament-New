@@ -1,6 +1,6 @@
 from django.shortcuts import redirect, get_object_or_404
-from ..decorators import *
-from ..models import *
+from ..decorators import officer_required, log_function_call
+from ..models import Legislation
 from django.contrib import messages
 from django.http import HttpResponseForbidden
 

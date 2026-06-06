@@ -7,9 +7,12 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import DetailView
 from django.views.decorators.http import require_http_methods
 from django.urls import reverse
-from ..decorators import *
-from ..models import *
+import logging
+from ..decorators import log_function_call
+from ..models import Legislation, Vote, Attendance
 from src.feature_flag_decorators import require_page_enabled
+
+logger = logging.getLogger(__name__)
 from datetime import timedelta
 
 @login_required

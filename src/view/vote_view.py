@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.utils.timezone import make_aware
 from django.utils.dateparse import parse_datetime
 from datetime import timedelta
-from ..models import *
+from ..models import Legislation, Vote, Attendance, ParliamentUser, ActivityLog
 from src.utils.file_validation import validate_uploaded_file
 from src.feature_flag_decorators import require_page_enabled
 import logging

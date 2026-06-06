@@ -6,7 +6,7 @@ from django.dispatch import receiver
 from django.utils import timezone
 import logging
 
-from src.models import LoginHistory, LoginAlert
+from src.models import LoginHistory, LoginAlert, ParliamentUser, Role
 from src.utils.security_utils import (
     get_client_ip,
     get_geolocation_from_ip,
@@ -290,18 +290,11 @@ def sync_member_type_for_officer_roles(user):
             )
 
 
-@receiver(m2m_changed)
+@receiver(m2m_changed, sender=ParliamentUser.roles.through)
 def sync_exec_committee_on_role_change(sender, instance, action, pk_set, model, **kwargs):
     """
     When user roles change, sync Executive Board membership and member_type.
-    This is connected to ParliamentUser.roles.through via m2m_changed signal.
     """
-    from src.models import ParliamentUser, Role
-
-    # Check if this is the ParliamentUser.roles.through model
-    if sender != ParliamentUser.roles.through:
-        return
-
     if action not in ['post_add', 'post_remove', 'post_clear']:
         return
 

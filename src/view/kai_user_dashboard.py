@@ -10,8 +10,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
-from django.core.mail import send_mail
 from django.conf import settings
+from src.tasks import send_email
 from django.db.models import Q
 import logging
 
@@ -219,9 +219,9 @@ def request_closure(request, report_id):
                 ]
 
                 if chair_emails:
-                    send_mail(
-                        subject=f'[Kai] Closure Request: {report.title}',
-                        message=f"""A closure request has been submitted for a Kai report.
+                    send_email.delay(
+                        f'[Kai] Closure Request: {report.title}',
+                        f"""A closure request has been submitted for a Kai report.
 
 Report: {report.title}
 Requested by: {user.name} ({role})
@@ -229,14 +229,13 @@ Request reason: {reason}
 
 Please review this request in the Kai management system.
 """,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        recipient_list=chair_emails,
-                        fail_silently=True,
+                        settings.DEFAULT_FROM_EMAIL,
+                        chair_emails,
                     )
             except Committee.DoesNotExist:
                 pass
             except Exception as e:
-                logger.error(f"Failed to send closure request notification: {e}")
+                logger.error(f"Failed to queue closure request notification: {e}")
 
             logger.info(f"{user.username} requested closure for Kai report '{report.title}' (ID: {report.id})")
             messages.success(request, 'Your closure request has been submitted and is pending review.')
@@ -319,9 +318,9 @@ def request_drop_case(request, report_id):
                 ]
 
                 if chair_emails:
-                    send_mail(
-                        subject=f'[Kai] Drop Case Request: {report.title}',
-                        message=f"""A request to drop/withdraw a case has been submitted.
+                    send_email.delay(
+                        f'[Kai] Drop Case Request: {report.title}',
+                        f"""A request to drop/withdraw a case has been submitted.
 
 Report: {report.title}
 Submitted by: {user.name}
@@ -329,14 +328,13 @@ Reason for dropping: {reason}
 
 Please review this request in the Kai management system.
 """,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        recipient_list=chair_emails,
-                        fail_silently=True,
+                        settings.DEFAULT_FROM_EMAIL,
+                        chair_emails,
                     )
             except Committee.DoesNotExist:
                 pass
             except Exception as e:
-                logger.error(f"Failed to send drop case request notification: {e}")
+                logger.error(f"Failed to queue drop case request notification: {e}")
 
             logger.info(f"{user.username} requested to drop Kai report '{report.title}' (ID: {report.id})")
             messages.success(request, 'Your request to drop this case has been submitted and is pending review.')

@@ -1,6 +1,6 @@
-from ..models import *
-from ..decorators import *
-from ..forms import *
+from ..models import Legislation
+from ..decorators import officer_required, log_function_call
+from ..forms import LegislationForm
 from django.contrib import messages
 from django.http import HttpResponseForbidden
 from django.shortcuts import render, get_object_or_404, redirect

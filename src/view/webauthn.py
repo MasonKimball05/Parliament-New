@@ -26,7 +26,6 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 import webauthn
@@ -89,7 +88,7 @@ def passkey_register_begin(request):
         user_display_name=getattr(user, 'name', user.username),
         authenticator_selection=AuthenticatorSelectionCriteria(
             resident_key=ResidentKeyRequirement.PREFERRED,
-            user_verification=UserVerificationRequirement.PREFERRED,
+            user_verification=UserVerificationRequirement.REQUIRED,
         ),
         exclude_credentials=existing,
     )
@@ -151,7 +150,7 @@ def passkey_authenticate_begin(request):
 
     options = webauthn.generate_authentication_options(
         rp_id=rp_id,
-        user_verification=UserVerificationRequirement.PREFERRED,
+        user_verification=UserVerificationRequirement.REQUIRED,
     )
 
     request.session[_SESSION_AUTH_CHALLENGE] = list(options.challenge)

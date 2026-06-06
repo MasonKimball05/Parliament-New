@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404
-from ..models import *
+from ..models import Legislation, Vote
 
 def legislation_detail(request, legislation_id):
     legislation = get_object_or_404(Legislation, id=legislation_id)

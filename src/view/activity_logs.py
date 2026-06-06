@@ -4,7 +4,7 @@ Activity logs view for officers
 from django.shortcuts import render
 from django.core.paginator import Paginator
 from src.models import ActivityLog, ParliamentUser
-from ..decorators import *
+from ..decorators import officer_required
 from django.db.models import Q
 from datetime import datetime, timedelta
 from django.utils import timezone

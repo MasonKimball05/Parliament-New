@@ -4,7 +4,7 @@ Custom middleware for Parliament application
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.core.cache import cache
-from django.http import HttpResponseForbidden, HttpResponseBadRequest
+from django.http import HttpResponseForbidden, HttpResponseBadRequest, JsonResponse
 from django.conf import settings
 from src.utils.security_utils import get_client_ip as _get_client_ip
 import logging
@@ -289,6 +289,21 @@ class LoginRateLimitMiddleware:
                     except Exception:
                         pass
 
+        # Passkey authentication endpoint — same IP-based lockout as /login/.
+        # No username is available pre-request, so IP tracking only.
+        if request.path == '/accounts/passkeys/authenticate/complete/' and request.method == 'POST':
+            ip_address = self.get_client_ip(request)
+            if not self._is_ip_whitelisted(ip_address):
+                ip_lockout_key = f'login_lockout_ip_{ip_address}'
+                if cache.get(ip_lockout_key):
+                    logger.warning(f'Passkey auth blocked: IP {ip_address} is locked out')
+                    return JsonResponse({'error': 'Too many failed attempts. Try again later.'}, status=429)
+                ip_key = f'login_attempts_ip_{ip_address}'
+                if cache.get(ip_key, 0) >= self.max_attempts_per_ip:
+                    cache.set(ip_lockout_key, True, self.lockout_minutes * 60)
+                    logger.warning(f'Passkey auth rate limit hit for IP {ip_address}, locking out')
+                    return JsonResponse({'error': 'Too many failed attempts. Try again later.'}, status=429)
+
         response = self.get_response(request)
 
         # After response, track failed login attempts.
@@ -328,6 +343,21 @@ class LoginRateLimitMiddleware:
                     cache.delete(f'login_lockout_ip_{ip_address}')
                     cache.delete(f'login_lockout_user_{username}')
             # else: blocked by this middleware (lockout redirect) — leave counters alone
+
+        # Passkey auth post-response: increment on failure, clear on success
+        if request.path == '/accounts/passkeys/authenticate/complete/' and request.method == 'POST':
+            ip_address = self.get_client_ip(request)
+            ip_key = f'login_attempts_ip_{ip_address}'
+            if response.status_code >= 400:
+                ip_attempts = cache.get(ip_key, 0) + 1
+                cache.set(ip_key, ip_attempts, self.window_minutes * 60)
+                logger.warning(
+                    f'Failed passkey auth attempt from IP {ip_address}. '
+                    f'IP attempts: {ip_attempts}/{self.max_attempts_per_ip}'
+                )
+            elif response.status_code == 200:
+                cache.delete(ip_key)
+                cache.delete(f'login_lockout_ip_{ip_address}')
 
         return response
 

@@ -1,6 +1,9 @@
-from ..decorators import *
-from ..models import *
+import logging
+from ..decorators import log_function_call
+from ..models import ParliamentUser, Legislation, Event, Committee, Vote, Announcement, SlatingPeriod, SlatingBallot
 from django.db.models import Count, Q
+
+logger = logging.getLogger(__name__)
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse

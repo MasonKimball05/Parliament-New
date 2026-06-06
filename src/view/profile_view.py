@@ -1,5 +1,5 @@
-from ..models import *
-from ..decorators import *
+from ..models import ActivityLog, ParliamentUser, UserPreferences
+from ..decorators import log_function_call
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm

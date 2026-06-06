@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from django.db.models import Q
-from ..models import *
+from ..models import Legislation, Vote, AnnouncementPoll
 
 
 @login_required

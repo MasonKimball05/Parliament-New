@@ -67,6 +67,20 @@ def send_security_alert_task(self, event_type, severity, details, ip_address=Non
         raise self.retry(exc=exc)
 
 
+@shared_task(bind=True, max_retries=3, default_retry_delay=60, name='tasks.send_email')
+def send_email(self, subject, body, from_email, recipient_list, fail_silently=False):
+    """
+    Generic async wrapper for one-off send_mail calls in views.
+    Accepts plain-text body only. Use send_announcement_email for HTML emails.
+    """
+    try:
+        from django.core.mail import send_mail as _send_mail
+        _send_mail(subject, body, from_email, recipient_list, fail_silently=fail_silently)
+    except Exception as exc:
+        logger.error(f"[tasks] send_email failed (subject='{subject}'): {exc}")
+        raise self.retry(exc=exc)
+
+
 @shared_task(bind=True, max_retries=2, default_retry_delay=120, name='tasks.send_pledge_welcome_task')
 def send_pledge_welcome_task(self, user_id, temp_password):
     """Send pledge welcome email asynchronously after account creation."""
@@ -1131,18 +1145,19 @@ def send_event_reminder_pushes():
             continue
 
         # Determine eligible users (active, visibility-filtered)
-        all_active = ParliamentUser.objects.filter(member_status='Active', is_active=True)
+        all_active = ParliamentUser.objects.filter(
+            member_status='Active', is_active=True
+        ).select_related('preferences')
         if event.visible_to:
             visible_types = set(event.visible_to)
-            eligible_pks = [
-                u.pk for u in all_active
-                if u.member_type in visible_types
-                or ('Member' in visible_types and u.member_type in ('Chair', 'Officer'))
-            ]
-            eligible_users = all_active.filter(pk__in=eligible_pks)
+            # Officers and Chairs implicitly see Member-visible events
+            if 'Member' in visible_types:
+                visible_types.update(['Chair', 'Officer'])
+            eligible_users = all_active.filter(member_type__in=visible_types)
         else:
             eligible_users = all_active
 
+        eligible_users = list(eligible_users)  # evaluate once; avoids re-query and count() after loop
         subscribed_user_ids = set(
             PushSubscription.objects.filter(user__in=eligible_users).values_list('user_id', flat=True)
         )
@@ -1198,7 +1213,7 @@ def send_event_reminder_pushes():
             reminder_log = EventReminderLog.objects.create(
                 event=event,
                 reminder_slot=slot_num,
-                users_eligible=eligible_users.count(),
+                users_eligible=len(eligible_users),
                 users_subscribed=len(subscribed_user_ids),
                 users_opted_out=opted_out,
                 notifications_dispatched=dispatched,

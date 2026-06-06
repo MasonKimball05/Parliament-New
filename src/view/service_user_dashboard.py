@@ -11,8 +11,8 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.timezone import localtime
 from django.db.models import Sum, Q
-from django.core.mail import send_mail
 from django.conf import settings
+from src.tasks import send_email
 from decimal import Decimal
 import logging
 
@@ -61,16 +61,8 @@ Review submissions at {getattr(settings, 'SITE_URL', '').rstrip('/')}/service-ho
 """
 
     recipient_emails = [u.email for u in vpp_users]
-    try:
-        send_mail(
-            subject=subject,
-            message=message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=recipient_emails,
-            fail_silently=True,
-        )
-    except Exception as e:
-        logger.error(f"Failed to send VPP service hours notification: {e}")
+    if recipient_emails:
+        send_email.delay(subject, message, settings.DEFAULT_FROM_EMAIL, recipient_emails)
 
 
 def get_user_service_stats(user, period):
