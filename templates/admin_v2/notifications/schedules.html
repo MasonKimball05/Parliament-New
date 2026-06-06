@@ -13,7 +13,7 @@
                 <p class="text-gray-600 dark:text-gray-400 text-sm">Configure automated notification triggers and reminders</p>
             </div>
             <div class="flex items-center gap-3">
-                <button onclick="openCreateModal()"
+                <button type="button" id="js-open-create-modal"
                    class="px-4 py-2 rounded-lg bg-primary-700 dark:bg-primary-600 text-white hover:bg-primary-800 dark:hover:bg-primary-700 transition-colors flex items-center gap-2 text-sm font-medium">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -99,15 +99,17 @@
                     </td>
                     <td class="px-6 py-4 text-right">
                         <div class="flex justify-end gap-2">
-                            <button onclick="toggleSchedule({{ schedule.id }})"
-                                class="p-2 text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors"
+                            <button type="button"
+                                class="js-toggle-schedule p-2 text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors"
+                                data-schedule-id="{{ schedule.id }}"
                                 title="{% if schedule.is_active %}Deactivate{% else %}Activate{% endif %}">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M{% if schedule.is_active %}18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636{% else %}5 13l4 4L19 7{% endif %}"></path>
                                 </svg>
                             </button>
-                            <button onclick="deleteSchedule({{ schedule.id }}, '{{ schedule.name|escapejs }}')"
-                                class="p-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
+                            <button type="button"
+                                class="js-delete-schedule p-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
+                                data-schedule-id="{{ schedule.id }}" data-schedule-name="{{ schedule.name|escapejs }}"
                                 title="Delete">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -124,7 +126,7 @@
                         </svg>
                         <p class="text-lg font-medium mb-2">No schedules configured</p>
                         <p class="mb-4">Create your first notification schedule to automate reminders</p>
-                        <button onclick="openCreateModal()" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
+                        <button type="button" class="js-open-create-modal px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
                             Create Schedule
                         </button>
                     </td>
@@ -138,12 +140,12 @@
 <!-- Create/Edit Modal -->
 <div id="schedule-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4">
-        <div class="fixed inset-0 bg-black/50" onclick="closeModal()"></div>
+        <div class="fixed inset-0 bg-black/50 js-close-modal"></div>
         <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-sm max-w-2xl w-full">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100" id="modal-title">Create Schedule</h3>
             </div>
-            <form id="schedule-form" onsubmit="submitSchedule(event)">
+            <form id="schedule-form">
                 <div class="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name *</label>
@@ -201,7 +203,7 @@
                     </div>
                 </div>
                 <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
-                    <button type="button" onclick="closeModal()"
+                    <button type="button" class="js-close-modal"
                         class="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         Cancel
                     </button>
@@ -295,5 +297,26 @@ function deleteSchedule(id, name) {
         }
     });
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Open modal buttons (header + empty-state)
+    document.querySelectorAll('#js-open-create-modal, .js-open-create-modal').forEach(function(btn) {
+        btn.addEventListener('click', openCreateModal);
+    });
+    // Close modal (backdrop + cancel button)
+    document.querySelectorAll('.js-close-modal').forEach(function(el) {
+        el.addEventListener('click', closeModal);
+    });
+    // Schedule form submit
+    var form = document.getElementById('schedule-form');
+    if (form) form.addEventListener('submit', submitSchedule);
+    // Loop toggle/delete buttons
+    document.querySelectorAll('.js-toggle-schedule').forEach(function(btn) {
+        btn.addEventListener('click', function() { toggleSchedule(parseInt(this.dataset.scheduleId)); });
+    });
+    document.querySelectorAll('.js-delete-schedule').forEach(function(btn) {
+        btn.addEventListener('click', function() { deleteSchedule(parseInt(this.dataset.scheduleId), this.dataset.scheduleName); });
+    });
+});
 </script>
 {% endblock %}
