@@ -33,22 +33,22 @@
     <!-- Tab Navigation -->
     <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-2 transition-colors duration-200">
         <div class="flex space-x-1" role="tablist">
-            <button onclick="showTab('all')" id="tab-all" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300">
+            <button id="tab-all" data-tab="all" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300">
                 All Documents ({{ all_documents|length }})
             </button>
-            <button onclick="showTab('reports')" id="tab-reports" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+            <button id="tab-reports" data-tab="reports" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                 Reports ({{ reports|length }})
             </button>
-            <button onclick="showTab('minutes')" id="tab-minutes" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+            <button id="tab-minutes" data-tab="minutes" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                 Minutes ({{ minutes|length }})
             </button>
-            <button onclick="showTab('agendas')" id="tab-agendas" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+            <button id="tab-agendas" data-tab="agendas" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                 Agendas ({{ agendas|length }})
             </button>
-            <button onclick="showTab('policies')" id="tab-policies" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+            <button id="tab-policies" data-tab="policies" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                 Policies ({{ policies|length }})
             </button>
-            <button onclick="showTab('general')" id="tab-general" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+            <button id="tab-general" data-tab="general" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                 General ({{ general_docs|length }})
             </button>
         </div>
@@ -86,6 +86,12 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.tab-button[data-tab]').forEach(function(btn) {
+        btn.addEventListener('click', function() { showTab(btn.dataset.tab); });
+    });
+});
+
 function showTab(tabName) {
     // Hide all tab contents
     const contents = document.querySelectorAll('.tab-content');
