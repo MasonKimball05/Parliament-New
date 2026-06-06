@@ -252,3 +252,22 @@ def passkey_delete(request, pk):
     cred.delete()
     logger.info(f'Passkey "{name}" deleted by {request.user.username}')
     return redirect('profile')
+
+
+@login_required
+@require_POST
+def passkey_rename(request, pk):
+    """Rename one of the current user's passkeys. Expects JSON body {name: '...'}."""
+    cred = get_object_or_404(WebAuthnCredential, pk=pk, user=request.user)
+    try:
+        body = json.loads(request.body)
+        new_name = body.get('name', '').strip()[:100]
+    except Exception:
+        return JsonResponse({'error': 'Invalid request.'}, status=400)
+    if not new_name:
+        return JsonResponse({'error': 'Name cannot be empty.'}, status=400)
+    old_name = cred.name
+    cred.name = new_name
+    cred.save(update_fields=['name'])
+    logger.info(f'Passkey renamed by {request.user.username}: "{old_name}" → "{new_name}"')
+    return JsonResponse({'ok': True, 'name': new_name})

@@ -508,6 +508,85 @@
             </div>
         </div>
 
+        <!-- Page Visits Card -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" data-card data-card-id="page-visits" data-expanded="true">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center mr-3">
+                        <svg class="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-900 dark:text-gray-100">Page Visits</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ page_visit_summary.total_hits }} total hits · {{ page_visit_summary.unique_paths }} unique paths</p>
+                    </div>
+                </div>
+                <svg class="chevron-icon w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
+            <div class="card-body p-4">
+                {% if page_visit_summary.top_paths %}
+                <ul class="space-y-2 mb-4">
+                    {% for p in page_visit_summary.top_paths %}
+                    <li class="flex items-center justify-between text-sm">
+                        <span class="text-gray-700 dark:text-gray-300 font-mono truncate max-w-[70%]">{{ p.path }}</span>
+                        <span class="text-gray-500 dark:text-gray-400 text-xs font-medium ml-2">{{ p.total }} hits</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-sm text-gray-400 italic mb-4">No visit data yet.</p>
+                {% endif %}
+                <a href="{% url 'admin_v2_page_visits' %}" class="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors">
+                    View Full Report →
+                </a>
+            </div>
+        </div>
+
+        <!-- Celery Health Card -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" data-card data-card-id="celery" data-expanded="true">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 {% if celery_summary.workers_up %}bg-green-100 dark:bg-green-900/30{% else %}bg-red-100 dark:bg-red-900/30{% endif %} rounded-lg flex items-center justify-center mr-3">
+                        <svg class="w-6 h-6 {% if celery_summary.workers_up %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-900 dark:text-gray-100">Celery</h3>
+                        <p class="text-sm {% if celery_summary.workers_up %}text-green-600 dark:text-green-400{% else %}text-red-500 dark:text-red-400{% endif %}">
+                            {% if celery_summary.workers_up %}Workers online{% else %}No workers responding{% endif %}
+                        </p>
+                    </div>
+                </div>
+                <svg class="chevron-icon w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
+            <div class="card-body p-4">
+                <div class="grid grid-cols-3 gap-2 mb-4 text-center text-sm">
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded p-2">
+                        <div class="font-bold text-gray-900 dark:text-gray-100">{{ celery_summary.task_count }}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">Tasks</div>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded p-2">
+                        <div class="font-bold {% if celery_summary.stale_count > 0 %}text-amber-600 dark:text-amber-400{% else %}text-gray-900 dark:text-gray-100{% endif %}">{{ celery_summary.stale_count }}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">Stale</div>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded p-2">
+                        <div class="font-bold text-gray-900 dark:text-gray-100">{{ celery_summary.disabled_count }}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">Disabled</div>
+                    </div>
+                </div>
+                <a href="{% url 'admin_v2_celery_health' %}" class="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors">
+                    View Task Details →
+                </a>
+            </div>
+        </div>
+
     </div>
 
     <!-- Page Toggles Section -->

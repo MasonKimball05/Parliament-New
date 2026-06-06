@@ -20,7 +20,6 @@ class Committee(models.Model):
         (9, 'FINANCE', 'Finance Committee'),
         (10, 'ADMIN', 'Administration Committee'),
         (11, 'PROGRAM', 'Programming Committee'),
-        (12, 'SLATING', 'Slating Committee'),
     ]
 
     name = models.CharField(max_length=225, unique=True)
@@ -74,13 +73,13 @@ class Committee(models.Model):
         help_text='If True, committee is archived (read-only). Used for expired ad-hoc committees.'
     )
 
-    # Explicit admin for committees (used for Slating Committee)
+    # Explicit admin for committees with restricted visibility (is_slating_committee=True)
     admin = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name='admin_of_committees',
-        help_text='Explicit admin (used for Slating Committee)'
+        help_text='Explicit admin for committees with restricted visibility'
     )
 
     def __str__(self):

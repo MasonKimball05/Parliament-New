@@ -435,6 +435,43 @@ def admin_v2_dashboard(request):
     from src.models import SystemLockdown
     lockdown = SystemLockdown.get_instance()
 
+    # Page visit summary for dashboard card (PageVisit is cumulative — no timestamps)
+    from django.db.models import Sum as _Sum
+    _pv_agg = PageVisit.objects.aggregate(total_hits=_Sum('count'))
+    page_visit_summary = {
+        'total_hits': _pv_agg['total_hits'] or 0,
+        'unique_paths': _safe_count(lambda: PageVisit.objects.values('path').distinct().count()),
+        'top_paths': list(
+            PageVisit.objects.values('path')
+            .annotate(total=_Sum('count'))
+            .order_by('-total')[:5]
+        ),
+    }
+
+    # Celery health summary for dashboard card
+    celery_summary = {'workers_up': False, 'task_count': 0, 'stale_count': 0, 'disabled_count': 0}
+    try:
+        from django_celery_beat.models import PeriodicTask as _PT, IntervalSchedule as _IV
+        from celery import current_app as _celery_app
+        ping = _celery_app.control.inspect(timeout=1).ping() or {}
+        celery_summary['workers_up'] = bool(ping)
+        tasks = _PT.objects.select_related('interval', 'crontab').all()
+        celery_summary['task_count'] = tasks.count()
+        celery_summary['disabled_count'] = tasks.filter(enabled=False).count()
+        _period_secs = {'days': 86400, 'hours': 3600, 'minutes': 60, 'seconds': 1}
+        stale = 0
+        for t in tasks:
+            if t.enabled and t.last_run_at:
+                if t.interval:
+                    threshold = t.interval.every * _period_secs.get(t.interval.period, 60) * 2
+                    if (timezone.now() - t.last_run_at).total_seconds() > threshold:
+                        stale += 1
+                elif t.crontab and (timezone.now() - t.last_run_at).total_seconds() > 90000:
+                    stale += 1
+        celery_summary['stale_count'] = stale
+    except Exception:
+        pass
+
     context = {
         'stats': stats,
         'feature_flags': feature_flags,
@@ -451,6 +488,8 @@ def admin_v2_dashboard(request):
         'performance': performance_summary,
         'slow_requests': slow_requests,
         'lockdown_active': lockdown.is_active,
+        'page_visit_summary': page_visit_summary,
+        'celery_summary': celery_summary,
     }
 
     return render(request, 'admin_v2/dashboard.html', context)
@@ -2877,3 +2916,68 @@ def event_reminder_log_detail(request, log_id):
         'skipped': skipped,
     })
 
+
+
+@require_admin_v2_auth
+def celery_health(request):
+    """
+    Celery task health dashboard — shows worker status and the state of every
+    registered PeriodicTask (schedule, last run, run count, enabled/disabled).
+    """
+    from django_celery_beat.models import PeriodicTask
+
+    now = timezone.now()
+
+    # ── Worker ping ────────────────────────────────────────────────────────────
+    # inspect().ping() broadcasts to all workers and collects responses.
+    # We cap it at 1 second so a dead worker doesn't block page load.
+    workers_up = False
+    worker_details = []
+    try:
+        from celery import current_app
+        inspector = current_app.control.inspect(timeout=1)
+        ping_result = inspector.ping() or {}
+        workers_up = bool(ping_result)
+        for worker_name, response in ping_result.items():
+            worker_details.append({'name': worker_name, 'response': response})
+    except Exception:
+        pass  # broker unreachable — workers_up stays False
+
+    # ── Periodic tasks ─────────────────────────────────────────────────────────
+    tasks = PeriodicTask.objects.select_related('interval', 'crontab').order_by('name')
+
+    task_rows = []
+    for task in tasks:
+        # Build human-readable schedule string
+        if task.interval:
+            iv = task.interval
+            schedule_str = f'Every {iv.every} {iv.period}'
+        elif task.crontab:
+            ct = task.crontab
+            schedule_str = f'Crontab {ct.minute} {ct.hour} {ct.day_of_week} {ct.day_of_month} {ct.month_of_year}'
+        else:
+            schedule_str = 'Unknown schedule'
+
+        # Staleness: interval tasks are stale if last_run_at is >2× the interval ago;
+        # crontab tasks are considered stale if not run in the last 25 hours.
+        stale = False
+        if task.enabled and task.last_run_at:
+            if task.interval:
+                period_seconds = {'days': 86400, 'hours': 3600, 'minutes': 60, 'seconds': 1}
+                interval_secs = task.interval.every * period_seconds.get(task.interval.period, 60)
+                stale = (now - task.last_run_at).total_seconds() > interval_secs * 2
+            elif task.crontab:
+                stale = (now - task.last_run_at).total_seconds() > 90000  # 25 hours
+
+        task_rows.append({
+            'task': task,
+            'schedule_str': schedule_str,
+            'stale': stale,
+        })
+
+    return render(request, 'admin_v2/celery_health.html', {
+        'workers_up': workers_up,
+        'worker_details': worker_details,
+        'task_rows': task_rows,
+        'now': now,
+    })

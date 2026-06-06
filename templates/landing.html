@@ -48,7 +48,7 @@
             </svg>
             {{ content.recruitment_banner_message }}
         </span>
-        <button onclick="this.parentElement.remove(); adjustHeroPadding();"
+        <button id="js-dismiss-banner"
                 class="absolute right-4 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors text-xl leading-none"
                 aria-label="Dismiss">&times;</button>
     </div>
@@ -368,7 +368,7 @@
             <!-- Right: Contact form -->
             <div>
                 <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-5">Send a Message</h2>
-                <form id="contactForm" class="space-y-4" onsubmit="handleContactSubmit(event)">
+                <form id="contactForm" class="space-y-4">
                     {% if contact_topics %}
                     <div>
                         <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Topic</label>
@@ -528,6 +528,12 @@
                 if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send Message'; }
             });
     }
+
+    const _banner = document.getElementById('js-dismiss-banner');
+    if (_banner) { _banner.addEventListener('click', function () { this.parentElement.remove(); adjustHeroPadding(); }); }
+
+    const _contactForm = document.getElementById('contactForm');
+    if (_contactForm) { _contactForm.addEventListener('submit', function (e) { handleContactSubmit(e); }); }
 </script>
 
 <!-- Prose/rich text styling for landing-content blocks -->

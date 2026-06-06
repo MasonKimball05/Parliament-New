@@ -117,6 +117,7 @@ from src.view.admin_v2 import (
     health_check, check_default_password, test_email_targeting,
     email_logs, email_log_detail, send_scheduled_announcement_email,
     event_reminder_logs, event_reminder_log_detail,
+    celery_health,
     security_dashboard, quarantine_management, lockdown_control,
     honeypot_logs, security_notifications_log,
     dismiss_alert, dismiss_all_alerts,
@@ -151,7 +152,7 @@ from src.view.two_factor_recovery import (
 from src.view.webauthn import (
     passkey_register_begin, passkey_register_complete,
     passkey_authenticate_begin, passkey_authenticate_complete,
-    passkey_delete,
+    passkey_delete, passkey_rename,
 )
 from src.view.admin_two_factor import (
     two_factor_dashboard as admin_v2_two_factor_dashboard,
@@ -684,6 +685,7 @@ urlpatterns = [
     path('accounts/passkeys/authenticate/begin/', passkey_authenticate_begin, name='passkey_authenticate_begin'),
     path('accounts/passkeys/authenticate/complete/', passkey_authenticate_complete, name='passkey_authenticate_complete'),
     path('accounts/passkeys/<int:pk>/delete/', passkey_delete, name='passkey_delete'),
+    path('accounts/passkeys/<int:pk>/rename/', passkey_rename, name='passkey_rename'),
 
     # Session Management
     path('account/sessions/', session_list, name='session_list'),
@@ -705,6 +707,7 @@ urlpatterns = [
     path('admin-v2/email-logs/send-scheduled/<int:announcement_id>/', send_scheduled_announcement_email, name='admin_v2_send_scheduled_email'),
     path('admin-v2/event-reminder-logs/', event_reminder_logs, name='admin_v2_event_reminder_logs'),
     path('admin-v2/event-reminder-logs/<int:log_id>/', event_reminder_log_detail, name='admin_v2_event_reminder_log_detail'),
+    path('admin-v2/celery/', celery_health, name='admin_v2_celery_health'),
 
     # Admin v2 - Security Management
     path('admin-v2/security/', security_dashboard, name='admin_v2_security'),

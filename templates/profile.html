@@ -113,9 +113,8 @@
 
                 <div class="flex gap-2 sm:pt-0 sm:self-start">
                     {% if user.profile_picture %}
-                        <button type="submit"
-                                class="bg-red-600 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600 text-white font-medium px-6 py-2 rounded-lg transition flex items-center whitespace-nowrap"
-                                onclick="if(confirm('Remove your profile picture?')) { document.getElementById('profile-picture-action').value = 'remove'; return true; } return false;">
+                        <button type="submit" id="js-remove-pic-btn"
+                                class="bg-red-600 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600 text-white font-medium px-6 py-2 rounded-lg transition flex items-center whitespace-nowrap">
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                             </svg>
@@ -370,20 +369,26 @@
                 {% if passkeys %}
                 <ul class="space-y-2" id="passkey-list">
                     {% for pk in passkeys %}
-                    <li class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600 rounded-lg">
-                        <div class="flex items-center gap-3">
+                    <li class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600 rounded-lg" data-passkey-id="{{ pk.pk }}">
+                        <div class="flex items-center gap-3 min-w-0">
                             <svg class="w-5 h-5 text-primary-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
                             </svg>
-                            <div>
-                                <p class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ pk.name }}</p>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1.5">
+                                    <p class="passkey-name text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{{ pk.name }}</p>
+                                    <button type="button" class="passkey-edit-btn flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" title="Rename">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-1.414.586H9v-2a2 2 0 01.586-1.414z"/></svg>
+                                    </button>
+                                    <input type="text" class="passkey-name-input hidden text-sm font-medium text-gray-800 dark:text-gray-200 bg-transparent border-b border-primary-500 focus:outline-none w-36" maxlength="100" value="{{ pk.name }}">
+                                </div>
                                 <p class="text-xs text-gray-500 dark:text-gray-400">
                                     Added {{ pk.created_at|date:"M j, Y" }}
                                     {% if pk.last_used_at %} · Last used {{ pk.last_used_at|date:"M j, Y" }}{% endif %}
                                 </p>
                             </div>
                         </div>
-                        <form method="post" action="{% url 'passkey_delete' pk.pk %}" onsubmit="return confirm('Remove this passkey?')">
+                        <form method="post" action="{% url 'passkey_delete' pk.pk %}" class="js-passkey-delete-form">
                             {% csrf_token %}
                             <button type="submit" class="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium transition-colors">Remove</button>
                         </form>
@@ -1123,6 +1128,88 @@ if (phoneInput) {
         }
     });
 })();
+
+// ── Passkey rename ────────────────────────────────────────────────────────────
+(function () {
+    const csrfToken = '{{ csrf_token }}';
+
+    document.getElementById('passkey-list')?.addEventListener('click', function (e) {
+        const editBtn = e.target.closest('.passkey-edit-btn');
+        if (!editBtn) return;
+        const li = editBtn.closest('li');
+        startEdit(li);
+    });
+
+    function startEdit(li) {
+        const nameEl = li.querySelector('.passkey-name');
+        const editBtn = li.querySelector('.passkey-edit-btn');
+        const input = li.querySelector('.passkey-name-input');
+
+        nameEl.classList.add('hidden');
+        editBtn.classList.add('hidden');
+        input.classList.remove('hidden');
+        input.value = nameEl.textContent.trim();
+        input.focus();
+        input.select();
+
+        function commit() {
+            const newName = input.value.trim();
+            if (!newName || newName === nameEl.textContent.trim()) {
+                cancelEdit();
+                return;
+            }
+            const pk = li.dataset.passkeyId;
+            fetch(`/accounts/passkeys/${pk}/rename/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({ name: newName }),
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    nameEl.textContent = data.name;
+                    input.value = data.name;
+                }
+                cancelEdit();
+            })
+            .catch(() => cancelEdit());
+        }
+
+        function cancelEdit() {
+            input.classList.add('hidden');
+            nameEl.classList.remove('hidden');
+            editBtn.classList.remove('hidden');
+            input.removeEventListener('blur', commit);
+            input.removeEventListener('keydown', onKey);
+        }
+
+        function onKey(e) {
+            if (e.key === 'Enter') { e.preventDefault(); commit(); }
+            if (e.key === 'Escape') { cancelEdit(); }
+        }
+
+        input.addEventListener('blur', commit);
+        input.addEventListener('keydown', onKey);
+    }
+})();
+
+// ── Inline handler replacements ───────────────────────────────────────────────
+const _removePicBtn = document.getElementById('js-remove-pic-btn');
+if (_removePicBtn) {
+    _removePicBtn.addEventListener('click', function (e) {
+        if (confirm('Remove your profile picture?')) {
+            document.getElementById('profile-picture-action').value = 'remove';
+        } else {
+            e.preventDefault();
+        }
+    });
+}
+
+document.querySelectorAll('.js-passkey-delete-form').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+        if (!confirm('Remove this passkey?')) { e.preventDefault(); }
+    });
+});
 </script>
 
 {% endblock %}

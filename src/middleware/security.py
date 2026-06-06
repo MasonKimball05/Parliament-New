@@ -612,16 +612,23 @@ class InputSanitizationMiddleware:
         if not getattr(settings, 'DEBUG', False):
             behind_cf = getattr(settings, 'BEHIND_CLOUDFLARE', False)
             cf_beacon = ' https://static.cloudflareinsights.com' if behind_cf else ''
-            # 'unsafe-inline' is used for both script-src and style-src.
-            # A nonce-based approach was previously attempted but nonces never cover
-            # inline event handlers (onclick=, onchange=, etc.) — only <script> blocks.
-            # Since onclick= is used throughout nearly every template, the nonce gave
-            # no real protection while breaking large portions of the site's UI.
-            # The meaningful XSS protections here are: Django's template auto-escaping,
-            # the InputSanitizationMiddleware attack detection, and form-action/frame-ancestors.
+            # script-src: nonce re-enabled alongside 'unsafe-inline'.
+            # Per the CSP spec, when a nonce is present browsers that support CSP2+
+            # ignore 'unsafe-inline' for <script> blocks — so any nonce-bearing script
+            # tag we wrote is protected even while onclick= handlers (which cannot be
+            # nonced) still require 'unsafe-inline' as a fallback for older browsers.
+            # Incrementally migrating onclick= → addEventListener will let us remove
+            # 'unsafe-inline' from script-src entirely once all handlers are gone.
+            #
+            # style-src keeps 'unsafe-inline': inline style= attributes are used
+            # throughout templates and cannot be nonced; styles can't execute code.
+            #
+            # object-src / worker-src: locked to 'none' — no plugins or web workers.
+            # upgrade-insecure-requests: browser upgrades any accidental http:// refs.
+            nonce_val = f"'nonce-{csp_nonce}'" if csp_nonce else ''
             csp_parts = [
                 "default-src 'self'",
-                f"script-src 'self' 'unsafe-inline'{cf_beacon}",
+                f"script-src 'self' {nonce_val} 'unsafe-inline'{cf_beacon}".strip(),
                 "style-src 'self' 'unsafe-inline'",
                 "img-src 'self' data: https:",
                 "font-src 'self' data:",
@@ -629,6 +636,9 @@ class InputSanitizationMiddleware:
                 "frame-ancestors 'self'",
                 "form-action 'self'",
                 "base-uri 'self'",
+                "object-src 'none'",
+                "worker-src 'none'",
+                "upgrade-insecure-requests",
                 "report-uri /csp-report/",
             ]
             response['Content-Security-Policy'] = '; '.join(csp_parts)
