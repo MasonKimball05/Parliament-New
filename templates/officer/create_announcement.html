@@ -141,7 +141,7 @@
             <!-- Linked Documents -->
             {% if chapter_docs %}
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                <button type="button" id="docs-toggle-btn" onclick="toggleDocs()"
+                <button type="button" id="docs-toggle-btn"
                         class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                     <span>Attach Chapter Documents</span>
                     <span id="docs-badge" class="hidden px-1.5 py-0.5 text-xs bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-400 rounded-full"></span>
@@ -152,7 +152,7 @@
                 <div id="docs-panel" class="hidden border-t border-gray-200 dark:border-gray-700 bg-primary-50 dark:bg-primary-900/10 px-4 py-3">
                     <p class="text-xs text-primary-700 dark:text-primary-400 mb-3">Select chapter documents to attach as links in this announcement.</p>
                     <div class="mb-2">
-                        <input type="text" id="docs-search" placeholder="Search documents…" oninput="filterDocs()"
+                        <input type="text" id="docs-search" placeholder="Search documents…"
                                class="w-full text-sm rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 py-1.5 px-3">
                     </div>
                     <div id="docs-no-results" class="hidden text-xs text-gray-500 dark:text-gray-400 py-2">No documents match your search.</div>
@@ -161,7 +161,7 @@
                         <label class="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-primary-100 dark:hover:bg-primary-900/30 cursor-pointer">
                             <input type="checkbox" name="linked_document_ids" value="{{ doc.id }}"
                                    class="doc-checkbox rounded border-gray-300 dark:border-gray-600 text-primary-500 focus:ring-primary-400 dark:bg-gray-700"
-                                   onchange="updateDocsBadge()">
+                                   >
                             <span class="flex-1 min-w-0">
                                 <span class="text-sm font-medium text-gray-900 dark:text-white">{{ doc.title }}</span>
                                 {% if doc.document_type %}
@@ -177,7 +177,7 @@
 
             <!-- Poll Builder (optional) -->
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                <button type="button" id="poll-toggle-btn" onclick="togglePoll()"
+                <button type="button" id="poll-toggle-btn"
                         class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                     <span class="flex items-center gap-2">
                         <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -197,7 +197,7 @@
                     <div class="space-y-3">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Poll Title</label>
-                            <input type="text" name="poll_title" id="poll-title-input" placeholder="e.g. What day works best for the event?" oninput="updatePollBadge()"
+                            <input type="text" name="poll_title" id="poll-title-input" placeholder="e.g. What day works best for the event?"
                                    class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm shadow-sm focus:border-purple-500 focus:ring-purple-500">
                         </div>
                         <div>
@@ -226,7 +226,7 @@
                     <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
                         <div class="flex items-center justify-between mb-3">
                             <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Questions</span>
-                            <button type="button" onclick="addPollQuestion()"
+                            <button type="button" id="js-add-poll-question"
                                     class="px-3 py-1 rounded-md bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium transition flex items-center gap-1">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                                 Add Question
@@ -241,7 +241,7 @@
 
             <!-- Include Inactive / Alumni Members -->
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                <button type="button" id="inactive-toggle-btn" onclick="toggleInactive()"
+                <button type="button" id="inactive-toggle-btn"
                         class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                     <span>Include Inactive / Alumni in Email</span>
                     <span id="inactive-badge" class="hidden px-1.5 py-0.5 text-xs bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-400 rounded-full"></span>
@@ -257,7 +257,7 @@
                         <label class="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-orange-100 dark:hover:bg-orange-900/30 cursor-pointer">
                             <input type="checkbox" name="extra_user_ids" value="{{ member.user_id }}"
                                    class="inactive-checkbox rounded border-gray-300 dark:border-gray-600 text-orange-500 focus:ring-orange-400 dark:bg-gray-700"
-                                   onchange="updateBadge()">
+                                   >
                             <span class="flex-1 min-w-0">
                                 <span class="text-sm font-medium text-gray-900 dark:text-white">{{ member.name }}</span>
                                 <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">{{ member.member_status }}</span>
@@ -324,6 +324,59 @@ document.addEventListener('DOMContentLoaded', function() {
         const checkboxes = visibilityCheckboxes.querySelectorAll('input[type="checkbox"]');
         checkboxes.forEach(cb => cb.addEventListener('change', updatePledgeWarning));
         updatePledgeWarning(); // Initial state
+    }
+
+    // Docs toggle
+    const docsToggleBtn = document.getElementById('docs-toggle-btn');
+    if (docsToggleBtn) docsToggleBtn.addEventListener('click', toggleDocs);
+
+    // Docs search filter
+    const docsSearch = document.getElementById('docs-search');
+    if (docsSearch) docsSearch.addEventListener('input', filterDocs);
+
+    // Doc checkboxes — delegated on docs-list
+    const docsList = document.getElementById('docs-list');
+    if (docsList) docsList.addEventListener('change', function(e) {
+        if (e.target.classList.contains('doc-checkbox')) updateDocsBadge();
+    });
+
+    // Poll toggle
+    const pollToggleBtn = document.getElementById('poll-toggle-btn');
+    if (pollToggleBtn) pollToggleBtn.addEventListener('click', togglePoll);
+
+    // Poll title input
+    const pollTitleInput = document.getElementById('poll-title-input');
+    if (pollTitleInput) pollTitleInput.addEventListener('input', updatePollBadge);
+
+    // Add poll question button
+    const addPollQuestionBtn = document.getElementById('js-add-poll-question');
+    if (addPollQuestionBtn) addPollQuestionBtn.addEventListener('click', addPollQuestion);
+
+    // Inactive toggle
+    const inactiveToggleBtn = document.getElementById('inactive-toggle-btn');
+    if (inactiveToggleBtn) inactiveToggleBtn.addEventListener('click', toggleInactive);
+
+    // Inactive checkboxes — delegated on inactive-panel
+    const inactivePanel = document.getElementById('inactive-panel');
+    if (inactivePanel) inactivePanel.addEventListener('change', function(e) {
+        if (e.target.classList.contains('inactive-checkbox')) updateBadge();
+    });
+
+    // Poll questions container — delegation for remove-question, add-option, remove-option, type-change
+    const pollQuestionsContainer = document.getElementById('poll-questions-container');
+    if (pollQuestionsContainer) {
+        pollQuestionsContainer.addEventListener('click', function(e) {
+            var removeQ = e.target.closest('.js-remove-poll-question');
+            if (removeQ) { removePollQuestion(removeQ); return; }
+            var addOpt = e.target.closest('.js-add-poll-option');
+            if (addOpt) { addPollOption(addOpt, parseInt(addOpt.dataset.questionIdx)); return; }
+            var removeOpt = e.target.closest('.js-remove-poll-option');
+            if (removeOpt) { removeOpt.closest('.option-row').remove(); return; }
+        });
+        pollQuestionsContainer.addEventListener('change', function(e) {
+            var sel = e.target.closest('.js-poll-type-select');
+            if (sel) onPollTypeChange(sel);
+        });
     }
 });
 
@@ -419,7 +472,7 @@ function addPollQuestion() {
                 <input type="text" name="question_text_${idx}" placeholder="Question text"
                        class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm shadow-sm focus:border-purple-500 focus:ring-purple-500">
                 <div class="flex flex-wrap gap-4 items-center">
-                    <select name="question_type_${idx}" onchange="onPollTypeChange(this)"
+                    <select name="question_type_${idx}" class="js-poll-type-select"
                             class="rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm shadow-sm focus:border-purple-500 focus:ring-purple-500">
                         <option value="single">Single Choice</option>
                         <option value="multiple">Multiple Choice</option>
@@ -432,13 +485,12 @@ function addPollQuestion() {
                     </label>
                 </div>
             </div>
-            <button type="button" onclick="removePollQuestion(this)" class="text-red-400 hover:text-red-600 transition mt-1">
+            <button type="button" class="js-remove-poll-question text-red-400 hover:text-red-600 transition mt-1">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
         <div class="options-container space-y-2 pl-2">
-            <button type="button" onclick="addPollOption(this, ${idx})"
-                    class="text-sm text-purple-600 dark:text-purple-400 hover:underline">+ Add option</button>
+            <button type="button" class="js-add-poll-option text-sm text-purple-600 dark:text-purple-400 hover:underline" data-question-idx="${idx}">+ Add option</button>
         </div>
     `;
     container.appendChild(block);
@@ -466,7 +518,7 @@ function addPollOption(btn, qIdx) {
     row.innerHTML = `
         <input type="text" name="option_text_${qIdx}_${oIdx}" placeholder="Option text"
                class="flex-1 rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm shadow-sm focus:border-purple-500 focus:ring-purple-500">
-        <button type="button" onclick="this.closest('.option-row').remove()" class="text-red-400 hover:text-red-600 transition">
+        <button type="button" class="js-remove-poll-option text-red-400 hover:text-red-600 transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
     `;
