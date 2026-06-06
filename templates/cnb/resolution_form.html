@@ -175,7 +175,7 @@
                 </a>
                 {% if action == 'Edit' and resolution %}
                 <input type="hidden" name="save_and_preview" id="saveAndPreviewFlag" value="">
-                <button type="button" onclick="submitSaveAndPreview()"
+                <button type="button" id="js-save-and-preview-btn"
                         class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 hover:bg-primary-100 dark:hover:bg-primary-900/50 border border-primary-300 dark:border-primary-700 rounded-lg transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
@@ -200,7 +200,7 @@
                     <span class="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">({{ resolution.amendments.count }})</span>
                     {% endif %}
                 </h2>
-                <button onclick="openAmendmentModal()"
+                <button type="button" id="js-open-amendment-modal"
                         class="inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -233,19 +233,25 @@
                         </div>
                         <div class="flex items-center gap-3 flex-shrink-0">
                             <button type="button"
-                                    onclick="copyRef('{{ amendment.section.full_identifier }}', this, '{{ amendment.amendment_type }}', '{{ amendment.scope_note|escapejs }}', {{ forloop.counter }})"
-                                    class="text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                                    class="js-copy-ref text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                                    data-identifier="{{ amendment.section.full_identifier }}"
+                                    data-amend-type="{{ amendment.amendment_type }}"
+                                    data-scope="{{ amendment.scope_note }}"
+                                    data-num="{{ forloop.counter }}"
                                     title="Copy bracketed reference — paste into the resolution body">
                                 Copy [ref]
                             </button>
                             {% if not amendment.applied %}
                             <button type="button"
-                                    onclick="editAmendment('{{ amendment.section.pk }}', '{{ amendment.proposed_text|escapejs }}', '{{ amendment.scope_note|escapejs }}', '{{ amendment.original_text_snapshot|escapejs }}')"
-                                    class="text-xs text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
+                                    class="js-edit-amendment text-xs text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400"
+                                    data-section-pk="{{ amendment.section.pk }}"
+                                    data-proposed="{{ amendment.proposed_text }}"
+                                    data-scope="{{ amendment.scope_note }}"
+                                    data-original="{{ amendment.original_text_snapshot }}">
                                 Edit
                             </button>
                             <form method="post" action="{% url 'cnb_remove_amendment' resolution_id=resolution.pk amendment_id=amendment.pk %}"
-                                  onsubmit="return confirm('Remove this amendment?')">
+                                  class="js-confirm-remove-amendment">
                                 {% csrf_token %}
                                 <input type="hidden" name="next" value="edit">
                                 <button type="submit" class="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400">Remove</button>
@@ -282,7 +288,7 @@
             {% else %}
             <div class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                 No section amendments added yet.
-                <button onclick="openAmendmentModal()" class="text-primary-600 dark:text-primary-400 underline ml-1">Add one</button>
+                <button type="button" class="js-open-amendment-modal text-primary-600 dark:text-primary-400 underline ml-1">Add one</button>
             </div>
             {% endif %}
         </div>
@@ -293,7 +299,7 @@
 
 <!-- ── Sticky C&B Reference FAB ───────────────────────────────────────────── -->
 {% if ref_docs %}
-<button id="refFab" type="button" onclick="openRef()"
+<button id="refFab" type="button"
         class="fixed bottom-6 right-6 z-30 inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white pl-4 pr-5 py-3 rounded-full shadow-xl text-sm font-semibold transition-colors">
     <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
@@ -305,7 +311,7 @@
 <!-- ── C&B Reference Drawer ───────────────────────────────────────────────── -->
 {% if ref_docs %}
 <!-- Backdrop -->
-<div id="refBackdrop" class="hidden fixed inset-0 bg-black/30 z-40" onclick="closeRef()"></div>
+<div id="refBackdrop" class="hidden fixed inset-0 bg-black/30 z-40"></div>
 
 <!-- Drawer panel -->
 <div id="refDrawer"
@@ -318,7 +324,7 @@
             <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">C&B Reference</h2>
             <p class="text-xs text-gray-500 dark:text-gray-400">Copy identifiers or bracketed refs — paste anywhere, as many times as needed</p>
         </div>
-        <button onclick="closeRef()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded-lg">
+        <button type="button" class="js-close-ref text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded-lg">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
@@ -328,8 +334,9 @@
     <!-- Document tabs -->
     <div class="flex border-b border-gray-200 dark:border-gray-700 flex-shrink-0 bg-white dark:bg-gray-900">
         {% for doc in ref_docs %}
-        <button onclick="showDoc('ref-doc-{{ doc.doc_type }}')"
+        <button type="button"
                 id="ref-tab-{{ doc.doc_type }}"
+                data-doc-panel="ref-doc-{{ doc.doc_type }}"
                 class="ref-tab px-5 py-3 text-sm font-medium border-b-2 transition-colors
                        {% if forloop.first %}border-primary-500 text-primary-600 dark:text-primary-400{% else %}border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300{% endif %}">
             {{ doc.get_doc_type_display }}
@@ -359,8 +366,9 @@
             <div class="{% if not article.is_active %}opacity-50{% endif %}">
 
                 <!-- Article heading (collapsible) -->
-                <button onclick="toggleArticle('ref-art-{{ doc.doc_type }}-{{ article.number }}')"
-                        class="w-full flex items-center justify-between px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/60 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-left">
+                <button type="button"
+                        class="js-toggle-article w-full flex items-center justify-between px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/60 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-left"
+                        data-article-target="ref-art-{{ doc.doc_type }}-{{ article.number }}">
                     <span class="font-semibold text-sm text-gray-900 dark:text-gray-100">
                         Art. {{ article.number }} — {{ article.title }}
                     </span>
@@ -380,8 +388,8 @@
                                 {{ section.full_identifier }}
                             </span>
                             <button type="button"
-                                    onclick="copyIdentifier(this, '{{ section.full_identifier }}')"
-                                    class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    class="js-copy-identifier inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    data-identifier="{{ section.full_identifier }}"
                                     title="Copy identifier to clipboard">
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
@@ -389,8 +397,8 @@
                                 Copy
                             </button>
                             <button type="button"
-                                    onclick="copyRef('{{ section.full_identifier }}', this)"
-                                    class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-primary-300 dark:border-primary-700 text-xs text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors"
+                                    class="js-copy-ref-simple inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-primary-300 dark:border-primary-700 text-xs text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors"
+                                    data-identifier="{{ section.full_identifier }}"
                                     title="Copy bracketed reference — paste anywhere, as many times as needed">
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
@@ -411,8 +419,8 @@
                         <!-- Section text (collapsible) -->
                         <div class="ref-section-content">
                             <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-3 whitespace-pre-wrap">{{ section.content }}</p>
-                            <button type="button" onclick="toggleSectionText(this)"
-                                    class="text-xs text-primary-500 dark:text-primary-400 hover:underline mt-1 expand-btn">Show more</button>
+                            <button type="button"
+                                    class="js-toggle-section-text text-xs text-primary-500 dark:text-primary-400 hover:underline mt-1 expand-btn">Show more</button>
                         </div>
 
                     </div>
@@ -754,7 +762,7 @@
             // Walk article containers (the outer div wrapping the button + section list)
             var articleContainers = activePanel.querySelectorAll(':scope > div');
             articleContainers.forEach(function(artDiv) {
-                if (!artDiv.querySelector('button[onclick*="toggleArticle"]')) return; // skip preamble etc.
+                if (!artDiv.querySelector('button.js-toggle-article')) return; // skip preamble etc.
                 var sectionList = artDiv.querySelector('[id^="ref-art-"]');
                 if (!sectionList) { artDiv.style.display = ''; return; }
 
@@ -801,6 +809,31 @@
             });
         });
     }
+
+    // Wire FAB and backdrop
+    if (fab) fab.addEventListener('click', openRef);
+    if (backdrop) backdrop.addEventListener('click', closeRef);
+    document.querySelectorAll('.js-close-ref').forEach(function(el) {
+        el.addEventListener('click', closeRef);
+    });
+    // Wire doc tabs
+    document.querySelectorAll('.ref-tab[data-doc-panel]').forEach(function(tab) {
+        tab.addEventListener('click', function() { showDoc(this.dataset.docPanel); });
+    });
+    // Wire article toggle buttons
+    document.querySelectorAll('.js-toggle-article').forEach(function(btn) {
+        btn.addEventListener('click', function() { toggleArticle(this.dataset.articleTarget); });
+    });
+    // Wire section copy and expand buttons
+    document.querySelectorAll('.js-copy-identifier').forEach(function(btn) {
+        btn.addEventListener('click', function() { copyIdentifier(this, this.dataset.identifier); });
+    });
+    document.querySelectorAll('.js-copy-ref-simple').forEach(function(btn) {
+        btn.addEventListener('click', function() { copyRef(this.dataset.identifier, this); });
+    });
+    document.querySelectorAll('.js-toggle-section-text').forEach(function(btn) {
+        btn.addEventListener('click', function() { toggleSectionText(this); });
+    });
 })();
 </script>
 {% endif %}
@@ -815,7 +848,7 @@
                 <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Amendment Editor</h3>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Select a section, edit its text, and see exactly what changes before submitting.</p>
             </div>
-            <button onclick="closeAmendmentModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1">
+            <button type="button" class="js-close-amendment-modal text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -882,7 +915,7 @@
                     <div class="flex flex-col overflow-hidden">
                         <div class="px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
                             <span class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Edit Section Text</span>
-                            <button type="button" id="resetTextBtn" onclick="resetToOriginal()"
+                            <button type="button" id="resetTextBtn"
                                     class="text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors">
                                 Reset to original
                             </button>
@@ -923,8 +956,7 @@
             <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
                 <p class="text-xs text-gray-400 dark:text-gray-500" id="amendTypeHint">When this resolution passes, the section text will be replaced with what you write on the left.</p>
                 <div class="flex gap-3">
-                    <button type="button" onclick="closeAmendmentModal()"
-                            class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                    <button type="button" class="js-close-amendment-modal px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">
                         Cancel
                     </button>
                     <button type="submit" id="amendSubmitBtn"
@@ -1172,6 +1204,35 @@
         renderDiff(original, proposed);
         modal.classList.remove('hidden');
     };
+
+    // Wire open/close amendment modal buttons
+    document.querySelectorAll('#js-open-amendment-modal, .js-open-amendment-modal').forEach(function(el) {
+        el.addEventListener('click', openAmendmentModal);
+    });
+    document.querySelectorAll('.js-close-amendment-modal').forEach(function(el) {
+        el.addEventListener('click', closeAmendmentModal);
+    });
+    // Wire reset button
+    var resetBtn = document.getElementById('resetTextBtn');
+    if (resetBtn) resetBtn.addEventListener('click', resetToOriginal);
+    // Wire edit amendment buttons
+    document.querySelectorAll('.js-edit-amendment').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            editAmendment(this.dataset.sectionPk, this.dataset.proposed, this.dataset.scope, this.dataset.original);
+        });
+    });
+    // Wire copy-ref buttons (amendment list)
+    document.querySelectorAll('.js-copy-ref').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            if (window.copyRef) window.copyRef(this.dataset.identifier, this, this.dataset.amendType, this.dataset.scope, parseInt(this.dataset.num));
+        });
+    });
+    // Wire remove amendment form confirmations
+    document.querySelectorAll('.js-confirm-remove-amendment').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm('Remove this amendment?')) e.preventDefault();
+        });
+    });
 })();
 </script>
 
@@ -1185,6 +1246,10 @@ window.submitSaveAndPreview = function() {
     window._isDirty = false;
     form.submit();
 };
+(function() {
+    var btn = document.getElementById('js-save-and-preview-btn');
+    if (btn) btn.addEventListener('click', submitSaveAndPreview);
+})();
 
 // ── Unsaved changes warning ───────────────────────────────────────────────────
 window._isDirty = false;
