@@ -26,7 +26,7 @@
                 {% if current_policy == value %}border-primary-500 bg-primary-50 dark:bg-primary-900/20{% else %}border-gray-200 dark:border-gray-700 hover:border-gray-300{% endif %}">
                 <input type="radio" name="policy" value="{{ value }}"
                     {% if current_policy == value %}checked{% endif %}
-                    class="sr-only" onchange="updatePolicy('{{ value }}')">
+                    class="js-policy-radio sr-only" data-policy-value="{{ value }}">
                 <div class="flex-1">
                     <span class="block text-sm font-medium text-gray-900 dark:text-gray-100">{{ label }}</span>
                 </div>
@@ -95,10 +95,10 @@
         <div class="flex items-center justify-between">
             <span class="text-primary-800 dark:text-primary-200"><span id="selectedCount">0</span> members selected</span>
             <div class="flex gap-2">
-                <button onclick="bulkAction('require')" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm transition">Require 2FA</button>
-                <button onclick="bulkAction('exempt')" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm transition">Exempt</button>
-                <button onclick="bulkAction('clear')" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm transition">Clear Override</button>
-                <button onclick="clearSelection()" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm transition">Cancel</button>
+                <button id="js-bulk-require" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm transition">Require 2FA</button>
+                <button id="js-bulk-exempt" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm transition">Exempt</button>
+                <button id="js-bulk-clear" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm transition">Clear Override</button>
+                <button id="js-clear-selection" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm transition">Cancel</button>
             </div>
         </div>
     </div>
@@ -110,7 +110,7 @@
                 <thead class="bg-gray-50 dark:bg-gray-700">
                     <tr>
                         <th class="px-4 py-3 text-left">
-                            <input type="checkbox" id="selectAll" onchange="toggleSelectAll()"
+                            <input type="checkbox" id="selectAll"
                                 class="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500">
                         </th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Member</th>
@@ -125,7 +125,7 @@
                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700" data-user-id="{{ item.user.user_id }}">
                         <td class="px-4 py-4">
                             <input type="checkbox" class="member-checkbox rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500"
-                                value="{{ item.user.user_id }}" onchange="updateSelection()">
+                                value="{{ item.user.user_id }}">
                         </td>
                         <td class="px-4 py-4">
                             <div class="flex items-center gap-3">
@@ -179,13 +179,13 @@
                         </td>
                         <td class="px-4 py-4">
                             <div class="flex items-center gap-2">
-                                <button onclick="openRequirementModal('{{ item.user.user_id }}', '{{ item.user.name|escapejs }}')"
-                                    class="text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 text-sm font-medium">
+                                <button class="js-open-req-modal text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 text-sm font-medium"
+                                    data-user-id="{{ item.user.user_id }}" data-user-name="{{ item.user.name|escapejs }}">
                                     Set Requirement
                                 </button>
                                 {% if item.has_2fa %}
-                                <button onclick="confirmReset2FA('{{ item.user.user_id }}', '{{ item.user.name|escapejs }}')"
-                                    class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium ml-2">
+                                <button class="js-reset-2fa text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium ml-2"
+                                    data-user-id="{{ item.user.user_id }}" data-user-name="{{ item.user.name|escapejs }}">
                                     Reset 2FA
                                 </button>
                                 {% endif %}
@@ -245,8 +245,8 @@
         </div>
 
         <div class="flex justify-end gap-3">
-            <button onclick="closeRequirementModal()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg transition">Cancel</button>
-            <button onclick="saveRequirement()" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition">Save</button>
+            <button id="js-close-req-modal" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg transition">Cancel</button>
+            <button id="js-save-req" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition">Save</button>
         </div>
     </div>
 </div>
@@ -261,8 +261,8 @@
         <input type="hidden" id="reset2FAUserId">
 
         <div class="flex justify-end gap-3">
-            <button onclick="closeReset2FAModal()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg transition">Cancel</button>
-            <button onclick="confirmReset()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition">Reset 2FA</button>
+            <button id="js-close-reset-modal" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg transition">Cancel</button>
+            <button id="js-confirm-reset" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition">Reset 2FA</button>
         </div>
     </div>
 </div>
@@ -442,6 +442,47 @@ document.getElementById('requirementModal').addEventListener('click', function(e
 });
 document.getElementById('reset2FAModal').addEventListener('click', function(e) {
     if (e.target === this) closeReset2FAModal();
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Policy radio buttons
+    document.querySelectorAll('.js-policy-radio').forEach(function(radio) {
+        radio.addEventListener('change', function() { updatePolicy(this.dataset.policyValue); });
+    });
+
+    // Select-all checkbox
+    document.getElementById('selectAll').addEventListener('change', toggleSelectAll);
+
+    // Member checkboxes (delegation on tbody)
+    document.querySelectorAll('.member-checkbox').forEach(function(cb) {
+        cb.addEventListener('change', updateSelection);
+    });
+
+    // Bulk action buttons
+    document.getElementById('js-bulk-require').addEventListener('click', function() { bulkAction('require'); });
+    document.getElementById('js-bulk-exempt').addEventListener('click', function() { bulkAction('exempt'); });
+    document.getElementById('js-bulk-clear').addEventListener('click', function() { bulkAction('clear'); });
+    document.getElementById('js-clear-selection').addEventListener('click', clearSelection);
+
+    // Open requirement modal buttons (loop)
+    document.querySelectorAll('.js-open-req-modal').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            openRequirementModal(this.dataset.userId, this.dataset.userName);
+        });
+    });
+
+    // Reset 2FA buttons (loop)
+    document.querySelectorAll('.js-reset-2fa').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            confirmReset2FA(this.dataset.userId, this.dataset.userName);
+        });
+    });
+
+    // Modal close/save buttons
+    document.getElementById('js-close-req-modal').addEventListener('click', closeRequirementModal);
+    document.getElementById('js-save-req').addEventListener('click', saveRequirement);
+    document.getElementById('js-close-reset-modal').addEventListener('click', closeReset2FAModal);
+    document.getElementById('js-confirm-reset').addEventListener('click', confirmReset);
 });
 </script>
 {% endblock %}
