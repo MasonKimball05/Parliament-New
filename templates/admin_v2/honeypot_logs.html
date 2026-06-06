@@ -14,10 +14,10 @@
                 <p class="text-gray-600 dark:text-gray-400">Access attempts to trap endpoints — indicates potential attackers</p>
             </div>
             <div class="flex flex-wrap gap-2">
-                <button onclick="confirmBlacklistAll()" class="px-4 py-2 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded-lg text-sm font-medium">
+                <button id="js-blacklist-all-btn" class="px-4 py-2 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded-lg text-sm font-medium">
                     Blacklist All IPs
                 </button>
-                <button onclick="confirmClearAll()" class="px-4 py-2 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 rounded-lg text-sm font-medium">
+                <button id="js-clear-all-btn" class="px-4 py-2 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 rounded-lg text-sm font-medium">
                     Clear All Logs
                 </button>
                 <a href="{% url 'admin_v2_security' %}" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg text-sm font-medium">
@@ -61,11 +61,11 @@
                 {% if ip.ip_address in blacklisted_ips %}
                 <span class="text-xs text-red-600 dark:text-red-400 font-medium">blocked</span>
                 {% else %}
-                <form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}" class="inline">
+                <form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}" class="inline js-confirm-submit" data-confirm-msg="Block {{ ip.ip_address }}?">
                     {% csrf_token %}
                     <input type="hidden" name="ip_address" value="{{ ip.ip_address }}">
                     <input type="hidden" name="reason" value="Honeypot trigger — top attacking IP">
-                    <button type="submit" class="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-300 font-medium" onclick="return confirm('Block {{ ip.ip_address }}?')">block</button>
+                    <button type="submit" class="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-300 font-medium">block</button>
                 </form>
                 {% endif %}
             </div>
@@ -102,18 +102,18 @@
                 — <span class="text-red-600 dark:text-red-400 font-medium">This IP is currently blocked</span>
                 {% else %}
                 —
-                <form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}" class="inline">
+                <form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}" class="inline js-confirm-submit" data-confirm-msg="Block {{ ip_filter }}?">
                     {% csrf_token %}
                     <input type="hidden" name="ip_address" value="{{ ip_filter }}">
                     <input type="hidden" name="reason" value="Honeypot trigger">
-                    <button type="submit" class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200 font-medium underline" onclick="return confirm('Block {{ ip_filter }}?')">Block this IP</button>
+                    <button type="submit" class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200 font-medium underline">Block this IP</button>
                 </form>
                 {% endif %}
             {% endif %}
         </p>
         {% if ip_filter %}
         <div class="mt-2 flex gap-2">
-            <button onclick="confirmClearIP('{{ ip_filter }}')" class="text-xs px-3 py-1 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 rounded">
+            <button id="js-clear-ip-btn" data-ip="{{ ip_filter }}" class="text-xs px-3 py-1 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 rounded">
                 Delete all logs for this IP ({{ total_filtered }})
             </button>
         </div>
@@ -145,14 +145,14 @@
                 <tbody id="honeypot-tbody">
                     {% for log in logs %}
                     <!-- Main row -->
-                    <tr class="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer"
-                        onclick="toggleDetail('detail-{{ log.id }}')" id="row-{{ log.id }}">
+                    <tr class="js-honeypot-row border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer"
+                        data-log-id="{{ log.id }}" id="row-{{ log.id }}">
                         <td class="py-2 px-3 text-gray-900 dark:text-gray-100 whitespace-nowrap text-xs">{{ log.accessed_at|date:"M d, H:i:s" }}</td>
                         <td class="py-2 px-3">
                             <code class="text-amber-600 dark:text-amber-400 text-xs">{{ log.endpoint }}</code>
                         </td>
                         <td class="py-2 px-3">
-                            <a href="?ip={{ log.ip_address }}" class="font-mono text-primary-600 dark:text-primary-400 hover:underline text-xs" onclick="event.stopPropagation()">{{ log.ip_address }}</a>
+                            <a href="?ip={{ log.ip_address }}" class="js-stop-propagation font-mono text-primary-600 dark:text-primary-400 hover:underline text-xs">{{ log.ip_address }}</a>
                             {% if log.ip_address in blacklisted_ips %}
                             <span class="ml-1 px-1 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs rounded">blocked</span>
                             {% endif %}
@@ -186,15 +186,15 @@
                         <td class="py-2 px-3 text-gray-500 dark:text-gray-400 text-xs max-w-[200px]">
                             <span class="truncate block">{{ log.user_agent|truncatechars:45 }}</span>
                         </td>
-                        <td class="py-2 px-3" onclick="event.stopPropagation()">
+                        <td class="js-stop-propagation py-2 px-3">
                             <div class="flex items-center gap-1">
                                 {% if log.ip_address not in blacklisted_ips %}
-                                <form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}">
+                                <form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}" class="js-confirm-submit" data-confirm-msg="Block {{ log.ip_address }}?">
                                     {% csrf_token %}
                                     <input type="hidden" name="ip_address" value="{{ log.ip_address }}">
                                     <input type="hidden" name="reason" value="Honeypot trigger: {{ log.endpoint }}">
-                                    <button type="submit" title="Block IP" onclick="return confirm('Block {{ log.ip_address }}?')"
-                                        class="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded" title="Block IP">
+                                    <button type="submit" title="Block IP"
+                                        class="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
                                         </svg>
@@ -207,8 +207,7 @@
                                     </svg>
                                 </span>
                                 {% endif %}
-                                <button type="button" title="Delete log" onclick="deleteLog({{ log.id }}, this)"
-                                    class="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded">
+                                <button type="button" title="Delete log" class="js-delete-log p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded" data-log-id="{{ log.id }}">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                     </svg>
@@ -377,6 +376,40 @@ function confirmClearIP(ip) {
     document.getElementById('clear-ip-value').value = ip;
     document.getElementById('clear-ip-form').submit();
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    var blacklistAllBtn = document.getElementById('js-blacklist-all-btn');
+    if (blacklistAllBtn) blacklistAllBtn.addEventListener('click', confirmBlacklistAll);
+
+    var clearAllBtn = document.getElementById('js-clear-all-btn');
+    if (clearAllBtn) clearAllBtn.addEventListener('click', confirmClearAll);
+
+    var clearIpBtn = document.getElementById('js-clear-ip-btn');
+    if (clearIpBtn) clearIpBtn.addEventListener('click', function() { confirmClearIP(this.dataset.ip); });
+
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(this.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+
+    var tbody = document.getElementById('honeypot-tbody');
+    if (tbody) {
+        tbody.addEventListener('click', function(e) {
+            var row = e.target.closest('.js-honeypot-row');
+            if (!row) return;
+            toggleDetail('detail-' + row.dataset.logId);
+        });
+    }
+
+    document.querySelectorAll('.js-stop-propagation').forEach(function(el) {
+        el.addEventListener('click', function(e) { e.stopPropagation(); });
+    });
+
+    document.querySelectorAll('.js-delete-log').forEach(function(btn) {
+        btn.addEventListener('click', function() { deleteLog(parseInt(this.dataset.logId), this); });
+    });
+});
 </script>
 {% endblock %}
 {% endblock %}
