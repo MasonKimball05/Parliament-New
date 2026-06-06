@@ -145,7 +145,7 @@
                             {% endif %}
                         </h2>
                         {% if can_edit %}
-                        <button onclick="openAmendmentModal()"
+                        <button class="js-open-amendment-modal"
                                 class="inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -190,7 +190,7 @@
                                 </div>
                                 {% if can_edit and not amendment.applied %}
                                 <form method="post" action="{% url 'cnb_remove_amendment' resolution_id=resolution.pk amendment_id=amendment.pk %}"
-                                      onsubmit="return confirm('Remove this amendment?')">
+                                      class="js-confirm-submit" data-confirm-msg="Remove this amendment?">
                                     {% csrf_token %}
                                     <button type="submit" class="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 flex-shrink-0">Remove</button>
                                 </form>
@@ -252,7 +252,7 @@
                     <div class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                         {% if can_edit %}
                         No section amendments added yet.
-                        <button onclick="openAmendmentModal()"
+                        <button class="js-open-amendment-modal"
                                 class="text-primary-600 dark:text-primary-400 underline ml-1">Add one</button>
                         {% else %}
                         No tracked section amendments.
@@ -284,7 +284,7 @@
                         <form method="post" action="{% url 'cnb_set_status' resolution_id=resolution.pk %}">
                             {% csrf_token %}
                             <input type="hidden" name="status" value="withdrawn">
-                            <button type="submit" onclick="return confirm('Withdraw this resolution?')"
+                            <button type="submit" class="js-confirm-click" data-confirm-msg="Withdraw this resolution?"
                                     class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
                                 Withdraw
                             </button>
@@ -293,7 +293,7 @@
                         <form method="post" action="{% url 'cnb_set_status' resolution_id=resolution.pk %}">
                             {% csrf_token %}
                             <input type="hidden" name="status" value="passed">
-                            <button type="submit" onclick="return confirm('Mark as PASSED? This will apply all tracked amendments to the live document.')"
+                            <button type="submit" class="js-confirm-click" data-confirm-msg="Mark as PASSED? This will apply all tracked amendments to the live document."
                                     class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors">
                                 Resolution Passed
                             </button>
@@ -301,7 +301,7 @@
                         <form method="post" action="{% url 'cnb_set_status' resolution_id=resolution.pk %}">
                             {% csrf_token %}
                             <input type="hidden" name="status" value="failed">
-                            <button type="submit" onclick="return confirm('Mark as FAILED? Impacted sections will be protected from new amendments.')"
+                            <button type="submit" class="js-confirm-click" data-confirm-msg="Mark as FAILED? Impacted sections will be protected from new amendments."
                                     class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
                                 Resolution Failed
                             </button>
@@ -383,7 +383,7 @@
                     <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                         <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Collaborators</h3>
                         {% if is_cnb %}
-                        <button onclick="document.getElementById('addCollabModal').classList.remove('hidden')"
+                        <button id="js-open-collab-modal"
                                 class="text-xs text-primary-600 dark:text-primary-400 hover:underline font-medium">+ Add</button>
                         {% endif %}
                     </div>
@@ -426,7 +426,7 @@
                 <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Amendment Editor</h3>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Select a section, edit its text, and see exactly what changes before submitting.</p>
             </div>
-            <button onclick="closeAmendmentModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1">
+            <button class="js-close-amendment-modal text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -501,7 +501,7 @@
                     <div class="flex flex-col overflow-hidden">
                         <div class="px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
                             <span class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Edit Section Text</span>
-                            <button type="button" id="resetTextBtn" onclick="resetToOriginal()"
+                            <button type="button" id="resetTextBtn"
                                     class="text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors">
                                 Reset to original
                             </button>
@@ -547,8 +547,7 @@
             <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
                 <p class="text-xs text-gray-400 dark:text-gray-500" id="amendTypeHint">When this resolution passes, the section text will be replaced with what you write on the left.</p>
                 <div class="flex gap-3">
-                    <button type="button" onclick="closeAmendmentModal()"
-                            class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                    <button type="button" class="js-close-amendment-modal px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">
                         Cancel
                     </button>
                     <button type="submit" id="amendSubmitBtn"
@@ -846,8 +845,7 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md">
         <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
             <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Add Collaborator</h3>
-            <button onclick="document.getElementById('addCollabModal').classList.add('hidden')"
-                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <button class="js-close-collab-modal text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -875,8 +873,7 @@
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">All chapter members can already view published resolutions. Use Viewer to share a draft before it goes pending.</p>
             </div>
             <div class="flex justify-end gap-3">
-                <button type="button" onclick="document.getElementById('addCollabModal').classList.add('hidden')"
-                        class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                <button type="button" class="js-close-collab-modal px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">
                     Cancel
                 </button>
                 <button type="submit"
@@ -933,6 +930,51 @@
         });
     });
 })();
+</script>
+
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    // Open amendment modal buttons (loop-rendered + empty-state)
+    document.querySelectorAll('.js-open-amendment-modal').forEach(function(btn) {
+        btn.addEventListener('click', openAmendmentModal);
+    });
+
+    // Close amendment modal buttons (× and Cancel)
+    document.querySelectorAll('.js-close-amendment-modal').forEach(function(btn) {
+        btn.addEventListener('click', closeAmendmentModal);
+    });
+
+    // Confirm-on-submit forms (remove amendment)
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(this.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+
+    // Confirm-on-click submit buttons (Withdraw, Passed, Failed)
+    document.querySelectorAll('.js-confirm-click').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            if (!confirm(this.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+
+    // Reset to original button
+    var resetBtn = document.getElementById('resetTextBtn');
+    if (resetBtn) resetBtn.addEventListener('click', resetToOriginal);
+
+    // Open / close collaborator modal
+    var openCollabBtn = document.getElementById('js-open-collab-modal');
+    if (openCollabBtn) {
+        openCollabBtn.addEventListener('click', function() {
+            document.getElementById('addCollabModal').classList.remove('hidden');
+        });
+    }
+    document.querySelectorAll('.js-close-collab-modal').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.getElementById('addCollabModal').classList.add('hidden');
+        });
+    });
+});
 </script>
 
 {% endblock %}
