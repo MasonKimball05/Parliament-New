@@ -182,7 +182,7 @@
             <!-- Mark as Voted Section (officers/admins only) -->
             {% if user.is_admin or user.member_type == 'Officer' %}
             <div class="border-t border-gray-200 dark:border-gray-700">
-                <button type="button" onclick="toggleMarkVoted()"
+                <button type="button" id="js-toggle-mark-voted"
                         class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <span class="flex items-center gap-2 text-sm font-medium text-orange-600 dark:text-orange-400">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -199,7 +199,7 @@
                     <p class="text-xs text-orange-700 dark:text-orange-400 mb-4 pt-2">
                         Use this to record a vote that happened in person or outside the site. This will close the legislation and set its final status. It will not affect any existing online votes.
                     </p>
-                    <form method="post" onsubmit="return confirm('Mark this legislation as voted? This will close it and cannot be easily undone.');">
+                    <form method="post" class="js-confirm-submit" data-confirm-msg="Mark this legislation as voted? This will close it and cannot be easily undone.">
                         {% csrf_token %}
                         <input type="hidden" name="action_type" value="mark_voted">
 
@@ -258,7 +258,7 @@
                 <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
                     Transfer ownership to another member. The current author ({{ legislation.posted_by.name }}) will be added as a co-author automatically.
                 </p>
-                <form method="post" onsubmit="return confirm('Transfer authorship to the selected member? {{ legislation.posted_by.name }} will become a co-author.');">
+                <form method="post" class="js-confirm-submit" data-confirm-msg="Transfer authorship to the selected member? {{ legislation.posted_by.name }} will become a co-author.">
                     {% csrf_token %}
                     <input type="hidden" name="action_type" value="transfer_authorship">
                     <div class="flex gap-2">
@@ -286,7 +286,7 @@
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">This action cannot be undone.</p>
                     </div>
                     <form method="post" action="{% url 'delete_chapter_legislation' legislation.id %}"
-                          onsubmit="return confirm('Are you sure you want to delete this legislation? This action cannot be undone.');">
+                          class="js-confirm-submit" data-confirm-msg="Are you sure you want to delete this legislation? This action cannot be undone.">
                         {% csrf_token %}
                         <button type="submit"
                                 class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition">
@@ -300,6 +300,17 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
+    document.addEventListener('DOMContentLoaded', function() {
+        var toggleBtn = document.getElementById('js-toggle-mark-voted');
+        if (toggleBtn) toggleBtn.addEventListener('click', toggleMarkVoted);
+
+        document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+            form.addEventListener('submit', function(e) {
+                if (!confirm(form.dataset.confirmMsg)) e.preventDefault();
+            });
+        });
+    });
+
     const modeSelect = document.getElementById("vote_mode");
     const percentDiv = document.getElementById("percentage-section");
     const piecewiseDiv = document.getElementById("piecewise-section");

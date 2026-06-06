@@ -33,12 +33,12 @@
 
     <!-- Tab Bar -->
     <div class="flex gap-1 mb-5 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-1">
-        <button id="tab-btn-legislation" onclick="showTab('legislation')"
+        <button id="tab-btn-legislation"
                 class="flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100">
             Legislation
             <span class="ml-1.5 text-xs opacity-60">{{ status_counts.all }}</span>
         </button>
-        <button id="tab-btn-polls" onclick="showTab('polls')"
+        <button id="tab-btn-polls"
                 class="flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50">
             Polls &amp; Surveys
             <span class="ml-1.5 text-xs opacity-60">{{ my_polls|length }}</span>
@@ -482,11 +482,16 @@ function showTab(tab) {
     try { localStorage.setItem('my_work_tab', tab); } catch(e) {}
 }
 
-// Restore last active tab
-(function() {
+document.addEventListener('DOMContentLoaded', function() {
+    var legBtn = document.getElementById('tab-btn-legislation');
+    if (legBtn) legBtn.addEventListener('click', function() { showTab('legislation'); });
+    var pollsBtn = document.getElementById('tab-btn-polls');
+    if (pollsBtn) pollsBtn.addEventListener('click', function() { showTab('polls'); });
+
+    // Restore last active tab
     var saved = null;
     try { saved = localStorage.getItem('my_work_tab'); } catch(e) {}
     if (saved === 'polls') { showTab('polls'); }
-})();
+});
 </script>
 {% endblock %}

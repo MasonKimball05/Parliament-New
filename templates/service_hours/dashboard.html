@@ -37,7 +37,7 @@
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-6">
         <form method="get" class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
             <label for="period" class="text-sm font-medium text-gray-700 dark:text-gray-300">Period:</label>
-            <select name="period" id="period" onchange="this.form.submit()" class="flex-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm">
+            <select name="period" id="period" class="flex-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm">
                 {% for period in all_periods %}
                 <option value="{{ period.id }}" {% if current_period and current_period.id == period.id %}selected{% endif %}>
                     {{ period.name }} ({{ period.start_date|date:"M d" }} - {{ period.end_date|date:"M d, Y" }})
@@ -152,8 +152,8 @@
                                 {% endif %}
                             </td>
                             <td class="px-4 py-3 text-center">
-                                <button type="button" onclick="openAdjustModal('{{ item.member.user_id }}', '{{ item.member.name }}')"
-                                        class="text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
+                                <button type="button" class="js-open-adjust-modal text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
+                                        data-member-id="{{ item.member.user_id }}" data-member-name="{{ item.member.name }}"
                                         title="Adjust hours">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
@@ -233,7 +233,7 @@
     <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white dark:bg-gray-800">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Adjust Hours</h3>
-            <button onclick="closeAdjustModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <button class="js-close-adjust-modal text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -269,8 +269,7 @@
             </div>
 
             <div class="flex justify-end space-x-3">
-                <button type="button" onclick="closeAdjustModal()"
-                        class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <button type="button" class="js-close-adjust-modal px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                     Cancel
                 </button>
                 <button type="submit"
@@ -283,6 +282,19 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    var periodSelect = document.getElementById('period');
+    if (periodSelect) periodSelect.addEventListener('change', function() { this.form.submit(); });
+
+    document.addEventListener('click', function(e) {
+        var openBtn = e.target.closest('.js-open-adjust-modal');
+        if (openBtn) { openAdjustModal(openBtn.dataset.memberId, openBtn.dataset.memberName); return; }
+
+        var closeBtn = e.target.closest('.js-close-adjust-modal');
+        if (closeBtn) { closeAdjustModal(); return; }
+    });
+});
+
 function openAdjustModal(memberId, memberName) {
     document.getElementById('adjust-member-id').value = memberId;
     document.getElementById('adjust-member-name').textContent = memberName;

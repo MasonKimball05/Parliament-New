@@ -80,7 +80,7 @@
         <!-- v2.x collapsible -->
         <div class="{% if detailed_changelogs %}border-t border-gray-100 dark:border-gray-700 pt-4{% endif %}">
             <div class="flex flex-wrap items-center gap-2 mb-1">
-                <button type="button" onclick="toggleV2()" id="v2-toggle-btn"
+                <button type="button" id="v2-toggle-btn"
                         class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                     <svg id="v2-chevron" class="w-4 h-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
@@ -88,7 +88,7 @@
                     Version 2.x
                     <span class="px-1.5 py-0.5 text-xs rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300">{{ v2_changelogs|length }}</span>
                 </button>
-                <button type="button" onclick="filterExternal()" id="external-filter-btn"
+                <button type="button" id="external-filter-btn"
                         class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors">
                     <span class="w-2 h-2 rounded-full bg-amber-400 dark:bg-amber-300"></span>
                     Community contributions
@@ -337,14 +337,19 @@
 <script nonce="{{ request.csp_nonce }}">
 // Wrap all tables in a scrollable container for mobile responsiveness
 document.addEventListener('DOMContentLoaded', function() {
-    const tables = document.querySelectorAll('.changelog-content table');
+    var tables = document.querySelectorAll('.changelog-content table');
     tables.forEach(function(table) {
         if (table.parentElement.classList.contains('table-wrapper')) return;
-        const wrapper = document.createElement('div');
+        var wrapper = document.createElement('div');
         wrapper.className = 'table-wrapper';
         table.parentNode.insertBefore(wrapper, table);
         wrapper.appendChild(table);
     });
+
+    var v2Btn = document.getElementById('v2-toggle-btn');
+    if (v2Btn) v2Btn.addEventListener('click', toggleV2);
+    var filterBtn = document.getElementById('external-filter-btn');
+    if (filterBtn) filterBtn.addEventListener('click', filterExternal);
 });
 
 function toggleV2() {

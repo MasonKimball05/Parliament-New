@@ -242,7 +242,7 @@
                     <!-- Actions for Pending -->
                     {% if excuse.status == 'pending' %}
                     <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4 flex justify-end">
-                        <form method="post" action="{% url 'cancel_excuse' excuse.id %}" onsubmit="return confirm('Are you sure you want to cancel this excuse request?')">
+                        <form method="post" action="{% url 'cancel_excuse' excuse.id %}" class="js-confirm-submit" data-confirm-msg="Are you sure you want to cancel this excuse request?">
                             {% csrf_token %}
                             <button type="submit" class="inline-flex items-center px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition">
                                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -288,4 +288,14 @@
     </div>
     {% endif %}
 </div>
+
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(form.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+});
+</script>
 {% endblock %}

@@ -208,7 +208,7 @@
 
 <div class="print-bar">
     <a href="{% url 'cnb_resolution_detail' resolution_id=resolution.pk %}">&larr; Back to Resolution</a>
-    <button onclick="window.print()">Print / Save as PDF</button>
+    <button id="js-print-btn">Print / Save as PDF</button>
 </div>
 <div class="spacer"></div>
 
@@ -297,7 +297,12 @@
     &mdash; End of Resolution: {{ resolution.title|upper }} &mdash;
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    var printBtn = document.getElementById('js-print-btn');
+    if (printBtn) printBtn.addEventListener('click', function() { window.print(); });
+});
+
 (function() {
     var amendments = [
         {% for amendment in resolution.amendments.all %}

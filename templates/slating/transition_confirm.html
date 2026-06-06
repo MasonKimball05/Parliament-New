@@ -107,7 +107,7 @@
                                 {% if item.enabled %}checked{% endif %}
                                 {% if not item.role %}disabled{% endif %}
                                 class="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 transition-checkbox"
-                                onchange="togglePositionRow(this, {{ item.position.id }})">
+                                data-position-id="{{ item.position.id }}">
                         </div>
 
                         <!-- Position Info -->
@@ -182,16 +182,14 @@
                 <div class="flex flex-col sm:flex-row gap-4">
                     <div class="flex items-center">
                         <input type="radio" name="timing" id="timing_immediate" value="immediate" checked
-                            class="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
-                            onchange="toggleDateInputs()">
+                            class="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500">
                         <label for="timing_immediate" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
                             Execute immediately
                         </label>
                     </div>
                     <div class="flex items-center">
                         <input type="radio" name="timing" id="timing_scheduled" value="scheduled"
-                            class="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
-                            onchange="toggleDateInputs()">
+                            class="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500">
                         <label for="timing_scheduled" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
                             Schedule for later
                         </label>
@@ -282,11 +280,18 @@ function toggleDateInputs() {
 // Initialize disabled states on page load
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.transition-checkbox').forEach(function(checkbox) {
-        const positionId = checkbox.id.replace('enable_', '');
+        const positionId = checkbox.dataset.positionId || checkbox.id.replace('enable_', '');
         const select = document.querySelector('.member-select-' + positionId);
         if (select && !checkbox.checked) {
             select.classList.add('opacity-50');
         }
+    });
+
+    document.addEventListener('change', function(e) {
+        var cb = e.target.closest('.transition-checkbox[data-position-id]');
+        if (cb) { togglePositionRow(cb, cb.dataset.positionId); return; }
+
+        if (e.target.name === 'timing') { toggleDateInputs(); return; }
     });
 
     // Set minimum date to today

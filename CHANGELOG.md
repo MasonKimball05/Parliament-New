@@ -255,6 +255,26 @@ Wires the seven `KaiMemberPermission` flags into actual view and template enforc
 
 ---
 
+### v3.1.2 — CSP `unsafe-inline` Removal (2026-06-06)
+
+Completes the multi-session inline handler migration. Every `onclick=`, `onchange=`, `onsubmit=`, and `oninput=` attribute has been removed from all templates and replaced with `addEventListener` calls inside nonced `<script>` blocks. With no remaining inline handlers, `'unsafe-inline'` can be dropped from `script-src` entirely.
+
+**Type:** Security
+
+**Security:**
+- **`src/middleware/security.py`** — `'unsafe-inline'` removed from `script-src`. The directive is now `script-src 'self' 'nonce-{nonce}'` (plus the Cloudflare beacon domain when applicable). Any script injected into the page — even one that bypasses input sanitization — is blocked by the browser because it will not carry the per-request nonce.
+
+**Templates changed** (inline handler → `addEventListener` migration, this session):
+- `committee/upload_document.html`, `committee/create_vote.html`, `committee/documents.html`, `committee/push_to_chapter.html`, `committee/manage_members.html`
+- `officer/attendance_dashboard.html`, `officer/member_attendance_detail.html`
+- `legislation_history.html`, `changelog.html`, `my_attendance.html`, `my_excuses.html`
+- `kai/print_report.html`, `kai/manage_templates.html`, `kai/view_reports.html`
+- `manage_chapter_document.html`, `cnb/resolution_print.html`
+- `slating/view_application.html`, `slating/my_applications.html`
+- `errors/pledge_restricted.html`, `admin/migrate_user_id.html`
+
+---
+
 ### v3.1.1 — Security & Performance Fixes (2026-06-06) ✅ Deployed
 
 Patch release addressing all findings from the automated code review of v3.1.0. Security fixes, performance improvements, async email migration, and wildcard import cleanup.

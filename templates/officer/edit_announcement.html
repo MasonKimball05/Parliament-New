@@ -124,7 +124,7 @@
             <!-- Linked Documents -->
             {% if chapter_docs %}
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                <button type="button" id="docs-toggle-btn" onclick="toggleDocs()"
+                <button type="button" id="docs-toggle-btn"
                         class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                     <span>Attach Chapter Documents</span>
                     <span id="docs-badge" class="{% if linked_doc_ids %}{% else %}hidden{% endif %} px-1.5 py-0.5 text-xs bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-400 rounded-full">{{ linked_doc_ids|length }} attached</span>
@@ -135,7 +135,7 @@
                 <div id="docs-panel" class="{% if not linked_doc_ids %}hidden{% endif %} border-t border-gray-200 dark:border-gray-700 bg-primary-50 dark:bg-primary-900/10 px-4 py-3">
                     <p class="text-xs text-primary-700 dark:text-primary-400 mb-3">Select chapter documents to attach as links in this announcement.</p>
                     <div class="mb-2">
-                        <input type="text" id="docs-search" placeholder="Search documents…" oninput="filterDocs()"
+                        <input type="text" id="docs-search" placeholder="Search documents…"
                                class="w-full text-sm rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 py-1.5 px-3">
                     </div>
                     <div id="docs-no-results" class="hidden text-xs text-gray-500 dark:text-gray-400 py-2">No documents match your search.</div>
@@ -144,8 +144,7 @@
                         <label class="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer">
                             <input type="checkbox" name="linked_document_ids" value="{{ doc.id }}"
                                    {% if doc.id in linked_doc_ids %}checked{% endif %}
-                                   class="doc-checkbox rounded border-gray-300 dark:border-gray-600 text-primary-500 focus:ring-primary-400 dark:bg-gray-700"
-                                   onchange="updateDocsBadge()">
+                                   class="doc-checkbox rounded border-gray-300 dark:border-gray-600 text-primary-500 focus:ring-primary-400 dark:bg-gray-700">
                             <span class="flex-1 min-w-0">
                                 <span class="text-sm font-medium text-gray-900 dark:text-white">{{ doc.title }}</span>
                                 {% if doc.document_type %}
@@ -241,6 +240,16 @@
 
 <script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
+    var toggleBtn = document.getElementById('docs-toggle-btn');
+    if (toggleBtn) toggleBtn.addEventListener('click', toggleDocs);
+
+    var docsSearch = document.getElementById('docs-search');
+    if (docsSearch) docsSearch.addEventListener('input', filterDocs);
+
+    document.addEventListener('change', function(e) {
+        if (e.target.closest('.doc-checkbox')) updateDocsBadge();
+    });
+
     // Pledge visibility warning
     const visibilityCheckboxes = document.getElementById('visibility-checkboxes');
     const pledgeWarning = document.getElementById('pledge-visibility-warning');

@@ -134,7 +134,7 @@
                     <p id="pm-type-badge" class="mt-0.5"></p>
                     <p id="pm-roll" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5"></p>
                 </div>
-                <button type="button" onclick="closeProfileModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0 p-1 -mr-1">
+                <button type="button" class="js-close-profile-modal text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0 p-1 -mr-1">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
@@ -183,7 +183,7 @@
                                 <option value="{{ val }}">{{ label }}</option>
                                 {% endfor %}
                             </select>
-                            <button type="button" onclick="submitHouseChange()" class="px-3 py-1 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition">Set</button>
+                            <button type="button" id="js-submit-house-change" class="px-3 py-1 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition">Set</button>
                         </div>
                         {% endif %}
                     </div>
@@ -196,7 +196,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
             <p class="text-sm text-gray-500 dark:text-gray-400">Could not load profile.</p>
-            <button type="button" onclick="closeProfileModal()" class="mt-2 text-sm text-primary-600 dark:text-primary-400 hover:underline">Close</button>
+            <button type="button" class="js-close-profile-modal mt-2 text-sm text-primary-600 dark:text-primary-400 hover:underline">Close</button>
         </div>
     </div>
     </div>
@@ -243,7 +243,7 @@
 .dark .tree-root-separator { border-top-color: #374151; }
 </style>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 (function () {
     const HOUSES_DATA = JSON.parse(document.getElementById('houses-data').textContent || '[]');
 
@@ -581,10 +581,17 @@
     }
     {% endif %}
 
-    // Expose for onclick
-    window.openProfileModal  = openProfileModal;
-    window.closeProfileModal = closeProfileModal;
-    {% if can_set_house %}window.submitHouseChange = submitHouseChange;{% endif %}
+    // Wire button listeners
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.js-close-profile-modal')) closeProfileModal();
+    });
+    {% if can_set_house %}
+    var houseChangeBtn = document.getElementById('js-submit-house-change');
+    if (houseChangeBtn) houseChangeBtn.addEventListener('click', submitHouseChange);
+    {% endif %}
+
+    // Expose openProfileModal for SVG room click handlers
+    window.openProfileModal = openProfileModal;
 })();
 </script>
 {% endblock %}

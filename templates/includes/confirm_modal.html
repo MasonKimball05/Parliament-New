@@ -58,8 +58,8 @@ Or for inline delete buttons with dynamic URLs:
         <!-- Footer -->
         <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-3">
             <button type="button"
-                    onclick="ParliamentModal.close('{{ modal_id|default:'confirmModal' }}')"
-                    class="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition font-medium">
+                    data-modal-close="{{ modal_id|default:'confirmModal' }}"
+                    class="js-parliament-modal-close px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition font-medium">
                 {{ cancel_text|default:'Cancel' }}
             </button>
 
@@ -94,5 +94,12 @@ Or for inline delete buttons with dynamic URLs:
             closeOnBackdrop: true
         });
     }
+
+    document.addEventListener('click', function(e) {
+        var closeBtn = e.target.closest('.js-parliament-modal-close');
+        if (closeBtn && window.ParliamentModal) {
+            ParliamentModal.close(closeBtn.dataset.modalClose);
+        }
+    });
 })();
 </script>

@@ -33,7 +33,7 @@
         </div>
     </div>
 
-    <form method="post" id="manual-results-form">
+    <form method="post" id="manual-results-form" class="js-confirm-submit" data-confirm-msg="Record these results and close voting? This cannot be undone.">
         {% csrf_token %}
 
         <!-- Vote mode selection -->
@@ -44,24 +44,24 @@
             </div>
             <div class="px-5 py-4 space-y-3">
                 <label class="flex items-start gap-3 cursor-pointer">
-                    <input type="radio" name="vote_mode" value="none" checked onchange="setVoteMode('none')"
-                        class="mt-0.5 h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500">
+                    <input type="radio" name="vote_mode" value="none" checked
+                        class="js-vote-mode-radio mt-0.5 h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500">
                     <div>
                         <p class="text-sm font-medium text-gray-800 dark:text-gray-200">No vote records</p>
                         <p class="text-xs text-gray-500 dark:text-gray-400">Just record who won each position. All positions marked as passed.</p>
                     </div>
                 </label>
                 <label class="flex items-start gap-3 cursor-pointer">
-                    <input type="radio" name="vote_mode" value="overall" onchange="setVoteMode('overall')"
-                        class="mt-0.5 h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500">
+                    <input type="radio" name="vote_mode" value="overall"
+                        class="js-vote-mode-radio mt-0.5 h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500">
                     <div>
                         <p class="text-sm font-medium text-gray-800 dark:text-gray-200">Overall vote (full slate)</p>
                         <p class="text-xs text-gray-500 dark:text-gray-400">One approve/reject/abstain count for the entire slate.</p>
                     </div>
                 </label>
                 <label class="flex items-start gap-3 cursor-pointer">
-                    <input type="radio" name="vote_mode" value="per_position" onchange="setVoteMode('per_position')"
-                        class="mt-0.5 h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500">
+                    <input type="radio" name="vote_mode" value="per_position"
+                        class="js-vote-mode-radio mt-0.5 h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500">
                     <div>
                         <p class="text-sm font-medium text-gray-800 dark:text-gray-200">Per-position votes</p>
                         <p class="text-xs text-gray-500 dark:text-gray-400">Separate approve/reject/abstain count for each position.</p>
@@ -142,7 +142,6 @@
                 ← Back to Setup
             </a>
             <button type="submit"
-                onclick="return confirm('Record these results and close voting? This cannot be undone.')"
                 class="inline-flex items-center px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                 Record Results &amp; Close
             </button>
@@ -152,6 +151,19 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('change', function(e) {
+        var radio = e.target.closest('.js-vote-mode-radio');
+        if (radio) setVoteMode(radio.value);
+    });
+
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(form.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+});
+
 function setVoteMode(mode) {
     document.getElementById('overall-vote-inputs').classList.toggle('hidden', mode !== 'overall');
     document.querySelectorAll('.per-position-votes').forEach(function(el) {

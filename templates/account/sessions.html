@@ -46,7 +46,7 @@
             <span class="font-semibold text-gray-900 dark:text-white">{{ session_count }}</span> active session{% if session_count != 1 %}s{% endif %}
         </p>
         {% if session_count > 1 %}
-        <button onclick="revokeAllOtherSessions()"
+        <button id="js-revoke-all-sessions"
                 class="text-sm px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50 rounded-lg transition-colors">
             Log Out All Other Sessions
         </button>
@@ -121,8 +121,8 @@
 
                 <!-- Actions -->
                 {% if not session.is_current %}
-                <button onclick="revokeSession('{{ session.session_key }}')"
-                        class="flex-shrink-0 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <button class="js-revoke-session flex-shrink-0 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+                        data-session-key="{{ session.session_key }}">
                     Log Out
                 </button>
                 {% endif %}
@@ -147,6 +147,16 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    var revokeAllBtn = document.getElementById('js-revoke-all-sessions');
+    if (revokeAllBtn) revokeAllBtn.addEventListener('click', revokeAllOtherSessions);
+
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.js-revoke-session');
+        if (btn) revokeSession(btn.dataset.sessionKey);
+    });
+});
+
 function revokeSession(sessionKey) {
     if (!confirm('Are you sure you want to log out this session?')) {
         return;

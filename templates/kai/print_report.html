@@ -214,8 +214,8 @@
 <body>
   <!-- Print/Back Buttons (hidden when printing) -->
   <div class="no-print">
-    <button onclick="window.print()">🖨️ Print / Save as PDF</button>
-    <button class="back-button" onclick="window.location.href='{% url 'manage_kai_report' report.id %}'">← Back to Report</button>
+    <button id="js-print-btn">🖨️ Print / Save as PDF</button>
+    <button id="js-back-btn" class="back-button">← Back to Report</button>
   </div>
 
   <!-- Header -->
@@ -355,6 +355,15 @@
     </div>
   </div>
   {% endif %}
+
+  <script nonce="{{ request.csp_nonce }}">
+  document.addEventListener('DOMContentLoaded', function() {
+      var printBtn = document.getElementById('js-print-btn');
+      if (printBtn) printBtn.addEventListener('click', function() { window.print(); });
+      var backBtn = document.getElementById('js-back-btn');
+      if (backBtn) backBtn.addEventListener('click', function() { window.location.href = '{% url 'manage_kai_report' report.id %}'; });
+  });
+  </script>
 
   <!-- Footer -->
   <div class="footer">

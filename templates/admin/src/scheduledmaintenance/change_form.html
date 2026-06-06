@@ -7,9 +7,9 @@
 {% if show_start_button %}
 <li>
     <a href="../{{ maintenance_obj.pk }}/start/"
-       class="button"
+       class="button js-confirm-navigate"
        style="background: #f59e0b; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold;"
-       onclick="return confirm('Start maintenance now? This will enable maintenance mode and block non-admin users.');">
+       data-confirm-msg="Start maintenance now? This will enable maintenance mode and block non-admin users.">
         🔧 Start Maintenance Now
     </a>
 </li>
@@ -18,9 +18,9 @@
 {% if show_complete_button %}
 <li>
     <a href="../{{ maintenance_obj.pk }}/complete/"
-       class="button"
+       class="button js-confirm-navigate"
        style="background: #22c55e; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold;"
-       onclick="return confirm('Mark maintenance as complete? This will disable maintenance mode and restore normal access.');">
+       data-confirm-msg="Mark maintenance as complete? This will disable maintenance mode and restore normal access.">
         ✓ Complete Maintenance
     </a>
 </li>
@@ -46,8 +46,9 @@
         {% endif %}
     </p>
     <a href="../{{ maintenance_obj.pk }}/start/"
+       class="js-confirm-navigate"
        style="display: inline-block; background: #f59e0b; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;"
-       onclick="return confirm('Start maintenance now? This will:\\n\\n• Enable maintenance mode\\n• Block all non-admin users\\n• Show the maintenance page\\n• Send notification email (if configured)\\n\\nProceed?');">
+       data-confirm-msg="Start maintenance now? This will enable maintenance mode and block non-admin users.">
         🔧 Start Maintenance Now
     </a>
     <p style="margin: 10px 0 0 0; color: #92400e; font-size: 13px;">
@@ -60,8 +61,9 @@
         <strong>Status:</strong> Maintenance is currently in progress
     </p>
     <a href="../{{ maintenance_obj.pk }}/complete/"
+       class="js-confirm-navigate"
        style="display: inline-block; background: #22c55e; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;"
-       onclick="return confirm('Complete maintenance?\\n\\nThis will:\\n• Disable maintenance mode\\n• Restore normal access for all users\\n\\nProceed?');">
+       data-confirm-msg="Mark maintenance as complete? This will disable maintenance mode and restore normal access.">
         ✓ Complete Maintenance
     </a>
     <p style="margin: 10px 0 0 0; color: #166534; font-size: 13px;">
@@ -95,4 +97,18 @@
 </div>
 {% endif %}
 
+{% endblock %}
+
+{% block extrahead %}{{ block.super }}
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('click', function(e) {
+        var link = e.target.closest('.js-confirm-navigate');
+        if (link) {
+            e.preventDefault();
+            if (confirm(link.dataset.confirmMsg)) window.location.href = link.href;
+        }
+    });
+});
+</script>
 {% endblock %}

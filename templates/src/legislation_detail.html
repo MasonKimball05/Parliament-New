@@ -264,8 +264,8 @@
     <!-- Present Members Dropdown -->
     {% if present_members %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mb-6">
-        <button type="button" onclick="toggleSection('present-members-panel', 'pm-chevron')"
-                class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+        <button type="button" class="js-toggle-section w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                data-panel-id="present-members-panel" data-chevron-id="pm-chevron">
             <span class="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-white">
                 <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -295,8 +295,8 @@
     <!-- Individual Votes Dropdown (non-anonymous only) -->
     {% if individual_votes %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mb-6">
-        <button type="button" onclick="toggleSection('individual-votes-panel', 'iv-chevron')"
-                class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+        <button type="button" class="js-toggle-section w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                data-panel-id="individual-votes-panel" data-chevron-id="iv-chevron">
             <span class="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-white">
                 <svg class="w-5 h-5 text-indigo-500 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
@@ -344,6 +344,11 @@ function toggleSection(panelId, chevronId) {
     panel.classList.toggle('hidden', !isHidden);
     chevron.style.transform = isHidden ? 'rotate(180deg)' : '';
 }
+
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.js-toggle-section');
+    if (btn) toggleSection(btn.dataset.panelId, btn.dataset.chevronId);
+});
 </script>
 
 {% if vote_result.mode != "plurality" and legislation.voting_closed and vote_result.total > 0 %}

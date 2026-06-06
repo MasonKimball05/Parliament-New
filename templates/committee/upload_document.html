@@ -43,9 +43,8 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Document Type <span class="text-red-500 dark:text-red-400">*</span>
                     </label>
-                    <select name="document_type" required
-                            class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2"
-                            onchange="toggleMeetingDate(this.value)">
+                    <select name="document_type" id="js-document-type" required
+                            class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2">
                         <option value="general">General Document</option>
                         <option value="minutes">Meeting Minutes</option>
                         <option value="agenda">Meeting Agenda</option>
@@ -82,21 +81,11 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Accepted formats: PDF, DOCX, DOC, TXT</p>
             </div>
 
-            <script nonce="{{ request.csp_nonce }}">
-                function toggleMeetingDate(docType) {
-                    const meetingDateField = document.getElementById('meeting_date_field');
-                    if (docType === 'minutes' || docType === 'agenda') {
-                        meetingDateField.style.display = 'block';
-                    } else {
-                        meetingDateField.style.display = 'none';
-                    }
-                }
-            </script>
 
             <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
                 <label class="flex items-center space-x-2">
                     <input type="checkbox" name="publish_to_chapter" value="true" id="publish_to_chapter"
-                           class="rounded border-gray-300 dark:border-gray-600" onchange="toggleFolderSelection()">
+                           class="rounded border-gray-300 dark:border-gray-600">
                     <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Publish to Chapter Documents (visible to all members)
                     </span>
@@ -122,11 +111,21 @@
             </div>
 
             <script nonce="{{ request.csp_nonce }}">
+                function toggleMeetingDate(docType) {
+                    var meetingDateField = document.getElementById('meeting_date_field');
+                    meetingDateField.style.display = (docType === 'minutes' || docType === 'agenda') ? 'block' : 'none';
+                }
                 function toggleFolderSelection() {
-                    const publishCheckbox = document.getElementById('publish_to_chapter');
-                    const folderSelection = document.getElementById('folder_selection');
+                    var publishCheckbox = document.getElementById('publish_to_chapter');
+                    var folderSelection = document.getElementById('folder_selection');
                     folderSelection.style.display = publishCheckbox.checked ? 'block' : 'none';
                 }
+                document.addEventListener('DOMContentLoaded', function() {
+                    var docTypeSelect = document.getElementById('js-document-type');
+                    if (docTypeSelect) docTypeSelect.addEventListener('change', function() { toggleMeetingDate(this.value); });
+                    var publishCb = document.getElementById('publish_to_chapter');
+                    if (publishCb) publishCb.addEventListener('change', toggleFolderSelection);
+                });
             </script>
 
             <div class="flex gap-3">

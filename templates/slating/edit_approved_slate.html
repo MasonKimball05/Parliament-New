@@ -70,8 +70,8 @@
                     </div>
 
                     <!-- Replace form -->
-                    <form method="post" class="flex flex-col sm:flex-row sm:items-end gap-2 flex-wrap w-full sm:w-auto"
-                        onsubmit="return confirmReplace(this, '{{ row.position.title|escapejs }}', '{{ row.current.candidate_name|default:"(vacant)"|escapejs }}')">
+                    <form method="post" class="js-replace-form flex flex-col sm:flex-row sm:items-end gap-2 flex-wrap w-full sm:w-auto"
+                        data-pos-title="{{ row.position.title|escapejs }}" data-current-name="{{ row.current.candidate_name|default:"(vacant)"|escapejs }}">
                         {% csrf_token %}
                         <input type="hidden" name="position_id" value="{{ row.position.id }}">
 
@@ -81,15 +81,13 @@
                                 <label class="flex items-center gap-1.5 cursor-pointer">
                                     <input type="radio" name="candidate_type_{{ row.position.id }}" value="applicant"
                                         form=""
-                                        onchange="toggleCandidateType({{ row.position.id }}, 'applicant')"
-                                        class="h-3.5 w-3.5 text-primary-600">
+                                        class="js-candidate-type-radio h-3.5 w-3.5 text-primary-600" data-pos-id="{{ row.position.id }}">
                                     Applicant
                                 </label>
                                 <label class="flex items-center gap-1.5 cursor-pointer">
                                     <input type="radio" name="candidate_type_{{ row.position.id }}" value="write_in"
                                         form=""
-                                        onchange="toggleCandidateType({{ row.position.id }}, 'write_in')"
-                                        class="h-3.5 w-3.5 text-primary-600">
+                                        class="js-candidate-type-radio h-3.5 w-3.5 text-primary-600" data-pos-id="{{ row.position.id }}">
                                     Write-in
                                 </label>
                             </div>
@@ -136,6 +134,21 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('change', function(e) {
+        var radio = e.target.closest('.js-candidate-type-radio');
+        if (radio) toggleCandidateType(radio.dataset.posId, radio.value);
+    });
+
+    document.querySelectorAll('.js-replace-form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirmReplace(form, form.dataset.posTitle, form.dataset.currentName)) {
+                e.preventDefault();
+            }
+        });
+    });
+});
+
 function toggleCandidateType(posId, type) {
     const applicantDiv = document.getElementById('applicant_' + posId);
     const writeinDiv   = document.getElementById('writein_' + posId);

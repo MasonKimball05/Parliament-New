@@ -177,7 +177,7 @@
 
                                     <!-- Unpush from Chapter -->
                                     <form method="POST" action="{% url 'unpush_from_chapter' data.committee.code %}"
-                                          class="inline-flex items-center" onsubmit="return confirm('Are you sure you want to remove this vote from chapter documents?');">
+                                          class="js-confirm-submit inline-flex items-center" data-confirm-msg="Are you sure you want to remove this vote from chapter documents?">
                                         {% csrf_token %}
                                         <input type="hidden" name="legislation_id" value="{{ vote.id }}">
                                         <input type="hidden" name="next" value="{% url 'chapter_documents' %}">
@@ -232,7 +232,7 @@
                                 {{ documents|length }} <span class="hidden xs:inline">document{{ documents|length|pluralize }}</span><span class="xs:hidden">doc{{ documents|length|pluralize }}</span>
                             </span>
                             {% if is_admin %}
-                                <form method="POST" action="{% url 'delete_folder' folder.id %}" onsubmit="return confirm('Delete this folder? Documents will be moved to Uncategorized.');" class="inline" onclick="event.stopPropagation();">
+                                <form method="POST" action="{% url 'delete_folder' folder.id %}" class="js-confirm-submit js-stop-propagation inline" data-confirm-msg="Delete this folder? Documents will be moved to Uncategorized.">
                                     {% csrf_token %}
                                     <button type="submit" class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" title="Delete folder">
                                         <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -336,7 +336,7 @@
                 <button type="submit" class="bg-green-500 dark:bg-green-600 text-white px-6 py-2 rounded hover:bg-green-600 dark:hover:bg-green-700 transition-colors">
                     Create Folder
                 </button>
-                <button type="button" onclick="hideCreateFolderModal()" class="bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 px-6 py-2 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors">
+                <button type="button" class="js-hide-create-folder-modal bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 px-6 py-2 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors">
                     Cancel
                 </button>
             </div>
@@ -345,6 +345,22 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
+    document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.js-hide-create-folder-modal')) hideCreateFolderModal();
+        });
+
+        document.querySelectorAll('.js-stop-propagation').forEach(function(el) {
+            el.addEventListener('click', function(e) { e.stopPropagation(); });
+        });
+
+        document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+            form.addEventListener('submit', function(e) {
+                if (!confirm(form.dataset.confirmMsg)) e.preventDefault();
+            });
+        });
+    });
+
     function showCreateFolderModal() {
         document.getElementById('createFolderModal').classList.remove('hidden');
         document.getElementById('createFolderModal').classList.add('flex');

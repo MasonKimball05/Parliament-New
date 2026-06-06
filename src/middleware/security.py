@@ -591,16 +591,11 @@ class InputSanitizationMiddleware:
 
         # Content Security Policy
         #
-        # script-src uses a per-request nonce instead of 'unsafe-inline'.
+        # script-src uses a per-request nonce with NO 'unsafe-inline'.
         # Every inline <script> tag in templates carries nonce="{{ request.csp_nonce }}"
-        # so only scripts we wrote are executed — injected scripts have no nonce and
-        # are blocked even if they slip past input sanitization.
-        #
-        # Admin-v2 exception: /admin-v2/ uses 'unsafe-inline' instead of a nonce
-        # because its templates use inline onclick= handlers extensively. These pages
-        # are behind authentication so the XSS risk is significantly lower.
-        # Per the CSP spec, 'unsafe-inline' is ignored when a nonce is also present,
-        # so the two approaches cannot be combined — admin-v2 omits the nonce.
+        # and every inline event handler (onclick=, onchange=, etc.) has been removed
+        # from all templates in favour of addEventListener calls. Any injected script
+        # without the correct nonce is blocked by the browser before it executes.
         #
         # style-src keeps 'unsafe-inline' because inline style= attributes are used
         # throughout templates (Alpine.js, dynamic widths, etc.) and cannot be nonced.
@@ -612,23 +607,12 @@ class InputSanitizationMiddleware:
         if not getattr(settings, 'DEBUG', False):
             behind_cf = getattr(settings, 'BEHIND_CLOUDFLARE', False)
             cf_beacon = ' https://static.cloudflareinsights.com' if behind_cf else ''
-            # script-src: nonce re-enabled alongside 'unsafe-inline'.
-            # Per the CSP spec, when a nonce is present browsers that support CSP2+
-            # ignore 'unsafe-inline' for <script> blocks — so any nonce-bearing script
-            # tag we wrote is protected even while onclick= handlers (which cannot be
-            # nonced) still require 'unsafe-inline' as a fallback for older browsers.
-            # Incrementally migrating onclick= → addEventListener will let us remove
-            # 'unsafe-inline' from script-src entirely once all handlers are gone.
-            #
-            # style-src keeps 'unsafe-inline': inline style= attributes are used
-            # throughout templates and cannot be nonced; styles can't execute code.
-            #
             # object-src / worker-src: locked to 'none' — no plugins or web workers.
             # upgrade-insecure-requests: browser upgrades any accidental http:// refs.
             nonce_val = f"'nonce-{csp_nonce}'" if csp_nonce else ''
             csp_parts = [
                 "default-src 'self'",
-                f"script-src 'self' {nonce_val} 'unsafe-inline'{cf_beacon}".strip(),
+                f"script-src 'self' {nonce_val}{cf_beacon}".strip(),
                 "style-src 'self' 'unsafe-inline'",
                 "img-src 'self' data: https:",
                 "font-src 'self' data:",

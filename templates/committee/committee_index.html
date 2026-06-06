@@ -18,11 +18,11 @@
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <!-- Mobile overlay for dropdown -->
-                <div id="dropdownOverlay" class="hidden fixed inset-0 bg-black/20 z-40 sm:hidden" onclick="toggleDropdown()"></div>
+                <div id="dropdownOverlay" class="hidden fixed inset-0 bg-black/20 z-40 sm:hidden"></div>
 
                 <!-- Dropdown showing all committees -->
                 <div class="relative" id="dropdownContainer">
-                    <button onclick="toggleDropdown()" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/20 hover:bg-white/30 text-white transition whitespace-nowrap">
+                    <button id="js-toggle-dropdown" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/20 hover:bg-white/30 text-white transition whitespace-nowrap">
                         <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
                         </svg>
@@ -255,6 +255,11 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('js-toggle-dropdown').addEventListener('click', toggleDropdown);
+        document.getElementById('dropdownOverlay').addEventListener('click', toggleDropdown);
+    });
+
     function toggleDropdown() {
         const dropdown = document.getElementById('committeeDropdown');
         const overlay = document.getElementById('dropdownOverlay');
@@ -265,7 +270,7 @@
             overlay.classList.remove('hidden');
             // On mobile, position below the button
             if (window.innerWidth < 640) {
-                const button = document.querySelector('button[onclick="toggleDropdown()"]');
+                const button = document.getElementById('js-toggle-dropdown');
                 const rect = button.getBoundingClientRect();
                 dropdown.style.top = (rect.bottom + 8) + 'px';
             }
@@ -279,7 +284,7 @@
     document.addEventListener('click', function(event) {
         const dropdown = document.getElementById('committeeDropdown');
         const overlay = document.getElementById('dropdownOverlay');
-        const button = event.target.closest('button[onclick="toggleDropdown()"]');
+        const button = event.target.closest('#js-toggle-dropdown');
 
         if (!button && !dropdown.contains(event.target)) {
             dropdown.classList.add('hidden');

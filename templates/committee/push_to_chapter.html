@@ -57,7 +57,7 @@
                             </span>
                         </div>
                     {% else %}
-                        <form method="POST" onsubmit="return confirm('Are you sure you want to push this to a chapter vote?');">
+                        <form method="POST" class="js-confirm-submit" data-confirm-msg="Are you sure you want to push this to a chapter vote?">
                             {% csrf_token %}
                             <input type="hidden" name="legislation_id" value="{{ leg.id }}">
                             <button type="submit"
@@ -77,4 +77,14 @@
         {% endfor %}
     </div>
 </div>
+
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(form.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+});
+</script>
 {% endblock %}

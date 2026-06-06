@@ -108,7 +108,7 @@
                             {% endif %}
                         </div>
                     </div>
-                    <form method="post" class="inline" onsubmit="return confirm('Delete category &quot;{{ category.name }}&quot;?');">
+                    <form method="post" class="js-confirm-submit inline" data-confirm-msg="Delete category &quot;{{ category.name }}&quot;?">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="category_id" value="{{ category.id }}">
@@ -179,7 +179,7 @@
                         {% for chorister in choristers %}
                         <div class="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                             <span class="text-gray-900 dark:text-white">{{ chorister.name }}</span>
-                            <form method="post" class="inline" onsubmit="return confirm('Remove Chorister role from {{ chorister.name }}?');">
+                            <form method="post" class="js-confirm-submit inline" data-confirm-msg="Remove Chorister role from {{ chorister.name }}?">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="remove_chorister">
                                 <input type="hidden" name="user_id" value="{{ chorister.user_id }}">
@@ -212,4 +212,14 @@
         </a>
     </div>
 </div>
+
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(form.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+});
+</script>
 {% endblock %}

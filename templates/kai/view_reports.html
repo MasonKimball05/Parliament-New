@@ -66,7 +66,7 @@
 
     <!-- Analytics (collapsible) -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-6 transition-colors duration-200">
-      <button onclick="toggleAnalytics()" id="analytics-toggle"
+      <button id="analytics-toggle"
               class="w-full flex items-center justify-between px-5 py-4 text-left">
         <span class="font-semibold text-gray-800 dark:text-gray-100 text-sm">Analytics</span>
         <svg id="analytics-chevron" class="w-4 h-4 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -356,5 +356,10 @@ document.getElementById('bulkActionsForm').addEventListener('submit', function(e
 });
 
 updateSelectionUI();
+
+document.addEventListener('DOMContentLoaded', function() {
+  var analyticsToggle = document.getElementById('analytics-toggle');
+  if (analyticsToggle) analyticsToggle.addEventListener('click', toggleAnalytics);
+});
 </script>
 {% endblock %}

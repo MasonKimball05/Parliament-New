@@ -90,8 +90,8 @@
                                     </a>
                                 {% endif %}
                                 {% if can_delete %}
-                                    <form method="POST" action="{% url 'delete_committee_document' committee.code doc.id %}" class="inline"
-                                          onsubmit="return confirm('Are you sure you want to delete &quot;{{ doc.title }}&quot;? This action cannot be undone.');">
+                                    <form method="POST" action="{% url 'delete_committee_document' committee.code doc.id %}" class="js-confirm-submit inline"
+                                          data-confirm-msg="Are you sure you want to delete &quot;{{ doc.title }}&quot;? This action cannot be undone.">
                                         {% csrf_token %}
                                         <button type="submit" class="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:underline transition-colors">
                                             🗑️ Delete
@@ -108,4 +108,14 @@
         {% endif %}
     </div>
 </div>
+
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(form.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+});
+</script>
 {% endblock %}

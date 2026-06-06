@@ -119,7 +119,7 @@
             <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Deleting this document is permanent and cannot be undone. The file will be removed from the server.
             </p>
-            <form method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this document? This action cannot be undone.');" class="inline">
+            <form method="POST" class="js-confirm-submit inline" data-confirm-msg="Are you sure you want to permanently delete this document? This action cannot be undone.">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="delete">
                 <button type="submit" class="bg-red-600 dark:bg-red-700 text-white px-6 py-2 rounded hover:bg-red-700 dark:hover:bg-red-800 transition-colors">
@@ -129,4 +129,14 @@
         </div>
     </div>
 </div>
+
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(form.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+});
+</script>
 {% endblock %}

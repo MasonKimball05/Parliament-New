@@ -54,7 +54,6 @@
                     Voting Mode <span class="text-red-500">*</span>
                 </label>
                 <select name="vote_mode" id="vote_mode" required
-                        onchange="toggleVoteMode()"
                         class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     <option value="percentage">Percentage — Yes / No / Abstain</option>
                     <option value="piecewise">Piecewise — specific number of Yes votes</option>
@@ -110,7 +109,7 @@
                         <input type="text" name="plurality_option_9"  placeholder="Option 9 (optional)"  class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         <input type="text" name="plurality_option_10" placeholder="Option 10 (optional)" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     </div>
-                    <button type="button" id="toggle-extra-options" onclick="toggleExtraOptions()"
+                    <button type="button" id="toggle-extra-options"
                             class="mt-2 text-xs text-primary-600 dark:text-primary-400 hover:underline">
                         + Add more options (6–10)
                     </button>
@@ -205,34 +204,42 @@
 
 <script nonce="{{ request.csp_nonce }}">
 function toggleVoteMode() {
-    const mode = document.getElementById('vote_mode').value;
+    var mode = document.getElementById('vote_mode').value;
     document.getElementById('percentage_options').classList.toggle('hidden', mode !== 'percentage');
     document.getElementById('piecewise_options').classList.toggle('hidden', mode !== 'piecewise');
     document.getElementById('plurality_options').classList.toggle('hidden', mode !== 'plurality');
 }
 
 function toggleExtraOptions() {
-    const extra = document.getElementById('plurality-extra-options');
-    const btn   = document.getElementById('toggle-extra-options');
-    const hidden = extra.classList.contains('hidden');
+    var extra = document.getElementById('plurality-extra-options');
+    var btn   = document.getElementById('toggle-extra-options');
+    var hidden = extra.classList.contains('hidden');
     extra.classList.toggle('hidden', !hidden);
     btn.textContent = hidden ? '− Hide extra options' : '+ Add more options (6–10)';
     if (!hidden) {
-        for (let i = 6; i <= 10; i++) {
-            const el = document.querySelector(`input[name="plurality_option_${i}"]`);
+        for (var i = 6; i <= 10; i++) {
+            var el = document.querySelector('input[name="plurality_option_' + i + '"]');
             if (el) el.value = '';
         }
     }
 }
 
-const runoffCb = document.getElementById('plurality_runoff_enabled');
-const runoffSettings = document.getElementById('runoff-settings');
-if (runoffCb && runoffSettings) {
-    runoffCb.addEventListener('change', function () {
-        runoffSettings.classList.toggle('hidden', !this.checked);
-    });
-}
+document.addEventListener('DOMContentLoaded', function() {
+    var voteModeSelect = document.getElementById('vote_mode');
+    if (voteModeSelect) voteModeSelect.addEventListener('change', toggleVoteMode);
 
-toggleVoteMode();
+    var extraOptionsBtn = document.getElementById('toggle-extra-options');
+    if (extraOptionsBtn) extraOptionsBtn.addEventListener('click', toggleExtraOptions);
+
+    var runoffCb = document.getElementById('plurality_runoff_enabled');
+    var runoffSettings = document.getElementById('runoff-settings');
+    if (runoffCb && runoffSettings) {
+        runoffCb.addEventListener('change', function() {
+            runoffSettings.classList.toggle('hidden', !this.checked);
+        });
+    }
+
+    toggleVoteMode();
+});
 </script>
 {% endblock %}

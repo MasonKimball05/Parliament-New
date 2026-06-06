@@ -14,7 +14,7 @@
                 <h1 class="text-2xl sm:text-3xl font-bold mb-2">Welcome, {{ user.get_display_name }}</h1>
                 <p class="text-sm sm:text-base opacity-90">{{ user.member_type }}{% if not user.is_pledge %} • {{ user.user_id }}{% endif %}</p>
             </div>
-            <button onclick="document.getElementById('coat-modal').classList.remove('hidden')" class="flex-shrink-0 focus:outline-none group flex flex-col items-center gap-1">
+            <button id="js-open-coat-modal" class="flex-shrink-0 focus:outline-none group flex flex-col items-center gap-1">
                 <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-contain bg-white p-1 shadow-lg transition-transform duration-200 group-hover:scale-110 cursor-pointer">
                 <span class="text-white/80 text-center leading-tight">
                     <span class="block text-xs">Ἀρετὴ Μονάζει</span>
@@ -23,9 +23,9 @@
             </button>
 
             <!-- Coat of Arms Modal -->
-            <div id="coat-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" onclick="this.classList.add('hidden')">
-                <div class="relative max-w-lg w-full" onclick="event.stopPropagation()">
-                    <button onclick="document.getElementById('coat-modal').classList.add('hidden')" class="absolute -top-3 -right-3 w-8 h-8 bg-white dark:bg-gray-700 rounded-full shadow-lg flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white z-10">
+            <div id="coat-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+                <div class="relative max-w-lg w-full">
+                    <button class="js-close-coat-modal absolute -top-3 -right-3 w-8 h-8 bg-white dark:bg-gray-700 rounded-full shadow-lg flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white z-10">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                     <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms" class="w-full rounded-lg shadow-2xl bg-white p-4">
@@ -686,7 +686,21 @@
     {% endif %}
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    var modal = document.getElementById('coat-modal');
+
+    document.getElementById('js-open-coat-modal').addEventListener('click', function() {
+        modal.classList.remove('hidden');
+    });
+
+    document.addEventListener('click', function(e) {
+        var closeBtn = e.target.closest('.js-close-coat-modal');
+        if (closeBtn) { modal.classList.add('hidden'); return; }
+        if (e.target === modal) modal.classList.add('hidden');
+    });
+});
+
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') document.getElementById('coat-modal').classList.add('hidden');
 });

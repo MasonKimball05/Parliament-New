@@ -185,7 +185,7 @@
         </tr>
     </table>
 
-    <form method="post">
+    <form method="post" class="js-confirm-submit" data-confirm-msg="Migrate user ID from '{{ user.user_id }}' to the value entered? All related data will be transferred to the new ID and the old ID will be deleted. This cannot be undone.">
         {% csrf_token %}
         <div class="migrate-field">
             <label for="new_user_id">New User ID</label>
@@ -205,12 +205,21 @@
         <div class="migrate-actions">
             <button
                 type="submit"
-                class="btn-migrate"
-                onclick="return confirm('Migrate user ID from \'{{ user.user_id }}\' to the value entered?\n\nAll related data will be transferred to the new ID and the old ID will be deleted. This cannot be undone.');">
+                class="btn-migrate">
                 Migrate User ID
             </button>
             <a href="/admin/src/parliamentuser/{{ user.user_id }}/change/" class="btn-cancel">Cancel</a>
         </div>
     </form>
 </div>
+
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(form.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+});
+</script>
 {% endblock %}

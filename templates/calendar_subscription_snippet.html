@@ -1,7 +1,7 @@
 <!-- Add this to your calendar.html template -->
 
 <!-- Subscribe Button (add near your export button) -->
-<button onclick="openSubscriptionModal()"
+<button id="js-open-subscription-modal"
         class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2">
     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
@@ -14,7 +14,7 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm max-w-2xl w-full mx-4 p-6">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100">📅 Subscribe to Calendar</h3>
-            <button onclick="closeSubscriptionModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+            <button class="js-close-subscription-modal text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
@@ -69,6 +69,21 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    var openBtn = document.getElementById('js-open-subscription-modal');
+    if (openBtn) openBtn.addEventListener('click', openSubscriptionModal);
+
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.js-close-subscription-modal')) { closeSubscriptionModal(); return; }
+
+        var copyBtn = e.target.closest('.js-copy-url');
+        if (copyBtn) { copySubscriptionUrl(copyBtn); return; }
+
+        var regenBtn = e.target.closest('.js-regen-token');
+        if (regenBtn) { regenerateToken(); return; }
+    });
+});
+
 let subscriptionData = null;
 
 function openSubscriptionModal() {
@@ -115,8 +130,7 @@ function displaySubscriptionUrl(data) {
                 <div class="flex gap-2">
                     <input type="text" id="subscriptionUrl" readonly value="${data.webcal_url}"
                            class="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100">
-                    <button onclick="copySubscriptionUrl()"
-                            class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium">Copy</button>
+                    <button class="js-copy-url px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium">Copy</button>
                 </div>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
                     Last accessed: ${data.last_accessed ? new Date(data.last_accessed).toLocaleString() : 'Never'}
@@ -125,7 +139,7 @@ function displaySubscriptionUrl(data) {
             </div>
             <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
                 <p class="text-sm text-yellow-800 dark:text-yellow-200 mb-2"><strong>⚠️ Security Note:</strong> This link is personal to you. Don't share it publicly.</p>
-                <button onclick="regenerateToken()" class="text-sm text-yellow-700 dark:text-yellow-300 hover:text-yellow-900 dark:hover:text-yellow-100 underline">Regenerate link if compromised</button>
+                <button class="js-regen-token text-sm text-yellow-700 dark:text-yellow-300 hover:text-yellow-900 dark:hover:text-yellow-100 underline">Regenerate link if compromised</button>
             </div>
         </div>
     `;
@@ -133,11 +147,10 @@ function displaySubscriptionUrl(data) {
     document.getElementById('subscriptionContent').innerHTML = content;
 }
 
-function copySubscriptionUrl() {
+function copySubscriptionUrl(button) {
     const input = document.getElementById('subscriptionUrl');
     input.select();
     document.execCommand('copy');
-    const button = event.target;
     button.textContent = '✓ Copied!';
     button.classList.add('bg-green-600');
     setTimeout(() => { button.textContent = 'Copy'; button.classList.remove('bg-green-600'); }, 2000);
