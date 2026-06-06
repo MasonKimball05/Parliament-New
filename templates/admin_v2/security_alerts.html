@@ -42,7 +42,7 @@
     {% if stats.new_alerts %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-6 flex items-center justify-between">
         <p class="text-sm text-gray-600 dark:text-gray-400">{{ stats.new_alerts }} unreviewed alert{{ stats.new_alerts|pluralize }}</p>
-        <button type="button" id="dismiss-all-btn" onclick="dismissAll()"
+        <button type="button" id="dismiss-all-btn"
             class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium">
             Dismiss All New Alerts
         </button>
@@ -129,8 +129,8 @@
                         </a>
                         {% if alert.status == 'new' %}
                         <button type="button"
-                            onclick="dismissAlert(this, {{ alert.id }})"
-                            class="px-3 py-1.5 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded">
+                            class="js-dismiss-alert px-3 py-1.5 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded"
+                            data-alert-id="{{ alert.id }}">
                             Dismiss
                         </button>
                         {% endif %}
@@ -200,5 +200,13 @@ async function dismissAll() {
         btn.textContent = 'Dismiss All New Alerts';
     }
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    var dismissAllBtn = document.getElementById('dismiss-all-btn');
+    if (dismissAllBtn) dismissAllBtn.addEventListener('click', dismissAll);
+    document.querySelectorAll('.js-dismiss-alert').forEach(function(btn) {
+        btn.addEventListener('click', function() { dismissAlert(this, parseInt(this.dataset.alertId)); });
+    });
+});
 </script>
 {% endblock %}

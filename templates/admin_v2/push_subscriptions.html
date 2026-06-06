@@ -16,7 +16,7 @@
             </div>
             <div class="flex flex-wrap gap-2">
                 <form method="post" action="{% url 'admin_v2_clear_push_subscriptions' %}"
-                      onsubmit="return confirm('Delete ALL push subscriptions? Every device will need to re-subscribe.');">
+                      class="js-confirm-submit" data-confirm-msg="Delete ALL push subscriptions? Every device will need to re-subscribe.">
                     {% csrf_token %}
                     <button type="submit" class="px-4 py-2 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 rounded-lg text-sm font-medium">
                         Clear All ({{ subscriptions|length }})
@@ -72,7 +72,7 @@
                     </td>
                     <td class="px-4 py-3 text-right">
                         <form method="post" action="{% url 'admin_v2_delete_push_subscription' sub.id %}"
-                              onsubmit="return confirm('Delete this subscription for {{ sub.user.get_display_name }}?');">
+                              class="js-confirm-submit" data-confirm-msg="Delete this subscription for {{ sub.user.get_display_name }}?">
                             {% csrf_token %}
                             <button type="submit" class="px-3 py-1 text-xs bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 rounded font-medium transition-colors">
                                 Delete
@@ -94,4 +94,13 @@
     {% endif %}
 
 </div>
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(this.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+});
+</script>
 {% endblock %}

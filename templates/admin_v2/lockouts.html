@@ -14,11 +14,10 @@
             </div>
             <div class="flex gap-3">
                 {% if active_count > 0 %}
-                <form method="post">
+                <form method="post" class="js-confirm-submit" data-confirm-msg="Clear all {{ active_count }} active lockout(s)?">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="clear_all_active">
                     <button type="submit"
-                        onclick="return confirm('Clear all {{ active_count }} active lockout(s)?')"
                         class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium">
                         Clear All Active ({{ active_count }})
                     </button>
@@ -86,39 +85,36 @@
                         <td class="py-3">
                             <div class="flex gap-2">
                                 <!-- Clear -->
-                                <form method="post" class="inline">
+                                <form method="post" class="inline js-confirm-submit" data-confirm-msg="Clear lockout for {{ lockout.ip_address }}?">
                                     {% csrf_token %}
                                     <input type="hidden" name="action" value="clear">
                                     <input type="hidden" name="lockout_id" value="{{ lockout.pk }}">
                                     <input type="hidden" name="ip_address" value="{{ lockout.ip_address }}">
                                     <button type="submit"
-                                        onclick="return confirm('Clear lockout for {{ lockout.ip_address }}?')"
                                         class="px-2 py-1 text-xs bg-green-100 hover:bg-green-200 text-green-800 dark:bg-green-900/40 dark:hover:bg-green-900/60 dark:text-green-300 rounded font-medium">
                                         Clear
                                     </button>
                                 </form>
 
                                 <!-- Blacklist -->
-                                <form method="post" class="inline">
+                                <form method="post" class="inline js-confirm-submit" data-confirm-msg="Permanently blacklist {{ lockout.ip_address }}? This will block all access from this IP.">
                                     {% csrf_token %}
                                     <input type="hidden" name="action" value="blacklist">
                                     <input type="hidden" name="lockout_id" value="{{ lockout.pk }}">
                                     <input type="hidden" name="ip_address" value="{{ lockout.ip_address }}">
                                     <button type="submit"
-                                        onclick="return confirm('Permanently blacklist {{ lockout.ip_address }}? This will block all access from this IP.')"
                                         class="px-2 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-800 dark:bg-red-900/40 dark:hover:bg-red-900/60 dark:text-red-300 rounded font-medium">
                                         Blacklist
                                     </button>
                                 </form>
 
                                 <!-- Whitelist + Clear -->
-                                <form method="post" class="inline">
+                                <form method="post" class="inline js-confirm-submit" data-confirm-msg="Whitelist {{ lockout.ip_address }} and clear lockout? Whitelisted IPs bypass all rate limiting.">
                                     {% csrf_token %}
                                     <input type="hidden" name="action" value="whitelist_and_clear">
                                     <input type="hidden" name="lockout_id" value="{{ lockout.pk }}">
                                     <input type="hidden" name="ip_address" value="{{ lockout.ip_address }}">
                                     <button type="submit"
-                                        onclick="return confirm('Whitelist {{ lockout.ip_address }} and clear lockout? Whitelisted IPs bypass all rate limiting.')"
                                         class="px-2 py-1 text-xs bg-primary-100 hover:bg-primary-200 text-primary-800 dark:bg-primary-900/40 dark:hover:bg-primary-900/60 dark:text-primary-300 rounded font-medium">
                                         Whitelist
                                     </button>
@@ -200,4 +196,13 @@
     {% endif %}
 
 </div>
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(this.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+});
+</script>
 {% endblock %}
