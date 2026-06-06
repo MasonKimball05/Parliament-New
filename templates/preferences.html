@@ -333,7 +333,6 @@
             <div class="border-t border-gray-100 dark:border-gray-700 pt-4 mt-4">
                 <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-medium mb-3">Install</p>
                 <button type="button" id="prefs-install-btn"
-                        onclick="handlePrefsInstall()"
                         class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 text-sm font-medium rounded-lg transition-colors border border-gray-200 dark:border-gray-600">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -669,6 +668,9 @@
         if (msg) msg.classList.remove('hidden');
     });
 })();
+
+const _installBtn = document.getElementById('prefs-install-btn');
+if (_installBtn) { _installBtn.addEventListener('click', handlePrefsInstall); }
 </script>
 
 {% endblock %}

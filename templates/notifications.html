@@ -104,13 +104,13 @@
                         <div class="flex items-center gap-2 flex-shrink-0">
                             {% if not notification.is_read %}
                             <span class="notif-dot w-2.5 h-2.5 bg-primary-500 rounded-full" title="Unread"></span>
-                            <button onclick="markRead({{ notification.id }}, this)" class="mark-read-btn text-gray-400 hover:text-primary-500 dark:hover:text-primary-400 transition p-1" title="Mark as read">
+                            <button data-notif-id="{{ notification.id }}" class="mark-read-btn js-mark-read text-gray-400 hover:text-primary-500 dark:hover:text-primary-400 transition p-1" title="Mark as read">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                 </svg>
                             </button>
                             {% endif %}
-                            <button onclick="deleteNotification({{ notification.id }}, this)" class="text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition p-1" title="Delete">
+                            <button data-notif-id="{{ notification.id }}" class="js-delete-notif text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition p-1" title="Delete">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                                 </svg>
@@ -269,5 +269,12 @@ function deleteNotification(id, btn) {
         }
     });
 }
+
+document.querySelectorAll('.js-mark-read').forEach(function (btn) {
+    btn.addEventListener('click', function () { markRead(parseInt(this.dataset.notifId), this); });
+});
+document.querySelectorAll('.js-delete-notif').forEach(function (btn) {
+    btn.addEventListener('click', function () { deleteNotification(parseInt(this.dataset.notifId), this); });
+});
 </script>
 {% endblock %}

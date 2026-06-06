@@ -91,7 +91,7 @@
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Chairs</h2>
                 {% if can_manage %}
-                    <button onclick="openManageModal('chair')" class="text-sm bg-primary-500 dark:bg-primary-600 text-white px-3 py-1 rounded hover:bg-primary-600 dark:hover:bg-primary-700">
+                    <button data-manage-role="chair" class="js-open-manage text-sm bg-primary-500 dark:bg-primary-600 text-white px-3 py-1 rounded hover:bg-primary-600 dark:hover:bg-primary-700">
                         + Add
                     </button>
                 {% endif %}
@@ -125,7 +125,7 @@
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Advisors</h2>
                 {% if can_manage %}
-                    <button onclick="openManageModal('advisor')" class="text-sm bg-green-500 dark:bg-green-600 text-white px-3 py-1 rounded hover:bg-green-600 dark:hover:bg-green-700">
+                    <button data-manage-role="advisor" class="js-open-manage text-sm bg-green-500 dark:bg-green-600 text-white px-3 py-1 rounded hover:bg-green-600 dark:hover:bg-green-700">
                         + Add
                     </button>
                 {% endif %}
@@ -159,7 +159,7 @@
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Voting Members</h2>
                 {% if can_manage %}
-                    <button onclick="openManageModal('voter')" class="text-sm bg-purple-500 dark:bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-600 dark:hover:bg-purple-700">
+                    <button data-manage-role="voter" class="js-open-manage text-sm bg-purple-500 dark:bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-600 dark:hover:bg-purple-700">
                         + Add
                     </button>
                 {% endif %}
@@ -193,7 +193,7 @@
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Members ({{ committee.members.count }})</h2>
                 {% if can_manage %}
-                    <button onclick="openManageModal('member')" class="text-sm bg-gray-500 dark:bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-600 dark:hover:bg-gray-700">
+                    <button data-manage-role="member" class="js-open-manage text-sm bg-gray-500 dark:bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-600 dark:hover:bg-gray-700">
                         + Add
                     </button>
                 {% endif %}
@@ -491,7 +491,7 @@
                     </p>
                 </div>
                 <div class="flex justify-end gap-2">
-                    <button type="button" onclick="closeManageModal()" class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-400 dark:hover:bg-gray-700">
+                    <button type="button" id="js-close-manage" class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-400 dark:hover:bg-gray-700">
                         Cancel
                     </button>
                     <button type="submit" class="px-4 py-2 bg-primary-500 dark:bg-primary-600 text-white rounded hover:bg-primary-600 dark:hover:bg-primary-700">
@@ -590,9 +590,14 @@ function closeManageModal() {
 
 // Close modal when clicking outside
 document.getElementById('manageModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeManageModal();
-    }
+    if (e.target === this) { closeManageModal(); }
 });
+
+// Replace inline onclick= handlers
+document.querySelectorAll('.js-open-manage').forEach(function (btn) {
+    btn.addEventListener('click', function () { openManageModal(this.dataset.manageRole); });
+});
+const _closeManageBtn = document.getElementById('js-close-manage');
+if (_closeManageBtn) { _closeManageBtn.addEventListener('click', closeManageModal); }
 </script>
 {% endblock %}

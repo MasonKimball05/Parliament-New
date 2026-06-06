@@ -31,11 +31,11 @@
     <div class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-30">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <nav class="flex gap-1" aria-label="Tabs">
-                <button onclick="switchTab('document')" id="tab-btn-document"
+                <button id="tab-btn-document" data-tab="document"
                         class="tab-btn px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap">
                     Document
                 </button>
-                <button onclick="switchTab('resolutions')" id="tab-btn-resolutions"
+                <button id="tab-btn-resolutions" data-tab="resolutions"
                         class="tab-btn px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap">
                     Resolutions
                     {% if pending_count %}
@@ -43,7 +43,7 @@
                     {% endif %}
                 </button>
                 {% if user_can_manage %}
-                <button onclick="switchTab('manage')" id="tab-btn-manage"
+                <button id="tab-btn-manage" data-tab="manage"
                         class="tab-btn px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap">
                     Manage
                     {% if draft_count %}
@@ -68,7 +68,7 @@
             <p class="text-gray-500 dark:text-gray-400 text-sm">
                 The Constitution & Bylaws text hasn't been entered yet.
                 {% if user_can_manage %}
-                Switch to the <button onclick="switchTab('manage')" class="text-primary-600 dark:text-primary-400 underline">Manage tab</button> to get started.
+                Switch to the <button data-tab="manage" class="tab-btn-inline text-primary-600 dark:text-primary-400 underline">Manage tab</button> to get started.
                 {% endif %}
             </p>
         </div>
@@ -251,11 +251,11 @@
             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center gap-3">
                 <span class="text-sm font-semibold text-gray-900 dark:text-gray-100">All Resolutions</span>
                 <div class="flex gap-1 ml-auto flex-wrap">
-                    <button onclick="filterResolutions('')" class="res-filter-btn px-3 py-1 rounded-full text-xs font-medium transition-colors bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300" data-filter="">All</button>
-                    <button onclick="filterResolutions('draft')" class="res-filter-btn px-3 py-1 rounded-full text-xs font-medium transition-colors bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300" data-filter="draft">Draft</button>
-                    <button onclick="filterResolutions('pending')" class="res-filter-btn px-3 py-1 rounded-full text-xs font-medium transition-colors bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300" data-filter="pending">Pending</button>
-                    <button onclick="filterResolutions('passed')" class="res-filter-btn px-3 py-1 rounded-full text-xs font-medium transition-colors bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300" data-filter="passed">Passed</button>
-                    <button onclick="filterResolutions('failed')" class="res-filter-btn px-3 py-1 rounded-full text-xs font-medium transition-colors bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300" data-filter="failed">Failed</button>
+                    <button class="res-filter-btn px-3 py-1 rounded-full text-xs font-medium transition-colors bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300" data-filter="">All</button>
+                    <button class="res-filter-btn px-3 py-1 rounded-full text-xs font-medium transition-colors bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300" data-filter="draft">Draft</button>
+                    <button class="res-filter-btn px-3 py-1 rounded-full text-xs font-medium transition-colors bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300" data-filter="pending">Pending</button>
+                    <button class="res-filter-btn px-3 py-1 rounded-full text-xs font-medium transition-colors bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300" data-filter="passed">Passed</button>
+                    <button class="res-filter-btn px-3 py-1 rounded-full text-xs font-medium transition-colors bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300" data-filter="failed">Failed</button>
                 </div>
             </div>
             <div class="divide-y divide-gray-100 dark:divide-gray-700" id="resolutionList">
@@ -373,7 +373,7 @@
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                 <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Needing Action</h2>
-                <button onclick="switchTab('resolutions')" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">All resolutions →</button>
+                <button data-tab="resolutions" class="tab-btn-inline text-sm text-primary-600 dark:text-primary-400 hover:underline">All resolutions →</button>
             </div>
             <div class="divide-y divide-gray-100 dark:divide-gray-700">
                 {% for resolution in resolutions %}
@@ -494,6 +494,16 @@
 
     document.querySelectorAll('.cnb-linkify').forEach(linkify);
 })();
+</script>
+
+<script nonce="{{ request.csp_nonce }}">
+// Replace inline onclick= tab and filter handlers
+document.querySelectorAll('[data-tab]').forEach(function (btn) {
+    btn.addEventListener('click', function () { switchTab(this.dataset.tab); });
+});
+document.querySelectorAll('.res-filter-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () { filterResolutions(this.dataset.filter); });
+});
 </script>
 
 {% endblock %}
