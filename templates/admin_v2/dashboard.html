@@ -92,7 +92,7 @@
 
         <!-- Security Card -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" data-card data-card-id="security" data-expanded="true">
-            <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
+            <div class="js-card-header p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center mr-3">
                         <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -117,7 +117,7 @@
                     <div class="flex items-center justify-between mb-2">
                         <p class="text-xs font-semibold text-red-700 dark:text-red-300 uppercase">Needs Attention</p>
                         {% if stats.security.new_login_alerts %}
-                        <button type="button" onclick="event.stopPropagation(); dismissAllAlerts(this)"
+                        <button type="button" id="js-dismiss-alerts-btn"
                             class="text-xs px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded">
                             Dismiss Alerts
                         </button>
@@ -185,7 +185,7 @@
 
         <!-- Users Card -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" data-card data-card-id="users" data-expanded="true">
-            <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
+            <div class="js-card-header p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center mr-3">
                         <svg class="w-6 h-6 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -227,7 +227,7 @@
 
         <!-- Content Card -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" data-card data-card-id="content" data-expanded="true">
-            <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
+            <div class="js-card-header p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center mr-3">
                         <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -265,7 +265,7 @@
 
         <!-- Email & Notifications Card -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" data-card data-card-id="email" data-expanded="true">
-            <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
+            <div class="js-card-header p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg flex items-center justify-center mr-3">
                         <svg class="w-6 h-6 text-cyan-600 dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -307,7 +307,7 @@
 
         <!-- Push Notifications Card -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" data-card data-card-id="push" data-expanded="true">
-            <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
+            <div class="js-card-header p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center mr-3">
                         <svg class="w-6 h-6 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -391,7 +391,7 @@
                 <!-- Danger zone -->
                 <div class="border-t border-gray-200 dark:border-gray-700 pt-3">
                     <h4 class="text-xs font-semibold text-red-500 uppercase mb-2">Danger Zone</h4>
-                    <form method="post" action="{% url 'admin_v2_clear_push_subscriptions' %}" onsubmit="return confirm('Delete ALL push subscriptions? Every device will need to re-subscribe. This cannot be undone.');">
+                    <form method="post" action="{% url 'admin_v2_clear_push_subscriptions' %}" class="js-confirm-submit" data-confirm-msg="Delete ALL push subscriptions? Every device will need to re-subscribe. This cannot be undone.">
                         {% csrf_token %}
                         <button type="submit" class="w-full p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition">
                             Clear All Subscriptions ({{ push_stats.total_devices }})
@@ -403,7 +403,7 @@
 
         <!-- System Settings Card -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" data-card data-card-id="system" data-expanded="true">
-            <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
+            <div class="js-card-header p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center mr-3">
                         <svg class="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -467,7 +467,7 @@
 
         <!-- Performance Card -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" data-card data-card-id="performance" data-expanded="true">
-            <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
+            <div class="js-card-header p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center mr-3">
                         <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -498,7 +498,7 @@
                         <div class="text-xs text-gray-500 dark:text-gray-400">Slow</div>
                     </div>
                 </div>
-                <button onclick="runHealthCheck()" id="health-check-btn" class="w-full p-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition flex items-center justify-center gap-2">
+                <button id="health-check-btn" class="w-full p-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                     </svg>
@@ -510,7 +510,7 @@
 
         <!-- Page Visits Card -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" data-card data-card-id="page-visits" data-expanded="true">
-            <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
+            <div class="js-card-header p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center mr-3">
                         <svg class="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -548,7 +548,7 @@
 
         <!-- Celery Health Card -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" data-card data-card-id="celery" data-expanded="true">
-            <div class="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between" onclick="toggleCard(this.closest('[data-card]'))">
+            <div class="js-card-header p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer flex items-center justify-between">
                 <div class="flex items-center">
                     <div class="w-10 h-10 {% if celery_summary.workers_up %}bg-green-100 dark:bg-green-900/30{% else %}bg-red-100 dark:bg-red-900/30{% endif %} rounded-lg flex items-center justify-center mr-3">
                         <svg class="w-6 h-6 {% if celery_summary.workers_up %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -591,7 +591,7 @@
 
     <!-- Page Toggles Section -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6" data-card data-card-id="page-toggles" data-expanded="true">
-        <div class="flex items-center justify-between mb-4 cursor-pointer" onclick="toggleCard(this.closest('[data-card]'))">
+        <div class="js-card-header flex items-center justify-between mb-4 cursor-pointer">
             <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
                 <svg class="w-6 h-6 mr-2 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
@@ -610,9 +610,9 @@
                     <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate mr-2">{{ page.display_name }}</span>
                     <button
                         type="button"
-                        onclick="event.stopPropagation(); togglePage(this, '{% url 'toggle_page' page.id %}')"
-                        data-enabled="{{ page.is_enabled|yesno:'true,false' }}"
-                        class="px-2 py-1 text-xs rounded font-medium {% if page.is_enabled %}bg-green-500 text-white{% else %}bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300{% endif %}">
+                        class="js-page-toggle px-2 py-1 text-xs rounded font-medium {% if page.is_enabled %}bg-green-500 text-white{% else %}bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300{% endif %}"
+                        data-toggle-url="{% url 'toggle_page' page.id %}"
+                        data-enabled="{{ page.is_enabled|yesno:'true,false' }}">
                         {% if page.is_enabled %}ON{% else %}OFF{% endif %}
                     </button>
                 </div>
@@ -776,6 +776,41 @@ async function dismissAllAlerts(btn) {
         btn.textContent = 'Dismiss All';
     }
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Card headers
+    document.querySelectorAll('.js-card-header').forEach(function(header) {
+        header.addEventListener('click', function() { toggleCard(this.closest('[data-card]')); });
+    });
+
+    // Dismiss all alerts button (stopPropagation so card header doesn't also toggle)
+    var dismissBtn = document.getElementById('js-dismiss-alerts-btn');
+    if (dismissBtn) {
+        dismissBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            dismissAllAlerts(this);
+        });
+    }
+
+    // Health check button
+    var healthBtn = document.getElementById('health-check-btn');
+    if (healthBtn) healthBtn.addEventListener('click', runHealthCheck);
+
+    // Confirm-submit forms
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(this.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
+
+    // Page toggle buttons
+    document.querySelectorAll('.js-page-toggle').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            togglePage(this, this.dataset.toggleUrl);
+        });
+    });
+});
 
 // Health Check Function
 async function runHealthCheck() {
