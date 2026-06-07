@@ -1,6 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.utils import timezone
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
@@ -68,25 +68,27 @@ def passed_legislation(request):
         'tabled': all_legislation.filter(status='tabled').count(),
     }
 
+    # Annotate vote counts onto the queryset so the loop makes zero per-leg
+    # count queries for yes/no/abstain/total. Historical overrides are applied
+    # after, so the annotated values serve as fallbacks only.
+    queryset = queryset.annotate(
+        yes_count=Count('vote', filter=Q(vote__vote_choice='yes')),
+        no_count=Count('vote', filter=Q(vote__vote_choice='no')),
+        abstain_count=Count('vote', filter=Q(vote__vote_choice='abstain')),
+        total_count=Count('vote'),
+    )
+
     passed = []
 
     for leg in queryset:
-        votes = Vote.objects.filter(legislation=leg)
-        yes = votes.filter(vote_choice='yes').count()
-        no = votes.filter(vote_choice='no').count()
-        abstain = votes.filter(vote_choice='abstain').count()
-
-        # Use historical vote counts if available (for manually entered legislation)
-        if leg.historical_yes_votes is not None:
-            yes = leg.historical_yes_votes
-        if leg.historical_no_votes is not None:
-            no = leg.historical_no_votes
-        if leg.historical_abstain_votes is not None:
-            abstain = leg.historical_abstain_votes
+        # Prefer historical overrides; fall back to annotated DB counts
+        yes = leg.historical_yes_votes if leg.historical_yes_votes is not None else leg.yes_count
+        no = leg.historical_no_votes if leg.historical_no_votes is not None else leg.no_count
+        abstain = leg.historical_abstain_votes if leg.historical_abstain_votes is not None else leg.abstain_count
 
         total_non_abstain = yes + no
-        # For plurality votes, determine if any votes were cast via total vote count
-        total_cast = votes.count() if leg.vote_mode == 'plurality' else total_non_abstain + abstain
+        # For plurality, total_count is the real votes-cast figure (yes/no don't apply)
+        total_cast = leg.total_count if leg.vote_mode == 'plurality' else total_non_abstain + abstain
 
         # Skip legislation with no votes UNLESS:
         # - It's marked as passed
@@ -121,18 +123,17 @@ def passed_legislation(request):
 
         # Calculate vote breakdown based on mode
         if leg.vote_mode == 'plurality' and leg.plurality_options:
-            # For plurality, get counts for each option
-            vote_breakdown = {}
-            for option in leg.plurality_options:
-                vote_breakdown[option] = votes.filter(vote_choice=option).count()
+            # Single query: group all votes for this leg by choice
+            raw_map = {
+                row['vote_choice']: row['count']
+                for row in Vote.objects.filter(legislation=leg)
+                    .values('vote_choice')
+                    .annotate(count=Count('id'))
+            }
+            vote_breakdown = {option: raw_map.get(option, 0) for option in leg.plurality_options}
             winner = max(vote_breakdown, key=vote_breakdown.get) if vote_breakdown else None
         else:
-            # For yes/no votes
-            vote_breakdown = {
-                'yes': yes,
-                'no': no,
-                'abstain': abstain
-            }
+            vote_breakdown = {'yes': yes, 'no': no, 'abstain': abstain}
             winner = None
 
 
@@ -326,12 +327,12 @@ def add_legislation(request):
     # If voting is closed (passed, failed, or tabled), set voting_ended_at
     if voting_closed:
         legislation.voting_ended_at = now
-        legislation.save()
+        legislation.save(update_fields=['voting_ended_at'])
 
     # For pending status, set voting_starts_at to future (so it doesn't appear as active)
     if status == 'pending':
         legislation.voting_starts_at = None
-        legislation.save()
+        legislation.save(update_fields=['voting_starts_at'])
 
     # Handle vote results if included
     if include_votes and voting_closed:
@@ -344,7 +345,7 @@ def add_legislation(request):
             legislation.historical_yes_votes = yes_votes
             legislation.historical_no_votes = no_votes
             legislation.historical_abstain_votes = abstain_votes
-            legislation.save()
+            legislation.save(update_fields=['historical_yes_votes', 'historical_no_votes', 'historical_abstain_votes'])
         except (ValueError, TypeError):
             pass  # Ignore invalid vote counts
 

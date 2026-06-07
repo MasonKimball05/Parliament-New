@@ -13,6 +13,7 @@ Task groups:
                    includes: system integrity audit + honeypot activity
 """
 from celery import shared_task
+from django.db import transaction
 from django.utils import timezone
 import logging
 
@@ -110,6 +111,10 @@ def auto_open_close_chapter_votes():
 
     - Opens legislation where voting_starts_at has passed but vote is not yet open
     - Closes legislation where voting_ends_at has passed and vote is still open
+
+    Each close is wrapped in transaction.atomic() with select_for_update() so a
+    mid-loop crash cannot leave a bill with voting_closed=True but without the
+    passed/status fields set correctly.
     """
     from src.models import Legislation, Vote
     now = timezone.now()
@@ -139,30 +144,36 @@ def auto_open_close_chapter_votes():
     )
 
     for leg in to_close:
-        votes = Vote.objects.filter(legislation=leg)
-        yes = votes.filter(vote_choice='yes').count()
-        no = votes.filter(vote_choice='no').count()
-        total = yes + no
+        with transaction.atomic():
+            # Re-fetch inside the transaction to avoid a TOCTOU race with concurrent closes
+            leg = Legislation.objects.select_for_update().get(pk=leg.pk)
+            if leg.voting_closed:
+                continue  # Another process beat us to it
 
-        leg.voting_closed = True
-        leg.voting_ended_at = leg.voting_ends_at
+            votes = Vote.objects.filter(legislation=leg)
+            yes = votes.filter(vote_choice='yes').count()
+            no = votes.filter(vote_choice='no').count()
+            total = yes + no
 
-        if total > 0:
-            if leg.vote_mode == 'piecewise':
-                leg.passed = yes >= (leg.required_number or 0)
-            elif leg.vote_mode == 'plurality':
-                options = {opt: votes.filter(vote_choice=opt).count() for opt in (leg.plurality_options or [])}
-                leg.passed = max(options.values()) > 0 if options else False
-            else:
-                yes_pct = (yes / total) * 100
-                leg.passed = yes_pct >= int(leg.required_percentage)
+            leg.voting_closed = True
+            leg.voting_ended_at = leg.voting_ends_at
 
-            leg.status = 'passed' if leg.passed else 'failed'
+            if total > 0:
+                if leg.vote_mode == 'piecewise':
+                    leg.passed = yes >= (leg.required_number or 0)
+                elif leg.vote_mode == 'plurality':
+                    options = {opt: votes.filter(vote_choice=opt).count() for opt in (leg.plurality_options or [])}
+                    leg.passed = max(options.values()) > 0 if options else False
+                else:
+                    yes_pct = (yes / total) * 100
+                    leg.passed = yes_pct >= int(leg.required_percentage)
 
-        leg.save()
-        closed += 1
-        result = 'passed' if leg.passed else ('no result — no votes cast' if total == 0 else 'failed')
-        logger.info(f"[tasks] Auto-closed voting on '{leg.title}' (id={leg.id}) — {result}")
+                leg.status = 'passed' if leg.passed else 'failed'
+
+            leg.save(update_fields=['voting_closed', 'voting_ended_at', 'passed', 'status'])
+            closed += 1
+            result = 'passed' if leg.passed else ('no result — no votes cast' if total == 0 else 'failed')
+            logger.info(f"[tasks] Auto-closed voting on '{leg.title}' (id={leg.id}) — {result}")
 
     if opened or closed:
         logger.info(f"[tasks] auto_open_close_chapter_votes: opened={opened}, closed={closed}")
@@ -172,7 +183,8 @@ def auto_open_close_chapter_votes():
 def auto_open_close_committee_votes():
     """
     Close committee legislation votes on schedule (committee votes open manually).
-    Mirrors the on-page-load auto-close in committee/vote.py but runs on a timer.
+    State transitions are wrapped in transaction.atomic() with select_for_update()
+    so a mid-loop crash cannot leave a bill partially closed.
     """
     from src.models import CommitteeLegislation
     from src.view.committee.vote import get_vote_tally
@@ -186,32 +198,37 @@ def auto_open_close_committee_votes():
     )
 
     for leg in to_close:
-        tally = get_vote_tally(leg)
-        total_votes = tally['total']
+        with transaction.atomic():
+            leg = CommitteeLegislation.objects.select_for_update().get(pk=leg.pk)
+            if leg.voting_closed:
+                continue
 
-        leg.voting_closed = True
-        leg.voting_ended_at = leg.voting_ends_at
+            tally = get_vote_tally(leg)
+            total_votes = tally['total']
 
-        if total_votes > 0:
-            if leg.vote_mode == 'plurality':
-                options = {k: v for k, v in tally.items() if k != 'total'}
-                leg.passed = max(options.values()) > 0 if options else False
-                leg.status = 'passed' if leg.passed else 'draft'
-            elif leg.vote_mode == 'piecewise':
-                leg.passed = tally.get('yes', 0) >= (leg.required_number or 0)
-                leg.status = 'passed' if leg.passed else 'draft'
-            else:
-                yes = tally.get('yes', 0)
-                no = tally.get('no', 0)
-                countable = yes + no
-                if countable > 0:
-                    yes_pct = (yes / countable) * 100
-                    leg.passed = yes_pct >= int(leg.required_percentage)
+            leg.voting_closed = True
+            leg.voting_ended_at = leg.voting_ends_at
+
+            if total_votes > 0:
+                if leg.vote_mode == 'plurality':
+                    options = {k: v for k, v in tally.items() if k != 'total'}
+                    leg.passed = max(options.values()) > 0 if options else False
                     leg.status = 'passed' if leg.passed else 'draft'
+                elif leg.vote_mode == 'piecewise':
+                    leg.passed = tally.get('yes', 0) >= (leg.required_number or 0)
+                    leg.status = 'passed' if leg.passed else 'draft'
+                else:
+                    yes = tally.get('yes', 0)
+                    no = tally.get('no', 0)
+                    countable = yes + no
+                    if countable > 0:
+                        yes_pct = (yes / countable) * 100
+                        leg.passed = yes_pct >= int(leg.required_percentage)
+                        leg.status = 'passed' if leg.passed else 'draft'
 
-        leg.save()
-        closed += 1
-        logger.info(f"[tasks] Auto-closed committee vote on '{leg.title}' (id={leg.id})")
+            leg.save(update_fields=['voting_closed', 'voting_ended_at', 'passed', 'status'])
+            closed += 1
+            logger.info(f"[tasks] Auto-closed committee vote on '{leg.title}' (id={leg.id})")
 
     if closed:
         logger.info(f"[tasks] auto_open_close_committee_votes: closed={closed}")

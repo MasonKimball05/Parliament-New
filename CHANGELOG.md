@@ -273,6 +273,19 @@ Completes the multi-session inline handler migration. Every `onclick=`, `onchang
 - `slating/view_application.html`, `slating/my_applications.html`
 - `errors/pledge_restricted.html`, `admin/migrate_user_id.html`
 
+**Security:**
+- **`src/view/landing.py`** — Added IP-based rate limiting to `contact_submit` (5 submissions per IP per 10 minutes via Django cache). Prevents email flood attacks against officer addresses passed as `recipient_email`.
+- **CSP Violation Analytics** — New `CSPViolation` model stores browser violation reports with proper indexed fields (`violated_directive`, `blocked_uri`). The `/csp-report/` endpoint now writes to this model instead of `SecurityNotificationLog`. New admin-v2 page at `/admin-v2/security/csp-violations/` groups violations by type with a dismiss-as-false-positive button. Security dashboard stat card and tool tile added. Requires migration `0201_cspviolation`.
+- **Vote Auto-Close moved to Celery only** — The on-page-load auto-close blocks in `vote_view.py` and `committee/vote.py` have been removed. `auto_open_close_chapter_votes` and `auto_open_close_committee_votes` (already running every minute via Celery Beat) are now the sole source of truth. Each close is wrapped in `transaction.atomic()` with `select_for_update()` so a mid-loop crash cannot leave a bill in a partial state.
+- **`update_fields` on high-frequency saves** — `end_vote.py`, `tasks.py` (chapter + committee vote close tasks), `committee/vote.py` (manual end + recalculate), `passed_legislation.py` (add legislation), and `profile_view.py` (all user profile save paths) now specify `update_fields` to avoid full-row writes on frequently updated models (`Legislation`, `ParliamentUser`).
+- **`end_vote.py` bug fixes** — `plurality_options` was iterated without a `None` guard (now uses `or []`). Individual voter lists (`in_favor`, `against`, `abstain`) were always passed in template context even for anonymous votes; they are now only added when `anonymous_vote=False`.
+
+**Performance:**
+- **`src/view/passed_legislation.py`** — Replaced 3–4 per-legislation `Vote.objects.filter().count()` calls with a single annotated queryset (`yes_count`, `no_count`, `abstain_count`, `total_count`). Reduces page-load query count from ~60–80 to ~1 for a full 20-item page.
+- **`src/view/kai_reports.py`** — Replaced two per-category `.count()` loops (~14 queries total) with a single `values().annotate(total=Count('id'))` query. Both `category_counts` and `category_data` are now built from the same aggregated result.
+- **`src/view/admin_v2.py`** — Batch `IPWhitelist`/`IPBlacklist` lookups in the user security view: two `__in` set queries before the loop instead of two queries per unique IP. Celery dashboard now evaluates `PeriodicTask` queryset once with `list()` and uses `len()`/sum comprehension instead of three separate DB hits. Feature flag grouping now uses one `order_by` query + Python `setdefault` instead of two queries per category.
+- **`src/view/calendar.py`** — Replaced `exists()` + `first()` double query on `AttendanceExcuse` with a single `first()` call.
+
 ---
 
 ### v3.1.1 — Security & Performance Fixes (2026-06-06) ✅ Deployed

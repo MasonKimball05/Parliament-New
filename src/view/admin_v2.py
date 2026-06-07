@@ -276,12 +276,11 @@ def admin_v2_dashboard(request):
         }
     }
 
-    # Get feature flags grouped by category
+    # Get feature flags grouped by category — one query instead of two per category
     feature_flags = {}
-    for category, category_name in FeatureFlag.CATEGORY_CHOICES:
-        flags = FeatureFlag.objects.filter(category=category)
-        if flags.exists():
-            feature_flags[category_name] = flags
+    for flag in FeatureFlag.objects.order_by('category', 'name'):
+        label = flag.get_category_display()
+        feature_flags.setdefault(label, []).append(flag)
 
     # Get page toggles
     page_toggles = PageToggle.objects.all().order_by('display_name')
@@ -455,9 +454,9 @@ def admin_v2_dashboard(request):
         from celery import current_app as _celery_app
         ping = _celery_app.control.inspect(timeout=1).ping() or {}
         celery_summary['workers_up'] = bool(ping)
-        tasks = _PT.objects.select_related('interval', 'crontab').all()
-        celery_summary['task_count'] = tasks.count()
-        celery_summary['disabled_count'] = tasks.filter(enabled=False).count()
+        tasks = list(_PT.objects.select_related('interval', 'crontab').all())
+        celery_summary['task_count'] = len(tasks)
+        celery_summary['disabled_count'] = sum(1 for t in tasks if not t.enabled)
         _period_secs = {'days': 86400, 'hours': 3600, 'minutes': 60, 'seconds': 1}
         stale = 0
         for t in tasks:
@@ -1245,23 +1244,23 @@ def user_login_security(request, user_id):
     # Get security alerts (limited to last 25)
     alerts = LoginAlert.objects.filter(user=user).order_by('-created_at')[:25]
 
-    # Get unique IPs from login history
+    # Get unique IPs from login history — batch whitelist/blacklist lookups to avoid N+1
+    all_ips = {login.ip_address for login in login_history if login.ip_address}
+    whitelisted_ips = set(IPWhitelist.objects.filter(ip_address__in=all_ips, is_active=True).values_list('ip_address', flat=True))
+    blacklisted_ips = set(IPBlacklist.objects.filter(ip_address__in=all_ips, is_active=True).values_list('ip_address', flat=True))
+
     unique_ips = set()
     ip_info = []
     for login in login_history:
         ip = login.ip_address
         if ip and ip not in unique_ips:
             unique_ips.add(ip)
-            # Check if IP is whitelisted or blacklisted
-            is_whitelisted = IPWhitelist.objects.filter(ip_address=ip, is_active=True).exists()
-            is_blacklisted = IPBlacklist.objects.filter(ip_address=ip, is_active=True).exists()
-
             ip_info.append({
                 'ip': ip,
                 'location': login.location_display,
                 'last_used': login.timestamp,
-                'is_whitelisted': is_whitelisted,
-                'is_blacklisted': is_blacklisted,
+                'is_whitelisted': ip in whitelisted_ips,
+                'is_blacklisted': ip in blacklisted_ips,
                 'risk_level': login.risk_level,
             })
 
@@ -2248,7 +2247,7 @@ def security_dashboard(request):
     from src.models import (
         QuarantinedAccount, HoneypotAccess, SystemLockdown,
         SecurityNotificationLog, LoginLockout, LoginAlert,
-        IPBlacklist, IPWhitelist,
+        IPBlacklist, IPWhitelist, CSPViolation,
     )
 
     now = timezone.now()
@@ -2291,6 +2290,9 @@ def security_dashboard(request):
     whitelist_count = IPWhitelist.objects.filter(is_active=True).count()
     blacklisted_ips = set(IPBlacklist.objects.filter(is_active=True).values_list('ip_address', flat=True))
 
+    # CSP violations
+    csp_violation_count = CSPViolation.objects.filter(dismissed=False).count()
+
     return render(request, 'admin_v2/security_dashboard.html', {
         'active_quarantines': active_quarantines,
         'recent_honeypot': recent_honeypot,
@@ -2306,6 +2308,7 @@ def security_dashboard(request):
         'blacklist_count': blacklist_count,
         'whitelist_count': whitelist_count,
         'blacklisted_ips': blacklisted_ips,
+        'csp_violation_count': csp_violation_count,
     })
 
 
@@ -2774,6 +2777,64 @@ def security_notifications_log(request):
         'event_filter': event_filter,
         'event_types': event_types,
     })
+
+
+# ---------------------------------------------------------------------------
+# CSP Violation Analytics
+# ---------------------------------------------------------------------------
+
+@require_admin_v2_auth
+def csp_violations(request):
+    """Analytics dashboard for CSP violation reports."""
+    if not request.user.is_admin:
+        return HttpResponseForbidden("Admin access required")
+
+    from src.models import CSPViolation
+    from django.db.models import Count, Max
+
+    show_dismissed = request.GET.get('show_dismissed') == '1'
+
+    qs = CSPViolation.objects.all() if show_dismissed else CSPViolation.objects.filter(dismissed=False)
+
+    # Group by (violated_directive, blocked_uri) — one row per unique violation type
+    groups = (
+        qs
+        .values('violated_directive', 'blocked_uri')
+        .annotate(count=Count('id'), latest=Max('created_at'))
+        .order_by('-latest')
+    )
+
+    total_undismissed = CSPViolation.objects.filter(dismissed=False).count()
+
+    return render(request, 'admin_v2/csp_violations.html', {
+        'groups': groups,
+        'show_dismissed': show_dismissed,
+        'total_undismissed': total_undismissed,
+    })
+
+
+@require_admin_v2_auth
+@require_POST
+def csp_violation_dismiss(request):
+    """Dismiss all CSP violations matching a (violated_directive, blocked_uri) pair."""
+    if not request.user.is_admin:
+        return JsonResponse({'ok': False, 'error': 'Admin access required'}, status=403)
+
+    from src.models import CSPViolation
+
+    directive = request.POST.get('violated_directive', '')
+    blocked   = request.POST.get('blocked_uri', '')
+
+    if not directive and not blocked:
+        return JsonResponse({'ok': False, 'error': 'Missing parameters'}, status=400)
+
+    updated = CSPViolation.objects.filter(
+        violated_directive=directive,
+        blocked_uri=blocked,
+        dismissed=False,
+    ).update(dismissed=True, dismissed_at=timezone.now(), dismissed_by=request.user)
+
+    return JsonResponse({'ok': True, 'dismissed': updated})
 
 
 # ---------------------------------------------------------------------------

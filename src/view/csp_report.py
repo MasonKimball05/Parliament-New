@@ -79,15 +79,16 @@ def csp_report(request):
             ip_address, blocked_uri, violated, document_uri,
         )
 
-    # Log to SecurityNotificationLog (non-blocking — ignore DB errors)
+    # Log to CSPViolation (non-blocking — ignore DB errors)
     try:
-        from src.models import SecurityNotificationLog
-        SecurityNotificationLog.objects.create(
-            event_type='csp_violation',
-            severity=severity,
-            details=details,
+        from src.models import CSPViolation
+        CSPViolation.objects.create(
+            violated_directive=violated[:200],
+            blocked_uri=blocked_uri[:500],
+            document_uri=document_uri[:500],
+            source_file=source_file[:500],
+            line_number=str(line_number)[:20],
             ip_address=ip_address if ip_address else None,
-            email_sent=False,
         )
     except Exception:
         pass  # Never let a logging failure break the HTTP response

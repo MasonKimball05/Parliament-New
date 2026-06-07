@@ -46,47 +46,6 @@ def committee_vote(request, code):
     ).order_by('-created_at').first()
     can_vote = bool(attendance) and is_voting_member
 
-    # Auto-close any legislation that has passed its voting_ends_at time
-    now = timezone.now()
-    expired_legislation = CommitteeLegislation.objects.filter(
-        committee=committee,
-        voting_closed=False,
-        voting_ends_at__isnull=False,
-        voting_ends_at__lte=now
-    )
-    for leg in expired_legislation:
-        leg.voting_closed = True
-        leg.voting_ended_at = leg.voting_ends_at
-
-        # Calculate if the vote passed
-        tally = get_vote_tally(leg)
-        total_votes = tally['total']
-
-        if total_votes > 0:
-            if leg.vote_mode == 'plurality':
-                options = {k: v for k, v in tally.items() if k != 'total'}
-                if options:
-                    max_votes = max(options.values())
-                    leg.passed = max_votes > 0
-                    leg.status = 'passed' if leg.passed else 'draft'
-            elif leg.vote_mode == 'piecewise':
-                required = leg.required_number or 0
-                leg.passed = tally.get('yes', 0) >= required
-                leg.status = 'passed' if leg.passed else 'draft'
-            else:
-                yes_votes = tally.get('yes', 0)
-                no_votes = tally.get('no', 0)
-                countable_votes = yes_votes + no_votes
-                if countable_votes > 0:
-                    yes_percentage = (yes_votes / countable_votes) * 100
-                    required_pct = int(leg.required_percentage)
-                    leg.passed = yes_percentage >= required_pct
-                    leg.status = 'passed' if leg.passed else 'draft'
-
-        leg.save()
-        result_text = "passed" if leg.passed else "did not pass"
-        logger.info(f"Auto-closed voting on '{leg.title}' (ID: {leg.id}) - scheduled end time reached - {result_text}")
-
     # Handle recalculate vote result (chair only)
     if request.method == 'POST' and 'recalculate_result' in request.POST:
         legislation_id = request.POST.get('legislation_id')
@@ -117,7 +76,7 @@ def committee_vote(request, code):
                         legislation.passed = yes_percentage >= required_pct
                         legislation.status = 'passed' if legislation.passed else 'draft'
 
-                legislation.save()
+                legislation.save(update_fields=['passed', 'status'])
                 result_text = "passed" if legislation.passed else "did not pass"
                 logger.info(f"{user.username} recalculated vote result for '{legislation.title}' (ID: {legislation.id}) - {result_text}")
                 ActivityLog.log_activity(
@@ -176,7 +135,7 @@ def committee_vote(request, code):
                             legislation.passed = yes_percentage >= required_pct
                             legislation.status = 'passed' if legislation.passed else 'draft'
 
-                legislation.save()
+                legislation.save(update_fields=['voting_closed', 'voting_ended_at', 'passed', 'status'])
 
                 result_text = "passed" if legislation.passed else "did not pass"
                 logger.info(f"{user.username} ended voting on '{legislation.title}' (ID: {legislation.id}) - {result_text}")
@@ -346,7 +305,7 @@ def committee_vote(request, code):
         'history_vote_data': history_vote_data,
         'user_voted': user_voted,
         'can_end_vote': can_end_vote,
-        'now': now,
+        'now': timezone.now(),
     })
 
 

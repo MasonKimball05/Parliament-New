@@ -638,6 +638,39 @@ class SecurityNotificationLog(models.Model):
         return f"[{self.severity.upper()}] {self.event_type} - {self.sent_at.strftime('%Y-%m-%d %H:%M')}"
 
 
+class CSPViolation(models.Model):
+    """
+    Stores individual Content-Security-Policy violation reports sent by browsers
+    to /csp-report/.  Records are grouped by (violated_directive, blocked_uri) in
+    the admin UI so false positives can be dismissed as a unit.
+    """
+    violated_directive = models.CharField(max_length=200, db_index=True)
+    blocked_uri        = models.CharField(max_length=500, db_index=True)
+    document_uri       = models.CharField(max_length=500, blank=True)
+    source_file        = models.CharField(max_length=500, blank=True)
+    line_number        = models.CharField(max_length=20, blank=True)
+    ip_address         = models.GenericIPAddressField(null=True, blank=True)
+    created_at         = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    # False-positive management
+    dismissed          = models.BooleanField(default=False, db_index=True)
+    dismissed_at       = models.DateTimeField(null=True, blank=True)
+    dismissed_by       = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='dismissed_csp_violations',
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'CSP Violation'
+        verbose_name_plural = 'CSP Violations'
+
+    def __str__(self):
+        return f"{self.violated_directive} — {self.blocked_uri} ({self.created_at:%Y-%m-%d})"
+
+
 class LoginLockout(models.Model):
     """
     Persisted record of IP/username lockout events from the rate-limiting systems.

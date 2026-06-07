@@ -182,11 +182,9 @@ def calendar_data_api(request):
             events_data[day] = []
 
         # Check excuse status for this user
-        has_excuse = AttendanceExcuse.objects.filter(event=event, user=request.user).exists()
-        excuse_status = None
-        if has_excuse:
-            excuse = AttendanceExcuse.objects.filter(event=event, user=request.user).first()
-            excuse_status = excuse.status
+        excuse = AttendanceExcuse.objects.filter(event=event, user=request.user).first()
+        has_excuse = excuse is not None
+        excuse_status = excuse.status if excuse else None
 
         # Format time without leading zeros (use local timezone)
         hour = local_dt.strftime('%I').lstrip('0')

@@ -19,7 +19,7 @@ def end_vote(request, legislation_id):
 
     # Close voting
     legislation.voting_closed = True
-    legislation.save()
+    legislation.save(update_fields=['voting_closed'])
 
     # Gather votes
     votes = Vote.objects.filter(legislation=legislation)
@@ -32,7 +32,7 @@ def end_vote(request, legislation_id):
     total_votes = votes.exclude(vote_choice='abstain').count()
 
     if legislation.vote_mode == 'plurality':
-        vote_breakdown_dict = {str(option): votes.filter(vote_choice=option).count() for option in legislation.plurality_options}
+        vote_breakdown_dict = {str(option): votes.filter(vote_choice=option).count() for option in (legislation.plurality_options or [])}
         winner = max(vote_breakdown_dict, key=vote_breakdown_dict.get) if vote_breakdown_dict else None
         vote_breakdown = {'keys': list(vote_breakdown_dict.keys()), 'values': list(vote_breakdown_dict.values())}
     else:
@@ -56,7 +56,7 @@ def end_vote(request, legislation_id):
     elif legislation.vote_mode == 'plurality':
         plurality_counts = {
             option: votes.filter(vote_choice=option).count()
-            for option in legislation.plurality_options
+            for option in (legislation.plurality_options or [])
         }
         most_voted = max(plurality_counts, key=plurality_counts.get, default=None)
 
@@ -78,7 +78,7 @@ def end_vote(request, legislation_id):
         legislation.status = 'passed'
     else:
         legislation.status = 'removed'
-    legislation.save()
+    legislation.save(update_fields=['status'])
 
     _end_meta = {
         'result': 'passed' if vote_passed else 'failed',
@@ -121,9 +121,6 @@ def end_vote(request, legislation_id):
         'summary': vote_summary,
         'anonymous': legislation.anonymous_vote,
         'remove_abstain': not legislation.allow_abstain,
-        'in_favor': votes.filter(vote_choice='yes'),
-        'against': votes.filter(vote_choice='no'),
-        'abstain': votes.filter(vote_choice='abstain'),
         'passed': vote_passed,
         'total_votes': total_votes,
         'yes_votes': yes_votes,
@@ -132,6 +129,11 @@ def end_vote(request, legislation_id):
         'vote_breakdown': vote_breakdown,
         'winner': winner,
     }
+
+    if not legislation.anonymous_vote:
+        context['in_favor'] = votes.filter(vote_choice='yes')
+        context['against'] = votes.filter(vote_choice='no')
+        context['abstain'] = votes.filter(vote_choice='abstain')
 
     #legislation.set_passed()
 

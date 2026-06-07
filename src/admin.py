@@ -7,7 +7,7 @@ from .models import (
     ChatMessage, ChatReadReceipt, UserAnnouncementView, DocumentTag, DocumentVersion,
     Event, ActivityLog, LoginHistory, LoginAlert, BugReport, Notification,
     IPWhitelist, IPBlacklist, QuarantinedAccount, HoneypotAccess, SystemLockdown,
-    SecurityNotificationLog, UserWatchFlag, LoginLockout, KaiReport, KaiReportTemplate,
+    SecurityNotificationLog, CSPViolation, UserWatchFlag, LoginLockout, KaiReport, KaiReportTemplate,
     PassedResolution, UserSession, AnnouncementEmailLog, ChapterMinutes,
     SlatingPeriod, SlatingApplication,
 )
@@ -2058,6 +2058,20 @@ class SecurityNotificationLogAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+
+# === SECURITY — CSP VIOLATIONS ===
+
+@admin.register(CSPViolation, site=admin_site)
+class CSPViolationAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'violated_directive', 'blocked_uri', 'ip_address', 'dismissed')
+    list_filter = ('dismissed', 'violated_directive', 'created_at')
+    search_fields = ('violated_directive', 'blocked_uri', 'document_uri', 'ip_address')
+    readonly_fields = ('created_at', 'violated_directive', 'blocked_uri', 'document_uri',
+                       'source_file', 'line_number', 'ip_address', 'dismissed_at', 'dismissed_by')
+    ordering = ('-created_at',)
+
+    def has_add_permission(self, request):
+        return False
 
 
 # === SECURITY — USER WATCH FLAG ===

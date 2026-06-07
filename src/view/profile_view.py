@@ -25,7 +25,7 @@ def profile_view(request):
             "Please upload a new, appropriate profile picture."
         )
         user.profile_picture_removed_by_admin = False
-        user.save()
+        user.save(update_fields=['profile_picture_removed_by_admin'])
 
     profile_form_submitted = 'profile_submit' in request.POST
     password_form_submitted = 'password_submit' in request.POST
@@ -51,7 +51,7 @@ def profile_view(request):
             if action == 'remove' or 'remove_profile_picture' in request.POST:
                 if user.profile_picture:
                     user.profile_picture.delete()
-                    user.save()
+                    user.save(update_fields=['profile_picture'])
                     logger.info(f"{user.username} removed their profile picture")
                     ActivityLog.log_activity(
                         action_type='profile_picture_changed',
@@ -76,7 +76,7 @@ def profile_view(request):
                         user.profile_picture.delete()
 
                     user.profile_picture = request.FILES['profile_picture']
-                    user.save()
+                    user.save(update_fields=['profile_picture'])
                     logger.info(f"{user.username} uploaded a new profile picture")
                     ActivityLog.log_activity(
                         action_type='profile_picture_changed',
@@ -143,7 +143,7 @@ def profile_view(request):
                 changes_made = True
 
             if changes_made:
-                user.save()
+                user.save(update_fields=['username', 'preferred_name', 'email', 'phone_number'])
                 ActivityLog.log_activity(
                     action_type='profile_updated',
                     user=request.user,
@@ -210,7 +210,12 @@ def profile_view(request):
                     pass
             else:
                 user.big_brother = None
-            user.save()
+            user.save(update_fields=[
+                'about_me', 'pledge_class', 'pledge_class_greek',
+                'graduation_semester', 'graduation_year',
+                'instagram', 'twitter', 'linkedin', 'snapchat', 'facebook',
+                'other_email', 'big_brother',
+            ])
             from src.house_utils import inherit_house_from_big
             inherit_house_from_big(user, user.big_brother)
             messages.success(request, 'Public profile updated.')

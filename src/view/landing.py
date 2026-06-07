@@ -1,12 +1,14 @@
 import logging
 import re
 from django.conf import settings
+from django.core.cache import cache
 from django.core.mail import send_mail
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
+from src.utils.security_utils import get_client_ip
 from ..models import (
     LandingPageContent, LandingPagePhoto, ParliamentUser,
     ContactSubmission, LandingPageContactTopic, LandingPageFormLink,
@@ -118,6 +120,14 @@ def landing_page(request):
 @require_POST
 def contact_submit(request):
     """Save a contact form submission and notify the recipient."""
+    # Rate limit: 5 submissions per IP per 10 minutes
+    ip = get_client_ip(request)
+    rate_key = f'contact_submit_{ip}'
+    submission_count = cache.get(rate_key, 0)
+    if submission_count >= 5:
+        return JsonResponse({'ok': False, 'error': 'Too many submissions. Please try again later.'}, status=429)
+    cache.set(rate_key, submission_count + 1, 600)
+
     name      = request.POST.get('name', '').strip().replace('\r', '').replace('\n', '')
     email     = request.POST.get('email', '').strip().replace('\r', '').replace('\n', '')
     message   = request.POST.get('message', '').strip()

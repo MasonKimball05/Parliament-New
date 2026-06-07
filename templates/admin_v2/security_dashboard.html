@@ -82,6 +82,13 @@
             <div class="text-xs text-gray-400">{{ whitelist_count }} whitelisted</div>
         </a>
 
+        <!-- CSP Violations -->
+        <a href="{% url 'admin_v2_csp_violations' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 {% if csp_violation_count > 0 %}border-yellow-500{% else %}border-gray-300 dark:border-gray-600{% endif %} hover:shadow-md transition-shadow">
+            <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">CSP Violations</div>
+            <div class="text-2xl font-bold {% if csp_violation_count > 0 %}text-yellow-600 dark:text-yellow-400{% else %}text-gray-900 dark:text-gray-100{% endif %}">{{ csp_violation_count }}</div>
+            <div class="text-xs text-gray-400">undismissed</div>
+        </a>
+
     </div>
 
     <!-- Tool Navigation -->
@@ -136,6 +143,14 @@
                 </svg>
                 <span class="text-xs font-medium text-center">{% if lockdown.is_active %}Lockdown ON{% else %}Lockdown{% endif %}</span>
                 <span class="text-xs opacity-70">{% if lockdown.is_active %}Deactivate{% else %}Emergency{% endif %}</span>
+            </a>
+
+            <a href="{% url 'admin_v2_csp_violations' %}" class="flex flex-col items-center gap-1.5 px-3 py-3 rounded-lg bg-yellow-50 hover:bg-yellow-100 dark:bg-yellow-900/20 dark:hover:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <span class="text-xs font-medium text-center">CSP Violations</span>
+                {% if csp_violation_count > 0 %}<span class="text-xs bg-yellow-600 text-white rounded-full px-1.5 py-0.5 leading-none">{{ csp_violation_count }}</span>{% endif %}
             </a>
 
         </div>

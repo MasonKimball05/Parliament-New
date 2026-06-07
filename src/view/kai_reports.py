@@ -1,3 +1,4 @@
+from django.db.models import Count
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -319,10 +320,10 @@ def view_kai_reports(request):
             'archived': KaiReport.objects.filter(status='archived').count(),
         }
 
-        # Get counts for category filters
-        category_counts = {}
-        for cat_value, cat_label in KaiReport.CATEGORY_CHOICES:
-            category_counts[cat_value] = KaiReport.objects.filter(category=cat_value).count()
+        # Get counts for category filters — one aggregated query instead of one per category
+        cat_qs = KaiReport.objects.values('category').annotate(total=Count('id'))
+        cat_map = {row['category']: row['total'] for row in cat_qs}
+        category_counts = {cat_value: cat_map.get(cat_value, 0) for cat_value, _ in KaiReport.CATEGORY_CHOICES}
     except Exception:
         # Table doesn't exist yet - show empty state
         reports = []
@@ -338,6 +339,7 @@ def view_kai_reports(request):
             'archived': 0,
         }
         category_counts = {}
+        cat_map = {}
         messages.info(request, 'Kai Reports database table not yet created. This is a preview of the interface.')
 
     # Dashboard stats (compute after main try/except so counts are available)
@@ -345,11 +347,11 @@ def view_kai_reports(request):
         from datetime import timedelta
         import json
 
-        category_data = {}
-        for cat_value, cat_label in KaiReport.CATEGORY_CHOICES:
-            cat_count = KaiReport.objects.filter(category=cat_value).count()
-            if cat_count:
-                category_data[cat_label] = cat_count
+        category_data = {
+            cat_label: cat_map.get(cat_value, 0)
+            for cat_value, cat_label in KaiReport.CATEGORY_CHOICES
+            if cat_map.get(cat_value, 0)
+        }
 
         outcome_pending = KaiReport.objects.filter(deliberation_outcome='pending').count()
         outcome_heard = KaiReport.objects.filter(deliberation_outcome='heard').count()

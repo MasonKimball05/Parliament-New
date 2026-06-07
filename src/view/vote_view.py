@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -273,35 +274,6 @@ def vote_view(request):
             messages.error(request, "Incorrect password.")
             return redirect('vote')
 
-    # Auto-close any chapter legislation that has passed its voting_ends_at time
-    from django.db.models import Q
-    _logger = logging.getLogger('function_calls')
-    now = timezone.now()
-    expired_legislation = Legislation.objects.filter(
-        voting_closed=False,
-        voting_ends_at__isnull=False,
-        voting_ends_at__lte=now
-    )
-    for leg in expired_legislation:
-        leg.voting_closed = True
-        leg.voting_ended_at = leg.voting_ends_at
-        votes = Vote.objects.filter(legislation=leg)
-        yes = votes.filter(vote_choice='yes').count()
-        no = votes.filter(vote_choice='no').count()
-        total = yes + no
-        if total > 0:
-            if leg.vote_mode == 'piecewise':
-                leg.passed = yes >= (leg.required_number or 0)
-            elif leg.vote_mode == 'plurality':
-                options = {opt: votes.filter(vote_choice=opt).count() for opt in (leg.plurality_options or [])}
-                leg.passed = max(options.values()) > 0 if options else False
-            else:
-                yes_pct = (yes / total) * 100
-                leg.passed = yes_pct >= int(leg.required_percentage)
-            leg.status = 'passed' if leg.passed else 'failed'
-        leg.save()
-        _logger.info(f"Auto-closed voting on '{leg.title}' (ID: {leg.id}) - scheduled end time reached")
-
     # Gather available legislation
     # Show legislation that is available OR pending legislation created by the current user
     # Exclude tabled, passed, failed, and removed legislation
@@ -374,7 +346,6 @@ def vote_tally_json(request):
     so the page can react if a vote ends while the user is watching.
     """
     user = request.user
-    from django.db.models import Q
 
     active_legislation = Legislation.objects.filter(
         Q(available_at__lte=timezone.now()) | Q(posted_by=user),

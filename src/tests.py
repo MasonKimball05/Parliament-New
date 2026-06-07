@@ -323,6 +323,7 @@ class PluralityTestVoting(TestCase):
             posted_by=self.uploader,
             available_at=timezone.now(),
             vote_mode='plurality',
+            plurality_options=['yes', 'no'],
             document="plurality.pdf"
         )
 
