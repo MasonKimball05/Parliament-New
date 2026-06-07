@@ -116,7 +116,7 @@ def edit_legislation(request, legislation_id):
                     legislation.co_authors.remove(new_author)
                     # Add old author as co-author
                     legislation.co_authors.add(old_author)
-                    legislation.save()
+                    legislation.save(update_fields=['posted_by'])
                     messages.success(request, f"Authorship transferred to {new_author.name}. {old_author.name} has been added as a co-author.")
             return redirect('edit_legislation', legislation_id=legislation.id)
 

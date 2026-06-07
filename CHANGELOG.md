@@ -255,7 +255,20 @@ Wires the seven `KaiMemberPermission` flags into actual view and template enforc
 
 ---
 
-### v3.1.2 — CSP `unsafe-inline` Removal (2026-06-06)
+### v3.1.3 — `update_fields` Sweep, Test Fixes & Component CSS (2026-06-07)
+
+**Type:** Performance / Maintenance
+
+- **`update_fields` sweep** — ~188 `.save()` calls across 20+ view files now scope DB writes to only the modified columns. Down from 302 bare saves to 114 (remaining are form saves, INSERTs, or multi-branch conditionals).
+- **9 pre-existing test fixes** — all 57 tests now pass. Fixes: `test_committee_is_member` (chairs/members are separate M2Ms), `test_committee_detail_view` (RedirectView needs `follow=True`), `test_present_member_can_vote` (use `status='present'` not `present=True`), 4 ProfileTestCase failures (string `user_id` coerced to int by `ActivityLog`), `test_preferred_name_clear`, `test_get_display_name_without_preferred`, `test_legislation_history_shows_user_legislation`, `test_unique_username_constraint`.
+- **Bug fix** — `profile_view.py`: clearing preferred name stored `None` (NOT NULL violation); fixed to store `''`.
+- **Component CSS** — `@layer components` block added to `tailwind-input.css` with `btn-primary/secondary/danger/ghost`, `btn-sm/lg`, `badge/badge-green/red/yellow/blue/purple`, `card`, `form-input`. Eight high-traffic templates updated to use them.
+
+**Files changed:** `static/css/tailwind-input.css`, `static/css/tailwind.css`, `src/view/profile_view.py`, `src/test_comprehensive.py`, `src/test_edge_cases.py`, `src/view/kai_reports.py`, `src/view/admin_v2.py`, `src/view/officer/cnb.py`, `src/view/officer/manage_announcements.py`, `src/view/slating/` (6 files), `src/view/service_hours.py`, `src/view/guide.py`, `src/view/two_factor.py`, `src/view/chat/channel_chat.py`, `src/view/kai_form_builder.py`, `src/view/edit_legislation.py`, `src/view/officer/chapter_minutes.py`, `src/view/committee/committee_minutes_editor.py`, `templates/vote.html`, `templates/passed_legislation.html`, `templates/directory.html`, `templates/announcements.html`, `templates/profile.html`, `templates/preferences.html`, `templates/home_modern.html`, `templates/calendar.html`
+
+---
+
+### v3.1.2 — CSP `unsafe-inline` Removal (2026-06-06) ✅ Deployed
 
 Completes the multi-session inline handler migration. Every `onclick=`, `onchange=`, `onsubmit=`, and `oninput=` attribute has been removed from all templates and replaced with `addEventListener` calls inside nonced `<script>` blocks. With no remaining inline handlers, `'unsafe-inline'` can be dropped from `script-src` entirely.
 

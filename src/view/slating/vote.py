@@ -382,7 +382,7 @@ def close_voting(request, period_id):
         if failed_count > 0:
             # Some positions failed — return to deliberation for re-vote on failing positions
             period.status = 'deliberation'
-            period.save()
+            period.save(update_fields=['status'])
 
             SlatingActivity.objects.create(
                 period=period,
@@ -401,7 +401,7 @@ def close_voting(request, period_id):
         else:
             # All positions passed
             period.status = 'voting_closed'
-            period.save()
+            period.save(update_fields=['status'])
 
             SlatingActivity.objects.create(
                 period=period,
@@ -420,7 +420,7 @@ def close_voting(request, period_id):
 
         if slate.passed:
             period.status = 'voting_closed'
-            period.save()
+            period.save(update_fields=['status'])
 
             SlatingActivity.objects.create(
                 period=period,
@@ -445,10 +445,10 @@ def close_voting(request, period_id):
             slate.abstain_votes = 0
             slate.approval_percentage = None
             slate.passed = None
-            slate.save()
+            slate.save(update_fields=['total_votes', 'approval_votes', 'rejection_votes', 'abstain_votes', 'approval_percentage', 'passed'])
 
             period.status = 'deliberation'
-            period.save()
+            period.save(update_fields=['status'])
 
             SlatingActivity.objects.create(
                 period=period,
@@ -499,7 +499,7 @@ def reset_votes(request, period_id):
 
     # Reset attempt counter so re-opening doesn't skip a slot
     period.current_voting_attempt = max(0, attempt - 1)
-    period.save()
+    period.save(update_fields=['current_voting_attempt'])
 
     SlatingActivity.objects.create(
         period=period,

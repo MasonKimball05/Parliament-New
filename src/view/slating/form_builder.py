@@ -214,7 +214,7 @@ def _handle_delete_field(request, period):
 
     # Soft delete - just deactivate
     field.is_active = False
-    field.save()
+    field.save(update_fields=['is_active'])
 
     messages.success(request, f'Field "{label}" removed.')
     return redirect('slating_form_builder', period_id=period.id)
@@ -226,7 +226,7 @@ def _handle_toggle_field(request, period):
     field = get_object_or_404(SlatingFormField, id=field_id, period=period)
 
     field.is_active = not field.is_active
-    field.save()
+    field.save(update_fields=['is_active'])
 
     status = 'activated' if field.is_active else 'deactivated'
     messages.success(request, f'Field "{field.label}" {status}.')

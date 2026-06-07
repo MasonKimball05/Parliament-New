@@ -165,7 +165,7 @@ def channel_chat(request, channel_id=None, code=None):
             latest_message = messages_qs.first()
             if latest_message:
                 receipt.last_read_message = latest_message
-                receipt.save()
+                receipt.save(update_fields=['last_read_message'])
 
         # Invalidate the nav unread badge cache
         _cache.delete(f'chat_unread_{request.user.pk}')
@@ -346,7 +346,7 @@ def send_channel_message(request, channel_id=None, code=None):
         channel=channel
     )
     receipt.last_read_message = message
-    receipt.save()
+    receipt.save(update_fields=['last_read_message'])
     _cache.delete(f'chat_unread_{request.user.pk}')
 
     # Parse @mentions and dispatch targeted push notifications
@@ -450,7 +450,7 @@ def edit_channel_message(request, message_id, channel_id=None, code=None):
     # Update message
     message.message = new_message_text
     message.edited_at = timezone.now()
-    message.save()
+    message.save(update_fields=['message', 'edited_at'])
 
     # Broadcast edit to WebSocket group
     _ws_broadcast(f'chat_{channel.id}', {
@@ -506,7 +506,7 @@ def delete_channel_message(request, message_id, channel_id=None, code=None):
 
     # Soft delete
     message.is_deleted = True
-    message.save()
+    message.save(update_fields=['is_deleted'])
 
     # Broadcast deletion to WebSocket group
     _ws_broadcast(f'chat_{channel.id}', {

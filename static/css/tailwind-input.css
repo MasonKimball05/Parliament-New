@@ -1,3 +1,135 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  /* =====================================================================
+     BUTTONS
+     Usage:
+       Primary:   <button class="btn-primary">Save</button>
+       Secondary: <button class="btn-secondary">Cancel</button>
+       Danger:    <button class="btn-danger">Delete</button>
+       Ghost:     <button class="btn-ghost">Back</button>
+       Sizes:     Add btn-sm or btn-lg alongside the color variant
+                  e.g. <button class="btn-primary btn-sm">Add</button>
+     Icon buttons: add gap-2 and an inline SVG — size handles itself
+  ===================================================================== */
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           px-4 py-2 text-sm font-medium rounded-lg
+           bg-primary-600 hover:bg-primary-700 text-white
+           shadow-sm transition-colors
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           px-4 py-2 text-sm font-medium rounded-lg
+           bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600
+           text-gray-700 dark:text-gray-200
+           hover:bg-gray-50 dark:hover:bg-gray-600
+           shadow-sm transition-colors
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2
+           px-4 py-2 text-sm font-medium rounded-lg
+           bg-red-600 hover:bg-red-700 text-white
+           shadow-sm transition-colors
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2
+           px-4 py-2 text-sm font-medium rounded-lg
+           text-gray-600 dark:text-gray-400
+           hover:bg-gray-100 dark:hover:bg-gray-700
+           transition-colors
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Size modifiers — combine with a color variant */
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+
+  /* =====================================================================
+     BADGES / STATUS PILLS
+     Usage:
+       <span class="badge">Default</span>
+       <span class="badge badge-green">Active</span>
+       <span class="badge badge-red">Closed</span>
+       <span class="badge badge-yellow">Pending</span>
+       <span class="badge badge-blue">Open</span>
+       <span class="badge badge-purple">Officer</span>
+  ===================================================================== */
+
+  .badge {
+    @apply inline-flex items-center gap-1
+           px-2.5 py-0.5 rounded-full text-xs font-medium
+           bg-gray-100 dark:bg-gray-700
+           text-gray-600 dark:text-gray-300;
+  }
+
+  .badge-green {
+    @apply bg-green-100 dark:bg-green-900/40
+           text-green-700 dark:text-green-300;
+  }
+
+  .badge-red {
+    @apply bg-red-100 dark:bg-red-900/40
+           text-red-700 dark:text-red-300;
+  }
+
+  .badge-yellow {
+    @apply bg-yellow-100 dark:bg-yellow-900/40
+           text-yellow-700 dark:text-yellow-300;
+  }
+
+  .badge-blue {
+    @apply bg-primary-100 dark:bg-primary-900/50
+           text-primary-700 dark:text-primary-300;
+  }
+
+  .badge-purple {
+    @apply bg-purple-100 dark:bg-purple-900/40
+           text-purple-700 dark:text-purple-300;
+  }
+
+  /* =====================================================================
+     CARDS
+     Usage:
+       <div class="card">...</div>
+       <div class="card p-4">...</div>   (override default padding)
+  ===================================================================== */
+
+  .card {
+    @apply bg-white dark:bg-gray-800
+           rounded-xl shadow-sm
+           border border-gray-200 dark:border-gray-700;
+  }
+
+  /* =====================================================================
+     FORM INPUTS
+     Usage:
+       <input class="form-input" type="text">
+       <select class="form-input">...</select>
+       <textarea class="form-input resize-none"></textarea>
+  ===================================================================== */
+
+  .form-input {
+    @apply w-full px-3 py-2 text-sm rounded-lg
+           border border-gray-300 dark:border-gray-600
+           bg-white dark:bg-gray-700
+           text-gray-900 dark:text-gray-100
+           placeholder-gray-400 dark:placeholder-gray-500
+           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+}

@@ -123,7 +123,7 @@ def create_period(request):
             period.min_gpa_requirement = float(request.POST.get('min_gpa_requirement', 2.50))
             period.gpa_level_2_threshold = float(request.POST.get('gpa_level_2_threshold', 0.20))
             period.required_approval_percentage = int(request.POST.get('required_approval_percentage', 60))
-            period.save()
+            period.save(update_fields=['min_gpa_requirement', 'gpa_level_2_threshold', 'required_approval_percentage'])
         except (ValueError, TypeError):
             pass
 

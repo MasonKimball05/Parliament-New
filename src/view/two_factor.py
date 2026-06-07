@@ -154,7 +154,7 @@ def two_factor_setup(request):
         # Verify the token
         if device.verify_token(token):
             device.confirmed = True
-            device.save()
+            device.save(update_fields=['confirmed'])
 
             # Generate backup codes and store them in session to show once
             backup_codes = _generate_backup_codes(user)

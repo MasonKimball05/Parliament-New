@@ -400,7 +400,7 @@ def tour_start(request, tour_slug):
         progress.current_step = 0
         progress.completed = False
         progress.completed_at = None
-        progress.save()
+        progress.save(update_fields=['current_step', 'completed', 'completed_at'])
 
     # Get all steps
     steps = tour.steps.all().values(
@@ -470,7 +470,7 @@ def tour_complete(request, tour_slug):
         progress.completed = True
         progress.completed_at = timezone.now()
         progress.current_step = tour.step_count
-        progress.save()
+        progress.save(update_fields=['completed', 'completed_at', 'current_step'])
 
     return JsonResponse({
         'success': True,
@@ -496,7 +496,7 @@ def tour_skip(request, tour_slug):
 
     progress.completed = True
     progress.completed_at = timezone.now()
-    progress.save()
+    progress.save(update_fields=['completed', 'completed_at'])
 
     return JsonResponse({
         'success': True,

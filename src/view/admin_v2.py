@@ -505,7 +505,7 @@ def toggle_feature_flag(request, flag_id):
             flag.is_enabled = not flag.is_enabled
             flag.last_toggled_by = request.user.get_display_name()
             flag.last_toggled_at = timezone.now()
-            flag.save()
+            flag.save(update_fields=['is_enabled', 'last_toggled_by', 'last_toggled_at'])
 
             status = "enabled" if flag.is_enabled else "disabled"
             messages.success(request, f'Feature "{flag.display_name}" has been {status}')
@@ -533,7 +533,7 @@ def toggle_page(request, toggle_id):
             toggle.is_enabled = not toggle.is_enabled
             toggle.last_toggled_by = request.user.get_display_name()
             toggle.last_toggled_at = timezone.now()
-            toggle.save()
+            toggle.save(update_fields=['is_enabled', 'last_toggled_by', 'last_toggled_at'])
 
             status = "enabled" if toggle.is_enabled else "disabled"
 
@@ -581,7 +581,7 @@ def update_site_setting(request, setting_id):
             old_value = setting.value
             setting.value = new_value
             setting.last_modified_by = request.user.get_display_name()
-            setting.save()
+            setting.save(update_fields=['value', 'last_modified_by'])
 
             messages.success(request, f'Setting "{setting.display_name}" updated to {new_value}')
 
@@ -826,7 +826,7 @@ def toggle_committee_active(request, committee_id):
         try:
             committee = Committee.objects.get(id=committee_id)
             committee.is_active = not committee.is_active
-            committee.save()
+            committee.save(update_fields=['is_active'])
 
             status = "activated" if committee.is_active else "deactivated"
             messages.success(request, f'Committee "{committee.name}" has been {status}')
@@ -909,7 +909,7 @@ def toggle_user_admin(request, user_id):
         try:
             user = ParliamentUser.objects.get(user_id=user_id)
             user.is_admin = not user.is_admin
-            user.save()
+            user.save(update_fields=['is_admin'])
 
             status = "granted" if user.is_admin else "revoked"
             messages.success(request, f'Admin access {status} for {user.get_display_name()}')
@@ -938,7 +938,7 @@ def remove_user_profile_picture(request, user_id):
         if user.profile_picture:
             user.profile_picture.delete()
             user.profile_picture_removed_by_admin = True
-            user.save()
+            user.save(update_fields=['profile_picture', 'profile_picture_removed_by_admin'])
 
             ActivityLog.log_activity(
                 action_type='profile_picture_removed',
@@ -1084,7 +1084,7 @@ def edit_user_profile(request, user_id):
             from src.models import ParliamentUser as PU
             valid_houses = {c[0] for c in PU.HOUSE_CHOICES}
             target.house = house if house in valid_houses else ''
-            target.save()
+            target.save(update_fields=['name', 'preferred_name', 'member_type', 'member_status', 'email', 'phone_number', 'role_number', 'house'])
             ActivityLog.log_activity(
                 action_type='profile_updated',
                 user=request.user,
@@ -1143,7 +1143,7 @@ def edit_user_profile(request, user_id):
             target.facebook = request.POST.get('facebook', '').strip().lstrip('@')
             other_email = request.POST.get('other_email', '').strip()
             target.other_email = other_email or None
-            target.save()
+            target.save(update_fields=['about_me', 'pledge_class', 'pledge_class_greek', 'graduation_semester', 'graduation_year', 'big_brother', 'instagram', 'twitter', 'linkedin', 'snapchat', 'facebook', 'other_email'])
             from src.house_utils import inherit_house_from_big
             inherit_house_from_big(target, target.big_brother)
             messages.success(request, 'Extended profile updated.')
@@ -1429,7 +1429,7 @@ def force_password_reset(request, user_id):
     user.set_password(temp_password)
     user.force_password_change = False  # Allow them to use this password
     user.has_default_password = False
-    user.save()
+    user.save(update_fields=['password', 'force_password_change', 'has_default_password'])
 
     # Log the action
     ActivityLog.log_activity(
@@ -1730,7 +1730,7 @@ def dismiss_alert(request, alert_id):
         alert.reviewed_by = request.user
         alert.reviewed_at = timezone.now()
         alert.resolution_notes = request.POST.get('notes', 'Dismissed by admin')
-        alert.save()
+        alert.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'resolution_notes'])
         return JsonResponse({'success': True, 'new_count': LoginAlert.objects.filter(status='new').count()})
     except LoginAlert.DoesNotExist:
         return JsonResponse({'error': 'Alert not found'}, status=404)
@@ -2421,13 +2421,13 @@ def lockdown_control(request):
         elif action == 'update_whitelist':
             whitelisted_ips_str = request.POST.get('whitelisted_ips', '')
             lockdown.whitelisted_ips = [ip.strip() for ip in whitelisted_ips_str.split(',') if ip.strip()]
-            lockdown.save()
+            lockdown.save(update_fields=['whitelisted_ips'])
             messages.success(request, 'Whitelist updated')
             logger.info(f"Lockdown whitelist updated by {request.user.username}")
 
         elif action == 'update_message':
             lockdown.message = request.POST.get('message', lockdown.message)
-            lockdown.save()
+            lockdown.save(update_fields=['message'])
             messages.success(request, 'Lockdown message updated')
 
         return redirect('admin_v2_lockdown')
@@ -2621,7 +2621,7 @@ def manage_lockouts(request):
                 lockout.is_cleared = True
                 lockout.cleared_at = timezone.now()
                 lockout.cleared_by = request.user
-                lockout.save()
+                lockout.save(update_fields=['is_cleared', 'cleared_at', 'cleared_by'])
 
                 messages.success(request, f'Lockout cleared for {ip}.')
                 logger.info(f"Admin {request.user.username} cleared lockout for IP {ip}")
@@ -2638,7 +2638,7 @@ def manage_lockouts(request):
                 if existing:
                     existing.is_active = True
                     existing.reason = f'Blacklisted from lockout management by {request.user.username}'
-                    existing.save()
+                    existing.save(update_fields=['is_active', 'reason'])
                 else:
                     IPBlacklist.objects.create(
                         ip_address=ip,
@@ -2651,7 +2651,7 @@ def manage_lockouts(request):
                 lockout.is_cleared = True
                 lockout.cleared_at = timezone.now()
                 lockout.cleared_by = request.user
-                lockout.save()
+                lockout.save(update_fields=['is_cleared', 'cleared_at', 'cleared_by'])
 
                 messages.success(request, f'IP {ip} has been blacklisted.')
                 logger.info(f"Admin {request.user.username} blacklisted IP {ip} from lockout management")
@@ -2667,7 +2667,7 @@ def manage_lockouts(request):
                 existing = IPWhitelist.objects.filter(ip_address=ip).first()
                 if existing:
                     existing.is_active = True
-                    existing.save()
+                    existing.save(update_fields=['is_active'])
                 else:
                     IPWhitelist.objects.create(
                         ip_address=ip,
@@ -2686,7 +2686,7 @@ def manage_lockouts(request):
                 lockout.is_cleared = True
                 lockout.cleared_at = timezone.now()
                 lockout.cleared_by = request.user
-                lockout.save()
+                lockout.save(update_fields=['is_cleared', 'cleared_at', 'cleared_by'])
 
                 messages.success(request, f'IP {ip} has been whitelisted and lockout cleared.')
                 logger.info(f"Admin {request.user.username} whitelisted IP {ip} from lockout management")
@@ -2711,7 +2711,7 @@ def manage_lockouts(request):
                 lockout.is_cleared = True
                 lockout.cleared_at = now
                 lockout.cleared_by = request.user
-                lockout.save()
+                lockout.save(update_fields=['is_cleared', 'cleared_at', 'cleared_by'])
             messages.success(request, f'Cleared {len(to_clear)} active lockout(s).')
             logger.info(f"Admin {request.user.username} bulk-cleared {len(to_clear)} lockouts")
 

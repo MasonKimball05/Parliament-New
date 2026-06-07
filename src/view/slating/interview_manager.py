@@ -146,7 +146,7 @@ def schedule_interview(request, app_id):
     if not created:
         interview.scheduled_at = scheduled_datetime
         interview.location = location
-        interview.save()
+        interview.save(update_fields=['scheduled_at', 'location'])
 
     # Set interviewers
     if interviewer_ids:
@@ -156,7 +156,7 @@ def schedule_interview(request, app_id):
     # Update application status
     if application.status in ['submitted', 'under_review']:
         application.status = 'interview_scheduled'
-        application.save()
+        application.save(update_fields=['status'])
 
     # Log activity
     SlatingActivity.objects.create(
@@ -234,7 +234,7 @@ def complete_interview(request, interview_id):
     if not interview.completed_at:
         interview.completed_at = timezone.now()
 
-    interview.save()
+    interview.save(update_fields=['notes', 'strengths', 'concerns', 'recommendation', 'completed_at'])
 
     # Set recommended positions
     position_ids = request.POST.getlist('recommended_positions')
@@ -247,7 +247,7 @@ def complete_interview(request, interview_id):
     # Update application status
     if interview.application.status == 'interview_scheduled':
         interview.application.status = 'interviewed'
-        interview.application.save()
+        interview.application.save(update_fields=['status'])
 
     # Log activity
     SlatingActivity.objects.create(

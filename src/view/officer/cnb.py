@@ -111,7 +111,7 @@ def edit_section(request, section_id):
         else:
             section.content = new_content
             section.title = request.POST.get('title', section.title).strip()
-            section.save()
+            section.save(update_fields=['content', 'title'])
             messages.success(request, f'{section.full_identifier} updated.')
             return redirect('cnb_manage_document', doc_type=section.article.document.doc_type)
 
@@ -135,14 +135,14 @@ def toggle_section_active(request, section_id):
         section.deactivation_reason = reason
         section.deactivated_by = request.user
         section.deactivated_at = timezone.now()
-        section.save()
+        section.save(update_fields=['is_active', 'deactivation_reason', 'deactivated_by', 'deactivated_at'])
         messages.warning(request, f'{section.full_identifier} deactivated.')
     else:
         section.is_active = True
         section.deactivation_reason = ''
         section.deactivated_by = None
         section.deactivated_at = None
-        section.save()
+        section.save(update_fields=['is_active', 'deactivation_reason', 'deactivated_by', 'deactivated_at'])
         messages.success(request, f'{section.full_identifier} reactivated.')
 
     return redirect('cnb_manage_document', doc_type=section.article.document.doc_type)
@@ -219,7 +219,7 @@ def add_partial_suspension(request, section_id):
             'suspended_by_name': request.user.name,
         })
         section.partial_suspensions = suspensions
-        section.save()
+        section.save(update_fields=['partial_suspensions'])
         messages.success(request, f'§ {section.number}({ref}) partially suspended.')
 
     return redirect('cnb_manage_document', doc_type=section.article.document.doc_type)
@@ -236,7 +236,7 @@ def remove_partial_suspension(request, section_id, idx):
     if 0 <= idx < len(suspensions):
         removed = suspensions.pop(idx)
         section.partial_suspensions = suspensions
-        section.save()
+        section.save(update_fields=['partial_suspensions'])
         messages.success(request, f'Partial suspension on "{removed.get("ref")}" lifted.')
 
     return redirect('cnb_manage_document', doc_type=section.article.document.doc_type)
@@ -258,14 +258,14 @@ def toggle_article_active(request, article_id):
         article.deactivation_reason = reason
         article.deactivated_by = request.user
         article.deactivated_at = timezone.now()
-        article.save()
+        article.save(update_fields=['is_active', 'deactivation_reason', 'deactivated_by', 'deactivated_at'])
         messages.warning(request, f'Article {article.number} deactivated.')
     else:
         article.is_active = True
         article.deactivation_reason = ''
         article.deactivated_by = None
         article.deactivated_at = None
-        article.save()
+        article.save(update_fields=['is_active', 'deactivation_reason', 'deactivated_by', 'deactivated_at'])
         messages.success(request, f'Article {article.number} reactivated.')
 
     return redirect('cnb_manage_document', doc_type=article.document.doc_type)
@@ -397,7 +397,7 @@ def edit_resolution(request, resolution_id):
                 messages.error(request, 'Invalid vote date format.')
         else:
             resolution.vote_date = None
-        resolution.save()
+        resolution.save(update_fields=['title', 'resolution_type', 'authors', 'sponsors', 'whereas_clauses', 'resolved_text', 'resolution_body', 'additional_notes', 'vote_date'])
         messages.success(request, 'Resolution updated.')
         if request.POST.get('save_and_preview'):
             from django.urls import reverse
@@ -473,7 +473,7 @@ def add_amendment(request, resolution_id):
         amendment.proposed_text = proposed_text
         amendment.amendment_type = amendment_type
         amendment.scope_note = scope_note
-        amendment.save()
+        amendment.save(update_fields=['proposed_text', 'amendment_type', 'scope_note'])
         messages.success(request, f'Amendment for {section.full_identifier} updated.')
     else:
         messages.success(request, f'Amendment for {section.full_identifier} added.')
@@ -544,7 +544,7 @@ def set_resolution_status(request, resolution_id):
             messages.info(request, 'Resolution moved to pending vote.')
         elif new_status == 'withdrawn':
             messages.info(request, 'Resolution withdrawn.')
-        resolution.save()
+        resolution.save(update_fields=['status', 'passed_at', 'failed_at'])
 
     return redirect('cnb_resolution_detail', resolution_id=resolution_id)
 
@@ -581,7 +581,7 @@ def add_collaborator(request, resolution_id):
     )
     if not created:
         collab.role = role
-        collab.save()
+        collab.save(update_fields=['role'])
         messages.success(request, f'{user.name} updated to {collab.get_role_display()}.')
     else:
         messages.success(request, f'{user.name} added as {collab.get_role_display()}.')

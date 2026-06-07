@@ -32,7 +32,7 @@
     </div>
 
     <!-- Status Filter Tabs -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-6 overflow-hidden">
+    <div class="card mb-6 overflow-hidden">
         <div class="flex overflow-x-auto scrollbar-hide border-b border-gray-200 dark:border-gray-700 whitespace-nowrap">
             <a href="?status=all" class="flex items-center shrink-0 px-3 sm:px-4 py-3 text-sm font-medium border-b-2 transition-colors {% if status_filter == 'all' %}border-primary-500 text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20{% else %}border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300{% endif %}">
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -93,8 +93,7 @@
                 role <strong>{{ legislation.legislation.appointment_role.name }}</strong> has not been assigned yet.
             </p>
         </div>
-        <a href="{% url 'assign_appointment' legislation_id=legislation.legislation.id %}"
-           class="shrink-0 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition">
+        <a href="{% url 'assign_appointment' legislation_id=legislation.legislation.id %}" class="btn-primary btn-sm shrink-0">
             Assign Role
         </a>
     </div>
@@ -106,7 +105,7 @@
     {% if passed_legislation %}
     <div class="space-y-6">
         {% for legislation in passed_legislation %}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+        <div class="card overflow-hidden hover:shadow-md transition-shadow">
             <!-- Card Header -->
             <div class="bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-800/30 px-4 sm:px-6 py-4 border-b border-primary-200 dark:border-primary-700">
                 <div class="flex items-start justify-between gap-3">
@@ -136,35 +135,35 @@
                     <!-- Status Badge -->
                     <div class="shrink-0">
                         {% if legislation.legislation.status == 'passed' %}
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700">
+                        <span class="badge badge-green inline-flex items-center">
                             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                             </svg>
                             Passed
                         </span>
                         {% elif legislation.legislation.status == 'failed' or legislation.legislation.status == 'removed' %}
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700">
+                        <span class="badge badge-red inline-flex items-center">
                             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
                             </svg>
                             Failed
                         </span>
                         {% elif legislation.legislation.status == 'tabled' %}
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 border border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600">
+                        <span class="badge inline-flex items-center">
                             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd"/>
                             </svg>
                             Tabled
                         </span>
                         {% elif legislation.legislation.status == 'pending' %}
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 border border-yellow-200 dark:bg-yellow-900/50 dark:text-yellow-300 dark:border-yellow-700">
+                        <span class="badge badge-yellow inline-flex items-center">
                             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
                             </svg>
                             Pending
                         </span>
                         {% else %}
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700">
+                        <span class="badge badge-blue inline-flex items-center">
                             <svg class="w-4 h-4 mr-1 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
                             </svg>
@@ -366,24 +365,20 @@
                 <!-- Action Buttons -->
                 {% if legislation.document_url %}
                 <div class="mt-4 sm:mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-1 sm:flex sm:flex-wrap gap-2 sm:gap-3">
-                    <a href="{{ legislation.detail_url }}"
-                       class="inline-flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 sm:px-6 sm:py-3 rounded-lg text-sm font-medium transition-colors shadow-sm hover:shadow-md">
+                    <a href="{{ legislation.detail_url }}" class="btn-primary inline-flex items-center justify-center gap-2">
                         <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
                         <span>View Details</span>
                     </a>
-                    <a href="{{ legislation.document_viewer_url }}"
-                       class="inline-flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 sm:px-6 sm:py-3 rounded-lg text-sm font-medium transition-colors shadow-sm hover:shadow-md">
+                    <a href="{{ legislation.document_viewer_url }}" class="btn-primary inline-flex items-center justify-center gap-2">
                         <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                         </svg>
                         <span>View Document</span>
                     </a>
-                    <a href="{{ legislation.document_url }}"
-                       download
-                       class="inline-flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 px-4 py-2.5 sm:px-6 sm:py-3 rounded-lg text-sm font-medium transition-colors">
+                    <a href="{{ legislation.document_url }}" download class="btn-secondary inline-flex items-center justify-center gap-2">
                         <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                         </svg>
@@ -403,8 +398,7 @@
                 </div>
                 {% else %}
                 <div class="mt-4 sm:mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-1 sm:flex sm:flex-wrap gap-2 sm:gap-3">
-                    <a href="{{ legislation.detail_url }}"
-                       class="inline-flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 sm:px-6 sm:py-3 rounded-lg text-sm font-medium transition-colors shadow-sm hover:shadow-md">
+                    <a href="{{ legislation.detail_url }}" class="btn-primary inline-flex items-center justify-center gap-2">
                         <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
@@ -435,7 +429,7 @@
     </div>
     {% else %}
     <!-- Empty State -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
+    <div class="card p-12 text-center">
         <svg class="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
@@ -569,12 +563,10 @@
                 <!-- Fixed Footer -->
                 <div class="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-t border-gray-200 dark:border-gray-600 flex-shrink-0">
                     <div class="flex justify-end space-x-3">
-                        <button type="button"
-                            class="js-close-add-legislation-modal px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition">
+                        <button type="button" class="js-close-add-legislation-modal btn-secondary">
                             Cancel
                         </button>
-                        <button type="submit"
-                            class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition flex items-center">
+                        <button type="submit" class="btn-primary inline-flex items-center">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                             </svg>

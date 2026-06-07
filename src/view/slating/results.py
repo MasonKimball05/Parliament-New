@@ -171,7 +171,7 @@ def publish_results(request, period_id):
     # Update status
     period.status = 'results_published'
     period.results_publish_at = timezone.now()
-    period.save()
+    period.save(update_fields=['status', 'results_publish_at'])
 
     # Log activity
     SlatingActivity.objects.create(

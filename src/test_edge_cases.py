@@ -295,8 +295,7 @@ class AttendanceVotingTestCase(TestCase):
         # Mark as present
         Attendance.objects.create(
             user=self.present_member,
-            present=True,
-            created_at=timezone.now()
+            status='present'
         )
 
         leg = Legislation.objects.create(
@@ -512,16 +511,17 @@ class DataIntegrityTestCase(TestCase):
 
     def test_unique_username_constraint(self):
         """Test that usernames must be unique"""
-        ParliamentUser.objects.create_user(
+        from django.db import IntegrityError
+        ParliamentUser.objects.create(
             user_id='user1',
             name='User One',
             username='testuser',
             member_type='Member'
         )
 
-        # Creating another user with same username should fail
-        with self.assertRaises(Exception):
-            ParliamentUser.objects.create_user(
+        # Creating another user with same username should fail at DB level
+        with self.assertRaises(IntegrityError):
+            ParliamentUser.objects.create(
                 user_id='user2',
                 name='User Two',
                 username='testuser',  # Duplicate

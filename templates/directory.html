@@ -127,7 +127,7 @@
                         {% if member.roles.exists %}
                         <div class="mt-2 flex flex-wrap gap-1">
                             {% for role in member.roles.all %}
-                            <span class="px-2 py-0.5 text-xs rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">
+                            <span class="badge badge-purple">
                                 {{ role.name }}
                             </span>
                             {% endfor %}
@@ -187,7 +187,7 @@
                         {% if member.roles.exists %}
                         <div class="mt-2 flex flex-wrap gap-1">
                             {% for role in member.roles.all %}
-                            <span class="px-2 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
+                            <span class="badge badge-blue">
                                 {{ role.name }}
                             </span>
                             {% endfor %}
@@ -343,7 +343,7 @@
                         </a>
                         {% endif %}
                         <div class="mt-2">
-                            <span class="px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400">Advisor</span>
+                            <span class="badge">Advisor</span>
                         </div>
                     </div>
                 </div>
@@ -600,11 +600,10 @@
             </div>
 
             <div class="flex gap-3 justify-end pt-1">
-                <button type="button" class="js-close-export-modal px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600">
+                <button type="button" class="js-close-export-modal btn-secondary">
                     Cancel
                 </button>
-                <button type="submit"
-                        class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                <button type="submit" class="btn-primary">
                     Download
                 </button>
             </div>

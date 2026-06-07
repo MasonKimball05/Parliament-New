@@ -206,7 +206,7 @@ def _handle_delete_field(request):
 
     # Soft delete - just deactivate
     field.is_active = False
-    field.save()
+    field.save(update_fields=['is_active'])
 
     logger.info(f"{request.user.username} deleted Kai form field: {label}")
     messages.success(request, f'Field "{label}" removed.')
@@ -221,11 +221,11 @@ def _handle_toggle_field(request):
     if field.is_builtin and not field.is_active:
         # Built-in fields should always be active, reactivate them
         field.is_active = True
-        field.save()
+        field.save(update_fields=['is_active'])
         messages.success(request, f'Field "{field.label}" restored.')
     elif not field.is_builtin:
         field.is_active = not field.is_active
-        field.save()
+        field.save(update_fields=['is_active'])
         status = 'activated' if field.is_active else 'deactivated'
         messages.success(request, f'Field "{field.label}" {status}.')
     else:

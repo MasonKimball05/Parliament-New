@@ -133,7 +133,7 @@ def _handle_assign_candidate(request, period, slate, is_runoff=False):
 
     # Update application status
     application.status = 'slated'
-    application.save()
+    application.save(update_fields=['status'])
 
     label = 'runoff candidate' if is_runoff else 'primary candidate'
     messages.success(request, f'{application.applicant.name} assigned as {label} for {position.title}.')
@@ -150,7 +150,7 @@ def _handle_unassign_candidate(request, period, slate):
 
     # Reset application status
     assignment.application.status = 'interviewed'
-    assignment.application.save()
+    assignment.application.save(update_fields=['status'])
 
     assignment.delete()
 
@@ -165,7 +165,7 @@ def _handle_save_notes(request, slate):
 
     assignment = get_object_or_404(SlateCandidate, id=assignment_id, slate=slate)
     assignment.notes = notes
-    assignment.save()
+    assignment.save(update_fields=['notes'])
 
     return JsonResponse({'status': 'success'})
 
@@ -207,7 +207,7 @@ def approve_slate(request, period_id, slate_id=None):
     if existing_primary and slate_type == 'primary':
         # Demote existing primary to alternative
         existing_primary.slate_type = 'alternative'
-        existing_primary.save()
+        existing_primary.save(update_fields=['slate_type'])
 
     # Approve the slate
     slate.slate_type = slate_type
@@ -216,7 +216,7 @@ def approve_slate(request, period_id, slate_id=None):
     slate.approved_by = request.user
     slate.name = request.POST.get('name', f'{slate_type.title()} Slate')
     slate.description = request.POST.get('description', '')
-    slate.save()
+    slate.save(update_fields=['slate_type', 'is_approved', 'approved_at', 'approved_by', 'name', 'description'])
 
     # Log activity
     SlatingActivity.objects.create(
@@ -548,7 +548,7 @@ def manual_results(request, period_id):
             slate.is_approved = True
             slate.approved_at = timezone.now()
             slate.approved_by = request.user
-            slate.save()
+            slate.save(update_fields=['is_approved', 'approved_at', 'approved_by'])
 
         errors = []
         assignments = []  # (position, member) tuples to create
@@ -625,11 +625,11 @@ def manual_results(request, period_id):
             slate.total_votes = overall_approve + overall_reject + overall_abstain
             slate.approval_percentage = (overall_approve / counted * 100) if counted > 0 else None
             slate.passed = (overall_approve / counted * 100) >= period.required_approval_percentage if counted > 0 else None
-            slate.save()
+            slate.save(update_fields=['approval_votes', 'rejection_votes', 'abstain_votes', 'total_votes', 'approval_percentage', 'passed'])
 
         period.status = 'voting_closed'
         period.vote_type = 'individual' if vote_mode == 'per_position' else period.vote_type
-        period.save()
+        period.save(update_fields=['status', 'vote_type'])
 
         SlatingActivity.objects.create(
             period=period,

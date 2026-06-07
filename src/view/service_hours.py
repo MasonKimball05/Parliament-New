@@ -192,7 +192,7 @@ def manage_service_submission(request, submission_id):
             submission.reviewed_by = request.user
             submission.reviewed_at = timezone.now()
             submission.reviewer_notes = notes
-            submission.save()
+            submission.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'reviewer_notes'])
 
             ServiceActivity.objects.create(
                 submission=submission,
@@ -212,7 +212,7 @@ def manage_service_submission(request, submission_id):
             submission.reviewed_by = request.user
             submission.reviewed_at = timezone.now()
             submission.reviewer_notes = notes
-            submission.save()
+            submission.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'reviewer_notes'])
 
             ServiceActivity.objects.create(
                 submission=submission,
@@ -270,7 +270,7 @@ def bulk_actions_service(request):
             submission.status = 'approved'
             submission.reviewed_by = request.user
             submission.reviewed_at = timezone.now()
-            submission.save()
+            submission.save(update_fields=['status', 'reviewed_by', 'reviewed_at'])
 
             ServiceActivity.objects.create(
                 submission=submission,
@@ -285,7 +285,7 @@ def bulk_actions_service(request):
             submission.reviewed_by = request.user
             submission.reviewed_at = timezone.now()
             submission.reviewer_notes = 'Rejected via bulk action'
-            submission.save()
+            submission.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'reviewer_notes'])
 
             ServiceActivity.objects.create(
                 submission=submission,
@@ -374,7 +374,7 @@ def manage_service_periods(request):
             period_id = request.POST.get('period_id')
             period = get_object_or_404(ServicePeriod, id=period_id)
             period.is_active = not period.is_active
-            period.save()
+            period.save(update_fields=['is_active'])
             status = 'activated' if period.is_active else 'deactivated'
             messages.success(request, f'{period.name} {status}.')
             return redirect('manage_service_periods')

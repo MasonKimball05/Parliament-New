@@ -321,7 +321,7 @@ def withdraw_application(request, app_id):
         return redirect('slating_my_applications')
 
     application.status = 'withdrawn'
-    application.save()
+    application.save(update_fields=['status'])
 
     # Log activity
     SlatingActivity.objects.create(

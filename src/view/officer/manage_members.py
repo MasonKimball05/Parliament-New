@@ -314,7 +314,7 @@ def delete_member(request, user_id):
         # Soft delete - set status to Inactive
         member.member_status = 'Inactive'
         member.is_active = False
-        member.save()
+        member.save(update_fields=['member_status', 'is_active'])
         action_desc = f'{request.user.get_display_name()} deactivated member {member.name} ({member.user_id})'
 
     ActivityLog.log_activity(

@@ -374,7 +374,7 @@ def send_announcement_emails(request, announcement_id):
                     sent_count += 1
                     if recipient:
                         recipient.status = 'sent'
-                        recipient.save()
+                        recipient.save(update_fields=['status'])
                     log_msg(f"  SENT: {email_data['name']} <{email_data['email']}>")
 
                 except Exception as e:
@@ -382,7 +382,7 @@ def send_announcement_emails(request, announcement_id):
                     if recipient:
                         recipient.status = 'failed'
                         recipient.error_message = str(e)
-                        recipient.save()
+                        recipient.save(update_fields=['status', 'error_message'])
                     log_msg(f"  FAIL: {email_data['name']} <{email_data['email']}> - {str(e)}")
 
             # Update email log
@@ -406,7 +406,7 @@ def send_announcement_emails(request, announcement_id):
             email_log.emails_failed = failed_count
             email_log.completed_at = timezone.now()
             email_log.console_log = '\n'.join(console)
-            email_log.save()
+            email_log.save(update_fields=['status', 'emails_sent', 'emails_failed', 'completed_at', 'console_log'])
 
             # Clear warmup cache
             cache.delete(cache_key)
@@ -448,7 +448,7 @@ def skip_announcement_email(request, announcement_id):
         email_log.status = 'cancelled'
         email_log.completed_at = timezone.now()
         email_log.console_log = f"[{localtime(timezone.now()).strftime('%H:%M:%S')}] Email send skipped by user"
-        email_log.save()
+        email_log.save(update_fields=['status', 'completed_at', 'console_log'])
 
     for extra in ['', '_inactive']:
         cache.delete(f'email_warmup_{announcement_id}{extra}')
@@ -634,7 +634,7 @@ def cancel_warmup_announcement_email(request, announcement_id):
         email_log.status = 'cancelled'
         email_log.completed_at = timezone.now()
         email_log.console_log = f"[{localtime(timezone.now()).strftime('%H:%M:%S')}] Warmup cancelled by user"
-        email_log.save()
+        email_log.save(update_fields=['status', 'completed_at', 'console_log'])
 
     # Also clear any cache keys we know about
     for extra in ['', '_inactive']:
@@ -703,7 +703,7 @@ def toggle_announcement_status(request, announcement_id):
     """View to toggle announcement active status"""
     announcement = get_object_or_404(Announcement, id=announcement_id)
     announcement.is_active = not announcement.is_active
-    announcement.save()
+    announcement.save(update_fields=['is_active'])
 
     status = "activated" if announcement.is_active else "deactivated"
     messages.success(request, f'Announcement "{announcement.title}" has been {status}!')

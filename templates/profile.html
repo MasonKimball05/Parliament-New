@@ -113,8 +113,7 @@
 
                 <div class="flex gap-2 sm:pt-0 sm:self-start">
                     {% if user.profile_picture %}
-                        <button type="submit" id="js-remove-pic-btn"
-                                class="bg-red-600 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600 text-white font-medium px-6 py-2 rounded-lg transition flex items-center whitespace-nowrap">
+                        <button type="submit" id="js-remove-pic-btn" class="btn-danger inline-flex items-center whitespace-nowrap">
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                             </svg>
@@ -161,12 +160,10 @@
                 </div>
 
                 <div class="flex justify-end gap-3">
-                    <button type="button" id="cancel-crop"
-                            class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium px-6 py-2 rounded-lg transition">
+                    <button type="button" id="cancel-crop" class="btn-secondary">
                         Cancel
                     </button>
-                    <button type="button" id="upload-cropped"
-                            class="bg-primary-600 hover:bg-primary-700 text-white font-medium px-6 py-2 rounded-lg transition flex items-center">
+                    <button type="button" id="upload-cropped" class="btn-primary inline-flex items-center">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
                         </svg>
@@ -245,7 +242,7 @@
                 </div>
             </div>
 
-            <button type="submit" class="mt-4 bg-primary-600 hover:bg-primary-700 text-white font-medium px-6 py-2 rounded-lg transition flex items-center">
+            <button type="submit" class="btn-primary mt-4 inline-flex items-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>
@@ -310,8 +307,7 @@
                             <p class="text-xs text-gray-500 dark:text-gray-400">One-time codes for when you don't have your phone</p>
                         </div>
                     </div>
-                    <a href="{% url 'two_factor_regenerate_backup_codes' %}"
-                        class="flex-shrink-0 text-xs px-3 py-1.5 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded font-medium">
+                    <a href="{% url 'two_factor_regenerate_backup_codes' %}" class="btn-secondary btn-sm flex-shrink-0">
                         Regenerate
                     </a>
                 </div>
@@ -339,7 +335,7 @@
                             <p class="text-sm text-yellow-600 dark:text-yellow-400">Enable two-factor authentication for additional account security.</p>
                         </div>
                     </div>
-                    <a href="{% url 'two_factor_setup' %}" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition">
+                    <a href="{% url 'two_factor_setup' %}" class="btn-primary">
                         Set Up 2FA
                     </a>
                 </div>
@@ -399,8 +395,7 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400 italic">No passkeys registered yet.</p>
                 {% endif %}
 
-                <button id="add-passkey-btn"
-                        class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <button id="add-passkey-btn" class="btn-primary w-full flex items-center justify-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                     </svg>
@@ -439,7 +434,7 @@
                         </div>
                         {% endfor %}
                     </div>
-                    <button type="submit" class="mt-4 bg-green-600 dark:bg-green-500 hover:bg-green-700 dark:hover:bg-green-600 text-white font-medium px-6 py-2 rounded-lg transition flex items-center">
+                    <button type="submit" class="btn-primary mt-4 inline-flex items-center">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                         </svg>
@@ -578,7 +573,7 @@
                 </div>
             </details>
 
-            <button type="submit" class="mt-2 mb-6 bg-primary-600 hover:bg-primary-700 text-white font-medium px-6 py-2 rounded-lg transition flex items-center">
+            <button type="submit" class="btn-primary mt-2 mb-6 inline-flex items-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>
@@ -639,7 +634,7 @@
                         <div class="flex gap-2">
                             <input type="text" name="cs_handle" placeholder="username" required
                                    class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm w-40">
-                            <button type="submit" class="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
+                            <button type="submit" class="btn-primary btn-sm whitespace-nowrap">+ Add</button>
                         </div>
                     </div>
                 </form>
@@ -686,7 +681,7 @@
                         <input type="hidden" name="ai_type" value="{{ field_type }}">
                         <input type="text" name="ai_value" placeholder="Add {{ label|lower }}…"
                                class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm w-64">
-                        <button type="submit" class="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
+                        <button type="submit" class="btn-primary btn-sm whitespace-nowrap">+ Add</button>
                     </form>
                 </div>
                 {% endfor %}
@@ -752,7 +747,7 @@
                         <div class="flex gap-2">
                             <input type="text" name="ic_role_number" placeholder="e.g. 173"
                                    class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm w-24">
-                            <button type="submit" class="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
+                            <button type="submit" class="btn-primary btn-sm whitespace-nowrap">+ Add</button>
                         </div>
                     </div>
                 </form>
@@ -815,7 +810,7 @@
                         <div class="flex gap-2">
                             <input type="text" name="rh_end_semester" placeholder="e.g. Fall 2026"
                                    class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
-                            <button type="submit" class="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition whitespace-nowrap">+ Add</button>
+                            <button type="submit" class="btn-primary btn-sm whitespace-nowrap">+ Add</button>
                         </div>
                     </div>
                 </form>

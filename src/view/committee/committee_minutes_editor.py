@@ -461,7 +461,7 @@ def publish_committee_minutes(request, code, minutes_id):
     minutes.status = 'published'
     minutes.published_document = doc
     minutes.publish_visibility = visibility
-    minutes.save()
+    minutes.save(update_fields=['status', 'published_document', 'publish_visibility'])
 
     ActivityLog.log_activity(
         action_type='other',

@@ -82,7 +82,7 @@ def transition_officers(request, period_id):
                         # Schedule for later
                         period.officer_transition_at = effective_datetime
                         period.officer_transition_data = transition_data
-                        period.save()
+                        period.save(update_fields=['officer_transition_at', 'officer_transition_data'])
 
                         SlatingActivity.objects.create(
                             period=period,
@@ -123,7 +123,7 @@ def transition_officers(request, period_id):
             # Cancel a scheduled transition
             period.officer_transition_at = None
             period.officer_transition_data = {}
-            period.save()
+            period.save(update_fields=['officer_transition_at', 'officer_transition_data'])
 
             SlatingActivity.objects.create(
                 period=period,
@@ -258,7 +258,7 @@ def execute_transition(period, transition_data, performed_by=None):
     period.officer_transition_completed = True
     period.officer_transition_completed_at = timezone.now()
     period.officer_transition_data = transition_data
-    period.save()
+    period.save(update_fields=['officer_transition_completed', 'officer_transition_completed_at', 'officer_transition_data'])
 
     # Log the transition
     SlatingActivity.objects.create(

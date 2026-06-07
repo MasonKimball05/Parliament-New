@@ -117,7 +117,7 @@ def profile_view(request):
                 old_preferred = user.preferred_name or "(not set)"
                 changes_list.append({'field': 'preferred_name', 'old': user.preferred_name or '', 'new': new_preferred_name})
                 logger.info(f"{user.username} changed preferred name from '{old_preferred}' to '{new_preferred_name or '(not set)'}'")
-                user.preferred_name = new_preferred_name if new_preferred_name else None
+                user.preferred_name = new_preferred_name if new_preferred_name else ''
                 changes_made = True
 
             # Update email if changed (allow empty string to clear it)

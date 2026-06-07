@@ -619,7 +619,7 @@ You can view the full report details at the Kai Committee page.
             report.status = 'pending'
             report.reviewed_by = None
             report.reviewed_at = None
-            report.save()
+            report.save(update_fields=['status', 'reviewed_by', 'reviewed_at'])
             messages.success(request, f'Report "{report.title}" marked as pending.')
 
             # Log activity
@@ -642,7 +642,7 @@ You can view the full report details at the Kai Committee page.
 
         elif action == 'archive':
             report.status = 'archived'
-            report.save()
+            report.save(update_fields=['status'])
             messages.success(request, f'Report "{report.title}" archived.')
 
             # Log activity
@@ -665,7 +665,7 @@ You can view the full report details at the Kai Committee page.
 
         elif action == 'update_notes':
             report.chair_notes = request.POST.get('chair_notes', '')
-            report.save()
+            report.save(update_fields=['chair_notes'])
             messages.success(request, 'Notes updated successfully.')
 
             # Log activity
@@ -689,7 +689,7 @@ You can view the full report details at the Kai Committee page.
         elif action == 'update_tags':
             tags_str = request.POST.get('tags', '')
             report.tags = [t.strip() for t in tags_str.split(',') if t.strip()]
-            report.save()
+            report.save(update_fields=['tags'])
             messages.success(request, 'Tags updated successfully.')
 
             # Log activity
@@ -736,7 +736,7 @@ You can view the full report details at the Kai Committee page.
                     outcome_display = dict(report.DELIBERATION_CHOICES).get(deliberation_outcome)
                     messages.success(request, f'Deliberation outcome updated to: {outcome_display}')
 
-                report.save()
+                report.save(update_fields=['deliberation_outcome', 'committee_notes', 'closed_by_accused_request', 'status'])
 
                 # Log activity
                 if old_outcome != deliberation_outcome:
@@ -907,7 +907,7 @@ Notified at: {notify_time}
                         # Update report tracking fields — reset viewed on new send
                         report.submitter_notified_at = timezone.now()
                         report.submitter_email_viewed_at = None
-                        report.save()
+                        report.save(update_fields=['submitter_notified_at', 'submitter_email_viewed_at'])
 
                         # Log activity
                         KaiReportActivity.objects.create(
@@ -1014,9 +1014,9 @@ Notified at: {notify_time}
                     # Update email if provided and different
                     if accused_email and accused_email != accused_user.email:
                         accused_user.email = accused_email
-                        accused_user.save()
+                        accused_user.save(update_fields=['email'])
 
-                    report.save()
+                    report.save(update_fields=['targeted_to'])
 
                     # Log activity
                     if old_targeted != accused_user:
@@ -1045,7 +1045,7 @@ Notified at: {notify_time}
                 if report.targeted_to:
                     old_name = report.targeted_to.name
                     report.targeted_to = None
-                    report.save()
+                    report.save(update_fields=['targeted_to'])
 
                     KaiReportActivity.objects.create(
                         report=report,
@@ -1181,7 +1181,7 @@ Beta Theta Pi - Samford Chapter
                     report.accused_notified_at = timezone.now()
                     report.accused_notification_message = notification_message
                     report.accused_email_viewed_at = None  # Reset on new notification
-                    report.save()
+                    report.save(update_fields=['accused_notified', 'accused_notified_at', 'accused_notification_message', 'accused_email_viewed_at'])
 
                     # Log activity
                     KaiReportActivity.objects.create(
@@ -1222,11 +1222,11 @@ Beta Theta Pi - Samford Chapter
                         closure_request.reviewed_by = request.user
                         closure_request.reviewed_at = timezone.now()
                         closure_request.review_notes = review_notes
-                        closure_request.save()
+                        closure_request.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_notes'])
 
                         # Archive the report
                         report.status = 'archived'
-                        report.save()
+                        report.save(update_fields=['status'])
 
                         # Log activity
                         KaiReportActivity.objects.create(
@@ -1284,7 +1284,7 @@ The case has been archived.
                             closure_request.reviewed_by = request.user
                             closure_request.reviewed_at = timezone.now()
                             closure_request.review_notes = review_notes
-                            closure_request.save()
+                            closure_request.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_notes'])
 
                             # Log activity
                             KaiReportActivity.objects.create(
@@ -1686,7 +1686,7 @@ def edit_kai_template(request, template_id):
         suggested_tags_str = request.POST.get('suggested_tags', '')
         template.suggested_tags = [t.strip() for t in suggested_tags_str.split(',') if t.strip()]
         template.is_active = request.POST.get('is_active') == 'on'
-        template.save()
+        template.save(update_fields=['name', 'description', 'category', 'title_template', 'description_template', 'suggested_tags', 'is_active'])
 
         messages.success(request, f'Template "{template.name}" updated successfully.')
         return redirect('manage_kai_templates')
@@ -1747,7 +1747,7 @@ def track_kai_accused_email_view(request, report_id):
             current_viewed = getattr(report, 'accused_email_viewed_at', None)
             if not current_viewed:
                 report.accused_email_viewed_at = timezone.now()
-                report.save()  # Full save to handle migration issues
+                report.save(update_fields=['accused_email_viewed_at'])
                 logger.info(f"Marked Kai report {report_id} accused email as viewed")
 
                 # Log the view in activity log
@@ -1792,7 +1792,7 @@ def track_kai_submitter_email_view(request, report_id):
         if report.submitter_notified_at:
             if not report.submitter_email_viewed_at:
                 report.submitter_email_viewed_at = timezone.now()
-                report.save()
+                report.save(update_fields=['submitter_email_viewed_at'])
                 logger.info(f"Marked Kai report {report_id} submitter email as viewed")
 
                 try:
