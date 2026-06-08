@@ -337,6 +337,18 @@ def guide_search(request):
     return render(request, 'guide/members/search.html', context)
 
 
+@login_required
+def guide_developer_api(request):
+    """
+    Developer API guide for members who want to integrate with Parliament.
+    """
+    context = {
+        'page_title': 'Developer API Guide',
+        'category': 'member',
+    }
+    return render(request, 'guide/members/developer_api.html', context)
+
+
 # =============================================================================
 # OFFICER GUIDE PAGES (Additional)
 # =============================================================================

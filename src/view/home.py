@@ -54,23 +54,29 @@ def home(request):
     ).exclude(id__in=voted_legislation_ids).order_by('-available_at')[:5]
 
     # === UPCOMING EVENTS ===
-    # Get next 3 upcoming events
-    all_upcoming_events = Event.objects.filter(
+    # Visibility: null/empty visible_to = all; otherwise member_type must be listed.
+    # 'Member' in the list also covers Chair and Officer (matching is_visible_to_user logic).
+    _member_type = request.user.member_type
+    _vis_q = (
+        Q(visible_to__isnull=True) |
+        Q(visible_to__len=0) |
+        Q(visible_to__contains=[_member_type])
+    )
+    if _member_type in ('Chair', 'Officer'):
+        _vis_q |= Q(visible_to__contains=['Member'])
+
+    upcoming_events = Event.objects.filter(
         is_active=True,
         archived=False,
-        date_time__gte=now
-    ).order_by('date_time')
-    # Filter by visibility
-    upcoming_events = [e for e in all_upcoming_events if e.is_visible_to_user(request.user)][:3]
+        date_time__gte=now,
+    ).filter(_vis_q).order_by('date_time')[:3]
 
     # === RECENT ANNOUNCEMENTS ===
-    all_announcements = Announcement.objects.filter(
-        is_active=True
+    announcements = Announcement.objects.filter(
+        is_active=True,
     ).filter(
         Q(publish_at__isnull=True) | Q(publish_at__lte=now)
-    ).order_by('-posted_at')
-    # Filter by visibility
-    announcements = [a for a in all_announcements if a.is_visible_to_user(request.user)][:3]
+    ).filter(_vis_q).order_by('-posted_at')[:3]
 
     # === RECENTLY PASSED LEGISLATION ===
     recently_passed_legislation = Legislation.objects.annotate(

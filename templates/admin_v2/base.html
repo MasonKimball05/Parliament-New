@@ -76,6 +76,11 @@
                               {% if request.resolver_match.url_name == 'admin_v2_celery_health' %}text-white bg-gray-800{% endif %}">
                         Celery
                     </a>
+                    <a href="{% url 'admin_api_tokens' %}"
+                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
+                              {% if 'api_token' in request.resolver_match.url_name %}text-white bg-gray-800{% endif %}">
+                        API
+                    </a>
                 </nav>
             </div>
 

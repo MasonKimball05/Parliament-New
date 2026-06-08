@@ -19,6 +19,7 @@ from src.models import (
     QuarantinedAccount, HoneypotAccess, SecurityNotificationLog, UserWatchFlag,
     PushSubscription, PageVisit,
     EventReminderLog, EventReminderRecipient,
+    APIToken, APIAccessLog,
 )
 import os
 import secrets
@@ -201,20 +202,22 @@ def admin_v2_dashboard(request):
     from django.db import connection
 
     # Gather comprehensive site statistics
+    # User counts are collapsed into a single aggregate query (11 conditional COUNTs → 1 SQL query).
+    _user_agg = ParliamentUser.objects.aggregate(
+        total=Count('user_id', filter=~Q(member_status='Removed')),
+        active=Count('user_id', filter=Q(member_status='Active')),
+        inactive=Count('user_id', filter=Q(member_status='Inactive')),
+        alumni=Count('user_id', filter=Q(member_status='Alumni')),
+        officers=Count('user_id', filter=Q(member_type='Officer')),
+        members=Count('user_id', filter=Q(member_type='Member')),
+        pledges=Count('user_id', filter=Q(member_type='Pledge')),
+        advisors=Count('user_id', filter=Q(member_type='Advisor')),
+        admins=Count('user_id', filter=Q(is_admin=True)),
+        last_24h=Count('user_id', filter=Q(last_login__gte=timezone.now() - timezone.timedelta(hours=24))),
+        never_logged_in=Count('user_id', filter=Q(last_login__isnull=True)),
+    )
     stats = {
-        'users': {
-            'total': ParliamentUser.objects.exclude(member_status='Removed').count(),
-            'active': ParliamentUser.objects.filter(member_status='Active').count(),
-            'inactive': ParliamentUser.objects.filter(member_status='Inactive').count(),
-            'alumni': ParliamentUser.objects.filter(member_status='Alumni').count(),
-            'officers': ParliamentUser.objects.filter(member_type='Officer').count(),
-            'members': ParliamentUser.objects.filter(member_type='Member').count(),
-            'pledges': ParliamentUser.objects.filter(member_type='Pledge').count(),
-            'advisors': ParliamentUser.objects.filter(member_type='Advisor').count(),
-            'admins': ParliamentUser.objects.filter(is_admin=True).count(),
-            'last_24h': ParliamentUser.objects.filter(last_login__gte=timezone.now() - timezone.timedelta(hours=24)).count(),
-            'never_logged_in': ParliamentUser.objects.filter(last_login__isnull=True).count(),
-        },
+        'users': _user_agg,
         'legislation': {
             'total': Legislation.objects.count(),
             'draft': Legislation.objects.filter(status='draft').count(),
@@ -273,7 +276,19 @@ def admin_v2_dashboard(request):
         },
         'database': {
             'tables': len(connection.introspection.table_names()),
-        }
+        },
+        'api': {
+            'total': APIToken.objects.count(),
+            'active': APIToken.objects.filter(status=APIToken.STATUS_ACTIVE).count(),
+            'pending': APIToken.objects.filter(status=APIToken.STATUS_PENDING).count(),
+            'revoked': APIToken.objects.filter(status=APIToken.STATUS_REVOKED).count(),
+            'requests_24h': APIAccessLog.objects.filter(
+                timestamp__gte=timezone.now() - timezone.timedelta(hours=24)
+            ).count(),
+            'requests_7d': APIAccessLog.objects.filter(
+                timestamp__gte=timezone.now() - timezone.timedelta(days=7)
+            ).count(),
+        },
     }
 
     # Get feature flags grouped by category — one query instead of two per category

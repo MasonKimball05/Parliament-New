@@ -255,6 +255,124 @@ Wires the seven `KaiMemberPermission` flags into actual view and template enforc
 
 ---
 
+### v3.2.0 — API Token Security Overhaul (2026-06-08)
+
+**Type:** Security / New Feature
+
+Complete replacement of the DRF token system with a custom-built API token infrastructure designed for audit-readiness, granular access control, and admin oversight.
+
+---
+
+#### Token Model & Status Workflow
+
+**New model `APIToken` (`src/models/api.py`):**
+- 64-character hex key (`secrets.token_hex(32)`)
+- Four statuses: `pending` → `active`, `revoked`, or `rejected`
+- `scopes` — JSONField list of allowed scope keys per token
+- `request_note` — free-text rationale the member provides when requesting
+- Full audit trail: `approved_by/at`, `revoked_by/at/reason`, `rejection_reason`, `last_used_at`, `expires_at`
+
+**Defined scopes:**
+
+| Key | Purpose |
+|-----|---------|
+| `members:read` | Read member directory |
+| `events:read` | Read events |
+| `legislation:read` | Read legislation |
+| `committees:read` | Read committee list |
+| `attendance:read` | Read attendance records |
+
+**New model `APIAccessLog`** — written after every API request:
+- FKs to `APIToken` (nullable) and `ParliamentUser` (nullable) so logs survive deletion
+- Denormalized `username` and `token_key_prefix` (8 chars) for non-repudiation
+- Fields: `endpoint`, `method`, `ip_address`, `response_status`, `scopes_used`
+
+**Migration 0202** — creates both tables; RunPython copies all existing DRF `authtoken_token` rows to `APIToken` as `active` with all scopes.
+
+---
+
+#### Authentication & Permissions
+
+**`src/api/authentication.py` — `APITokenAuthentication`:**
+- Parses `Authorization: Token <key>` header
+- Validates token status and expiry before authenticating
+- Stamps `last_used_at` via `.update()` (no full-row save)
+- Attaches token to `request._api_token` for downstream scope checks
+
+**`src/api/permissions.py`:**
+- `APIEnabled` — gates all API access behind the `rest_api` feature flag
+- `ScopePermission` — reads `view.required_scope`, checks `request._api_token.has_scope()`
+
+**`src/api/views.py` — `APILoggingMixin`:**
+- Overrides `finalize_response()` to write `APIAccessLog` after every request
+- Exceptions are swallowed so logging never breaks API response delivery
+- All 5 viewsets updated with `authentication_classes`, `permission_classes`, `required_scope`, and `APILoggingMixin`
+
+---
+
+#### User-Facing Token Management
+
+**New views in `src/view/api.py`:**
+- `request_api_token` — creates token as `pending` or `active` depending on `api_token_auto_approve` feature flag; blocks duplicate requests
+- `revoke_api_token` — user revokes their own token by ID
+
+**Updated `templates/preferences.html` — Developer API section redesign:**
+- Rebuilt as a proper section matching the rest of the preferences page (card layout, icon heading)
+- State machine: no-token/rejected → request form with scope checkbox cards; pending → amber waiting banner; active → token key card with details, scopes grid, and revoke row
+- "Docs →" link to the developer guide inline in the heading
+
+**Updated `templates/guide/members/developer_api.html`:**
+- New Section 5 "Setting Up Your First Integration" with Python/requests, JS/fetch, bash/curl+jq, and Postman examples
+- Section 2 updated to reflect the request/approval flow
+
+---
+
+#### Admin Token Management
+
+**New admin views (`src/view/api.py`):**
+- `admin_api_tokens` — list all tokens with status filter tabs; loads `rest_api` and `api_token_auto_approve` feature flag objects
+- `admin_approve_token` — approve a pending token (POST)
+- `admin_reject_token` — reject with optional reason (POST)
+- `admin_revoke_token` — revoke an active token with optional reason (POST)
+- `admin_update_token_scopes` — edit scope list on any token (POST)
+- `admin_api_token_logs` — view paginated access logs for a specific token (last 200 entries)
+- `admin_toggle_api_flag` — JSON toggle for `rest_api` or `api_token_auto_approve` flags in-place (no redirect)
+
+**New `templates/admin_v2/api_tokens.html`:**
+- API Settings panel with live toggle switches for "REST API Enabled" and "Auto-Approve Tokens"
+- Status filter tabs (All / Pending / Active / Revoked / Rejected)
+- Token table: user, name, status badge, scopes, created, last used, actions
+- Modals: Reject (with reason), Revoke (with reason), Edit Scopes (checkboxes)
+- JS toggle switches update pill color and dot position without page reload
+
+**New `templates/admin_v2/api_token_logs.html`:**
+- Token detail card (status, scopes, audit trail)
+- Per-request log table: timestamp, endpoint, method, IP, status code, scopes used
+
+**Admin-v2 dashboard** — new indigo API card showing Active/Pending/Requests 24h counters; pending subtitle turns amber when > 0 pending.
+
+**Admin-v2 subnav** — "API" link added; highlights when `api_token` in URL name.
+
+---
+
+#### Feature Flags & Maintenance
+
+**`seed_feature_flags.py`** — Added `api_token_auto_approve` (category: `admin`, default: `False`).
+
+**`src/tasks.py`** — `cleanup_api_access_logs` Celery task deletes `APIAccessLog` rows older than 90 days.
+
+**Deploy notes:**
+```
+python manage.py migrate           # 0202_apitoken_apiaccesslog
+python manage.py seed_feature_flags
+python manage.py collectstatic --noinput
+systemctl restart parliament-gunicorn parliament-worker
+```
+
+**Files changed:** `src/models/api.py` (new), `src/models/__init__.py`, `src/migrations/0202_apitoken_apiaccesslog.py` (new), `src/api/authentication.py` (new), `src/api/permissions.py` (new), `src/api/views.py`, `src/view/api.py`, `src/urls.py`, `src/tasks.py`, `src/management/commands/seed_feature_flags.py`, `src/view/admin_v2.py`, `templates/admin_v2/base.html`, `templates/admin_v2/dashboard.html`, `templates/admin_v2/api_tokens.html` (new), `templates/admin_v2/api_token_logs.html` (new), `templates/preferences.html`, `templates/guide/members/developer_api.html`
+
+---
+
 ### v3.1.3 — `update_fields` Sweep, Test Fixes & Component CSS (2026-06-07)
 
 **Type:** Performance / Maintenance

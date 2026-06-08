@@ -242,6 +242,59 @@
                         <strong>Tip:</strong> The code changes every 30 seconds. If your code is about to expire, wait for the next one to avoid timing issues.
                     </p>
                 </div>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                        After verifying your code, you can check <strong class="text-gray-900 dark:text-gray-100">"Remember this device for 30 days"</strong> to skip the 2FA step on trusted devices. Use this only on personal devices — never on shared or public computers.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Passkeys -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-green-600 dark:text-green-400">5</span>
+                    Passkeys (Passwordless Login)
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Passkeys are a stronger alternative to TOTP 2FA. They use your device's biometrics — Face ID, fingerprint, or PIN — instead of a six-digit code. When you log in with a passkey, Parliament verifies your identity directly with your device. No password needed.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">To register a passkey:</h4>
+                    <ol class="space-y-3 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-green-600 dark:text-green-400 flex-shrink-0">1</span>
+                            <span>Go to <strong class="text-gray-900 dark:text-gray-100">Preferences</strong> &rarr; <strong class="text-gray-900 dark:text-gray-100">Security &amp; Privacy</strong></span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-green-600 dark:text-green-400 flex-shrink-0">2</span>
+                            <span>Scroll to the <strong class="text-gray-900 dark:text-gray-100">Passkeys</strong> section</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-green-600 dark:text-green-400 flex-shrink-0">3</span>
+                            <span>Click <strong class="text-gray-900 dark:text-gray-100">"Register a Passkey"</strong> and follow your browser's prompts</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-green-600 dark:text-green-400 flex-shrink-0">4</span>
+                            <span>Give your passkey a name (e.g. <em>"MacBook Touch ID"</em> or <em>"iPhone Face ID"</em>) so you can identify it later</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-green-600 dark:text-green-400 flex-shrink-0">5</span>
+                            <span>Your passkey is now registered — use it the next time you log in instead of your password</span>
+                        </li>
+                    </ol>
+                </div>
+
+                <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-primary-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        <strong>Most secure option:</strong> Passkeys are tied to your specific device and cannot be phished. Unlike passwords or TOTP codes, there is nothing to steal over the network. They are the most secure login method available in Parliament.
+                    </p>
+                </div>
             </div>
         </div>
 
@@ -249,7 +302,7 @@
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
-                    <span class="w-8 h-8 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-green-600 dark:text-green-400">5</span>
+                    <span class="w-8 h-8 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-green-600 dark:text-green-400">6</span>
                     Disabling 2FA
                 </h2>
             </div>

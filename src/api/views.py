@@ -1,37 +1,77 @@
 """
 Read-only API viewsets for Parliament's 3.0.0 API layer.
 
-All endpoints require authentication (token or session).
+All endpoints require authentication (APIToken) and the 'rest_api' feature flag.
+Each viewset declares a ``required_scope`` that the token must carry.
 Write operations are intentionally disabled at this stage.
-The entire API is gated behind the 'rest_api' feature flag (disabled by default).
 """
+from django.db import models
 from django.utils import timezone
 
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from src.models.users import ParliamentUser
-from src.models.events import Event
+from src.models.events import Event, Attendance
 from src.models.legislation import Legislation
-from src.models_feature_flags import FeatureFlag
-from .serializers import MemberSerializer, EventSerializer, LegislationSerializer
+from src.models.committees import Committee
+from src.models.api import APIAccessLog
+
+from .authentication import APITokenAuthentication
+from .permissions import APIEnabled, ScopePermission
+from .serializers import (
+    MemberSerializer, EventSerializer, LegislationSerializer,
+    CommitteeSerializer, AttendanceSerializer,
+)
 
 
-class APIEnabled(BasePermission):
-    """Blocks all API access when the 'rest_api' feature flag is disabled."""
-    message = 'The Parliament API is not currently enabled.'
+# ---------------------------------------------------------------------------
+# Logging mixin — attached to every viewset
+# ---------------------------------------------------------------------------
 
-    def has_permission(self, request, view):
-        return FeatureFlag.is_feature_enabled('rest_api')
+class APILoggingMixin:
+    """
+    Record an APIAccessLog entry for every API response.
+
+    Runs in ``finalize_response`` so the HTTP status code is known.
+    Exceptions here are silently swallowed — logging must never break the API.
+    """
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        try:
+            from src.logging_utils import get_client_ip
+            token = getattr(request, '_api_token', None)
+            user = request.user if request.user.is_authenticated else None
+            scope = getattr(self, 'required_scope', None)
+            APIAccessLog.objects.create(
+                token=token,
+                token_key_prefix=(token.key[:8] if token else ''),
+                user=user,
+                username=(user.username if user else ''),
+                endpoint=request.path,
+                method=request.method,
+                ip_address=get_client_ip(request),
+                response_status=response.status_code,
+                scopes_used=([scope] if scope else []),
+            )
+        except Exception:
+            pass  # Never let logging break an API response
+        return response
 
 
-_API_PERMISSIONS = [IsAuthenticated, APIEnabled]
+# ---------------------------------------------------------------------------
+# Viewsets
+# ---------------------------------------------------------------------------
+
+_API_PERMISSIONS = [IsAuthenticated, APIEnabled, ScopePermission]
+_API_AUTH = [APITokenAuthentication]
 
 
-class MemberViewSet(viewsets.ReadOnlyModelViewSet):
+class MemberViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
     """
     GET /api/v1/members/         — active member directory
     GET /api/v1/members/{id}/    — single member detail
@@ -39,7 +79,10 @@ class MemberViewSet(viewsets.ReadOnlyModelViewSet):
     """
     serializer_class = MemberSerializer
     lookup_field = 'user_id'
+    authentication_classes = _API_AUTH
     permission_classes = _API_PERMISSIONS
+    pagination_class = None
+    required_scope = 'members:read'
 
     def get_queryset(self):
         return (
@@ -55,14 +98,17 @@ class MemberViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(serializer.data)
 
 
-class EventViewSet(viewsets.ReadOnlyModelViewSet):
+class EventViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
     """
     GET /api/v1/events/          — events visible to the requesting user
     GET /api/v1/events/{id}/     — single event detail (visibility enforced)
     GET /api/v1/events/upcoming/ — events in the next 30 days
     """
     serializer_class = EventSerializer
+    authentication_classes = _API_AUTH
     permission_classes = _API_PERMISSIONS
+    pagination_class = None
+    required_scope = 'events:read'
 
     def _base_queryset(self):
         return (
@@ -73,7 +119,6 @@ class EventViewSet(viewsets.ReadOnlyModelViewSet):
         )
 
     def get_queryset(self):
-        # Returns a real queryset; visibility is enforced in list/retrieve/upcoming.
         return self._base_queryset()
 
     def _visible_events(self):
@@ -86,7 +131,6 @@ class EventViewSet(viewsets.ReadOnlyModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         from django.shortcuts import get_object_or_404
-        from rest_framework.exceptions import PermissionDenied
         event = get_object_or_404(Event, pk=kwargs['pk'], is_active=True, archived=False)
         if not event.is_visible_to_user(request.user):
             raise PermissionDenied()
@@ -102,14 +146,17 @@ class EventViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(serializer.data)
 
 
-class LegislationViewSet(viewsets.ReadOnlyModelViewSet):
+class LegislationViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
     """
     GET /api/v1/legislation/         — all non-removed legislation
     GET /api/v1/legislation/{id}/    — single item detail
     GET /api/v1/legislation/active/  — currently open for voting
     """
     serializer_class = LegislationSerializer
+    authentication_classes = _API_AUTH
     permission_classes = _API_PERMISSIONS
+    pagination_class = None
+    required_scope = 'legislation:read'
 
     def get_queryset(self):
         return (
@@ -129,5 +176,92 @@ class LegislationViewSet(viewsets.ReadOnlyModelViewSet):
             voting_closed=False,
             available_at__lte=now,
         )
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
+
+
+class CommitteeViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
+    """
+    GET /api/v1/committees/        — all active, non-archived committees visible to the user
+    GET /api/v1/committees/{id}/   — single committee detail (visibility enforced)
+    GET /api/v1/committees/mine/   — committees the requesting user belongs to
+    """
+    serializer_class = CommitteeSerializer
+    authentication_classes = _API_AUTH
+    permission_classes = _API_PERMISSIONS
+    pagination_class = None
+    required_scope = 'committees:read'
+
+    def get_queryset(self):
+        return (
+            Committee.objects
+            .filter(is_active=True, is_archived=False)
+            .prefetch_related('chairs', 'members')
+            .order_by('name')
+        )
+
+    def list(self, request, *args, **kwargs):
+        qs = [c for c in self.get_queryset() if c.is_visible_to(request.user)]
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        from django.shortcuts import get_object_or_404
+        committee = get_object_or_404(Committee, pk=kwargs['pk'], is_active=True, is_archived=False)
+        if not committee.is_visible_to(request.user):
+            raise PermissionDenied()
+        serializer = self.get_serializer(committee)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='mine')
+    def mine(self, request):
+        user = request.user
+        qs = (
+            Committee.objects
+            .filter(is_active=True, is_archived=False)
+            .filter(
+                models.Q(members=user) | models.Q(chairs=user)
+            )
+            .prefetch_related('chairs', 'members')
+            .distinct()
+            .order_by('name')
+        )
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
+
+
+class AttendanceViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
+    """
+    GET /api/v1/attendance/        — own attendance records (most recent 100)
+    GET /api/v1/attendance/{id}/   — single record (own only)
+
+    Query params:
+      ?type=event|committee         — filter by attendance_type
+      ?year=2026                    — filter by year
+    """
+    serializer_class = AttendanceSerializer
+    authentication_classes = _API_AUTH
+    permission_classes = _API_PERMISSIONS
+    pagination_class = None
+    required_scope = 'attendance:read'
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = (
+            Attendance.objects
+            .filter(user=user)
+            .select_related('event', 'committee')
+            .order_by('-created_at')
+        )
+        attendance_type = self.request.query_params.get('type')
+        if attendance_type in ('event', 'committee'):
+            qs = qs.filter(attendance_type=attendance_type)
+        year = self.request.query_params.get('year')
+        if year and year.isdigit():
+            qs = qs.filter(created_at__year=int(year))
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        qs = self.get_queryset()[:100]
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)

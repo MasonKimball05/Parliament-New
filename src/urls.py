@@ -91,7 +91,13 @@ from src.view.service_form_builder import (
     service_form_builder, reorder_service_fields, get_service_field_details
 )
 from src.view.chapter_documents import chapter_documents
-from src.view.api import dismiss_announcement_api
+from src.view.api import (
+    dismiss_announcement_api,
+    request_api_token, revoke_api_token,
+    admin_api_tokens, admin_approve_token, admin_reject_token,
+    admin_revoke_token, admin_update_token_scopes, admin_api_token_logs,
+    admin_toggle_api_flag,
+)
 from src.view.notifications import notifications_page, notifications_dropdown_api, mark_notification_read, mark_all_notifications_read, delete_notification
 from src.view.set_email import set_email, confirm_email_change
 from src.view.upload_chapter_document import upload_chapter_document
@@ -225,7 +231,7 @@ from src.view.guide import (
     guide_managing_members, guide_slating, guide_kai,
     guide_legislation, guide_committees,
     guide_profile, guide_calendar, guide_notifications, guide_excuses,
-    guide_2fa, guide_directory, guide_search,
+    guide_2fa, guide_directory, guide_search, guide_developer_api,
     guide_resolutions, guide_activity_logs, guide_kai_forms,
     guide_officer_handoff, guide_developer_handoff,
     tour_start, tour_advance, tour_complete, tour_skip
@@ -344,6 +350,7 @@ urlpatterns = [
     path('guide/members/2fa/', guide_2fa, name='guide_2fa'),
     path('guide/members/directory/', guide_directory, name='guide_directory'),
     path('guide/members/search/', guide_search, name='guide_search'),
+    path('guide/members/developer-api/', guide_developer_api, name='guide_developer_api'),
     path('guide/officers/resolutions/', guide_resolutions, name='guide_resolutions'),
     path('guide/officers/activity-logs/', guide_activity_logs, name='guide_activity_logs'),
     path('guide/officers/kai-forms/', guide_kai_forms, name='guide_kai_forms'),
@@ -658,6 +665,20 @@ urlpatterns = [
 
     # API Endpoints
     path('api/dismiss-announcement/<int:announcement_id>/', dismiss_announcement_api, name='dismiss_announcement_api'),
+    # Token management (new APIToken model — replaces old DRF generate endpoint)
+    path('api/token/request/', request_api_token, name='request_api_token'),
+    # Keep 'generate_api_token' URL name as alias so any cached template references still resolve
+    path('api/token/generate/', request_api_token, name='generate_api_token'),
+    path('api/token/revoke/', revoke_api_token, name='revoke_api_token'),
+
+    # Admin API token management
+    path('admin-v2/api-tokens/', admin_api_tokens, name='admin_api_tokens'),
+    path('admin-v2/api-tokens/<int:token_id>/approve/', admin_approve_token, name='admin_approve_token'),
+    path('admin-v2/api-tokens/<int:token_id>/reject/', admin_reject_token, name='admin_reject_token'),
+    path('admin-v2/api-tokens/<int:token_id>/revoke/', admin_revoke_token, name='admin_revoke_token'),
+    path('admin-v2/api-tokens/<int:token_id>/scopes/', admin_update_token_scopes, name='admin_update_token_scopes'),
+    path('admin-v2/api-tokens/<int:token_id>/logs/', admin_api_token_logs, name='admin_api_token_logs'),
+    path('admin-v2/api-tokens/flag/<str:flag_name>/', admin_toggle_api_flag, name='admin_toggle_api_flag'),
     path('api/notifications/', notifications_dropdown_api, name='notifications_api'),
     path('api/notifications/<int:notification_id>/read/', mark_notification_read, name='mark_notification_read'),
     path('api/notifications/read-all/', mark_all_notifications_read, name='mark_all_notifications_read'),

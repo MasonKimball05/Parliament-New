@@ -27,7 +27,7 @@ logger = logging.getLogger('src')
 @log_function_call
 def manage_announcements(request):
     """View to manage all announcements"""
-    announcements = Announcement.objects.all().order_by('-posted_at')
+    announcements = Announcement.objects.select_related('posted_by').order_by('-posted_at')
 
     # Pagination - 25 announcements per page
     paginator = Paginator(announcements, 25)

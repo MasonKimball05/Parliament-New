@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.contrib import messages
 from src.forms import UserPreferencesForm
 from src.models import UserPreferences, ActivityLog, PushSubscription
+from src.models.api import APIToken, DEFINED_SCOPES
 
 
 @login_required
@@ -47,12 +48,34 @@ def preferences_view(request):
 
     has_push_subscription = PushSubscription.objects.filter(user=request.user).exists()
 
+    # Fetch the user's current non-revoked, non-rejected token (if any)
+    try:
+        api_token = (
+            APIToken.objects
+            .filter(user=request.user)
+            .exclude(status__in=[APIToken.STATUS_REVOKED, APIToken.STATUS_REJECTED])
+            .latest('created_at')
+        )
+    except APIToken.DoesNotExist:
+        api_token = None
+
+    # Fetch the most recent rejection so the user can see why and try again
+    last_rejected_token = (
+        APIToken.objects
+        .filter(user=request.user, status=APIToken.STATUS_REJECTED)
+        .order_by('-created_at')
+        .first()
+    )
+
     context = {
         'form': form,
         'preferences': preferences,
         'theme_changed': request.GET.get('theme_changed', False),
         'vapid_public_key': getattr(settings, 'VAPID_PUBLIC_KEY', ''),
         'has_push_subscription': has_push_subscription,
+        'api_token': api_token,
+        'api_token_defined_scopes': DEFINED_SCOPES,
+        'api_token_last_rejected': last_rejected_token,
     }
 
     return render(request, 'preferences.html', context)

@@ -407,6 +407,26 @@ def prune_stale_push_subscriptions():
         logger.error(f"[tasks] prune_stale_push_subscriptions failed: {exc}")
 
 
+@shared_task(name='tasks.cleanup_api_access_logs')
+def cleanup_api_access_logs():
+    """
+    Delete APIAccessLog records older than 90 days.
+
+    Keeps the access log table lean without losing recent audit history.
+    Runs monthly alongside push subscription and DRF token pruning.
+    """
+    try:
+        from src.models import APIAccessLog
+        cutoff = timezone.now() - timezone.timedelta(days=90)
+        deleted_count, _ = APIAccessLog.objects.filter(timestamp__lt=cutoff).delete()
+        if deleted_count:
+            logger.info(f"[tasks] cleanup_api_access_logs: deleted {deleted_count} records older than 90 days")
+        return deleted_count
+    except Exception as exc:
+        logger.error(f"[tasks] cleanup_api_access_logs failed: {exc}")
+        return 0
+
+
 @shared_task(name='tasks.prune_old_auth_tokens')
 def prune_old_auth_tokens():
     """

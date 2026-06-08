@@ -84,6 +84,13 @@ class Command(BaseCommand):
                 'category': 'features',
                 'is_enabled': False,
             },
+            {
+                'name': 'api_token_auto_approve',
+                'display_name': 'API Token Auto-Approve',
+                'description': 'When enabled, new API token requests are automatically approved and activated. When disabled, tokens require manual admin approval before use.',
+                'category': 'admin',
+                'is_enabled': False,  # Require manual approval by default (safer)
+            },
         ]
 
         for flag_data in feature_flags:

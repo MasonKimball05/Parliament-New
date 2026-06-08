@@ -161,6 +161,9 @@ class Command(BaseCommand):
     def check_encryption(self):
         self.section('Field-Level Encryption')
 
+        # The environment variable is named ENCRYPTION_KEY; settings.py maps it to
+        # CRYPTOGRAPHY_KEY (the name used by encrypted_fields.py and apps.py).
+        # Both refer to the same key — they are not separate secrets.
         raw = self._env('ENCRYPTION_KEY')
         if not raw:
             self.fail('ENCRYPTION_KEY (env)', 'NOT SET')

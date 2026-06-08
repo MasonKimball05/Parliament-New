@@ -45,6 +45,7 @@ class TwoFactorSetupTestCase(TestCase):
             member_type='Member'
         )
         self.user.set_password('testpass123')
+        self.user.email = 'testuser@parliament.test'
         self.user.save()
         self.client.force_login(self.user)
 
@@ -111,7 +112,7 @@ class TwoFactorSetupTestCase(TestCase):
         device.refresh_from_db()
         self.assertTrue(device.confirmed)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse('home'))
+        self.assertEqual(response.url, reverse('two_factor_backup_codes_reveal'))
 
     def test_setup_rejects_invalid_token(self):
         """Test that invalid TOTP token is rejected"""
@@ -141,6 +142,7 @@ class TwoFactorQRCodeTestCase(TestCase):
             member_type='Member'
         )
         self.user.set_password('testpass123')
+        self.user.email = 'qruser@parliament.test'
         self.user.save()
         self.client.force_login(self.user)
 

@@ -1,0 +1,142 @@
+{% extends "admin_v2/base.html" %}
+
+{% block title %}API Token Logs - Admin v2{% endblock %}
+
+{% block admin_content %}
+<div class="container mx-auto px-4 py-8">
+
+    <!-- Header / breadcrumb -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    <a href="{% url 'admin_api_tokens' %}" class="hover:underline text-primary-600 dark:text-primary-400">API Tokens</a>
+                    <span class="mx-1">/</span>
+                    Access Logs
+                </div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">Access Logs</h1>
+                <p class="text-gray-600 dark:text-gray-400">Last 200 API requests authenticated with this token.</p>
+            </div>
+            <a href="{% url 'admin_api_tokens' %}" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg text-sm font-medium">
+                Back to Tokens
+            </a>
+        </div>
+    </div>
+
+    <!-- Token summary -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+        <div class="flex flex-wrap gap-4 items-start">
+            <div class="flex-1 min-w-[200px]">
+                <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">User</div>
+                <div class="font-semibold text-gray-900 dark:text-gray-100">{{ token.user.get_display_name }}</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">{{ token.user.username }}</div>
+            </div>
+            <div class="flex-1 min-w-[200px]">
+                <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">Token Name</div>
+                <div class="font-semibold text-gray-900 dark:text-gray-100">{{ token.name }}</div>
+            </div>
+            <div>
+                <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">Status</div>
+                {% if token.status == 'pending' %}
+                <span class="px-2 py-0.5 text-xs font-bold rounded-full bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300">Pending</span>
+                {% elif token.status == 'active' %}
+                <span class="px-2 py-0.5 text-xs font-bold rounded-full bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300">Active</span>
+                {% elif token.status == 'revoked' %}
+                <span class="px-2 py-0.5 text-xs font-bold rounded-full bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300">Revoked</span>
+                {% elif token.status == 'rejected' %}
+                <span class="px-2 py-0.5 text-xs font-bold rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">Rejected</span>
+                {% endif %}
+            </div>
+            <div>
+                <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Scopes</div>
+                <div class="flex flex-wrap gap-1">
+                    {% for scope in token.scopes %}
+                    <span class="px-1.5 py-0.5 text-xs rounded bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 font-mono">{{ scope }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            <div>
+                <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">Created</div>
+                <div class="text-sm text-gray-700 dark:text-gray-300">{{ token.created_at|date:"M d, Y" }}</div>
+            </div>
+            <div>
+                <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">Last Used</div>
+                <div class="text-sm text-gray-700 dark:text-gray-300">
+                    {% if token.last_used_at %}{{ token.last_used_at|date:"M d, Y H:i" }}{% else %}<span class="italic text-gray-400 dark:text-gray-600">Never</span>{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logs table -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">
+                Request Log
+                <span class="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">({{ logs|length }} of 200 most recent)</span>
+            </h2>
+        </div>
+
+        {% if logs %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 dark:bg-gray-700/50">
+                    <tr>
+                        <th class="text-left py-2 px-4 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Timestamp</th>
+                        <th class="text-left py-2 px-4 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Method</th>
+                        <th class="text-left py-2 px-4 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Endpoint</th>
+                        <th class="text-left py-2 px-4 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">IP</th>
+                        <th class="text-left py-2 px-4 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Status</th>
+                        <th class="text-left py-2 px-4 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Scopes Used</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr class="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/20">
+                        <td class="py-2 px-4 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ log.timestamp|date:"M d, Y H:i:s" }}</td>
+                        <td class="py-2 px-4">
+                            <span class="px-1.5 py-0.5 text-xs font-bold rounded
+                                {% if log.method == 'POST' %}bg-orange-500
+                                {% elif log.method == 'DELETE' %}bg-red-500
+                                {% elif log.method == 'PUT' or log.method == 'PATCH' %}bg-yellow-500
+                                {% else %}bg-blue-500{% endif %} text-white">
+                                {{ log.method }}
+                            </span>
+                        </td>
+                        <td class="py-2 px-4 font-mono text-xs text-gray-800 dark:text-gray-200">{{ log.endpoint }}</td>
+                        <td class="py-2 px-4 font-mono text-xs text-gray-600 dark:text-gray-400">
+                            {% if log.ip_address %}{{ log.ip_address }}{% else %}<span class="text-gray-400 italic">unknown</span>{% endif %}
+                        </td>
+                        <td class="py-2 px-4">
+                            <span class="px-1.5 py-0.5 text-xs font-bold rounded
+                                {% if log.response_status >= 500 %}bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300
+                                {% elif log.response_status >= 400 %}bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300
+                                {% elif log.response_status >= 300 %}bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300
+                                {% else %}bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300{% endif %}">
+                                {{ log.response_status }}
+                            </span>
+                        </td>
+                        <td class="py-2 px-4">
+                            <div class="flex flex-wrap gap-1">
+                                {% for scope in log.scopes_used %}
+                                <span class="px-1.5 py-0.5 text-xs rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-mono">{{ scope }}</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-12 text-center text-gray-500 dark:text-gray-400">
+            <svg class="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            No access logs recorded for this token yet.
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

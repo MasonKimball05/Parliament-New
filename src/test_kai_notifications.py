@@ -13,7 +13,9 @@ from django.test import TestCase, Client
 from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
+from unittest.mock import patch
 import json
+import datetime
 
 from .models import (
     ParliamentUser, Committee, KaiReport, KaiClosureRequest,
@@ -286,6 +288,7 @@ class KaiUserDashboardTestCase(TestCase):
         self.assertEqual(last_activity.action, 'closure_requested')
 
 
+@patch('src.view.admin_v2.ALLOWED_USER_IDS', {'admin1'})
 class NotificationAdminTestCase(TestCase):
     """Tests for notification admin dashboard functionality"""
 
@@ -316,6 +319,7 @@ class NotificationAdminTestCase(TestCase):
         self.client.force_login(self.admin)
         session = self.client.session
         session['admin_v2_authenticated'] = True
+        session['admin_v2_auth_time'] = timezone.now().isoformat()
         session.save()
 
     def test_notification_dashboard_requires_auth(self):

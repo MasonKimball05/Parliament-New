@@ -7,8 +7,9 @@ password hash, internal admin fields) are excluded from all serializers.
 from rest_framework import serializers
 
 from src.models.users import ParliamentUser, Role
-from src.models.events import Event
+from src.models.events import Event, Attendance
 from src.models.legislation import Legislation
+from src.models.committees import Committee
 
 
 class RoleSerializer(serializers.ModelSerializer):
@@ -116,3 +117,60 @@ class LegislationSerializer(serializers.ModelSerializer):
             'created_at',
         ]
         read_only_fields = fields
+
+
+class CommitteeSerializer(serializers.ModelSerializer):
+    """
+    Read-only committee record.
+
+    Omits: internal flags (is_kai_committee, is_slating_committee, is_exec_board special flags),
+    admin FK, role FK details. Member/chair lists are user_id strings only.
+    """
+    chairs = serializers.SlugRelatedField(many=True, read_only=True, slug_field='user_id')
+    members = serializers.SlugRelatedField(many=True, read_only=True, slug_field='user_id')
+
+    class Meta:
+        model = Committee
+        fields = [
+            'id',
+            'code',
+            'name',
+            'is_active',
+            'is_ad_hoc',
+            'ad_hoc_expiration',
+            'is_archived',
+            'chairs',
+            'members',
+            'created_at',
+        ]
+        read_only_fields = fields
+
+
+class AttendanceSerializer(serializers.ModelSerializer):
+    """
+    Read-only attendance record (own records only — enforced in the viewset).
+    """
+    event_title = serializers.SerializerMethodField()
+    committee_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Attendance
+        fields = [
+            'id',
+            'attendance_type',
+            'event',
+            'event_title',
+            'committee',
+            'committee_name',
+            'status',
+            'date',
+            'created_at',
+            'notes',
+        ]
+        read_only_fields = fields
+
+    def get_event_title(self, obj):
+        return obj.event.title if obj.event else None
+
+    def get_committee_name(self, obj):
+        return obj.committee.name if obj.committee else None

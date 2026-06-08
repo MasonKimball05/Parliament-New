@@ -67,7 +67,7 @@ class Enforce2FAMiddleware:
             pass
 
         # Skip 2FA enforcement for active admin impersonation sessions
-        if request.session.get('_impersonating_original_user_id'):
+        if getattr(request, 'session', {}).get('_impersonating_original_user_id'):
             return self.get_response(request)
 
         # Check if user requires 2FA
@@ -97,7 +97,7 @@ class Enforce2FAMiddleware:
         if requires_2fa and user_has_device(request.user):
             if not request.user.is_verified() and request.path != '/accounts/two-factor/verify/':
                 # Passkey login sets this flag and counts as full authentication
-                if request.session.get('webauthn_authenticated'):
+                if getattr(request, 'session', {}).get('webauthn_authenticated'):
                     pass  # passkey-authenticated — bypass TOTP step
                 # Check for a valid "remember this device" cookie before forcing verify
                 elif self._check_remember_cookie(request):

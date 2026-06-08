@@ -173,6 +173,9 @@ from src.models.landing import (
 # Analytics
 from src.models.analytics import PageVisit
 
+# API Tokens
+from src.models.api import APIToken, APIAccessLog, DEFINED_SCOPES, ALL_SCOPE_KEYS
+
 # Constitution & Bylaws Builder
 from src.models.cnb import (
     GoverningDocument,
@@ -317,4 +320,9 @@ __all__ = [
     # Feature Flags
     'FeatureFlag',
     'PageToggle',
+    # API Tokens
+    'APIToken',
+    'APIAccessLog',
+    'DEFINED_SCOPES',
+    'ALL_SCOPE_KEYS',
 ]

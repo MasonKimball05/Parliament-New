@@ -1,0 +1,460 @@
+{% extends "base.html" %}
+
+{% block title %}Developer API Guide - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-6" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="{% url 'guide_index' %}" class="inline-flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                    Guide
+                </a>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="ml-1 text-sm font-medium text-gray-700 dark:text-gray-300 md:ml-2">Developer API</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center mb-4">
+            <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg flex items-center justify-center mr-4">
+                <svg class="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Developer API</h1>
+                <p class="text-gray-600 dark:text-gray-400">Access Parliament data programmatically for personal integrations</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="space-y-8">
+        <!-- Quick Actions -->
+        <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-indigo-800 dark:text-indigo-200 mb-2">Quick Actions</h3>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'preferences' %}" class="inline-flex items-center px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 transition-colors">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    Go to Preferences
+                </a>
+                <a href="{% url 'guide_index' %}" class="inline-flex items-center px-3 py-1.5 bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 text-sm rounded-md border border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                    Back to Guides
+                </a>
+            </div>
+        </div>
+
+        <!-- Section 1: What is the Developer API? -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-indigo-600 dark:text-indigo-400">1</span>
+                    What is the Developer API?
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Parliament includes a REST API that lets you access chapter data programmatically. Whether you want to build a personal dashboard, integrate with home automation, or pull your attendance records into a spreadsheet — the API gives you read-only access to the data you already have permission to see.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Key facts:</h4>
+                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-indigo-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>The API is <strong class="text-gray-900 dark:text-gray-100">read-only</strong> — you can query data but cannot make changes through it</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-indigo-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Authentication uses a <strong class="text-gray-900 dark:text-gray-100">personal access token</strong> — a unique key tied to your account</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-indigo-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Access is gated behind the <strong class="text-gray-900 dark:text-gray-100">rest_api</strong> feature flag, which must be enabled by an admin before you can use it</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-indigo-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>You only see data you already have permission to see — the same rules that apply in the app apply in the API</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Note:</strong> If you do not see a Developer API section in your Preferences, the feature has not been enabled for your chapter yet. Contact your chapter officers or admin.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Requesting Your Token -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-indigo-600 dark:text-indigo-400">2</span>
+                    Requesting Your Token
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Your personal access token identifies you to the API. Each member has their own token — it is not shared with anyone else. Tokens require you to specify which data types you need access to (scopes), and may require admin approval depending on your chapter's settings.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">To request a token:</h4>
+                    <ol class="space-y-3 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5">1</span>
+                            <span>Go to <strong class="text-gray-900 dark:text-gray-100">Preferences</strong> &rarr; scroll to the <strong class="text-gray-900 dark:text-gray-100">Developer API</strong> section</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5">2</span>
+                            <span>Give your token a descriptive <strong class="text-gray-900 dark:text-gray-100">name</strong> (e.g. "Home Dashboard Script") and select the <strong class="text-gray-900 dark:text-gray-100">scopes</strong> you need</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5">3</span>
+                            <span>Optionally describe your intended use, then click <strong class="text-gray-900 dark:text-gray-100">"Request Token"</strong></span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mr-3 text-xs font-bold text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5">4</span>
+                            <span>Once active, your token key is shown in the preferences panel — use the copy button and <strong class="text-gray-900 dark:text-gray-100">save it somewhere safe</strong></span>
+                        </li>
+                    </ol>
+                </div>
+
+                <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Approval required?</strong> Your chapter admin may require manual approval before a token becomes active. If your request shows a <em>Pending</em> status, wait for an admin to approve it — you'll see the token key in preferences once it's approved.
+                    </p>
+                </div>
+
+                <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-red-800 dark:text-red-200">
+                        <strong>Keep it secret.</strong> Treat your API token like a password. Anyone who has it can read your Parliament data on your behalf. Do not paste it into public places, commit it to source code, or share it with others.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Available Endpoints -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-indigo-600 dark:text-indigo-400">3</span>
+                    Available Endpoints
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    The API is organized into five resource groups. All endpoints are prefixed with <code class="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-sm font-mono text-gray-800 dark:text-gray-200">/api/v1/</code>.
+                </p>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-200 dark:border-gray-700">
+                                <th class="text-left py-3 pr-4 font-semibold text-gray-900 dark:text-gray-100">Endpoint</th>
+                                <th class="text-left py-3 font-semibold text-gray-900 dark:text-gray-100">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                            <tr>
+                                <td class="py-3 pr-4 align-top">
+                                    <code class="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded font-mono text-xs text-indigo-700 dark:text-indigo-300">GET /api/v1/members/</code>
+                                    <br>
+                                    <code class="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded font-mono text-xs text-indigo-700 dark:text-indigo-300 mt-1 inline-block">GET /api/v1/members/me/</code>
+                                </td>
+                                <td class="py-3 text-gray-600 dark:text-gray-400 align-top">Active member directory. Use <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded font-mono text-xs">/me/</code> to retrieve your own record.</td>
+                            </tr>
+                            <tr>
+                                <td class="py-3 pr-4 align-top">
+                                    <code class="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded font-mono text-xs text-indigo-700 dark:text-indigo-300">GET /api/v1/events/</code>
+                                    <br>
+                                    <code class="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded font-mono text-xs text-indigo-700 dark:text-indigo-300 mt-1 inline-block">GET /api/v1/events/upcoming/</code>
+                                </td>
+                                <td class="py-3 text-gray-600 dark:text-gray-400 align-top">Events visible to you. Use <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded font-mono text-xs">/upcoming/</code> for events in the next 30 days.</td>
+                            </tr>
+                            <tr>
+                                <td class="py-3 pr-4 align-top">
+                                    <code class="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded font-mono text-xs text-indigo-700 dark:text-indigo-300">GET /api/v1/legislation/</code>
+                                    <br>
+                                    <code class="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded font-mono text-xs text-indigo-700 dark:text-indigo-300 mt-1 inline-block">GET /api/v1/legislation/active/</code>
+                                </td>
+                                <td class="py-3 text-gray-600 dark:text-gray-400 align-top">Non-removed legislation. Use <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded font-mono text-xs">/active/</code> for legislation with open votes.</td>
+                            </tr>
+                            <tr>
+                                <td class="py-3 pr-4 align-top">
+                                    <code class="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded font-mono text-xs text-indigo-700 dark:text-indigo-300">GET /api/v1/committees/</code>
+                                    <br>
+                                    <code class="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded font-mono text-xs text-indigo-700 dark:text-indigo-300 mt-1 inline-block">GET /api/v1/committees/mine/</code>
+                                </td>
+                                <td class="py-3 text-gray-600 dark:text-gray-400 align-top">Committees visible to you. Use <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded font-mono text-xs">/mine/</code> to list only committees you belong to.</td>
+                            </tr>
+                            <tr>
+                                <td class="py-3 pr-4 align-top">
+                                    <code class="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded font-mono text-xs text-indigo-700 dark:text-indigo-300">GET /api/v1/attendance/</code>
+                                </td>
+                                <td class="py-3 text-gray-600 dark:text-gray-400 align-top">Your attendance records only. Filter with <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded font-mono text-xs">?type=</code> (e.g. <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded font-mono text-xs">excused</code>, <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded font-mono text-xs">present</code>) and <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded font-mono text-xs">?year=</code>.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: Making Requests -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-indigo-600 dark:text-indigo-400">4</span>
+                    Making Requests
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Include your token in the <code class="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-sm font-mono text-gray-800 dark:text-gray-200">Authorization</code> header on every request:
+                </p>
+
+                <div class="bg-gray-900 dark:bg-gray-950 rounded-lg p-4">
+                    <p class="text-xs text-gray-400 mb-2 font-mono uppercase tracking-wide">Authorization header</p>
+                    <code class="text-green-400 font-mono text-sm">Authorization: Token &lt;your-token&gt;</code>
+                </div>
+
+                <div class="bg-gray-900 dark:bg-gray-950 rounded-lg p-4">
+                    <p class="text-xs text-gray-400 mb-2 font-mono uppercase tracking-wide">Example curl request</p>
+                    <code class="text-green-400 font-mono text-sm break-all">curl -H "Authorization: Token &lt;your-token&gt;" https://am-parliament.org/api/v1/members/me/</code>
+                </div>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Common response codes:</h4>
+                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-start">
+                            <span class="w-12 text-xs font-mono font-bold text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5">401</span>
+                            <span>Missing or invalid token — double-check your Authorization header</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-12 text-xs font-mono font-bold text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5">403</span>
+                            <span>The Developer API feature flag is disabled for your chapter — contact your admin</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="w-12 text-xs font-mono font-bold text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5">200</span>
+                            <span>Success — the response body contains your data in JSON format</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 5: Setting Up Your First Integration -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-indigo-600 dark:text-indigo-400">5</span>
+                    Setting Up Your First Integration
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-6">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Once your token is active, here's how to actually use it. The examples below are the most common starting points — pick the one that matches how you're building.
+                </p>
+
+                <!-- Storing your token safely -->
+                <div>
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                        </svg>
+                        Storing your token safely
+                    </h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Never hardcode your token directly in a script or file you might share. The standard approach is an environment variable:</p>
+                    <div class="bg-gray-900 dark:bg-gray-950 rounded-lg p-4 space-y-3">
+                        <div>
+                            <p class="text-xs text-gray-400 font-mono uppercase tracking-wide mb-1.5">Shell / .env file</p>
+                            <code class="text-green-400 font-mono text-sm">export PARLIAMENT_TOKEN="your-token-here"</code>
+                        </div>
+                        <div class="border-t border-gray-700 pt-3">
+                            <p class="text-xs text-gray-400 font-mono uppercase tracking-wide mb-1.5">Or in a .env file (never commit this file)</p>
+                            <code class="text-green-400 font-mono text-sm">PARLIAMENT_TOKEN=your-token-here</code>
+                        </div>
+                    </div>
+                    <div class="mt-3 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-3 rounded-r-lg">
+                        <p class="text-sm text-red-800 dark:text-red-200">Add <code class="font-mono text-xs bg-red-100 dark:bg-red-900/40 px-1 rounded">.env</code> to your <code class="font-mono text-xs bg-red-100 dark:bg-red-900/40 px-1 rounded">.gitignore</code> before creating it. A token accidentally pushed to a public repo should be revoked immediately.</p>
+                    </div>
+                </div>
+
+                <!-- Python -->
+                <div class="border-t border-gray-100 dark:border-gray-700 pt-5">
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                        <span class="px-1.5 py-0.5 text-xs font-bold rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">Python</span>
+                        Python script using <code class="font-mono text-sm">requests</code>
+                    </h3>
+                    <div class="bg-gray-900 dark:bg-gray-950 rounded-lg p-4">
+                        <pre class="text-sm font-mono text-green-400 whitespace-pre overflow-x-auto">import os
+import requests
+
+TOKEN = os.environ["PARLIAMENT_TOKEN"]
+BASE  = "https://am-parliament.org/api/v1"
+
+headers = {"Authorization": f"Token {TOKEN}"}
+
+# Fetch your own member record
+me = requests.get(f"{BASE}/members/me/", headers=headers)
+me.raise_for_status()
+print(me.json())
+
+# Fetch upcoming events
+events = requests.get(f"{BASE}/events/upcoming/", headers=headers)
+for event in events.json():
+    print(event["title"], event["date_time"])</pre>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Install the library first: <code class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">pip install requests</code></p>
+                </div>
+
+                <!-- JavaScript -->
+                <div class="border-t border-gray-100 dark:border-gray-700 pt-5">
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                        <span class="px-1.5 py-0.5 text-xs font-bold rounded bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300">JS</span>
+                        JavaScript / Node.js using <code class="font-mono text-sm">fetch</code>
+                    </h3>
+                    <div class="bg-gray-900 dark:bg-gray-950 rounded-lg p-4">
+                        <pre class="text-sm font-mono text-green-400 whitespace-pre overflow-x-auto">const TOKEN = process.env.PARLIAMENT_TOKEN;
+const BASE  = "https://am-parliament.org/api/v1";
+
+const headers = { "Authorization": `Token ${TOKEN}` };
+
+// Fetch your attendance records
+const res = await fetch(`${BASE}/attendance/?year=2026`, { headers });
+if (!res.ok) throw new Error(`HTTP ${res.status}`);
+const records = await res.json();
+console.log(records);</pre>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Works in Node 18+ (native <code class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">fetch</code>) and any modern browser environment.</p>
+                </div>
+
+                <!-- Shell script -->
+                <div class="border-t border-gray-100 dark:border-gray-700 pt-5">
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                        <span class="px-1.5 py-0.5 text-xs font-bold rounded bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300">Shell</span>
+                        Shell script with <code class="font-mono text-sm">curl</code> and <code class="font-mono text-sm">jq</code>
+                    </h3>
+                    <div class="bg-gray-900 dark:bg-gray-950 rounded-lg p-4">
+                        <pre class="text-sm font-mono text-green-400 whitespace-pre overflow-x-auto">#!/usr/bin/env bash
+# Source your token from a file or set it in the environment
+# export PARLIAMENT_TOKEN="your-token-here"
+
+BASE="https://am-parliament.org/api/v1"
+AUTH="Authorization: Token $PARLIAMENT_TOKEN"
+
+# Pretty-print active legislation
+curl -s -H "$AUTH" "$BASE/legislation/active/" | jq '.[] | {title, status}'
+
+# Save upcoming events to a JSON file
+curl -s -H "$AUTH" "$BASE/events/upcoming/" -o upcoming_events.json
+echo "Saved to upcoming_events.json"</pre>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2"><code class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">jq</code> is optional but useful for pretty-printing JSON. Install via <code class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">brew install jq</code> on macOS.</p>
+                </div>
+
+                <!-- Postman / API clients -->
+                <div class="border-t border-gray-100 dark:border-gray-700 pt-5">
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                        <span class="px-1.5 py-0.5 text-xs font-bold rounded bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300">GUI</span>
+                        Postman or similar API clients
+                    </h3>
+                    <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                        <ol class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                            <li class="flex items-start gap-2">
+                                <span class="w-5 h-5 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center text-xs font-bold text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5">1</span>
+                                Create a new request and set the method to <strong class="text-gray-900 dark:text-gray-100">GET</strong>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="w-5 h-5 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center text-xs font-bold text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5">2</span>
+                                Enter a URL such as <code class="font-mono text-xs bg-gray-100 dark:bg-gray-600 px-1 rounded">https://am-parliament.org/api/v1/members/me/</code>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="w-5 h-5 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center text-xs font-bold text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5">3</span>
+                                Go to the <strong class="text-gray-900 dark:text-gray-100">Headers</strong> tab and add a header:<br>
+                                Key: <code class="font-mono text-xs bg-gray-100 dark:bg-gray-600 px-1 rounded">Authorization</code> &nbsp;·&nbsp; Value: <code class="font-mono text-xs bg-gray-100 dark:bg-gray-600 px-1 rounded">Token your-token-here</code>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="w-5 h-5 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center text-xs font-bold text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5">4</span>
+                                Click <strong class="text-gray-900 dark:text-gray-100">Send</strong> — you should see a 200 response with JSON in the body
+                            </li>
+                        </ol>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-3">In Postman you can also store the token as a <strong class="text-gray-700 dark:text-gray-300">Collection Variable</strong> and reference it as <code class="font-mono text-xs bg-gray-100 dark:bg-gray-600 px-1 rounded">Token {{PARLIAMENT_TOKEN}}</code> so you only set it once.</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Section 6: Revoking Your Token -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-indigo-600 dark:text-indigo-400">6</span>
+                    Revoking Your Token
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    If your token is ever compromised or you no longer need API access, you can revoke it immediately.
+                </p>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">To revoke your token:</h4>
+                    <ol class="space-y-2 text-sm text-gray-600 dark:text-gray-400 list-decimal list-inside">
+                        <li>Go to <strong class="text-gray-900 dark:text-gray-100">Preferences</strong> &rarr; <strong class="text-gray-900 dark:text-gray-100">Developer API</strong></li>
+                        <li>Click <strong class="text-gray-900 dark:text-gray-100">"Revoke Token"</strong></li>
+                        <li>The token is immediately invalidated — any requests using it will receive a 401 response</li>
+                    </ol>
+                </div>
+
+                <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Tip:</strong> After revoking, you can generate a new token at any time from the same page. Revocation is permanent — the old token cannot be restored.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-700">
+            <a href="{% url 'guide_search' %}" class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Previous: Global Search
+            </a>
+            <div></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
