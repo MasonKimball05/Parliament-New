@@ -96,6 +96,9 @@ yarn.lock
 pip-log.txt
 pip-delete-this-directory.txt
 
+# === Local test scripts ===
+test_api.sh
+
 # === Django Specific ===
 local_settings.py
 db_backup/
