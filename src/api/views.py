@@ -40,6 +40,47 @@ class APILoggingMixin:
     Exceptions here are silently swallowed — logging must never break the API.
     """
 
+    # Maps endpoint path fragments to the serializer field used as a display identifier
+    _SAMPLE_FIELD_MAP = {
+        '/members/': 'display_name',
+        '/events/': 'title',
+        '/legislation/': 'title',
+        '/committees/': 'name',
+        '/attendance/': 'event_title',
+    }
+
+    def _build_response_summary(self, path, response_data):
+        """
+        Return {"count": N, "sample": ["Name 1", ...up to 5]} from response.data.
+        Falls back gracefully if data shape is unexpected.
+        """
+        try:
+            if not isinstance(response_data, list):
+                # Detail endpoint — single record
+                field = next(
+                    (f for seg, f in self._SAMPLE_FIELD_MAP.items() if seg in path),
+                    None,
+                )
+                name = response_data.get(field) if field else None
+                return {'count': 1, 'sample': [name] if name else []}
+
+            count = len(response_data)
+            field = next(
+                (f for seg, f in self._SAMPLE_FIELD_MAP.items() if seg in path),
+                None,
+            )
+            if not field:
+                return {'count': count, 'sample': []}
+
+            sample = []
+            for record in response_data[:5]:
+                val = record.get(field)
+                if val:
+                    sample.append(str(val))
+            return {'count': count, 'sample': sample}
+        except Exception:
+            return {}
+
     def finalize_response(self, request, response, *args, **kwargs):
         response = super().finalize_response(request, response, *args, **kwargs)
         try:
@@ -47,6 +88,12 @@ class APILoggingMixin:
             token = getattr(request, '_api_token', None)
             user = request.user if request.user.is_authenticated else None
             scope = getattr(self, 'required_scope', None)
+
+            query_params = request.GET.dict() if request.GET else {}
+            response_summary = {}
+            if response.status_code < 400 and hasattr(response, 'data') and response.data is not None:
+                response_summary = self._build_response_summary(request.path, response.data)
+
             APIAccessLog.objects.create(
                 token=token,
                 token_key_prefix=(token.key[:8] if token else ''),
@@ -57,6 +104,8 @@ class APILoggingMixin:
                 ip_address=get_client_ip(request),
                 response_status=response.status_code,
                 scopes_used=([scope] if scope else []),
+                query_params=query_params,
+                response_summary=response_summary,
             )
         except Exception:
             pass  # Never let logging break an API response

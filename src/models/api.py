@@ -128,6 +128,9 @@ class APIAccessLog(models.Model):
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     response_status = models.PositiveSmallIntegerField()
     scopes_used = models.JSONField(default=list)
+    query_params = models.JSONField(default=dict, blank=True)
+    response_summary = models.JSONField(default=dict, blank=True)
+    # response_summary structure: {"count": N, "sample": ["Name 1", "Name 2", ...]}
 
     class Meta:
         ordering = ['-timestamp']

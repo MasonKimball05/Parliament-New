@@ -85,6 +85,8 @@
                         <th class="text-left py-2 px-4 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Timestamp</th>
                         <th class="text-left py-2 px-4 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Method</th>
                         <th class="text-left py-2 px-4 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Endpoint</th>
+                        <th class="text-left py-2 px-4 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Params</th>
+                        <th class="text-left py-2 px-4 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Data Accessed</th>
                         <th class="text-left py-2 px-4 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">IP</th>
                         <th class="text-left py-2 px-4 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Status</th>
                         <th class="text-left py-2 px-4 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Scopes Used</th>
@@ -104,6 +106,30 @@
                             </span>
                         </td>
                         <td class="py-2 px-4 font-mono text-xs text-gray-800 dark:text-gray-200">{{ log.endpoint }}</td>
+                        <td class="py-2 px-4 text-xs text-gray-600 dark:text-gray-400">
+                            {% if log.query_params %}
+                                {% for k, v in log.query_params.items %}
+                                <span class="inline-block bg-gray-100 dark:bg-gray-700 rounded px-1 py-0.5 font-mono mr-0.5 mb-0.5">{{ k }}={{ v }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="italic text-gray-400 dark:text-gray-600">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-2 px-4 text-xs text-gray-700 dark:text-gray-300 max-w-xs">
+                            {% if log.response_summary %}
+                                <span class="font-semibold text-gray-900 dark:text-gray-100">{{ log.response_summary.count }} record{% if log.response_summary.count != 1 %}s{% endif %}</span>
+                                {% if log.response_summary.sample %}
+                                <div class="text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                                    {{ log.response_summary.sample|join:", " }}
+                                    {% if log.response_summary.count > log.response_summary.sample|length %}
+                                    <span class="text-gray-400 dark:text-gray-600">+{{ log.response_summary.count|add:"-5" }} more</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            {% else %}
+                                <span class="italic text-gray-400 dark:text-gray-600">—</span>
+                            {% endif %}
+                        </td>
                         <td class="py-2 px-4 font-mono text-xs text-gray-600 dark:text-gray-400">
                             {% if log.ip_address %}{{ log.ip_address }}{% else %}<span class="text-gray-400 italic">unknown</span>{% endif %}
                         </td>
