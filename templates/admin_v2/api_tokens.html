@@ -303,7 +303,7 @@
                 if (data.approved) { location.reload(); }
                 else { alert(data.error || 'Failed to approve.'); }
             })
-            .catch(function() { alert('Request failed.'); });
+            .catch(function(err) { alert(err.message || 'Request failed.'); });
         });
     });
 
@@ -333,7 +333,7 @@
             if (data.rejected) { location.reload(); }
             else { alert(data.error || 'Failed to reject.'); }
         })
-        .catch(function() { alert('Request failed.'); });
+        .catch(function(err) { alert(err.message || 'Request failed.'); });
     });
 
     // Revoke — open modal
@@ -362,7 +362,7 @@
             if (data.revoked) { location.reload(); }
             else { alert(data.error || 'Failed to revoke.'); }
         })
-        .catch(function() { alert('Request failed.'); });
+        .catch(function(err) { alert(err.message || 'Request failed.'); });
     });
 
     // Edit scopes — open modal
@@ -394,7 +394,7 @@
             if (data.scopes !== undefined) { location.reload(); }
             else { alert(data.error || 'Failed to update scopes.'); }
         })
-        .catch(function() { alert('Request failed.'); });
+        .catch(function(err) { alert(err.message || 'Request failed.'); });
     });
 
     // Feature flag toggles
@@ -421,7 +421,7 @@
                     dot.classList.replace('translate-x-6', 'translate-x-1');
                 }
             })
-            .catch(function() { alert('Request failed.'); });
+            .catch(function(err) { alert(err.message || 'Request failed.'); });
         });
     });
 
