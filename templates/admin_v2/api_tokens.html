@@ -275,7 +275,16 @@
             method: 'POST',
             headers: { 'X-CSRFToken': CSRF },
             body: body,
-        }).then(function(r) { return r.json(); });
+        }).then(function(r) {
+            var status = r.status;
+            return r.text().then(function(text) {
+                try {
+                    return JSON.parse(text);
+                } catch(e) {
+                    throw new Error('HTTP ' + status + ' — server returned non-JSON. Check Django logs.');
+                }
+            });
+        });
     }
 
     function removeTokenRow(tokenId) {
