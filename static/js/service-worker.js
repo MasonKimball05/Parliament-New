@@ -25,7 +25,9 @@ self.addEventListener('activate', (event) => event.waitUntil(clients.claim()));
 // Minimal fetch handler — required by Chrome for the PWA install prompt.
 // We do not cache anything; all requests go straight to the network.
 // Parliament is a login-gated app so offline support isn't useful.
-self.addEventListener('fetch', () => {});
+self.addEventListener('fetch', (event) => {
+    event.respondWith(fetch(event.request));
+});
 
 // ─── Push event ────────────────────────────────────────────────────────────
 
