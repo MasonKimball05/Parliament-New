@@ -621,7 +621,7 @@ class InputSanitizationMiddleware:
                 "form-action 'self'",
                 "base-uri 'self'",
                 "object-src 'none'",
-                "worker-src 'none'",
+                "worker-src 'self'",
                 "upgrade-insecure-requests",
                 "report-uri /csp-report/",
             ]
