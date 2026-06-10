@@ -91,6 +91,11 @@ SCHEDULES = [
         'task': 'tasks.prune_old_auth_tokens',
         'crontab': {'hour': '9', 'minute': '15', 'day_of_month': '1'},
     },
+    {
+        'name': 'Prune API access logs (90 days)',
+        'task': 'tasks.cleanup_api_access_logs',
+        'crontab': {'hour': '9', 'minute': '20', 'day_of_month': '1'},  # 3:20 AM CST, 1st of month
+    },
 
     # -------------------------------------------------------------------------
     # Daily digest — system audit + honeypot activity combined

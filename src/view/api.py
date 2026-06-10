@@ -14,7 +14,6 @@ Includes:
       admin_api_token_logs       — view access logs for a specific token
 """
 from django.http import JsonResponse, HttpResponseForbidden, Http404
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_http_methods
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404
@@ -186,7 +185,6 @@ def admin_api_tokens(request):
     return render(request, 'admin_v2/api_tokens.html', context)
 
 
-@csrf_exempt
 @require_http_methods(["POST"])
 @login_required
 def admin_toggle_api_flag(request, flag_name):
@@ -207,7 +205,6 @@ def admin_toggle_api_flag(request, flag_name):
     return JsonResponse({'is_enabled': flag.is_enabled})
 
 
-@csrf_exempt
 @require_http_methods(["POST"])
 @login_required
 def admin_approve_token(request, token_id):
@@ -226,7 +223,6 @@ def admin_approve_token(request, token_id):
     return JsonResponse({'approved': True})
 
 
-@csrf_exempt
 @require_http_methods(["POST"])
 @login_required
 def admin_reject_token(request, token_id):
@@ -245,7 +241,6 @@ def admin_reject_token(request, token_id):
     return JsonResponse({'rejected': True})
 
 
-@csrf_exempt
 @require_http_methods(["POST"])
 @login_required
 def admin_revoke_token(request, token_id):
@@ -266,7 +261,6 @@ def admin_revoke_token(request, token_id):
     return JsonResponse({'revoked': True})
 
 
-@csrf_exempt
 @require_http_methods(["POST"])
 @login_required
 def admin_update_token_scopes(request, token_id):

@@ -139,6 +139,7 @@ class APIAccessLog(models.Model):
             models.Index(fields=['token']),
             models.Index(fields=['user']),
             models.Index(fields=['timestamp']),
+            models.Index(fields=['token_key_prefix']),
         ]
 
     def __str__(self):
