@@ -83,6 +83,20 @@ def request_api_token(request):
 
     request_note = request.POST.get('request_note', '').strip()
 
+    expires_at = None
+    expires_at_raw = request.POST.get('expires_at', '').strip()
+    if expires_at_raw:
+        try:
+            from datetime import date
+            parsed = date.fromisoformat(expires_at_raw)
+            if parsed <= date.today():
+                return JsonResponse({'error': 'Expiry date must be in the future.'}, status=400)
+            expires_at = timezone.make_aware(
+                timezone.datetime(parsed.year, parsed.month, parsed.day, 23, 59, 59)
+            )
+        except ValueError:
+            return JsonResponse({'error': 'Invalid expiry date.'}, status=400)
+
     auto_approve = FeatureFlag.is_feature_enabled('api_token_auto_approve')
 
     token = APIToken(
@@ -91,6 +105,7 @@ def request_api_token(request):
         name=name,
         scopes=valid_scopes,
         request_note=request_note,
+        expires_at=expires_at,
         status=APIToken.STATUS_ACTIVE if auto_approve else APIToken.STATUS_PENDING,
     )
     if auto_approve:
@@ -181,6 +196,7 @@ def admin_api_tokens(request):
         'defined_scopes': DEFINED_SCOPES,
         'flag_rest_api': flag_rest_api,
         'flag_auto_approve': flag_auto_approve,
+        'now': timezone.now(),
     }
     return render(request, 'admin_v2/api_tokens.html', context)
 
@@ -208,7 +224,7 @@ def admin_toggle_api_flag(request, flag_name):
 @require_http_methods(["POST"])
 @login_required
 def admin_approve_token(request, token_id):
-    """Admin: approve a pending token."""
+    """Admin: approve a pending token, optionally setting an expiry date."""
     forbidden = _require_admin(request)
     if forbidden:
         return JsonResponse({'error': 'Forbidden'}, status=403)
@@ -216,10 +232,26 @@ def admin_approve_token(request, token_id):
         token = APIToken.objects.get(id=token_id, status=APIToken.STATUS_PENDING)
     except APIToken.DoesNotExist:
         return JsonResponse({'error': 'Token not found or not pending.'}, status=404)
+
+    expires_at = None
+    expires_at_raw = request.POST.get('expires_at', '').strip()
+    if expires_at_raw:
+        try:
+            from datetime import date
+            parsed = date.fromisoformat(expires_at_raw)
+            if parsed <= date.today():
+                return JsonResponse({'error': 'Expiry date must be in the future.'}, status=400)
+            expires_at = timezone.make_aware(
+                timezone.datetime(parsed.year, parsed.month, parsed.day, 23, 59, 59)
+            )
+        except ValueError:
+            return JsonResponse({'error': 'Invalid expiry date.'}, status=400)
+
     token.status = APIToken.STATUS_ACTIVE
     token.approved_by = request.user
     token.approved_at = timezone.now()
-    token.save(update_fields=['status', 'approved_by', 'approved_at'])
+    token.expires_at = expires_at
+    token.save(update_fields=['status', 'approved_by', 'approved_at', 'expires_at'])
     return JsonResponse({'approved': True})
 
 

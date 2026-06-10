@@ -537,6 +537,16 @@
                         <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">Only request what you actually need.</p>
                     </div>
 
+                    <!-- Expiry -->
+                    <div>
+                        <label for="api-expires-at" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Expiry date <span class="text-gray-400 font-normal">(optional)</span>
+                        </label>
+                        <input type="date" id="api-expires-at" name="expires_at"
+                               class="w-full max-w-md px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                        <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Leave blank for no expiry. Tokens expire automatically at midnight on the selected date.</p>
+                    </div>
+
                     <!-- Reason -->
                     <div>
                         <label for="api-request-note" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

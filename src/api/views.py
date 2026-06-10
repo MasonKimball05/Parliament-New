@@ -21,6 +21,7 @@ from src.models.committees import Committee
 from src.models.api import APIAccessLog
 
 from .authentication import APITokenAuthentication
+from .pagination import ParliamentAPIPagination
 from .permissions import APIEnabled, ScopePermission
 from .serializers import (
     MemberSerializer, EventSerializer, LegislationSerializer,
@@ -130,7 +131,7 @@ class MemberViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
     lookup_field = 'user_id'
     authentication_classes = _API_AUTH
     permission_classes = _API_PERMISSIONS
-    pagination_class = None
+    pagination_class = ParliamentAPIPagination
     required_scope = 'members:read'
 
     def get_queryset(self):
@@ -204,7 +205,7 @@ class LegislationViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = LegislationSerializer
     authentication_classes = _API_AUTH
     permission_classes = _API_PERMISSIONS
-    pagination_class = None
+    pagination_class = ParliamentAPIPagination
     required_scope = 'legislation:read'
 
     def get_queryset(self):
@@ -238,7 +239,7 @@ class CommitteeViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = CommitteeSerializer
     authentication_classes = _API_AUTH
     permission_classes = _API_PERMISSIONS
-    pagination_class = None
+    pagination_class = ParliamentAPIPagination
     required_scope = 'committees:read'
 
     def get_queryset(self):
