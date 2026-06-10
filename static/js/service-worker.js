@@ -22,14 +22,9 @@ const ICON = '/exportable_media/am-coat-of-arms.png';
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(clients.claim()));
 
-// Minimal fetch handler — required by Chrome for the PWA install prompt.
-// Only intercept GET requests and pass them straight to the network.
-// Non-GET requests (POST, etc.) are intentionally not intercepted so the
-// browser sends them natively with full credentials and session cookies.
-self.addEventListener('fetch', (event) => {
-    if (event.request.method !== 'GET') return;
-    event.respondWith(fetch(event.request));
-});
+// No fetch handler — Parliament is a login-gated app so offline caching
+// is not useful, and intercepting requests causes credential issues with
+// session-authenticated POST endpoints.
 
 // ─── Push event ────────────────────────────────────────────────────────────
 
