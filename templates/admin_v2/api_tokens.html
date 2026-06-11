@@ -164,7 +164,8 @@
                                         class="js-approve-btn px-3 py-1 text-xs font-medium bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-800 dark:text-green-300 rounded-lg"
                                         data-token-id="{{ token.id }}"
                                         data-token-name="{{ token.name }}"
-                                        data-token-user="{{ token.user.get_display_name }}">
+                                        data-token-user="{{ token.user.get_display_name }}"
+                                        data-token-expires="{{ token.expires_at|date:'Y-m-d' }}">
                                     Approve
                                 </button>
                                 <!-- Reject -->
@@ -302,12 +303,22 @@
     var CSRF = '{{ csrf_token }}';
     var currentTokenId = null;
 
-    function postJSON(url, body) {
+    function postJSON(url, formData) {
+        // Convert FormData to URL-encoded string so the body is simple text rather
+        // than multipart. Both formats work identically in Django, but url-encoded
+        // is less likely to be mangled by intermediate proxies or ASGI parsing quirks.
+        var params = new URLSearchParams();
+        if (formData instanceof FormData) {
+            formData.forEach(function(v, k) { params.append(k, v); });
+        }
         return fetch(url, {
             method: 'POST',
             credentials: 'same-origin',
-            headers: { 'X-CSRFToken': CSRF },
-            body: body,
+            headers: {
+                'X-CSRFToken': CSRF,
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: params.toString(),
         }).then(function(r) {
             var status = r.status;
             return r.text().then(function(text) {
@@ -331,7 +342,8 @@
             currentTokenId = this.dataset.tokenId;
             document.getElementById('approve-modal-user').textContent = this.dataset.tokenUser;
             document.getElementById('approve-modal-name').textContent = this.dataset.tokenName;
-            document.getElementById('approve-expires-input').value = '';
+            // Prefill with the member's requested expiry (blank if they didn't set one)
+            document.getElementById('approve-expires-input').value = this.dataset.tokenExpires || '';
             document.getElementById('approve-modal').classList.remove('hidden');
         });
     });

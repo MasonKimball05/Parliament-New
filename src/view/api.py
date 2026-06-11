@@ -13,6 +13,8 @@ Includes:
       admin_update_token_scopes  — edit the scopes on any token
       admin_api_token_logs       — view access logs for a specific token
 """
+from datetime import date as _date
+
 from django.http import JsonResponse, HttpResponseForbidden, Http404
 from django.views.decorators.http import require_POST, require_http_methods
 from django.contrib.auth.decorators import login_required
@@ -45,6 +47,31 @@ def dismiss_announcement_api(request, announcement_id):
     except Exception as e:
         logger.error(f"Error in dismiss_announcement_api: {str(e)}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _parse_expiry(raw):
+    """Parse a 'YYYY-MM-DD' expiry string.
+
+    Returns:
+        (aware_datetime, None)   — valid future date
+        (None, None)             — raw is empty/blank (no expiry requested)
+        (None, JsonResponse)     — validation error; caller should return the response
+    """
+    if not raw:
+        return None, None
+    try:
+        parsed = _date.fromisoformat(raw)
+        if parsed <= _date.today():
+            return None, JsonResponse({'error': 'Expiry date must be in the future.'}, status=400)
+        return timezone.make_aware(
+            timezone.datetime(parsed.year, parsed.month, parsed.day, 23, 59, 59)
+        ), None
+    except ValueError:
+        return None, JsonResponse({'error': 'Invalid expiry date.'}, status=400)
 
 
 # ---------------------------------------------------------------------------
@@ -83,19 +110,9 @@ def request_api_token(request):
 
     request_note = request.POST.get('request_note', '').strip()
 
-    expires_at = None
-    expires_at_raw = request.POST.get('expires_at', '').strip()
-    if expires_at_raw:
-        try:
-            from datetime import date
-            parsed = date.fromisoformat(expires_at_raw)
-            if parsed <= date.today():
-                return JsonResponse({'error': 'Expiry date must be in the future.'}, status=400)
-            expires_at = timezone.make_aware(
-                timezone.datetime(parsed.year, parsed.month, parsed.day, 23, 59, 59)
-            )
-        except ValueError:
-            return JsonResponse({'error': 'Invalid expiry date.'}, status=400)
+    expires_at, expiry_error = _parse_expiry(request.POST.get('expires_at', '').strip())
+    if expiry_error:
+        return expiry_error
 
     auto_approve = FeatureFlag.is_feature_enabled('api_token_auto_approve')
 
@@ -233,25 +250,21 @@ def admin_approve_token(request, token_id):
     except APIToken.DoesNotExist:
         return JsonResponse({'error': 'Token not found or not pending.'}, status=404)
 
-    expires_at = None
     expires_at_raw = request.POST.get('expires_at', '').strip()
-    if expires_at_raw:
-        try:
-            from datetime import date
-            parsed = date.fromisoformat(expires_at_raw)
-            if parsed <= date.today():
-                return JsonResponse({'error': 'Expiry date must be in the future.'}, status=400)
-            expires_at = timezone.make_aware(
-                timezone.datetime(parsed.year, parsed.month, parsed.day, 23, 59, 59)
-            )
-        except ValueError:
-            return JsonResponse({'error': 'Invalid expiry date.'}, status=400)
+    expires_at, expiry_error = _parse_expiry(expires_at_raw)
+    if expiry_error:
+        return expiry_error
 
     token.status = APIToken.STATUS_ACTIVE
     token.approved_by = request.user
     token.approved_at = timezone.now()
-    token.expires_at = expires_at
-    token.save(update_fields=['status', 'approved_by', 'approved_at', 'expires_at'])
+    if expires_at_raw:
+        # Admin explicitly set (or overrode) the expiry — apply it
+        token.expires_at = expires_at
+        token.save(update_fields=['status', 'approved_by', 'approved_at', 'expires_at'])
+    else:
+        # Admin left the field blank — preserve whatever the user requested
+        token.save(update_fields=['status', 'approved_by', 'approved_at'])
     return JsonResponse({'approved': True})
 
 
