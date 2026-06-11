@@ -3,6 +3,163 @@ This project is licensed under the MIT License. Copyright (c) 2025-2026 Mason Ki
 
 ## Version History Overview
 
+---
+
+### v3.4.0 — AJAX Interactions & Profile UI Cleanup (2026-06-11)
+
+**Type:** UX Enhancement / New Feature
+
+---
+
+#### AJAX Buttons — Profile, Preferences, Admin API Tokens
+
+Forms across three pages now submit via AJAX and give instant in-page feedback, removing full page reloads for every save/add/delete action. The first step of a long-term goal to bring no-reload interactions to most of the site.
+
+**Pattern (reusable):**
+- Backend: `is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'` at the top of the POST block. Each branch returns `JsonResponse({'success': True, ...data})` or `JsonResponse({'error': '...'}, status=400)` when AJAX; otherwise falls through to the existing redirect.
+- Frontend: `fetch` with `X-Requested-With` + `application/x-www-form-urlencoded`. On success, button briefly shows "Saved!" then resets — no reload. Add forms append new items to the list in-place; delete forms remove the item and re-index the remaining list.
+
+**Profile (`profile_view.py` + `profile.html`):**
+- Account settings (username, preferred name, email, phone) — shows "Saved!" or inline error
+- Public profile (bio, chapter info, socials, big brother, graduation) — shows "Saved!"
+- Change password — shows "Changed!" on success, inline error breakdown from `form.errors.as_json()` on failure, clears form fields on success
+- Role history add/delete — appends/removes `li` rows; delete uses DB primary key so no re-indexing needed
+- Custom social links add/delete — appends/removes rows; re-indexes hidden `cs_index` inputs after each delete
+- Academic items (majors, minors, concentrations) add/delete — same pattern per type; re-indexes `ai_index` inputs
+- Initiation chapters add/delete — appends/removes rows; re-indexes `ic_index` inputs
+- Profile picture form intentionally left as a full submit (file upload with crop modal)
+
+**Preferences (`preferences.py` + `preferences.html`):**
+- Save Preferences button shows "Saving…" → "Saved!" for 2 seconds
+- Theme change is the only case that still triggers a page reload — necessary so CSS variables re-apply
+
+**Admin — API Tokens (`api_tokens.html`):**
+- Approve, Reject, Revoke buttons now remove the token row from the DOM instead of calling `location.reload()` — table updates instantly
+- Edit Scopes now refreshes the scope chips in the row in-place (rebuilds the `<td>` content and updates the button's `data-scopes` attribute) without a reload
+
+**Changed:**
+- `src/view/profile_view.py` — Added `from django.http import JsonResponse`; added `is_ajax` detection; all POST branches return JSON when AJAX
+- `src/view/preferences.py` — Added `from django.http import JsonResponse`; added `is_ajax` detection; save form returns `{'success': True, 'theme_changed': bool}`
+- `templates/profile.html` — Added IDs to all key forms and lists; added `js-*-delete-form` classes and `data-*-index` attributes to all delete forms/list items; added comprehensive AJAX JS block at bottom of page
+- `templates/preferences.html` — Added `id="preferences-form"`; added AJAX JS block
+- `templates/admin_v2/api_tokens.html` — Replaced `location.reload()` with `removeTokenRow()` for approve/reject/revoke; scopes update patches chips in-place
+
+---
+
+#### Profile Page UI Cleanup
+
+Reorganized the profile page to separate concerns and remove the scattered "sections with buttons in the middle" layout.
+
+- **Account Settings** and **Security** are now separate cards (previously one combined card). Security card contains 2FA, Passkeys, and Change Password accordions.
+- **Additional Details** divider added in Public Profile above the per-item accordions (Custom Social Links, Academics, Initiation Chapters, Role History), with a note explaining that each section saves individually.
+
+**Changed:**
+- `templates/profile.html` — Closed Account Settings card before Security accordions; opened new Security card with heading; added Additional Details divider with explanatory subtext
+
+---
+
+### v3.3.0 — Authentication UX, Passkey Nudge & API Token Fixes (2026-06-11)
+
+**Type:** New Features / Bug Fixes / Security Enhancement
+
+---
+
+#### Email/Username Login
+
+Users can now sign in using either their username or their registered email address. The login view resolves an email input to the matching username before calling `authenticate()`, so the underlying auth backend is unchanged.
+
+**Changed:**
+- `src/view/login_view.py` — Added email-to-username resolution: if the login field contains `@`, looks up the user by `email__iexact` before authenticating. Gracefully falls through on `DoesNotExist` or `MultipleObjectsReturned`.
+- `templates/registration/login.html` — Label updated to "Username or Email"; placeholder updated to "Username or email address".
+
+---
+
+#### 2FA Passkey Bypass
+
+Users who have a passkey registered can now use it to complete the 2FA verification step when they log in with a password. A "Use a Passkey instead" button appears on the verify screen (only when the user has passkeys), running the full WebAuthn assertion flow and redirecting on success.
+
+**Changed:**
+- `src/view/two_factor.py` — Imports `WebAuthnCredential`; queries it in `two_factor_verify` and passes `has_passkeys` to context.
+- `templates/two_factor/verify.html` — Added conditional passkey button and full WebAuthn JS block (begin → credentials.get → complete → redirect), matching the login-page passkey flow.
+
+---
+
+#### Passkey Nudge Modal
+
+Users without a passkey registered now see a modal popup on the Preferences and Profile pages encouraging them to set one up. The modal has no permanent dismiss — it reappears each visit until a passkey is registered, then disappears automatically.
+
+- On **Preferences**: a persistent banner also appears at the top of the page (non-dismissible). The modal's "Set Up Now" link navigates to `profile#passkeys`.
+- On **Profile**: the modal's "Set Up Now" button closes the modal and opens + scrolls to the Passkeys accordion inline. Modal is suppressed when viewing another user's profile.
+
+**Changed:**
+- `src/view/preferences.py` — `show_passkey_nudge` is now simply `not has_passkeys` (removed `nudge_dismissed` prefs check). Removed `dismiss_passkey_nudge` view and its imports.
+- `src/urls.py` — Removed `dismiss_passkey_nudge` URL and import.
+- `src/view/profile_view.py` — Added `show_passkey_nudge = (passkey_count == 0) and (user == request.user)` and passes it to context.
+- `templates/preferences.html` — Added non-dismissible banner at top; added passkey nudge modal at bottom of page.
+- `templates/profile.html` — Added passkey nudge modal; "Set Up Now" opens the passkeys accordion in-place.
+
+---
+
+#### Passkeys Accordion Deep-Link
+
+The Passkeys section on the Profile page can now be opened and scrolled to directly via URL: `profile#passkeys` or `profile?open=passkeys`. Used by the Preferences banner and 2FA screen links.
+
+**Changed:**
+- `templates/profile.html` — Added `id="passkeys-accordion"` to the passkeys `<details>` element. Added JS that opens and smooth-scrolls to the accordion when the URL hash or query param matches.
+
+---
+
+#### Set-Email Modal Snooze
+
+The "Set Email" modal in the base layout now respects a 15-minute snooze when the user clicks "Skip for Now". The modal will not reappear until the snooze expires, preventing it from interrupting every page visit during a session.
+
+**Changed:**
+- `templates/base.html` — Added `localStorage`-based snooze (`parliament_email_modal_snoozed_until`). On load, checks if within snooze window and hides immediately. "Skip for Now" button sets a 15-minute snooze timestamp on click.
+
+---
+
+#### API Token Admin Button Fix
+
+Fixed a persistent HTTP 400 error on all admin API token action buttons (Approve, Reject, Revoke, Toggle). Root causes were two independent issues that both had to be resolved together.
+
+**Root cause 1:** `postJSON` in `api_tokens.html` was sending `multipart/form-data` via `FormData`. Daphne had issues parsing empty multipart bodies on some requests, causing 400s. Fixed by switching to `application/x-www-form-urlencoded` via `URLSearchParams`.
+
+**Root cause 2:** `CSRF_TRUSTED_ORIGINS` was empty, so Django fell back to Referer-header CSRF validation. Cloudflare was modifying the Referer header on HTTPS requests, causing CSRF checks to fail. Fixed by always including `SITE_URL` in `CSRF_TRUSTED_ORIGINS`.
+
+**Changed:**
+- `templates/admin_v2/api_tokens.html` — `postJSON` now sends `application/x-www-form-urlencoded`.
+- `Parliament/settings_postgres.py` — Added `CSRF_TRUSTED_ORIGINS` always including `$SITE_URL`.
+
+---
+
+#### API Token UX Fixes
+
+Three UX issues on the API token pages, all discovered after the 400 fix confirmed buttons were working.
+
+**Toggle knob not moving:** `classList.replace()` silently fails if the source class isn't present. Replaced with explicit `remove()` + `add()` calls throughout the toggle JS. Also fixed `dark:bg-gray-600` not being handled (colon in class name breaks `replace()`).
+
+**Revoke/Withdraw navigating to raw JSON:** Both forms were plain HTML submissions with only a JS confirm dialog. Fixed by intercepting `submit`, posting via `fetch`, and reloading the page on success.
+
+**Token request showing error then pending:** The request form was still using `FormData` multipart. Fixed by switching to `URLSearchParams` + explicit `Content-Type` + `credentials: 'same-origin'`. Improved catch message to note the request may have already been submitted.
+
+**Changed:**
+- `templates/admin_v2/api_tokens.html` — Toggle button JS uses `remove`/`add` instead of `replace`.
+- `templates/preferences.html` — Revoke and withdraw forms use AJAX. Token request form switched to URL-encoded.
+
+---
+
+#### API Token Expiry Bug Fix & `_parse_expiry` Helper
+
+Admin approval was unconditionally overwriting the token's `expires_at`, so approving without setting a date would silently wipe the user-requested expiry. Fixed so the expiry is only updated when the admin explicitly provides a date. Also extracted the repeated 13-line expiry parsing block into a shared `_parse_expiry()` helper.
+
+The approve modal now prefills the expiry date field from the token's existing `expires_at` so the admin can see the user's requested expiry at a glance.
+
+**Changed:**
+- `src/view/api.py` — Added `_parse_expiry()` helper above `request_api_token`; replaced duplicated expiry blocks in both views. `admin_approve_token` only writes `expires_at` when the admin provided a value.
+- `templates/admin_v2/api_tokens.html` — Approve button carries `data-token-expires` attribute; modal JS prefills the date input from it.
+
+---
+
 ### v1.0.0 - Initial Release - September 2025 (Development Only)
 The original Parliament system with basic functionality but significant security vulnerabilities.
 

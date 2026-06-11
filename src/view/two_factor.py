@@ -13,6 +13,7 @@ from django_otp.plugins.otp_totp.models import TOTPDevice
 from django_otp.plugins.otp_static.models import StaticDevice, StaticToken
 from django_otp.util import random_hex
 from src.utils.security_utils import get_client_ip
+from src.models import WebAuthnCredential
 from datetime import timedelta
 import secrets
 import qrcode
@@ -364,9 +365,11 @@ def two_factor_verify(request):
             _record_2fa_failure(request)
 
     backup_device = _get_backup_device(request.user)
+    has_passkeys = WebAuthnCredential.objects.filter(user=request.user).exists()
     return render(request, 'two_factor/verify.html', {
         'has_backup_codes': backup_device is not None and backup_device.token_set.exists(),
         'remember_days': _REMEMBER_DAYS,
+        'has_passkeys': has_passkeys,
     })
 
 

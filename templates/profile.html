@@ -185,7 +185,7 @@
         </h2>
 
         <!-- Core account fields -->
-        <form method="POST" class="mb-6">
+        <form method="POST" id="profile-settings-form" class="mb-6">
             {% csrf_token %}
             <input type="hidden" name="profile_submit" value="1">
 
@@ -242,13 +242,25 @@
                 </div>
             </div>
 
-            <button type="submit" class="btn-primary mt-4 inline-flex items-center">
+            <button type="submit" id="profile-settings-save-btn" class="btn-primary mt-4 inline-flex items-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>
                 Save Changes
             </button>
+            <p id="profile-settings-error" class="text-red-500 dark:text-red-400 text-sm mt-2 hidden"></p>
         </form>
+    </div>
+
+    <!-- Security Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200">
+        <h2 class="text-xl font-semibold mb-4 flex items-center text-gray-900 dark:text-gray-100">
+            <svg class="w-6 h-6 mr-2 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+            Security
+        </h2>
+        <div class="space-y-3">
 
         <!-- Two-Factor Authentication (collapsible) -->
         <details class="accordion border border-gray-200 dark:border-gray-600 rounded-lg mb-3">
@@ -344,7 +356,7 @@
         </details>
 
         <!-- Passkeys (collapsible) -->
-        <details class="accordion border border-gray-200 dark:border-gray-600 rounded-lg">
+        <details id="passkeys-accordion" class="accordion border border-gray-200 dark:border-gray-600 rounded-lg">
             <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-sm font-medium text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors">
                 <span class="flex items-center gap-2">
                     <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -419,7 +431,7 @@
                 </svg>
             </summary>
             <div class="px-4 pb-4 pt-3 border-t border-gray-200 dark:border-gray-600">
-                <form method="POST">
+                <form method="POST" id="change-password-form">
                     {% csrf_token %}
                     <input type="hidden" name="password_submit" value="1">
                     <div class="space-y-4">
@@ -434,15 +446,17 @@
                         </div>
                         {% endfor %}
                     </div>
-                    <button type="submit" class="btn-primary mt-4 inline-flex items-center">
+                    <button type="submit" id="change-password-btn" class="btn-primary mt-4 inline-flex items-center">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                         </svg>
                         Change Password
                     </button>
+                    <p id="pw-error-msg" class="text-red-500 dark:text-red-400 text-sm mt-2 hidden"></p>
                 </form>
             </div>
         </details>
+        </div>
     </div>
 
     <!-- Public Profile Card -->
@@ -455,7 +469,7 @@
         </h2>
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">Visible to other members in the directory. All fields are optional.</p>
 
-        <form method="POST">
+        <form method="POST" id="public-profile-form">
             {% csrf_token %}
             <input type="hidden" name="extended_profile_submit" value="1">
 
@@ -573,13 +587,18 @@
                 </div>
             </details>
 
-            <button type="submit" class="btn-primary mt-2 mb-6 inline-flex items-center">
+            <button type="submit" id="public-profile-save-btn" class="btn-primary mt-2 inline-flex items-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>
                 Save Public Profile
             </button>
         </form>
+
+        <div class="mt-6 pt-5 border-t border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Additional Details</h3>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">Each section below saves individually when you add or remove an item.</p>
+        </div>
 
         <!-- Custom Social Links (collapsible) -->
         <details class="accordion border border-gray-200 dark:border-gray-600 rounded-lg mb-3">
@@ -596,14 +615,14 @@
 
                 {% with socials=user.custom_socials %}
                 {% if socials %}
-                <ul class="space-y-2 mb-4">
+                <ul class="space-y-2 mb-4" id="custom-social-list">
                     {% for s in socials %}
-                    <li class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm">
+                    <li class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm" data-cs-index="{{ forloop.counter0 }}">
                         <div>
                             <span class="font-medium text-gray-800 dark:text-gray-200">{{ s.platform }}</span>
                             <span class="text-gray-500 dark:text-gray-400 ml-2">@{{ s.handle }}</span>
                         </div>
-                        <form method="POST" class="flex-shrink-0 ml-2">
+                        <form method="POST" class="flex-shrink-0 ml-2 js-cs-delete-form">
                             {% csrf_token %}
                             <input type="hidden" name="custom_social_delete_submit" value="1">
                             <input type="hidden" name="cs_index" value="{{ forloop.counter0 }}">
@@ -621,7 +640,7 @@
                 {% endif %}
                 {% endwith %}
 
-                <form method="POST" class="flex gap-3 items-end flex-wrap">
+                <form method="POST" id="custom-social-add-form" class="flex gap-3 items-end flex-wrap">
                     {% csrf_token %}
                     <input type="hidden" name="custom_social_add_submit" value="1">
                     <div>
@@ -656,11 +675,11 @@
                 <div class="mb-4">
                     <p class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">{{ label }}</p>
                     {% if items %}
-                    <ul class="space-y-1 mb-2">
+                    <ul class="space-y-1 mb-2 js-academic-list" data-ai-type="{{ field_type }}">
                         {% for item in items %}
-                        <li class="flex items-center justify-between py-1.5 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm">
+                        <li class="flex items-center justify-between py-1.5 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm" data-ai-index="{{ forloop.counter0 }}">
                             <span class="text-gray-800 dark:text-gray-200">{{ item }}</span>
-                            <form method="POST" class="flex-shrink-0 ml-2">
+                            <form method="POST" class="flex-shrink-0 ml-2 js-ai-delete-form">
                                 {% csrf_token %}
                                 <input type="hidden" name="academic_item_delete_submit" value="1">
                                 <input type="hidden" name="ai_type" value="{{ field_type }}">
@@ -675,7 +694,7 @@
                         {% endfor %}
                     </ul>
                     {% endif %}
-                    <form method="POST" class="flex gap-2 items-end">
+                    <form method="POST" class="flex gap-2 items-end js-academic-add-form" data-ai-type="{{ field_type }}">
                         {% csrf_token %}
                         <input type="hidden" name="academic_item_add_submit" value="1">
                         <input type="hidden" name="ai_type" value="{{ field_type }}">
@@ -703,15 +722,15 @@
 
                 {% with chapters=user.initiation_chapters %}
                 {% if chapters %}
-                <ul class="space-y-2 mb-4">
+                <ul class="space-y-2 mb-4" id="initiation-chapter-list">
                     {% for c in chapters %}
-                    <li class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm">
+                    <li class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm" data-ic-index="{{ forloop.counter0 }}">
                         <div>
                             <span class="font-medium text-gray-800 dark:text-gray-200">{{ c.chapter }}</span>
                             <span class="text-gray-500 dark:text-gray-400 ml-2">— {{ c.school }}</span>
                             {% if c.role_number %}<span class="text-xs text-gray-400 dark:text-gray-500 ml-2">#{{ c.role_number }}</span>{% endif %}
                         </div>
-                        <form method="POST" class="flex-shrink-0 ml-2">
+                        <form method="POST" class="flex-shrink-0 ml-2 js-ic-delete-form">
                             {% csrf_token %}
                             <input type="hidden" name="initiation_chapter_delete_submit" value="1">
                             <input type="hidden" name="ic_index" value="{{ forloop.counter0 }}">
@@ -729,7 +748,7 @@
                 {% endif %}
                 {% endwith %}
 
-                <form method="POST" class="flex gap-3 items-end flex-wrap">
+                <form method="POST" id="initiation-chapter-add-form" class="flex gap-3 items-end flex-wrap">
                     {% csrf_token %}
                     <input type="hidden" name="initiation_chapter_add_submit" value="1">
                     <div>
@@ -768,14 +787,14 @@
                 <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Positions you've held in the chapter. Visible on your directory profile.</p>
 
                 {% if role_histories %}
-                <ul class="space-y-2 mb-5">
+                <ul class="space-y-2 mb-5" id="role-history-list">
                     {% for rh in role_histories %}
-                    <li class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm">
+                    <li class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm" data-rh-id="{{ rh.id }}">
                         <div>
                             <span class="font-medium text-gray-800 dark:text-gray-200">{{ rh.role_name }}</span>
                             <span class="text-gray-500 dark:text-gray-400 ml-2">{{ rh.start_semester }}{% if rh.end_semester %} – {{ rh.end_semester }}{% else %} – present{% endif %}</span>
                         </div>
-                        <form method="POST" class="flex-shrink-0 ml-2">
+                        <form method="POST" class="flex-shrink-0 ml-2 js-rh-delete-form">
                             {% csrf_token %}
                             <input type="hidden" name="role_history_delete_submit" value="1">
                             <input type="hidden" name="rh_id" value="{{ rh.id }}">
@@ -792,7 +811,7 @@
                 <p class="text-sm text-gray-400 dark:text-gray-500 mb-4 italic">No role history added yet.</p>
                 {% endif %}
 
-                <form method="POST" class="grid sm:grid-cols-3 gap-3 items-end">
+                <form method="POST" id="role-history-add-form" class="grid sm:grid-cols-3 gap-3 items-end">
                     {% csrf_token %}
                     <input type="hidden" name="role_history_add_submit" value="1">
                     <div>
@@ -1205,6 +1224,397 @@ document.querySelectorAll('.js-passkey-delete-form').forEach(function (form) {
         if (!confirm('Remove this passkey?')) { e.preventDefault(); }
     });
 });
+
+// Auto-open passkeys accordion when navigated via #passkeys or ?open=passkeys
+(function() {
+    var shouldOpen = window.location.hash === '#passkeys' ||
+                     new URLSearchParams(window.location.search).get('open') === 'passkeys';
+    if (!shouldOpen) return;
+    var accordion = document.getElementById('passkeys-accordion');
+    if (!accordion) return;
+    accordion.setAttribute('open', '');
+    // Scroll into view after a short delay so the browser has laid out the open state
+    setTimeout(function() { accordion.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100);
+})();
+</script>
+
+{% if show_passkey_nudge %}
+<!-- Passkey nudge modal -->
+<div id="passkeyNudgeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" role="dialog" aria-modal="true" aria-labelledby="passkeyNudgeTitle">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full mx-4 p-6 transition-colors duration-200">
+        <div class="flex items-center justify-center mb-4">
+            <div class="bg-indigo-100 dark:bg-indigo-900/50 rounded-full p-3">
+                <svg class="w-8 h-8 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                </svg>
+            </div>
+        </div>
+        <h2 id="passkeyNudgeTitle" class="text-xl font-bold text-gray-900 dark:text-gray-100 text-center mb-2">Set Up a Passkey</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-300 text-center mb-2">
+            Sign in with Face ID, Touch ID, or your device PIN — no password or 2FA code needed.
+        </p>
+        <p class="text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 rounded-lg px-3 py-2 text-center mb-5">
+            Takes about 30 seconds. Scroll down to the Passkeys section below to get started.
+        </p>
+        <div class="flex flex-col gap-2">
+            <button type="button" id="passkey-nudge-setup"
+                    class="w-full text-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg font-medium text-sm transition-colors">
+                Set Up Now
+            </button>
+            <button type="button" id="passkey-nudge-close"
+                    class="w-full text-center bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2.5 rounded-lg font-medium text-sm transition-colors">
+                Maybe Later
+            </button>
+        </div>
+    </div>
+</div>
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    function closeNudge() {
+        var modal = document.getElementById('passkeyNudgeModal');
+        if (modal) modal.style.display = 'none';
+    }
+    document.getElementById('passkey-nudge-close').addEventListener('click', closeNudge);
+    document.getElementById('passkeyNudgeModal').addEventListener('click', function(e) {
+        if (e.target === this) closeNudge();
+    });
+    // "Set Up Now" closes the modal and opens + scrolls to the passkeys accordion
+    document.getElementById('passkey-nudge-setup').addEventListener('click', function() {
+        closeNudge();
+        var accordion = document.getElementById('passkeys-accordion');
+        if (!accordion) return;
+        accordion.setAttribute('open', '');
+        setTimeout(function() { accordion.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50);
+    });
+})();
+</script>
+{% endif %}
+
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    var CSRF = '{{ csrf_token }}';
+
+    function postAjax(data) {
+        var params = new URLSearchParams(data);
+        return fetch(window.location.pathname, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRFToken': CSRF,
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: params.toString(),
+        }).then(function(r) {
+            return r.json();
+        });
+    }
+
+    function escHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function btnLoading(btn, text) {
+        btn._origText = btn.textContent.trim();
+        btn.disabled = true;
+        btn.textContent = text || 'Saving\u2026';
+    }
+
+    function btnSaved(btn) {
+        btn.textContent = 'Saved!';
+        setTimeout(function() {
+            btn.textContent = btn._origText || 'Save';
+            btn.disabled = false;
+        }, 2000);
+    }
+
+    function btnReset(btn) {
+        btn.textContent = btn._origText || 'Save';
+        btn.disabled = false;
+    }
+
+    // ----- Profile settings form -----
+    var profileForm = document.getElementById('profile-settings-form');
+    var profileBtn  = document.getElementById('profile-settings-save-btn');
+    var profileErr  = document.getElementById('profile-settings-error');
+    if (profileForm && profileBtn) {
+        profileForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (profileErr) profileErr.classList.add('hidden');
+            btnLoading(profileBtn);
+            postAjax(Object.fromEntries(new FormData(profileForm)))
+            .then(function(d) {
+                if (d.success) { btnSaved(profileBtn); }
+                else {
+                    btnReset(profileBtn);
+                    if (profileErr) { profileErr.textContent = d.error || 'Failed to save.'; profileErr.classList.remove('hidden'); }
+                }
+            })
+            .catch(function() {
+                btnReset(profileBtn);
+                if (profileErr) { profileErr.textContent = 'Request failed. Please try again.'; profileErr.classList.remove('hidden'); }
+            });
+        });
+    }
+
+    // ----- Public profile form -----
+    var pubForm = document.getElementById('public-profile-form');
+    var pubBtn  = document.getElementById('public-profile-save-btn');
+    if (pubForm && pubBtn) {
+        pubForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            btnLoading(pubBtn);
+            postAjax(Object.fromEntries(new FormData(pubForm)))
+            .then(function(d) {
+                if (d.success) { btnSaved(pubBtn); }
+                else { btnReset(pubBtn); alert(d.error || 'Failed to save.'); }
+            })
+            .catch(function() { btnReset(pubBtn); alert('Request failed. Please try again.'); });
+        });
+    }
+
+    // ----- Change password form -----
+    var pwForm = document.getElementById('change-password-form');
+    var pwBtn  = document.getElementById('change-password-btn');
+    var pwErr  = document.getElementById('pw-error-msg');
+    if (pwForm && pwBtn) {
+        pwForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (pwErr) pwErr.classList.add('hidden');
+            btnLoading(pwBtn, 'Changing\u2026');
+            postAjax(Object.fromEntries(new FormData(pwForm)))
+            .then(function(d) {
+                if (d.success) {
+                    pwBtn.textContent = 'Changed!';
+                    pwForm.reset();
+                    setTimeout(function() { pwBtn.textContent = pwBtn._origText || 'Change Password'; pwBtn.disabled = false; }, 2000);
+                } else {
+                    btnReset(pwBtn);
+                    if (pwErr) {
+                        try {
+                            var errs = JSON.parse(d.errors);
+                            var msgs = [];
+                            Object.values(errs).forEach(function(fe) { fe.forEach(function(er) { msgs.push(er.message); }); });
+                            pwErr.textContent = msgs.join(' ');
+                        } catch(ex) { pwErr.textContent = 'Please correct the errors above.'; }
+                        pwErr.classList.remove('hidden');
+                    }
+                }
+            })
+            .catch(function() {
+                btnReset(pwBtn);
+                if (pwErr) { pwErr.textContent = 'Request failed. Please try again.'; pwErr.classList.remove('hidden'); }
+            });
+        });
+    }
+
+    // delete icon SVG
+    var DEL_SVG = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+
+    // ----- Custom social -----
+    function bindCsDelete(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var li  = form.closest('li');
+            var idx = form.querySelector('[name="cs_index"]').value;
+            postAjax({ custom_social_delete_submit: '1', cs_index: idx })
+            .then(function(d) {
+                if (d.success) {
+                    var list = document.getElementById('custom-social-list');
+                    if (li) li.remove();
+                    if (list) list.querySelectorAll('li').forEach(function(item, i) {
+                        item.dataset.csIndex = i;
+                        var inp = item.querySelector('[name="cs_index"]'); if (inp) inp.value = i;
+                    });
+                } else { alert(d.error || 'Failed to remove.'); }
+            })
+            .catch(function() { alert('Request failed.'); });
+        });
+    }
+    document.querySelectorAll('.js-cs-delete-form').forEach(bindCsDelete);
+
+    var csAddForm = document.getElementById('custom-social-add-form');
+    if (csAddForm) {
+        csAddForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var data = Object.fromEntries(new FormData(csAddForm));
+            postAjax(data)
+            .then(function(d) {
+                if (d.success) {
+                    var list = document.getElementById('custom-social-list');
+                    if (!list) {
+                        list = document.createElement('ul');
+                        list.id = 'custom-social-list';
+                        list.className = 'space-y-2 mb-4';
+                        var noMsg = csAddForm.closest('.px-4').querySelector('p.italic');
+                        if (noMsg) noMsg.replaceWith(list); else csAddForm.before(list);
+                    }
+                    var li = document.createElement('li');
+                    li.className = 'flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm';
+                    li.dataset.csIndex = d.index;
+                    li.innerHTML = '<div><span class="font-medium text-gray-800 dark:text-gray-200">' + escHtml(d.platform) + '</span><span class="text-gray-500 dark:text-gray-400 ml-2">@' + escHtml(d.handle) + '</span></div>' +
+                        '<form method="POST" class="flex-shrink-0 ml-2 js-cs-delete-form"><input type="hidden" name="csrfmiddlewaretoken" value="' + CSRF + '"><input type="hidden" name="custom_social_delete_submit" value="1"><input type="hidden" name="cs_index" value="' + d.index + '"><button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" title="Remove">' + DEL_SVG + '</button></form>';
+                    bindCsDelete(li.querySelector('.js-cs-delete-form'));
+                    list.appendChild(li);
+                    csAddForm.reset();
+                } else { alert(d.error || 'Failed to add.'); }
+            })
+            .catch(function() { alert('Request failed.'); });
+        });
+    }
+
+    // ----- Academic items -----
+    function bindAiDelete(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var li     = form.closest('li');
+            var aiType = form.querySelector('[name="ai_type"]').value;
+            var aiIdx  = form.querySelector('[name="ai_index"]').value;
+            postAjax({ academic_item_delete_submit: '1', ai_type: aiType, ai_index: aiIdx })
+            .then(function(d) {
+                if (d.success) {
+                    var list = li ? li.closest('.js-academic-list') : null;
+                    if (li) li.remove();
+                    if (list) list.querySelectorAll('li').forEach(function(item, i) {
+                        item.dataset.aiIndex = i;
+                        var inp = item.querySelector('[name="ai_index"]'); if (inp) inp.value = i;
+                    });
+                } else { alert(d.error || 'Failed to remove.'); }
+            })
+            .catch(function() { alert('Request failed.'); });
+        });
+    }
+    document.querySelectorAll('.js-ai-delete-form').forEach(bindAiDelete);
+
+    document.querySelectorAll('.js-academic-add-form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var aiType = form.dataset.aiType;
+            var data   = Object.fromEntries(new FormData(form));
+            postAjax(data)
+            .then(function(d) {
+                if (d.success) {
+                    var list = form.closest('.mb-4').querySelector('.js-academic-list');
+                    if (!list) {
+                        list = document.createElement('ul');
+                        list.className = 'space-y-1 mb-2 js-academic-list';
+                        list.dataset.aiType = aiType;
+                        form.before(list);
+                    }
+                    var li = document.createElement('li');
+                    li.className = 'flex items-center justify-between py-1.5 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm';
+                    li.dataset.aiIndex = d.index;
+                    li.innerHTML = '<span class="text-gray-800 dark:text-gray-200">' + escHtml(d.value) + '</span>' +
+                        '<form method="POST" class="flex-shrink-0 ml-2 js-ai-delete-form"><input type="hidden" name="csrfmiddlewaretoken" value="' + CSRF + '"><input type="hidden" name="academic_item_delete_submit" value="1"><input type="hidden" name="ai_type" value="' + escHtml(aiType) + '"><input type="hidden" name="ai_index" value="' + d.index + '"><button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" title="Remove">' + DEL_SVG + '</button></form>';
+                    bindAiDelete(li.querySelector('.js-ai-delete-form'));
+                    list.appendChild(li);
+                    form.querySelector('[name="ai_value"]').value = '';
+                } else { alert(d.error || 'Failed to add.'); }
+            })
+            .catch(function() { alert('Request failed.'); });
+        });
+    });
+
+    // ----- Initiation chapters -----
+    function bindIcDelete(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var li  = form.closest('li');
+            var idx = form.querySelector('[name="ic_index"]').value;
+            postAjax({ initiation_chapter_delete_submit: '1', ic_index: idx })
+            .then(function(d) {
+                if (d.success) {
+                    var list = document.getElementById('initiation-chapter-list');
+                    if (li) li.remove();
+                    if (list) list.querySelectorAll('li').forEach(function(item, i) {
+                        item.dataset.icIndex = i;
+                        var inp = item.querySelector('[name="ic_index"]'); if (inp) inp.value = i;
+                    });
+                } else { alert(d.error || 'Failed to remove.'); }
+            })
+            .catch(function() { alert('Request failed.'); });
+        });
+    }
+    document.querySelectorAll('.js-ic-delete-form').forEach(bindIcDelete);
+
+    var icAddForm = document.getElementById('initiation-chapter-add-form');
+    if (icAddForm) {
+        icAddForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var data = Object.fromEntries(new FormData(icAddForm));
+            postAjax(data)
+            .then(function(d) {
+                if (d.success) {
+                    var list = document.getElementById('initiation-chapter-list');
+                    if (!list) {
+                        list = document.createElement('ul');
+                        list.id = 'initiation-chapter-list';
+                        list.className = 'space-y-2 mb-4';
+                        var noMsg = icAddForm.closest('.px-4').querySelector('p.italic');
+                        if (noMsg) noMsg.replaceWith(list); else icAddForm.before(list);
+                    }
+                    var roleNumHtml = d.role_number ? '<span class="text-xs text-gray-400 dark:text-gray-500 ml-2">#' + escHtml(d.role_number) + '</span>' : '';
+                    var li = document.createElement('li');
+                    li.className = 'flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm';
+                    li.dataset.icIndex = d.index;
+                    li.innerHTML = '<div><span class="font-medium text-gray-800 dark:text-gray-200">' + escHtml(d.chapter) + '</span><span class="text-gray-500 dark:text-gray-400 ml-2">— ' + escHtml(d.school) + '</span>' + roleNumHtml + '</div>' +
+                        '<form method="POST" class="flex-shrink-0 ml-2 js-ic-delete-form"><input type="hidden" name="csrfmiddlewaretoken" value="' + CSRF + '"><input type="hidden" name="initiation_chapter_delete_submit" value="1"><input type="hidden" name="ic_index" value="' + d.index + '"><button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" title="Remove">' + DEL_SVG + '</button></form>';
+                    bindIcDelete(li.querySelector('.js-ic-delete-form'));
+                    list.appendChild(li);
+                    icAddForm.reset();
+                } else { alert(d.error || 'Failed to add.'); }
+            })
+            .catch(function() { alert('Request failed.'); });
+        });
+    }
+
+    // ----- Role history -----
+    function bindRhDelete(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var li   = form.closest('li');
+            var rhId = form.querySelector('[name="rh_id"]').value;
+            postAjax({ role_history_delete_submit: '1', rh_id: rhId })
+            .then(function(d) {
+                if (d.success) { if (li) li.remove(); }
+                else { alert(d.error || 'Failed to remove.'); }
+            })
+            .catch(function() { alert('Request failed.'); });
+        });
+    }
+    document.querySelectorAll('.js-rh-delete-form').forEach(bindRhDelete);
+
+    var rhAddForm = document.getElementById('role-history-add-form');
+    if (rhAddForm) {
+        rhAddForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var data = Object.fromEntries(new FormData(rhAddForm));
+            postAjax(data)
+            .then(function(d) {
+                if (d.success) {
+                    var list = document.getElementById('role-history-list');
+                    if (!list) {
+                        list = document.createElement('ul');
+                        list.id = 'role-history-list';
+                        list.className = 'space-y-2 mb-5';
+                        var noMsg = rhAddForm.closest('.px-4').querySelector('p.italic');
+                        if (noMsg) noMsg.replaceWith(list); else rhAddForm.before(list);
+                    }
+                    var semHtml = d.end_semester ? ' \u2013 ' + escHtml(d.end_semester) : ' \u2013 present';
+                    var li = document.createElement('li');
+                    li.className = 'flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm';
+                    li.dataset.rhId = d.id;
+                    li.innerHTML = '<div><span class="font-medium text-gray-800 dark:text-gray-200">' + escHtml(d.role_name) + '</span><span class="text-gray-500 dark:text-gray-400 ml-2">' + escHtml(d.start_semester) + semHtml + '</span></div>' +
+                        '<form method="POST" class="flex-shrink-0 ml-2 js-rh-delete-form"><input type="hidden" name="csrfmiddlewaretoken" value="' + CSRF + '"><input type="hidden" name="role_history_delete_submit" value="1"><input type="hidden" name="rh_id" value="' + d.id + '"><button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" title="Remove">' + DEL_SVG + '</button></form>';
+                    bindRhDelete(li.querySelector('.js-rh-delete-form'));
+                    list.appendChild(li);
+                    rhAddForm.reset();
+                } else { alert(d.error || 'Role name and start semester are required.'); }
+            })
+            .catch(function() { alert('Request failed.'); });
+        });
+    }
+})();
 </script>
 
 {% endblock %}

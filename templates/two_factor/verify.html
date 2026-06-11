@@ -68,6 +68,20 @@
         </div>
         {% endif %}
 
+        {% if has_passkeys %}
+        <div class="mt-5 border-t border-gray-200 dark:border-gray-700 pt-4">
+            <p class="text-sm text-center text-gray-500 dark:text-gray-400 mb-3">or skip the code entirely</p>
+            <button type="button" id="passkey-2fa-btn"
+                    class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium">
+                <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                </svg>
+                Use a Passkey instead
+            </button>
+            <p id="passkey-2fa-error" class="hidden mt-2 text-xs text-center text-red-600 dark:text-red-400"></p>
+        </div>
+        {% endif %}
+
         <div class="mt-4 bg-gray-50 dark:bg-gray-700/50 p-3 rounded text-xs text-gray-600 dark:text-gray-400">
             <strong>Tip:</strong> The verification code changes every 30 seconds. If it doesn't work, wait for the next code.
         </div>
@@ -103,5 +117,82 @@ document.getElementById('token').addEventListener('input', function () { updateM
 const _switchBtn = document.getElementById('js-switch-backup-btn');
 if (_switchBtn) { _switchBtn.addEventListener('click', switchToBackup); }
 </script>
+
+{% if has_passkeys %}
+<script nonce="{{ request.csp_nonce }}">
+(function () {
+    var btn = document.getElementById('passkey-2fa-btn');
+    var errorEl = document.getElementById('passkey-2fa-error');
+    if (!btn || !window.PublicKeyCredential) {
+        if (btn) btn.closest('div')?.classList.add('hidden');
+        return;
+    }
+
+    function bufToBase64url(buf) {
+        var bytes = new Uint8Array(buf), str = '';
+        for (var b of bytes) str += String.fromCharCode(b);
+        return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    }
+    function base64urlToBuf(str) {
+        str = str.replace(/-/g, '+').replace(/_/g, '/');
+        while (str.length % 4) str += '=';
+        var binary = atob(str), buf = new Uint8Array(binary.length);
+        for (var i = 0; i < binary.length; i++) buf[i] = binary.charCodeAt(i);
+        return buf;
+    }
+    function getCsrf() {
+        var el = document.querySelector('[name=csrfmiddlewaretoken]');
+        return el ? el.value : '';
+    }
+
+    btn.addEventListener('click', async function () {
+        errorEl.classList.add('hidden');
+        btn.disabled = true;
+        btn.textContent = 'Waiting for passkey…';
+        try {
+            var beginResp = await fetch('{% url "passkey_authenticate_begin" %}', {
+                method: 'POST', headers: { 'X-CSRFToken': getCsrf() },
+            });
+            if (!beginResp.ok) throw new Error('Could not start passkey sign-in.');
+            var options = await beginResp.json();
+            options.challenge = base64urlToBuf(options.challenge);
+            if (options.allowCredentials) {
+                options.allowCredentials = options.allowCredentials.map(function(c) {
+                    return { ...c, id: base64urlToBuf(c.id) };
+                });
+            }
+            var assertion = await navigator.credentials.get({ publicKey: options });
+            var payload = {
+                id: assertion.id,
+                rawId: bufToBase64url(assertion.rawId),
+                type: assertion.type,
+                response: {
+                    clientDataJSON: bufToBase64url(assertion.response.clientDataJSON),
+                    authenticatorData: bufToBase64url(assertion.response.authenticatorData),
+                    signature: bufToBase64url(assertion.response.signature),
+                    userHandle: assertion.response.userHandle ? bufToBase64url(assertion.response.userHandle) : null,
+                },
+            };
+            var completeResp = await fetch('{% url "passkey_authenticate_complete" %}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+                body: JSON.stringify(payload),
+            });
+            var result = await completeResp.json();
+            if (!completeResp.ok) throw new Error(result.error || 'Sign-in failed.');
+            window.location.href = result.redirect || '/';
+        } catch (err) {
+            if (err.name !== 'NotAllowedError') {
+                errorEl.textContent = err.message || 'Passkey sign-in failed.';
+                errorEl.classList.remove('hidden');
+            }
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Use a Passkey instead';
+        }
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}
 {% endblock %}

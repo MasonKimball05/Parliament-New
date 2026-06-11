@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.shortcuts import render, redirect
+from django.http import JsonResponse
 from django.contrib.auth import update_session_auth_hash
 from django.core.exceptions import ValidationError
 from src.feature_flag_decorators import require_page_enabled
@@ -44,6 +45,8 @@ def profile_view(request):
     password_form = PasswordChangeForm(user)
 
     if request.method == 'POST':
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
         if profile_picture_submitted:
             action = request.POST.get('action', '')
 
@@ -125,6 +128,8 @@ def profile_view(request):
             if new_email != current_email:
                 # Check if email is already taken by another user
                 if new_email and ParliamentUser.objects.filter(email=new_email).exclude(user_id=user.user_id).exists():
+                    if is_ajax:
+                        return JsonResponse({'error': 'This email address is already in use by another user.'}, status=400)
                     messages.error(request, "This email address is already in use by another user.")
                     return redirect('profile')
 
@@ -154,8 +159,12 @@ def profile_view(request):
                     object_repr=user.name,
                     metadata={'changes': changes_list},
                 )
+                if is_ajax:
+                    return JsonResponse({'success': True})
                 messages.success(request, "Profile updated successfully.")
             else:
+                if is_ajax:
+                    return JsonResponse({'success': True, 'message': 'No changes were made.'})
                 messages.info(request, "No changes were made.")
 
             return redirect('profile')
@@ -183,6 +192,8 @@ def profile_view(request):
                 object_repr=user.name,
                 metadata={'notifications': new_notifications},
             )
+            if is_ajax:
+                return JsonResponse({'success': True})
             messages.success(request, "Notification preferences updated.")
             return redirect('profile')
 
@@ -218,6 +229,8 @@ def profile_view(request):
             ])
             from src.house_utils import inherit_house_from_big
             inherit_house_from_big(user, user.big_brother)
+            if is_ajax:
+                return JsonResponse({'success': True})
             messages.success(request, 'Public profile updated.')
             return redirect('profile')
 
@@ -227,9 +240,13 @@ def profile_view(request):
             end_sem = request.POST.get('rh_end_semester', '').strip()
             if role_name and start_sem:
                 from src.models import RoleHistory
-                RoleHistory.objects.create(user=user, role_name=role_name, start_semester=start_sem, end_semester=end_sem)
+                rh = RoleHistory.objects.create(user=user, role_name=role_name, start_semester=start_sem, end_semester=end_sem)
+                if is_ajax:
+                    return JsonResponse({'success': True, 'id': rh.id, 'role_name': rh.role_name, 'start_semester': rh.start_semester, 'end_semester': rh.end_semester or ''})
                 messages.success(request, 'Role history entry added.')
             else:
+                if is_ajax:
+                    return JsonResponse({'error': 'Role name and start semester are required.'}, status=400)
                 messages.error(request, 'Role name and start semester are required.')
             return redirect('profile')
 
@@ -241,8 +258,12 @@ def profile_view(request):
                 socials.append({'platform': platform, 'handle': handle})
                 user.custom_socials = socials
                 user.save(update_fields=['custom_socials'])
+                if is_ajax:
+                    return JsonResponse({'success': True, 'platform': platform, 'handle': handle, 'index': len(socials) - 1})
                 messages.success(request, f'{platform} added.')
             else:
+                if is_ajax:
+                    return JsonResponse({'error': 'Platform name and handle are required.'}, status=400)
                 messages.error(request, 'Platform name and handle are required.')
             return redirect('profile')
 
@@ -255,7 +276,11 @@ def profile_view(request):
                     socials.pop(i)
                     user.custom_socials = socials
                     user.save(update_fields=['custom_socials'])
+                    if is_ajax:
+                        return JsonResponse({'success': True})
                     messages.success(request, 'Custom social removed.')
+            elif is_ajax:
+                return JsonResponse({'error': 'Invalid index.'}, status=400)
             return redirect('profile')
 
         elif initiation_chapter_add:
@@ -270,8 +295,12 @@ def profile_view(request):
                 chapters.append(entry)
                 user.initiation_chapters = chapters
                 user.save(update_fields=['initiation_chapters'])
+                if is_ajax:
+                    return JsonResponse({'success': True, 'school': school, 'chapter': chapter, 'role_number': role_num, 'index': len(chapters) - 1})
                 messages.success(request, f'{chapter} at {school} added.')
             else:
+                if is_ajax:
+                    return JsonResponse({'error': 'School and chapter name are required.'}, status=400)
                 messages.error(request, 'School and chapter name are required.')
             return redirect('profile')
 
@@ -284,7 +313,11 @@ def profile_view(request):
                     chapters.pop(i)
                     user.initiation_chapters = chapters
                     user.save(update_fields=['initiation_chapters'])
+                    if is_ajax:
+                        return JsonResponse({'success': True})
                     messages.success(request, 'Initiation chapter removed.')
+            elif is_ajax:
+                return JsonResponse({'error': 'Invalid index.'}, status=400)
             return redirect('profile')
 
         elif academic_item_add:
@@ -298,10 +331,16 @@ def profile_view(request):
                     items.append(ai_value)
                     setattr(user, field, items)
                     user.save(update_fields=[field])
+                    if is_ajax:
+                        return JsonResponse({'success': True, 'value': ai_value, 'type': ai_type, 'index': len(items) - 1})
                     messages.success(request, f'{ai_value} added.')
                 else:
+                    if is_ajax:
+                        return JsonResponse({'error': f'{ai_value} is already listed.'}, status=400)
                     messages.info(request, f'{ai_value} is already listed.')
             else:
+                if is_ajax:
+                    return JsonResponse({'error': 'Type and value are required.'}, status=400)
                 messages.error(request, 'Type and value are required.')
             return redirect('profile')
 
@@ -317,7 +356,11 @@ def profile_view(request):
                     items.pop(i)
                     setattr(user, field, items)
                     user.save(update_fields=[field])
+                    if is_ajax:
+                        return JsonResponse({'success': True})
                     messages.success(request, 'Removed.')
+            elif is_ajax:
+                return JsonResponse({'error': 'Invalid type or index.'}, status=400)
             return redirect('profile')
 
         elif role_history_delete:
@@ -325,6 +368,8 @@ def profile_view(request):
             if rh_id:
                 from src.models import RoleHistory
                 RoleHistory.objects.filter(id=rh_id, user=user).delete()
+                if is_ajax:
+                    return JsonResponse({'success': True})
                 messages.success(request, 'Role history entry removed.')
             return redirect('profile')
 
@@ -343,7 +388,6 @@ def profile_view(request):
                     object_id=request.user.pk,
                     object_repr=request.user.name,
                 )
-                messages.success(request, "Password changed successfully.")
                 try:
                     watch_flag = getattr(request.user, 'watch_flag', None)
                     if watch_flag and watch_flag.is_active:
@@ -357,8 +401,13 @@ def profile_view(request):
                         )
                 except Exception:
                     pass
+                if is_ajax:
+                    return JsonResponse({'success': True})
+                messages.success(request, "Password changed successfully.")
                 return redirect('profile')
             else:
+                if is_ajax:
+                    return JsonResponse({'errors': password_form.errors.as_json()}, status=400)
                 messages.error(request, "Please correct the errors below.")
 
     user.refresh_from_db()
@@ -397,6 +446,7 @@ def profile_view(request):
     from src.models.webauthn import WebAuthnCredential
     passkeys = list(WebAuthnCredential.objects.filter(user=user))
     passkey_count = len(passkeys)
+    show_passkey_nudge = (passkey_count == 0) and (user == request.user)
 
     from src.models import RoleHistory
     role_histories = RoleHistory.objects.filter(user=user)
@@ -423,6 +473,7 @@ def profile_view(request):
         'two_factor_device_remembered': two_factor_device_remembered,
         'passkeys': passkeys,
         'passkey_count': passkey_count,
+        'show_passkey_nudge': show_passkey_nudge,
         'role_histories': role_histories,
         'eligible_big_bros': eligible_big_bros,
         'academic_sections': academic_sections,

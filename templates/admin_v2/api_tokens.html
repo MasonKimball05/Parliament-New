@@ -360,7 +360,7 @@
         postJSON('/admin-v2/api-tokens/' + currentTokenId + '/approve/', fd)
         .then(function(data) {
             document.getElementById('approve-modal').classList.add('hidden');
-            if (data.approved) { location.reload(); }
+            if (data.approved) { removeTokenRow(currentTokenId); }
             else { alert(data.error || 'Failed to approve.'); }
         })
         .catch(function(err) { alert(err.message || 'Request failed.'); });
@@ -389,7 +389,7 @@
         postJSON('/admin-v2/api-tokens/' + currentTokenId + '/reject/', fd)
         .then(function(data) {
             document.getElementById('reject-modal').classList.add('hidden');
-            if (data.rejected) { location.reload(); }
+            if (data.rejected) { removeTokenRow(currentTokenId); }
             else { alert(data.error || 'Failed to reject.'); }
         })
         .catch(function(err) { alert(err.message || 'Request failed.'); });
@@ -418,7 +418,7 @@
         postJSON('/admin-v2/api-tokens/' + currentTokenId + '/revoke/', fd)
         .then(function(data) {
             document.getElementById('revoke-modal').classList.add('hidden');
-            if (data.revoked) { location.reload(); }
+            if (data.revoked) { removeTokenRow(currentTokenId); }
             else { alert(data.error || 'Failed to revoke.'); }
         })
         .catch(function(err) { alert(err.message || 'Request failed.'); });
@@ -450,8 +450,21 @@
         postJSON('/admin-v2/api-tokens/' + currentTokenId + '/scopes/', fd)
         .then(function(data) {
             document.getElementById('scopes-modal').classList.add('hidden');
-            if (data.scopes !== undefined) { location.reload(); }
-            else { alert(data.error || 'Failed to update scopes.'); }
+            if (data.scopes !== undefined) {
+                // Update the scope chips in the row in-place
+                var row = document.getElementById('token-row-' + currentTokenId);
+                if (row) {
+                    var scopesCell = row.querySelector('td:nth-child(4) .flex');
+                    if (scopesCell) {
+                        scopesCell.innerHTML = data.scopes.map(function(s) {
+                            return '<span class="px-1.5 py-0.5 text-xs rounded bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 font-mono">' + s + '</span>';
+                        }).join('');
+                        // Also update the edit-scopes button data attribute
+                        var editBtn = row.querySelector('.js-edit-scopes-btn');
+                        if (editBtn) editBtn.dataset.scopes = data.scopes.join(',');
+                    }
+                }
+            } else { alert(data.error || 'Failed to update scopes.'); }
         })
         .catch(function(err) { alert(err.message || 'Request failed.'); });
     });
@@ -472,12 +485,15 @@
                 btn.dataset.enabled = data.is_enabled ? 'true' : 'false';
                 var dot = btn.querySelector('span');
                 if (data.is_enabled) {
-                    btn.classList.replace('bg-gray-300', 'bg-green-500');
-                    btn.classList.replace('bg-gray-600', 'bg-green-500');
-                    dot.classList.replace('translate-x-1', 'translate-x-6');
+                    btn.classList.remove('bg-gray-300', 'dark:bg-gray-600');
+                    btn.classList.add('bg-green-500');
+                    dot.classList.remove('translate-x-1');
+                    dot.classList.add('translate-x-6');
                 } else {
-                    btn.classList.replace('bg-green-500', 'bg-gray-300');
-                    dot.classList.replace('translate-x-6', 'translate-x-1');
+                    btn.classList.remove('bg-green-500');
+                    btn.classList.add('bg-gray-300', 'dark:bg-gray-600');
+                    dot.classList.remove('translate-x-6');
+                    dot.classList.add('translate-x-1');
                 }
             })
             .catch(function(err) { alert(err.message || 'Request failed.'); });

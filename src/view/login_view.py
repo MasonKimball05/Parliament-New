@@ -8,6 +8,7 @@ from django.contrib.auth import login, authenticate
 from django.utils import timezone
 from django.core.cache import cache
 from datetime import timedelta
+from django.contrib.auth import get_user_model
 from src.geo_utils import is_foreign_ip
 from src.utils.security_utils import get_client_ip
 from src.security_notifications import send_watch_flag_alert
@@ -166,6 +167,15 @@ def login_view(request):
                 f"Login attempt with missing credentials from IP {ip_address}"
             )
             return redirect('login')
+
+        # Support login with email address — look up the username first
+        if '@' in username:
+            try:
+                User = get_user_model()
+                lookup = User.objects.get(email__iexact=username)
+                username = lookup.username
+            except (User.DoesNotExist, User.MultipleObjectsReturned):
+                pass  # Fall through to authenticate, which will fail and hit normal error path
 
         # Use Django's built-in authenticate method for secure password checking
         user = authenticate(request, username=username, password=password)

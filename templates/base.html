@@ -1182,16 +1182,31 @@
     </div>
 
     <script nonce="{{ request.csp_nonce }}">
-        function closeEmailModal() {
+        var EMAIL_MODAL_SNOOZE_KEY = 'parliament_email_modal_snoozed_until';
+        var EMAIL_MODAL_SNOOZE_MS = 15 * 60 * 1000; // 15 minutes
+
+        function closeEmailModal(snooze) {
+            if (snooze) {
+                try { localStorage.setItem(EMAIL_MODAL_SNOOZE_KEY, Date.now() + EMAIL_MODAL_SNOOZE_MS); } catch(e) {}
+            }
             if (window.ParliamentModal) {
                 ParliamentModal.close('emailModal');
             } else {
                 const modal = document.getElementById('emailModal');
-                if (modal) {
-                    modal.style.display = 'none';
-                }
+                if (modal) modal.style.display = 'none';
             }
         }
+
+        // Hide immediately if within snooze window
+        (function() {
+            try {
+                var until = parseInt(localStorage.getItem(EMAIL_MODAL_SNOOZE_KEY) || '0', 10);
+                if (Date.now() < until) {
+                    var modal = document.getElementById('emailModal');
+                    if (modal) modal.style.display = 'none';
+                }
+            } catch(e) {}
+        })();
 
         // Prevent closing modal by clicking outside (force user interaction)
         document.getElementById('emailModal')?.addEventListener('click', function(e) {
@@ -1856,8 +1871,8 @@
             else if (action === 'clearLogs') window.DevTools?.clearLogs();
         });
 
-        // Email modal close buttons
-        document.getElementById('js-close-email-modal')?.addEventListener('click', closeEmailModal);
+        // Email modal close buttons — "Skip for Now" snoozes for 15 min
+        document.getElementById('js-close-email-modal')?.addEventListener('click', function() { closeEmailModal(true); });
         document.getElementById('js-close-email-flagged-modal')?.addEventListener('click', closeEmailFlaggedModal);
 
         // Announcement dismiss buttons — delegation (loop-rendered)

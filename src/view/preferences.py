@@ -3,11 +3,12 @@ User preferences view
 """
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.contrib import messages
 from src.forms import UserPreferencesForm
-from src.models import UserPreferences, ActivityLog, PushSubscription
+from src.models import UserPreferences, ActivityLog, PushSubscription, WebAuthnCredential
 from src.models.api import APIToken, DEFINED_SCOPES
 
 
@@ -20,6 +21,7 @@ def preferences_view(request):
     preferences, created = UserPreferences.objects.get_or_create(user=request.user)
 
     if request.method == 'POST':
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         form = UserPreferencesForm(request.POST, instance=preferences)
         if form.is_valid():
             old_theme = preferences.theme
@@ -33,15 +35,22 @@ def preferences_view(request):
                 request=request
             )
 
+            new_theme = request.POST.get('theme', 'light')
+            theme_changed = old_theme != new_theme
+
+            if is_ajax:
+                return JsonResponse({'success': True, 'theme_changed': theme_changed})
+
             messages.success(request, 'Your preferences have been updated successfully!')
 
             # Add a flag to trigger page reload if theme changed
-            new_theme = request.POST.get('theme', 'light')
-            if old_theme != new_theme:
+            if theme_changed:
                 return redirect(reverse('preferences') + '?theme_changed=1')
 
             return redirect('preferences')
         else:
+            if is_ajax:
+                return JsonResponse({'error': 'There was an error updating your preferences. Please try again.'}, status=400)
             messages.error(request, 'There was an error updating your preferences. Please try again.')
     else:
         form = UserPreferencesForm(instance=preferences)
@@ -67,6 +76,10 @@ def preferences_view(request):
         .first()
     )
 
+    # Show passkey nudge if user has no passkeys registered
+    has_passkeys = WebAuthnCredential.objects.filter(user=request.user).exists()
+    show_passkey_nudge = not has_passkeys
+
     context = {
         'form': form,
         'preferences': preferences,
@@ -76,6 +89,7 @@ def preferences_view(request):
         'api_token': api_token,
         'api_token_defined_scopes': DEFINED_SCOPES,
         'api_token_last_rejected': last_rejected_token,
+        'show_passkey_nudge': show_passkey_nudge,
     }
 
     return render(request, 'preferences.html', context)
