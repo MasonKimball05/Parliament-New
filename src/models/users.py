@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.conf import settings
+from django.db.models.functions import Lower
 from src.constants import MemberType, MemberStatus
 
 logger = logging.getLogger('function_calls')
@@ -314,8 +315,16 @@ class ParliamentUser(AbstractBaseUser):
 
         return False
 
+    def save(self, *args, **kwargs):
+        if self.email:
+            self.email = self.email.strip().lower()
+        super().save(*args, **kwargs)
+
     class Meta:
         ordering = ['user_id']
+        constraints = [
+            models.UniqueConstraint(Lower('email'), name='uniq_parliament_user_email_lower'),
+        ]
 
 
 class RoleHistory(models.Model):

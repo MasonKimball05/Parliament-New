@@ -3,8 +3,10 @@ from ..decorators import officer_required, log_function_call
 from ..models import Legislation
 from django.contrib import messages
 from django.http import HttpResponseForbidden
+from django.views.decorators.http import require_POST
 
 @officer_required
+@require_POST
 @log_function_call
 def reopen_legislation(request, legislation_id):
     legislation = get_object_or_404(Legislation, id=legislation_id)

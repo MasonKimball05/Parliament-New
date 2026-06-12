@@ -9,6 +9,7 @@ from user_agents import parse as parse_user_agent
 from django.utils import timezone
 from django.utils.timezone import localtime
 from django.conf import settings
+from django.http import JsonResponse
 
 logger = logging.getLogger('security')
 
@@ -285,6 +286,148 @@ def analyze_login_risk(user, ip_address, location_data, device_info):
         'distance_from_last': distance_from_last,
         'time_from_last': time_from_last
     }
+
+
+def run_post_auth_pipeline(request, user, ip_address, user_agent, method='password'):
+    """
+    Run the standard post-authentication security pipeline, shared by the password
+    and passkey login paths.
+
+    Covers:
+    - IP blacklist check (deny before login() if blocked)
+    - Geo / foreign-IP detection
+    - Session flag injection (login_geo, login_geo_suspicious, etc.)
+    - LoginHistory creation
+    - LoginAlert creation for non-US logins
+    - Watch-flag alert
+
+    Call this BEFORE calling login() on the request. If the first return value is
+    not None, the IP is blocked and the view should return that error response
+    immediately without proceeding with login.
+
+    Returns:
+        (error_response, None)    — IP is actively blacklisted; return error_response
+        (None, context_dict)      — pipeline passed; context_dict has 'is_foreign' and 'login_record'
+    """
+    from src.models import IPBlacklist, UserSession, LoginHistory, LoginAlert
+    from src.geo_utils import is_foreign_ip
+    from src.security_notifications import send_watch_flag_alert
+
+    security_log = logging.getLogger('admin_actions')
+    fn_log = logging.getLogger('function_calls')
+
+    # --- Blacklist check ---
+    blacklist_entry = IPBlacklist.objects.filter(ip_address=ip_address, is_active=True).first()
+    if blacklist_entry:
+        if blacklist_entry.expires_at and blacklist_entry.expires_at < timezone.now():
+            blacklist_entry.is_active = False
+            blacklist_entry.save()
+        else:
+            blacklist_entry.block_count += 1
+            blacklist_entry.last_blocked = timezone.now()
+            blacklist_entry.save()
+            security_log.warning(
+                f'BLOCKED LOGIN [{method}]: Blacklisted IP {ip_address} attempted login '
+                f'as {user.username}. Reason: {blacklist_entry.reason}'
+            )
+            return JsonResponse({'error': 'Access denied. Your IP address has been blocked.'}, status=403), None
+
+    # --- Geo check ---
+    is_foreign, geo = is_foreign_ip(ip_address)
+    risk_factors = ['non_us_location'] if is_foreign else []
+
+    request.session['login_geo'] = geo
+    request.session['login_geo_suspicious'] = is_foreign
+    if geo:
+        request.session['login_geo_country'] = geo.get('country', '')
+        request.session['login_geo_city'] = geo.get('city', '')
+
+    # --- LoginHistory ---
+    login_record = None
+    try:
+        login_record = LoginHistory.objects.create(
+            user=user,
+            status='success',
+            ip_address=ip_address,
+            country=geo.get('country', '') if geo else '',
+            city=geo.get('city', '') if geo else '',
+            region=geo.get('region', '') if geo else '',
+            latitude=geo.get('lat') if geo else None,
+            longitude=geo.get('lon') if geo else None,
+            user_agent=user_agent,
+            is_suspicious=is_foreign,
+            risk_level='medium' if is_foreign else 'low',
+            risk_factors=risk_factors,
+            alert_created=is_foreign,
+        )
+    except Exception as exc:
+        security_log.warning(f'Failed to create LoginHistory: {exc}')
+
+    # --- LoginAlert for non-US logins ---
+    if is_foreign and geo:
+        try:
+            location_str = ', '.join(filter(None, [geo.get('city'), geo.get('region'), geo.get('country')]))
+            LoginAlert.objects.create(
+                user=user,
+                login_history=login_record,
+                alert_type='new_location',
+                severity='medium',
+                status='new',
+                title=f'Non-US login [{method}]: {user.name} from {geo.get("country", "Unknown")}',
+                description=(
+                    f'{user.name} logged in via {method} from outside the United States.\n\n'
+                    f'Location: {location_str}\n'
+                    f'IP: {ip_address}\n'
+                    f'ISP: {geo.get("isp", "Unknown")}\n'
+                    f'Coordinates: {geo.get("lat")}, {geo.get("lon")}\n\n'
+                    f'The user has been flagged for this session. Sensitive data exports '
+                    f'are restricted until they log in from a US IP address.'
+                ),
+            )
+        except Exception as exc:
+            security_log.warning(f'Failed to create LoginAlert: {exc}')
+
+    # --- Logging ---
+    fn_log.info(
+        f'Successful login [{method}]: {user.name} ({user.member_type}) (user_id={user.user_id}) '
+        f'from IP {ip_address}'
+        + (f" [{geo.get('city')}, {geo.get('country')}]" if geo else '')
+    )
+    if is_foreign:
+        security_log.warning(
+            f'LOGIN SUCCESS (NON-US) [{method}]: User {user.username!r} (ID: {user.user_id}) '
+            f'from IP {ip_address} - Location: {geo.get("city", "?")}, {geo.get("country", "?")} '
+            f'(ISP: {geo.get("isp", "?")}). Session flagged as suspicious.'
+        )
+    else:
+        security_log.info(
+            f'LOGIN SUCCESS [{method}]: User {user.username!r} (ID: {user.user_id}) from IP {ip_address}'
+        )
+
+    # --- Watch-flag alert ---
+    try:
+        watch_flag = getattr(user, 'watch_flag', None)
+        if watch_flag and watch_flag.is_active:
+            from src.models import IPBlacklist as _IPB
+            send_watch_flag_alert(
+                watched_user=user,
+                event_type='success',
+                ip_address=ip_address,
+                geo=geo,
+                user_agent=user_agent,
+                is_whitelisted=False,
+                is_blacklisted=_IPB.objects.filter(ip_address=ip_address, is_active=True).exists(),
+                is_rate_limited=False,
+                risk_level='medium' if is_foreign else 'low',
+                risk_factors=risk_factors,
+                is_foreign=is_foreign,
+                watch_reason=watch_flag.reason,
+                login_history=login_record,
+            )
+    except Exception as exc:
+        security_log.error(f'Watch flag alert error [{method}]: {exc}')
+
+    return None, {'is_foreign': is_foreign, 'login_record': login_record}
 
 
 def create_login_alert(login_history, alert_type, severity, title, description):

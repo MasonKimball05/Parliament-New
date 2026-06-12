@@ -125,9 +125,13 @@
                         <a href="{% url 'edit_announcement' announcement.id %}" class="bg-primary-600 dark:bg-primary-500 text-white px-4 py-2 rounded hover:bg-primary-700 dark:hover:bg-primary-600 transition text-sm">
                             Edit
                         </a>
-                        <a href="{% url 'toggle_announcement_status' announcement.id %}" class="bg-yellow-600 dark:bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-700 dark:hover:bg-yellow-600 transition text-sm">
+                        <button type="button"
+                                class="js-toggle-announcement bg-yellow-600 dark:bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-700 dark:hover:bg-yellow-600 transition text-sm"
+                                data-id="{{ announcement.id }}"
+                                data-url="{% url 'toggle_announcement_status' announcement.id %}"
+                                data-active="{{ announcement.is_active|yesno:'true,false' }}">
                             {% if announcement.is_active %}Deactivate{% else %}Activate{% endif %}
-                        </a>
+                        </button>
                         <a href="{% url 'announcement_stats' announcement.id %}" class="bg-gray-600 dark:bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-700 dark:hover:bg-gray-600 transition text-sm">
                             View Stats
                         </a>
@@ -197,6 +201,39 @@
 </style>
 <script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
+    var CSRF = document.querySelector('meta[name="csrf-token"]').content;
+
+    // Toggle announcement active status via AJAX
+    document.querySelectorAll('.js-toggle-announcement').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var url = btn.dataset.url;
+            btn.disabled = true;
+            fetch(url, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRFToken': CSRF,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    var isActive = data.is_active;
+                    btn.dataset.active = isActive ? 'true' : 'false';
+                    btn.textContent = isActive ? 'Deactivate' : 'Activate';
+                } else {
+                    alert(data.error || 'Failed to toggle status.');
+                }
+                btn.disabled = false;
+            })
+            .catch(function() {
+                alert('Request failed. Please try again.');
+                btn.disabled = false;
+            });
+        });
+    });
+
     // Check each announcement content to see if it's truncated
     document.querySelectorAll('.announcement-content-wrapper').forEach(function(wrapper) {
         const content = wrapper.querySelector('.announcement-content');

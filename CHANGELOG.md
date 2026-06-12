@@ -5,6 +5,52 @@ This project is licensed under the MIT License. Copyright (c) 2025-2026 Mason Ki
 
 ---
 
+### v3.5.0 — Security Hardening & API Cleanup (2026-06-12)
+
+**Type:** Security / Bug Fix / Cleanup
+
+---
+
+#### Email Normalization + Case-Insensitive Uniqueness
+
+Email addresses are normalized to lowercase on `save()` in `ParliamentUser`. Added a `UniqueConstraint(Lower('email'))` to enforce uniqueness at the DB level. All email uniqueness checks (`profile_view`, `admin_v2`, `manage_members`) updated from `filter(email=...)` to `filter(email__iexact=...)`.
+
+**Changed:** `src/models/users.py`, `src/view/profile_view.py`, `src/view/admin_v2.py`, `src/view/officer/manage_members.py`, `src/migrations/0206_email_lower_unique_constraint.py`
+
+---
+
+#### Passkey Login Now Runs the Full Post-Auth Security Pipeline
+
+Passkey authentication bypassed IPBlacklist, foreign-IP detection, LoginHistory creation, LoginAlert creation, and watch-flag alerts. Extracted a shared `run_post_auth_pipeline(request, user, ip_address, user_agent, method)` helper into `src/utils/security_utils.py`. Both password and passkey login paths now call it.
+
+**Changed:** `src/utils/security_utils.py`, `src/view/webauthn.py`
+
+---
+
+#### Email Change Now Requires Ownership Verification
+
+Changing an existing email now sends a confirmation link to the new address rather than saving immediately. First-time set (null → new) and clearing remain instant. Extracted `_send_email_confirmation()` helper from `set_email.py` to share the logic with `profile_view.py`.
+
+**Changed:** `src/view/set_email.py`, `src/view/profile_view.py`
+
+---
+
+#### Removed DRF TokenAuthentication + authtoken App
+
+`rest_framework.authtoken` removed from `INSTALLED_APPS`. `TokenAuthentication` removed from `DEFAULT_AUTHENTICATION_CLASSES`. `prune_old_auth_tokens` Celery task removed.
+
+**Changed:** `Parliament/settings_postgres.py`, `src/tasks.py`
+
+---
+
+#### EventViewSet and AttendanceViewSet Paginated
+
+Both viewsets now use `ParliamentAPIPagination`. `EventViewSet.list` and `upcoming` use `paginate_queryset`/`get_paginated_response` for the Python-list results. `AttendanceViewSet`'s manual `[:100]` slice override removed.
+
+**Changed:** `src/api/views.py`
+
+---
+
 ### v3.4.0 — AJAX Interactions & Profile UI Cleanup (2026-06-11)
 
 **Type:** UX Enhancement / New Feature
@@ -55,6 +101,31 @@ Reorganized the profile page to separate concerns and remove the scattered "sect
 
 **Changed:**
 - `templates/profile.html` — Closed Account Settings card before Security accordions; opened new Security card with heading; added Additional Details divider with explanatory subtext
+
+---
+
+#### Security Fixes — GET-based State Mutations
+
+Three officer views that change server state were accessible via plain GET requests, meaning any external link could trigger them without a form submission or CSRF token. All three are now POST-only and also return AJAX responses.
+
+- **`toggle_announcement_status`** — Added `@require_POST`; `<a>` converted to `<button>` with fetch handler
+- **`archive_event`** — Added `@require_POST`; `<a>` in manage_events converted to `<button>` with confirm + fetch
+- **`unarchive_event`** — Added `@require_POST`; `<a>` in view_archived_events converted to `<button>` with confirm + fetch
+
+All three remove or update the relevant row/card in-place on success.
+
+**Changed:**
+- `src/view/officer/manage_announcements.py` — Added `@require_POST` to `toggle_announcement_status`; added AJAX response
+- `src/view/officer/archive_event.py` — Added `@require_POST` and AJAX response to both `archive_event` and `unarchive_event`
+- `templates/officer/manage_announcements.html` — Converted toggle link to AJAX button
+- `templates/officer/manage_events.html` — Converted archive link to AJAX button; added row/card IDs
+- `templates/officer/view_archived_events.html` — Converted unarchive link to AJAX button; added card IDs
+
+---
+
+#### Dead Code Removal
+
+- `src/view/profile_view.py` — Removed `notification_prefs_submitted` variable and its ~20-line handler block. No template ever sent the `notification_prefs_submit` POST key it guarded.
 
 ---
 

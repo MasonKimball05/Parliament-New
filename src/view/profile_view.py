@@ -31,7 +31,6 @@ def profile_view(request):
     profile_form_submitted = 'profile_submit' in request.POST
     password_form_submitted = 'password_submit' in request.POST
     profile_picture_submitted = 'profile_picture_submit' in request.POST
-    notification_prefs_submitted = 'notification_prefs_submit' in request.POST
     extended_profile_submitted = 'extended_profile_submit' in request.POST
     role_history_add = 'role_history_add_submit' in request.POST
     role_history_delete = 'role_history_delete_submit' in request.POST
@@ -102,11 +101,12 @@ def profile_view(request):
         elif profile_form_submitted:
             new_username = request.POST.get('username')
             new_preferred_name = request.POST.get('preferred_name', '').strip()
-            new_email = request.POST.get('email', '').strip()
+            new_email = request.POST.get('email', '').strip().lower()
             new_phone = request.POST.get('phone_number', '').strip()
 
             changes_made = False
             changes_list = []  # audit trail
+            pending_email = None  # set if email change requires confirmation
 
             # Update username if changed
             if new_username and new_username != user.username:
@@ -123,21 +123,41 @@ def profile_view(request):
                 user.preferred_name = new_preferred_name if new_preferred_name else ''
                 changes_made = True
 
-            # Update email if changed (allow empty string to clear it)
+            # Update email if changed
             current_email = user.email or ''
             if new_email != current_email:
                 # Check if email is already taken by another user
-                if new_email and ParliamentUser.objects.filter(email=new_email).exclude(user_id=user.user_id).exists():
+                if new_email and ParliamentUser.objects.filter(email__iexact=new_email).exclude(user_id=user.user_id).exists():
                     if is_ajax:
                         return JsonResponse({'error': 'This email address is already in use by another user.'}, status=400)
                     messages.error(request, "This email address is already in use by another user.")
                     return redirect('profile')
 
-                changes_list.append({'field': 'email', 'old': user.email or '', 'new': new_email})
-                old_email = user.email or "(not set)"
-                logger.info(f"{user.username} changed email from '{old_email}' to '{new_email or '(not set)'}'")
-                user.email = new_email if new_email else None
-                changes_made = True
+                if user.email and new_email:
+                    # Changing an existing email — require confirmation via set_email flow
+                    from src.view.set_email import _send_email_confirmation
+                    result = _send_email_confirmation(request, user, new_email)
+                    if result.get('error'):
+                        if is_ajax:
+                            return JsonResponse({'error': result['error']}, status=400)
+                        messages.error(request, result['error'])
+                        return redirect('profile')
+                    # Email is NOT saved yet — record pending state and fall through
+                    # so any other field changes (username, preferred name, phone) are still saved
+                    pending_email = new_email
+                    if not is_ajax:
+                        messages.success(
+                            request,
+                            f'A confirmation link has been sent to {new_email}. '
+                            f'Your email address will update when you click it.'
+                        )
+                else:
+                    # First-time set or clearing — save immediately
+                    changes_list.append({'field': 'email', 'old': user.email or '', 'new': new_email})
+                    old_email = user.email or "(not set)"
+                    logger.info(f"{user.username} changed email from '{old_email}' to '{new_email or '(not set)'}'")
+                    user.email = new_email if new_email else None
+                    changes_made = True
 
             # Update phone number if changed (allow empty string to clear it)
             current_phone = user.phone_number or ''
@@ -160,41 +180,21 @@ def profile_view(request):
                     metadata={'changes': changes_list},
                 )
                 if is_ajax:
-                    return JsonResponse({'success': True})
+                    response_data = {'success': True}
+                    if pending_email:
+                        response_data['email_pending'] = True
+                        response_data['email_pending_address'] = pending_email
+                    return JsonResponse(response_data)
                 messages.success(request, "Profile updated successfully.")
             else:
                 if is_ajax:
-                    return JsonResponse({'success': True, 'message': 'No changes were made.'})
+                    response_data = {'success': True, 'message': 'No changes were made.'}
+                    if pending_email:
+                        response_data['email_pending'] = True
+                        response_data['email_pending_address'] = pending_email
+                    return JsonResponse(response_data)
                 messages.info(request, "No changes were made.")
 
-            return redirect('profile')
-
-        elif notification_prefs_submitted:
-            prefs, _ = UserPreferences.objects.get_or_create(user=user)
-            current_prefs = prefs.prefs or UserPreferences.get_defaults()
-            current_notifications = current_prefs.get('notifications', UserPreferences.get_defaults()['notifications'])
-            new_notifications = {
-                'announcements': request.POST.get('notify_announcements') == 'on',
-                'legislation': request.POST.get('notify_legislation') == 'on',
-                'events': request.POST.get('notify_events') == 'on',
-            }
-            current_notifications.update(new_notifications)
-            prefs.prefs = {**current_prefs, 'notifications': current_notifications}
-            prefs.save(update_fields=['prefs'])
-            logger.info(f"{user.username} updated notification preferences")
-            ActivityLog.log_activity(
-                action_type='preferences_updated',
-                user=request.user,
-                description=f'{user.name} updated notification preferences',
-                request=request,
-                object_type='ParliamentUser',
-                object_id=user.pk,
-                object_repr=user.name,
-                metadata={'notifications': new_notifications},
-            )
-            if is_ajax:
-                return JsonResponse({'success': True})
-            messages.success(request, "Notification preferences updated.")
             return redirect('profile')
 
         elif extended_profile_submitted:

@@ -22,6 +22,64 @@ _RATE_WINDOW = 3600      # 1 hour in seconds
 _TOKEN_TTL = 86400       # 24 hours in seconds
 
 
+def _send_email_confirmation(request, user, new_email):
+    """
+    Core logic for sending an email-change confirmation token.
+
+    Used by both the set_email view (redirect-based) and profile_view (AJAX-based)
+    so the confirmation flow is not duplicated.
+
+    Returns:
+        {'ok': True}  — token created and email sent
+        {'error': str} — rate-limited, or send failed
+    """
+    from src.models import EmailVerificationToken
+
+    rate_key = f'email_verify_rate_{user.pk}'
+    attempts = cache.get(rate_key, 0)
+    if attempts >= _RATE_LIMIT:
+        logger.warning(f"[set_email] Rate limit hit for {user.username}")
+        return {'error': 'Too many email change requests. Please wait an hour before trying again.'}
+
+    # Invalidate any previous pending token for this user
+    EmailVerificationToken.objects.filter(user=user, used=False).delete()
+
+    token = EmailVerificationToken.objects.create(
+        user=user,
+        new_email=new_email,
+        expires_at=timezone.now() + timezone.timedelta(seconds=_TOKEN_TTL),
+    )
+
+    from src.security_notifications import get_site_url
+    confirm_url = f"{get_site_url()}/set-email/confirm/{token.token}/"
+
+    try:
+        send_mail(
+            subject='[Parliament] Confirm your new email address',
+            message=(
+                f"Hi {user.get_display_name()},\n\n"
+                f"A request was made to change the email address on your Parliament account "
+                f"to this address ({new_email}).\n\n"
+                f"Click the link below to confirm the change:\n\n"
+                f"{confirm_url}\n\n"
+                f"This link expires in 24 hours. If you did not request this change, "
+                f"you can safely ignore this email — your current address will remain unchanged.\n\n"
+                f"— Alpha Mu Parliament"
+            ),
+            html_message=_render_confirmation_email(user, new_email, confirm_url),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[new_email],
+            fail_silently=False,
+        )
+        cache.set(rate_key, attempts + 1, _RATE_WINDOW)
+        logger.info(f"[set_email] Verification email sent to {new_email} for {user.username}")
+        return {'ok': True}
+    except Exception as exc:
+        logger.error(f"[set_email] Failed to send verification email to {new_email}: {exc}")
+        token.delete()
+        return {'error': 'Could not send the confirmation email. Please try again later.'}
+
+
 @login_required
 @require_POST
 def set_email(request):
@@ -68,60 +126,15 @@ def set_email(request):
         messages.error(request, 'That email address is already in use by another account.')
         return redirect(request.META.get('HTTP_REFERER', 'home'))
 
-    # Rate limit — prevent spamming verification emails
-    rate_key = f'email_verify_rate_{user.pk}'
-    attempts = cache.get(rate_key, 0)
-    if attempts >= _RATE_LIMIT:
-        messages.error(request, 'Too many email change requests. Please wait an hour before trying again.')
-        logger.warning(f"[set_email] Rate limit hit for {user.username}")
-        return redirect(request.META.get('HTTP_REFERER', 'home'))
-
-    # Invalidate any previous pending token for this user
-    from src.models import EmailVerificationToken
-    EmailVerificationToken.objects.filter(user=user, used=False).delete()
-
-    # Create new token
-    token = EmailVerificationToken.objects.create(
-        user=user,
-        new_email=new_email,
-        expires_at=timezone.now() + timezone.timedelta(seconds=_TOKEN_TTL),
-    )
-
-    # Build confirmation URL
-    from src.security_notifications import get_site_url
-    confirm_url = f"{get_site_url()}/set-email/confirm/{token.token}/"
-
-    # Send confirmation email to the NEW address
-    try:
-        send_mail(
-            subject='[Parliament] Confirm your new email address',
-            message=(
-                f"Hi {user.get_display_name()},\n\n"
-                f"A request was made to change the email address on your Parliament account "
-                f"to this address ({new_email}).\n\n"
-                f"Click the link below to confirm the change:\n\n"
-                f"{confirm_url}\n\n"
-                f"This link expires in 24 hours. If you did not request this change, "
-                f"you can safely ignore this email — your current address will remain unchanged.\n\n"
-                f"— Alpha Mu Parliament"
-            ),
-            html_message=_render_confirmation_email(user, new_email, confirm_url),
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[new_email],
-            fail_silently=False,
-        )
-        cache.set(rate_key, attempts + 1, _RATE_WINDOW)
-        logger.info(f"[set_email] Verification email sent to {new_email} for {user.username}")
+    result = _send_email_confirmation(request, user, new_email)
+    if result.get('error'):
+        messages.error(request, result['error'])
+    else:
         messages.success(
             request,
             f'A confirmation link has been sent to {new_email}. '
             f'Click it to complete the change. The link expires in 24 hours.'
         )
-    except Exception as exc:
-        logger.error(f"[set_email] Failed to send verification email to {new_email}: {exc}")
-        token.delete()
-        messages.error(request, 'Could not send the confirmation email. Please try again later.')
-
     return redirect(request.META.get('HTTP_REFERER', 'home'))
 
 

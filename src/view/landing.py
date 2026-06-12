@@ -116,7 +116,7 @@ def landing_page(request):
     })
 
 
-@csrf_exempt
+@csrf_exempt  # Public landing page — unauthenticated visitors have no CSRF cookie to validate against
 @require_POST
 def contact_submit(request):
     """Save a contact form submission and notify the recipient."""

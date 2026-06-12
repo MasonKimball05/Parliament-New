@@ -6,9 +6,11 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponseForbidden
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 from src.notification_service import notify_users
 
 @login_required
+@require_POST
 @log_function_call
 def end_vote(request, legislation_id):
     legislation = get_object_or_404(Legislation, id=legislation_id)
@@ -166,6 +168,7 @@ def end_vote(request, legislation_id):
 
 
 @login_required
+@require_POST
 @log_function_call
 def create_runoff(request, legislation_id):
     """Create a runoff vote from a completed plurality vote."""

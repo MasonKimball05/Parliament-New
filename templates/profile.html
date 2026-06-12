@@ -1344,15 +1344,36 @@ document.querySelectorAll('.js-passkey-delete-form').forEach(function (form) {
             btnLoading(profileBtn);
             postAjax(Object.fromEntries(new FormData(profileForm)))
             .then(function(d) {
-                if (d.success) { btnSaved(profileBtn); }
-                else {
+                if (d.success) {
+                    if (d.email_pending) {
+                        btnReset(profileBtn);
+                        if (profileErr) {
+                            profileErr.textContent = 'Confirmation email sent to ' + d.email_pending_address + '. Click the link to apply the change.';
+                            profileErr.classList.remove('hidden');
+                            profileErr.classList.remove('text-red-500', 'dark:text-red-400');
+                            profileErr.classList.add('text-blue-600', 'dark:text-blue-400');
+                        }
+                    } else {
+                        btnSaved(profileBtn);
+                    }
+                } else {
                     btnReset(profileBtn);
-                    if (profileErr) { profileErr.textContent = d.error || 'Failed to save.'; profileErr.classList.remove('hidden'); }
+                    if (profileErr) {
+                        profileErr.textContent = d.error || 'Failed to save.';
+                        profileErr.classList.remove('hidden');
+                        profileErr.classList.remove('text-blue-600', 'dark:text-blue-400');
+                        profileErr.classList.add('text-red-500', 'dark:text-red-400');
+                    }
                 }
             })
             .catch(function() {
                 btnReset(profileBtn);
-                if (profileErr) { profileErr.textContent = 'Request failed. Please try again.'; profileErr.classList.remove('hidden'); }
+                if (profileErr) {
+                    profileErr.textContent = 'Request failed. Please try again.';
+                    profileErr.classList.remove('hidden');
+                    profileErr.classList.remove('text-blue-600', 'dark:text-blue-400');
+                    profileErr.classList.add('text-red-500', 'dark:text-red-400');
+                }
             });
         });
     }

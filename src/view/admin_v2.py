@@ -1089,7 +1089,7 @@ def edit_user_profile(request, user_id):
             target.member_status = request.POST.get('member_status', target.member_status)
             new_email = request.POST.get('email', '').strip()
             if new_email and new_email != target.email:
-                if ParliamentUser.objects.filter(email=new_email).exclude(user_id=user_id).exists():
+                if ParliamentUser.objects.filter(email__iexact=new_email).exclude(user_id=user_id).exists():
                     messages.error(request, 'That email is already in use.')
                     return redirect('admin_v2_edit_user_profile', user_id=user_id)
             target.email = new_email or None

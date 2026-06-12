@@ -1,10 +1,13 @@
 from django.shortcuts import redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 from src.models import Event
 
 @login_required
 @user_passes_test(lambda u: u.is_admin)
+@require_POST
 def archive_event(request, event_id):
     """Archive an event - admin only"""
     event = get_object_or_404(Event, id=event_id)
@@ -13,12 +16,15 @@ def archive_event(request, event_id):
     event.is_active = False
     event.save()
 
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'archived': True})
     messages.success(request, f'Event "{event.title}" has been archived.')
     return redirect('manage_events')
 
 
 @login_required
 @user_passes_test(lambda u: u.is_admin)
+@require_POST
 def unarchive_event(request, event_id):
     """Unarchive an event - admin only"""
     event = get_object_or_404(Event, id=event_id)
@@ -27,5 +33,7 @@ def unarchive_event(request, event_id):
     event.is_active = True
     event.save()
 
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'archived': False})
     messages.success(request, f'Event "{event.title}" has been unarchived and is now active.')
     return redirect('view_archived_events')

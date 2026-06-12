@@ -12,6 +12,7 @@ __pycache__/
 # === Environment / Secrets ===
 .env
 *.env
+.env.*
 
 # === Virtual Environment ===
 .venv/
@@ -44,6 +45,10 @@ db.sqlite3
 *.dump
 *.sql
 backup/
+
+# === User data exports — password hashes + PII, never commit ===
+users.json
+shell/users.json
 
 # === OS / Misc ===
 .DS_Store

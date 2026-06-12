@@ -28,7 +28,7 @@ logger = logging.getLogger('security')
 _MAX_BODY = 4096  # bytes
 
 
-@csrf_exempt
+@csrf_exempt  # Browser sends CSP reports directly — no session/cookie context, so CSRF token is unavailable
 @require_POST
 def csp_report(request):
     """Receive a browser CSP violation report and log it."""

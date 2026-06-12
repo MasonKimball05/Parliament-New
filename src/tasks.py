@@ -427,27 +427,6 @@ def cleanup_api_access_logs():
         return 0
 
 
-@shared_task(name='tasks.prune_old_auth_tokens')
-def prune_old_auth_tokens():
-    """
-    Delete DRF auth tokens that haven't been used in 90 days.
-
-    DRF's Token model has no built-in expiry. Tokens accumulate for every user
-    who has ever called /api/v1/auth/token/. This task removes tokens that
-    haven't been seen in 90 days so stale credentials don't linger indefinitely.
-    Token.created is the only timestamp available (DRF doesn't track last use),
-    so we use that as the cutoff.
-    Runs monthly alongside push subscription pruning.
-    """
-    try:
-        from rest_framework.authtoken.models import Token
-        cutoff = timezone.now() - timezone.timedelta(days=90)
-        deleted, _ = Token.objects.filter(created__lt=cutoff).delete()
-        if deleted:
-            logger.info(f"[tasks] prune_old_auth_tokens: removed {deleted} old DRF auth tokens")
-    except Exception as exc:
-        logger.error(f"[tasks] prune_old_auth_tokens failed: {exc}")
-
 
 @shared_task(name='tasks.prune_expired_chat_permissions')
 def prune_expired_chat_permissions():

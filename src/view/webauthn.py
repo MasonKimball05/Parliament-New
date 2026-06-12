@@ -38,6 +38,7 @@ from webauthn.helpers.structs import (
 from webauthn import base64url_to_bytes, options_to_json
 
 from src.models.webauthn import WebAuthnCredential
+from src.utils.security_utils import get_client_ip, run_post_auth_pipeline
 
 logger = logging.getLogger(__name__)
 security_logger = logging.getLogger('security')
@@ -216,6 +217,14 @@ def passkey_authenticate_complete(request):
     if getattr(user, 'is_quarantined', False):
         return JsonResponse({'error': 'Account is locked.'}, status=403)
 
+    ip_address = get_client_ip(request)
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+
+    # Run shared post-auth pipeline: blacklist check, geo, LoginHistory, LoginAlert, watch-flag
+    error_response, _ = run_post_auth_pipeline(request, user, ip_address, user_agent, method='passkey')
+    if error_response:
+        return error_response
+
     # Log the user in (bypasses password check — WebAuthn already verified identity)
     login(request, user, backend='django.contrib.auth.backends.ModelBackend')
 
@@ -233,10 +242,6 @@ def passkey_authenticate_complete(request):
         pass  # otp_login failure is non-fatal — middleware will fall back to session flag
 
     logger.info(f'Passkey authentication successful for {user.username} (credential: "{db_cred.name}")')
-    security_logger.info(
-        f'[PASSKEY] Login: {user.username} via passkey "{db_cred.name}" '
-        f'from {request.META.get("REMOTE_ADDR", "unknown")}'
-    )
 
     return JsonResponse({'ok': True, 'redirect': '/'})
 

@@ -219,7 +219,7 @@ def edit_member(request, user_id):
         new_email = data['email'] or None
         if new_email != member.email:
             # Check for duplicate email
-            if new_email and ParliamentUser.objects.filter(email=new_email).exclude(pk=member.pk).exists():
+            if new_email and ParliamentUser.objects.filter(email__iexact=new_email).exclude(pk=member.pk).exists():
                 return JsonResponse({'success': False, 'error': 'A member with this email already exists.'}, status=400)
             changes.append(f"email: {member.email} -> {new_email}")
             member.email = new_email

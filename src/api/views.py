@@ -157,7 +157,7 @@ class EventViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = EventSerializer
     authentication_classes = _API_AUTH
     permission_classes = _API_PERMISSIONS
-    pagination_class = None
+    pagination_class = ParliamentAPIPagination
     required_scope = 'events:read'
 
     def _base_queryset(self):
@@ -176,7 +176,12 @@ class EventViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
         return [e for e in self._base_queryset() if e.is_visible_to_user(user)]
 
     def list(self, request, *args, **kwargs):
-        serializer = self.get_serializer(self._visible_events(), many=True)
+        visible = self._visible_events()
+        page = self.paginate_queryset(visible)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(visible, many=True)
         return Response(serializer.data)
 
     def retrieve(self, request, *args, **kwargs):
@@ -192,6 +197,10 @@ class EventViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
         now = timezone.now()
         cutoff = now + timezone.timedelta(days=30)
         filtered = [e for e in self._visible_events() if now <= e.date_time <= cutoff]
+        page = self.paginate_queryset(filtered)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(filtered, many=True)
         return Response(serializer.data)
 
@@ -292,7 +301,7 @@ class AttendanceViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = AttendanceSerializer
     authentication_classes = _API_AUTH
     permission_classes = _API_PERMISSIONS
-    pagination_class = None
+    pagination_class = ParliamentAPIPagination
     required_scope = 'attendance:read'
 
     def get_queryset(self):
@@ -310,8 +319,3 @@ class AttendanceViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
         if year and year.isdigit():
             qs = qs.filter(created_at__year=int(year))
         return qs
-
-    def list(self, request, *args, **kwargs):
-        qs = self.get_queryset()[:100]
-        serializer = self.get_serializer(qs, many=True)
-        return Response(serializer.data)

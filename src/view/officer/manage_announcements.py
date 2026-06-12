@@ -699,6 +699,7 @@ def delete_announcement(request, announcement_id):
 @login_required
 @officer_required
 @log_function_call
+@require_POST
 def toggle_announcement_status(request, announcement_id):
     """View to toggle announcement active status"""
     announcement = get_object_or_404(Announcement, id=announcement_id)
@@ -706,6 +707,8 @@ def toggle_announcement_status(request, announcement_id):
     announcement.save(update_fields=['is_active'])
 
     status = "activated" if announcement.is_active else "deactivated"
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'is_active': announcement.is_active, 'status': status})
     messages.success(request, f'Announcement "{announcement.title}" has been {status}!')
     return redirect('manage_announcements')
 
