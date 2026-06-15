@@ -47,12 +47,11 @@
 
 <script nonce="{{ request.csp_nonce }}">
 window.dismissChecklist = function() {
+    const el = document.getElementById('onboarding-checklist');
+    if (el) el.remove();
     fetch('{% url "onboarding_dismiss_checklist" %}', {
         method: 'POST',
         headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' },
-    }).then(() => {
-        const el = document.getElementById('onboarding-checklist');
-        if (el) el.remove();
     });
 }
 </script>
