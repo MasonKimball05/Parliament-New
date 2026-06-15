@@ -23,7 +23,7 @@ django-redis==5.4.0
 
 # Celery — async task queue and periodic task scheduling
 celery==5.4.0
-django-celery-beat==2.7.0
+django-celery-beat==2.9.0
 
 # Web Push notifications (VAPID-signed push via pywebpush)
 pywebpush==2.3.0
