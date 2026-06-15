@@ -11,7 +11,7 @@ sqlparse==0.5.5
 user-agents==2.2.0
 
 # Production server with async workers for better memory efficiency
-gunicorn==22.0.0
+gunicorn==26.0.0
 gevent==24.11.1
 
 # Database connection pooling for better resource management
