@@ -19,7 +19,7 @@ psycopg2-pool==1.1
 
 # Redis for shared caching across workers (optional but recommended)
 redis==5.2.1
-django-redis==5.4.0
+django-redis==7.0.0
 
 # Celery — async task queue and periodic task scheduling
 celery==5.4.0
