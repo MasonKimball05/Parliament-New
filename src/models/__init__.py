@@ -176,6 +176,9 @@ from src.models.analytics import PageVisit
 # API Tokens
 from src.models.api import APIToken, APIAccessLog, DEFINED_SCOPES, ALL_SCOPE_KEYS
 
+# Admin Action Audit Log
+from src.models.admin_audit import AdminActionLog, log_admin_action
+
 # Constitution & Bylaws Builder
 from src.models.cnb import (
     GoverningDocument,
@@ -325,4 +328,7 @@ __all__ = [
     'APIAccessLog',
     'DEFINED_SCOPES',
     'ALL_SCOPE_KEYS',
+    # Admin Audit Log
+    'AdminActionLog',
+    'log_admin_action',
 ]

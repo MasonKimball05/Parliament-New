@@ -77,6 +77,11 @@ SCHEDULES = [
         'task': 'tasks.prune_expired_chat_permissions',
         'crontab': {'hour': '9', 'minute': '12'},  # 3:12 AM CST daily
     },
+    {
+        'name': 'Notify expiring API tokens',
+        'task': 'tasks.notify_expiring_api_tokens',
+        'crontab': {'hour': '9', 'minute': '14'},  # 3:14 AM CST daily
+    },
 
     # -------------------------------------------------------------------------
     # Housekeeping — monthly tasks (1st of month, 3:15 AM CST = 09:15 UTC)

@@ -16,6 +16,9 @@
     <!-- Tailwind CSS (self-hosted, no CDN) -->
     <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
 
+    <!-- Alpine.js: hide x-cloak elements until Alpine initialises -->
+    <style>[x-cloak]{display:none!important}</style>
+
     <!-- Dark Mode Initialization - MUST run BEFORE styles apply -->
     <script nonce="{{ request.csp_nonce }}">
         (function() {
@@ -1479,6 +1482,9 @@
         window.userIsOfficer = {{ user.can_manage_events|yesno:"true,false" }};
         window.userIsAdmin = {{ user.is_admin|yesno:"true,false" }};
     </script>
+
+    <!-- Alpine.js (must load before any x-data components) -->
+    <script src="{% static 'js/alpinejs.min.js' %}" defer></script>
 
     <!-- Quick Actions Script -->
     <script src="{% static 'js/quick-actions.js' %}"></script>

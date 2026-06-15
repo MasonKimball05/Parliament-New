@@ -124,12 +124,15 @@ def profile_view(request):
                 changes_made = True
 
             # Update email if changed
-            current_email = user.email or ''
+            current_email = (user.email or '').lower()
             if new_email != current_email:
                 # Check if email is already taken by another user
                 if new_email and ParliamentUser.objects.filter(email__iexact=new_email).exclude(user_id=user.user_id).exists():
                     if is_ajax:
                         return JsonResponse({'error': 'This email address is already in use by another user.'}, status=400)
+                    # Save any non-email changes already made before returning
+                    if changes_made:
+                        user.save(update_fields=['username', 'preferred_name', 'phone_number'])
                     messages.error(request, "This email address is already in use by another user.")
                     return redirect('profile')
 
@@ -140,6 +143,9 @@ def profile_view(request):
                     if result.get('error'):
                         if is_ajax:
                             return JsonResponse({'error': result['error']}, status=400)
+                        # Save any non-email changes already made before returning
+                        if changes_made:
+                            user.save(update_fields=['username', 'preferred_name', 'phone_number'])
                         messages.error(request, result['error'])
                         return redirect('profile')
                     # Email is NOT saved yet — record pending state and fall through

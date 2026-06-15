@@ -135,6 +135,8 @@ class ParliamentUser(AbstractBaseUser):
     member_status = models.CharField(max_length=20, choices=MEMBER_STATUS, default='Active')
     force_password_change = models.BooleanField(default=False, help_text='User must change password on next login')
     has_default_password = models.BooleanField(default=False, help_text='Password is still the system-assigned default — set False when user changes it')
+    onboarding_complete = models.BooleanField(default=False, help_text='True once the user has completed the first-login onboarding wizard')
+    onboarding_data = models.JSONField(default=dict, blank=True, help_text='Tracks onboarding progress: pages_visited list, checklist_dismissed flag, skipped_profile_items list')
     is_quarantined = models.BooleanField(default=False, help_text='Account quarantined due to suspicious activity')
     email_flagged = models.BooleanField(default=False, help_text='Email address flagged as undeliverable — user prompted to update it')
     email_flagged_reason = models.TextField(blank=True, help_text='Reason the email address was flagged (e.g. delivery error message)')

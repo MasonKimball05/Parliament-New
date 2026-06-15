@@ -125,16 +125,18 @@ jobs:
     - name: Install security tools
       run: |
         python -m pip install --upgrade pip
-        pip install safety bandit
-
-    - name: Check for security vulnerabilities
-      continue-on-error: true
-      run: |
+        pip install bandit pip-audit
         pip install -r requirements.txt
-        safety check
 
-    - name: Run Bandit security scanner
+    - name: Dependency vulnerability scan (pip-audit)
+      run: |
+        pip-audit --ignore-vuln PYSEC-2025-49
+
+    - name: Static security scan (bandit) — fail on HIGH
+      run: |
+        bandit -r src/ -ll --exclude src/migrations
+
+    - name: Static security scan (bandit) — warn on MEDIUM
       continue-on-error: true
       run: |
-        bandit -r src/ -f json -o bandit-report.json || true
-        bandit -r src/ -ll
+        bandit -r src/ -l --exclude src/migrations

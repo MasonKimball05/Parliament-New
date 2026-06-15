@@ -165,7 +165,8 @@
                                         data-token-id="{{ token.id }}"
                                         data-token-name="{{ token.name }}"
                                         data-token-user="{{ token.user.get_display_name }}"
-                                        data-token-expires="{{ token.expires_at|date:'Y-m-d' }}">
+                                        data-token-expires="{{ token.expires_at|date:'Y-m-d' }}"
+                                        data-token-scopes="{{ token.scopes|join:',' }}">
                                     Approve
                                 </button>
                                 <!-- Reject -->
@@ -223,6 +224,10 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
         <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">Approve Token Request</h3>
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Approving token for <span id="approve-modal-user" class="font-medium"></span> — "<span id="approve-modal-name"></span>"</p>
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Scopes <span class="text-gray-400 font-normal text-xs">(uncheck to narrow access)</span></label>
+            <div id="approve-scopes-list" class="space-y-1.5"></div>
+        </div>
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Expiry date <span class="text-gray-400 font-normal">(optional)</span></label>
             <input type="date" id="approve-expires-input"
@@ -337,13 +342,33 @@
     }
 
     // Approve — open modal
+    var SCOPE_LABELS = {
+        'members:read': 'Read member directory',
+        'events:read': 'Read events and calendar',
+        'legislation:read': 'Read legislation and votes',
+        'committees:read': 'Read committee information',
+        'attendance:read': 'Read your attendance records',
+    };
+
     document.querySelectorAll('.js-approve-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             currentTokenId = this.dataset.tokenId;
             document.getElementById('approve-modal-user').textContent = this.dataset.tokenUser;
             document.getElementById('approve-modal-name').textContent = this.dataset.tokenName;
-            // Prefill with the member's requested expiry (blank if they didn't set one)
             document.getElementById('approve-expires-input').value = this.dataset.tokenExpires || '';
+
+            // Build scope checkboxes pre-checked with what the member requested
+            var requested = (this.dataset.tokenScopes || '').split(',').filter(Boolean);
+            var list = document.getElementById('approve-scopes-list');
+            list.innerHTML = '';
+            requested.forEach(function(scope) {
+                var label = document.createElement('label');
+                label.className = 'flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer';
+                label.innerHTML = '<input type="checkbox" class="approve-scope-cb rounded" value="' + scope + '" checked> '
+                    + (SCOPE_LABELS[scope] || scope);
+                list.appendChild(label);
+            });
+
             document.getElementById('approve-modal').classList.remove('hidden');
         });
     });
@@ -357,6 +382,11 @@
         var fd = new FormData();
         var expires = document.getElementById('approve-expires-input').value;
         if (expires) fd.append('expires_at', expires);
+        // Send checked scopes; marker tells backend the form was submitted intentionally
+        fd.append('scopes_submitted', '1');
+        document.querySelectorAll('.approve-scope-cb:checked').forEach(function(cb) {
+            fd.append('scopes', cb.value);
+        });
         postJSON('/admin-v2/api-tokens/' + currentTokenId + '/approve/', fd)
         .then(function(data) {
             document.getElementById('approve-modal').classList.add('hidden');

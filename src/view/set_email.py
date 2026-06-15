@@ -8,6 +8,7 @@ the change is not applied until the link is clicked.
 from django.shortcuts import redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_GET
 from django.core.cache import cache
 from django.core.mail import send_mail
@@ -16,6 +17,11 @@ from django.utils import timezone
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _is_ajax(request):
+    return request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
 
 _RATE_LIMIT = 3          # max verification emails per window
 _RATE_WINDOW = 3600      # 1 hour in seconds
@@ -93,6 +99,8 @@ def set_email(request):
     new_email = request.POST.get('email', '').strip().lower()
 
     if not new_email:
+        if _is_ajax(request):
+            return JsonResponse({'success': False, 'message': 'Please provide an email address.'}, status=400)
         messages.error(request, 'Please provide an email address.')
         return redirect(request.META.get('HTTP_REFERER', 'home'))
 
@@ -108,6 +116,8 @@ def set_email(request):
         user.email_flagged_at = None
         user.save(update_fields=['email', 'email_flagged', 'email_flagged_reason', 'email_flagged_at'])
         logger.info(f"[set_email] First-time email set for {user.username}: {new_email}")
+        if _is_ajax(request):
+            return JsonResponse({'success': True, 'message': f'Email address set to {new_email}.'})
         messages.success(request, f'Email address set to {new_email}.')
         return redirect(request.META.get('HTTP_REFERER', 'home'))
 
@@ -117,24 +127,32 @@ def set_email(request):
 
     # No-op if they submitted the same address they already have
     if new_email == user.email.lower():
+        if _is_ajax(request):
+            return JsonResponse({'success': False, 'message': 'That is already your current email address.'})
         messages.info(request, 'That is already your current email address.')
         return redirect(request.META.get('HTTP_REFERER', 'home'))
 
     # Check the new address isn't already taken by another user
     from src.models import ParliamentUser
     if ParliamentUser.objects.filter(email__iexact=new_email).exclude(pk=user.pk).exists():
+        if _is_ajax(request):
+            return JsonResponse({'success': False, 'message': 'That email address is already in use by another account.'}, status=409)
         messages.error(request, 'That email address is already in use by another account.')
         return redirect(request.META.get('HTTP_REFERER', 'home'))
 
     result = _send_email_confirmation(request, user, new_email)
     if result.get('error'):
+        if _is_ajax(request):
+            return JsonResponse({'success': False, 'message': result['error']}, status=429)
         messages.error(request, result['error'])
     else:
-        messages.success(
-            request,
+        msg = (
             f'A confirmation link has been sent to {new_email}. '
             f'Click it to complete the change. The link expires in 24 hours.'
         )
+        if _is_ajax(request):
+            return JsonResponse({'success': True, 'message': msg})
+        messages.success(request, msg)
     return redirect(request.META.get('HTTP_REFERER', 'home'))
 
 

@@ -11,6 +11,7 @@ class Notification(models.Model):
         ('vote_ended', 'Vote Ended'),
         ('event_new', 'New Event'),
         ('chat_mention', 'Chat Mention'),
+        ('security', 'Security Alert'),
     )
 
     recipient = models.ForeignKey(ParliamentUser, on_delete=models.CASCADE, related_name='notifications')

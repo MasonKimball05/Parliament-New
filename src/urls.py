@@ -167,6 +167,10 @@ from src.view.admin_two_factor import (
 )
 from src.view.change_password import change_password
 from src.view.forced_password_change import forced_password_change
+from src.view.onboarding import (
+    onboarding_view, onboarding_complete_view, mark_page_visited,
+    dismiss_checklist, skip_profile_item, reset_onboarding,
+)
 from src.view.view_legislation_history import view_legislation_history
 from src.view.login_view import login_view
 from src.view.logout_view import logout_view
@@ -285,6 +289,12 @@ urlpatterns = [
     path('upload/', upload_legislation, name='upload_legislation'),
     path('change_password/', change_password, name='change_password'),
     path('forced-password-change/', forced_password_change, name='forced_password_change'),
+    path('onboarding/', onboarding_view, name='onboarding'),
+    path('onboarding/complete/', onboarding_complete_view, name='onboarding_complete'),
+    path('onboarding/page-visited/', mark_page_visited, name='onboarding_page_visited'),
+    path('onboarding/dismiss-checklist/', dismiss_checklist, name='onboarding_dismiss_checklist'),
+    path('onboarding/skip-profile-item/', skip_profile_item, name='onboarding_skip_profile_item'),
+    path('onboarding/reset/', reset_onboarding, name='onboarding_reset'),
     path('chapter-documents/', chapter_documents, name='chapter_documents'),
     path('chapter-documents/manage-all/', manage_chapter_documents, name='manage_chapter_documents'),
     path('chapter-documents/upload/', upload_chapter_document, name='upload_chapter_document'),

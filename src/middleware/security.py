@@ -62,7 +62,9 @@ class ForcePasswordChangeMiddleware:
         self.exempt_paths = [
             reverse('forced_password_change'),
             reverse('logout'),
-            '/admin/',  # Allow admin access
+            reverse('set_email'),
+            '/admin/',
+            '/onboarding/',
         ]
 
     def __call__(self, request):

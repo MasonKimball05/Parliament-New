@@ -12,6 +12,7 @@
         opacity: 0.4;
     }
 </style>
+{% include "components/page_guide.html" with page_key="preferences" guide_title="Preferences" guide_icon="⚙️" guide_body="Customize how Parliament works for you. Set your landing page, notification settings, dark mode, and more. You can also manage your security settings like passkeys and two-factor authentication here." %}
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Header -->
     <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-8 text-white relative overflow-hidden">
@@ -482,6 +483,31 @@
                     </svg>
                 </a>
             </div>
+    </div>
+
+    <!-- Getting Started / Onboarding -->
+    {% if not user.onboarding_complete %}{% include "components/profile_progress.html" %}{% endif %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200 mt-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+            <svg class="w-6 h-6 text-yellow-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Getting Started
+        </h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Restart the page guides and home checklist to revisit the walkthrough of Parliament's features.</p>
+        <button onclick="restartOnboarding()" class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium rounded-lg transition">
+            Restart Onboarding Tour
+        </button>
+        <script nonce="{{ request.csp_nonce }}">
+        function restartOnboarding() {
+            fetch('{% url "onboarding_reset" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' },
+            }).then(function(r) {
+                if (r.ok) { window.location.href = '/onboarding/'; }
+            });
+        }
+        </script>
     </div>
 
     <!-- Developer API Token -->

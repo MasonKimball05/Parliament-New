@@ -49,7 +49,7 @@ def forced_password_change(request):
                     )
                 messages.success(
                     request,
-                    'Password changed successfully! You can now access the system.'
+                    'Password set successfully!'
                 )
                 try:
                     watch_flag = getattr(request.user, 'watch_flag', None)
@@ -64,6 +64,8 @@ def forced_password_change(request):
                         )
                 except Exception:
                     pass
+                if request.session.get('in_onboarding'):
+                    return redirect('/onboarding/?step=passkey')
                 return redirect('home')
             except ValidationError as e:
                 # Display password validation errors

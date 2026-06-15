@@ -1,7 +1,7 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.messages import get_messages
 from django.utils.http import url_has_allowed_host_and_scheme
-from ..models import IPBlacklist, IPWhitelist, UserSession, LoginHistory, LoginAlert, LoginLockout
+from ..models import IPBlacklist, IPWhitelist, UserSession, LoginLockout
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth import login, authenticate
@@ -10,15 +10,19 @@ from django.core.cache import cache
 from datetime import timedelta
 from django.contrib.auth import get_user_model
 from src.geo_utils import is_foreign_ip
-from src.utils.security_utils import get_client_ip
+from src.utils.security_utils import get_client_ip, run_post_auth_pipeline
 from src.security_notifications import send_watch_flag_alert
 import logging
 
 
 # Rate limiting settings
-MAX_LOGIN_ATTEMPTS = 5  # Maximum failed attempts before lockout
+MAX_LOGIN_ATTEMPTS = 5       # Per-IP lockout threshold
 LOCKOUT_DURATION = 15 * 60  # Lockout duration in seconds (15 minutes)
-ATTEMPT_WINDOW = 15 * 60  # Window to count attempts in seconds (15 minutes)
+ATTEMPT_WINDOW = 15 * 60    # Window to count attempts (15 minutes)
+
+# Per-account lockout (catches distributed/IP-rotating attacks on one username)
+MAX_ACCOUNT_ATTEMPTS = 10
+ACCOUNT_LOCKOUT_DURATION = 15 * 60
 
 
 def get_rate_limit_key(ip_address):
@@ -92,6 +96,60 @@ def clear_failed_attempts(ip_address):
     cache.delete(get_lockout_key(ip_address))
 
 
+# ── Per-account lockout ───────────────────────────────────────────────────────
+
+# Number of distinct IPs within a window that triggers a distributed-DoS alert
+ACCOUNT_LOCKOUT_DISTINCT_IP_THRESHOLD = 3
+
+def get_account_attempts_key(username):
+    return f"account_login_attempts_{username}"
+
+def get_account_lockout_key(username):
+    return f"account_login_lockout_{username}"
+
+def get_account_ip_set_key(username):
+    return f"account_login_ips_{username}"
+
+def is_account_locked(username):
+    lockout_until = cache.get(get_account_lockout_key(username))
+    if lockout_until:
+        return True, lockout_until
+    return False, None
+
+def record_account_failed_attempt(username, ip_address=None):
+    """
+    Increment the per-account failed attempt counter.
+    Returns (is_locked, attempts_remaining, lockout_until, distinct_ip_count).
+    """
+    attempts_key = get_account_attempts_key(username)
+    lockout_key = get_account_lockout_key(username)
+    ip_set_key = get_account_ip_set_key(username)
+
+    attempts = cache.get(attempts_key, 0) + 1
+    cache.set(attempts_key, attempts, ATTEMPT_WINDOW)
+
+    # Track distinct IPs that have contributed to this account's failures
+    ip_set = cache.get(ip_set_key) or set()
+    if ip_address:
+        ip_set.add(ip_address)
+        cache.set(ip_set_key, ip_set, ATTEMPT_WINDOW)
+    distinct_ips = len(ip_set)
+
+    if attempts >= MAX_ACCOUNT_ATTEMPTS:
+        lockout_until = timezone.now() + timedelta(seconds=ACCOUNT_LOCKOUT_DURATION)
+        cache.set(lockout_key, lockout_until, ACCOUNT_LOCKOUT_DURATION)
+        cache.delete(attempts_key)
+        cache.delete(ip_set_key)
+        return True, 0, lockout_until, distinct_ips
+
+    return False, MAX_ACCOUNT_ATTEMPTS - attempts, None, distinct_ips
+
+def clear_account_failed_attempts(username):
+    cache.delete(get_account_attempts_key(username))
+    cache.delete(get_account_lockout_key(username))
+    cache.delete(get_account_ip_set_key(username))
+
+
 def login_view(request):
     list(get_messages(request))  # Clear flash messages
 
@@ -115,7 +173,7 @@ def login_view(request):
         ip_address = get_client_ip(request)
         user_agent = request.META.get('HTTP_USER_AGENT', 'unknown')[:200]
 
-        # Check rate limiting first
+        # Check IP rate limiting first
         is_locked, lockout_until = is_rate_limited(ip_address)
         if is_locked:
             remaining = (lockout_until - timezone.now()).seconds // 60 + 1
@@ -129,6 +187,21 @@ def login_view(request):
                 f"Too many failed login attempts. Please try again in {remaining} minute{'s' if remaining != 1 else ''}."
             )
             return redirect('login')
+
+        # Check per-account lockout (catches distributed attacks on one username)
+        if username:
+            acct_locked, acct_lockout_until = is_account_locked(username)
+            if acct_locked:
+                remaining = max(1, (acct_lockout_until - timezone.now()).seconds // 60 + 1)
+                messages.error(
+                    request,
+                    f"This account has been temporarily locked due to too many failed attempts. "
+                    f"Please try again in {remaining} minute{'s' if remaining != 1 else ''}."
+                )
+                logging.getLogger('admin_actions').warning(
+                    f"ACCOUNT LOCKED: login attempt for '{username}' from IP {ip_address} while account locked out."
+                )
+                return redirect('login')
 
         # Check if IP is blacklisted
         blacklist_entry = IPBlacklist.objects.filter(
@@ -196,114 +269,22 @@ def login_view(request):
                 return redirect('login')
 
             if user.is_active:
+                # Run shared post-auth pipeline: geo, session flags, LoginHistory, LoginAlert,
+                # logging, watch-flag alert. Mirrors the passkey login path in webauthn.py.
+                error_response, _ = run_post_auth_pipeline(
+                    request, user, ip_address, user_agent, method='password'
+                )
+                if error_response:
+                    return error_response
+
                 login(request, user)
 
                 # Clear any failed attempt counters on successful login
                 clear_failed_attempts(ip_address)
+                clear_account_failed_attempts(username)
 
                 # Create session record for session management
                 UserSession.create_or_update_session(user, request)
-
-                # --- Geo check ---
-                is_foreign, geo = is_foreign_ip(ip_address)
-                risk_factors = []
-                if is_foreign:
-                    risk_factors.append('non_us_location')
-
-                # Store geo + suspicion flag in session for middleware to read
-                request.session['login_geo'] = geo
-                request.session['login_geo_suspicious'] = is_foreign
-                if geo:
-                    request.session['login_geo_country'] = geo.get('country', '')
-                    request.session['login_geo_city'] = geo.get('city', '')
-
-                # Record LoginHistory
-                try:
-                    login_record = LoginHistory.objects.create(
-                        user=user,
-                        status='success',
-                        ip_address=ip_address,
-                        country=geo.get('country', '') if geo else '',
-                        city=geo.get('city', '') if geo else '',
-                        region=geo.get('region', '') if geo else '',
-                        latitude=geo.get('lat') if geo else None,
-                        longitude=geo.get('lon') if geo else None,
-                        user_agent=user_agent,
-                        is_suspicious=is_foreign,
-                        risk_level='medium' if is_foreign else 'low',
-                        risk_factors=risk_factors,
-                        alert_created=is_foreign,
-                    )
-                except Exception as e:
-                    login_record = None
-                    logging.getLogger('admin_actions').warning(f"Failed to create LoginHistory: {e}")
-
-                # Create LoginAlert for non-US logins
-                if is_foreign and geo:
-                    try:
-                        location_str = ', '.join(filter(None, [geo.get('city'), geo.get('region'), geo.get('country')]))
-                        LoginAlert.objects.create(
-                            user=user,
-                            login_history=login_record,
-                            alert_type='new_location',
-                            severity='medium',
-                            status='new',
-                            title=f'Non-US login: {user.name} from {geo.get("country", "Unknown")}',
-                            description=(
-                                f'{user.name} logged in from outside the United States.\n\n'
-                                f'Location: {location_str}\n'
-                                f'IP: {ip_address}\n'
-                                f'ISP: {geo.get("isp", "Unknown")}\n'
-                                f'Coordinates: {geo.get("lat")}, {geo.get("lon")}\n\n'
-                                f'The user has been flagged for this session. Sensitive data exports '
-                                f'are restricted until they log in from a US IP address.'
-                            ),
-                        )
-                    except Exception as e:
-                        logging.getLogger('admin_actions').warning(f"Failed to create LoginAlert: {e}")
-
-                # Log successful login with IP and user agent
-                logger = logging.getLogger('function_calls')
-                logger.info(
-                    f"Successful login: {user.name} ({user.member_type}) (user_id={user.user_id}) "
-                    f"from IP {ip_address}"
-                    + (f" [{geo.get('city')}, {geo.get('country')}]" if geo else "")
-                )
-
-                # Also log to admin_actions for security audit
-                security_logger = logging.getLogger('admin_actions')
-                if is_foreign:
-                    security_logger.warning(
-                        f"LOGIN SUCCESS (NON-US): User '{username}' (ID: {user.user_id}) from IP {ip_address} "
-                        f"- Location: {geo.get('city', '?')}, {geo.get('country', '?')} "
-                        f"(ISP: {geo.get('isp', '?')}). Session flagged as suspicious."
-                    )
-                else:
-                    security_logger.info(
-                        f"LOGIN SUCCESS: User '{username}' (ID: {user.user_id}) from IP {ip_address}"
-                    )
-
-                # --- Watch flag alert ---
-                try:
-                    watch_flag = getattr(user, 'watch_flag', None)
-                    if watch_flag and watch_flag.is_active:
-                        send_watch_flag_alert(
-                            watched_user=user,
-                            event_type='success',
-                            ip_address=ip_address,
-                            geo=geo,
-                            user_agent=user_agent,
-                            is_whitelisted=is_ip_whitelisted(ip_address),
-                            is_blacklisted=IPBlacklist.objects.filter(ip_address=ip_address, is_active=True).exists(),
-                            is_rate_limited=is_rate_limited(ip_address)[0],
-                            risk_level='medium' if is_foreign else 'low',
-                            risk_factors=risk_factors,
-                            is_foreign=is_foreign,
-                            watch_reason=watch_flag.reason,
-                            login_history=login_record,
-                        )
-                except Exception as _wf_err:
-                    logging.getLogger('admin_actions').error(f"Watch flag alert error (success): {_wf_err}")
 
                 messages.success(request, f"Welcome, {user.get_display_name() if hasattr(user, 'get_display_name') else user.name}!")
 
@@ -314,6 +295,11 @@ def login_view(request):
                         f'Your email address ({user.email or "none set"}) appears to be invalid or undeliverable. '
                         f'Please update it in your profile so you continue receiving notifications.'
                     )
+
+                # New users get the onboarding wizard first
+                if not user.onboarding_complete:
+                    request.session['in_onboarding'] = True
+                    return redirect('onboarding')
 
                 next_url = request.GET.get('next', '')
                 if next_url and url_has_allowed_host_and_scheme(
@@ -349,6 +335,31 @@ def login_view(request):
         else:
             # Record failed attempt and check for lockout
             is_locked, remaining, lockout_until = record_failed_attempt(ip_address)
+            acct_now_locked, _, _, distinct_ips = record_account_failed_attempt(username, ip_address)
+
+            if acct_now_locked:
+                # Account just locked — notify the user if they have an email
+                try:
+                    User = get_user_model()
+                    target = User.objects.filter(username=username).first()
+                    if target and target.email:
+                        from src.security_notifications import notify_user_security_event
+                        notify_user_security_event(
+                            target,
+                            'Account temporarily locked',
+                            f'Your account was temporarily locked for {ACCOUNT_LOCKOUT_DURATION // 60} minutes '
+                            f'after {MAX_ACCOUNT_ATTEMPTS} failed login attempts from multiple locations.',
+                            ip_address,
+                        )
+                except Exception:
+                    pass
+                log_msg = (
+                    f"ACCOUNT LOCKOUT: '{username}' locked after {MAX_ACCOUNT_ATTEMPTS} failed attempts "
+                    f"(latest IP: {ip_address}, distinct IPs this window: {distinct_ips})"
+                )
+                if distinct_ips >= ACCOUNT_LOCKOUT_DISTINCT_IP_THRESHOLD:
+                    log_msg = f"[DISTRIBUTED LOCKOUT SUSPECTED] {log_msg}"
+                logging.getLogger('admin_actions').warning(log_msg)
 
             if is_locked:
                 messages.error(

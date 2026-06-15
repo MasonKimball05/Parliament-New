@@ -1,0 +1,64 @@
+{% if user.is_authenticated and not user.onboarding_data.checklist_dismissed %}
+{% with has_email=user.email has_phone=user.phone_number has_pref=user.preferred_name has_pic=user.profile_picture has_bio=user.about_me skipped=user.onboarding_data.skipped_profile_items %}
+<div id="profile-progress-bar" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-gray-700 p-4 mb-4">
+    <div class="flex items-center justify-between mb-2">
+        <p class="text-sm font-semibold text-gray-800 dark:text-gray-200">Profile Setup</p>
+        <button onclick="document.getElementById('profile-progress-bar').style.display='none'" class="text-xs text-gray-400 hover:text-gray-600 transition">Hide</button>
+    </div>
+    <div class="space-y-1">
+        {% include "components/_progress_item.html" with item_key="email" done=has_email label="Email address" hint="Add it in Account Settings" skippable=False skipped=skipped %}
+        {% include "components/_progress_item.html" with item_key="phone" done=has_phone label="Phone number" hint="Shown in directory" skippable=True skipped=skipped %}
+        {% include "components/_progress_item.html" with item_key="preferred_name" done=has_pref label="Preferred name" hint="How you want to appear" skippable=True skipped=skipped %}
+        {% include "components/_progress_item.html" with item_key="profile_pic" done=has_pic label="Profile picture" hint="Put a face to the name" skippable=True skipped=skipped %}
+        {% include "components/_progress_item.html" with item_key="about_me" done=has_bio label="About me" hint="Short bio" skippable=True skipped=skipped %}
+    </div>
+    <div class="mt-3">
+        <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+            <span id="progress-label">Calculating…</span>
+        </div>
+        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div id="progress-fill" class="bg-primary-500 h-2 rounded-full transition-all duration-500" style="width:0%"></div>
+        </div>
+    </div>
+</div>
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    var items = document.querySelectorAll('#profile-progress-bar .progress-item');
+    var done = Array.from(items).filter(function(el) { return el.dataset.done === 'true'; }).length;
+    var total = items.length;
+    var pct = Math.round(done / total * 100);
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-label').textContent = done + ' of ' + total + ' steps complete';
+    if (done === total) document.getElementById('profile-progress-bar').style.display = 'none';
+})();
+
+function skipProfileItem(itemKey) {
+    var row = document.getElementById('progress-item-' + itemKey);
+    if (row) { row.dataset.done = 'true'; }
+    fetch('{% url "onboarding_skip_profile_item" %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item: itemKey }),
+    }).then(function() {
+        // Recount
+        var items = document.querySelectorAll('#profile-progress-bar .progress-item');
+        var done = Array.from(items).filter(function(el) { return el.dataset.done === 'true'; }).length;
+        var total = items.length;
+        var pct = Math.round(done / total * 100);
+        document.getElementById('progress-fill').style.width = pct + '%';
+        document.getElementById('progress-label').textContent = done + ' of ' + total + ' steps complete';
+        if (done === total) document.getElementById('profile-progress-bar').style.display = 'none';
+        // Hide skip button on this row
+        var btn = document.getElementById('skip-btn-' + itemKey);
+        if (btn) btn.style.display = 'none';
+        // Style as skipped
+        if (row) {
+            row.querySelector('.item-label').classList.add('line-through', 'opacity-50');
+            var dot = row.querySelector('.item-dot');
+            if (dot) { dot.classList.remove('bg-gray-200', 'dark:bg-gray-600'); dot.classList.add('bg-gray-300'); }
+        }
+    });
+}
+</script>
+{% endwith %}
+{% endif %}

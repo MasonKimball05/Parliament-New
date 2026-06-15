@@ -25,6 +25,7 @@ from src.notifications import mark_announcement_dismissed
 from src.models.api import APIToken, APIAccessLog, DEFINED_SCOPES, ALL_SCOPE_KEYS
 from src.models_feature_flags import FeatureFlag
 from src.models import ActivityLog
+from src.models.admin_audit import log_admin_action
 
 import logging
 
@@ -255,16 +256,26 @@ def admin_approve_token(request, token_id):
     if expiry_error:
         return expiry_error
 
+    # Scope narrowing: admin can uncheck scopes to grant less than what was requested.
+    # scopes_submitted marker distinguishes "admin explicitly sent empty list" from "old client sent nothing".
+    if 'scopes_submitted' in request.POST:
+        valid = set(ALL_SCOPE_KEYS)
+        approved_scopes = [s for s in request.POST.getlist('scopes') if s in valid]
+        token.scopes = approved_scopes
+
     token.status = APIToken.STATUS_ACTIVE
     token.approved_by = request.user
     token.approved_at = timezone.now()
     if expires_at_raw:
-        # Admin explicitly set (or overrode) the expiry — apply it
         token.expires_at = expires_at
-        token.save(update_fields=['status', 'approved_by', 'approved_at', 'expires_at'])
+        token.save(update_fields=['status', 'approved_by', 'approved_at', 'expires_at', 'scopes'])
     else:
-        # Admin left the field blank — preserve whatever the user requested
-        token.save(update_fields=['status', 'approved_by', 'approved_at'])
+        token.save(update_fields=['status', 'approved_by', 'approved_at', 'scopes'])
+    log_admin_action(
+        actor=request.user, action='token_approved', request=request,
+        target_user=token.user, target_repr=token.name,
+        detail=f"Scopes: {', '.join(token.scopes) or '(none)'}; expires: {token.expires_at or 'never'}",
+    )
     return JsonResponse({'approved': True})
 
 
@@ -283,6 +294,11 @@ def admin_reject_token(request, token_id):
     token.status = APIToken.STATUS_REJECTED
     token.rejection_reason = reason
     token.save(update_fields=['status', 'rejection_reason'])
+    log_admin_action(
+        actor=request.user, action='token_denied', request=request,
+        target_user=token.user, target_repr=token.name,
+        detail=f"Reason: {reason or '(none given)'}",
+    )
     return JsonResponse({'rejected': True})
 
 
@@ -303,6 +319,11 @@ def admin_revoke_token(request, token_id):
     token.revoked_at = timezone.now()
     token.revoke_reason = reason
     token.save(update_fields=['status', 'revoked_by', 'revoked_at', 'revoke_reason'])
+    log_admin_action(
+        actor=request.user, action='token_revoked', request=request,
+        target_user=token.user, target_repr=token.name,
+        detail=f"Reason: {reason or '(none given)'}",
+    )
     return JsonResponse({'revoked': True})
 
 
@@ -317,10 +338,16 @@ def admin_update_token_scopes(request, token_id):
         token = APIToken.objects.get(id=token_id)
     except APIToken.DoesNotExist:
         return JsonResponse({'error': 'Token not found.'}, status=404)
+    old_scopes = list(token.scopes)
     scopes_raw = request.POST.getlist('scopes')
     valid_scopes = [s for s in scopes_raw if s in ALL_SCOPE_KEYS]
     token.scopes = valid_scopes
     token.save(update_fields=['scopes'])
+    log_admin_action(
+        actor=request.user, action='token_scopes_edited', request=request,
+        target_user=token.user, target_repr=token.name,
+        detail=f"Before: {', '.join(old_scopes) or '(none)'}; After: {', '.join(valid_scopes) or '(none)'}",
+    )
     return JsonResponse({'scopes': token.scopes})
 
 

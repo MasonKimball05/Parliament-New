@@ -317,6 +317,8 @@ def run_post_auth_pipeline(request, user, ip_address, user_agent, method='passwo
     fn_log = logging.getLogger('function_calls')
 
     # --- Blacklist check ---
+    # Redundant for the password-login path (login_view already checks before authenticate()),
+    # but load-bearing for the passkey path (webauthn.py has no prior check). Keep it here.
     blacklist_entry = IPBlacklist.objects.filter(ip_address=ip_address, is_active=True).first()
     if blacklist_entry:
         if blacklist_entry.expires_at and blacklist_entry.expires_at < timezone.now():
@@ -363,7 +365,7 @@ def run_post_auth_pipeline(request, user, ip_address, user_agent, method='passwo
     except Exception as exc:
         security_log.warning(f'Failed to create LoginHistory: {exc}')
 
-    # --- LoginAlert for non-US logins ---
+    # --- LoginAlert + in-app notification for non-US logins ---
     if is_foreign and geo:
         try:
             location_str = ', '.join(filter(None, [geo.get('city'), geo.get('region'), geo.get('country')]))
@@ -386,6 +388,22 @@ def run_post_auth_pipeline(request, user, ip_address, user_agent, method='passwo
             )
         except Exception as exc:
             security_log.warning(f'Failed to create LoginAlert: {exc}')
+
+        # Notify the user directly (in-app + email if they have one)
+        try:
+            from src.security_notifications import notify_user_security_event
+            notify_user_security_event(
+                user,
+                subject=f'New login from {geo.get("country", "outside the US")}',
+                body=(
+                    f'Your account was accessed from {location_str or geo.get("country", "an international location")}. '
+                    f'If this was you logging in while traveling, no action is needed. '
+                    f'If you don\'t recognize this login, contact an officer immediately and change your password.'
+                ),
+                ip_address=ip_address,
+            )
+        except Exception as exc:
+            security_log.warning(f'Failed to send non-US login user notification: {exc}')
 
     # --- Logging ---
     fn_log.info(

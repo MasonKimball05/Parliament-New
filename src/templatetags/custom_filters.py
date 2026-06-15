@@ -198,3 +198,9 @@ def country_flag(country_code):
         return ''.join(chr(0x1F1E6 + ord(c) - ord('A')) for c in code)
     except Exception:
         return ''
+
+
+@register.filter
+def onboarding_page_seen(user, page_key):
+    """Return True if the user has visited this onboarding page."""
+    return page_key in (user.onboarding_data or {}).get('pages_visited', [])

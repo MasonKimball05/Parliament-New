@@ -603,6 +603,54 @@ def send_watch_flag_password_change_alert(watched_user, changed_by_user, ip_addr
         logger.error(f"Failed to send watch flag password change alert: {e}")
 
 
+def notify_user_security_event(user, subject, body, ip_address=None):
+    """
+    Notify a user about a security event affecting their account.
+
+    Always creates an in-app notification. Also sends an email if the user
+    has an email address on file. Safe to call for users without email —
+    the in-app notification is created regardless.
+    """
+    from src.models import Notification
+    from django.core.cache import cache
+
+    # Always create an in-app notification
+    try:
+        Notification.objects.create(
+            recipient=user,
+            notification_type='security',
+            title=subject,
+            message=body,
+            link='/preferences/',
+        )
+        cache.delete(f'notif_count_{user.pk}')
+    except Exception as exc:
+        logger.warning(f'[security] Failed to create in-app notification for {user.username}: {exc}')
+
+    # Send email only if the user has an address
+    if not getattr(user, 'email', None):
+        return
+
+    try:
+        site_url = get_site_url()
+        ip_line = f'\nIP address: {ip_address}' if ip_address else ''
+        send_mail(
+            subject=f'[Parliament] {subject}',
+            message=(
+                f'Hi {user.get_display_name() if hasattr(user, "get_display_name") else user.name},\n\n'
+                f'{body}{ip_line}\n\n'
+                f'If you did not expect this, please contact an officer or log in to review '
+                f'your account security at {site_url}/preferences/.\n\n'
+                '— Alpha Mu Parliament'
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=True,
+        )
+    except Exception as exc:
+        logger.warning(f'[security] Failed to send security email to {user.email}: {exc}')
+
+
 def alert_ip_blacklisted(ip_address, reason, added_by=None):
     """Send alert when an IP is added to the blacklist."""
     by_text = f"by {added_by.name}" if added_by else "automatically"

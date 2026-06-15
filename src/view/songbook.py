@@ -282,14 +282,16 @@ def serve_song_audio(request, pk):
     # Get the relative path stored in the database
     relative_path = song.audio_file.name
 
-    # Check media folder first
-    media_path = os.path.join(settings.MEDIA_ROOT, relative_path)
-    if os.path.exists(media_path):
+    # Check media folder first, with realpath guard against traversal
+    media_root = os.path.realpath(settings.MEDIA_ROOT)
+    exportable_root = os.path.realpath(os.path.join(settings.BASE_DIR, 'exportable_media'))
+
+    media_path = os.path.realpath(os.path.join(settings.MEDIA_ROOT, relative_path))
+    if media_path.startswith(media_root + os.sep) and os.path.exists(media_path):
         file_path = media_path
     else:
-        # Check exportable_media folder
-        exportable_path = os.path.join(settings.BASE_DIR, 'exportable_media', relative_path)
-        if os.path.exists(exportable_path):
+        exportable_path = os.path.realpath(os.path.join(settings.BASE_DIR, 'exportable_media', relative_path))
+        if exportable_path.startswith(exportable_root + os.sep) and os.path.exists(exportable_path):
             file_path = exportable_path
         else:
             raise Http404("Audio file not found")

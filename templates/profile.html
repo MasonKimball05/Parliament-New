@@ -10,6 +10,8 @@
 {% endblock %}
 
 {% block content %}
+{% include "components/page_guide.html" with page_key="profile" guide_title="Your Profile" guide_icon="👤" guide_body="This is your member profile. Keep it up to date so other members can reach you. Add a photo, phone number, bio, and more — the progress bar above shows what&#39;s still outstanding." %}
+{% include "components/profile_progress.html" %}
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
     <!-- Page Header -->
