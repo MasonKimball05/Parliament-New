@@ -633,7 +633,12 @@ class InputSanitizationMiddleware:
         # Cloudflare injects beacon.min.js for Web Analytics; allow its domain
         # when BEHIND_CLOUDFLARE is enabled. CSP violations are reported to
         # /csp-report/ and logged to SecurityNotificationLog for review.
-        if not getattr(settings, 'DEBUG', False):
+        #
+        # The Django admin is exempt from CSP — it uses inline scripts in its own
+        # templates that we don't control, and is protected by its own staff-only
+        # authentication rather than our input-scanning middleware.
+        is_admin_path = path and path.startswith('/admin/')
+        if not getattr(settings, 'DEBUG', False) and not is_admin_path:
             behind_cf = getattr(settings, 'BEHIND_CLOUDFLARE', False)
             cf_beacon = ' https://static.cloudflareinsights.com' if behind_cf else ''
             # object-src / worker-src: locked to 'none' — no plugins or web workers.

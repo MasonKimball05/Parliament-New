@@ -9,43 +9,30 @@
 </h1>
 {% endblock %}
 
-{% block nav-global %}
-<!-- You can add global nav items here if needed -->
+{% block nav-global %}{% endblock %}
+
+{# Override dark-mode-vars to force dark mode unconditionally.                    #}
+{# Django's theme.js reads localStorage and could override to light/auto;         #}
+{# replacing it with a one-liner here keeps dark mode without needing collectstatic. #}
+{# The admin path is excluded from Parliament's CSP header (see middleware/security.py) #}
+{# so this inline script is safe to use here.                                     #}
+{% block dark-mode-vars %}
+<link rel="stylesheet" href="{% static 'admin/css/dark_mode.css' %}">
+<script>
+    document.documentElement.dataset.theme = 'dark';
+    try { localStorage.setItem('theme', 'dark'); } catch(e) {}
+</script>
 {% endblock %}
 
 {% block extrahead %}
 {{ block.super }}
 <style>
-    body {
-        background-color: #1f2937; /* Darker background */
-        color: #f1f5f9;
-    }
-
     #site-name a {
-        color: #60a5fa; /* Blue */
+        color: #60a5fa;
         text-decoration: none;
         font-weight: bold;
         font-size: 1.5rem;
     }
-
-    .module h2, .dashboard h1 {
-        color: #f1f5f9;
-    }
-
-    .breadcrumbs {
-        background-color: #111827;
-        color: #9ca3af;
-    }
-
-    .breadcrumbs a {
-        color: #93c5fd;
-    }
+    .breadcrumbs a { color: #93c5fd; }
 </style>
-{% endblock %}
-
-{% block javascript %}
-{{ block.super }}
-{# Load after theme.js (which runs at end of body) so dark mode wins. #}
-{# Using a static file instead of an inline script so the CSP script-src 'self' policy allows it. #}
-<script src="{% static 'admin/js/force_dark.js' %}"></script>
 {% endblock %}
