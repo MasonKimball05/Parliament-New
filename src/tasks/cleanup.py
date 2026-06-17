@@ -68,6 +68,35 @@ def expire_stale_ip_blacklist_entries():
         logger.error(f"[tasks] expire_stale_ip_blacklist_entries failed: {exc}")
 
 
+@shared_task(name='tasks.release_expired_quarantines')
+def release_expired_quarantines():
+    """
+    Auto-release QuarantinedAccount records whose expires_at has passed.
+
+    Officers can optionally set an expiry when quarantining a user for a
+    time-limited suspension. This task runs nightly and calls release() on
+    any active quarantines whose expires_at is in the past, which also clears
+    the is_quarantined flag on the user model.
+    Permanent quarantines (expires_at=None) are left untouched.
+    """
+    try:
+        from src.models import QuarantinedAccount
+        now = timezone.now()
+        expired = QuarantinedAccount.objects.filter(
+            released_at__isnull=True,
+            expires_at__isnull=False,
+            expires_at__lte=now,
+        )
+        count = 0
+        for q in expired:
+            q.release(admin=None, notes='Auto-released: quarantine period expired')
+            count += 1
+        if count:
+            logger.info(f"[tasks] release_expired_quarantines: auto-released {count} quarantine(s)")
+    except Exception as exc:
+        logger.error(f"[tasks] release_expired_quarantines failed: {exc}")
+
+
 @shared_task(name='tasks.prune_stale_push_subscriptions')
 def prune_stale_push_subscriptions():
     """

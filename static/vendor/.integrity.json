@@ -1,6 +1,6 @@
 {
   "_comment": "SHA-256 hashes of self-hosted vendor files. Regenerate with: python manage.py check_env --update-hashes",
-  "_generated": "2026-05-29",
+  "_generated": "2026-06-16",
   "files": {
     "static/vendor/quill/quill.min.js": {
       "source": "https://cdn.quilljs.com/1.3.7/quill.min.js",
@@ -19,9 +19,9 @@
     "static/css/tailwind.css": {
       "source": "built locally via tailwindcss standalone CLI v3.4.17",
       "note": "Regenerate with: ./build_css.sh, then run python manage.py check_env --update-hashes",
-      "sha256": "f11ad0689b281a64a4b0c63dd439ba3a6e5460794562c2f5ecb5b42ad8b6832b",
-      "sri": "sha384-QPAerq93sazRYYvuGHviW+E27XQvaZlo4IMc2mu5IicM9RIlaxULQsvLrIo/kgt6",
-      "size": 149421
+      "sha256": "59781b8982ee76f339eca1f7ea4871c9e5ed3f45d9a6d17f69b33744d47a75fb",
+      "sri": "sha384-ZSD4/eSkxvOr44ICxqfILV1SvzWH7SxKhpsXGSZNa4ig+tIYYNI/Z5vuHjdge4L5",
+      "size": 169121
     }
   }
 }

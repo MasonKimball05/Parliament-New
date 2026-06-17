@@ -125,7 +125,7 @@ from src.view.admin_v2 import (
     event_reminder_logs, event_reminder_log_detail,
     celery_health,
     security_dashboard, quarantine_management, lockdown_control,
-    honeypot_logs, security_notifications_log, csp_violations, csp_violation_dismiss,
+    honeypot_logs, security_notifications_log, csp_violations, csp_violation_dismiss, audit_log,
     dismiss_alert, dismiss_all_alerts,
     delete_honeypot_log, clear_honeypot_logs, blacklist_all_honeypot_ips,
     manage_lockouts, clear_push_subscriptions,
@@ -752,6 +752,7 @@ urlpatterns = [
     path('admin-v2/security/csp-violations/', csp_violations, name='admin_v2_csp_violations'),
     path('admin-v2/security/csp-violations/dismiss/', csp_violation_dismiss, name='admin_v2_csp_violation_dismiss'),
     path('admin-v2/security/lockouts/', manage_lockouts, name='admin_v2_lockouts'),
+    path('admin-v2/security/audit-log/', audit_log, name='admin_v2_audit_log'),
 
     path('csp-report/', csp_report, name='csp_report'),
 

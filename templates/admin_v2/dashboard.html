@@ -216,6 +216,19 @@
                         <div class="text-xs text-gray-500 dark:text-gray-400">Alumni</div>
                     </div>
                 </div>
+                <!-- Onboarding completion widget -->
+                <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-medium text-gray-600 dark:text-gray-300">Onboarding Complete</span>
+                        <span class="text-xs font-bold text-gray-900 dark:text-gray-100">{{ onboarding_stats.completed }}/{{ onboarding_stats.total }} <span class="font-normal text-gray-500 dark:text-gray-400">({{ onboarding_stats.percent }}%)</span></span>
+                    </div>
+                    <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5">
+                        <div class="{% if onboarding_stats.percent == 100 %}bg-green-500{% elif onboarding_stats.percent >= 75 %}bg-primary-500{% else %}bg-yellow-500{% endif %} h-1.5 rounded-full transition-all" style="width: {{ onboarding_stats.percent }}%"></div>
+                    </div>
+                    {% if onboarding_stats.pending > 0 %}
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ onboarding_stats.pending }} member{{ onboarding_stats.pending|pluralize }} yet to complete</p>
+                    {% endif %}
+                </div>
                 <a href="{% url 'admin_v2_manage_users' %}" class="block w-full p-3 bg-primary-600 hover:bg-primary-700 text-white text-center rounded-lg font-medium transition">
                     Manage Users
                 </a>

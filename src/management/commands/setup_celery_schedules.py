@@ -73,6 +73,11 @@ SCHEDULES = [
         'crontab': {'hour': '9', 'minute': '10'},  # 3:10 AM CST daily
     },
     {
+        'name': 'Auto-release expired quarantines',
+        'task': 'tasks.release_expired_quarantines',
+        'crontab': {'hour': '9', 'minute': '11'},  # 3:11 AM CST daily
+    },
+    {
         'name': 'Prune expired chat permissions',
         'task': 'tasks.prune_expired_chat_permissions',
         'crontab': {'hour': '9', 'minute': '12'},  # 3:12 AM CST daily

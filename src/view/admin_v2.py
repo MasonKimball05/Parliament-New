@@ -19,6 +19,7 @@ from src.models import (
     QuarantinedAccount, HoneypotAccess, SecurityNotificationLog, UserWatchFlag,
     PushSubscription, PageVisit,
     EventReminderLog, EventReminderRecipient,
+    log_admin_action,
     APIToken, APIAccessLog,
 )
 import os
@@ -449,6 +450,23 @@ def admin_v2_dashboard(request):
     from src.models import SystemLockdown
     lockdown = SystemLockdown.get_instance()
 
+    # Onboarding completion stats for dashboard widget
+    _onboarding_agg = ParliamentUser.objects.filter(
+        member_status__in=['Active', 'Inactive']
+    ).aggregate(
+        total=Count('user_id'),
+        completed=Count('user_id', filter=Q(onboarding_complete=True)),
+    )
+    onboarding_stats = {
+        'total': _onboarding_agg['total'] or 0,
+        'completed': _onboarding_agg['completed'] or 0,
+        'pending': (_onboarding_agg['total'] or 0) - (_onboarding_agg['completed'] or 0),
+        'percent': round(
+            (_onboarding_agg['completed'] / _onboarding_agg['total'] * 100)
+            if _onboarding_agg['total'] else 0
+        ),
+    }
+
     # Page visit summary for dashboard card (PageVisit is cumulative — no timestamps)
     from django.db.models import Sum as _Sum
     _pv_agg = PageVisit.objects.aggregate(total_hits=_Sum('count'))
@@ -504,6 +522,7 @@ def admin_v2_dashboard(request):
         'lockdown_active': lockdown.is_active,
         'page_visit_summary': page_visit_summary,
         'celery_summary': celery_summary,
+        'onboarding_stats': onboarding_stats,
     }
 
     return render(request, 'admin_v2/dashboard.html', context)
@@ -2346,6 +2365,11 @@ def quarantine_management(request):
                 quarantine.release(request.user, notes)
                 messages.success(request, f'Released quarantine for {quarantine.user.name}')
                 logger.info(f"Admin {request.user.username} released quarantine for {quarantine.user.name}")
+                log_admin_action(
+                    actor=request.user, action='quarantine_lifted', request=request,
+                    target_user=quarantine.user, target_repr=str(quarantine.user),
+                    detail=f"Release notes: {notes}" if notes else '',
+                )
             except QuarantinedAccount.DoesNotExist:
                 messages.error(request, 'Quarantine record not found')
 
@@ -2354,6 +2378,19 @@ def quarantine_management(request):
             user_id = request.POST.get('user_id')
             reason = request.POST.get('reason', 'Manual quarantine by admin')
             ip_address = request.POST.get('ip_address', '0.0.0.0')
+            expires_at_str = request.POST.get('expires_at', '').strip()
+
+            # Parse optional expiry datetime
+            expires_at = None
+            if expires_at_str:
+                try:
+                    from django.utils.dateparse import parse_datetime
+                    from django.utils import timezone as tz
+                    parsed = parse_datetime(expires_at_str)
+                    if parsed:
+                        expires_at = tz.make_aware(parsed) if tz.is_naive(parsed) else parsed
+                except Exception:
+                    pass  # Invalid date — treat as no expiry
 
             try:
                 user = ParliamentUser.objects.get(user_id=user_id)
@@ -2361,10 +2398,17 @@ def quarantine_management(request):
                     user=user,
                     ip_address=ip_address,
                     reason=reason,
-                    admin=request.user
+                    admin=request.user,
+                    expires_at=expires_at,
                 )
-                messages.success(request, f'Quarantined account: {user.name}')
-                logger.info(f"Admin {request.user.username} quarantined {user.name}: {reason}")
+                expiry_msg = f" (expires {expires_at.strftime('%Y-%m-%d %H:%M')})" if expires_at else ''
+                messages.success(request, f'Quarantined account: {user.name}{expiry_msg}')
+                logger.info(f"Admin {request.user.username} quarantined {user.name}: {reason}{expiry_msg}")
+                log_admin_action(
+                    actor=request.user, action='quarantine_set', request=request,
+                    target_user=user, target_repr=str(user),
+                    detail=f"Reason: {reason}; IP: {ip_address}{expiry_msg}",
+                )
 
                 # Send alert
                 from src.security_notifications import alert_account_quarantined
@@ -2791,6 +2835,74 @@ def security_notifications_log(request):
         'severity_filter': severity_filter,
         'event_filter': event_filter,
         'event_types': event_types,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Admin Action Audit Log Viewer
+# ---------------------------------------------------------------------------
+
+@require_admin_v2_auth
+def audit_log(request):
+    """
+    Browse and filter the AdminActionLog — the officer-facing audit trail.
+    Supports filtering by action type, actor, and date range, with pagination.
+    """
+    if not request.user.is_admin:
+        return HttpResponseForbidden("Admin access required")
+
+    from src.models import AdminActionLog
+    from django.core.paginator import Paginator
+
+    qs = AdminActionLog.objects.select_related('actor', 'target_user').order_by('-timestamp')
+
+    # Filters
+    action_filter = request.GET.get('action', '').strip()
+    actor_filter = request.GET.get('actor', '').strip()
+    date_from = request.GET.get('date_from', '').strip()
+    date_to = request.GET.get('date_to', '').strip()
+
+    if action_filter:
+        qs = qs.filter(action=action_filter)
+    if actor_filter:
+        qs = qs.filter(actor__user_id=actor_filter)
+    if date_from:
+        try:
+            from django.utils.dateparse import parse_date
+            d = parse_date(date_from)
+            if d:
+                qs = qs.filter(timestamp__date__gte=d)
+        except Exception:
+            pass
+    if date_to:
+        try:
+            from django.utils.dateparse import parse_date
+            d = parse_date(date_to)
+            if d:
+                qs = qs.filter(timestamp__date__lte=d)
+        except Exception:
+            pass
+
+    paginator = Paginator(qs, 30)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    # Build actor list for filter dropdown (only actors who appear in the log)
+    actors = (
+        ParliamentUser.objects
+        .filter(admin_actions_taken__isnull=False)
+        .distinct()
+        .order_by('name')
+    )
+
+    return render(request, 'admin_v2/audit_log.html', {
+        'page_obj': page_obj,
+        'action_choices': AdminActionLog.ACTION_CHOICES,
+        'actors': actors,
+        'action_filter': action_filter,
+        'actor_filter': actor_filter,
+        'date_from': date_from,
+        'date_to': date_to,
+        'total_count': qs.count(),
     })
 
 

@@ -34,9 +34,17 @@
                 Go to Homepage
             </a>
 
-            <button id="js-back-btn"
+            <button id="js-refresh-btn"
                     class="block w-full px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium">
                 <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Refresh Page
+            </button>
+
+            <button id="js-back-btn"
+                    class="block w-full px-6 py-3 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors font-medium text-sm">
+                <svg class="w-4 h-4 inline-block mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
                 </svg>
                 Go Back
@@ -56,5 +64,6 @@
 {% block extra_js %}
 <script nonce="{{ request.csp_nonce }}">
 document.getElementById('js-back-btn').addEventListener('click', function () { window.history.back(); });
+document.getElementById('js-refresh-btn').addEventListener('click', function () { window.location.reload(); });
 </script>
 {% endblock %}

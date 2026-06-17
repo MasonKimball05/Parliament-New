@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_http_methods
-from src.models import Committee, Role, ParliamentUser, CommitteeLegislation, CommitteeDocument, CommitteeMinutes, ActivityLog
+from src.models import Committee, Role, ParliamentUser, CommitteeLegislation, CommitteeDocument, CommitteeMinutes, ActivityLog, log_admin_action
 from src.forms import CommitteeCreateForm
 from src.constants import MemberStatus
 from src.feature_flag_decorators import require_page_enabled
@@ -298,6 +298,13 @@ def committee_detail_api(request, committee_id):
             }
         )
         logger.info(f"User {request.user.user_id} updated committee {committee.id}: {changes}")
+        membership_changes = [c for c in changes if any(k in c for k in ('role', 'chair', 'member'))]
+        if membership_changes:
+            log_admin_action(
+                actor=request.user, action='role_changed', request=request,
+                target_repr=committee.name,
+                detail=', '.join(membership_changes),
+            )
 
     return JsonResponse({
         'success': True,

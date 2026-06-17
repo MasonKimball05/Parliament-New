@@ -14,6 +14,14 @@ import secrets
 
 logger = logging.getLogger('admin_actions')
 
+
+def _render_403(request, reason):
+    """Render a 403 with no-cache headers so Cloudflare/proxies never serve a stale block page."""
+    response = render(request, '403.html', {'reason': reason}, status=403)
+    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
+    response['Pragma'] = 'no-cache'
+    return response
+
 # Compiled regex patterns for attack detection
 SQL_INJECTION_PATTERNS = [
     re.compile(r"(\b(union|select|insert|update|delete|drop|create|alter|exec|execute)\b.*\b(from|into|table|database|where)\b)", re.IGNORECASE),
@@ -140,9 +148,7 @@ class PasswordResetRateLimitMiddleware:
                 logger.warning(
                     f'Password reset blocked: IP {ip_address} is locked out due to too many attempts'
                 )
-                return render(request, '403.html', {
-                    'reason': 'Too many password reset attempts. Please try again later.'
-                }, status=403)
+                return _render_403(request, 'Too many password reset attempts. Please try again later.')
 
             # Check if IP has exceeded rate limit
             if ip_attempts >= self.max_attempts_per_ip:
@@ -152,9 +158,7 @@ class PasswordResetRateLimitMiddleware:
                 )
                 # Lock out the IP
                 cache.set(lockout_key, True, self.lockout_minutes * 60)
-                return render(request, '403.html', {
-                    'reason': 'Too many password reset attempts. Please try again in 1 hour.'
-                }, status=403)
+                return _render_403(request, 'Too many password reset attempts. Please try again in 1 hour.')
 
             # Increment IP attempt counter
             cache.set(ip_key, ip_attempts + 1, self.window_minutes * 60)
@@ -412,7 +416,7 @@ class InputSanitizationMiddleware:
         # Skip checking for static files and certain paths
         if any(request.path.startswith(path) for path in self.skip_paths):
             response = self.get_response(request)
-            return self.add_security_headers(response, request.csp_nonce, path=request.path)
+            return self.add_security_headers(response, request.csp_nonce, path=request.path, request=request)
 
         # Enforce IPBlacklist for all requests (cache result for 5 minutes to avoid per-request DB hits)
         blacklist_cache_key = f'ip_blacklisted_{ip_address}'
@@ -428,9 +432,7 @@ class InputSanitizationMiddleware:
             logger.warning(
                 f"BLACKLISTED_IP_BLOCKED: {ip_address} attempted {request.method} {request.path}"
             )
-            return render(request, '403.html', {
-                'reason': 'Your IP address has been blocked. Contact an administrator if you believe this is an error.'
-            }, status=403)
+            return _render_403(request, 'Your IP address has been blocked. Contact an administrator if you believe this is an error.')
 
         # Authenticated users are already past auth/CSRF/session checks.
         # Django's ORM parameterizes all queries and templates auto-escape output,
@@ -438,7 +440,7 @@ class InputSanitizationMiddleware:
         # is the primary source of false positives on free-text form fields.
         if hasattr(request, 'user') and request.user.is_authenticated:
             response = self.get_response(request)
-            return self.add_security_headers(response, request.csp_nonce, path=request.path)
+            return self.add_security_headers(response, request.csp_nonce, path=request.path, request=request)
 
         # Check all input sources for malicious patterns
         attack_detected = False
@@ -539,12 +541,10 @@ class InputSanitizationMiddleware:
                     except Exception as e:
                         logger.error(f"Failed to auto-quarantine user: {e}")
 
-                return render(request, '403.html', {
-                    'reason': 'Your request has been blocked due to suspicious activity. Contact an administrator if you believe this is an error.'
-                }, status=403)
+                return _render_403(request, 'Your request has been blocked due to suspicious activity. Contact an administrator if you believe this is an error.')
 
         response = self.get_response(request)
-        return self.add_security_headers(response, request.csp_nonce, path=request.path)
+        return self.add_security_headers(response, request.csp_nonce, path=request.path, request=request)
 
     def check_for_attacks(self, value):
         """Check a value for various attack patterns."""
@@ -574,8 +574,35 @@ class InputSanitizationMiddleware:
 
         return None
 
-    def add_security_headers(self, response, csp_nonce=None, path=None):
+    def add_security_headers(self, response, csp_nonce=None, path=None, request=None):
         """Add security headers to the response."""
+        # -- 403 handling --
+        # All 403 responses must: (a) never be served from browser cache (bfcache
+        # on mobile is the #1 cause of users seeing stale 403s after successful
+        # login), and (b) show the styled 403.html page rather than raw plain text.
+        if response.status_code == 403 and request is not None:
+            content_type = response.get('Content-Type', '')
+            if content_type.startswith('application/json'):
+                # AJAX JSON 403 — preserve the body, just add no-cache headers
+                response['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
+                response['Pragma'] = 'no-cache'
+            else:
+                try:
+                    raw = getattr(response, 'content', b'')
+                    is_styled = raw.lstrip().startswith(b'<!DOCTYPE') or raw.lstrip().startswith(b'<html')
+                    if not is_styled:
+                        # Plain-text HttpResponseForbidden("reason") — wrap in styled template
+                        reason = raw.decode('utf-8', errors='replace')[:300] or None
+                        response = _render_403(request, reason)
+                    else:
+                        # Already a full HTML page — just ensure no-cache
+                        response['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
+                        response['Pragma'] = 'no-cache'
+                except Exception:
+                    # Safety net: at minimum add no-cache even if re-render fails
+                    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
+                    response['Pragma'] = 'no-cache'
+
         # Prevent MIME type sniffing
         response['X-Content-Type-Options'] = 'nosniff'
 

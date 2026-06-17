@@ -1143,8 +1143,33 @@ if (_installBtn) { _installBtn.addEventListener('click', handlePrefsInstall); }
     var saveBtn = document.getElementById('save-preferences-btn');
     if (!form || !saveBtn) return;
 
+    // Inline error banner — visible in PWA mode where alert() is suppressed
+    var errBanner = document.getElementById('pref-save-error');
+    if (!errBanner) {
+        errBanner = document.createElement('p');
+        errBanner.id = 'pref-save-error';
+        errBanner.style.cssText = 'display:none;margin-top:0.5rem;color:#dc2626;font-size:0.875rem;';
+        saveBtn.parentNode.insertBefore(errBanner, saveBtn.nextSibling);
+    }
+    function showError(msg) {
+        errBanner.textContent = msg;
+        errBanner.style.display = 'block';
+    }
+    function clearError() {
+        errBanner.style.display = 'none';
+        errBanner.textContent = '';
+    }
+
+    // Read CSRF from cookie so the token stays fresh even if the page is
+    // served from bfcache (mobile browsers cache more aggressively).
+    function getCsrfToken() {
+        var match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+        return match ? match[1] : '{{ csrf_token }}';
+    }
+
     form.addEventListener('submit', function(e) {
         e.preventDefault();
+        clearError();
         var origText = saveBtn.textContent.trim();
         saveBtn.disabled = true;
         saveBtn.textContent = 'Saving…';
@@ -1154,13 +1179,19 @@ if (_installBtn) { _installBtn.addEventListener('click', handlePrefsInstall); }
             method: 'POST',
             credentials: 'same-origin',
             headers: {
-                'X-CSRFToken': '{{ csrf_token }}',
+                'X-CSRFToken': getCsrfToken(),
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'X-Requested-With': 'XMLHttpRequest',
             },
             body: params.toString(),
         })
-        .then(function(r) { return r.json(); })
+        .then(function(r) {
+            if (!r.ok && r.status !== 200) {
+                // Non-200 that isn't JSON (e.g. CSRF failure HTML page)
+                throw new Error('HTTP ' + r.status);
+            }
+            return r.json();
+        })
         .then(function(data) {
             if (data.success) {
                 if (data.theme_changed) {
@@ -1176,13 +1207,14 @@ if (_installBtn) { _installBtn.addEventListener('click', handlePrefsInstall); }
             } else {
                 saveBtn.textContent = origText;
                 saveBtn.disabled = false;
-                alert(data.error || 'Failed to save preferences.');
+                showError(data.error || 'Failed to save preferences.');
             }
         })
-        .catch(function() {
+        .catch(function(err) {
             saveBtn.textContent = origText;
             saveBtn.disabled = false;
-            alert('Request failed. Please try again.');
+            showError('Could not save — check your connection and try again.');
+            console.error('[preferences] save failed:', err);
         });
     });
 })();

@@ -14,10 +14,6 @@
 
 {% block extrahead %}
 {{ block.super }}
-<script>
-    // Force dark mode — override theme.js which reads system/localStorage preference
-    document.documentElement.dataset.theme = 'dark';
-</script>
 <style>
     body {
         background-color: #1f2937; /* Darker background */
@@ -44,4 +40,11 @@
         color: #93c5fd;
     }
 </style>
+{% endblock %}
+
+{% block javascript %}
+{{ block.super }}
+{# Load after theme.js (which runs at end of body) so dark mode wins. #}
+{# Using a static file instead of an inline script so the CSP script-src 'self' policy allows it. #}
+<script src="{% static 'admin/js/force_dark.js' %}"></script>
 {% endblock %}

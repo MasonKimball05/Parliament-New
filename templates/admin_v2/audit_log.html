@@ -1,0 +1,153 @@
+{% extends "admin_v2/base.html" %}
+
+{% block title %}Audit Log - Admin v2{% endblock %}
+
+{% block admin_content %}
+<div class="container mx-auto px-4 py-8">
+
+    <!-- Header -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Admin Action Audit Log</h1>
+                <p class="text-gray-600 dark:text-gray-400">Officer-level actions: token approvals, quarantines, role changes, and IP blacklist edits</p>
+            </div>
+            <div class="flex gap-2">
+                <a href="{% url 'admin_v2_security' %}" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition">← Security</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+        <form method="get" class="flex flex-wrap gap-4 items-end">
+            <div class="min-w-[180px]">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Action Type</label>
+                <select name="action" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
+                    <option value="">All actions</option>
+                    {% for value, label in action_choices %}
+                    <option value="{{ value }}" {% if action_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="min-w-[180px]">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Actor</label>
+                <select name="actor" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
+                    <option value="">All officers</option>
+                    {% for a in actors %}
+                    <option value="{{ a.user_id }}" {% if actor_filter == a.user_id|stringformat:"s" %}selected{% endif %}>{{ a.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From</label>
+                <input type="date" name="date_from" value="{{ date_from }}" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To</label>
+                <input type="date" name="date_to" value="{{ date_to }}" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition">Filter</button>
+                <a href="{% url 'admin_v2_audit_log' %}" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition">Clear</a>
+            </div>
+        </form>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-3">{{ total_count }} record{{ total_count|pluralize }} match{% if total_count == 1 %}es{% endif %} current filters</p>
+    </div>
+
+    <!-- Log Table -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mb-6">
+        {% if page_obj.object_list %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                    <tr>
+                        <th class="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-300">Time</th>
+                        <th class="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-300">Actor</th>
+                        <th class="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-300">Action</th>
+                        <th class="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-300">Target</th>
+                        <th class="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-300">Detail</th>
+                        <th class="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-300">IP</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% for entry in page_obj %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                        <td class="py-3 px-4 text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                            <span title="{{ entry.timestamp|date:'Y-m-d H:i:s' }}">{{ entry.timestamp|date:"M d, Y" }}<br><span class="text-xs">{{ entry.timestamp|date:"H:i" }}</span></span>
+                        </td>
+                        <td class="py-3 px-4 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                            {% if entry.actor %}{{ entry.actor.name }}{% else %}<span class="text-gray-400 italic">deleted</span>{% endif %}
+                        </td>
+                        <td class="py-3 px-4 whitespace-nowrap">
+                            {% with action=entry.action %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                                {% if action == 'quarantine_set' %}bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300
+                                {% elif action == 'quarantine_lifted' %}bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300
+                                {% elif action == 'token_approved' %}bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300
+                                {% elif action == 'token_denied' or action == 'token_revoked' %}bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300
+                                {% elif action == 'blacklist_added' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300
+                                {% elif action == 'blacklist_removed' %}bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-300
+                                {% elif action == 'role_changed' %}bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300
+                                {% else %}bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-300{% endif %}">
+                                {{ entry.get_action_display }}
+                            </span>
+                            {% endwith %}
+                        </td>
+                        <td class="py-3 px-4 text-gray-700 dark:text-gray-300">
+                            {% if entry.target_user %}
+                                <span class="font-medium">{{ entry.target_user.name }}</span>
+                                {% if entry.target_repr and entry.target_repr != entry.target_user.name|stringformat:"s" %}
+                                    <br><span class="text-xs text-gray-500 dark:text-gray-400">{{ entry.target_repr }}</span>
+                                {% endif %}
+                            {% elif entry.target_repr %}
+                                {{ entry.target_repr }}
+                            {% else %}
+                                <span class="text-gray-400">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4 text-gray-600 dark:text-gray-400 max-w-xs">
+                            {% if entry.detail %}
+                            <span class="text-xs" title="{{ entry.detail }}">{{ entry.detail|truncatechars:80 }}</span>
+                            {% else %}
+                            <span class="text-gray-400">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4 text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap font-mono">
+                            {{ entry.ip_address|default:"—" }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            </p>
+            <div class="flex gap-2">
+                {% if page_obj.has_previous %}
+                <a href="?{% if action_filter %}action={{ action_filter }}&{% endif %}{% if actor_filter %}actor={{ actor_filter }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded text-sm transition">← Prev</a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a href="?{% if action_filter %}action={{ action_filter }}&{% endif %}{% if actor_filter %}actor={{ actor_filter }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}page={{ page_obj.next_page_number }}" class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded text-sm transition">Next →</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="p-12 text-center text-gray-400 dark:text-gray-500">
+            <svg class="w-12 h-12 mx-auto mb-4 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <p class="font-medium">No audit log entries match the current filters.</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

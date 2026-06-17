@@ -741,6 +741,10 @@ class QuarantinedAccount(models.Model):
         related_name='quarantine_releases'
     )
     release_notes = models.TextField(blank=True, help_text='Notes about why account was released')
+    expires_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='Optional: quarantine auto-releases at this time. Leave blank for indefinite.'
+    )
 
     class Meta:
         ordering = ['-quarantined_at']
@@ -748,19 +752,27 @@ class QuarantinedAccount(models.Model):
         verbose_name_plural = 'Quarantined Accounts'
 
     def __str__(self):
-        status = 'Active' if not self.released_at else 'Released'
+        status = 'Active' if self.is_active else 'Released'
         return f"{self.user.name} - {status} ({self.quarantined_at.strftime('%Y-%m-%d')})"
 
     @property
     def is_active(self):
-        """Check if quarantine is still active"""
-        return self.released_at is None
+        """Check if quarantine is still active (not manually released and not expired)."""
+        from django.utils import timezone
+        if self.released_at is not None:
+            return False
+        if self.expires_at is not None and self.expires_at <= timezone.now():
+            return False
+        return True
 
     @classmethod
-    def quarantine_user(cls, user, ip_address, reason, admin=None):
+    def quarantine_user(cls, user, ip_address, reason, admin=None, expires_at=None):
         """
         Quarantine a user account.
         Also sets is_quarantined flag on the user.
+
+        Pass expires_at (timezone-aware datetime) for a time-limited quarantine
+        that the nightly Celery task will auto-release when it expires.
         """
         user.is_quarantined = True
         user.save(update_fields=['is_quarantined'])
@@ -770,7 +782,8 @@ class QuarantinedAccount(models.Model):
             ip_address=ip_address,
             reason=reason,
             quarantined_by=admin,
-            is_auto=(admin is None)
+            is_auto=(admin is None),
+            expires_at=expires_at,
         )
 
     def release(self, admin, notes=''):

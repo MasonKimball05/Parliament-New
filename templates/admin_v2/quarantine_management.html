@@ -38,9 +38,17 @@
                     <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">Quarantine User</button>
                 </div>
             </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Reason</label>
-                <textarea name="reason" rows="2" required placeholder="Explain why this account is being quarantined..." class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"></textarea>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Reason</label>
+                    <textarea name="reason" rows="2" required placeholder="Explain why this account is being quarantined..." class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Auto-release date <span class="font-normal text-gray-400">(optional — leave blank for indefinite)</span>
+                    </label>
+                    <input type="datetime-local" name="expires_at" class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                </div>
             </div>
         </form>
     </div>
@@ -76,6 +84,14 @@
                     <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Reason:</span>
                     <p class="text-sm text-gray-900 dark:text-gray-100 mt-1">{{ q.reason }}</p>
                 </div>
+                {% if q.expires_at %}
+                <div class="mb-3 flex items-center gap-2 text-sm">
+                    <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span class="text-amber-700 dark:text-amber-400 font-medium">Auto-releases: {{ q.expires_at|date:"M d, Y H:i" }}</span>
+                </div>
+                {% endif %}
                 <form method="post" class="border-t border-red-200 dark:border-red-800 pt-3 mt-3">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="release">
