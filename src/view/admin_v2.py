@@ -269,7 +269,11 @@ def admin_v2_dashboard(request):
                 timestamp__gte=timezone.now() - timezone.timedelta(hours=24),
                 successful=False
             ).count() if hasattr(LoginHistory, 'successful') else 0,
-            'quarantined_accounts': _safe_count(lambda: QuarantinedAccount.objects.filter(released_at__isnull=True).count()),
+            'quarantined_accounts': _safe_count(lambda: QuarantinedAccount.objects.filter(
+                released_at__isnull=True
+            ).filter(
+                Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+            ).count()),
             'blocked_ips': _safe_count(lambda: IPBlacklist.objects.filter(is_active=True).count()),
             'honeypot_24h': _safe_count(lambda: HoneypotAccess.objects.filter(accessed_at__gte=timezone.now() - timezone.timedelta(hours=24)).count()),
             'security_notifications_24h': _safe_count(lambda: SecurityNotificationLog.objects.filter(sent_at__gte=timezone.now() - timezone.timedelta(hours=24)).count()),
@@ -2286,9 +2290,11 @@ def security_dashboard(request):
 
     now = timezone.now()
 
-    # Quarantines
+    # Quarantines — exclude expired records so the list stays in sync with is_active
     active_quarantines = QuarantinedAccount.objects.filter(
-        released_at__isnull=True
+        released_at__isnull=True,
+    ).filter(
+        Q(expires_at__isnull=True) | Q(expires_at__gt=now)
     ).select_related('user', 'quarantined_by')
 
     # Honeypot
@@ -2419,9 +2425,12 @@ def quarantine_management(request):
 
         return redirect('admin_v2_quarantine')
 
-    # Get all quarantine records
+    # Get all quarantine records — exclude expired so UI matches is_active property
+    _now = timezone.now()
     active_quarantines = QuarantinedAccount.objects.filter(
-        released_at__isnull=True
+        released_at__isnull=True,
+    ).filter(
+        Q(expires_at__isnull=True) | Q(expires_at__gt=_now)
     ).select_related('user', 'quarantined_by')
 
     released_quarantines = QuarantinedAccount.objects.filter(
@@ -2847,6 +2856,7 @@ def audit_log(request):
     """
     Browse and filter the AdminActionLog — the officer-facing audit trail.
     Supports filtering by action type, actor, and date range, with pagination.
+    Add ?export=csv to download the current filtered set as a CSV file.
     """
     if not request.user.is_admin:
         return HttpResponseForbidden("Admin access required")
@@ -2882,6 +2892,39 @@ def audit_log(request):
                 qs = qs.filter(timestamp__date__lte=d)
         except Exception:
             pass
+
+    # CSV export — streams the full filtered set, no pagination
+    if request.GET.get('export') == 'csv':
+        import csv
+        from django.http import StreamingHttpResponse
+
+        def _rows():
+            yield ['Timestamp', 'Actor', 'Action', 'Target User', 'Target Repr', 'Detail', 'IP Address']
+            for entry in qs.iterator(chunk_size=500):
+                yield [
+                    entry.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC'),
+                    entry.actor.name if entry.actor else '',
+                    entry.get_action_display(),
+                    entry.target_user.name if entry.target_user else '',
+                    entry.target_repr or '',
+                    entry.detail or '',
+                    entry.ip_address or '',
+                ]
+
+        class _Echo:
+            def write(self, value):
+                return value
+
+        writer = csv.writer(_Echo())
+        response = StreamingHttpResponse(
+            (writer.writerow(row) for row in _rows()),
+            content_type='text/csv',
+        )
+        from datetime import datetime
+        filename = f'audit_log_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.csv'
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Cache-Control'] = 'no-store'
+        return response
 
     paginator = Paginator(qs, 30)
     page_obj = paginator.get_page(request.GET.get('page'))

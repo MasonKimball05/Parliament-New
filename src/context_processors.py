@@ -9,15 +9,22 @@ def user_preferences(request):
     Ensures user preferences exist and are available in all templates.
     Creates default preferences if they don't exist.
 
-    This fixes the issue where the header shows nothing by default
-    for users who haven't visited the preferences page yet.
+    Cached per-user for 5 minutes to avoid a get_or_create on every request.
+    Cache is invalidated in the preferences save view whenever the user updates
+    their settings, and on first creation so defaults are picked up immediately.
     """
-    if request.user.is_authenticated:
-        from src.models import UserPreferences
-        # Get or create preferences - this ensures defaults are applied
+    if not request.user.is_authenticated:
+        return {'user_prefs': None}
+
+    from django.core.cache import cache
+    from src.models import UserPreferences
+
+    cache_key = f'user_prefs_{request.user.pk}'
+    preferences = cache.get(cache_key)
+    if preferences is None:
         preferences, created = UserPreferences.objects.get_or_create(user=request.user)
-        return {'user_prefs': preferences}
-    return {'user_prefs': None}
+        cache.set(cache_key, preferences, 300)
+    return {'user_prefs': preferences}
 
 
 def notifications(request):
@@ -39,17 +46,42 @@ def notifications(request):
             ).count()
             cache.set(cache_key, unread_count, 60)
 
-        # Chat unread count (sum across all channels the user has visited)
+        # Chat unread count — single aggregated query instead of N per-channel COUNTs.
+        # For each receipt: count messages in that channel newer than the last-read message.
+        # Uses a subquery so the whole thing is one round-trip to the DB.
         chat_cache_key = f'chat_unread_{request.user.pk}'
         unread_chat = cache.get(chat_cache_key)
         if unread_chat is None:
-            from src.models import ChatReadReceipt
-            receipts = ChatReadReceipt.objects.filter(
-                user=request.user,
-                channel__isnull=False,
-            ).select_related('last_read_message')
-            unread_chat = sum(r.get_unread_count() for r in receipts)
-            unread_chat = min(unread_chat, 99)  # Cap display at 99
+            from django.db.models import OuterRef, Subquery, IntegerField, Value, Count
+            from django.db.models.functions import Coalesce
+            from src.models import ChatReadReceipt, ChatMessage
+
+            # Subquery: messages in the receipt's channel that are newer than last_read
+            newer_msgs = ChatMessage.objects.filter(
+                channel=OuterRef('channel'),
+                is_deleted=False,
+                created_at__gt=OuterRef('last_read_message__created_at'),
+            ).values('channel').annotate(n=Count('id')).values('n')
+
+            # Receipts with no last_read_message: count all non-deleted messages
+            all_msgs = ChatMessage.objects.filter(
+                channel=OuterRef('channel'),
+                is_deleted=False,
+            ).values('channel').annotate(n=Count('id')).values('n')
+
+            receipts = (
+                ChatReadReceipt.objects
+                .filter(user=request.user, channel__isnull=False)
+                .annotate(
+                    unread=Coalesce(
+                        Subquery(newer_msgs[:1], output_field=IntegerField()),
+                        Subquery(all_msgs[:1], output_field=IntegerField()),
+                        Value(0),
+                        output_field=IntegerField(),
+                    )
+                )
+            )
+            unread_chat = min(sum(r.unread for r in receipts), 99)
             cache.set(chat_cache_key, unread_chat, 30)
 
         return {
@@ -244,16 +276,29 @@ def two_factor_status(request):
     - 2FA is enabled AND codes have never been acknowledged (not viewed after generation)
     - 2FA is enabled AND no backup device exists
     - 2FA is enabled AND ≤ 2 codes remain
+
+    Cached per-user for 5 minutes — this used to fire 2 uncached DB queries on
+    every single page load. The cache is invalidated in preferences when the user
+    acknowledges backup codes or regenerates them.
     """
     if not request.user.is_authenticated:
         return {'backup_codes_warning': False, 'backup_codes_remaining': None}
+
+    from django.core.cache import cache
+
+    cache_key = f'2fa_status_{request.user.pk}'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
 
     from django_otp import user_has_device
     from django_otp.plugins.otp_static.models import StaticDevice
 
     has_2fa = user_has_device(request.user)
     if not has_2fa:
-        return {'backup_codes_warning': False, 'backup_codes_remaining': None}
+        result = {'backup_codes_warning': False, 'backup_codes_remaining': None}
+        cache.set(cache_key, result, 300)
+        return result
 
     backup_device = StaticDevice.objects.filter(
         user=request.user, name='backup', confirmed=True
@@ -266,7 +311,9 @@ def two_factor_status(request):
         or not request.user.backup_codes_acknowledged
         or remaining <= 2
     )
-    return {'backup_codes_warning': warning, 'backup_codes_remaining': remaining}
+    result = {'backup_codes_warning': warning, 'backup_codes_remaining': remaining}
+    cache.set(cache_key, result, 300)
+    return result
 
 
 def _get_client_ip(request):

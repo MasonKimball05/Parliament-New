@@ -135,6 +135,10 @@ class Event(models.Model):
 
     class Meta:
         ordering = ['date_time']
+        indexes = [
+            # Covers the common filter: active, non-archived events by date
+            models.Index(fields=['is_active', 'archived', 'date_time'], name='event_active_archived_date_idx'),
+        ]
 
     def __str__(self):
         return f"{self.title} - {self.date_time.strftime('%Y-%m-%d %H:%M')}"

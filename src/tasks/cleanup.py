@@ -90,6 +90,19 @@ def release_expired_quarantines():
         count = 0
         for q in expired:
             q.release(admin=None, notes='Auto-released: quarantine period expired')
+            # Notify the user their account has been restored
+            try:
+                from src.security_notifications import notify_user_security_event
+                notify_user_security_event(
+                    user=q.user,
+                    subject='Your account restriction has been lifted',
+                    body=(
+                        'Your account was subject to a time-limited restriction that has now expired. '
+                        'You can log in normally. If you have any questions, please contact an officer.'
+                    ),
+                )
+            except Exception as notify_exc:
+                logger.warning(f"[tasks] release_expired_quarantines: failed to notify {q.user}: {notify_exc}")
             count += 1
         if count:
             logger.info(f"[tasks] release_expired_quarantines: auto-released {count} quarantine(s)")

@@ -36,6 +36,10 @@ class Announcement(models.Model):
 
     class Meta:
         ordering = ['-posted_at']
+        indexes = [
+            # Covers the common filter: active announcements ordered by date
+            models.Index(fields=['is_active', '-posted_at'], name='announcement_active_posted_idx'),
+        ]
 
     def __str__(self):
         return f"{self.title} - {self.posted_at.strftime('%Y-%m-%d')}"

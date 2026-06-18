@@ -27,6 +27,10 @@ def preferences_view(request):
             old_theme = preferences.theme
             form.save()
 
+            # Bust the context-processor cache so the new prefs take effect immediately
+            from django.core.cache import cache
+            cache.delete(f'user_prefs_{request.user.pk}')
+
             # Log the activity
             ActivityLog.log_activity(
                 action_type='preferences_updated',

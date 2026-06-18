@@ -93,6 +93,10 @@ def _generate_backup_codes(user):
     user.backup_codes_acknowledged = False
     user.save(update_fields=['backup_codes_acknowledged'])
 
+    # Bust the per-request cache so the banner shows immediately
+    from django.core.cache import cache
+    cache.delete(f'2fa_status_{user.pk}')
+
     return codes
 
 
@@ -197,6 +201,10 @@ def two_factor_backup_codes_reveal(request):
     # Mark that the user has seen their backup codes
     request.user.backup_codes_acknowledged = True
     request.user.save(update_fields=['backup_codes_acknowledged'])
+
+    # Bust the 2FA status cache so the warning banner disappears immediately
+    from django.core.cache import cache
+    cache.delete(f'2fa_status_{request.user.pk}')
 
     return render(request, 'two_factor/backup_codes_reveal.html', {
         'backup_codes': backup_codes,

@@ -38,12 +38,13 @@ def home(request):
         date_time__lte=now + timedelta(days=7)
     ).count()
 
-    # Your active committees
-    user_committees = Committee.objects.filter(
+    # Your active committees — evaluate to list once so the template and count()
+    # below don't each fire a separate query.
+    user_committees = list(Committee.objects.filter(
         Q(members=request.user) |
         Q(chairs=request.user) |
         Q(advisors=request.user)
-    ).distinct()
+    ).distinct())
 
     # === YOUR PENDING VOTES ===
     # Get legislation user hasn't voted on yet
@@ -87,16 +88,28 @@ def home(request):
         status='passed'
     ).order_by('-voting_ended_at')[:3]
 
+    # Pre-fetch all vote choice breakdowns for the preview items in one query
+    # instead of firing per-option or per-legislation COUNTs inside the loop.
+    _leg_ids = [leg.pk for leg in recently_passed_legislation]
+    _vote_counts = {}  # {legislation_id: {vote_choice: count}}
+    for row in (
+        Vote.objects
+        .filter(legislation_id__in=_leg_ids)
+        .values('legislation_id', 'vote_choice')
+        .annotate(n=Count('id'))
+    ):
+        _vote_counts.setdefault(row['legislation_id'], {})[row['vote_choice']] = row['n']
+
     legislation_previews = []
     for leg in recently_passed_legislation:
         # Use historical counts if set (manually entered legislation)
         yes = leg.historical_yes_votes if leg.historical_yes_votes is not None else leg.yes_votes
         total = leg.total_votes
+        breakdown = _vote_counts.get(leg.pk, {})
 
         if leg.vote_mode == 'plurality':
-            votes = Vote.objects.filter(legislation=leg)
             option_counts = {
-                opt: votes.filter(vote_choice=opt).count()
+                opt: breakdown.get(opt, 0)
                 for opt in (leg.plurality_options or [])
             }
             winner = max(option_counts, key=option_counts.get) if option_counts else None
@@ -118,9 +131,7 @@ def home(request):
             })
         else:
             # Percentage mode
-            no = leg.historical_no_votes if leg.historical_no_votes is not None else (
-                Vote.objects.filter(legislation=leg, vote_choice='no').count()
-            )
+            no = leg.historical_no_votes if leg.historical_no_votes is not None else breakdown.get('no', 0)
             countable = yes + no
             yes_pct_str = "{:.0f}%".format((yes / countable) * 100) if countable > 0 else "N/A"
             legislation_previews.append({
@@ -133,16 +144,20 @@ def home(request):
             })
 
     # === RECENT ACTIVITY ===
-    # Count new items this week
-    new_announcements_week = len([a for a in Announcement.objects.filter(
+    # Count new items this week — use the same ORM visibility filter already built above
+    # instead of fetching all records and calling is_visible_to_user() in Python.
+    new_announcements_week = Announcement.objects.filter(
         is_active=True,
-        posted_at__gte=week_ago
-    ) if a.is_visible_to_user(request.user)])
+        posted_at__gte=week_ago,
+    ).filter(
+        Q(publish_at__isnull=True) | Q(publish_at__lte=now)
+    ).filter(_vis_q).count()
 
-    new_events_week = len([e for e in Event.objects.filter(
+    new_events_week = Event.objects.filter(
         is_active=True,
-        created_at__gte=week_ago
-    ) if e.is_visible_to_user(request.user)])
+        archived=False,
+        created_at__gte=week_ago,
+    ).filter(_vis_q).count()
 
     # === ACTIVE SLATING PERIOD ===
     # Show card if there's an active slating period (nominations or voting open, or results published)
@@ -206,7 +221,7 @@ def home(request):
         'active_legislation': active_legislation,
         'upcoming_events_count': upcoming_events_count,
         'user_committees': user_committees,
-        'user_committees_count': user_committees.count(),
+        'user_committees_count': len(user_committees),
         # Content
         'pending_votes': pending_votes,
         'upcoming_events': upcoming_events,
