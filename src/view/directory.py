@@ -64,7 +64,9 @@ def member_directory(request):
         'advisors': advisors,
         'alumni': alumni,
         'show_alumni': show_alumni,
-        'total_count': members.count() + len(advisors),
+        # members queryset is already evaluated into the four lists above;
+        # calling .count() would fire a fresh SQL COUNT — use len() instead.
+        'total_count': len(officers) + len(chairs) + len(regular_members) + len(pledges) + len(advisors),
         'sort': sort,
         'filter_type': request.GET.get('filter', 'all'),
         'can_set_house': _can_set_house(request.user),
@@ -127,7 +129,10 @@ def export_directory(request):
 
     rows = []
     for member in all_members:
-        roles_str = ', '.join([role.name for role in member.roles.all()]) if include_roles and member.roles.exists() else ''
+        # .exists() bypasses the prefetch_related cache and fires an extra DB query
+        # per member. Use list(.all()) instead — it hits the prefetch cache.
+        _member_roles = list(member.roles.all()) if include_roles else []
+        roles_str = ', '.join(r.name for r in _member_roles)
         rows.append({
             'name': member.name,
             'roll_number': str(member.role_number) if member.role_number else '',

@@ -164,7 +164,14 @@ def maintenance_mode(request):
     try:
         from django.core.cache import cache
 
-        is_maintenance = FeatureFlag.is_feature_enabled('maintenance_mode')
+        # Reuse the feature_flags cache (populated by the feature_flags context processor)
+        # to avoid a separate DB SELECT on every request. Falls back to a direct lookup
+        # only when that cache is cold (first request after server restart or 60s idle).
+        _ff_cached = cache.get('context_feature_flags')
+        if _ff_cached is not None:
+            is_maintenance = bool(_ff_cached.get('feature_flags', {}).get('maintenance_mode', False))
+        else:
+            is_maintenance = FeatureFlag.is_feature_enabled('maintenance_mode')
         context['maintenance_mode_active'] = is_maintenance
 
         if not is_maintenance:
