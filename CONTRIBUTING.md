@@ -34,8 +34,9 @@ By participating in this project, you agree to maintain a respectful environment
 
 Before contributing, ensure you have:
 
-- Python 3.11 or higher
-- PostgreSQL 13 or higher
+- Python 3.13 or higher
+- PostgreSQL 15 or higher
+- Redis 7 or higher
 - Git
 - A GitHub account
 
@@ -83,6 +84,8 @@ Required environment variables:
 - `DB_PASSWORD` - Database password
 - `DB_HOST` - Usually `localhost` for development
 - `DB_PORT` - Usually `5432`
+- `REDIS_URL` - Usually `redis://localhost:6379/0` for development
+- `ENCRYPTION_KEY` - Fernet key for field-level encryption
 
 ### 4. Set Up Database
 
@@ -104,6 +107,11 @@ python manage.py createsuperuser
 
 ```bash
 python manage.py runserver
+```
+
+For WebSocket/chat support in development, use Daphne instead:
+```bash
+daphne -p 8000 Parliament.asgi:application
 ```
 
 Visit `http://localhost:8000` to verify your setup.

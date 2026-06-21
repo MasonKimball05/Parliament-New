@@ -2,7 +2,7 @@
 
 This document outlines the security measures implemented in Parliament and best practices for maintaining a secure deployment.
 
-**Last Updated:** April 12, 2026 | **Version:** 2.11.1 | **Contact:** mason.kimball@icloud.com
+**Last Updated:** June 21, 2026 | **Version:** 3.10.0 | **Contact:** mason.kimball@icloud.com
 
 ---
 
@@ -29,8 +29,11 @@ This document outlines the security measures implemented in Parliament and best 
 
 ### Authentication
 - Password-based authentication via Django's `authenticate()` with PBKDF2-SHA256 hashing
-- Login rate limiting — 5 failed attempts triggers 15-minute lockout per IP
-- Account quarantine — accounts flagged by attack detection cannot log in until admin-released
+- **Passkeys (WebAuthn / FIDO2)** — passwordless login registered to the member's device
+- **Two-Factor Authentication (TOTP)** — authenticator app support with backup codes
+- **Breached password detection** — new passwords checked against known breach databases at registration and change
+- Per-account rate limiting — 5 failed attempts triggers 15-minute lockout, enforced in Redis across all server processes
+- Account quarantine — accounts flagged by attack detection cannot log in until admin-released (supports time-based auto-expiry)
 - Session tracking — active sessions visible to users on the preferences page with device/IP info
 - Password complexity enforcement — min 9 chars, uppercase, lowercase, number, special character
 
@@ -364,6 +367,28 @@ If you discover a security vulnerability:
 ---
 
 ## Security Updates Log
+
+### June 21, 2026 (v3.10.0)
+- Event sign-up waitlist uses `select_for_update()` on the Event row to prevent concurrent cap-check race conditions
+- `cache_utils.invalidate_user_session_caches` called on admin-side user edits to immediately bust stale preference and 2FA status caches
+- `nosniff` header added to audit log CSV export and signup roster CSV export
+
+### June 18, 2026 (v3.9.1)
+- Context processors (`two_factor_status`, `user_preferences`) now Redis-cached per user; caches invalidated on change
+- Auto-expiring quarantines — `QuarantinedAccount.expires_at` respected in all quarantine queries so stale records don't block the dashboard
+
+### May–June 2026 (v3.9.0)
+- Audit log viewer available in Admin v2 with CSV export
+- Activity logging sweep — expanded coverage to service events, recruitment, announcements
+
+### May 2026 (v3.8.0)
+- In-app security notifications — lockouts and suspicious logins (non-US) now surface in the notification bell in real time
+
+### April–May 2026 (v3.7.0)
+- Rate limiting changed from per-IP to per-account to prevent credential stuffing across distributed IPs; Redis-backed for multi-process consistency
+- Breached password detection added (registration and password change)
+- Session lifetime reduced; stricter cookie settings
+- CI pipeline adds `manage.py check --deploy` as a required gate
 
 ### April 7, 2026 (v2.11.0)
 - Auto-quarantine system for accounts triggering attack thresholds
