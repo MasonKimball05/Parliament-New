@@ -82,7 +82,7 @@ def committee_home(request, code):
     total_chairs = committee.chairs.count()
     total_advisors = committee.advisors.count()
     all_potential_voters = (committee.members.all() | committee.chairs.all()).distinct()
-    voting_members_count = all_potential_voters.exclude(pk__in=committee.voting_members.all()).count()
+    voting_members_count = all_potential_voters.filter(pk__in=committee.voting_members.all()).count()
     total_people = (committee.members.all() | committee.chairs.all() | committee.advisors.all()).distinct().count()
 
     # Document stats
