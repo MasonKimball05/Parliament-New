@@ -1513,60 +1513,6 @@ DOCUMENTS = [
                 ],
             },
             {
-                'number': 'Appendix',
-                'title': 'Appendix',
-                'sections': [
-                    {
-                        'number': '1',
-                        'title': 'Executive Interest Form — Required Fields',
-                        'content': (
-                            'The Executive Interest Form must be completed by any member wishing to be considered for an '
-                            'Executive Board position. The form must be made available to all active members, and notice of '
-                            'its publication must be sent to the full chapter. The form must include the following fields:\n\n'
-                            '1. Full Name\n'
-                            '2. Member ID (roll number)\n'
-                            '3. Current GPA and Academic Standing Level (see Section 2 of the Appendix)\n'
-                            '4. Position(s) of Interest — the member must list the position(s) he is applying for, in order of preference\n'
-                            '5. Current Semester and Expected Graduation Date — to confirm he will not graduate before the end of the term\n'
-                            '6. Outstanding Fines or Dues — disclosure of any outstanding financial obligations to the chapter or General Fraternity\n'
-                            '7. Outstanding Kai Cases — disclosure of any pending or unresolved Kai Committee cases\n'
-                            '8. Relevant Leadership Experience — a brief summary of past leadership roles, inside or outside the chapter\n'
-                            '9. Statement of Interest — a brief written statement (no more than one page) describing why the member is '
-                            'seeking the position(s) and what he hopes to accomplish during his term\n\n'
-                            'The Slating Committee Chair (President, or his designated replacement per Article II, Section 2 (2)) is '
-                            'responsible for collecting completed forms and distributing them to Slating Committee members prior to interviews.'
-                        ),
-                    },
-                    {
-                        'number': '2',
-                        'title': 'GPA Level Groupings for Slating',
-                        'content': (
-                            'For the purposes of officer slating, all applicants are assigned to one of three (3) academic levels based on '
-                            'their current GPA. The Slating Committee must prioritize Level 1 applicants before considering Level 2 or Level 3. '
-                            'The levels are defined as follows:\n\n'
-                            'Level 1 — Good Academic Standing\n'
-                            '   A member is in Level 1 if his GPA is at or above the All Men\'s Average (AMA) at Samford University '
-                            'or a 3.0, whichever is higher. Members in Level 1 are given first consideration by the Slating Committee '
-                            'before any members in Level 2 or Level 3 are evaluated.\n\n'
-                            'Level 2 — Academic Warning\n'
-                            '   A member is in Level 2 if his GPA falls within 0.2 grade points of the AMA or between a 2.8 and a 2.99, '
-                            'whichever is higher. The Slating Committee may consider Level 2 applicants only after exhausting Level 1 '
-                            'candidates for a given position. A supermajority vote of the Slating Committee is required to bypass a '
-                            'Level 2 applicant (per Article II, Section 2 (7)(c)(i)).\n\n'
-                            'Level 3 — Academic Probation\n'
-                            '   A member is in Level 3 if his GPA falls more than 0.2 grade points below the AMA or below a 2.8, '
-                            'whichever represents the stricter standard. This includes members on Probation One or Probation Two as defined '
-                            'in Article III, Section 4 of the Bylaws. Level 3 applicants are considered only after all Level 1 and Level 2 '
-                            'options have been exhausted. A supermajority vote of the Slating Committee is required to bypass a Level 3 '
-                            'applicant.\n\n'
-                            'Note: Regardless of academic level, all applicants must also satisfy the universal eligibility requirements '
-                            'listed in Article II, Section 2 (7)(c)(iv) of the Bylaws (no outstanding fines or dues, no outstanding Kai '
-                            'cases, active during the following term, and not graduating before the term ends).'
-                        ),
-                    },
-                ],
-            },
-            {
                 'number': 'X',
                 'title': 'Amendments to the Bylaws',
                 'sections': [
@@ -1610,6 +1556,72 @@ DOCUMENTS = [
                             'organizations or authorities, that amendment will be considered null and void.\n'
                             '3. Members cannot be held liable to amendments that are nulled or voided and charges cannot be brought '
                             'against a member for failing to follow such amendment.'
+                        ),
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        'doc_type': 'appendix',
+        'title': 'Appendix',
+        'articles': [
+            {
+                'number': '1',
+                'title': 'Executive Interest Form — Required Fields',
+                'sections': [
+                    {
+                        'number': '1',
+                        'title': '',
+                        'content': (
+                            'The Executive Interest Form must be completed by any member wishing to be considered for an '
+                            'Executive Board position. The form must be made available to all active members, and notice of '
+                            'its publication must be sent to the full chapter. The form must include the following fields:\n\n'
+                            '1. Full Name\n'
+                            '2. Member ID (roll number)\n'
+                            '3. Current GPA and Academic Standing Level (see Section 2 of the Appendix)\n'
+                            '4. Position(s) of Interest — the member must list the position(s) he is applying for, in order of preference\n'
+                            '5. Current Semester and Expected Graduation Date — to confirm he will not graduate before the end of the term\n'
+                            '6. Outstanding Fines or Dues — disclosure of any outstanding financial obligations to the chapter or General Fraternity\n'
+                            '7. Outstanding Kai Cases — disclosure of any pending or unresolved Kai Committee cases\n'
+                            '8. Relevant Leadership Experience — a brief summary of past leadership roles, inside or outside the chapter\n'
+                            '9. Statement of Interest — a brief written statement (no more than one page) describing why the member is '
+                            'seeking the position(s) and what he hopes to accomplish during his term\n\n'
+                            'The Slating Committee Chair (President, or his designated replacement per Article II, Section 2 (2)) is '
+                            'responsible for collecting completed forms and distributing them to Slating Committee members prior to interviews.'
+                        ),
+                    },
+                ],
+            },
+            {
+                'number': '2',
+                'title': 'GPA Level Groupings for Slating',
+                'sections': [
+                    {
+                        'number': '1',
+                        'title': '',
+                        'content': (
+                            'For the purposes of officer slating, all applicants are assigned to one of three (3) academic levels based on '
+                            'their current GPA. The Slating Committee must prioritize Level 1 applicants before considering Level 2 or Level 3. '
+                            'The levels are defined as follows:\n\n'
+                            'Level 1 — Good Academic Standing\n'
+                            '   A member is in Level 1 if his GPA is at or above the All Men\'s Average (AMA) at Samford University '
+                            'or a 3.0, whichever is higher. Members in Level 1 are given first consideration by the Slating Committee '
+                            'before any members in Level 2 or Level 3 are evaluated.\n\n'
+                            'Level 2 — Academic Warning\n'
+                            '   A member is in Level 2 if his GPA falls within 0.2 grade points of the AMA or between a 2.8 and a 2.99, '
+                            'whichever is higher. The Slating Committee may consider Level 2 applicants only after exhausting Level 1 '
+                            'candidates for a given position. A supermajority vote of the Slating Committee is required to bypass a '
+                            'Level 2 applicant (per Article II, Section 2 (7)(c)(i)).\n\n'
+                            'Level 3 — Academic Probation\n'
+                            '   A member is in Level 3 if his GPA falls more than 0.2 grade points below the AMA or below a 2.8, '
+                            'whichever represents the stricter standard. This includes members on Probation One or Probation Two as defined '
+                            'in Article III, Section 4 of the Bylaws. Level 3 applicants are considered only after all Level 1 and Level 2 '
+                            'options have been exhausted. A supermajority vote of the Slating Committee is required to bypass a Level 3 '
+                            'applicant.\n\n'
+                            'Note: Regardless of academic level, all applicants must also satisfy the universal eligibility requirements '
+                            'listed in Article II, Section 2 (7)(c)(iv) of the Bylaws (no outstanding fines or dues, no outstanding Kai '
+                            'cases, active during the following term, and not graduating before the term ends).'
                         ),
                     },
                 ],

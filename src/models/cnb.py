@@ -6,6 +6,7 @@ class GoverningDocument(models.Model):
     DOCUMENT_TYPES = [
         ('constitution', 'Constitution'),
         ('bylaws', 'Bylaws'),
+        ('appendix', 'Appendix'),
     ]
 
     doc_type = models.CharField(max_length=20, choices=DOCUMENT_TYPES, unique=True)
