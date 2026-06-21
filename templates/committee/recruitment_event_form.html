@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if editing %}Edit{% else %}New{% endif %} Recruitment Event — {{ committee.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+
+    <a href="{% if editing %}{% url 'recruitment_event_detail' committee.code re.id %}{% else %}{% url 'recruitment_dashboard' committee.code %}{% endif %}"
+       class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1 mb-6">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        {% if editing %}Back to Event{% else %}Recruitment Dashboard{% endif %}
+    </a>
+
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+        {% if editing %}Edit Recruitment Event{% else %}New Recruitment Event{% endif %}
+    </h1>
+
+    {% if messages %}
+    <div class="mb-4 space-y-2">
+        {% for msg in messages %}
+        <div class="p-3 rounded-md text-sm
+            {% if msg.tags == 'error' %}bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300
+            {% else %}bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300{% endif %}">
+            {{ msg }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" class="space-y-5">
+        {% csrf_token %}
+
+        <!-- Title -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Event Title <span class="text-red-500">*</span></label>
+            <input type="text" name="title" value="{{ post.title }}" required
+                   class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+        </div>
+
+        <!-- Date/Time -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date &amp; Time <span class="text-red-500">*</span></label>
+            <input type="datetime-local" name="date_time" value="{{ post.date_time }}" required
+                   class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+        </div>
+
+        <!-- Location -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location</label>
+            <input type="text" name="location" value="{{ post.location }}"
+                   class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                   placeholder="Room, address, or Zoom link">
+        </div>
+
+        <!-- Description -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+            <textarea name="description" rows="3"
+                      class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      placeholder="Public-facing event description (shown on the calendar)">{{ post.description }}</textarea>
+        </div>
+
+        <!-- Event Type + Visibility (2-col) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Event Type</label>
+                <select name="event_type"
+                        class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    {% for val, label in event_type_choices %}
+                    <option value="{{ val }}" {% if post.event_type == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Calendar Visibility</label>
+                <select name="visibility"
+                        class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    {% for val, label in visibility_choices %}
+                    <option value="{{ val }}" {% if post.visibility == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Controls who can see this event on the chapter calendar.</p>
+            </div>
+        </div>
+
+        <!-- Status -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+            <select name="status"
+                    class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                {% for val, label in status_choices %}
+                <option value="{{ val }}" {% if post.status == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Attendance / RSVP Type -->
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
+            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Attendance Type</h3>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Controls how member participation is tracked for this event.</p>
+            <div class="space-y-2">
+                <label class="flex items-start gap-3 cursor-pointer">
+                    <input type="radio" name="attendance_type" value="none"
+                           {% if post.attendance_type == 'none' or not post.attendance_type %}checked{% endif %}
+                           class="attendance-type-radio mt-0.5 h-4 w-4 text-purple-600 border-gray-300 dark:border-gray-600 focus:ring-purple-500">
+                    <span>
+                        <span class="block text-sm font-medium text-gray-800 dark:text-gray-200">None</span>
+                        <span class="block text-xs text-gray-500 dark:text-gray-400">Informational only — no attendance or sign-up tracking.</span>
+                    </span>
+                </label>
+                <label class="flex items-start gap-3 cursor-pointer">
+                    <input type="radio" name="attendance_type" value="signup"
+                           {% if post.attendance_type == 'signup' %}checked{% endif %}
+                           class="attendance-type-radio mt-0.5 h-4 w-4 text-purple-600 border-gray-300 dark:border-gray-600 focus:ring-purple-500">
+                    <span>
+                        <span class="block text-sm font-medium text-gray-800 dark:text-gray-200">RSVP / Sign-up</span>
+                        <span class="block text-xs text-gray-500 dark:text-gray-400">Members opt in. Shows a sign-up button on the calendar.</span>
+                    </span>
+                </label>
+                <label class="flex items-start gap-3 cursor-pointer">
+                    <input type="radio" name="attendance_type" value="attendance"
+                           {% if post.attendance_type == 'attendance' %}checked{% endif %}
+                           class="attendance-type-radio mt-0.5 h-4 w-4 text-purple-600 border-gray-300 dark:border-gray-600 focus:ring-purple-500">
+                    <span>
+                        <span class="block text-sm font-medium text-gray-800 dark:text-gray-200">Attendance Tracked</span>
+                        <span class="block text-xs text-gray-500 dark:text-gray-400">Members are expected to attend. Officers mark who showed up.</span>
+                    </span>
+                </label>
+            </div>
+
+            <!-- RSVP sub-options -->
+            <div id="signup-options" class="hidden mt-4 ml-7 p-4 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 space-y-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Maximum Sign-ups <span class="font-normal text-gray-400">(optional)</span>
+                    </label>
+                    <input type="number" name="max_signups" value="{{ post.max_signups }}"
+                           min="1" placeholder="Unlimited"
+                           class="w-32 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave blank to allow unlimited sign-ups.</p>
+                </div>
+            </div>
+
+            <!-- Attendance sub-options -->
+            <div id="attendance-options" class="hidden mt-4 ml-7 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 space-y-2">
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Who is expected to attend?</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 -mt-1 mb-2">Leave all unchecked to include everyone.</p>
+                {% for val, label in member_type_choices %}
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="expected_member_types" value="{{ val }}"
+                           {% if val in post.expected_member_types %}checked{% endif %}
+                           class="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500">
+                    <span class="text-sm text-gray-700 dark:text-gray-300">{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
+            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Internal Notes <span class="font-normal text-gray-400">(optional)</span></h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+                <div class="sm:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+                    <textarea name="notes" rows="3"
+                              class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                              placeholder="Internal notes about this event…">{{ post.notes }}</textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes Visibility</label>
+                    <select name="notes_visibility"
+                            class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        {% for val, label in notes_visibility_choices %}
+                        <option value="{{ val }}" {% if post.notes_visibility == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Submit -->
+        <div class="flex gap-3 pt-2">
+            <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-md shadow-sm">
+                {% if editing %}Save Changes{% else %}Create Event{% endif %}
+            </button>
+            <a href="{% if editing %}{% url 'recruitment_event_detail' committee.code re.id %}{% else %}{% url 'recruitment_dashboard' committee.code %}{% endif %}"
+               class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700">
+                Cancel
+            </a>
+        </div>
+    </form>
+
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+(function () {
+    const signupOpts     = document.getElementById('signup-options');
+    const attendanceOpts = document.getElementById('attendance-options');
+
+    function update() {
+        const val = document.querySelector('.attendance-type-radio:checked')?.value || 'none';
+        signupOpts.classList.toggle('hidden', val !== 'signup');
+        attendanceOpts.classList.toggle('hidden', val !== 'attendance');
+    }
+
+    document.querySelectorAll('.attendance-type-radio').forEach(r => r.addEventListener('change', update));
+    update(); // run on page load to restore state on POST errors
+})();
+</script>
+{% endblock %}

@@ -356,3 +356,142 @@ class ServiceHoursAdjustment(models.Model):
     def __str__(self):
         action = "granted" if self.hours > 0 else "deducted"
         return f"{abs(self.hours)} hrs {action} to {self.member.name} - {self.period.name}"
+
+
+class ServiceEvent(models.Model):
+    """
+    A planned service event that lives on the chapter calendar and automatically
+    awards hours to attendees when the VPP finalizes attendance.
+
+    Wraps a standard Event (so it appears on the calendar) and adds:
+      - hours_awarded: the hours every marked-present attendee receives
+      - period: which ServicePeriod the hours count toward
+      - email_reminder: optional custom-copy email sent N hours before the event
+      - hours_applied: set to True once finalize has created the submissions
+    """
+
+    # The underlying calendar event (created alongside this record)
+    event = models.OneToOneField(
+        'Event',
+        on_delete=models.CASCADE,
+        related_name='service_event',
+        help_text='Calendar event linked to this service event',
+    )
+
+    # Service-hours metadata
+    period = models.ForeignKey(
+        ServicePeriod,
+        on_delete=models.PROTECT,
+        related_name='service_events',
+        help_text='Which service period hours count toward',
+    )
+    hours_awarded = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        help_text='Hours credited to each member marked present',
+    )
+
+    # Email reminder (separate from the push-notification slots on Event)
+    email_reminder_enabled = models.BooleanField(
+        default=False,
+        help_text='Send a custom email reminder before the event',
+    )
+    email_reminder_hours_before = models.PositiveIntegerField(
+        default=24,
+        help_text='How many hours before the event to send the email reminder',
+    )
+    email_reminder_subject = models.CharField(
+        max_length=200, blank=True,
+        help_text='Email subject line',
+    )
+    email_reminder_body = models.TextField(
+        blank=True,
+        help_text='Email body (plain text). You may use {event_title}, {event_date}, {event_location}, {hours} as placeholders.',
+    )
+    email_reminder_sent_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='Set when the reminder email has been dispatched (null = not yet sent)',
+    )
+
+    # Optional per-member hours overrides set on the attendance page before finalizing.
+    # Stored as {str(user_pk): "decimal_string"} — only populated when a member's hours
+    # differ from hours_awarded. apply_hours() checks this before falling back to hours_awarded.
+    member_hours_override = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Per-member hours overrides: {str(user_pk): "decimal_hours"}',
+    )
+
+    # Finalization state
+    hours_applied = models.BooleanField(
+        default=False,
+        help_text='True once attendance has been finalized and submissions created',
+    )
+
+    # Audit
+    created_by = models.ForeignKey(
+        'ParliamentUser', on_delete=models.SET_NULL,
+        null=True, related_name='created_service_events',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-event__date_time']
+        verbose_name = 'Service Event'
+        verbose_name_plural = 'Service Events'
+
+    def __str__(self):
+        return f"{self.event.title} — {self.hours_awarded} hrs ({self.period.name})"
+
+    def get_present_attendees(self):
+        """Return Attendance queryset for members marked present at this event."""
+        return self.event.attendance_records.filter(status='present').select_related('user')
+
+    def get_hours_for_user(self, user_pk):
+        """
+        Return the hours this member should receive, respecting any per-member override.
+        Falls back to hours_awarded when no override is set.
+        """
+        override = (self.member_hours_override or {}).get(str(user_pk))
+        if override is not None:
+            try:
+                from decimal import Decimal
+                return Decimal(str(override))
+            except Exception:
+                pass
+        return self.hours_awarded
+
+    def apply_hours(self, finalized_by):
+        """
+        Create pre-approved ServiceHoursSubmission records for every member
+        marked present. Respects per-member hours overrides in member_hours_override.
+        Safe to call once only (guarded by hours_applied).
+        Returns the count of submissions created.
+        """
+        if self.hours_applied:
+            return 0
+
+        now = timezone.now()
+        created = 0
+        for record in self.get_present_attendees():
+            hours = self.get_hours_for_user(record.user.pk)
+            ServiceHoursSubmission.objects.create(
+                period=self.period,
+                submitted_by=record.user,
+                hours=hours,
+                service_date=self.event.date_time.date(),
+                organization=self.event.title,
+                description=(
+                    f'Attended service event: {self.event.title}. '
+                    f'Hours awarded automatically upon attendance finalization.'
+                ),
+                status='approved',
+                reviewed_by=finalized_by,
+                reviewed_at=now,
+                reviewer_notes='Auto-approved via service event attendance finalization.',
+            )
+            created += 1
+
+        self.hours_applied = True
+        self.save(update_fields=['hours_applied'])
+        return created

@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% block title %}Sign-Ups — {{ event.title }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-3xl">
+
+    <a href="{% url 'calendar' %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1 mb-4">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Calendar
+    </a>
+
+    <div class="flex items-start justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Sign-Ups</h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ event.title }} — {{ event.date_time|date:"N j, Y" }} at {{ event.date_time|date:"g:i A" }}</p>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="text-right">
+                <span class="text-2xl font-bold text-gray-900 dark:text-white">{{ signup_count }}</span>
+                {% if event.max_signups %}
+                <span class="text-lg text-gray-400 dark:text-gray-500"> / {{ event.max_signups }}</span>
+                {% endif %}
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">signed up</p>
+            </div>
+            {% if waitlist_count %}
+            <div class="text-right">
+                <span class="text-2xl font-bold text-amber-500 dark:text-amber-400">{{ waitlist_count }}</span>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">on waitlist</p>
+            </div>
+            {% endif %}
+            <a href="{% url 'event_signup_export' event.id %}"
+               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                Export CSV
+            </a>
+        </div>
+    </div>
+
+    {% if not event.signups_open %}
+    <div class="mb-4 p-3 rounded-md bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 text-sm">
+        Sign-ups are currently closed for this event.
+    </div>
+    {% endif %}
+
+    <!-- Confirmed sign-ups -->
+    {% if signups %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden mb-6">
+        <div class="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            Signed Up ({{ signup_count }})
+        </div>
+        <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for s in signups %}
+            <li class="flex items-center justify-between px-4 py-3">
+                <span class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ s.user.get_display_name }}</span>
+                <span class="text-xs text-gray-400 dark:text-gray-500">{{ s.signed_up_at|date:"M j, g:i A" }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% else %}
+    <div class="text-center py-12 text-gray-400 dark:text-gray-500 mb-6">
+        <p class="text-sm">No one has signed up yet.</p>
+    </div>
+    {% endif %}
+
+    <!-- Waitlist -->
+    {% if event.allow_waitlist %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-amber-200 dark:border-amber-700/50 overflow-hidden mb-6">
+        <div class="px-4 py-3 bg-amber-50 dark:bg-amber-900/20 text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-2">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Waitlist ({{ waitlist_count }})
+        </div>
+        {% if waitlist %}
+        <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for s in waitlist %}
+            <li class="flex items-center justify-between px-4 py-3">
+                <div class="flex items-center gap-3">
+                    <span class="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-bold">#{{ s.waitlist_position }}</span>
+                    <span class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ s.user.get_display_name }}</span>
+                </div>
+                <span class="text-xs text-gray-400 dark:text-gray-500">joined {{ s.signed_up_at|date:"M j, g:i A" }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="px-4 py-4 text-sm text-gray-400 dark:text-gray-500">No one on the waitlist.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Cancelled sign-ups (collapsed) -->
+    {% if cancelled %}
+    <details class="group">
+        <summary class="cursor-pointer text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 select-none list-none flex items-center gap-1">
+            <svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            {{ cancelled|length }} cancelled sign-up{{ cancelled|length|pluralize }}
+        </summary>
+        <div class="mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for s in cancelled %}
+                <li class="flex items-center justify-between px-4 py-3 opacity-60">
+                    <span class="text-sm text-gray-700 dark:text-gray-300 line-through">{{ s.user.get_display_name }}</span>
+                    <span class="text-xs text-gray-400 dark:text-gray-500">cancelled {{ s.cancelled_at|date:"M j" }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </details>
+    {% endif %}
+
+</div>
+{% endblock %}

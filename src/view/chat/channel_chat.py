@@ -151,6 +151,7 @@ def channel_chat(request, channel_id=None, code=None):
     messages = list(reversed(messages_batch))
 
     # Only update read receipt if user has normal access
+    first_unread_message_id = None
     if has_normal_access:
         from django.core.cache import cache as _cache
 
@@ -160,12 +161,22 @@ def channel_chat(request, channel_id=None, code=None):
             channel=channel
         )
 
+        # Capture read position BEFORE updating so we can show the "New Messages" divider
+        prev_last_read_id = receipt.last_read_message_id
+
         # Update receipt to mark all as read
         if messages:
             latest_message = messages_qs.first()
             if latest_message:
                 receipt.last_read_message = latest_message
                 receipt.save(update_fields=['last_read_message'])
+
+        # Find the first message in this page that the user hadn't seen yet
+        if prev_last_read_id is not None:
+            for msg in messages:
+                if msg.id > prev_last_read_id:
+                    first_unread_message_id = msg.id
+                    break
 
         # Invalidate the nav unread badge cache
         _cache.delete(f'chat_unread_{request.user.pk}')
@@ -208,6 +219,7 @@ def channel_chat(request, channel_id=None, code=None):
     return render(request, 'chat/channel.html', {
         'channel': channel,
         'initial_messages': messages,
+        'first_unread_message_id': first_unread_message_id,
         'has_more_messages': has_more_messages,
         'is_chair': is_chair,
         'is_vp': is_vp,
@@ -280,6 +292,15 @@ def get_channel_messages(request, channel_id=None, code=None):
     )
     # Must save to update last_read_at timestamp (auto_now=True only updates on save)
     receipt.save()
+
+    # For polling requests advance last_read_message so the nav badge clears
+    # even when new messages arrive via WebSocket while the user is on the page.
+    if since:
+        latest_msg = messages.last()
+        if latest_msg:
+            receipt.last_read_message = latest_msg
+            receipt.save(update_fields=['last_read_message'])
+
     _cache.delete(f'chat_unread_{request.user.pk}')
 
     messages_data = [{
@@ -634,4 +655,44 @@ def set_channel_notification_pref(request, channel_id=None, code=None):
         defaults={'level': level},
     )
 
-    return JsonResponse({'success': True, 'level': level})
+
+@login_required
+@require_feature_flag('chats')
+def dismiss_chat_unread(request):
+    """
+    Mark all channels as fully read, clearing the nav badge.
+    POST-only. Updates every ChatReadReceipt for this user to point to the
+    latest message in each channel, then invalidates the badge cache.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    from django.core.cache import cache as _cache
+    from django.db.models import OuterRef, Subquery
+
+    # Single query: annotate each receipt with the latest non-deleted message id
+    # in its channel, then bulk-update only the rows that are behind.
+    latest_msg_subquery = (
+        ChatMessage.objects
+        .filter(channel=OuterRef('channel'), is_deleted=False)
+        .order_by('-created_at')
+        .values('pk')[:1]
+    )
+
+    receipts = list(
+        ChatReadReceipt.objects
+        .filter(user=request.user)
+        .annotate(latest_msg_id=Subquery(latest_msg_subquery))
+    )
+
+    to_update = []
+    for receipt in receipts:
+        if receipt.latest_msg_id and receipt.last_read_message_id != receipt.latest_msg_id:
+            receipt.last_read_message_id = receipt.latest_msg_id
+            to_update.append(receipt)
+
+    if to_update:
+        ChatReadReceipt.objects.bulk_update(to_update, ['last_read_message'])
+
+    _cache.delete(f'chat_unread_{request.user.pk}')
+    return JsonResponse({'ok': True})

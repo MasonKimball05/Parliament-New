@@ -141,6 +141,13 @@
             </div>
             {% endif %}
             {% for msg in initial_messages %}
+                {% if first_unread_message_id and msg.id == first_unread_message_id %}
+                <div id="new-messages-divider" class="flex items-center gap-3 px-2 py-2 my-1 select-none" aria-label="New messages">
+                    <div class="flex-1 h-px bg-red-400 dark:bg-red-500"></div>
+                    <span class="text-xs font-semibold text-red-500 dark:text-red-400 whitespace-nowrap">New Messages</span>
+                    <div class="flex-1 h-px bg-red-400 dark:bg-red-500"></div>
+                </div>
+                {% endif %}
                 <div id="msg-{{ msg.id }}" data-sender-id="{{ msg.sender.user_id }}" data-timestamp="{{ msg.created_at.isoformat }}" class="msg-row flex gap-2 sm:gap-3 px-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 group transition-colors {% if msg.sender == request.user %}border-l-2 border-primary-300 dark:border-primary-600 pl-3{% endif %}" style="padding-top:2px;padding-bottom:2px;">
                     <!-- Avatar with profile picture or initials -->
                     {% if msg.sender.profile_picture %}
@@ -1449,8 +1456,15 @@
         if (btn) insertMention(btn.dataset.mentionUsername);
     });
 
-    // Initial scroll
-    scrollToBottom();
+    // Initial scroll — jump to unread divider if present, else bottom
+    (function () {
+        var divider = document.getElementById('new-messages-divider');
+        if (divider) {
+            divider.scrollIntoView({ block: 'start', behavior: 'instant' });
+        } else {
+            scrollToBottom();
+        }
+    })();
 </script>
 
 <!-- Profile Card Modal (opened by clicking @mentions) -->

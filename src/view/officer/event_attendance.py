@@ -19,8 +19,9 @@ def event_attendance_list(request):
     """
     List all events that require attendance tracking
     """
-    # Get events that require attendance
-    events = Event.objects.filter(requires_attendance=True).order_by('-date_time')
+    # Get events that require attendance; prefetch service_event so the template
+    # can detect service events without extra per-row queries.
+    events = Event.objects.filter(requires_attendance=True).select_related('service_event').order_by('-date_time')
 
     # Separate into upcoming and past
     now = timezone.now()

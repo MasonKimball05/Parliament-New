@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if editing %}Edit{% else %}Schedule{% endif %} Service Event{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+
+    <!-- Header -->
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{% if editing %}{% url 'service_event_detail' editing.id %}{% else %}{% url 'service_events_list' %}{% endif %}" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
+            {% if editing %}Edit{% else %}Schedule{% endif %} Service Event
+        </h1>
+    </div>
+
+    {% if messages %}
+    <div class="mb-4 space-y-2">
+        {% for msg in messages %}
+        <div class="p-3 rounded-md {% if msg.tags == 'error' %}bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300{% else %}bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300{% endif %} text-sm">
+            {{ msg }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+
+        <!-- Event Details -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Event Details</h2>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title <span class="text-red-500">*</span></label>
+                <input type="text" name="title" required
+                    value="{{ editing.event.title|default:post.title }}"
+                    class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm"
+                    placeholder="e.g. Habitat for Humanity Build Day">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date &amp; Time <span class="text-red-500">*</span></label>
+                <input type="datetime-local" name="date_time" required
+                    value="{{ editing.event.date_time|date:'Y-m-d\TH:i'|default:post.date_time }}"
+                    class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location</label>
+                <input type="text" name="location"
+                    value="{{ editing.event.location|default:post.location }}"
+                    class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm"
+                    placeholder="Address or virtual link">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                <textarea name="description" rows="3"
+                    class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm"
+                    placeholder="What are members doing?">{{ editing.event.description|default:post.description }}</textarea>
+            </div>
+        </div>
+
+        <!-- Service Hours Settings -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Service Hours</h2>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Service Period <span class="text-red-500">*</span></label>
+                <select name="period" required class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm">
+                    <option value="">Select period…</option>
+                    {% for p in periods %}
+                    <option value="{{ p.id }}"
+                        {% if editing and editing.period_id == p.id %}selected
+                        {% elif post.period == p.id|stringformat:"s" %}selected{% endif %}>
+                        {{ p.name }} ({{ p.start_date|date:"M d" }} – {{ p.end_date|date:"M d, Y" }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hours Awarded per Attendee <span class="text-red-500">*</span></label>
+                <input type="number" name="hours_awarded" required min="0.25" max="24" step="0.25"
+                    value="{{ editing.hours_awarded|default:post.hours_awarded }}"
+                    class="w-40 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm"
+                    placeholder="e.g. 3">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Every member marked <strong>Present</strong> receives this many hours when you finalize attendance.</p>
+            </div>
+        </div>
+
+        <!-- Push Notification Reminders -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Push Notification Reminders</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400 -mt-2">Sent as in-app push notifications to members who have them enabled.</p>
+
+            <!-- Reminder 1 -->
+            <div x-data="{ enabled: {% if editing %}{% if editing.event.reminder_1_enabled %}true{% else %}false{% endif %}{% elif post.reminder_1_enabled %}true{% else %}false{% endif %} }">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="reminder_1_enabled" x-model="enabled" class="rounded border-gray-300 text-green-600 focus:ring-green-500">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Enable reminder 1</span>
+                </label>
+                <div x-show="enabled" class="mt-2 flex items-center gap-2">
+                    <input type="number" name="reminder_1_hours_before" min="1" max="168"
+                        value="{{ editing.event.reminder_1_hours_before|default:post.reminder_1_hours_before|default:24 }}"
+                        class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">hours before the event</span>
+                </div>
+            </div>
+
+            <!-- Reminder 2 -->
+            <div x-data="{ enabled: {% if editing %}{% if editing.event.reminder_2_enabled %}true{% else %}false{% endif %}{% elif post.reminder_2_enabled %}true{% else %}false{% endif %} }">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="reminder_2_enabled" x-model="enabled" class="rounded border-gray-300 text-green-600 focus:ring-green-500">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Enable reminder 2</span>
+                </label>
+                <div x-show="enabled" class="mt-2 flex items-center gap-2">
+                    <input type="number" name="reminder_2_hours_before" min="1" max="168"
+                        value="{{ editing.event.reminder_2_hours_before|default:post.reminder_2_hours_before|default:1 }}"
+                        class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">hours before the event</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Email Reminder -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4"
+             x-data="{ enabled: {% if editing %}{% if editing.email_reminder_enabled %}true{% else %}false{% endif %}{% elif post.email_reminder_enabled %}true{% else %}false{% endif %} }">
+            <div class="flex items-start justify-between">
+                <div>
+                    <h2 class="text-base font-semibold text-gray-900 dark:text-white">Email Reminder</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">A custom email sent to all eligible members N hours before the event.</p>
+                </div>
+                <label class="flex items-center gap-2 cursor-pointer flex-shrink-0">
+                    <input type="checkbox" name="email_reminder_enabled" x-model="enabled" class="rounded border-gray-300 text-green-600 focus:ring-green-500">
+                    <span class="text-sm text-gray-700 dark:text-gray-300">Enable</span>
+                </label>
+            </div>
+
+            <div x-show="enabled" class="space-y-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Send</span>
+                    <input type="number" name="email_reminder_hours_before" min="1" max="168"
+                        value="{{ editing.email_reminder_hours_before|default:post.email_reminder_hours_before|default:24 }}"
+                        class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">hours before the event</span>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject</label>
+                    <input type="text" name="email_reminder_subject"
+                        value="{{ editing.email_reminder_subject|default:post.email_reminder_subject }}"
+                        class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm"
+                        placeholder="Reminder: Service Event Tomorrow">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Body</label>
+                    <textarea name="email_reminder_body" rows="6"
+                        class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-green-500 focus:ring-green-500 text-sm font-mono"
+                        placeholder="Hi everyone,&#10;&#10;Reminder that we have a service event tomorrow...">{{ editing.email_reminder_body|default:post.email_reminder_body }}</textarea>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                        Available placeholders: <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">{event_title}</code>
+                        <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">{event_date}</code>
+                        <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">{event_location}</code>
+                        <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">{hours}</code>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-end gap-3">
+            <a href="{% if editing %}{% url 'service_event_detail' editing.id %}{% else %}{% url 'service_events_list' %}{% endif %}"
+               class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700">
+                Cancel
+            </a>
+            <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md shadow-sm">
+                {% if editing %}Save Changes{% else %}Schedule Event{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -351,6 +351,8 @@ class ChatMessage(models.Model):
         indexes = [
             models.Index(fields=['channel', '-created_at']),
             models.Index(fields=['committee', '-created_at']),  # Legacy index
+            # Covers the unread-count subquery: filter(channel=X, is_deleted=False, created_at__gt=Y)
+            models.Index(fields=['channel', 'is_deleted', 'created_at'], name='chat_msg_channel_unread_idx'),
         ]
 
     def __str__(self):

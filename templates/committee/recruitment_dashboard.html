@@ -1,0 +1,268 @@
+{% extends 'base.html' %}
+
+{% block title %}Recruitment Dashboard — {{ committee.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-5xl">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <a href="{% url 'committee_home' committee.code %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1 mb-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                {{ committee.name }}
+            </a>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Recruitment Dashboard</h1>
+        </div>
+        <div class="flex gap-2 flex-shrink-0" id="header-actions">
+            {% if is_chair %}
+            <a href="{% url 'manage_recruitment_permissions' committee.code %}" class="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                Manage Permissions
+            </a>
+            {% endif %}
+            {% if can_manage %}
+            <a href="{% url 'create_recruitment_event' committee.code %}" class="px-3 py-1.5 text-sm font-medium rounded-md bg-purple-600 hover:bg-purple-700 text-white">
+                + New Event
+            </a>
+            {% if can_view_private %}
+            <a href="{% url 'create_candidate' committee.code %}" class="px-3 py-1.5 text-sm font-medium rounded-md border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20">
+                + Add Candidate
+            </a>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="mb-4 space-y-2">
+        {% for msg in messages %}
+        <div class="p-3 rounded-md text-sm
+            {% if msg.tags == 'error' %}bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300
+            {% elif msg.tags == 'warning' %}bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300
+            {% else %}bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300{% endif %}">
+            {{ msg }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Tabs -->
+    <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
+        <nav class="flex gap-6" aria-label="Tabs">
+            <button data-tab="events"
+                    class="tab-btn pb-3 text-sm font-medium border-b-2 transition-colors"
+                    :class="active === 'events' ? 'border-purple-600 text-purple-600 dark:text-purple-400 dark:border-purple-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'">
+                Events
+            </button>
+            {% if can_view_private %}
+            <button data-tab="candidates"
+                    class="tab-btn pb-3 text-sm font-medium border-b-2 transition-colors"
+                    :class="active === 'candidates' ? 'border-purple-600 text-purple-600 dark:text-purple-400 dark:border-purple-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'">
+                Candidates{% if candidates %} <span class="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">{{ candidates|length }}</span>{% endif %}
+            </button>
+            {% endif %}
+        </nav>
+    </div>
+
+    <!-- Events tab -->
+    <div id="tab-events">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Upcoming Events</h2>
+        {% if upcoming %}
+        <div class="space-y-3 mb-8">
+            {% for re in upcoming %}
+            <a href="{% url 'recruitment_event_detail' committee.code re.id %}"
+               class="block bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:border-purple-400 dark:hover:border-purple-500 transition p-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-sm font-medium text-white px-2 py-0.5 rounded-full
+                                {% if re.event_type == 'info_session' %}bg-blue-500
+                                {% elif re.event_type == 'interview' %}bg-orange-500
+                                {% elif re.event_type == 'rush_event' %}bg-pink-500
+                                {% elif re.event_type == 'deliberation' %}bg-red-600
+                                {% else %}bg-gray-500{% endif %}">
+                                {{ re.get_event_type_display }}
+                            </span>
+                            {% if re.visibility == 'committee_only' %}
+                            <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">Committee Only</span>
+                            {% endif %}
+                            <span class="text-xs px-2 py-0.5 rounded-full font-medium
+                                {% if re.status == 'planned' %}bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400
+                                {% elif re.status == 'in_progress' %}bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400
+                                {% elif re.status == 'completed' %}bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400
+                                {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500{% endif %}">
+                                {{ re.get_status_display }}
+                            </span>
+                        </div>
+                        <p class="text-base font-semibold text-gray-900 dark:text-white mt-1 truncate">{{ re.event.title }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                            {{ re.event.date_time|date:"l, F j, Y" }} at {{ re.event.date_time|time:"g:i A" }}
+                            {% if re.event.location %} · {{ re.event.location }}{% endif %}
+                        </p>
+                    </div>
+                    <div class="text-right text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">
+                        {% if re.event.requires_signup %}
+                        <p>{{ re.signup_count }} signed up{% if re.event.max_signups %} / {{ re.event.max_signups }}{% endif %}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center mb-8">
+            <p class="text-gray-500 dark:text-gray-400 text-sm">No upcoming recruitment events.</p>
+            {% if can_manage %}
+            <a href="{% url 'create_recruitment_event' committee.code %}" class="mt-3 inline-block text-sm text-purple-600 dark:text-purple-400 hover:underline">Create the first one →</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if past %}
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Past Events</h2>
+        <div class="space-y-2">
+            {% for re in past %}
+            <a href="{% url 'recruitment_event_detail' committee.code re.id %}"
+               class="flex items-center justify-between gap-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 transition px-4 py-3 opacity-80 hover:opacity-100">
+                <div class="min-w-0">
+                    <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{{ re.event.title }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ re.event.date_time|date:"M j, Y" }} · {{ re.get_event_type_display }}</p>
+                </div>
+                <span class="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0
+                    {% if re.status == 'completed' %}bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400
+                    {% elif re.status == 'cancelled' %}bg-gray-100 dark:bg-gray-700 text-gray-500
+                    {% else %}bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400{% endif %}">
+                    {{ re.get_status_display }}
+                </span>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Candidates tab -->
+    {% if can_view_private %}
+    <div id="tab-candidates" class="hidden">
+        <div class="flex items-center justify-between mb-4">
+            <p class="text-sm text-gray-500 dark:text-gray-400">Prospective members being tracked this cycle.</p>
+            {% if can_manage %}
+            <a href="{% url 'create_candidate' committee.code %}"
+               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white">
+                + Add Candidate
+            </a>
+            {% endif %}
+        </div>
+
+        {% if candidates %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 dark:bg-gray-700/50 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <tr>
+                        <th class="px-4 py-3 text-left">Name</th>
+                        <th class="px-4 py-3 text-left">Status</th>
+                        <th class="px-4 py-3 text-left hidden sm:table-cell">Assigned To</th>
+                        <th class="px-4 py-3 text-left hidden md:table-cell">Last Contacted</th>
+                        <th class="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% for c in candidates %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+                        <td class="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
+                            {{ c.name }}
+                            {% if c.email or c.phone %}
+                            <div class="text-xs text-gray-400 dark:text-gray-500 font-normal mt-0.5">
+                                {% if c.email %}{{ c.email }}{% endif %}{% if c.email and c.phone %} · {% endif %}{% if c.phone %}{{ c.phone }}{% endif %}
+                            </div>
+                            {% endif %}
+                            {% if c.notes %}
+                            <div class="text-xs text-gray-400 dark:text-gray-500 italic mt-0.5 truncate max-w-xs">{{ c.notes|truncatechars:80 }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                                {% if c.status == 'accepted' %}bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300
+                                {% elif c.status == 'declined' or c.status == 'rejected' %}bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300
+                                {% elif c.status == 'bid' %}bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300
+                                {% elif c.status == 'invited' %}bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300
+                                {% else %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                                {{ c.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-gray-600 dark:text-gray-400 hidden sm:table-cell">
+                            {{ c.assigned_to.get_display_name|default:"—" }}
+                        </td>
+                        <td class="px-4 py-3 text-gray-500 dark:text-gray-400 hidden md:table-cell text-xs">
+                            {{ c.last_contacted|date:"M j, Y"|default:"—" }}
+                        </td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap">
+                            <a href="{% url 'edit_candidate' committee.code c.id %}" class="text-xs text-purple-600 dark:text-purple-400 hover:underline mr-3">Edit</a>
+                            {% if can_manage %}
+                            <form method="post" action="{% url 'delete_candidate' committee.code c.id %}" class="inline"
+                                  onsubmit="return confirm('Remove {{ c.name }}?')">
+                                {% csrf_token %}
+                                <button type="submit" class="text-xs text-red-500 dark:text-red-400 hover:underline">Delete</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <svg class="w-10 h-10 mx-auto mb-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            <p class="text-sm text-gray-500 dark:text-gray-400">No candidates yet.</p>
+            {% if can_manage %}
+            <a href="{% url 'create_candidate' committee.code %}" class="mt-2 inline-block text-sm text-purple-600 dark:text-purple-400 hover:underline">Add the first one →</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+(function () {
+    const ACTIVE = 'border-purple-600 text-purple-600 dark:text-purple-400 dark:border-purple-400';
+    const INACTIVE = 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200';
+
+    function activate(tab) {
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            const isActive = btn.dataset.tab === tab;
+            btn.classList.toggle('border-purple-600', isActive);
+            btn.classList.toggle('text-purple-600', isActive);
+            btn.classList.toggle('dark:text-purple-400', isActive);
+            btn.classList.toggle('dark:border-purple-400', isActive);
+            btn.classList.toggle('border-transparent', !isActive);
+            btn.classList.toggle('text-gray-500', !isActive);
+            btn.classList.toggle('dark:text-gray-400', !isActive);
+        });
+
+        document.querySelectorAll('[id^="tab-"]').forEach(el => {
+            el.classList.toggle('hidden', el.id !== 'tab-' + tab);
+        });
+
+        // Update URL without reload
+        const url = new URL(window.location);
+        if (tab === 'events') {
+            url.searchParams.delete('tab');
+        } else {
+            url.searchParams.set('tab', tab);
+        }
+        history.replaceState(null, '', url);
+    }
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => activate(btn.dataset.tab));
+    });
+
+    // Honour server-provided active tab (e.g. redirect back after add/delete)
+    activate('{{ active_tab|escapejs }}');
+})();
+</script>
+{% endblock %}

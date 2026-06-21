@@ -52,18 +52,21 @@ def notifications(request):
         chat_cache_key = f'chat_unread_{request.user.pk}'
         unread_chat = cache.get(chat_cache_key)
         if unread_chat is None:
-            from django.db.models import OuterRef, Subquery, IntegerField, Value, Count
+            from django.db.models import OuterRef, Subquery, IntegerField, Value, Count, Sum, Case, When
             from django.db.models.functions import Coalesce
             from src.models import ChatReadReceipt, ChatMessage
 
-            # Subquery: messages in the receipt's channel that are newer than last_read
+            # Subquery: messages in the receipt's channel that are newer than last_read.
+            # NOTE: when this filter matches 0 rows, the GROUP BY produces 0 rows, so the
+            # subquery returns NULL — not 0. We handle that with Case/When below.
             newer_msgs = ChatMessage.objects.filter(
                 channel=OuterRef('channel'),
                 is_deleted=False,
                 created_at__gt=OuterRef('last_read_message__created_at'),
             ).values('channel').annotate(n=Count('id')).values('n')
 
-            # Receipts with no last_read_message: count all non-deleted messages
+            # Fallback when last_read_message is NULL (receipt exists but user has never
+            # opened the channel): treat all messages as unread.
             all_msgs = ChatMessage.objects.filter(
                 channel=OuterRef('channel'),
                 is_deleted=False,
@@ -73,15 +76,28 @@ def notifications(request):
                 ChatReadReceipt.objects
                 .filter(user=request.user, channel__isnull=False)
                 .annotate(
-                    unread=Coalesce(
-                        Subquery(newer_msgs[:1], output_field=IntegerField()),
-                        Subquery(all_msgs[:1], output_field=IntegerField()),
-                        Value(0),
+                    unread=Case(
+                        # last_read_message IS set → NULL from subquery means 0 newer messages
+                        When(
+                            last_read_message__isnull=False,
+                            then=Coalesce(
+                                Subquery(newer_msgs[:1], output_field=IntegerField()),
+                                Value(0),
+                                output_field=IntegerField(),
+                            ),
+                        ),
+                        # last_read_message IS NULL → count all messages as unread
+                        default=Coalesce(
+                            Subquery(all_msgs[:1], output_field=IntegerField()),
+                            Value(0),
+                            output_field=IntegerField(),
+                        ),
                         output_field=IntegerField(),
                     )
                 )
             )
-            unread_chat = min(sum(r.unread for r in receipts), 99)
+            # Push the final sum into SQL rather than iterating in Python.
+            unread_chat = min(receipts.aggregate(total=Sum('unread'))['total'] or 0, 99)
             cache.set(chat_cache_key, unread_chat, 30)
 
         return {

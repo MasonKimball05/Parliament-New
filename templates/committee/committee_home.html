@@ -46,6 +46,15 @@
 
             <!-- Action buttons -->
             <div class="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+                {% if committee.is_recruitment_committee %}
+                <a href="{% url 'recruitment_dashboard' committee.code %}"
+                   class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/20 hover:bg-white/30 text-white transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    Recruitment Dashboard
+                </a>
+                {% endif %}
                 {% if feature_flags.chats %}
                 <a href="{% url 'committee_chat' committee.code %}"
                    class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/20 hover:bg-white/30 text-white transition">
@@ -454,6 +463,57 @@
         </div>
         {% else %}
         <p class="text-sm text-gray-400 dark:text-gray-500 text-center py-6 italic">No recent reports</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Recruitment Dashboard (recruitment committee members) -->
+    {% if committee.is_recruitment_committee %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Recruitment Events</h2>
+                {% if recruitment_total %}
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ recruitment_total }} total event{{ recruitment_total|pluralize }}</p>
+                {% endif %}
+            </div>
+            <div class="flex items-center gap-2">
+                {% if is_chair %}
+                <a href="{% url 'manage_recruitment_permissions' committee.code %}" class="text-xs border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 px-3 py-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                    Permissions
+                </a>
+                {% endif %}
+                {% if recruitment_can_manage %}
+                <a href="{% url 'create_recruitment_event' committee.code %}" class="text-xs bg-purple-600 text-white px-3 py-1.5 rounded hover:bg-purple-700 transition">
+                    + New Event
+                </a>
+                {% endif %}
+                <a href="{% url 'recruitment_dashboard' committee.code %}" class="text-xs border border-purple-400 dark:border-purple-600 text-purple-600 dark:text-purple-400 px-3 py-1.5 rounded hover:bg-purple-50 dark:hover:bg-purple-900/20 transition">
+                    Dashboard
+                </a>
+            </div>
+        </div>
+        {% if recruitment_upcoming %}
+        <div class="space-y-2">
+            {% for re in recruitment_upcoming %}
+            <a href="{% url 'recruitment_event_detail' committee.code re.id %}"
+               class="flex items-center justify-between gap-3 border border-gray-100 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 rounded-lg px-4 py-3 transition">
+                <div class="min-w-0">
+                    <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ re.event.title }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ re.event.date_time|date:"M j" }} at {{ re.event.date_time|time:"g:i A" }} · {{ re.get_event_type_display }}</p>
+                </div>
+                <span class="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0
+                    {% if re.status == 'planned' %}bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400
+                    {% elif re.status == 'in_progress' %}bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400
+                    {% elif re.status == 'completed' %}bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400
+                    {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500{% endif %}">
+                    {{ re.get_status_display }}
+                </span>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 dark:text-gray-500 text-center py-6 italic">No upcoming recruitment events</p>
         {% endif %}
     </div>
     {% endif %}

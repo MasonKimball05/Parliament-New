@@ -58,6 +58,7 @@ from src.models.announcements import (
 # Events
 from src.models.events import (
     Event,
+    EventSignup,
     Attendance,
     AttendanceExcuse,
     EventReminderLog,
@@ -109,6 +110,7 @@ from src.models.service import (
     ServiceFieldResponse,
     ServiceActivity,
     ServiceHoursAdjustment,
+    ServiceEvent,
 )
 
 # Security
@@ -179,6 +181,14 @@ from src.models.api import APIToken, APIAccessLog, DEFINED_SCOPES, ALL_SCOPE_KEY
 # Admin Action Audit Log
 from src.models.admin_audit import AdminActionLog, log_admin_action
 
+# Recruitment
+from src.models.recruitment import (
+    RecruitmentCandidate,
+    RecruitmentEvent,
+    RecruitmentEventRSVP,
+    RecruitmentMemberPermission,
+)
+
 # Constitution & Bylaws Builder
 from src.models.cnb import (
     GoverningDocument,
@@ -234,6 +244,7 @@ __all__ = [
     'AnnouncementEmailRecipient',
     # Events
     'Event',
+    'EventSignup',
     'Attendance',
     'AttendanceExcuse',
     'EventReminderLog',
@@ -273,6 +284,7 @@ __all__ = [
     'ServiceFieldResponse',
     'ServiceActivity',
     'ServiceHoursAdjustment',
+    'ServiceEvent',
     # Security
     'LoginHistory',
     'LoginAlert',
@@ -331,4 +343,9 @@ __all__ = [
     # Admin Audit Log
     'AdminActionLog',
     'log_admin_action',
+    # Recruitment
+    'RecruitmentCandidate',
+    'RecruitmentEvent',
+    'RecruitmentEventRSVP',
+    'RecruitmentMemberPermission',
 ]

@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+
+{% block title %}Recruitment Permissions — {{ committee.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+
+    <a href="{% url 'recruitment_dashboard' committee.code %}"
+       class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1 mb-6">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Recruitment Dashboard
+    </a>
+
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Recruitment Permissions</h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Chairs always have full access. Grant elevated permissions to committee members below.</p>
+        </div>
+        <button id="reset-btn"
+                class="px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition">
+            Reset All
+        </button>
+    </div>
+
+    {% if messages %}
+    <div class="mb-4 space-y-2">
+        {% for msg in messages %}
+        <div class="p-3 rounded-md text-sm bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300">{{ msg }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 dark:bg-gray-700/50">
+                <tr>
+                    <th class="text-left px-5 py-3 text-gray-600 dark:text-gray-300 font-semibold">Member</th>
+                    <th class="text-center px-4 py-3 text-gray-600 dark:text-gray-300 font-semibold text-xs">Manage Events</th>
+                    <th class="text-center px-4 py-3 text-gray-600 dark:text-gray-300 font-semibold text-xs">View Private</th>
+                    <th class="text-center px-4 py-3 text-gray-600 dark:text-gray-300 font-semibold text-xs">Take Attendance</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for row in member_rows %}
+                <tr class="{% if row.is_chair %}bg-purple-50 dark:bg-purple-900/10{% endif %}">
+                    <td class="px-5 py-3">
+                        <span class="font-medium text-gray-900 dark:text-white">{{ row.member.get_display_name }}</span>
+                        {% if row.is_chair %}
+                        <span class="ml-2 text-xs text-purple-600 dark:text-purple-400 font-medium">Chair</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center px-4 py-3">
+                        {% if row.is_chair %}<input type="checkbox" checked disabled class="w-4 h-4 rounded text-purple-600 border-gray-300 opacity-50 cursor-not-allowed">
+                        {% else %}<input type="checkbox" {% if row.can_manage_events %}checked{% endif %} class="w-4 h-4 rounded text-purple-600 border-gray-300 dark:border-gray-600 focus:ring-purple-500 js-perm-toggle cursor-pointer" data-user-id="{{ row.member.user_id }}" data-field="can_manage_events" data-code="{{ committee.code }}">{% endif %}
+                    </td>
+                    <td class="text-center px-4 py-3">
+                        {% if row.is_chair %}<input type="checkbox" checked disabled class="w-4 h-4 rounded text-purple-600 border-gray-300 opacity-50 cursor-not-allowed">
+                        {% else %}<input type="checkbox" {% if row.can_view_private %}checked{% endif %} class="w-4 h-4 rounded text-purple-600 border-gray-300 dark:border-gray-600 focus:ring-purple-500 js-perm-toggle cursor-pointer" data-user-id="{{ row.member.user_id }}" data-field="can_view_private" data-code="{{ committee.code }}">{% endif %}
+                    </td>
+                    <td class="text-center px-4 py-3">
+                        {% if row.is_chair %}<input type="checkbox" checked disabled class="w-4 h-4 rounded text-purple-600 border-gray-300 opacity-50 cursor-not-allowed">
+                        {% else %}<input type="checkbox" {% if row.can_take_attendance %}checked{% endif %} class="w-4 h-4 rounded text-purple-600 border-gray-300 dark:border-gray-600 focus:ring-purple-500 js-perm-toggle cursor-pointer" data-user-id="{{ row.member.user_id }}" data-field="can_take_attendance" data-code="{{ committee.code }}">{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-4">
+        <strong>Manage Events</strong> — can create, edit, and delete recruitment events.<br>
+        <strong>View Private</strong> — can see committee-only notes and candidate/prospect lists.<br>
+        <strong>Take Attendance</strong> — can mark RSVP check-ins during events.
+    </p>
+
+</div>
+
+<script>
+var pendingUpdates = {};
+
+document.querySelectorAll('.js-perm-toggle').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+        var userId = this.dataset.userId;
+        var field = this.dataset.field;
+        var code = this.dataset.code;
+
+        if (!pendingUpdates[userId]) pendingUpdates[userId] = {};
+        pendingUpdates[userId][field] = this.checked;
+
+        clearTimeout(this._debounce);
+        var self = this;
+        this._debounce = setTimeout(function() {
+            // Collect all current checkbox values for this user
+            var formData = new FormData();
+            document.querySelectorAll('.js-perm-toggle[data-user-id="' + userId + '"]').forEach(function(c) {
+                formData.append(c.dataset.field, c.checked ? 'true' : 'false');
+            });
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+            fetch('/api/committee/' + code + '/recruitment-permissions/' + userId + '/update/', {
+                method: 'POST',
+                body: formData,
+            }).then(function(r) {
+                if (!r.ok) {
+                    self.checked = !self.checked;
+                }
+            }).catch(function() {
+                self.checked = !self.checked;
+            });
+        }, 300);
+    });
+});
+
+document.getElementById('reset-btn').addEventListener('click', function() {
+    if (!confirm('Reset all recruitment permissions to default (no access for non-chairs)?')) return;
+    fetch('/api/committee/{{ committee.code }}/recruitment-permissions/reset/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+    }).then(function(r) {
+        if (r.ok) { location.reload(); }
+    });
+});
+</script>
+{% endblock %}

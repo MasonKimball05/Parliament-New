@@ -2,6 +2,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.db import models
+from django.db.models import Count, Q
 from django.core.paginator import Paginator
 from django.contrib import messages
 from datetime import timedelta
@@ -55,8 +56,12 @@ def manage_events(request):
 
     # For series view, add instance counts
     if show_filter == 'series':
-        from django.db.models import Count
         events = events.annotate(instance_count=Count('recurring_instances'))
+
+    # Annotate signup counts for sign-up events
+    events = events.annotate(
+        signup_count=Count('signups', filter=Q(signups__is_cancelled=False))
+    )
 
     # Pagination - 25 events per page
     paginator = Paginator(events, 25)

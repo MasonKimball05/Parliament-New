@@ -55,6 +55,24 @@ SCHEDULES = [
     },
 
     # -------------------------------------------------------------------------
+    # Service event email reminders — every 15 minutes
+    # -------------------------------------------------------------------------
+    {
+        'name': 'Send service event email reminders',
+        'task': 'tasks.send_service_event_email_reminders',
+        'interval': {'every': 15, 'period': IntervalSchedule.MINUTES},
+    },
+
+    # -------------------------------------------------------------------------
+    # Recruitment RSVP reminders (push + email) — every 15 minutes
+    # -------------------------------------------------------------------------
+    {
+        'name': 'Send recruitment RSVP reminders',
+        'task': 'tasks.send_recruitment_rsvp_reminders',
+        'interval': {'every': 15, 'period': IntervalSchedule.MINUTES},
+    },
+
+    # -------------------------------------------------------------------------
     # Housekeeping — daily tasks (3:00–3:30 AM CST = 09:00–09:30 UTC)
     # -------------------------------------------------------------------------
     {

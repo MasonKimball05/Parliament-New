@@ -1,0 +1,241 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ re.event.title }} — Recruitment{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-3xl">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+        <div>
+            <a href="{% url 'recruitment_dashboard' committee.code %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1 mb-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                Recruitment Dashboard
+            </a>
+            <div class="flex items-center gap-2 flex-wrap mb-1">
+                <span class="text-sm font-medium text-white px-2 py-0.5 rounded-full
+                    {% if re.event_type == 'info_session' %}bg-blue-500
+                    {% elif re.event_type == 'interview' %}bg-orange-500
+                    {% elif re.event_type == 'rush_event' %}bg-pink-500
+                    {% elif re.event_type == 'deliberation' %}bg-red-600
+                    {% else %}bg-gray-500{% endif %}">
+                    {{ re.get_event_type_display }}
+                </span>
+                {% if re.visibility == 'committee_only' %}
+                <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">Committee Only</span>
+                {% endif %}
+                <span class="text-xs px-2 py-0.5 rounded-full font-medium
+                    {% if re.status == 'planned' %}bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400
+                    {% elif re.status == 'in_progress' %}bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400
+                    {% elif re.status == 'completed' %}bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400
+                    {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500{% endif %}">
+                    {{ re.get_status_display }}
+                </span>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ re.event.title }}</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {{ re.event.date_time|date:"l, F j, Y" }} at {{ re.event.date_time|time:"g:i A" }}
+                {% if re.event.location %} · {{ re.event.location }}{% endif %}
+            </p>
+        </div>
+        {% if can_manage %}
+        <div class="flex gap-2 flex-shrink-0">
+            <a href="{% url 'edit_recruitment_event' committee.code re.id %}"
+               class="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Edit</a>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if messages %}
+    <div class="mb-4 space-y-2">
+        {% for msg in messages %}
+        <div class="p-3 rounded-md text-sm
+            {% if msg.tags == 'error' %}bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300
+            {% else %}bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300{% endif %}">
+            {{ msg }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Stats row -->
+    {% if uses_signup %}
+    <div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 text-center">
+            <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ signup_count }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">signed up{% if re.event.max_signups %} / {{ re.event.max_signups }} max{% endif %}</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 text-center">
+            <p class="text-2xl font-bold text-gray-500 dark:text-gray-400">{{ re.event.max_signups|default:"∞" }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">capacity</p>
+        </div>
+    </div>
+    {% else %}
+    <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 text-center">
+            <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ going_count }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">going</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 text-center">
+            <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ checked_in_count }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">checked in</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 text-center">
+            <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ rsvps.count }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">total RSVPs</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Description -->
+    {% if re.event.description %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5 mb-6">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Description</h2>
+        <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{{ re.event.description }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Internal Notes (private) -->
+    {% if can_view_private and re.notes %}
+    <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-5 mb-6">
+        <div class="flex items-center gap-2 mb-2">
+            <h2 class="text-sm font-semibold text-purple-800 dark:text-purple-300">Internal Notes</h2>
+            {% if re.notes_visibility == 'committee_only' %}
+            <span class="text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400">Committee Only</span>
+            {% endif %}
+        </div>
+        <p class="text-sm text-purple-900 dark:text-purple-200 whitespace-pre-line">{{ re.notes }}</p>
+    </div>
+    {% elif re.notes and re.notes_visibility == 'public' %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5 mb-6">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Notes</h2>
+        <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{{ re.notes }}</p>
+    </div>
+    {% endif %}
+
+
+    <!-- Sign-up / RSVP Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+        <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-base font-semibold text-gray-900 dark:text-white">
+                {% if uses_signup %}Sign-Ups{% else %}RSVPs{% endif %}
+            </h2>
+            {% if uses_signup %}
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Members sign up via the chapter calendar.</p>
+            {% endif %}
+        </div>
+
+        {% if uses_signup %}
+        <!-- EventSignup list -->
+        {% if signups %}
+        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for s in signups %}
+            <div class="px-5 py-3 flex items-center justify-between">
+                <span class="text-sm text-gray-800 dark:text-gray-200">{{ s.user.get_display_name }}</span>
+                <span class="text-xs text-gray-400 dark:text-gray-500">{{ s.signed_up_at|date:"M j, g:i A" }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+            No sign-ups yet.
+        </div>
+        {% endif %}
+
+        {% else %}
+        <!-- Legacy RecruitmentEventRSVP flow -->
+        {% if not re.is_past %}
+        <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+            <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Your RSVP</p>
+            <form method="post" class="flex gap-2 flex-wrap">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="rsvp">
+                {% for val, label in re.rsvps.model.RSVP_STATUS_CHOICES %}
+                <button type="submit" name="rsvp_status" value="{{ val }}"
+                        class="px-3 py-1.5 text-sm rounded-md border transition
+                            {% if user_rsvp and user_rsvp.status == val %}
+                                {% if val == 'going' %}bg-green-600 border-green-600 text-white
+                                {% elif val == 'maybe' %}bg-yellow-500 border-yellow-500 text-white
+                                {% else %}bg-gray-500 border-gray-500 text-white{% endif %}
+                            {% else %}border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700{% endif %}">
+                    {{ label }}
+                </button>
+                {% endfor %}
+            </form>
+        </div>
+        {% endif %}
+
+        {% if rsvps %}
+        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for rsvp in rsvps %}
+            <div class="px-5 py-3 flex items-center justify-between" id="rsvp-row-{{ rsvp.user.user_id }}">
+                <div class="flex items-center gap-3">
+                    <span class="text-sm text-gray-800 dark:text-gray-200">{{ rsvp.user.get_display_name }}</span>
+                    <span class="text-xs font-medium px-2 py-0.5 rounded-full
+                        {% if rsvp.status == 'going' %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+                        {% elif rsvp.status == 'maybe' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                        {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                        {{ rsvp.get_status_display }}
+                    </span>
+                </div>
+                {% if can_take_attendance %}
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" {% if rsvp.checked_in %}checked{% endif %}
+                           class="w-4 h-4 rounded text-purple-600 border-gray-300 dark:border-gray-600 focus:ring-purple-500 js-checkin-toggle"
+                           data-user-id="{{ rsvp.user.user_id }}"
+                           data-event-id="{{ re.id }}"
+                           data-code="{{ committee.code }}">
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Checked in</span>
+                </label>
+                {% else %}
+                {% if rsvp.checked_in %}
+                <span class="text-xs text-green-600 dark:text-green-400 font-medium">✓ Attended</span>
+                {% endif %}
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+            No RSVPs yet.
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+
+    <!-- Danger Zone -->
+    {% if can_manage %}
+    <div class="border border-red-200 dark:border-red-800 rounded-lg p-5">
+        <h3 class="text-sm font-semibold text-red-700 dark:text-red-400 mb-2">Danger Zone</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Deleting this recruitment event also removes it from the chapter calendar. This cannot be undone.</p>
+        <form method="post" action="{% url 'delete_recruitment_event' committee.code re.id %}"
+              onsubmit="return confirm('Delete this recruitment event?')">
+            {% csrf_token %}
+            <button type="submit" class="px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md">Delete Event</button>
+        </form>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+document.querySelectorAll('.js-checkin-toggle').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+        var userId = this.dataset.userId;
+        var code = this.dataset.code;
+        var eventId = this.dataset.eventId;
+        var checked = this.checked;
+        var formData = new FormData();
+        formData.append('action', 'check_in');
+        formData.append('user_id', userId);
+        formData.append('checked_in', checked ? 'true' : 'false');
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        fetch(window.location.href, { method: 'POST', body: formData })
+            .then(function(r) {
+                if (!r.ok) { cb.checked = !checked; }
+            })
+            .catch(function() { cb.checked = !checked; });
+    });
+});
+</script>
+{% endblock %}

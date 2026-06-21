@@ -34,6 +34,7 @@ from src.tasks.notifications import (
     notify_expiring_api_tokens,
     send_push_notification,
     send_event_reminder_pushes,
+    send_service_event_email_reminders,
     send_daily_digest,
 )
 
@@ -55,5 +56,6 @@ __all__ = [
     'notify_expiring_api_tokens',
     'send_push_notification',
     'send_event_reminder_pushes',
+    'send_service_event_email_reminders',
     'send_daily_digest',
 ]

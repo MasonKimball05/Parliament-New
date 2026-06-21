@@ -73,9 +73,27 @@ class Event(models.Model):
         help_text='Parent event for recurring event instances'
     )
 
+    # Sign-up tracking — for events with limited spots or where attendance is opt-in
+    requires_signup = models.BooleanField(
+        default=False,
+        help_text='Members must sign up to attend. Signup list is visible to all members.',
+    )
+    max_signups = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='Maximum number of sign-ups allowed. Leave blank for unlimited.',
+    )
+    signups_open = models.BooleanField(
+        default=True,
+        help_text='When False, new sign-ups are blocked (officer can close manually).',
+    )
+    allow_waitlist = models.BooleanField(
+        default=False,
+        help_text='When the event is full, members can join a waitlist and are auto-promoted when a slot opens.',
+    )
+
     # Attendance tracking fields
     requires_attendance = models.BooleanField(
-        default=True,
+        default=False,
         help_text='Check if this event requires attendance tracking (chapter meetings, etc.)'
     )
     allow_excuses = models.BooleanField(
@@ -523,3 +541,45 @@ class EventReminderRecipient(models.Model):
 
     def __str__(self):
         return f'{self.user_name} — {self.get_status_display()}'
+
+
+class EventSignup(models.Model):
+    """
+    Tracks a member's sign-up for an event with requires_signup=True.
+
+    Separate from attendance tracking — signing up means you intend to attend,
+    not that you actually did. Officers still mark attendance independently.
+    Cancelled signups are soft-deleted (is_cancelled=True) so the slot history is preserved.
+    """
+    event = models.ForeignKey(
+        'Event',
+        on_delete=models.CASCADE,
+        related_name='signups',
+    )
+    user = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.CASCADE,
+        related_name='event_signups',
+    )
+    signed_up_at = models.DateTimeField(auto_now_add=True)
+    is_cancelled = models.BooleanField(default=False)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    # Waitlist support: NULL = confirmed signup; 1, 2, 3… = position in waitlist queue.
+    # When a slot opens the member at position 1 is promoted (waitlist_position set to NULL).
+    waitlist_position = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='Null for confirmed sign-ups; 1-based position for waitlisted members.',
+    )
+
+    class Meta:
+        unique_together = [['event', 'user']]
+        ordering = ['signed_up_at']
+        verbose_name = 'Event Signup'
+        verbose_name_plural = 'Event Signups'
+
+    def __str__(self):
+        if self.is_cancelled:
+            return f'{self.user.name} — {self.event.title} (cancelled)'
+        if self.waitlist_position is not None:
+            return f'{self.user.name} — {self.event.title} (waitlist #{self.waitlist_position})'
+        return f'{self.user.name} — {self.event.title} (signed up)'

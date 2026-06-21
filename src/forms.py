@@ -175,6 +175,7 @@ class EventForm(forms.ModelForm):
         model = Event
         fields = ['title', 'description', 'date_time', 'location', 'visible_to', 'is_active',
                   'requires_attendance', 'allow_excuses', 'excuse_deadline',
+                  'requires_signup', 'max_signups', 'signups_open', 'allow_waitlist',
                   'is_recurring', 'recurrence_type', 'recurrence_interval', 'recurrence_unit',
                   'recurrence_days', 'recurrence_end_date',
                   'reminder_1_enabled', 'reminder_1_hours_before',
@@ -246,6 +247,20 @@ class EventForm(forms.ModelForm):
                 'min': 1,
                 'max': 168,
             }),
+            'requires_signup': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+            }),
+            'max_signups': forms.NumberInput(attrs={
+                'class': 'w-32 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'min': 1,
+                'placeholder': 'Unlimited',
+            }),
+            'signups_open': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+            }),
+            'allow_waitlist': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+            }),
         }
         labels = {
             'title': 'Event Title',
@@ -267,6 +282,10 @@ class EventForm(forms.ModelForm):
             'reminder_1_hours_before': 'Hours Before',
             'reminder_2_enabled': 'Reminder 2',
             'reminder_2_hours_before': 'Hours Before',
+            'requires_signup': 'Requires Sign-Up',
+            'max_signups': 'Max Sign-Ups',
+            'signups_open': 'Signups Open',
+            'allow_waitlist': 'Enable Waitlist',
         }
         help_texts = {
             'date_time': 'When the event will occur',

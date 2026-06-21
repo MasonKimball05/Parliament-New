@@ -164,4 +164,34 @@ def committee_home(request, code):
         except Exception:
             pass
 
+    # Recruitment committee: add upcoming recruitment events
+    if committee.is_recruitment_committee:
+        try:
+            from src.models import RecruitmentEvent
+            from src.view.committee.recruitment import (
+                _user_access as _recruit_user_access,
+                _can_manage as _recruit_can_manage,
+                _can_view_private as _recruit_can_view_private,
+            )
+            from django.utils import timezone as _tz
+            _now = _tz.now()
+            _, _is_recruit_chair, _perm = _recruit_user_access(committee, user)
+            _can_view_priv = _recruit_can_view_private(committee, user, perm=_perm)
+            _can_manage = _recruit_can_manage(committee, user, perm=_perm)
+
+            _upcoming_qs = (
+                RecruitmentEvent.objects
+                .filter(committee=committee, event__date_time__gte=_now)
+                .select_related('event')
+                .order_by('event__date_time')[:5]
+            )
+            if not _can_view_priv:
+                _upcoming_qs = _upcoming_qs.filter(visibility='public')
+
+            context['recruitment_upcoming'] = list(_upcoming_qs)
+            context['recruitment_can_manage'] = _can_manage
+            context['recruitment_total'] = RecruitmentEvent.objects.filter(committee=committee).count()
+        except Exception:
+            pass
+
     return render(request, 'committee/committee_home.html', context)

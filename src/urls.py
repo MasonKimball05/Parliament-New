@@ -67,10 +67,16 @@ from src.view.committee.committee_minutes_editor import (
 )
 from src.view.committee.manage_chat_permissions import manage_chat_permissions, add_guest_permission, bulk_add_guest_permissions, update_guest_permission, remove_guest_permission, bulk_remove_guest_permissions
 from src.view.committee.manage_kai_permissions import manage_kai_permissions, update_kai_member_permission, reset_kai_permissions
+from src.view.committee.recruitment import (
+    recruitment_dashboard, create_recruitment_event, edit_recruitment_event,
+    recruitment_event_detail, delete_recruitment_event,
+    manage_recruitment_permissions, update_recruitment_permission, reset_recruitment_permissions,
+    candidate_list, create_candidate, edit_candidate, delete_candidate,
+)
 from src.view.chat import (
     chat_index, channel_chat, get_channel_messages, send_channel_message,
     edit_channel_message, delete_channel_message, get_channel_active_users,
-    get_channel_members, set_channel_notification_pref,
+    get_channel_members, set_channel_notification_pref, dismiss_chat_unread,
     create_channel, edit_channel, delete_channel,
 )
 from src.view.submit_excuse import my_excuses, submit_excuse, cancel_excuse, my_attendance
@@ -85,7 +91,10 @@ from src.view.service_hours import (
     service_dashboard, view_service_submissions, manage_service_submission,
     bulk_actions_service, export_service_csv, manage_service_periods,
     edit_service_period, manage_member_expectations, add_service_adjustment,
-    delete_service_adjustment, get_member_adjustments
+    delete_service_adjustment, get_member_adjustments,
+    service_events_list, create_service_event, edit_service_event,
+    service_event_detail, finalize_service_event, delete_service_event,
+    service_event_attendance,
 )
 from src.view.service_form_builder import (
     service_form_builder, reorder_service_fields, get_service_field_details
@@ -105,7 +114,7 @@ from src.view.manage_chapter_document import manage_chapter_document
 from src.view.manage_chapter_documents import manage_chapter_documents
 from src.view.manage_folders import create_folder, delete_folder
 from src.view.announcements import announcements_view
-from src.view.calendar import calendar_view, calendar_data_api, export_calendar_ical, export_event_ical, calendar_subscription_feed, get_calendar_subscription_url, regenerate_calendar_token
+from src.view.calendar import calendar_view, calendar_data_api, export_calendar_ical, export_event_ical, calendar_subscription_feed, get_calendar_subscription_url, regenerate_calendar_token, event_signup, event_cancel_signup, event_signup_list, event_signup_export
 from src.view.global_search import global_search
 from src.view.changelog import changelog, changelog_detail, roadmap
 from src.view.admin_v2 import (
@@ -311,6 +320,10 @@ urlpatterns = [
     path('calendar/subscribe/', get_calendar_subscription_url, name='get_calendar_subscription_url'),
     path('calendar/subscribe/regenerate/', regenerate_calendar_token, name='regenerate_calendar_token'),
     path('calendar/feed/<str:token>/', calendar_subscription_feed, name='calendar_subscription_feed'),
+    path('calendar/event/<int:event_id>/signup/', event_signup, name='event_signup'),
+    path('calendar/event/<int:event_id>/cancel-signup/', event_cancel_signup, name='event_cancel_signup'),
+    path('calendar/event/<int:event_id>/signups/', event_signup_list, name='event_signup_list'),
+    path('calendar/event/<int:event_id>/signups/export/', event_signup_export, name='event_signup_export'),
     path('search/', global_search, name='global_search'),
 
     # Public songbook (no auth, no management functions)
@@ -622,6 +635,15 @@ urlpatterns = [
     path('api/service-hours/adjustment/<int:adjustment_id>/delete/', delete_service_adjustment, name='delete_service_adjustment'),
     path('api/service-hours/adjustments/<int:period_id>/<int:member_id>/', get_member_adjustments, name='get_member_adjustments'),
 
+    # Service Events (VPP only)
+    path('service-hours/events/', service_events_list, name='service_events_list'),
+    path('service-hours/events/create/', create_service_event, name='create_service_event'),
+    path('service-hours/events/<int:service_event_id>/', service_event_detail, name='service_event_detail'),
+    path('service-hours/events/<int:service_event_id>/edit/', edit_service_event, name='edit_service_event'),
+    path('service-hours/events/<int:service_event_id>/finalize/', finalize_service_event, name='finalize_service_event'),
+    path('service-hours/events/<int:service_event_id>/attendance/', service_event_attendance, name='service_event_attendance'),
+    path('service-hours/events/<int:service_event_id>/delete/', delete_service_event, name='delete_service_event'),
+
     # Service Hours Form Builder URLs (VPP only)
     path('service-hours/form-builder/', service_form_builder, name='service_form_builder'),
     path('service-hours/form-builder/field/<int:field_id>/', get_service_field_details, name='service_get_field_details'),
@@ -646,6 +668,22 @@ urlpatterns = [
     path('api/committee/<str:code>/kai-permissions/<str:user_id>/update/', update_kai_member_permission, name='update_kai_member_permission'),
     path('api/committee/<str:code>/kai-permissions/reset/', reset_kai_permissions, name='reset_kai_permissions'),
 
+    # Recruitment dashboard
+    path('committee/<str:code>/recruitment/', recruitment_dashboard, name='recruitment_dashboard'),
+    path('committee/<str:code>/recruitment/create/', create_recruitment_event, name='create_recruitment_event'),
+    path('committee/<str:code>/recruitment/<int:recruitment_event_id>/', recruitment_event_detail, name='recruitment_event_detail'),
+    path('committee/<str:code>/recruitment/<int:recruitment_event_id>/edit/', edit_recruitment_event, name='edit_recruitment_event'),
+    path('committee/<str:code>/recruitment/<int:recruitment_event_id>/delete/', delete_recruitment_event, name='delete_recruitment_event'),
+    path('committee/<str:code>/recruitment-permissions/', manage_recruitment_permissions, name='manage_recruitment_permissions'),
+    path('api/committee/<str:code>/recruitment-permissions/<str:user_id>/update/', update_recruitment_permission, name='update_recruitment_permission'),
+    path('api/committee/<str:code>/recruitment-permissions/reset/', reset_recruitment_permissions, name='reset_recruitment_permissions'),
+
+    # Recruitment candidates
+    path('committee/<str:code>/candidates/', candidate_list, name='candidate_list'),
+    path('committee/<str:code>/candidates/add/', create_candidate, name='create_candidate'),
+    path('committee/<str:code>/candidates/<int:candidate_id>/edit/', edit_candidate, name='edit_candidate'),
+    path('committee/<str:code>/candidates/<int:candidate_id>/delete/', delete_candidate, name='delete_candidate'),
+
     # New Channel-based Chat URLs
     path('chats/', chat_index, name='chat_index'),
     path('chat/committee/<str:code>/', channel_chat, name='committee_channel_chat'),  # Committee chat by code
@@ -664,6 +702,7 @@ urlpatterns = [
     path('api/channel/<int:channel_id>/active/', get_channel_active_users, name='get_channel_active_users'),
     path('api/channel/<int:channel_id>/members/', get_channel_members, name='get_channel_members'),
     path('api/channel/<int:channel_id>/notification-pref/', set_channel_notification_pref, name='set_channel_notification_pref'),
+    path('api/chat/dismiss-unread/', dismiss_chat_unread, name='dismiss_chat_unread'),
 
     # Admin Channel Management
     path('chats/create/', create_channel, name='create_channel'),

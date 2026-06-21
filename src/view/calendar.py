@@ -2,7 +2,8 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponse
-from src.models import Event, ActivityLog, AttendanceExcuse
+from django.db import transaction, models
+from src.models import Event, EventSignup, ActivityLog, AttendanceExcuse
 from src.models_calendar_subscription import CalendarSubscription
 from src.feature_flag_decorators import require_page_enabled, require_feature_flag
 from icalendar import Calendar, Event as ICalEvent
@@ -68,7 +69,7 @@ def calendar_view(request):
         archived=False,
         date_time__gte=month_start,
         date_time__lt=month_end
-    ).order_by('date_time')
+    ).select_related('service_event', 'recruitment_event').order_by('date_time')
 
     # Filter by visibility
     events = [e for e in all_events if e.is_visible_to_user(request.user)]
@@ -81,12 +82,31 @@ def calendar_view(request):
         day = local_dt.day
         events_by_day[day].append(event)
 
+    # Prefetch signup state for this month's events (two queries, no N+1)
+    signup_event_ids = [e.id for e in events if e.requires_signup]
+    user_signed_up_ids = set()
+    signup_counts = {}
+    if signup_event_ids:
+        from django.db.models import Count
+        user_signed_up_ids = set(
+            EventSignup.objects
+            .filter(user=request.user, event_id__in=signup_event_ids, is_cancelled=False)
+            .values_list('event_id', flat=True)
+        )
+        signup_counts = dict(
+            EventSignup.objects
+            .filter(event_id__in=signup_event_ids, is_cancelled=False)
+            .values('event_id')
+            .annotate(c=Count('id'))
+            .values_list('event_id', 'c')
+        )
+
     # Get upcoming events (next 5 from today)
     all_upcoming = Event.objects.filter(
         is_active=True,
         archived=False,
         date_time__gte=now
-    ).order_by('date_time')
+    ).select_related('service_event', 'recruitment_event').order_by('date_time')
     upcoming_events = [e for e in all_upcoming if e.is_visible_to_user(request.user)][:5]
 
     # Get local time for today's date
@@ -107,6 +127,8 @@ def calendar_view(request):
         'today': local_now.day if local_now.year == year and local_now.month == month else None,
         'can_go_prev': can_go_prev,
         'can_go_next': can_go_next,
+        'user_signed_up_ids': user_signed_up_ids,
+        'signup_counts': signup_counts,
     }
 
     return render(request, 'calendar.html', context)
@@ -167,7 +189,7 @@ def calendar_data_api(request):
         archived=False,
         date_time__gte=month_start,
         date_time__lt=month_end
-    ).order_by('date_time')
+    ).select_related('service_event', 'recruitment_event').order_by('date_time')
 
     # Filter by visibility
     events = [e for e in all_events if e.is_visible_to_user(request.user)]
@@ -193,8 +215,25 @@ def calendar_data_api(request):
         time_str = f"{hour}:{minute} {am_pm}"
 
         day_num = local_dt.strftime('%d').lstrip('0')
-        year = local_dt.strftime('%Y')
-        full_datetime_str = f"{local_dt.strftime('%A, %B')} {day_num}, {year} at {time_str}"
+        year_str = local_dt.strftime('%Y')
+        full_datetime_str = f"{local_dt.strftime('%A, %B')} {day_num}, {year_str} at {time_str}"
+
+        try:
+            is_service_event = event.service_event is not None
+        except Exception:
+            is_service_event = False
+
+        try:
+            is_recruitment_event = event.recruitment_event is not None
+        except Exception:
+            is_recruitment_event = False
+
+        # Signup state
+        signup_count = 0
+        user_signed_up = False
+        if event.requires_signup:
+            signup_count = event.signups.filter(is_cancelled=False).count()
+            user_signed_up = event.signups.filter(user=request.user, is_cancelled=False).exists()
 
         events_data[day].append({
             'id': event.id,
@@ -209,6 +248,14 @@ def calendar_data_api(request):
             'can_submit_excuse': event.can_submit_excuse() if event.allow_excuses else False,
             'has_excuse': has_excuse,
             'excuse_status': excuse_status,
+            'is_service_event': is_service_event,
+            'is_recruitment_event': is_recruitment_event,
+            'requires_signup': event.requires_signup,
+            'max_signups': event.max_signups,
+            'signups_open': event.signups_open,
+            'signup_count': signup_count,
+            'user_signed_up': user_signed_up,
+            'signup_full': event.max_signups is not None and signup_count >= event.max_signups,
         })
 
     # Get local time for today's date
@@ -526,3 +573,211 @@ def regenerate_calendar_token(request):
         'webcal_url': f'webcal://{host}{feed_path}',
         'token': new_token,
     })
+
+
+# ---------------------------------------------------------------------------
+# Sign-up views
+# ---------------------------------------------------------------------------
+
+@login_required
+@require_page_enabled('calendar')
+def event_signup(request, event_id):
+    """Sign the current user up for an event (POST only)."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+
+    # Lock the Event row so concurrent signups serialize through here.
+    with transaction.atomic():
+        event = get_object_or_404(
+            Event.objects.select_for_update(),
+            pk=event_id, is_active=True, requires_signup=True,
+        )
+
+        if not event.signups_open:
+            return JsonResponse({'success': False, 'error': 'Sign-ups are closed for this event.'}, status=400)
+
+        # Re-activate a cancelled signup or create fresh
+        signup, created = EventSignup.objects.get_or_create(
+            event=event,
+            user=request.user,
+            defaults={'is_cancelled': False, 'waitlist_position': None},
+        )
+        if not created:
+            if not signup.is_cancelled:
+                already_on = 'waitlist' if signup.waitlist_position is not None else 'sign-up list'
+                return JsonResponse({'success': False, 'error': f'You are already on the {already_on}.'}, status=400)
+            # Re-activating — reset cancellation state
+            signup.is_cancelled = False
+            signup.cancelled_at = None
+
+        # Determine whether a confirmed slot is available
+        confirmed_count = event.signups.filter(is_cancelled=False, waitlist_position__isnull=True).count()
+        slot_available = event.max_signups is None or confirmed_count < event.max_signups
+
+        if slot_available:
+            signup.waitlist_position = None
+            signup.save(update_fields=['is_cancelled', 'cancelled_at', 'waitlist_position'])
+            on_waitlist = False
+        elif event.allow_waitlist:
+            # Place on waitlist at the next available position
+            next_pos = (
+                event.signups
+                .filter(is_cancelled=False, waitlist_position__isnull=False)
+                .order_by('-waitlist_position')
+                .values_list('waitlist_position', flat=True)
+                .first() or 0
+            ) + 1
+            signup.waitlist_position = next_pos
+            signup.save(update_fields=['is_cancelled', 'cancelled_at', 'waitlist_position'])
+            on_waitlist = True
+        else:
+            if created:
+                signup.delete()
+            return JsonResponse({'success': False, 'error': 'This event is full.'}, status=400)
+
+        confirmed_count = event.signups.filter(is_cancelled=False, waitlist_position__isnull=True).count()
+        waitlist_count = event.signups.filter(is_cancelled=False, waitlist_position__isnull=False).count()
+
+    return JsonResponse({
+        'success': True,
+        'signup_count': confirmed_count,
+        'waitlist_count': waitlist_count,
+        'user_signed_up': True,
+        'on_waitlist': on_waitlist,
+        'waitlist_position': signup.waitlist_position,
+        'signup_full': event.max_signups is not None and confirmed_count >= event.max_signups,
+    })
+
+
+@login_required
+@require_page_enabled('calendar')
+def event_cancel_signup(request, event_id):
+    """Cancel the current user's signup for an event (POST only)."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+
+    with transaction.atomic():
+        event = get_object_or_404(
+            Event.objects.select_for_update(),
+            pk=event_id, is_active=True, requires_signup=True,
+        )
+        signup = EventSignup.objects.filter(event=event, user=request.user, is_cancelled=False).first()
+        if not signup:
+            return JsonResponse({'success': False, 'error': 'You are not signed up for this event.'}, status=400)
+
+        was_confirmed = signup.waitlist_position is None
+        signup.is_cancelled = True
+        signup.cancelled_at = timezone.now()
+        signup.save(update_fields=['is_cancelled', 'cancelled_at'])
+
+        # If they held a confirmed slot, promote the first waitlisted person
+        if was_confirmed and event.allow_waitlist:
+            first_waiting = (
+                EventSignup.objects
+                .filter(event=event, is_cancelled=False, waitlist_position__isnull=False)
+                .order_by('waitlist_position')
+                .first()
+            )
+            if first_waiting:
+                first_waiting.waitlist_position = None
+                first_waiting.save(update_fields=['waitlist_position'])
+                # Compact remaining waitlist positions
+                EventSignup.objects.filter(
+                    event=event, is_cancelled=False, waitlist_position__isnull=False,
+                ).order_by('waitlist_position').update(
+                    waitlist_position=models.F('waitlist_position') - 1
+                )
+
+        confirmed_count = event.signups.filter(is_cancelled=False, waitlist_position__isnull=True).count()
+        waitlist_count = event.signups.filter(is_cancelled=False, waitlist_position__isnull=False).count()
+
+    return JsonResponse({
+        'success': True,
+        'signup_count': confirmed_count,
+        'waitlist_count': waitlist_count,
+        'user_signed_up': False,
+        'signup_full': event.max_signups is not None and confirmed_count >= event.max_signups,
+    })
+
+
+@login_required
+@require_page_enabled('calendar')
+def event_signup_list(request, event_id):
+    """Officer view — list all active sign-ups for an event, including waitlist."""
+    from src.utils.officer_check import is_officer
+    event = get_object_or_404(Event, pk=event_id, is_active=True, requires_signup=True)
+
+    if not is_officer(request.user):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied
+
+    all_active = list(
+        EventSignup.objects
+        .filter(event=event, is_cancelled=False)
+        .select_related('user')
+        .order_by('waitlist_position', 'signed_up_at')
+    )
+    signups   = [s for s in all_active if s.waitlist_position is None]
+    waitlist  = [s for s in all_active if s.waitlist_position is not None]
+    cancelled = list(
+        EventSignup.objects
+        .filter(event=event, is_cancelled=True)
+        .select_related('user')
+        .order_by('cancelled_at')
+    )
+
+    return render(request, 'calendar/event_signup_list.html', {
+        'event': event,
+        'signups': signups,
+        'waitlist': waitlist,
+        'cancelled': cancelled,
+        'signup_count': len(signups),
+        'waitlist_count': len(waitlist),
+    })
+
+
+@login_required
+@require_page_enabled('calendar')
+def event_signup_export(request, event_id):
+    """Officer-only CSV download of the active sign-up (and waitlist) roster."""
+    import csv
+    from src.utils.officer_check import is_officer
+
+    event = get_object_or_404(Event, pk=event_id, is_active=True, requires_signup=True)
+
+    if not is_officer(request.user):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied
+
+    all_active = (
+        EventSignup.objects
+        .filter(event=event, is_cancelled=False)
+        .select_related('user')
+        .order_by('waitlist_position', 'signed_up_at')
+    )
+
+    filename = (
+        f"signups_{event.title.replace(' ', '_')}"
+        f"_{event.date_time.strftime('%Y%m%d')}.csv"
+    )
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Cache-Control'] = 'no-store'
+    response['X-Content-Type-Options'] = 'nosniff'
+
+    writer = csv.writer(response)
+    writer.writerow(['Status', 'Waitlist Position', 'Name', 'Email', 'Signed Up At'])
+    for s in all_active:
+        if s.waitlist_position is not None:
+            status = f'Waitlist #{s.waitlist_position}'
+        else:
+            status = 'Confirmed'
+        writer.writerow([
+            status,
+            s.waitlist_position or '',
+            s.user.name,
+            s.user.email,
+            s.signed_up_at.strftime('%Y-%m-%d %H:%M'),
+        ])
+
+    return response

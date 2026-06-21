@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+
+{% block title %}Attendance — {{ event.title }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+
+    <!-- Header -->
+    <div class="mb-6">
+        <a href="{% url 'service_event_detail' se.id %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1 mb-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            {{ event.title }}
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Take Attendance</h1>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Check off members who attended. Only those checked will receive
+            <span class="font-medium text-green-600 dark:text-green-400">{{ se.hours_awarded }} hr{% if se.hours_awarded != 1 %}s{% endif %}</span>
+            toward {{ se.period.name }}. No absence is recorded for unchecked members.
+        </p>
+    </div>
+
+    {% if messages %}
+    <div class="mb-4 space-y-2">
+        {% for msg in messages %}
+        <div class="p-3 rounded-md text-sm
+            {% if msg.tags == 'error' %}bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300
+            {% elif msg.tags == 'warning' %}bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300
+            {% else %}bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300{% endif %}">
+            {{ msg }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if is_read_only %}
+    <div class="mb-4 p-3 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-sm text-green-700 dark:text-green-400">
+        Hours have been applied. Showing read-only attendance.
+    </div>
+    {% endif %}
+
+    <!-- Quick stats bar -->
+    <div class="flex items-center gap-4 mb-4 text-sm text-gray-600 dark:text-gray-400">
+        <span id="present-counter" class="font-semibold text-green-600 dark:text-green-400">{{ present_count }} present</span>
+        <span class="text-gray-300 dark:text-gray-600">·</span>
+        <span>{{ member_data|length }} total members</span>
+        {% if not is_read_only %}
+        <button type="button" id="select-all-btn" class="ml-auto text-xs text-primary-600 dark:text-primary-400 hover:underline">Select all</button>
+        <button type="button" id="clear-all-btn" class="text-xs text-gray-500 dark:text-gray-400 hover:underline">Clear</button>
+        {% endif %}
+    </div>
+
+    <form method="post" id="attendance-form">
+        {% csrf_token %}
+
+        <!-- Member list -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700 mb-6">
+            {% for d in member_data %}
+            <div class="flex items-center gap-2 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                <label class="flex items-center gap-3 flex-1 cursor-pointer {% if is_read_only %}pointer-events-none{% endif %}">
+                    <input type="checkbox" name="present" value="{{ d.user.user_id }}"
+                           {% if d.present %}checked{% endif %}
+                           {% if is_read_only %}disabled{% endif %}
+                           class="member-checkbox w-4 h-4 text-green-600 border-gray-300 dark:border-gray-600 rounded focus:ring-green-500">
+                    <span class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ d.user.get_display_name }}</span>
+                </label>
+                {% if not is_read_only %}
+                <div class="flex items-center gap-1 shrink-0" title="Optional hours override (default: {{ se.hours_awarded }})">
+                    <input type="number" name="hours_override_{{ d.user.user_id }}"
+                           value="{{ se.member_hours_override|default:'{}' }}"
+                           placeholder="{{ se.hours_awarded }}"
+                           min="0.25" max="99" step="0.25"
+                           class="w-14 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-1.5 py-1 text-center focus:outline-none focus:ring-1 focus:ring-green-500">
+                    <span class="text-xs text-gray-400 dark:text-gray-500">hrs</span>
+                </div>
+                {% else %}
+                {% if d.present %}
+                <span class="text-xs text-green-600 dark:text-green-400 shrink-0">✓ Present</span>
+                {% endif %}
+                {% endif %}
+            </div>
+            {% empty %}
+            <p class="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">No active members found.</p>
+            {% endfor %}
+        </div>
+        {% if not is_read_only %}
+        <p class="text-xs text-gray-400 dark:text-gray-500 mb-4 text-center">
+            Hours field is optional — leave blank to use the default ({{ se.hours_awarded }} hrs). Useful for partial attendance or late arrivals.
+        </p>
+        {% endif %}
+
+        {% if not is_read_only %}
+        <!-- Actions -->
+        <div class="flex flex-col sm:flex-row gap-3">
+            <button type="submit" name="action" value="save"
+                    class="flex-1 px-4 py-2 text-sm font-medium rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                Save Attendance
+            </button>
+            <button type="submit" name="action" value="finalize"
+                    id="finalize-btn"
+                    onclick="return confirm('Apply {{ se.hours_awarded }} hrs to checked members? This cannot be undone.')"
+                    class="flex-1 px-4 py-2 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                Finalize &amp; Apply Hours
+            </button>
+        </div>
+        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
+            "Save" keeps attendance editable. "Finalize" awards hours and locks this event.
+        </p>
+        {% endif %}
+    </form>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+(function () {
+    const checkboxes = document.querySelectorAll('.member-checkbox');
+    const counter   = document.getElementById('present-counter');
+    const selectAll = document.getElementById('select-all-btn');
+    const clearAll  = document.getElementById('clear-all-btn');
+
+    function updateCounter() {
+        const n = document.querySelectorAll('.member-checkbox:checked').length;
+        if (counter) counter.textContent = n + ' present';
+    }
+
+    checkboxes.forEach(function (cb) {
+        cb.addEventListener('change', function () {
+            const badge = this.closest('label').querySelector('.present-badge');
+            if (badge) badge.textContent = this.checked ? '✓ Present' : '';
+            updateCounter();
+        });
+    });
+
+    if (selectAll) selectAll.addEventListener('click', function () {
+        checkboxes.forEach(function (cb) { cb.checked = true; });
+        document.querySelectorAll('.present-badge').forEach(function (b) { b.textContent = '✓ Present'; });
+        updateCounter();
+    });
+
+    if (clearAll) clearAll.addEventListener('click', function () {
+        checkboxes.forEach(function (cb) { cb.checked = false; });
+        document.querySelectorAll('.present-badge').forEach(function (b) { b.textContent = ''; });
+        updateCounter();
+    });
+})();
+</script>
+{% endblock %}

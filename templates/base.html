@@ -102,12 +102,17 @@
                             </a>
                             {% endif %}
                             {% if user.preferences.show_chats_menu and feature_flags.chats %}
-                            <a href="{% url 'chat_index' %}" class="relative px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
-                                Chats
+                            <span class="inline-flex items-center">
+                                <a href="{% url 'chat_index' %}" class="relative px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
+                                    Chats
+                                    {% if unread_chat_count %}
+                                    <span id="chat-unread-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[1rem] h-4 flex items-center justify-center font-bold px-0.5">{{ unread_chat_count }}</span>
+                                    {% endif %}
+                                </a>
                                 {% if unread_chat_count %}
-                                <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[1rem] h-4 flex items-center justify-center font-bold px-0.5">{{ unread_chat_count }}</span>
+                                <button id="chat-dismiss-btn" onclick="dismissChatUnread(event)" title="Mark all read" aria-label="Mark all chats read" class="ml-0.5 text-primary-200 hover:text-white text-base leading-none focus:outline-none">×</button>
                                 {% endif %}
-                            </a>
+                            </span>
                             {% endif %}
                             {% if user.preferences.show_documents_menu and not user.is_pledge %}
                             <a href="{% url 'chapter_documents' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
@@ -297,9 +302,14 @@
                 </a>
                 {% endif %}
                 {% if user.preferences.show_chats_menu and feature_flags.chats %}
-                <a href="{% url 'chat_index' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
-                    💬 Chats{% if unread_chat_count %} <span class="inline-flex items-center justify-center ml-1 px-1.5 py-0.5 text-xs font-bold bg-red-500 rounded-full">{{ unread_chat_count }}</span>{% endif %}
-                </a>
+                <span class="flex items-center">
+                    <a href="{% url 'chat_index' %}" class="flex-1 block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
+                        💬 Chats{% if unread_chat_count %} <span id="chat-unread-badge-mobile" class="chat-unread-mobile inline-flex items-center justify-center ml-1 px-1.5 py-0.5 text-xs font-bold bg-red-500 rounded-full">{{ unread_chat_count }}</span>{% endif %}
+                    </a>
+                    {% if unread_chat_count %}
+                    <button onclick="dismissChatUnread(event)" title="Mark all read" aria-label="Mark all chats read" class="px-2 py-2 text-primary-200 hover:text-white text-base leading-none focus:outline-none">×</button>
+                    {% endif %}
+                </span>
                 {% endif %}
                 {% if user.preferences.show_documents_menu and not user.is_pledge %}
                 <a href="{% url 'chapter_documents' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
@@ -1891,6 +1901,23 @@
     </script>
 
     {% block extra_js %}{% endblock %}
+
+    {% if unread_chat_count %}
+    <script nonce="{{ request.csp_nonce }}">
+    function dismissChatUnread(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        fetch('{% url "dismiss_chat_unread" %}', {
+            method: 'POST',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'},
+        }).then(function() {
+            ['chat-unread-badge', 'chat-unread-badge-mobile', 'chat-dismiss-btn'].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.remove();
+            });
+        });
+    }
+    </script>
+    {% endif %}
 
     <!-- Page Visit Tracking (post-load, non-blocking) -->
     {% if user.is_authenticated %}

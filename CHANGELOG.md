@@ -5,6 +5,164 @@ This project is licensed under the MIT License. Copyright (c) 2025-2026 Mason Ki
 
 ---
 
+### v3.10.0 — Event Waitlist, Signup CSV Export & Bug Fixes (2026-06-21)
+
+**Type:** Feature / Bug Fix / Performance
+
+Added an optional waitlist to sign-up events — when the cap is hit, members queue instead of being rejected, and cancellations auto-promote the next person. Officer-only CSV export added to the sign-up roster page. Fixed a dead-code bug in `edit_service_event`'s email reminder reset, refactored `service_event_attendance` from O(n) queries to bulk operations, replaced the committee home "New Recruitment Event" shortcut with a "Recruitment Dashboard" link, and several smaller hardening fixes. See `changelogs/v3.9.1.md` (to be renamed `v3.10.0.md`).
+
+---
+
+### v3.9.1 — Performance: Context Processor Caching & Query Reduction (2026-06-18)
+
+**Type:** Performance
+
+Targeted query reduction across the most trafficked code paths. Context processors for 2FA status and user preferences are now cached per-user (5 min TTL). Chat unread count collapsed from N+1 per channel to a single annotated query. Four query fixes in `home.py` (announcement/event counts, committee count double-query, legislation vote prefetch). Two composite indexes added for announcement and event querysets. `active_quarantines` ORM filter now correctly excludes expired records. See `changelogs/v3.9.1.md`.
+
+---
+
+### v3.9.0 — Admin Audit Log, Auto-Expiring Quarantines & QOL Hardening (2026-06-17)
+
+**Type:** Feature / Security / UX
+
+Three new officer-facing features: audit log viewer (paginated, filterable, CSV exportable), auto-expiring quarantines (Celery task releases on schedule), and onboarding completion widget. Full audit-logging pass wiring quarantine and committee role actions. Batch of UX/hardening fixes across the admin panel, preferences, and 403 response path. See `changelogs/v3.9.0.md`.
+
+---
+
+### v3.8.0 — In-App Security Notifications & Token Expiry Alerts (2026-06-14)
+
+**Type:** Feature
+
+Two notification features closing gaps in the existing alert system. Security events (account lockouts, non-US logins) now surface in the in-app notification bell in addition to email. API token expiry warnings added to the bell with configurable lead time. See `changelogs/v3.8.0.md`.
+
+---
+
+### v3.7.1 — Security Fixes & Login Pipeline Cleanup (2026-06-14)
+
+**Type:** Bug Fix / Security
+
+Follow-up fixes to v3.7.0's security hardening. Closes a correctness bug in token approval scope narrowing, removes ~100 lines of duplicated post-auth logic from the login view, tightens profile email comparison, and improves distributed-lockout observability. See `changelogs/v3.7.1.md`.
+
+---
+
+### v3.7.0 — Security Hardening & CI Gates (2026-06-13)
+
+**Type:** Security / Maintenance
+
+Second security hardening pass. Per-account lockout, breached-password detection, shorter session lifetime, scope narrowing on token approval, traversal guard on audio serving. CI upgraded to block on real security findings; Dependabot added for dependency monitoring. See `changelogs/v3.7.0.md`.
+
+---
+
+### v3.6.0 — Sign-Up Events, Candidate Tracking & Service Hours Overrides (2026-06-20)
+
+**Type:** New Feature / Bug Fix / Performance
+
+---
+
+#### Sign-Up Event Type
+
+Events can now be marked as "RSVP / Sign-up" events — a mode distinct from attendance tracking where members explicitly opt in. A new `EventSignup` model tracks signups with soft-delete (is_cancelled) so history is preserved. Three new fields added to `Event`: `requires_signup`, `max_signups` (optional hard cap), and `signups_open` (officer toggle). When at capacity, new signups are blocked at the view layer with a race-condition-safe create-then-verify pattern.
+
+**Changed:** `src/models/events.py`, `src/models/__init__.py`, `src/forms.py`, `src/urls.py`
+
+**New views:** `event_signup`, `event_cancel_signup`, `event_signup_list` in `src/view/calendar.py`
+
+**New template:** `templates/calendar/event_signup_list.html`
+
+---
+
+#### Calendar Sign-Up UI
+
+The calendar page now shows a sign-up section inside event modals for sign-up events. Initial page load (static Django-rendered modals) uses a two-query prefetch — one for the user's own signups, one for per-event counts — with no N+1. After signing up or cancelling, the section updates in-place via AJAX without closing the modal. AJAX-navigated months (already had signup data) use the existing JS modal path unchanged.
+
+**Changed:** `templates/calendar.html`, `src/view/calendar.py`
+
+---
+
+#### Attendance Type Selector on Event Forms
+
+Both the officer create/edit event forms and the recruitment event form now have a three-way "Attendance Type" radio selector: None / RSVP Sign-up / Attendance Tracked. Selecting RSVP reveals a max-signups input; selecting Attendance Tracked reveals member-type checkboxes. The recruitment form maps the selection to `requires_signup` or `requires_attendance` on the underlying Event. `requires_attendance` now defaults to `False`.
+
+**Changed:** `templates/officer/create_event.html`, `templates/officer/edit_event.html`, `templates/committee/recruitment_event_form.html`, `src/view/committee/recruitment.py`
+
+---
+
+#### Structured Candidate Tracking
+
+Replaced the free-form `candidate_list` TextField on `RecruitmentEvent` with a full `RecruitmentCandidate` model. Candidates have: name, email, phone, status (prospect → bid accepted/declined), assigned member, notes, last-contacted date, and an optional link to the source event where they were first met. Candidates live at the committee level and persist across all events in a rush season.
+
+**Changed:** `src/models/recruitment.py`, `src/models/__init__.py`, `src/view/committee/recruitment.py`
+
+---
+
+#### Candidates Dashboard Tab
+
+The recruitment committee dashboard gains a second tab — Candidates — alongside the existing Events tab. The candidate list shows name, status badge, assigned member, and last-contacted date, with inline edit/delete. The tab is only visible to members with `can_view_private` access. Both "+ New Event" and "+ Add Candidate" buttons are now always visible in the header (no longer swapped by JS based on active tab).
+
+**Changed:** `templates/committee/recruitment_dashboard.html`
+
+---
+
+#### Recruitment Dashboard Signup Counts Fixed
+
+The recruitment dashboard and event detail page were reading from the old `RecruitmentEventRSVP` model while calendar signups go into `EventSignup`. Both are now updated: the dashboard annotates upcoming/past querysets with a filtered `Count('event__signups')`, and the detail page branches on `re.event.requires_signup` to show either the new EventSignup list or the legacy RSVP form.
+
+**Changed:** `src/view/committee/recruitment.py`, `templates/committee/recruitment_dashboard.html`, `templates/committee/recruitment_event_detail.html`
+
+---
+
+#### Per-Member Service Hours Override
+
+Officers can now award different hours to individual members when finalizing a service event. The attendance template shows a number input per member (placeholder = the event default). The view reads `hours_override_{user_id}` POST fields, stores overrides as `{str(user_pk): "decimal_string"}` in a new `member_hours_override` JSONField on `ServiceEvent`, and `apply_hours()` checks it before falling back to `hours_awarded`.
+
+**Changed:** `src/models/service.py`, `src/view/service_hours.py`, `templates/service_hours/service_event_attendance.html`
+
+---
+
+#### Recruitment RSVP Reminder Celery Task
+
+New `send_recruitment_rsvp_reminders` Celery Beat task. Runs every 15 minutes, finds RecruitmentEvents with `rsvp_reminder_enabled=True` whose reminder window has arrived and haven't been sent yet, then dispatches a push notification and email to every user who RSVPd "going". Sets `rsvp_reminder_sent_at` after sending to prevent double-dispatch.
+
+Three new fields on `RecruitmentEvent`: `rsvp_reminder_enabled`, `rsvp_reminder_hours_before`, `rsvp_reminder_sent_at`.
+
+**Changed:** `src/models/recruitment.py`, `src/tasks.py` (or equivalent)
+
+---
+
+#### Officer Manage Events — Signup Count Column
+
+The officer manage events list now annotates events with a `signup_count` (single extra query via LEFT JOIN, no N+1). Sign-up events show a people-icon link in the Actions column displaying the count (e.g. "3/10") that links to the full signup list. Mobile card view gets a purple "Sign-Ups (3/10)" button.
+
+**Changed:** `src/view/officer/manage_events.py`, `templates/officer/manage_events.html`
+
+---
+
+#### Bug Fixes (from 06-20-26 auto-run)
+
+- **RSVP status validation** — `rsvp_status` POST value now validated against `RSVP_STATUS_CHOICES` before saving; invalid values fall back to `'going'`.
+- **Redundant permission queries** — `_user_access` now returns the fetched `perm` object; downstream helpers (`_can_manage`, `_can_view_private`, `_can_take_attendance`) accept an optional `perm=` kwarg, eliminating 3 duplicate DB round-trips per recruitment detail page request.
+- **`dismiss_chat_unread` N+1** — Replaced Python loop + per-row saves with a single annotated subquery + `bulk_update`.
+- **Service event email reminder silent drop** — SMTP exceptions are now caught and logged; the task no longer silently swallows send failures.
+- **`X-Content-Type-Options: nosniff` on CSV export** — Added to the audit log CSV download response.
+- **Cache invalidation on admin user edits** — `invalidate_user_session_caches(user_pk)` called after officer-side user edits so stale cached data is cleared immediately.
+- **Committee home recruitment block** — Perm object threaded through from `_user_access`; redundant per-block query eliminated.
+
+---
+
+#### Migrations
+
+New migration `0211_remove_recruitmentevent_candidate_list_and_more` covers all model changes in this release:
+- `Event`: `requires_signup`, `max_signups`, `signups_open` added; `requires_attendance` default changed to `False`
+- New model: `EventSignup`
+- `ServiceEvent`: `member_hours_override` JSONField added
+- New model: `RecruitmentCandidate`
+- `RecruitmentEvent`: `rsvp_reminder_enabled`, `rsvp_reminder_hours_before`, `rsvp_reminder_sent_at` added
+- `RecruitmentEvent`: `candidate_list` TextField removed
+
+**Deploy reminder:** Run `python manage.py migrate` on prod to apply `0211` and `0212`.
+
+---
+
 ### v3.5.0 — Security Hardening & API Cleanup (2026-06-12)
 
 **Type:** Security / Bug Fix / Cleanup

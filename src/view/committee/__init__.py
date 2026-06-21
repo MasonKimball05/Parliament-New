@@ -18,3 +18,13 @@ from src.view.committee.delete_vote import *
 from src.view.committee.chat import *
 from src.view.committee.edit_committee_chat import *
 from src.view.committee.committee_attendance import *
+from src.view.committee.recruitment import (
+    recruitment_dashboard,
+    create_recruitment_event,
+    edit_recruitment_event,
+    recruitment_event_detail,
+    delete_recruitment_event,
+    manage_recruitment_permissions,
+    update_recruitment_permission,
+    reset_recruitment_permissions,
+)

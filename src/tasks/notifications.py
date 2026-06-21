@@ -613,3 +613,231 @@ def send_daily_digest():
             logger.error(f"[digest] Failed to email report: {exc}")
     else:
         logger.warning("[digest] No SECURITY_ALERT_EMAIL configured — daily digest not emailed")
+
+
+@shared_task(name='tasks.send_service_event_email_reminders')
+def send_service_event_email_reminders():
+    """
+    Send custom email reminders for upcoming service events.
+
+    Runs every 15 minutes (same schedule as push reminders). For each ServiceEvent
+    with email_reminder_enabled=True and email_reminder_sent_at=None, checks whether
+    we are within the configured lead-time window and dispatches the email to all
+    active, eligible members who have an email address.
+
+    Supports placeholders in subject and body:
+        {event_title}    — event title
+        {event_date}     — formatted date/time
+        {event_location} — location (empty string if not set)
+        {hours}          — hours_awarded
+    """
+    from datetime import timedelta
+    from django.conf import settings as _settings
+    from django.core.mail import send_mail
+    from src.models import ServiceEvent, ParliamentUser
+
+    now = timezone.now()
+    window_end = now + timedelta(days=7)
+
+    candidates = (
+        ServiceEvent.objects
+        .filter(
+            email_reminder_enabled=True,
+            email_reminder_sent_at__isnull=True,
+            event__is_active=True,
+            event__date_time__gt=now,
+            event__date_time__lte=window_end,
+        )
+        .select_related('event', 'period')
+    )
+
+    sent_events = 0
+
+    for se in candidates:
+        # Check whether we've reached the send window
+        send_at = se.event.date_time - timedelta(hours=se.email_reminder_hours_before)
+        if now < send_at:
+            continue  # Not time yet
+
+        event = se.event
+
+        # Build placeholder context
+        local_dt = timezone.localtime(event.date_time)
+        context = {
+            'event_title': event.title,
+            'event_date': local_dt.strftime('%A, %B %-d at %-I:%M %p'),
+            'event_location': event.location or '',
+            'hours': str(se.hours_awarded),
+        }
+
+        try:
+            subject = se.email_reminder_subject.format(**context)
+            body = se.email_reminder_body.format(**context)
+        except (KeyError, ValueError) as fmt_err:
+            logger.warning(f"[service_event_reminders] format error for ServiceEvent {se.pk}: {fmt_err}")
+            subject = se.email_reminder_subject
+            body = se.email_reminder_body
+
+        from_email = getattr(_settings, 'DEFAULT_FROM_EMAIL', None)
+        if not from_email:
+            logger.warning('[service_event_reminders] DEFAULT_FROM_EMAIL not configured — skipping')
+            continue
+
+        # Eligible recipients: active members with an email address
+        # Respect visible_to if set on the event
+        recipients = ParliamentUser.objects.filter(member_status='Active', is_active=True).exclude(email__isnull=True).exclude(email='')
+        if event.visible_to:
+            from django.db.models import Q as _Q
+            visible_types = set(event.visible_to)
+            if 'Member' in visible_types:
+                visible_types.update(['Chair', 'Officer'])
+            recipients = recipients.filter(member_type__in=visible_types)
+
+        dispatched = 0
+        for user in recipients:
+            try:
+                send_mail(
+                    subject=subject,
+                    message=body,
+                    from_email=from_email,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+                dispatched += 1
+            except Exception as mail_exc:
+                logger.warning(f"[service_event_reminders] failed to email {user.email} for event {se.pk}: {mail_exc}")
+
+        if dispatched > 0:
+            # Only mark sent when at least one email was delivered; if dispatched==0
+            # (e.g. transient SMTP outage) leave sent_at=None so the next Celery tick retries.
+            se.email_reminder_sent_at = now
+            se.save(update_fields=['email_reminder_sent_at'])
+            sent_events += 1
+            logger.info(f"[service_event_reminders] ServiceEvent {se.pk} ({event.title}): emailed {dispatched} recipient(s)")
+        else:
+            logger.warning(f"[service_event_reminders] ServiceEvent {se.pk} ({event.title}): 0 emails delivered — will retry next tick")
+
+    if sent_events:
+        logger.info(f"[service_event_reminders] dispatched reminders for {sent_events} service event(s)")
+
+
+@shared_task(name='tasks.send_recruitment_rsvp_reminders')
+def send_recruitment_rsvp_reminders():
+    """
+    Send push + email reminders to members who RSVPd 'going' for upcoming recruitment events.
+
+    Runs every 15 minutes. For each RecruitmentEvent with rsvp_reminder_enabled=True and
+    rsvp_reminder_sent_at=None, checks whether we're within the configured lead-time window
+    and dispatches both push and email reminders to confirmed RSVPs.
+
+    Only marks sent_at when at least one recipient was successfully reached.
+    """
+    from datetime import timedelta
+    from django.conf import settings as _settings
+    from django.core.mail import send_mail
+    from src.models import RecruitmentEvent, RecruitmentEventRSVP
+
+    now = timezone.now()
+    window_end = now + timedelta(days=7)
+
+    candidates = (
+        RecruitmentEvent.objects
+        .filter(
+            rsvp_reminder_enabled=True,
+            rsvp_reminder_sent_at__isnull=True,
+            event__is_active=True,
+            event__date_time__gt=now,
+            event__date_time__lte=window_end,
+        )
+        .select_related('event', 'committee')
+    )
+
+    sent_count = 0
+
+    for re in candidates:
+        send_at = re.event.date_time - timedelta(hours=re.rsvp_reminder_hours_before)
+        if now < send_at:
+            continue
+
+        event = re.event
+        local_dt = timezone.localtime(event.date_time)
+        date_str = local_dt.strftime('%A, %B %-d at %-I:%M %p')
+        location_str = event.location or 'TBD'
+
+        going_rsvps = (
+            RecruitmentEventRSVP.objects
+            .filter(recruitment_event=re, status='going')
+            .select_related('user')
+        )
+
+        if not going_rsvps.exists():
+            # No one RSVPd — mark sent so we don't re-check every tick
+            re.rsvp_reminder_sent_at = now
+            re.save(update_fields=['rsvp_reminder_sent_at'])
+            logger.info(f"[rsvp_reminders] RecruitmentEvent {re.pk}: no going RSVPs, skipped")
+            sent_count += 1
+            continue
+
+        push_title = f"Reminder: {event.title}"
+        push_body = f"Today at {date_str}" if local_dt.date() == now.date() else f"{date_str}"
+        event_url = f"/committee/{re.committee.code}/recruitment/{re.pk}/"
+
+        from_email = getattr(_settings, 'DEFAULT_FROM_EMAIL', None)
+        email_subject = f"Reminder: {event.title} — {date_str}"
+        email_body = (
+            f"Hi,\n\n"
+            f"This is a reminder that you RSVPd 'Going' to the following recruitment event:\n\n"
+            f"  {event.title}\n"
+            f"  {date_str}\n"
+            f"  Location: {location_str}\n\n"
+            f"See you there!\n\n"
+            f"— {re.committee.name}"
+        )
+
+        dispatched_push = 0
+        dispatched_email = 0
+
+        for rsvp in going_rsvps:
+            user = rsvp.user
+
+            # Push notification
+            try:
+                send_push_notification.delay(
+                    user.pk, push_title, push_body, event_url,
+                    tag=f'recruitment-reminder-{re.pk}',
+                )
+                dispatched_push += 1
+            except Exception as push_exc:
+                logger.warning(f"[rsvp_reminders] push failed for user {user.pk}: {push_exc}")
+
+            # Email notification
+            if from_email and user.email:
+                try:
+                    send_mail(
+                        subject=email_subject,
+                        message=email_body,
+                        from_email=from_email,
+                        recipient_list=[user.email],
+                        fail_silently=False,
+                    )
+                    dispatched_email += 1
+                except Exception as mail_exc:
+                    logger.warning(f"[rsvp_reminders] email failed for {user.email}: {mail_exc}")
+
+        total = dispatched_push + dispatched_email
+        if total > 0:
+            re.rsvp_reminder_sent_at = now
+            re.save(update_fields=['rsvp_reminder_sent_at'])
+            sent_count += 1
+            logger.info(
+                f"[rsvp_reminders] RecruitmentEvent {re.pk} ({event.title}): "
+                f"push={dispatched_push}, email={dispatched_email}"
+            )
+        else:
+            logger.warning(
+                f"[rsvp_reminders] RecruitmentEvent {re.pk} ({event.title}): "
+                f"0 deliveries — will retry next tick"
+            )
+
+    if sent_count:
+        logger.info(f"[rsvp_reminders] processed reminders for {sent_count} recruitment event(s)")

@@ -1099,6 +1099,7 @@ def edit_user_profile(request, user_id):
     big/little brother, and role history.
     """
     from src.models import RoleHistory
+    from src.utils.cache_utils import invalidate_user_session_caches
     target = get_object_or_404(ParliamentUser, user_id=user_id)
     all_members = ParliamentUser.objects.exclude(user_id=user_id).order_by('name')
 
@@ -1252,6 +1253,8 @@ def edit_user_profile(request, user_id):
                     target.save(update_fields=['initiation_chapters'])
                     messages.success(request, 'Initiation chapter removed.')
 
+        # Bust per-user caches so any context-processor data reflects the edit immediately.
+        invalidate_user_session_caches(target.pk)
         return redirect('admin_v2_edit_user_profile', user_id=user_id)
 
     role_histories = RoleHistory.objects.filter(user=target)
@@ -2924,6 +2927,7 @@ def audit_log(request):
         filename = f'audit_log_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.csv'
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         response['Cache-Control'] = 'no-store'
+        response['X-Content-Type-Options'] = 'nosniff'
         return response
 
     paginator = Paginator(qs, 30)
