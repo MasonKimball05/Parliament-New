@@ -73,6 +73,15 @@ SCHEDULES = [
     },
 
     # -------------------------------------------------------------------------
+    # Event sign-up announcement emails — every 15 minutes
+    # -------------------------------------------------------------------------
+    {
+        'name': 'Send event sign-up announcement emails',
+        'task': 'tasks.send_event_signup_announcements',
+        'interval': {'every': 15, 'period': IntervalSchedule.MINUTES},
+    },
+
+    # -------------------------------------------------------------------------
     # Housekeeping — daily tasks (3:00–3:30 AM CST = 09:00–09:30 UTC)
     # -------------------------------------------------------------------------
     {
@@ -128,6 +137,16 @@ SCHEDULES = [
         'name': 'Send daily site digest',
         'task': 'tasks.send_daily_digest',
         'crontab': {'hour': '9', 'minute': '30'},  # 3:30 AM CST daily
+    },
+
+    # -------------------------------------------------------------------------
+    # Weekly chapter digest — personalised email per member every Sunday morning
+    # 8:00 AM CST = 14:00 UTC, Sunday (day_of_week=0)
+    # -------------------------------------------------------------------------
+    {
+        'name': 'Send weekly chapter digest',
+        'task': 'tasks.send_weekly_chapter_digest',
+        'crontab': {'hour': '14', 'minute': '0', 'day_of_week': '0'},  # 8:00 AM CST Sunday
     },
 ]
 

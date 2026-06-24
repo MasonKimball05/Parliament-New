@@ -5,6 +5,22 @@ This project is licensed under the MIT License. Copyright (c) 2025-2026 Mason Ki
 
 ---
 
+### v3.11.0 — Candidate Notes, Education Quiz & Security Hardening (2026-06-24)
+
+**Type:** Feature / Security Fix / Bug Fix
+
+Structured candidate note threads replace the flat notes field on `RecruitmentCandidate` — timestamped per-author entries with chair-level delete and AJAX UI on the candidate list. Full education quiz flow implemented: `PledgeTaskQuestion` + `PledgeQuizAnswer` models, chair-side question management and submission review with quick-grade buttons, and a pledge-facing take-quiz flow that sets completions to `pending` for human grading. Security fix: a data migration seeds default-block `PledgePageRestriction` rows for `chapter_documents`, `slating_apply`, and `slating_results` — these were silently pledge-open on a fresh deploy after the `@exclude_pledges` → `@pledge_page_allowed` migration. Weekly digest idempotency guard added. All education views now carry `@require_page_enabled`. See `changelogs/v3.11.0.md`.
+
+---
+
+### v3.10.1 — Chapter Stats, Bug Fixes & Performance (2026-06-22)
+
+**Type:** Feature / Bug Fix / Performance
+
+New officer-facing chapter statistics dashboard (`/officers/chapter-stats/`) covering attendance, voting, service hours, and recruitment pipeline. Fixes a silent `AttributeError` and `FieldError` that caused service hours and recruitment stats to always render empty. Fixes recruitment events leaking into chapter attendance stats. Fixes per-member service hour requirements being ignored. Batch of query-efficiency fixes across `chapter_stats`, `recruitment`, `profile_card`, and the education committee view. `PledgePageRestriction.is_allowed()` now cached (5-min TTL). Chair-only gate added to task publish/unpublish. See `changelogs/v3.10.1.md`.
+
+---
+
 ### v3.10.0 — Event Waitlist, Signup CSV Export & Bug Fixes (2026-06-21)
 
 **Type:** Feature / Bug Fix / Performance

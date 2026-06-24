@@ -114,7 +114,11 @@
                                 {% endif %}
                             </span>
                             {% endif %}
-                            {% if user.preferences.show_documents_menu and not user.is_pledge %}
+                            {% if user.is_pledge %}
+                            <a href="{% url 'my_pledge_tasks' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
+                                My Tasks
+                            </a>
+                            {% elif user.preferences.show_documents_menu %}
                             <a href="{% url 'chapter_documents' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Documents
                             </a>
@@ -311,7 +315,11 @@
                     {% endif %}
                 </span>
                 {% endif %}
-                {% if user.preferences.show_documents_menu and not user.is_pledge %}
+                {% if user.is_pledge %}
+                <a href="{% url 'my_pledge_tasks' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
+                    📋 My Tasks
+                </a>
+                {% elif user.preferences.show_documents_menu %}
                 <a href="{% url 'chapter_documents' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📄 Documents
                 </a>

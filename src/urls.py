@@ -72,6 +72,14 @@ from src.view.committee.recruitment import (
     recruitment_event_detail, delete_recruitment_event,
     manage_recruitment_permissions, update_recruitment_permission, reset_recruitment_permissions,
     candidate_list, create_candidate, edit_candidate, delete_candidate,
+    candidate_update_status,
+    add_candidate_note, delete_candidate_note,
+)
+from src.view.committee.education import (
+    education_home, education_add_task, education_toggle_completion,
+    education_delete_task, education_toggle_task_published,
+    education_update_page_restriction, education_delete_page_restriction,
+    education_add_quiz_question, education_delete_quiz_question, education_quiz_submissions,
 )
 from src.view.chat import (
     chat_index, channel_chat, get_channel_messages, send_channel_message,
@@ -152,6 +160,8 @@ from src.view.officer.manage_members import add_member, edit_member, delete_memb
 from src.view.officer.manage_roles import manage_roles, role_detail, add_role, delete_role, assign_role_member, unassign_role_member, get_assignable_members
 from src.view.officer.transitions import role_transitions, transfer_role
 from src.view.officer.set_member_house import set_member_house
+from src.view.officer.chapter_stats import chapter_stats
+from src.view.pledge_tasks import my_pledge_tasks, pledge_take_quiz
 from src.view.home import home
 from src.view.landing import landing_page, contact_submit
 from src.view.vote_view import vote_view, vote_tally_json
@@ -394,6 +404,9 @@ urlpatterns = [
 
     # Officer Pages
     path('officers/', officer_home, name='officer_home'),
+    path('officers/chapter-stats/', chapter_stats, name='chapter_stats'),
+    path('my-tasks/', my_pledge_tasks, name='my_pledge_tasks'),
+    path('my-tasks/quiz/<int:task_pk>/', pledge_take_quiz, name='pledge_take_quiz'),
     path('officers/edit-landing-page/', edit_landing_page, name='edit_landing_page'),
     path('officers/contact-messages/', contact_submissions_view, name='contact_submissions'),
     path('officers/contact-messages/<int:pk>/read/', mark_contact_read, name='mark_contact_read'),
@@ -678,11 +691,27 @@ urlpatterns = [
     path('api/committee/<str:code>/recruitment-permissions/<str:user_id>/update/', update_recruitment_permission, name='update_recruitment_permission'),
     path('api/committee/<str:code>/recruitment-permissions/reset/', reset_recruitment_permissions, name='reset_recruitment_permissions'),
 
+    # Education dashboard (pledge tracker + page access controls)
+    path('committee/<str:code>/education/', education_home, name='education_home'),
+    path('committee/<str:code>/education/tasks/add/', education_add_task, name='education_add_task'),
+    path('committee/<str:code>/education/tasks/<int:task_pk>/toggle/<int:pledge_pk>/', education_toggle_completion, name='education_toggle_completion'),
+    path('committee/<str:code>/education/tasks/<int:task_pk>/delete/', education_delete_task, name='education_delete_task'),
+    path('committee/<str:code>/education/tasks/<int:task_pk>/publish/', education_toggle_task_published, name='education_toggle_task_published'),
+    path('committee/<str:code>/education/restrictions/update/', education_update_page_restriction, name='education_update_page_restriction'),
+    path('committee/<str:code>/education/restrictions/<int:restriction_pk>/delete/', education_delete_page_restriction, name='education_delete_page_restriction'),
+    # Quiz question management
+    path('committee/<str:code>/education/tasks/<int:task_pk>/questions/add/', education_add_quiz_question, name='education_add_quiz_question'),
+    path('committee/<str:code>/education/tasks/<int:task_pk>/questions/<int:question_pk>/delete/', education_delete_quiz_question, name='education_delete_quiz_question'),
+    path('committee/<str:code>/education/tasks/<int:task_pk>/submissions/', education_quiz_submissions, name='education_quiz_submissions'),
+
     # Recruitment candidates
     path('committee/<str:code>/candidates/', candidate_list, name='candidate_list'),
     path('committee/<str:code>/candidates/add/', create_candidate, name='create_candidate'),
     path('committee/<str:code>/candidates/<int:candidate_id>/edit/', edit_candidate, name='edit_candidate'),
     path('committee/<str:code>/candidates/<int:candidate_id>/delete/', delete_candidate, name='delete_candidate'),
+    path('committee/<str:code>/candidates/<int:candidate_id>/status/', candidate_update_status, name='candidate_update_status'),
+    path('committee/<str:code>/candidates/<int:candidate_id>/notes/add/', add_candidate_note, name='add_candidate_note'),
+    path('committee/<str:code>/candidates/<int:candidate_id>/notes/<int:note_id>/delete/', delete_candidate_note, name='delete_candidate_note'),
 
     # New Channel-based Chat URLs
     path('chats/', chat_index, name='chat_index'),

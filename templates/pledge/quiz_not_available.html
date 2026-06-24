@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Quiz Unavailable — Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-10 max-w-md w-full text-center">
+    <span class="text-5xl">🔒</span>
+    <h1 class="text-xl font-bold text-gray-900 dark:text-white mt-4">Quiz Not Available</h1>
+    <p class="text-gray-500 dark:text-gray-400 mt-2 text-sm">
+      {% if no_questions %}
+        This quiz has no questions yet. Check back later.
+      {% else %}
+        This quiz isn't available to you right now. Contact your pledge educator if you think this is a mistake.
+      {% endif %}
+    </p>
+    <a href="{% url 'my_pledge_tasks' %}" class="mt-6 inline-block text-sm text-primary-600 dark:text-primary-400 hover:underline">← Back to My Tasks</a>
+  </div>
+</div>
+{% endblock %}

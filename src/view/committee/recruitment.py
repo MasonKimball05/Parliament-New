@@ -10,7 +10,7 @@ from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from src.models import (
     Committee, Event, ParliamentUser,
-    RecruitmentCandidate, RecruitmentEvent, RecruitmentEventRSVP, RecruitmentMemberPermission,
+    RecruitmentCandidate, RecruitmentCandidateNote, RecruitmentEvent, RecruitmentEventRSVP, RecruitmentMemberPermission,
     ActivityLog,
 )
 from src.feature_flag_decorators import require_page_enabled
@@ -175,7 +175,10 @@ def create_recruitment_event(request, code):
         notes = request.POST.get('notes', '').strip()
         notes_visibility = request.POST.get('notes_visibility', 'committee_only')
         rsvp_reminder_enabled = request.POST.get('rsvp_reminder_enabled') == 'on'
-        rsvp_reminder_hours = int(request.POST.get('rsvp_reminder_hours_before', 24) or 24)
+        try:
+            rsvp_reminder_hours = max(1, int(request.POST.get('rsvp_reminder_hours_before', 24) or 24))
+        except (ValueError, TypeError):
+            rsvp_reminder_hours = 24
         attendance_type = request.POST.get('attendance_type', 'none')
 
         # Max signups (only relevant when attendance_type == 'signup')
@@ -310,7 +313,10 @@ def edit_recruitment_event(request, code, recruitment_event_id):
         notes = request.POST.get('notes', '').strip()
         notes_visibility = request.POST.get('notes_visibility', re.notes_visibility)
         rsvp_reminder_enabled = request.POST.get('rsvp_reminder_enabled') == 'on'
-        rsvp_reminder_hours = int(request.POST.get('rsvp_reminder_hours_before', 24) or 24)
+        try:
+            rsvp_reminder_hours = max(1, int(request.POST.get('rsvp_reminder_hours_before', 24) or 24))
+        except (ValueError, TypeError):
+            rsvp_reminder_hours = 24
         attendance_type = request.POST.get('attendance_type', 'none')
 
         max_signups = None
@@ -462,13 +468,13 @@ def recruitment_event_detail(request, code, recruitment_event_id):
     # For sign-up events use EventSignup; for legacy RSVP events use RecruitmentEventRSVP
     if uses_signup:
         from src.models import EventSignup
-        signups = (
+        signups = list(
             EventSignup.objects
             .filter(event=re.event, is_cancelled=False)
             .select_related('user')
             .order_by('signed_up_at')
         )
-        signup_count = signups.count()
+        signup_count = len(signups)
         rsvps = None
         user_rsvp = None
         going_count = signup_count
@@ -476,10 +482,10 @@ def recruitment_event_detail(request, code, recruitment_event_id):
     else:
         signups = None
         signup_count = 0
-        rsvps = re.rsvps.select_related('user').order_by('user__name')
-        user_rsvp = re.rsvps.filter(user=request.user).first()
-        going_count = rsvps.filter(status='going').count()
-        checked_in_count = rsvps.filter(checked_in=True).count()
+        rsvps = list(re.rsvps.select_related('user').order_by('user__name'))
+        user_rsvp = next((r for r in rsvps if r.user_id == request.user.pk), None)
+        going_count = sum(1 for r in rsvps if r.status == 'going')
+        checked_in_count = sum(1 for r in rsvps if r.checked_in)
 
     # Handle POST actions
     if request.method == 'POST':
@@ -590,15 +596,13 @@ def manage_recruitment_permissions(request, code):
 
 
 @login_required
+@require_page_enabled('committee_home')
 @require_http_methods(['POST'])
 def update_recruitment_permission(request, code, user_id):
     committee = _get_committee(code)
 
     if not (committee.is_chair(request.user) or request.user.is_admin):
         return JsonResponse({'error': 'Permission denied'}, status=403)
-
-    if committee.is_chair(request.user.__class__.objects.get(user_id=user_id)):
-        return JsonResponse({'error': 'Chairs always have full access'}, status=400)
 
     try:
         member = ParliamentUser.objects.get(user_id=user_id)
@@ -621,6 +625,7 @@ def update_recruitment_permission(request, code, user_id):
 
 
 @login_required
+@require_page_enabled('committee_home')
 @require_http_methods(['POST'])
 def reset_recruitment_permissions(request, code):
     committee = _get_committee(code)
@@ -655,10 +660,14 @@ def _candidate_list_legacy(request, code):
     status_filter = request.GET.get('status', '')
     assigned_filter = request.GET.get('assigned_to', '')
 
+    from django.db.models import Prefetch
     candidates = (
         RecruitmentCandidate.objects
         .filter(committee=committee)
         .select_related('assigned_to', 'source_event__event', 'added_by')
+        .prefetch_related(
+            Prefetch('note_entries', queryset=RecruitmentCandidateNote.objects.select_related('author').order_by('created_at'))
+        )
         .order_by('name')
     )
     if status_filter:
@@ -894,3 +903,99 @@ def delete_candidate(request, code, candidate_id):
     candidate.delete()
     messages.success(request, f'Candidate "{name}" removed.')
     return redirect('candidate_list', code=code)
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_http_methods(['POST'])
+def candidate_update_status(request, code, candidate_id):
+    """
+    Inline status update for the candidate list badge popover.
+    POST body: status=<new_status>
+    Returns JSON: {status, status_display, badge_class}
+    """
+    committee = _get_committee(code)
+    candidate = get_object_or_404(RecruitmentCandidate, id=candidate_id, committee=committee)
+
+    has_access, _, perm = _user_access(committee, request.user)
+    if not has_access or not _can_manage(committee, request.user, perm=perm):
+        return JsonResponse({'error': 'Permission denied.'}, status=403)
+
+    valid_statuses = {s[0] for s in RecruitmentCandidate.STATUS_CHOICES}
+    new_status = request.POST.get('status', '').strip()
+    if new_status not in valid_statuses:
+        return JsonResponse({'error': 'Invalid status.'}, status=400)
+
+    candidate.status = new_status
+    candidate.save(update_fields=['status', 'updated_at'])
+
+    # Badge colour classes — mirrors the template
+    badge_classes = {
+        'accepted': 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
+        'declined': 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+        'rejected': 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+        'bid':      'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+        'invited':  'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
+        'contacted':'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
+        'prospect': 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+    }
+
+    return JsonResponse({
+        'status': candidate.status,
+        'status_display': candidate.get_status_display(),
+        'badge_class': badge_classes.get(new_status, badge_classes['prospect']),
+    })
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_http_methods(['POST'])
+def add_candidate_note(request, code, candidate_id):
+    """
+    Add a note to a candidate's note thread.
+    POST body: body=<text>
+    Returns JSON: {note_id, author, body, created_at}
+    """
+    committee = _get_committee(code)
+    candidate = get_object_or_404(RecruitmentCandidate, id=candidate_id, committee=committee)
+
+    has_access, _, perm = _user_access(committee, request.user)
+    if not has_access or not _can_view_private(committee, request.user, perm=perm):
+        return JsonResponse({'error': 'Permission denied.'}, status=403)
+
+    body = request.POST.get('body', '').strip()
+    if not body:
+        return JsonResponse({'error': 'Note cannot be empty.'}, status=400)
+
+    note = RecruitmentCandidateNote.objects.create(
+        candidate=candidate,
+        author=request.user,
+        body=body,
+    )
+
+    return JsonResponse({
+        'note_id': note.pk,
+        'author': request.user.get_display_name(),
+        'body': note.body,
+        'created_at': note.created_at.strftime('%b %-d, %Y %-I:%M %p'),
+    })
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_http_methods(['POST'])
+def delete_candidate_note(request, code, candidate_id, note_id):
+    """
+    Delete a candidate note.
+    Authors can delete their own notes; chairs can delete any note.
+    """
+    committee = _get_committee(code)
+    candidate = get_object_or_404(RecruitmentCandidate, id=candidate_id, committee=committee)
+    note = get_object_or_404(RecruitmentCandidateNote, id=note_id, candidate=candidate)
+
+    is_chair = committee.is_chair(request.user) or request.user.is_admin
+    if note.author_id != request.user.pk and not is_chair:
+        return JsonResponse({'error': 'You can only delete your own notes.'}, status=403)
+
+    note.delete()
+    return JsonResponse({'deleted': True, 'note_id': note_id})

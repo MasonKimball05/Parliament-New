@@ -104,6 +104,33 @@ def kai_chair_required(view_func):
     return wrapper
 
 
+def pledge_page_allowed(url_name):
+    """
+    Decorator factory: blocks pledges from the decorated view unless the VPE has
+    explicitly allowed it for their current phase via PledgePageRestriction.
+
+    Non-pledge users always pass through.
+
+    Usage:
+        @login_required
+        @pledge_page_allowed('directory')
+        def directory(request): ...
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                return redirect('login')
+            if request.user.is_pledge:
+                from src.models.education import PledgePageRestriction
+                phase = getattr(request.user, 'pledge_phase', None) or 'all'
+                if not PledgePageRestriction.is_allowed(url_name, phase):
+                    return render(request, 'errors/pledge_restricted.html', status=403)
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+
 def cnb_required(view_func):
     """Restrict access to admins and users with the CNB (Constitution & Bylaws Chair) role."""
     @wraps(view_func)

@@ -15,11 +15,11 @@ from src.models import (
     SlatingPeriod, Slate, SlatingBallot, SlatingVote, SlatingActivity, SlatingPosition
 )
 from .permissions import slating_chair_required, can_view_applications
-from src.decorators import exclude_pledges
+from src.decorators import pledge_page_allowed
 
 
 @login_required
-@exclude_pledges
+@pledge_page_allowed('slating_results')
 def view_results(request, period_id):
     """
     View election results.

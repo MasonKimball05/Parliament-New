@@ -183,12 +183,12 @@ def committee_home(request, code):
                 RecruitmentEvent.objects
                 .filter(committee=committee, event__date_time__gte=_now)
                 .select_related('event')
-                .order_by('event__date_time')[:5]
+                .order_by('event__date_time')
             )
             if not _can_view_priv:
                 _upcoming_qs = _upcoming_qs.filter(visibility='public')
 
-            context['recruitment_upcoming'] = list(_upcoming_qs)
+            context['recruitment_upcoming'] = list(_upcoming_qs[:5])
             context['recruitment_can_manage'] = _can_manage
             context['recruitment_total'] = RecruitmentEvent.objects.filter(committee=committee).count()
         except Exception:

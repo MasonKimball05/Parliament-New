@@ -471,15 +471,28 @@ def send_daily_digest():
             if count > threshold:
                 flag('low', 'Maintenance', f"{label} has {count:,} records (threshold {threshold:,}) — consider pruning old entries")
 
-        stale_watch = UserWatchFlag.objects.filter(is_active=True, updated_at__lt=now - timezone.timedelta(days=30))
-        if stale_watch.exists():
-            names = ', '.join(stale_watch.values_list('user__username', flat=True)[:5])
-            flag('medium', 'Security', f"{stale_watch.count()} active watch flag(s) haven't been reviewed/updated in 30+ days: {names}")
+        stale_watch_list = list(
+            UserWatchFlag.objects.filter(is_active=True, updated_at__lt=now - timezone.timedelta(days=30))
+            .values_list('user__username', flat=True)[:5]
+        )
+        if stale_watch_list:
+            # Count separately so we get the real total, not just the capped preview list
+            stale_watch_count = UserWatchFlag.objects.filter(
+                is_active=True, updated_at__lt=now - timezone.timedelta(days=30)
+            ).count()
+            names = ', '.join(stale_watch_list)
+            flag('medium', 'Security', f"{stale_watch_count} active watch flag(s) haven't been reviewed/updated in 30+ days: {names}")
 
-        old_whitelist = IPWhitelist.objects.filter(is_active=True, added_at__lt=now - timezone.timedelta(days=180))
-        if old_whitelist.exists():
-            entries = ', '.join(f"{e['ip_address']} ({e['description'][:30]})" for e in old_whitelist.values('ip_address', 'description')[:5])
-            flag('low', 'Security', f"{old_whitelist.count()} IPWhitelist entry/entries are 6+ months old and may be stale: {entries}")
+        old_whitelist_rows = list(
+            IPWhitelist.objects.filter(is_active=True, added_at__lt=now - timezone.timedelta(days=180))
+            .values('ip_address', 'description')[:5]
+        )
+        if old_whitelist_rows:
+            old_whitelist_count = IPWhitelist.objects.filter(
+                is_active=True, added_at__lt=now - timezone.timedelta(days=180)
+            ).count()
+            entries = ', '.join(f"{e['ip_address']} ({e['description'][:30]})" for e in old_whitelist_rows)
+            flag('low', 'Security', f"{old_whitelist_count} IPWhitelist entry/entries are 6+ months old and may be stale: {entries}")
 
         ok('Security', 'Security system checks complete')
 
@@ -764,13 +777,13 @@ def send_recruitment_rsvp_reminders():
         date_str = local_dt.strftime('%A, %B %-d at %-I:%M %p')
         location_str = event.location or 'TBD'
 
-        going_rsvps = (
+        going_rsvps = list(
             RecruitmentEventRSVP.objects
             .filter(recruitment_event=re, status='going')
             .select_related('user')
         )
 
-        if not going_rsvps.exists():
+        if not going_rsvps:
             # No one RSVPd — mark sent so we don't re-check every tick
             re.rsvp_reminder_sent_at = now
             re.save(update_fields=['rsvp_reminder_sent_at'])
@@ -841,3 +854,315 @@ def send_recruitment_rsvp_reminders():
 
     if sent_count:
         logger.info(f"[rsvp_reminders] processed reminders for {sent_count} recruitment event(s)")
+
+
+@shared_task(name='tasks.send_event_signup_announcements')
+def send_event_signup_announcements():
+    """
+    Send a chapter-wide announcement email when a sign-up event opens.
+
+    Runs every 15 minutes. For each Event with requires_signup=True,
+    signups_open=True, rsvp_email_enabled=True, and rsvp_email_sent_at=None,
+    emails all eligible members with event details and a one-click sign-up link.
+
+    Respects event.visible_to. Only marks rsvp_email_sent_at when at least one
+    email was delivered so transient SMTP failures retry on the next tick.
+    """
+    from django.conf import settings as _settings
+    from django.core.mail import send_mail
+    from django.urls import reverse
+    from src.models import Event, ParliamentUser
+
+    now = timezone.now()
+
+    candidates = (
+        Event.objects
+        .filter(
+            requires_signup=True,
+            signups_open=True,
+            rsvp_email_enabled=True,
+            rsvp_email_sent_at__isnull=True,
+            is_active=True,
+            archived=False,
+            date_time__gt=now,
+        )
+        .order_by('date_time')
+    )
+
+    from_email = getattr(_settings, 'DEFAULT_FROM_EMAIL', None)
+    if not from_email:
+        logger.warning('[signup_announcements] DEFAULT_FROM_EMAIL not configured — skipping')
+        return
+
+    sent_count = 0
+
+    for event in candidates:
+        local_dt = timezone.localtime(event.date_time)
+        date_str = local_dt.strftime('%A, %B %-d at %-I:%M %p')
+
+        try:
+            signup_path = reverse('event_signup', kwargs={'event_id': event.pk})
+            site_url = getattr(_settings, 'SITE_URL', '').rstrip('/')
+            signup_url = f'{site_url}{signup_path}' if site_url else signup_path
+        except Exception:
+            signup_url = ''
+
+        subject = f'Sign-ups open: {event.title}'
+        lines = [
+            f'{event.title}',
+            f'When: {date_str}',
+        ]
+        if event.location:
+            lines.append(f'Where: {event.location}')
+        if event.description:
+            lines.append(f'\n{event.description}')
+        if event.max_signups:
+            lines.append(f'\nSpots available: {event.max_signups}')
+        if event.allow_waitlist:
+            lines.append('(A waitlist is available if spots fill up.)')
+        if signup_url:
+            lines.append(f'\nSign up here: {signup_url}')
+        body = '\n'.join(lines)
+
+        recipients = (
+            ParliamentUser.objects
+            .filter(member_status='Active', is_active=True)
+            .exclude(email__isnull=True)
+            .exclude(email='')
+        )
+        if event.visible_to:
+            visible_types = set(event.visible_to)
+            if 'Member' in visible_types:
+                visible_types.update(['Chair', 'Officer'])
+            recipients = recipients.filter(member_type__in=visible_types)
+
+        dispatched = 0
+        for user in recipients:
+            try:
+                send_mail(
+                    subject=subject,
+                    message=body,
+                    from_email=from_email,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+                dispatched += 1
+            except Exception as mail_exc:
+                logger.warning(
+                    f'[signup_announcements] failed to email {user.email} '
+                    f'for event {event.pk}: {mail_exc}'
+                )
+
+        if dispatched > 0:
+            event.rsvp_email_sent_at = now
+            event.save(update_fields=['rsvp_email_sent_at'])
+            sent_count += 1
+            logger.info(
+                f'[signup_announcements] Event {event.pk} ({event.title}): '
+                f'emailed {dispatched} recipient(s)'
+            )
+        else:
+            logger.warning(
+                f'[signup_announcements] Event {event.pk} ({event.title}): '
+                f'0 emails delivered — will retry next tick'
+            )
+
+    if sent_count:
+        logger.info(f'[signup_announcements] announced {sent_count} event(s)')
+
+
+@shared_task(name='tasks.send_weekly_chapter_digest')
+def send_weekly_chapter_digest():
+    """
+    Send each active member a personalised weekly digest every Sunday morning.
+
+    Sections (all optional — section is omitted if there's nothing to show):
+      • Upcoming events     — next 7 days, filtered to events visible to that member
+      • Open legislation    — chapter legislation currently accepting votes
+      • Your service hours  — hours logged vs. required in the current active period
+
+    Per-member personalisation means this loops over members to send individual
+    emails, but the heavy DB work is batched upfront (single query per section).
+    """
+    from datetime import timedelta
+
+    from django.conf import settings as _settings
+    from django.core.mail import send_mail
+    from django.urls import reverse
+
+    from src.models import Event, Legislation, ParliamentUser, ServiceHoursSubmission, ServicePeriod
+    from django.db.models import Sum
+
+    from_email = getattr(_settings, 'DEFAULT_FROM_EMAIL', None)
+    if not from_email:
+        logger.warning('[weekly_digest] DEFAULT_FROM_EMAIL not configured — skipping')
+        return
+
+    now = timezone.now()
+
+    # Idempotency guard — prevent duplicate sends if Celery retries or the task
+    # is accidentally scheduled twice on the same Sunday.
+    from django.core.cache import cache as _cache
+    _digest_cache_key = f'weekly_digest_sent_{now.strftime("%Y-%W")}'
+    if _cache.get(_digest_cache_key):
+        logger.info('[weekly_digest] already sent this week — skipping duplicate run')
+        return
+
+    site_url = getattr(_settings, 'SITE_URL', '').rstrip('/')
+    week_ahead = now + timedelta(days=7)
+
+    # ── Recipients ────────────────────────────────────────────────────────────
+    # All active non-pledge members with an email address.
+    recipients = list(
+        ParliamentUser.objects
+        .filter(member_status='Active', is_active=True)
+        .exclude(member_type__in=['Advisor', 'Pledge'])
+        .exclude(email__isnull=True)
+        .exclude(email='')
+        .order_by('name')
+    )
+    if not recipients:
+        logger.info('[weekly_digest] no eligible recipients — skipping')
+        return
+
+    # ── Upcoming events (next 7 days) ─────────────────────────────────────────
+    upcoming_events = list(
+        Event.objects
+        .filter(is_active=True, archived=False, date_time__gte=now, date_time__lte=week_ahead)
+        .exclude(recruitment_event__isnull=False)
+        .order_by('date_time')
+    )
+
+    # ── Open legislation ──────────────────────────────────────────────────────
+    open_legislation = list(
+        Legislation.objects
+        .filter(is_active=True, voting_closed=False)
+        .order_by('created_at')
+    )
+
+    # ── Service hours — active period ─────────────────────────────────────────
+    active_period = (
+        ServicePeriod.objects
+        .filter(is_active=True)
+        .order_by('-start_date')
+        .first()
+    )
+    hours_by_member = {}  # pk → float
+    member_required = {}  # pk → float
+    default_required = 0.0
+    if active_period:
+        default_required = float(active_period.default_hours_required or 0)
+        # Per-member overrides in one query
+        overrides = {
+            o.member_id: float(o.expected_hours)
+            for o in active_period.member_expectations.all()
+        }
+        # Approved hours per member in one query
+        submissions = (
+            ServiceHoursSubmission.objects
+            .filter(period=active_period, status='approved')
+            .values('submitted_by')
+            .annotate(total=Sum('hours'))
+        )
+        hours_by_member = {s['submitted_by']: float(s['total']) for s in submissions}
+        member_required = overrides  # will fall back to default_required for absent keys
+
+    # ── Per-member email ──────────────────────────────────────────────────────
+    sent_count = 0
+    skip_count = 0
+
+    for member in recipients:
+        member_type = getattr(member, 'member_type', '')
+
+        # Filter events visible to this member's type
+        member_events = [
+            e for e in upcoming_events
+            if not e.visible_to or member_type in e.visible_to
+            or (member_type in ('Officer', 'Chair') and 'Member' in (e.visible_to or []))
+        ]
+
+        # Skip members who have nothing to see
+        if not member_events and not open_legislation and not active_period:
+            skip_count += 1
+            continue
+
+        lines = [f'Hi {member.name},', '', "Here's your weekly Parliament digest.", '']
+
+        # ── Upcoming events block ─────────────────────────────────────────────
+        if member_events:
+            lines.append('── UPCOMING EVENTS ─────────────────────────────')
+            for event in member_events:
+                local_dt = timezone.localtime(event.date_time)
+                date_str = local_dt.strftime('%A, %B %-d at %-I:%M %p')
+                lines.append(f'  • {event.title} — {date_str}')
+                if event.location:
+                    lines.append(f'    Where: {event.location}')
+                if event.requires_signup:
+                    try:
+                        path = reverse('event_signup', kwargs={'event_id': event.pk})
+                        lines.append(f'    Sign up: {site_url}{path}')
+                    except Exception:
+                        pass
+            lines.append('')
+
+        # ── Open legislation block ────────────────────────────────────────────
+        if open_legislation:
+            lines.append('── OPEN VOTES ───────────────────────────────────')
+            for leg in open_legislation:
+                try:
+                    path = reverse('vote', kwargs={'legislation_id': leg.pk})
+                    url = f'{site_url}{path}'
+                except Exception:
+                    url = ''
+                entry = f'  • {leg.title}'
+                if url:
+                    entry += f' — {url}'
+                lines.append(entry)
+            lines.append('')
+
+        # ── Service hours block ───────────────────────────────────────────────
+        if active_period:
+            hours_logged = hours_by_member.get(member.pk, 0.0)
+            required = member_required.get(member.pk, default_required)
+            if required:
+                pct = round(hours_logged / required * 100)
+                status = 'MET ✓' if hours_logged >= required else f'{pct}%'
+                lines.append('── SERVICE HOURS ────────────────────────────────')
+                lines.append(
+                    f'  {hours_logged:.1f} / {required:.1f} h logged  ({status})'
+                )
+                if hours_logged < required:
+                    remaining = required - hours_logged
+                    lines.append(f'  {remaining:.1f} h remaining this period')
+                lines.append('')
+
+        lines += [
+            '────────────────────────────────────────────────',
+            f'View Parliament: {site_url}' if site_url else 'Log in to Parliament for details.',
+            '',
+            "You're receiving this because you're an active chapter member.",
+        ]
+
+        body = '\n'.join(lines)
+        subject = f'Weekly Chapter Digest — {now.strftime("%B %-d, %Y")}'
+
+        try:
+            send_mail(
+                subject=subject,
+                message=body,
+                from_email=from_email,
+                recipient_list=[member.email],
+                fail_silently=False,
+            )
+            sent_count += 1
+        except Exception as mail_exc:
+            logger.warning(f'[weekly_digest] failed to email {member.email}: {mail_exc}')
+
+    # Mark this week's digest as sent so any duplicate Celery run is a no-op.
+    _cache.set(_digest_cache_key, True, 60 * 60 * 60)  # 60 hours — covers the full Sunday window
+
+    logger.info(
+        f'[weekly_digest] sent={sent_count} skipped={skip_count} '
+        f'(events={len(upcoming_events)} legislation={len(open_legislation)} '
+        f'period={"yes" if active_period else "no"})'
+    )

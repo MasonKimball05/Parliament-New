@@ -175,7 +175,7 @@ class EventForm(forms.ModelForm):
         model = Event
         fields = ['title', 'description', 'date_time', 'location', 'visible_to', 'is_active',
                   'requires_attendance', 'allow_excuses', 'excuse_deadline',
-                  'requires_signup', 'max_signups', 'signups_open', 'allow_waitlist',
+                  'requires_signup', 'max_signups', 'signups_open', 'allow_waitlist', 'rsvp_email_enabled',
                   'is_recurring', 'recurrence_type', 'recurrence_interval', 'recurrence_unit',
                   'recurrence_days', 'recurrence_end_date',
                   'reminder_1_enabled', 'reminder_1_hours_before',
@@ -261,6 +261,9 @@ class EventForm(forms.ModelForm):
             'allow_waitlist': forms.CheckboxInput(attrs={
                 'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
             }),
+            'rsvp_email_enabled': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+            }),
         }
         labels = {
             'title': 'Event Title',
@@ -286,6 +289,7 @@ class EventForm(forms.ModelForm):
             'max_signups': 'Max Sign-Ups',
             'signups_open': 'Signups Open',
             'allow_waitlist': 'Enable Waitlist',
+            'rsvp_email_enabled': 'Send RSVP Announcement Email',
         }
         help_texts = {
             'date_time': 'When the event will occur',

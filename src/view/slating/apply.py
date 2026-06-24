@@ -13,11 +13,11 @@ from src.models import (
     SlatingPeriod, SlatingApplication, SlatingApplicationResponse,
     SlatingFormField, SlatingPosition, SlatingActivity
 )
-from src.decorators import exclude_pledges
+from src.decorators import pledge_page_allowed
 
 
 @login_required
-@exclude_pledges
+@pledge_page_allowed('slating_apply')
 def apply_view(request, period_id):
     """
     Dynamic application form submission.

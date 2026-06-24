@@ -91,6 +91,17 @@ class Event(models.Model):
         help_text='When the event is full, members can join a waitlist and are auto-promoted when a slot opens.',
     )
 
+    # RSVP announcement email
+    rsvp_email_enabled = models.BooleanField(
+        default=False,
+        help_text='Send a chapter-wide announcement email when this sign-up event opens.',
+    )
+    rsvp_email_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When the RSVP announcement email was dispatched (null = not yet sent).',
+    )
+
     # Attendance tracking fields
     requires_attendance = models.BooleanField(
         default=False,

@@ -10,6 +10,7 @@ COMMITTEE_FLAG_DEFAULTS = {
     'SLATING': 'is_slating_committee',
     'CHAPTER': 'is_chapter_committee',
     'RECRUIT': 'is_recruitment_committee',
+    'EDUCATION': 'is_education_committee',
 }
 
 

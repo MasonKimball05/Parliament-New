@@ -1,0 +1,353 @@
+{% extends "base.html" %}
+
+{% block title %}Chapter Stats — Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+
+  <!-- Header -->
+  <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 class="text-3xl font-bold mb-1">Chapter Statistics</h1>
+          <p class="text-primary-100 text-sm">Last {{ period_label }} · {{ active_count }} active members</p>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <!-- Date-range picker -->
+          <div class="inline-flex rounded-lg overflow-hidden border border-white/30 text-sm">
+            {% for opt in day_options %}
+            <a href="?days={{ opt }}"
+               class="px-3 py-1.5 {% if days == opt %}bg-white text-primary-700 font-semibold{% else %}text-white hover:bg-white/20{% endif %} transition-colors">
+              {{ opt }}d
+            </a>
+            {% endfor %}
+          </div>
+          <a href="{% url 'officer_home' %}" class="text-primary-200 hover:text-white text-sm whitespace-nowrap">← Officer Home</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+
+    <!-- ── Summary cards ────────────────────────────────────────────── -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+      <!-- Attendance rate -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border-l-4
+        {% if attendance_rate >= 85 %}border-green-500{% elif attendance_rate >= 70 %}border-amber-500{% elif attendance_rate is not None %}border-red-500{% else %}border-gray-300{% endif %}">
+        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Attendance Rate</p>
+        <p class="text-3xl font-bold text-gray-900 dark:text-white">
+          {% if attendance_rate is not None %}{{ attendance_rate }}%{% else %}—{% endif %}
+        </p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ meeting_count }} finalized meeting{{ meeting_count|pluralize }}</p>
+      </div>
+
+      <!-- Voting participation -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border-l-4
+        {% if overall_vote_rate >= 75 %}border-green-500{% elif overall_vote_rate >= 55 %}border-amber-500{% elif overall_vote_rate is not None %}border-red-500{% else %}border-gray-300{% endif %}">
+        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Voting Participation</p>
+        <p class="text-3xl font-bold text-gray-900 dark:text-white">
+          {% if overall_vote_rate is not None %}{{ overall_vote_rate }}%{% else %}—{% endif %}
+        </p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ legislation_count }} vote{{ legislation_count|pluralize }}</p>
+      </div>
+
+      <!-- Service hours -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border-l-4
+        {% if service_stats %}{% if service_stats.completion_rate >= 80 %}border-green-500{% elif service_stats.completion_rate >= 60 %}border-amber-500{% else %}border-red-500{% endif %}{% else %}border-gray-300{% endif %}">
+        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Service Hours</p>
+        <p class="text-3xl font-bold text-gray-900 dark:text-white">
+          {% if service_stats %}{{ service_stats.completion_rate }}%{% else %}—{% endif %}
+        </p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          {% if service_stats %}{{ service_stats.members_met }}/{{ service_stats.members_total }} met {{ service_stats.required_hours }}h{% else %}No active period{% endif %}
+        </p>
+      </div>
+
+      <!-- Recruitment -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border-l-4 border-primary-400">
+        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Active Pledges</p>
+        <p class="text-3xl font-bold text-gray-900 dark:text-white">
+          {% if recruitment_stats %}{{ recruitment_stats.pledges_initiated }}{% else %}—{% endif %}
+        </p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          {% if recruitment_stats %}{{ recruitment_stats.unique_rsvps }} RSVPs · {{ recruitment_stats.event_count }} event{{ recruitment_stats.event_count|pluralize }}{% else %}No recruitment data{% endif %}
+        </p>
+      </div>
+
+    </div>
+
+    <!-- ── Attendance breakdown ─────────────────────────────────────── -->
+    {% if meeting_breakdown %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white">Attendance — Recent Meetings</h2>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Last 10 finalized chapter meetings · green ≥ 85%, amber ≥ 70%</p>
+      </div>
+      <!-- Attendance chart -->
+      <div class="px-6 pt-5 pb-2" style="height:220px;">
+        <canvas id="attendanceChart"></canvas>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+          <thead class="bg-gray-50 dark:bg-gray-700/50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Event</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Date</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold text-green-600 uppercase tracking-wide">Present</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold text-amber-600 uppercase tracking-wide">Excused</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold text-red-600 uppercase tracking-wide">Absent</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Rate</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for m in meeting_breakdown %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+              <td class="px-6 py-3 font-medium text-gray-900 dark:text-white">{{ m.event.title }}</td>
+              <td class="px-6 py-3 text-gray-500 dark:text-gray-400">{{ m.event.date_time|date:"M j, Y" }}</td>
+              <td class="px-6 py-3 text-center text-green-600 font-semibold">{{ m.present }}</td>
+              <td class="px-6 py-3 text-center text-amber-600 font-semibold">{{ m.excused }}</td>
+              <td class="px-6 py-3 text-center text-red-600 font-semibold">{{ m.absent }}</td>
+              <td class="px-6 py-3 text-center">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+                  {% if m.rate >= 85 %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                  {% elif m.rate >= 70 %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400
+                  {% else %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400{% endif %}">
+                  {{ m.rate }}%
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ── At-risk attendance ───────────────────────────────────────── -->
+    {% if at_risk_attendance %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
+        <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        <div>
+          <h2 class="text-lg font-bold text-gray-900 dark:text-white">At-Risk Attendance</h2>
+          <p class="text-xs text-gray-500 dark:text-gray-400">Members below 75% (present + excused) in the last 90 days</p>
+        </div>
+      </div>
+      <div class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for r in at_risk_attendance %}
+        <div class="px-6 py-3 flex items-center justify-between">
+          <span class="text-sm font-medium text-gray-900 dark:text-white">{{ r.member.name }}</span>
+          <span class="text-sm text-red-600 dark:text-red-400 font-semibold">{{ r.rate }}% ({{ r.present }}/{{ r.total }})</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ── Voting participation ─────────────────────────────────────── -->
+    {% if vote_breakdown %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white">Voting Participation</h2>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Last 10 closed chapter votes · green ≥ 75%, amber ≥ 55%</p>
+      </div>
+      <!-- Voting chart -->
+      <div class="px-6 pt-5 pb-2" style="height:220px;">
+        <canvas id="votingChart"></canvas>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+          <thead class="bg-gray-50 dark:bg-gray-700/50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Legislation</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Voted</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Eligible</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Rate</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Result</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for v in vote_breakdown %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+              <td class="px-6 py-3 font-medium text-gray-900 dark:text-white">{{ v.legislation.title }}</td>
+              <td class="px-6 py-3 text-center text-gray-700 dark:text-gray-300">{{ v.cast }}</td>
+              <td class="px-6 py-3 text-center text-gray-500 dark:text-gray-400">{{ v.possible }}</td>
+              <td class="px-6 py-3 text-center">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+                  {% if v.rate >= 75 %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                  {% elif v.rate >= 55 %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400
+                  {% else %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400{% endif %}">
+                  {{ v.rate }}%
+                </span>
+              </td>
+              <td class="px-6 py-3 text-center">
+                {% if v.legislation.passed %}
+                <span class="text-xs font-semibold text-green-600 dark:text-green-400">Passed</span>
+                {% else %}
+                <span class="text-xs font-semibold text-red-500 dark:text-red-400">Failed</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ── Service hours ────────────────────────────────────────────── -->
+    {% if service_stats %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white">Service Hours — {{ service_stats.period.name }}</h2>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          Default requirement: {{ service_stats.required_hours }}h · {{ service_stats.members_met }}/{{ service_stats.members_total }} members met their requirement
+        </p>
+      </div>
+      {% if service_breakdown %}
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+          <thead class="bg-gray-50 dark:bg-gray-700/50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Member</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Hours (Approved)</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Required</th>
+              <th class="px-6 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for s in service_breakdown %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+              <td class="px-6 py-3 font-medium text-gray-900 dark:text-white">{{ s.member.name }}</td>
+              <td class="px-6 py-3 text-center text-gray-700 dark:text-gray-300">{{ s.hours }}</td>
+              <td class="px-6 py-3 text-center text-gray-500 dark:text-gray-400">
+                {{ s.required }}{% if s.has_override %}<span class="ml-1 text-xs text-blue-500" title="Custom requirement">*</span>{% endif %}
+              </td>
+              <td class="px-6 py-3 text-center">
+                {% if s.met %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Met</span>
+                {% elif s.required %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Not met</span>
+                {% else %}
+                <span class="text-gray-400 text-xs">No req.</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p class="px-6 py-2 text-xs text-gray-400 dark:text-gray-500">* Custom requirement set by VPP</p>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if not meeting_breakdown and not vote_breakdown and not service_stats and not recruitment_stats %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
+      <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+      </svg>
+      <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">No data yet</h2>
+      <p class="text-gray-500 dark:text-gray-400 text-sm">Stats will appear once events are finalized, votes are closed, and service periods are active.</p>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" integrity="sha512-ZwR1/gSZM3ai6vCdI+LVF1zSq/5HznD3oD+sCoJrzXJ+yKraD268D0+FpQNkOlNAy/4aocQgUlgCCpfOgGfVA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+(function () {
+  // ── Shared helpers ──────────────────────────────────────────────────────
+  const isDark = document.documentElement.classList.contains('dark');
+  const gridColor  = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const tickColor  = isDark ? '#9ca3af' : '#6b7280';
+  const chartDefaults = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor } },
+    },
+  };
+
+  // ── Attendance chart ────────────────────────────────────────────────────
+  const attCtx = document.getElementById('attendanceChart');
+  if (attCtx) {
+    const attLabels = [{% for m in meeting_breakdown %}"{{ m.event.title|truncatechars:22|escapejs }} · {{ m.event.date_time|date:'M j' }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+    const attRates  = [{% for m in meeting_breakdown %}{{ m.rate }}{% if not forloop.last %},{% endif %}{% endfor %}];
+    const attColors = attRates.map(r => r >= 85 ? '#22c55e' : r >= 70 ? '#f59e0b' : '#ef4444');
+
+    new Chart(attCtx, {
+      type: 'bar',
+      data: {
+        labels: attLabels,
+        datasets: [{
+          data: attRates,
+          backgroundColor: attColors,
+          borderRadius: 5,
+          borderSkipped: false,
+        }],
+      },
+      options: {
+        ...chartDefaults,
+        plugins: {
+          ...chartDefaults.plugins,
+          tooltip: { callbacks: { label: ctx => ' ' + ctx.raw + '%' } },
+        },
+        scales: {
+          ...chartDefaults.scales,
+          y: {
+            ...chartDefaults.scales.y,
+            min: 0, max: 100,
+            ticks: { ...chartDefaults.scales.y.ticks, callback: v => v + '%' },
+          },
+        },
+      },
+    });
+  }
+
+  // ── Voting chart ────────────────────────────────────────────────────────
+  const voteCtx = document.getElementById('votingChart');
+  if (voteCtx) {
+    const voteLabels = [{% for v in vote_breakdown %}"{{ v.legislation.title|truncatechars:28|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+    const voteRates  = [{% for v in vote_breakdown %}{{ v.rate }}{% if not forloop.last %},{% endif %}{% endfor %}];
+    const voteColors = voteRates.map(r => r >= 75 ? '#22c55e' : r >= 55 ? '#f59e0b' : '#ef4444');
+
+    new Chart(voteCtx, {
+      type: 'bar',
+      data: {
+        labels: voteLabels,
+        datasets: [{
+          data: voteRates,
+          backgroundColor: voteColors,
+          borderRadius: 5,
+          borderSkipped: false,
+        }],
+      },
+      options: {
+        ...chartDefaults,
+        plugins: {
+          ...chartDefaults.plugins,
+          tooltip: { callbacks: { label: ctx => ' ' + ctx.raw + '%' } },
+        },
+        scales: {
+          ...chartDefaults.scales,
+          y: {
+            ...chartDefaults.scales.y,
+            min: 0, max: 100,
+            ticks: { ...chartDefaults.scales.y.ticks, callback: v => v + '%' },
+          },
+        },
+      },
+    });
+  }
+})();
+</script>
+{% endblock %}

@@ -462,6 +462,11 @@
                     <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Chapter</h3>
                     <div id="pm-chapter-list" class="space-y-1"></div>
                 </div>
+                <!-- Committees -->
+                <div id="pm-committees-section" class="hidden">
+                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Committees</h3>
+                    <div id="pm-committees-list" class="flex flex-wrap gap-1.5"></div>
+                </div>
                 <!-- Roles currently held -->
                 <div id="pm-roles-section" class="hidden">
                     <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Current Roles</h3>
@@ -881,6 +886,21 @@ function _renderProfile(d) {
         _show('pm-chapter-section');
     } else {
         _hide('pm-chapter-section');
+    }
+
+    // Committees
+    if (d.committees && d.committees.length) {
+        document.getElementById('pm-committees-list').innerHTML = d.committees.map(c => {
+            const isChair = c.role === 'Chair';
+            const cls = isChair
+                ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/50 dark:text-primary-300'
+                : 'bg-gray-100 text-gray-700 dark:bg-gray-700/60 dark:text-gray-300';
+            const label = isChair ? `${_esc(c.name)} (Chair)` : _esc(c.name);
+            return `<span class="px-2 py-0.5 text-xs rounded-full font-medium ${cls}">${label}</span>`;
+        }).join('');
+        _show('pm-committees-section');
+    } else {
+        _hide('pm-committees-section');
     }
 
     // Current roles

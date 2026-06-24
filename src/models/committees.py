@@ -62,6 +62,7 @@ class Committee(models.Model):
     is_slating_committee = models.BooleanField(default=False, help_text='If True, has special visibility rules and President is auto-assigned as admin')
     is_kai_committee = models.BooleanField(default=False, help_text='If True, this is the conduct committee — enables Kai report management, form builder, and chair notifications')
     is_recruitment_committee = models.BooleanField(default=False, help_text='If True, enables the recruitment dashboard with recruitment event management')
+    is_education_committee = models.BooleanField(default=False, help_text='If True, enables the education dashboard with pledge task tracker and page access controls')
     is_chapter_committee = models.BooleanField(default=False, help_text='If True, this committee owns chapter-level documents (the chapter documents page)')
     is_ad_hoc = models.BooleanField(default=False, help_text='If True, this is a temporary ad-hoc committee')
     ad_hoc_expiration = models.DateField(

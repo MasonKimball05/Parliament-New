@@ -81,6 +81,40 @@ class RecruitmentCandidate(models.Model):
         return f"{self.name} ({self.get_status_display()}) — {self.committee.code}"
 
 
+class RecruitmentCandidateNote(models.Model):
+    """
+    A single timestamped note entry on a recruitment candidate.
+
+    Replaces the flat notes TextField with a per-author threaded log so the
+    committee can see who said what and when throughout the rush season.
+    The legacy RecruitmentCandidate.notes field is kept for backwards-compat
+    and can be removed once all instances are migrated.
+    """
+    candidate = models.ForeignKey(
+        RecruitmentCandidate,
+        on_delete=models.CASCADE,
+        related_name='note_entries',
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='candidate_notes',
+    )
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at']
+        verbose_name = 'Candidate Note'
+        verbose_name_plural = 'Candidate Notes'
+
+    def __str__(self):
+        author_name = self.author.name if self.author else 'Unknown'
+        return f'{author_name} on {self.candidate.name} ({self.created_at.strftime("%Y-%m-%d")})'
+
+
 class RecruitmentEvent(models.Model):
     EVENT_TYPE_CHOICES = [
         ('info_session', 'Info Session / Workshop'),

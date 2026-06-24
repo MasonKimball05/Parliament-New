@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}{{ task.title }} — Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+
+  <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
+    <div class="max-w-2xl mx-auto px-4 sm:px-6">
+      <a href="{% url 'my_pledge_tasks' %}" class="text-primary-200 hover:text-white text-sm mb-2 inline-block">← My Tasks</a>
+      <h1 class="text-2xl font-bold">{{ task.title }}</h1>
+      {% if task.description %}
+      <p class="text-primary-100 text-sm mt-1">{{ task.description }}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+
+    {% if already_submitted %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 text-center">
+      <span class="text-5xl">{% if completion and completion.status == 'completed' %}✅{% elif completion and completion.status == 'incomplete' %}❌{% else %}⏳{% endif %}</span>
+      <h2 class="text-xl font-bold text-gray-900 dark:text-white mt-4">
+        {% if completion and completion.status == 'completed' %}Quiz Passed{% elif completion and completion.status == 'incomplete' %}Quiz Incomplete{% else %}Answers Submitted{% endif %}
+      </h2>
+      <p class="text-gray-500 dark:text-gray-400 mt-2 text-sm">
+        {% if completion and completion.status == 'completed' %}Your answers have been reviewed and marked complete.
+        {% elif completion and completion.status == 'incomplete' %}Your answers were reviewed but marked incomplete. See your coordinator for details.
+        {% else %}Your answers are in — a chair will review them soon.{% endif %}
+      </p>
+      {% if completion and completion.notes %}
+      <p class="mt-3 text-sm italic text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700 pt-3">Reviewer note: {{ completion.notes }}</p>
+      {% endif %}
+
+      <!-- Show submitted answers read-only -->
+      {% if question_answer_pairs %}
+      <div class="mt-6 text-left space-y-4">
+        {% for question, answer in question_answer_pairs %}
+        <div class="bg-gray-50 dark:bg-gray-700/40 rounded-lg p-4">
+          <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ forloop.counter }}. {{ question.question_text }}</p>
+          <p class="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{{ answer }}</p>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    {% else %}
+
+    {% if errors %}
+    <div class="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg px-4 py-3">
+      {% for err in errors %}
+      <p class="text-sm text-red-700 dark:text-red-400">{{ err }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" class="space-y-6">
+      {% csrf_token %}
+
+      {% for question in questions %}
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        <label class="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">
+          {{ forloop.counter }}. {{ question.question_text }}
+          {% if task.is_required %}<span class="text-red-500 ml-1">*</span>{% endif %}
+        </label>
+        <textarea
+          name="answer_{{ question.pk }}"
+          rows="4"
+          placeholder="Your answer…"
+          class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 resize-y"
+          ></textarea>
+      </div>
+      {% endfor %}
+
+      <div class="flex items-center justify-between">
+        <a href="{% url 'my_pledge_tasks' %}" class="text-sm text-gray-500 dark:text-gray-400 hover:underline">Cancel</a>
+        <button type="submit"
+          class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
+          Submit Answers
+        </button>
+      </div>
+    </form>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

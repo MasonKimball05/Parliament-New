@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}My Tasks — Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+
+  <!-- Header -->
+  <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h1 class="text-3xl font-bold mb-1">My Tasks</h1>
+      <p class="text-primary-100 text-sm">Track your pledge education progress</p>
+
+      {% if all_required %}
+      <!-- Overall progress bar -->
+      <div class="mt-5">
+        <div class="flex items-center justify-between text-sm text-primary-100 mb-1.5">
+          <span>Required tasks completed</span>
+          <span class="font-semibold">{{ required_done }}/{{ all_required }}</span>
+        </div>
+        <div class="h-2.5 bg-white/20 rounded-full overflow-hidden">
+          <div class="h-2.5 rounded-full transition-all
+            {% if overall_percent == 100 %}bg-green-400{% elif overall_percent >= 60 %}bg-amber-300{% else %}bg-white{% endif %}"
+            style="width: {{ overall_percent }}%"></div>
+        </div>
+        {% if overall_percent == 100 %}
+        <p class="text-green-300 text-xs font-semibold mt-1.5">✓ All required tasks complete!</p>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+    {% if phase_groups %}
+      {% for group in phase_groups %}
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+
+        <!-- Phase header -->
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-bold text-gray-900 dark:text-white">{{ group.label }}</h2>
+            {% if group.required_total %}
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              {{ group.required_done }}/{{ group.required_total }} required complete
+            </p>
+            {% endif %}
+          </div>
+          <!-- Mini progress ring / pill -->
+          <span class="text-xs font-semibold px-2.5 py-1 rounded-full
+            {% if group.required_total and group.required_done == group.required_total %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+            {% elif group.required_done > 0 %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400
+            {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+            {{ group.completed }}/{{ group.total }} done
+          </span>
+        </div>
+
+        <!-- Task list -->
+        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+          {% for item in group.items %}
+          <div class="px-6 py-4 flex items-start gap-4">
+
+            <!-- Status icon -->
+            <div class="shrink-0 mt-0.5">
+              {% if item.completion %}
+                {% if item.completion.status == 'completed' %}
+                <span class="text-2xl">✅</span>
+                {% elif item.completion.status == 'incomplete' %}
+                <span class="text-2xl">❌</span>
+                {% elif item.completion.status == 'waived' %}
+                <span class="text-2xl">⚪</span>
+                {% else %}
+                <span class="text-2xl text-gray-300 dark:text-gray-600">⬜</span>
+                {% endif %}
+              {% else %}
+              <span class="text-2xl text-gray-300 dark:text-gray-600">⬜</span>
+              {% endif %}
+            </div>
+
+            <!-- Task info -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-medium text-gray-900 dark:text-white">{{ item.task.title }}</span>
+                {% if item.task.is_required %}
+                <span class="text-xs font-semibold text-red-500">Required</span>
+                {% endif %}
+                <span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 capitalize">
+                  {{ item.task.get_task_type_display }}
+                </span>
+              </div>
+              {% if item.task.description %}
+              <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ item.task.description }}</p>
+              {% endif %}
+              <div class="flex items-center gap-3 mt-1.5 flex-wrap">
+                {% if item.task.due_date %}
+                <span class="text-xs text-gray-400 dark:text-gray-500">Due {{ item.task.due_date|date:"M j, Y" }}</span>
+                {% endif %}
+                {% if item.task.points %}
+                <span class="text-xs text-primary-600 dark:text-primary-400">{{ item.task.points }} pts</span>
+                {% endif %}
+                {% if item.completion and item.completion.status == 'completed' and item.completion.completed_at %}
+                <span class="text-xs text-green-600 dark:text-green-400">Completed {{ item.completion.completed_at|date:"M j" }}</span>
+                {% endif %}
+                {% if item.completion and item.completion.notes %}
+                <span class="text-xs text-gray-500 dark:text-gray-400 italic">Note: {{ item.completion.notes }}</span>
+                {% endif %}
+              </div>
+
+              {% if item.task.task_type == 'quiz' and item.task.is_live %}
+              <div class="mt-2">
+                {% if item.completion and item.completion.status == 'completed' %}
+                  {# passed — no action #}
+                {% elif item.completion and item.completion.status == 'pending' %}
+                  <span class="text-xs text-amber-600 dark:text-amber-400 font-medium">⏳ Awaiting review</span>
+                {% else %}
+                  <a href="{% url 'pledge_take_quiz' item.task.pk %}"
+                     class="inline-block text-xs px-3 py-1 rounded bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors">
+                    Take Quiz
+                  </a>
+                {% endif %}
+              </div>
+              {% endif %}
+            </div>
+
+          </div>
+          {% endfor %}
+        </div>
+
+      </div>
+      {% endfor %}
+
+    {% else %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
+      <p class="text-gray-500 dark:text-gray-400">No tasks have been assigned yet. Check back soon.</p>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

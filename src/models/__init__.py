@@ -184,6 +184,7 @@ from src.models.admin_audit import AdminActionLog, log_admin_action
 # Recruitment
 from src.models.recruitment import (
     RecruitmentCandidate,
+    RecruitmentCandidateNote,
     RecruitmentEvent,
     RecruitmentEventRSVP,
     RecruitmentMemberPermission,
@@ -197,6 +198,15 @@ from src.models.cnb import (
     Resolution,
     ResolutionAmendment,
     ResolutionCollaborator,
+)
+
+# Education / Pledge Tracker
+from src.models.education import (
+    PledgeTask,
+    PledgeTaskCompletion,
+    PledgePageRestriction,
+    PledgeTaskQuestion,
+    PledgeQuizAnswer,
 )
 
 # Feature Flags (defined in separate module)
@@ -345,6 +355,7 @@ __all__ = [
     'log_admin_action',
     # Recruitment
     'RecruitmentCandidate',
+    'RecruitmentCandidateNote',
     'RecruitmentEvent',
     'RecruitmentEventRSVP',
     'RecruitmentMemberPermission',

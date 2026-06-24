@@ -13,7 +13,7 @@ def profile_card_json(request, user_id):
         member = (
             ParliamentUser.objects
             .select_related('big_brother')
-            .prefetch_related('little_brothers', 'roles', 'role_history')
+            .prefetch_related('little_brothers', 'roles', 'role_history', 'committees', 'chair_roles')
             .get(user_id=user_id)
         )
     except ParliamentUser.DoesNotExist:
@@ -75,6 +75,19 @@ def profile_card_json(request, user_id):
         if c.get('school') and c.get('chapter')
     ]
 
+    # Committee memberships (member of or chair of, excluding archived)
+    # Use .all() so both relations benefit from the prefetch cache rather than firing extra queries.
+    committee_memberships = []
+    chaired_names = set()
+    for c in member.chair_roles.all():
+        if c.is_active and not c.is_archived:
+            committee_memberships.append({'name': c.name, 'role': 'Chair'})
+            chaired_names.add(c.name)
+    for c in member.committees.all():
+        if c.is_active and not c.is_archived and c.name not in chaired_names:
+            committee_memberships.append({'name': c.name, 'role': 'Member'})
+    committee_memberships.sort(key=lambda x: x['name'])
+
     viewer_is_pledge = request.user.member_type == 'Pledge'
 
     data = {
@@ -105,6 +118,7 @@ def profile_card_json(request, user_id):
         'initiation_chapters': initiation_chapters,
         'roles': roles,
         'role_history': history,
+        'committees': committee_memberships,
     }
 
     return JsonResponse(data)

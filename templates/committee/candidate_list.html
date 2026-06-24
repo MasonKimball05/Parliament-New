@@ -75,14 +75,32 @@
                         {% endif %}
                     </td>
                     <td class="px-4 py-3">
+                        {% if can_manage %}
+                        <button type="button"
+                            class="status-badge px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-purple-400 transition-shadow
+                                {% if c.status == 'accepted' %}bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300
+                                {% elif c.status == 'declined' or c.status == 'rejected' %}bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300
+                                {% elif c.status == 'bid' %}bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300
+                                {% elif c.status == 'invited' %}bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300
+                                {% elif c.status == 'contacted' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300
+                                {% else %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300{% endif %}"
+                            data-candidate-id="{{ c.id }}"
+                            data-update-url="{% url 'candidate_update_status' committee.code c.id %}"
+                            data-current="{{ c.status }}"
+                            title="Click to change status">
+                            {{ c.get_status_display }}
+                        </button>
+                        {% else %}
                         <span class="px-2 py-0.5 rounded-full text-xs font-medium
                             {% if c.status == 'accepted' %}bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300
                             {% elif c.status == 'declined' or c.status == 'rejected' %}bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300
                             {% elif c.status == 'bid' %}bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300
                             {% elif c.status == 'invited' %}bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300
+                            {% elif c.status == 'contacted' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300
                             {% else %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300{% endif %}">
                             {{ c.get_status_display }}
                         </span>
+                        {% endif %}
                     </td>
                     <td class="px-4 py-3 text-gray-600 dark:text-gray-400 hidden sm:table-cell">
                         {{ c.assigned_to.get_display_name|default:"—" }}
@@ -94,6 +112,12 @@
                         {% if c.source_event %}{{ c.source_event.event.title|truncatechars:30 }}{% else %}—{% endif %}
                     </td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">
+                        <button type="button"
+                            class="notes-toggle text-xs text-gray-400 dark:text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 mr-3 transition-colors"
+                            data-target="notes-row-{{ c.id }}"
+                            title="Toggle notes">
+                            Notes{% if c.note_entries.count %} ({{ c.note_entries.count }}){% endif %}
+                        </button>
                         <a href="{% url 'edit_candidate' committee.code c.id %}" class="text-xs text-purple-600 dark:text-purple-400 hover:underline mr-3">Edit</a>
                         {% if can_manage %}
                         <form method="post" action="{% url 'delete_candidate' committee.code c.id %}" class="inline"
@@ -104,11 +128,45 @@
                         {% endif %}
                     </td>
                 </tr>
-                {% if c.notes %}
-                <tr class="bg-gray-50/50 dark:bg-gray-700/20">
-                    <td colspan="6" class="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 italic">{{ c.notes|truncatechars:200 }}</td>
+                <!-- Note thread (hidden by default, toggled per-row) -->
+                <tr id="notes-row-{{ c.id }}" class="hidden bg-gray-50/50 dark:bg-gray-800/40 border-b border-gray-100 dark:border-gray-700">
+                    <td colspan="7" class="px-5 py-3">
+                        <div id="notes-list-{{ c.id }}" class="space-y-2 mb-3">
+                            {% for note in c.note_entries.all %}
+                            <div id="note-{{ note.id }}" class="flex gap-2 text-xs">
+                                <div class="flex-1">
+                                    <span class="font-medium text-gray-700 dark:text-gray-300">{{ note.author.get_display_name|default:"Unknown" }}</span>
+                                    <span class="text-gray-400 ml-1">{{ note.created_at|date:"M j, Y g:i A" }}</span>
+                                    <p class="text-gray-600 dark:text-gray-400 mt-0.5 whitespace-pre-wrap">{{ note.body }}</p>
+                                </div>
+                                {% if can_manage or note.author_id == request.user.pk %}
+                                <button type="button"
+                                    class="delete-note-btn text-gray-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 transition-colors flex-shrink-0 mt-0.5"
+                                    data-note-id="{{ note.id }}"
+                                    data-url="{% url 'delete_candidate_note' committee.code c.id note.id %}"
+                                    title="Delete note">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                                {% endif %}
+                            </div>
+                            {% empty %}
+                            <p id="no-notes-{{ c.id }}" class="text-xs text-gray-400 dark:text-gray-500 italic">No notes yet.</p>
+                            {% endfor %}
+                        </div>
+                        {% if can_manage %}
+                        <form class="add-note-form flex gap-2" data-candidate-id="{{ c.id }}"
+                              data-url="{% url 'add_candidate_note' committee.code c.id %}">
+                            {% csrf_token %}
+                            <input type="text" name="body" placeholder="Add a note…"
+                                class="flex-1 text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-purple-400">
+                            <button type="submit"
+                                class="text-xs px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors">
+                                Add
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
                 </tr>
-                {% endif %}
                 {% endfor %}
             </tbody>
         </table>
@@ -125,4 +183,201 @@
     </div>
     {% endif %}
 </div>
+
+{% if can_manage %}
+<!-- Shared status popover (repositioned via JS) -->
+<div id="statusPopover"
+     class="hidden fixed z-50 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 min-w-[160px]"
+     role="listbox" aria-label="Change candidate status">
+  {% for val, label in status_choices %}
+  <button type="button" role="option"
+      class="status-option w-full text-left px-3 py-2 text-xs hover:bg-purple-50 dark:hover:bg-purple-900/20 text-gray-700 dark:text-gray-300 transition-colors"
+      data-value="{{ val }}" data-label="{{ label }}">
+    {{ label }}
+  </button>
+  {% endfor %}
+</div>
+
+<script>
+(function () {
+  const popover    = document.getElementById('statusPopover');
+  const csrfToken  = '{{ csrf_token }}';
+  let activeBadge  = null;
+
+  function closePopover() {
+    popover.classList.add('hidden');
+    activeBadge = null;
+  }
+
+  function openPopover(badge) {
+    activeBadge = badge;
+    const current = badge.dataset.current;
+
+    // Highlight the current status
+    popover.querySelectorAll('.status-option').forEach(opt => {
+      opt.classList.toggle('font-semibold', opt.dataset.value === current);
+      opt.classList.toggle('text-purple-600', opt.dataset.value === current);
+      opt.classList.toggle('dark:text-purple-400', opt.dataset.value === current);
+    });
+
+    // Position below the badge
+    const rect = badge.getBoundingClientRect();
+    popover.style.top  = (rect.bottom + window.scrollY + 4) + 'px';
+    popover.style.left = (rect.left + window.scrollX) + 'px';
+    popover.classList.remove('hidden');
+  }
+
+  // Open on badge click
+  document.addEventListener('click', function (e) {
+    const badge = e.target.closest('.status-badge');
+    if (badge) {
+      e.stopPropagation();
+      if (activeBadge === badge) { closePopover(); return; }
+      openPopover(badge);
+      return;
+    }
+    if (!popover.contains(e.target)) closePopover();
+  });
+
+  // Status option selected
+  popover.addEventListener('click', async function (e) {
+    const opt = e.target.closest('.status-option');
+    if (!opt || !activeBadge) return;
+
+    const newStatus = opt.dataset.value;
+    const newLabel  = opt.dataset.label;
+    const url       = activeBadge.dataset.updateUrl;
+    const badge     = activeBadge;
+
+    closePopover();
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'status=' + encodeURIComponent(newStatus),
+      });
+      if (!res.ok) throw new Error('Server error');
+      const data = await res.json();
+
+      // Update badge in place
+      badge.textContent = data.status_display;
+      badge.className = 'status-badge px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-purple-400 transition-shadow ' + data.badge_class;
+      badge.dataset.current = data.status;
+    } catch {
+      // Brief visual error — shake the badge
+      badge.style.outline = '2px solid #ef4444';
+      setTimeout(() => { badge.style.outline = ''; }, 1500);
+    }
+  });
+
+  // Close on Escape
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePopover(); });
+})();
+</script>
+{% endif %}
+
+<!-- Notes toggle + add/delete (always present for users who can see notes) -->
+<script>
+(function () {
+  const csrfToken = '{{ csrf_token }}';
+
+  // Toggle note rows
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.notes-toggle');
+    if (!btn) return;
+    const row = document.getElementById(btn.dataset.target);
+    if (row) row.classList.toggle('hidden');
+  });
+
+  // Add note (AJAX)
+  document.addEventListener('submit', async function (e) {
+    const form = e.target.closest('.add-note-form');
+    if (!form) return;
+    e.preventDefault();
+
+    const input = form.querySelector('input[name="body"]');
+    const body = input.value.trim();
+    if (!body) return;
+
+    const url = form.dataset.url;
+    const candidateId = form.dataset.candidateId;
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'body=' + encodeURIComponent(body),
+      });
+      if (!res.ok) throw new Error('Server error');
+      const data = await res.json();
+
+      // Remove "no notes" placeholder if present
+      const placeholder = document.getElementById('no-notes-' + candidateId);
+      if (placeholder) placeholder.remove();
+
+      // Append new note to thread
+      const list = document.getElementById('notes-list-' + candidateId);
+      const div = document.createElement('div');
+      div.id = 'note-' + data.note_id;
+      div.className = 'flex gap-2 text-xs';
+      div.innerHTML = `
+        <div class="flex-1">
+          <span class="font-medium text-gray-700 dark:text-gray-300">${_esc(data.author)}</span>
+          <span class="text-gray-400 ml-1">${_esc(data.created_at)}</span>
+          <p class="text-gray-600 dark:text-gray-400 mt-0.5 whitespace-pre-wrap">${_esc(data.body)}</p>
+        </div>
+        <button type="button"
+          class="delete-note-btn text-gray-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 transition-colors flex-shrink-0 mt-0.5"
+          data-note-id="${data.note_id}"
+          data-url="${url.replace('/notes/add/', '/notes/' + data.note_id + '/delete/')}"
+          title="Delete note">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>`;
+      list.appendChild(div);
+
+      // Update toggle button count
+      const toggle = document.querySelector(`[data-target="notes-row-${candidateId}"]`);
+      if (toggle) {
+        const m = toggle.textContent.match(/\((\d+)\)/);
+        const count = m ? parseInt(m[1]) + 1 : 1;
+        toggle.textContent = `Notes (${count})`;
+      }
+
+      input.value = '';
+    } catch {
+      input.style.outline = '2px solid #ef4444';
+      setTimeout(() => { input.style.outline = ''; }, 1500);
+    }
+  });
+
+  // Delete note (AJAX)
+  document.addEventListener('click', async function (e) {
+    const btn = e.target.closest('.delete-note-btn');
+    if (!btn) return;
+    if (!confirm('Delete this note?')) return;
+
+    const url = btn.dataset.url;
+    const noteId = btn.dataset.noteId;
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken },
+      });
+      if (!res.ok) throw new Error('Server error');
+      document.getElementById('note-' + noteId)?.remove();
+    } catch {
+      btn.style.outline = '2px solid #ef4444';
+      setTimeout(() => { btn.style.outline = ''; }, 1500);
+    }
+  });
+
+  function _esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+})();
+</script>
 {% endblock %}
