@@ -770,12 +770,21 @@ def edit_service_event(request, service_event_id):
         hours_awarded = request.POST.get('hours_awarded', '').strip()
 
         r1_enabled = request.POST.get('reminder_1_enabled') == 'on'
-        r1_hours = int(request.POST.get('reminder_1_hours_before', 24) or 24)
+        try:
+            r1_hours = max(1, int(request.POST.get('reminder_1_hours_before', 24) or 24))
+        except (ValueError, TypeError):
+            r1_hours = 24
         r2_enabled = request.POST.get('reminder_2_enabled') == 'on'
-        r2_hours = int(request.POST.get('reminder_2_hours_before', 1) or 1)
+        try:
+            r2_hours = max(1, int(request.POST.get('reminder_2_hours_before', 1) or 1))
+        except (ValueError, TypeError):
+            r2_hours = 1
 
         email_enabled = request.POST.get('email_reminder_enabled') == 'on'
-        email_hours = int(request.POST.get('email_reminder_hours_before', 24) or 24)
+        try:
+            email_hours = max(1, int(request.POST.get('email_reminder_hours_before', 24) or 24))
+        except (ValueError, TypeError):
+            email_hours = 24
         email_subject = request.POST.get('email_reminder_subject', '').strip()
         email_body = request.POST.get('email_reminder_body', '').strip()
 
@@ -836,11 +845,22 @@ def edit_service_event(request, service_event_id):
         event.reminder_1_hours_before = r1_hours
         event.reminder_2_enabled = r2_enabled
         event.reminder_2_hours_before = r2_hours
-        event.save(update_fields=[
+        event_update_fields = [
             'title', 'description', 'date_time', 'location',
             'reminder_1_enabled', 'reminder_1_hours_before',
             'reminder_2_enabled', 'reminder_2_hours_before',
-        ])
+        ]
+        # If the date changed, reset push reminder sent_at so the Celery task
+        # re-fires the reminders at the correct new time.
+        date_changed = bool(date_time and old_date_time and date_time != old_date_time)
+        if date_changed:
+            if event.reminder_1_sent_at:
+                event.reminder_1_sent_at = None
+                event_update_fields.append('reminder_1_sent_at')
+            if event.reminder_2_sent_at:
+                event.reminder_2_sent_at = None
+                event_update_fields.append('reminder_2_sent_at')
+        event.save(update_fields=event_update_fields)
 
         # Update ServiceEvent
         se.period = period or se.period
@@ -856,7 +876,7 @@ def edit_service_event(request, service_event_id):
             'email_reminder_enabled', 'email_reminder_hours_before',
             'email_reminder_subject', 'email_reminder_body',
         ]
-        if date_time and old_date_time and date_time != old_date_time and se.email_reminder_sent_at:
+        if date_changed and se.email_reminder_sent_at:
             se.email_reminder_sent_at = None
             se_update_fields.append('email_reminder_sent_at')
         se.save(update_fields=se_update_fields)

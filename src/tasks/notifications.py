@@ -929,6 +929,7 @@ def send_event_signup_announcements():
             .filter(member_status='Active', is_active=True)
             .exclude(email__isnull=True)
             .exclude(email='')
+            .exclude(member_type='Advisor')
         )
         if event.visible_to:
             visible_types = set(event.visible_to)

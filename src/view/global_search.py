@@ -134,13 +134,13 @@ def global_search(request):
         is_active=True
     ).order_by('-created_at')[:10]
     if legislation_results:
-        results['legislation'] = legislation_results
+        results['legislation'] = list(legislation_results)
 
     # Search Passed Resolutions
-    passed_resolutions = PassedResolution.objects.filter(
+    passed_resolutions = list(PassedResolution.objects.filter(
         Q(title__icontains=query) | Q(description__icontains=query),
         is_active=True
-    ).order_by('-date_passed')[:10]
+    ).order_by('-date_passed')[:10])
     if passed_resolutions:
         results['passed_resolutions'] = passed_resolutions
 
@@ -170,41 +170,62 @@ def global_search(request):
         results['events'] = events
 
     # Search Chapter Documents (CommitteeDocuments published to chapter)
-    chapter_docs = CommitteeDocument.objects.filter(
+    chapter_docs = list(CommitteeDocument.objects.filter(
         Q(title__icontains=query) | Q(description__icontains=query),
         published_to_chapter=True
-    ).order_by('-uploaded_at')[:10]
+    ).order_by('-uploaded_at')[:10])
     if chapter_docs:
         results['chapter_documents'] = chapter_docs
 
     # Search Committees (name, code)
-    committees = Committee.objects.filter(
+    committees = list(Committee.objects.filter(
         Q(name__icontains=query) | Q(code__icontains=query)
-    )
-    if committees.exists():
-        results['committees'] = committees[:10]
+    )[:10])
+    if committees:
+        results['committees'] = committees
 
     # Search Chat Channels (name, description) - user must have access
-    chat_channels = ChatChannel.objects.filter(
-        Q(name__icontains=query) | Q(description__icontains=query)
+    # Prefetch permissions + committee membership so the per-channel check is
+    # pure Python and doesn't fire a separate DB query per channel.
+    chat_channels = list(
+        ChatChannel.objects.filter(
+            Q(name__icontains=query) | Q(description__icontains=query)
+        )
+        .select_related('committee')
+        .prefetch_related(
+            'permissions',
+            'committee__members',
+            'committee__chairs',
+            'committee__advisors',
+        )
     )
-    # Filter by accessibility
+    user_pk = request.user.pk
+    user_member_type = request.user.member_type
+    user_is_officer = request.user.is_officer
+
     accessible_channels = []
     for channel in chat_channels:
         if channel.access_type == 'open':
             accessible_channels.append(channel)
         elif channel.access_type == 'committee' and channel.committee:
-            if (request.user in channel.committee.members.all() or
-                request.user in channel.committee.chairs.all() or
-                request.user in channel.committee.advisors.all()):
+            committee = channel.committee
+            member_pks = {m.pk for m in committee.members.all()}
+            chair_pks = {m.pk for m in committee.chairs.all()}
+            advisor_pks = {m.pk for m in committee.advisors.all()}
+            if user_pk in (member_pks | chair_pks | advisor_pks):
                 accessible_channels.append(channel)
         elif channel.access_type == 'restricted':
-            if channel.permissions.filter(user=request.user).exists():
-                accessible_channels.append(channel)
-            elif channel.permissions.filter(member_type=request.user.member_type).exists():
-                accessible_channels.append(channel)
-            elif request.user.is_officer and channel.permissions.filter(officers_only=True).exists():
-                accessible_channels.append(channel)
+            # All permission rows are already in the prefetch cache — no extra queries
+            for perm in channel.permissions.all():
+                if perm.user_id == user_pk:
+                    accessible_channels.append(channel)
+                    break
+                if perm.member_type and perm.member_type == user_member_type:
+                    accessible_channels.append(channel)
+                    break
+                if perm.officers_only and user_is_officer:
+                    accessible_channels.append(channel)
+                    break
 
     if accessible_channels:
         results['chat_channels'] = accessible_channels[:10]
@@ -217,48 +238,41 @@ def global_search(request):
         Q(advisors=request.user)
     ).distinct()
 
-    committee_docs = CommitteeDocument.objects.filter(
+    committee_docs = list(CommitteeDocument.objects.filter(
         Q(title__icontains=query) | Q(description__icontains=query),
         committee__in=user_committees
-    ).order_by('-uploaded_at')[:10]
+    ).order_by('-uploaded_at')[:10])
     if committee_docs:
         results['committee_documents'] = committee_docs
 
     # Search Users (name, username) - only for officers
     if request.user.is_officer:
-        users = ParliamentUser.objects.exclude(member_status='Removed').filter(
+        users = list(ParliamentUser.objects.exclude(member_status='Removed').filter(
             Q(name__icontains=query) |
             Q(user_id__icontains=query) |
             Q(preferred_name__icontains=query)
-        ).order_by('name')[:10]
+        ).order_by('name')[:10])
         if users:
             results['users'] = users
 
     # Search Slating Periods (for admins/officers)
     if request.user.is_officer or request.user.is_admin:
-        slating_periods = SlatingPeriod.objects.filter(
+        slating_periods = list(SlatingPeriod.objects.filter(
             Q(name__icontains=query) | Q(description__icontains=query)
-        ).order_by('-created_at')[:5]
+        ).order_by('-created_at')[:5])
         if slating_periods:
             results['slating_periods'] = slating_periods
 
     # Search Kai Reports (for Kai committee members and admins)
     if request.user.is_admin or request.user.committees.filter(is_kai_committee=True).exists():
-        kai_reports = KaiReport.objects.filter(
+        kai_reports = list(KaiReport.objects.filter(
             Q(title__icontains=query) | Q(description__icontains=query)
-        ).order_by('-submitted_at')[:10]
+        ).order_by('-submitted_at')[:10])
         if kai_reports:
             results['kai_reports'] = kai_reports
 
-    # Count total results
-    total_count = 0
-    for key, result in results.items():
-        if isinstance(result, list):
-            total_count += len(result)
-        elif hasattr(result, 'count'):
-            total_count += result.count()
-        else:
-            total_count += len(list(result))
+    # All result values are now lists — len() is free, no extra DB queries
+    total_count = sum(len(v) for v in results.values())
 
     return render(request, 'global_search.html', {
         'query': query,

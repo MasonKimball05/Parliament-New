@@ -257,6 +257,8 @@ from src.view.guide import (
     guide_2fa, guide_directory, guide_search, guide_developer_api,
     guide_resolutions, guide_activity_logs, guide_kai_forms,
     guide_officer_handoff, guide_developer_handoff,
+    guide_chat, guide_service_hours, guide_pledge_tasks,
+    guide_recruitment, guide_education,
     tour_start, tour_advance, tour_complete, tour_skip
 )
 from src.view.songbook import (
@@ -387,6 +389,11 @@ urlpatterns = [
     path('guide/officers/resolutions/', guide_resolutions, name='guide_resolutions'),
     path('guide/officers/activity-logs/', guide_activity_logs, name='guide_activity_logs'),
     path('guide/officers/kai-forms/', guide_kai_forms, name='guide_kai_forms'),
+    path('guide/members/chat/', guide_chat, name='guide_chat'),
+    path('guide/members/service-hours/', guide_service_hours, name='guide_service_hours'),
+    path('guide/members/pledge-tasks/', guide_pledge_tasks, name='guide_pledge_tasks'),
+    path('guide/officers/recruitment/', guide_recruitment, name='guide_recruitment'),
+    path('guide/officers/education/', guide_education, name='guide_education'),
     path('guide/article/<slug:slug>/', guide_article, name='guide_article'),
     path('guide/officers/officer-guide/', guide_officer_handoff, name='guide_officer_handoff'),
     path('guide/developer/', guide_developer_handoff, name='guide_developer_handoff'),

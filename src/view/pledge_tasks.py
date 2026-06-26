@@ -106,8 +106,9 @@ def pledge_take_quiz(request, task_pk):
     if not task.is_live:
         return render(request, 'pledge/quiz_not_available.html', {'task': task})
 
-    # Check pledge is assigned (or task applies to all)
-    if task.assigned_to.exists() and not task.assigned_to.filter(pk=request.user.pk).exists():
+    # Check pledge is assigned (or task applies to all) — single DB query
+    assigned_pks = set(task.assigned_to.values_list('pk', flat=True))
+    if assigned_pks and request.user.pk not in assigned_pks:
         return render(request, 'pledge/quiz_not_available.html', {'task': task})
 
     questions = list(task.questions.all())

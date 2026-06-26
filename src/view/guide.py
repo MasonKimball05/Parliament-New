@@ -349,9 +349,44 @@ def guide_developer_api(request):
     return render(request, 'guide/members/developer_api.html', context)
 
 
+@login_required
+def guide_chat(request):
+    """Chat channels guide for all members."""
+    context = {'page_title': 'Chat Channels Guide', 'category': 'member'}
+    return render(request, 'guide/members/chat.html', context)
+
+
+@login_required
+def guide_service_hours(request):
+    """Service hours guide for all members."""
+    context = {'page_title': 'Service Hours Guide', 'category': 'member'}
+    return render(request, 'guide/members/service_hours.html', context)
+
+
+@login_required
+def guide_pledge_tasks(request):
+    """Pledge task tracker guide."""
+    context = {'page_title': 'Pledge Task Tracker Guide', 'category': 'member'}
+    return render(request, 'guide/members/pledge_tasks.html', context)
+
+
 # =============================================================================
 # OFFICER GUIDE PAGES (Additional)
 # =============================================================================
+
+@login_required
+def guide_recruitment(request):
+    """Recruitment committee guide for officers."""
+    context = {'page_title': 'Recruitment Committee Guide', 'category': 'officer'}
+    return render(request, 'guide/officers/recruitment.html', context)
+
+
+@login_required
+def guide_education(request):
+    """Education committee / pledge education guide for officers."""
+    context = {'page_title': 'Education Committee Guide', 'category': 'officer'}
+    return render(request, 'guide/officers/education.html', context)
+
 
 @login_required
 def guide_resolutions(request):

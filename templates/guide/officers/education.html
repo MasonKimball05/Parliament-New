@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+
+{% block title %}Education Committee Guide - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-6" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="{% url 'guide_index' %}" class="inline-flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                    Guide
+                </a>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="ml-1 text-sm font-medium text-gray-700 dark:text-gray-300 md:ml-2">Education Committee</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center mb-4">
+            <div class="w-12 h-12 bg-violet-100 dark:bg-violet-900/50 rounded-lg flex items-center justify-center mr-4">
+                <svg class="w-6 h-6 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Education Committee</h1>
+                <p class="text-gray-600 dark:text-gray-400">Managing pledge tasks, quizzes, and the education program</p>
+            </div>
+        </div>
+        <div class="bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 rounded-lg px-4 py-2 inline-flex items-center gap-2">
+            <svg class="w-4 h-4 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+            </svg>
+            <span class="text-sm font-medium text-violet-800 dark:text-violet-200">Officer Access Required</span>
+        </div>
+    </div>
+
+    <div class="space-y-8">
+
+        <!-- Quick Actions -->
+        <div class="bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-violet-800 dark:text-violet-200 mb-2">Quick Actions</h3>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'manage_pledge_tasks' %}" class="inline-flex items-center px-3 py-1.5 bg-violet-600 text-white text-sm rounded-md hover:bg-violet-700 transition-colors">
+                    Manage Tasks
+                </a>
+                <a href="{% url 'pledge_progress_overview' %}" class="inline-flex items-center px-3 py-1.5 bg-white dark:bg-gray-800 border border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 text-sm rounded-md hover:bg-violet-50 dark:hover:bg-violet-900/30 transition-colors">
+                    Pledge Progress Overview
+                </a>
+            </div>
+        </div>
+
+        <!-- Section 1: Overview -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-violet-100 dark:bg-violet-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-violet-600 dark:text-violet-400">1</span>
+                    The Education Committee's Role
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    The Education Committee (VPE + education chairs) owns the pledge education program. In Parliament, this means: creating tasks and quizzes, monitoring pledge progress, reviewing quiz submissions, and marking tasks complete.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 rounded-lg p-4">
+                        <h4 class="font-medium text-violet-800 dark:text-violet-200 mb-2">Your workflow</h4>
+                        <ol class="text-sm text-violet-700 dark:text-violet-300 space-y-1 list-decimal list-inside">
+                            <li>Create tasks and quizzes for the semester</li>
+                            <li>Activate them at the right point in the program</li>
+                            <li>Monitor progress on the overview dashboard</li>
+                            <li>Review quiz answers and mark tasks done</li>
+                        </ol>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2 text-sm">Who can manage tasks?</h4>
+                        <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                            <li>✅ VPE — full create/edit/delete access</li>
+                            <li>✅ Education chairs — review and mark tasks</li>
+                            <li>✅ Admins — full access</li>
+                            <li>❌ Other officers — read-only progress view</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Creating tasks -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-violet-100 dark:bg-violet-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-violet-600 dark:text-violet-400">2</span>
+                    Creating Tasks
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">Go to <strong>Pledge Education → Manage Tasks → New Task</strong>. Every task has a type, a phase, and a required/optional flag.</p>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-200 dark:border-gray-700">
+                                <th class="text-left py-2 pr-4 font-medium text-gray-900 dark:text-gray-100">Field</th>
+                                <th class="text-left py-2 font-medium text-gray-900 dark:text-gray-100">Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                            <tr>
+                                <td class="py-2 pr-4 font-medium text-gray-700 dark:text-gray-300">Type</td>
+                                <td class="py-2 text-gray-600 dark:text-gray-400">Task, Quiz, Milestone, Reading. Quiz enables the answer submission form.</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 pr-4 font-medium text-gray-700 dark:text-gray-300">Phase</td>
+                                <td class="py-2 text-gray-600 dark:text-gray-400">General, Phase 1, Phase 2, or Phase 3. Tasks are grouped by phase on pledge dashboards.</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 pr-4 font-medium text-gray-700 dark:text-gray-300">Required</td>
+                                <td class="py-2 text-gray-600 dark:text-gray-400">Required tasks must be completed for initiation. Optional tasks add to point totals.</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 pr-4 font-medium text-gray-700 dark:text-gray-300">Assigned To</td>
+                                <td class="py-2 text-gray-600 dark:text-gray-400">Leave blank to assign to all pledges, or select specific pledges.</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 pr-4 font-medium text-gray-700 dark:text-gray-300">Active</td>
+                                <td class="py-2 text-gray-600 dark:text-gray-400">Inactive tasks don't appear on pledge dashboards. Use this to schedule tasks in advance.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-blue-800 dark:text-blue-200"><strong>Tip:</strong> Create all your tasks for the semester upfront, then toggle them <em>active</em> progressively as the semester moves forward. Pledges can't see inactive tasks.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Creating quizzes -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-violet-100 dark:bg-violet-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-violet-600 dark:text-violet-400">3</span>
+                    Setting Up Quizzes
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">Quizzes are tasks with type = Quiz. After creating the task, add questions to it from the task detail page.</p>
+                <div class="space-y-3">
+                    <div class="flex items-start">
+                        <span class="w-6 h-6 bg-violet-100 dark:bg-violet-900/50 rounded-full flex items-center justify-center flex-shrink-0 mr-3 mt-0.5 text-violet-600 dark:text-violet-400 text-xs font-bold">1</span>
+                        <div>
+                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Create a Quiz task</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Same form as any task — set type to "Quiz" and leave it inactive while you're setting up questions.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="w-6 h-6 bg-violet-100 dark:bg-violet-900/50 rounded-full flex items-center justify-center flex-shrink-0 mr-3 mt-0.5 text-violet-600 dark:text-violet-400 text-xs font-bold">2</span>
+                        <div>
+                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Add questions</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Open the task and click "Add Question." Questions are free-response (text answers). Add as many as needed. Drag to reorder.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="w-6 h-6 bg-violet-100 dark:bg-violet-900/50 rounded-full flex items-center justify-center flex-shrink-0 mr-3 mt-0.5 text-violet-600 dark:text-violet-400 text-xs font-bold">3</span>
+                        <div>
+                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Activate when ready</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Toggle the task to Active. Pledges will immediately see the quiz with a "Take Quiz" button. Once a pledge submits, their answers are locked.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-amber-800 dark:text-amber-200"><strong>Character limit:</strong> Quiz answers are capped at 2,000 characters per question. Tell pledges to be concise — bullet-point answers are fine if they cover the material.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: Reviewing submissions -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-violet-100 dark:bg-violet-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-violet-600 dark:text-violet-400">4</span>
+                    Reviewing Quiz Submissions
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    When a pledge submits a quiz, it lands in your review queue (<strong>Pledge Education → Pending Reviews</strong>). Education chairs can review submissions and mark them complete or incomplete.
+                </p>
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-3">
+                    <div class="flex items-start gap-3">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 flex-shrink-0 mt-0.5">Mark Complete</span>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">The task is credited to the pledge. Hours and completion credit are applied immediately. You can optionally leave a reviewer note.</p>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 flex-shrink-0 mt-0.5">Mark Incomplete</span>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">The pledge is notified. Leave a reviewer note explaining what they need to fix — this note is visible to the pledge on their task page. The pledge will need to re-submit through you.</p>
+                    </div>
+                </div>
+                <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">Quizzes can only be submitted once by pledges. If a submission needs to be reset, an admin can clear it from the task detail page.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 5: Progress overview -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-violet-100 dark:bg-violet-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-violet-600 dark:text-violet-400">5</span>
+                    Monitoring Pledge Progress
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    The <strong>Pledge Progress Overview</strong> shows all pledges in a matrix — rows are pledges, columns are required tasks. At a glance you can see who's behind and where the bottlenecks are.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2 text-sm">Reading the matrix</h4>
+                        <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                            <li>🟢 Green — completed</li>
+                            <li>🟡 Yellow — awaiting review</li>
+                            <li>🔴 Red — incomplete or not started</li>
+                        </ul>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2 text-sm">Drill down</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Click any pledge's name to open their full task list and see every task with status and reviewer notes.</p>
+                    </div>
+                </div>
+                <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-amber-800 dark:text-amber-200"><strong>Before initiation:</strong> Run a final check on the progress overview to confirm all required tasks are green for every pledge. Missing a required task blocks initiation eligibility.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-700">
+            <a href="{% url 'guide_recruitment' %}" class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Previous: Recruitment
+            </a>
+            <a href="{% url 'guide_index' %}" class="inline-flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
+                Back to Guide Index
+                <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

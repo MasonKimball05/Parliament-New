@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}Chat Channels Guide - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-6" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="{% url 'guide_index' %}" class="inline-flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                    Guide
+                </a>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="ml-1 text-sm font-medium text-gray-700 dark:text-gray-300 md:ml-2">Chat Channels</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center mb-4">
+            <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg flex items-center justify-center mr-4">
+                <svg class="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Chat Channels</h1>
+                <p class="text-gray-600 dark:text-gray-400">Communicate with members, committees, and groups in real time</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="space-y-8">
+
+        <!-- Quick Actions -->
+        <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-indigo-800 dark:text-indigo-200 mb-2">Quick Actions</h3>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'chat_index' %}" class="inline-flex items-center px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 transition-colors">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                    </svg>
+                    Open Chat
+                </a>
+            </div>
+        </div>
+
+        <!-- Section 1: What are chat channels -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-indigo-600 dark:text-indigo-400">1</span>
+                    What are Chat Channels?
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Chat channels are persistent, group messaging spaces inside Parliament. They're organized by topic, committee, or group — think of them like group texts that everyone in the relevant group can scroll back through.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                        <h4 class="font-medium text-green-800 dark:text-green-200 mb-1">🌐 Open</h4>
+                        <p class="text-sm text-green-700 dark:text-green-300">Visible and joinable by any logged-in member. General chapter-wide discussions.</p>
+                    </div>
+                    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                        <h4 class="font-medium text-blue-800 dark:text-blue-200 mb-1">👥 Committee</h4>
+                        <p class="text-sm text-blue-700 dark:text-blue-300">Automatically accessible to members, chairs, and advisors of a specific committee.</p>
+                    </div>
+                    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                        <h4 class="font-medium text-amber-800 dark:text-amber-200 mb-1">🔒 Restricted</h4>
+                        <p class="text-sm text-amber-700 dark:text-amber-300">Access granted by officers — by specific user, member type, or officer status.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Finding and joining channels -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-indigo-600 dark:text-indigo-400">2</span>
+                    Finding Your Channels
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Go to <strong>Chat</strong> in the navigation. The index shows every channel you have access to — open channels you haven't joined yet appear in a separate "browse" section.
+                </p>
+                <div class="space-y-3">
+                    <div class="flex items-start">
+                        <span class="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center flex-shrink-0 mr-3 mt-0.5 text-indigo-600 dark:text-indigo-400 text-xs font-bold">1</span>
+                        <div>
+                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Your channels</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Channels you're already part of appear at the top, sorted by most recent activity. Unread messages show a badge count.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center flex-shrink-0 mr-3 mt-0.5 text-indigo-600 dark:text-indigo-400 text-xs font-bold">2</span>
+                        <div>
+                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Committee channels</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">If you're on a committee, that committee's channel is automatically available to you — no joining required.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center flex-shrink-0 mr-3 mt-0.5 text-indigo-600 dark:text-indigo-400 text-xs font-bold">3</span>
+                        <div>
+                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Restricted channels</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">These won't appear at all unless an officer has granted you access. Contact an officer if you think you should have access to a channel.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Sending messages -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-indigo-600 dark:text-indigo-400">3</span>
+                    Sending Messages
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Type in the message box at the bottom of any channel and press <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-mono">Enter</kbd> or click Send. New messages appear in real time for everyone in the channel.
+                </p>
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-2">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 text-sm">Message actions</h4>
+                    <ul class="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-center gap-2"><span class="text-indigo-500">✏️</span> <strong>Edit</strong> — hover a message you sent to see the edit option. Edited messages are marked.</li>
+                        <li class="flex items-center gap-2"><span class="text-indigo-500">🗑️</span> <strong>Delete</strong> — hover your own message and click delete. Officers can delete any message.</li>
+                    </ul>
+                </div>
+                <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-amber-800 dark:text-amber-200"><strong>Heads up:</strong> Chat messages are visible to everyone with channel access, including officers. Keep conversations appropriate.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: Permissions explained -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-indigo-600 dark:text-indigo-400">4</span>
+                    Read vs. Write Access
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Some restricted channels grant <strong>read-only</strong> access — you can see the messages but can't reply. This is common for announcement-style channels. If your message box is grayed out, you have read-only access.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-1">Read access</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">You can view all messages and scroll history, but the message box is disabled.</p>
+                    </div>
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-1">Write access</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">You can send, edit, and delete your own messages. Officers may also be able to delete others' messages.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-700">
+            <a href="{% url 'guide_index' %}" class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Back to Guide
+            </a>
+            <a href="{% url 'guide_service_hours' %}" class="inline-flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
+                Next: Service Hours
+                <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block title %}Service Hours Guide - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-6" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="{% url 'guide_index' %}" class="inline-flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                    Guide
+                </a>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="ml-1 text-sm font-medium text-gray-700 dark:text-gray-300 md:ml-2">Service Hours</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center mb-4">
+            <div class="w-12 h-12 bg-green-100 dark:bg-green-900/50 rounded-lg flex items-center justify-center mr-4">
+                <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Service Hours</h1>
+                <p class="text-gray-600 dark:text-gray-400">Track and submit your chapter service contributions</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="space-y-8">
+
+        <!-- Quick Actions -->
+        <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-green-800 dark:text-green-200 mb-2">Quick Actions</h3>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'service_user_dashboard' %}" class="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 transition-colors">
+                    My Service Hours
+                </a>
+            </div>
+        </div>
+
+        <!-- Section 1: What are service hours -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-green-600 dark:text-green-400">1</span>
+                    What are Service Hours?
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Service hours track the time members contribute to community service and chapter service activities. Every member is expected to complete a minimum number of hours each semester (your <strong>service period</strong>).
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                        <h4 class="font-medium text-green-800 dark:text-green-200 mb-1">📅 Service Events</h4>
+                        <p class="text-sm text-green-700 dark:text-green-300">Organized chapter service events on the calendar. Attend and get marked present — hours are applied automatically when the VPP finalizes attendance.</p>
+                    </div>
+                    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                        <h4 class="font-medium text-blue-800 dark:text-blue-200 mb-1">📝 Manual Submissions</h4>
+                        <p class="text-sm text-blue-700 dark:text-blue-300">Did service on your own? Submit a manual request with details and proof. An officer reviews and approves it.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Checking your hours -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-green-600 dark:text-green-400">2</span>
+                    Checking Your Progress
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">Your service hours dashboard shows your progress for the current period at a glance.</p>
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-3">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        <div>
+                            <p class="font-medium text-gray-900 dark:text-gray-100 text-sm">Hours logged vs. required</p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Your total approved hours for the current period alongside your individual requirement (which may differ from the chapter default if you have an override).</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        <div>
+                            <p class="font-medium text-gray-900 dark:text-gray-100 text-sm">Submission history</p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">A log of every submission — pending, approved, and rejected — with officer notes if provided.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">The weekly chapter digest email (sent every Sunday) also includes your current hours progress so you don't have to log in to check.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Submitting manual hours -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-green-600 dark:text-green-400">3</span>
+                    Submitting Hours Manually
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">For service done outside of chapter-organized events, submit a manual request from your service hours dashboard.</p>
+                <div class="space-y-3">
+                    <div class="flex items-start">
+                        <span class="w-6 h-6 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center flex-shrink-0 mr-3 mt-0.5 text-green-600 dark:text-green-400 text-xs font-bold">1</span>
+                        <div>
+                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Go to My Service Hours</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Click "Submit Hours" on your dashboard.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="w-6 h-6 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center flex-shrink-0 mr-3 mt-0.5 text-green-600 dark:text-green-400 text-xs font-bold">2</span>
+                        <div>
+                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Fill in the details</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Include the activity name, date, number of hours, and a brief description of what you did. Be specific — vague submissions may be rejected.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="w-6 h-6 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center flex-shrink-0 mr-3 mt-0.5 text-green-600 dark:text-green-400 text-xs font-bold">3</span>
+                        <div>
+                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Wait for approval</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">An officer will review and either approve or reject your submission. You'll be notified of the outcome. Approved hours are added to your total immediately.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-amber-800 dark:text-amber-200"><strong>Tip:</strong> Submit hours soon after completing service — don't wait until the end of the period. Batch submissions at the deadline are harder to verify.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: Service Events -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-green-600 dark:text-green-400">4</span>
+                    Attending Service Events
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Service events appear on the chapter calendar labeled with the hours they're worth. Showing up and being marked present is all you need to do — hours are applied automatically after the VPP finalizes the event.
+                </p>
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2 text-sm">What "finalized" means</h4>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">After a service event, the VPP locks the attendance roster and clicks "Finalize." At that point, everyone marked <em>present</em> automatically receives a service hours submission credited to their account for the current period. You don't need to submit anything separately.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-700">
+            <a href="{% url 'guide_chat' %}" class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Previous: Chat Channels
+            </a>
+            <a href="{% url 'guide_index' %}" class="inline-flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
+                Back to Guide Index
+                <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
