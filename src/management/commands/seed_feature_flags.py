@@ -106,7 +106,23 @@ class Command(BaseCommand):
             if created:
                 self.stdout.write(self.style.SUCCESS(f'  ✓ Created feature flag: {flag.display_name}'))
             else:
-                self.stdout.write(f'  - Feature flag already exists: {flag.display_name}')
+                # Always sync display_name, description, and category — but never touch is_enabled
+                # (it's live state that admins may have changed).
+                updated_fields = []
+                if flag.display_name != flag_data['display_name']:
+                    flag.display_name = flag_data['display_name']
+                    updated_fields.append('display_name')
+                if flag.description != flag_data['description']:
+                    flag.description = flag_data['description']
+                    updated_fields.append('description')
+                if flag.category != flag_data['category']:
+                    flag.category = flag_data['category']
+                    updated_fields.append('category')
+                if updated_fields:
+                    flag.save(update_fields=updated_fields)
+                    self.stdout.write(self.style.WARNING(f'  ↺ Updated {flag.display_name}: {", ".join(updated_fields)}'))
+                else:
+                    self.stdout.write(f'  - Feature flag already up to date: {flag.display_name}')
 
         # Page Toggles
         page_toggles = [
@@ -226,7 +242,18 @@ class Command(BaseCommand):
             if created:
                 self.stdout.write(self.style.SUCCESS(f'  ✓ Created page toggle: {toggle.display_name}'))
             else:
-                self.stdout.write(f'  - Page toggle already exists: {toggle.display_name}')
+                updated_fields = []
+                if toggle.display_name != toggle_data['display_name']:
+                    toggle.display_name = toggle_data['display_name']
+                    updated_fields.append('display_name')
+                if toggle.description != toggle_data['description']:
+                    toggle.description = toggle_data['description']
+                    updated_fields.append('description')
+                if updated_fields:
+                    toggle.save(update_fields=updated_fields)
+                    self.stdout.write(self.style.WARNING(f'  ↺ Updated {toggle.display_name}: {", ".join(updated_fields)}'))
+                else:
+                    self.stdout.write(f'  - Page toggle already up to date: {toggle.display_name}')
 
         self.stdout.write(self.style.SUCCESS('\n✅ Successfully seeded feature flags and page toggles!'))
         self.stdout.write(self.style.SUCCESS(f'Total feature flags: {FeatureFlag.objects.count()}'))

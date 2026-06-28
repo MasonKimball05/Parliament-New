@@ -869,7 +869,7 @@ def send_event_signup_announcements():
     email was delivered so transient SMTP failures retry on the next tick.
     """
     from django.conf import settings as _settings
-    from django.core.mail import send_mail
+    from django.core.mail import send_mass_mail
     from django.urls import reverse
     from src.models import Event, ParliamentUser
 
@@ -924,35 +924,39 @@ def send_event_signup_announcements():
             lines.append(f'\nSign up here: {signup_url}')
         body = '\n'.join(lines)
 
-        recipients = (
+        recipients = list(
             ParliamentUser.objects
             .filter(member_status='Active', is_active=True)
             .exclude(email__isnull=True)
             .exclude(email='')
             .exclude(member_type='Advisor')
+            .values_list('email', flat=True)
         )
         if event.visible_to:
             visible_types = set(event.visible_to)
             if 'Member' in visible_types:
                 visible_types.update(['Chair', 'Officer'])
-            recipients = recipients.filter(member_type__in=visible_types)
+            recipients = list(
+                ParliamentUser.objects
+                .filter(member_status='Active', is_active=True, member_type__in=visible_types)
+                .exclude(email__isnull=True)
+                .exclude(email='')
+                .exclude(member_type='Advisor')
+                .values_list('email', flat=True)
+            )
 
-        dispatched = 0
-        for user in recipients:
-            try:
-                send_mail(
-                    subject=subject,
-                    message=body,
-                    from_email=from_email,
-                    recipient_list=[user.email],
-                    fail_silently=False,
-                )
-                dispatched += 1
-            except Exception as mail_exc:
-                logger.warning(
-                    f'[signup_announcements] failed to email {user.email} '
-                    f'for event {event.pk}: {mail_exc}'
-                )
+        if not recipients:
+            continue
+
+        # send_mass_mail reuses a single SMTP connection for all recipients.
+        datatuple = [(subject, body, from_email, [email]) for email in recipients]
+        try:
+            dispatched = send_mass_mail(datatuple, fail_silently=False)
+        except Exception as mail_exc:
+            logger.warning(
+                f'[signup_announcements] SMTP error for event {event.pk}: {mail_exc}'
+            )
+            dispatched = 0
 
         if dispatched > 0:
             event.rsvp_email_sent_at = now
@@ -988,7 +992,7 @@ def send_weekly_chapter_digest():
     from datetime import timedelta
 
     from django.conf import settings as _settings
-    from django.core.mail import send_mail
+    from django.core.mail import get_connection, EmailMessage
     from django.urls import reverse
 
     from src.models import Event, Legislation, ParliamentUser, ServiceHoursSubmission, ServicePeriod
@@ -1071,7 +1075,10 @@ def send_weekly_chapter_digest():
     # ── Per-member email ──────────────────────────────────────────────────────
     sent_count = 0
     skip_count = 0
+    subject = f'Weekly Chapter Digest — {now.strftime("%B %-d, %Y")}'
 
+    # Build all messages first, then send over a single SMTP connection.
+    messages = []
     for member in recipients:
         member_type = getattr(member, 'member_type', '')
 
@@ -1144,20 +1151,26 @@ def send_weekly_chapter_digest():
             "You're receiving this because you're an active chapter member.",
         ]
 
-        body = '\n'.join(lines)
-        subject = f'Weekly Chapter Digest — {now.strftime("%B %-d, %Y")}'
+        messages.append(EmailMessage(
+            subject=subject,
+            body='\n'.join(lines),
+            from_email=from_email,
+            to=[member.email],
+        ))
 
+    # Send all messages over a single SMTP connection.
+    if messages:
         try:
-            send_mail(
-                subject=subject,
-                message=body,
-                from_email=from_email,
-                recipient_list=[member.email],
-                fail_silently=False,
-            )
-            sent_count += 1
-        except Exception as mail_exc:
-            logger.warning(f'[weekly_digest] failed to email {member.email}: {mail_exc}')
+            with get_connection() as connection:
+                for msg in messages:
+                    try:
+                        msg.connection = connection
+                        msg.send()
+                        sent_count += 1
+                    except Exception as mail_exc:
+                        logger.warning(f'[weekly_digest] failed to email {msg.to}: {mail_exc}')
+        except Exception as conn_exc:
+            logger.error(f'[weekly_digest] SMTP connection failed: {conn_exc}')
 
     # Mark this week's digest as sent so any duplicate Celery run is a no-op.
     _cache.set(_digest_cache_key, True, 60 * 60 * 60)  # 60 hours — covers the full Sunday window

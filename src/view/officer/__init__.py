@@ -5,7 +5,6 @@ from .make_event import *
 from .manage_event import *
 from .manage_announcements import *
 from .view_logs import *
-from .db_dump_view import *
 from .upload_report import *
 from .view_all_events import *
 from .view_all_reports import *

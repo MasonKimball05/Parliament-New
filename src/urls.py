@@ -148,6 +148,8 @@ from src.view.admin_v2 import (
     manage_lockouts, clear_push_subscriptions,
     push_subscriptions_list, delete_push_subscription,
     track_page_visit, page_visits_dashboard,
+    admin_v2_url_explorer,
+    admin_v2_passkey_auth_begin, admin_v2_passkey_auth_complete,
 )
 from src.view.admin_v2 import manage_events as admin_v2_manage_events, delete_event as admin_v2_delete_event
 from src.view.notification_admin import (
@@ -814,6 +816,9 @@ urlpatterns = [
     path('admin-v2/event-reminder-logs/', event_reminder_logs, name='admin_v2_event_reminder_logs'),
     path('admin-v2/event-reminder-logs/<int:log_id>/', event_reminder_log_detail, name='admin_v2_event_reminder_log_detail'),
     path('admin-v2/celery/', celery_health, name='admin_v2_celery_health'),
+    path('admin-v2/url-explorer/', admin_v2_url_explorer, name='admin_v2_url_explorer'),
+    path('admin-v2/passkey/auth/begin/', admin_v2_passkey_auth_begin, name='admin_v2_passkey_auth_begin'),
+    path('admin-v2/passkey/auth/complete/', admin_v2_passkey_auth_complete, name='admin_v2_passkey_auth_complete'),
 
     # Admin v2 - Security Management
     path('admin-v2/security/', security_dashboard, name='admin_v2_security'),

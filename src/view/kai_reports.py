@@ -237,6 +237,8 @@ def _get_kai_access(user, committee):
         return {f: False for f in FIELDS} | {'is_full_access': False}
 
 
+@login_required
+@require_feature_flag('kai_reports')
 def view_kai_reports(request):
     """View for Kai chairs to see all submitted reports"""
     # Check if user is a Kai chair

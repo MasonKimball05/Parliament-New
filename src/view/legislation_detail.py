@@ -1,6 +1,8 @@
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404
 from ..models import Legislation, Vote
 
+@login_required
 def legislation_detail(request, legislation_id):
     legislation = get_object_or_404(Legislation, id=legislation_id)
     votes = Vote.objects.filter(legislation=legislation)

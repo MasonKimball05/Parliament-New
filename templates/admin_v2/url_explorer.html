@@ -1,0 +1,115 @@
+{% extends "admin_v2/base.html" %}
+
+{% block title %}URL Explorer - Admin v2{% endblock %}
+
+{% block admin_content %}
+<div class="container mx-auto px-4 py-8"
+     x-data="{
+       q: '',
+       expanded: {},
+       toggleSection(s) { this.expanded[s] = !this.expanded[s] },
+       matchEntry(e) {
+         if (!this.q) return true;
+         const t = this.q.toLowerCase();
+         return e.pattern.toLowerCase().includes(t)
+             || e.name.toLowerCase().includes(t)
+             || e.auth.toLowerCase().includes(t)
+             || e.doc.toLowerCase().includes(t);
+       }
+     }">
+
+    <!-- Header -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">URL Explorer</h1>
+                <p class="text-gray-600 dark:text-gray-400">
+                    All {{ total }} registered URL patterns, grouped by prefix and generated live from Django's URL resolver.
+                </p>
+            </div>
+            <a href="{% url 'admin_v2_dashboard' %}" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition">← Dashboard</a>
+        </div>
+    </div>
+
+    <!-- Auth legend + Search -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-6 flex flex-wrap items-center gap-4">
+        <div class="flex flex-wrap gap-3 text-xs">
+            <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 font-medium">🔐 admin-v2</span>
+            <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-medium">🔒 officer/staff</span>
+            <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium">🔑 login</span>
+            <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-medium">🌐 public</span>
+        </div>
+        <div class="ml-auto flex-shrink-0 w-64 relative">
+            <svg class="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input type="text" x-model="q" placeholder="Filter routes…"
+                   class="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+        </div>
+    </div>
+
+    <!-- Sections -->
+    {% for section, entries in sections.items %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-4 overflow-hidden"
+         x-show="!q || {{ entries|length }} > 0">
+
+        <!-- Section header (collapsible when not filtering) -->
+        <button type="button"
+                class="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 dark:hover:bg-gray-750 transition"
+                @click="toggleSection('{{ section }}')">
+            <div class="flex items-center gap-3">
+                <span class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ section }}</span>
+                <span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">{{ entries|length }}</span>
+            </div>
+            <svg class="w-4 h-4 text-gray-400 transition-transform" :class="expanded['{{ section }}'] || q ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+        </button>
+
+        <!-- Entry table (visible when expanded OR when filtering) -->
+        <div x-show="expanded['{{ section }}'] || q" x-transition>
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-t border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
+                        <th class="px-5 py-2 text-left font-medium text-gray-500 dark:text-gray-400 w-2/5">Pattern</th>
+                        <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-400 w-1/6">Name</th>
+                        <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-400 w-1/8">Auth</th>
+                        <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-400">Docstring</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in entries %}
+                    <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition"
+                        x-show="matchEntry({ pattern: '{{ entry.pattern|escapejs }}', name: '{{ entry.name|escapejs }}', auth: '{{ entry.auth|escapejs }}', doc: '{{ entry.doc|escapejs }}' })">
+                        <td class="px-5 py-3 font-mono text-xs text-gray-800 dark:text-gray-200 break-all">{{ entry.pattern }}</td>
+                        <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 break-all">{{ entry.name }}</td>
+                        <td class="px-4 py-3">
+                            {% if entry.auth == 'admin-v2' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">🔐 admin-v2</span>
+                            {% elif entry.auth == 'officer' or entry.auth == 'staff' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">🔒 {{ entry.auth }}</span>
+                            {% elif entry.auth == 'login' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">🔑 login</span>
+                            {% elif entry.auth == 'public' or entry.auth == 'public (csrf_exempt)' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">🌐 {{ entry.auth }}</span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">{{ entry.auth }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 italic">{{ entry.doc }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- No results -->
+    <div x-show="q && document.querySelectorAll('tbody tr[style!=\'display: none;\']').length === 0"
+         class="text-center py-12 text-gray-500 dark:text-gray-400">
+        No routes match "<span x-text="q" class="font-medium"></span>".
+    </div>
+
+</div>
+{% endblock %}

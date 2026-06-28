@@ -84,6 +84,24 @@
             </form>
         </div>
 
+        {% if has_passkeys %}
+        <!-- Passkey Option -->
+        <div class="mt-4">
+            <div class="relative flex items-center justify-center mb-4">
+                <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-300 dark:border-gray-600"></div></div>
+                <span class="relative px-3 bg-gray-50 dark:bg-gray-900 text-sm text-gray-500 dark:text-gray-400">or</span>
+            </div>
+            <button id="passkey-btn" type="button"
+                    class="w-full flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors">
+                <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                </svg>
+                Use a Passkey instead
+            </button>
+            <p id="passkey-error" class="mt-2 text-sm text-center text-red-600 dark:text-red-400 hidden"></p>
+        </div>
+        {% endif %}
+
         <!-- Back Link -->
         <div class="mt-6 text-center">
             <a href="{% url 'home' %}" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
@@ -92,4 +110,106 @@
         </div>
     </div>
 </div>
+
+{% if has_passkeys %}
+<script nonce="{{ request.csp_nonce }}">
+(function () {
+    const btn = document.getElementById('passkey-btn');
+    const errorEl = document.getElementById('passkey-error');
+    if (!btn) return;
+
+    function bufToBase64url(buf) {
+        const bytes = new Uint8Array(buf);
+        let str = '';
+        for (const b of bytes) str += String.fromCharCode(b);
+        return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    }
+    function base64urlToBuf(str) {
+        str = str.replace(/-/g, '+').replace(/_/g, '/');
+        while (str.length % 4) str += '=';
+        const binary = atob(str);
+        const buf = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) buf[i] = binary.charCodeAt(i);
+        return buf;
+    }
+    function getCsrf() {
+        const el = document.querySelector('[name=csrfmiddlewaretoken]');
+        return el ? el.value : '';
+    }
+
+    // Hide if browser doesn't support WebAuthn
+    if (!window.PublicKeyCredential) {
+        btn.closest('div')?.classList.add('hidden');
+        return;
+    }
+
+    btn.addEventListener('click', async function () {
+        errorEl.classList.add('hidden');
+        btn.disabled = true;
+        btn.textContent = 'Waiting for passkey…';
+
+        try {
+            // Step 1 — get challenge from server
+            const beginResp = await fetch('{% url "admin_v2_passkey_auth_begin" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCsrf() },
+            });
+            if (!beginResp.ok) {
+                const err = await beginResp.json().catch(() => ({}));
+                throw new Error(err.error || 'Could not start passkey authentication.');
+            }
+            const options = await beginResp.json();
+
+            // Decode base64url fields the browser expects as ArrayBuffers
+            options.challenge = base64urlToBuf(options.challenge);
+            if (options.allowCredentials) {
+                options.allowCredentials = options.allowCredentials.map(c => ({
+                    ...c, id: base64urlToBuf(c.id),
+                }));
+            }
+
+            // Step 2 — prompt authenticator (Touch ID / Face ID / hardware key)
+            const assertion = await navigator.credentials.get({ publicKey: options });
+
+            // Step 3 — encode response and send to server
+            const payload = {
+                id: assertion.id,
+                rawId: bufToBase64url(assertion.rawId),
+                type: assertion.type,
+                response: {
+                    clientDataJSON: bufToBase64url(assertion.response.clientDataJSON),
+                    authenticatorData: bufToBase64url(assertion.response.authenticatorData),
+                    signature: bufToBase64url(assertion.response.signature),
+                    userHandle: assertion.response.userHandle
+                        ? bufToBase64url(assertion.response.userHandle) : null,
+                },
+            };
+
+            const completeResp = await fetch('{% url "admin_v2_passkey_auth_complete" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrf(),
+                },
+                body: JSON.stringify(payload),
+            });
+            const result = await completeResp.json();
+            if (!completeResp.ok) throw new Error(result.error || 'Passkey authentication failed.');
+
+            window.location.href = result.redirect || '/admin-v2/dashboard/';
+
+        } catch (err) {
+            if (err.name !== 'NotAllowedError') {
+                // NotAllowedError = user cancelled; don't show an error for that
+                errorEl.textContent = err.message || 'Passkey authentication failed.';
+                errorEl.classList.remove('hidden');
+            }
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg> Use a Passkey instead';
+        }
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

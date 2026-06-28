@@ -5,6 +5,14 @@ This project is licensed under the MIT License. Copyright (c) 2025-2026 Mason Ki
 
 ---
 
+### v3.11.1 — Security Fixes & Hardening (2026-06-28)
+
+**Type:** Security Fix / Bug Fix / Performance
+
+Three missing `@login_required` decorators fixed: `legislation_detail`, `view_kai_reports`, and `serve_exportable_media` were all publicly accessible without authentication in committed code. Rate limit added to `admin_v2_passkey_auth_begin`. New admin-v2 passkey second factor and URL Explorer tool. `PledgePageRestriction` onboarding banner for first-time VPE setup. `@cache_page` on changelog/roadmap. URL Explorer response cached. Dead `all_feature_flags` queryset removed from dashboard context. Guide pages indexed in global search. Email bulk-send refactor using `send_mass_mail` / `get_connection`. See `changelogs/v3.11.1.md`.
+
+---
+
 ### v3.11.0 — Candidate Notes, Education Quiz & Security Hardening (2026-06-24)
 
 **Type:** Feature / Security Fix / Bug Fix

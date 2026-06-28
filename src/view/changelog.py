@@ -6,6 +6,7 @@ import re
 import markdown
 from django.shortcuts import render
 from django.conf import settings
+from django.views.decorators.cache import cache_page
 
 # Names / substrings that count as "just Mason" — anything else is an external contributor
 _MASON_PATTERNS = [
@@ -65,6 +66,7 @@ def parse_version(filename):
     return (major, minor, patch, suffix)
 
 
+@cache_page(60 * 30)  # 30 minutes — content only changes on deploy
 def changelog(request):
     """
     Display the changelog/version history page.
@@ -136,6 +138,7 @@ def changelog(request):
     return render(request, 'changelog.html', context)
 
 
+@cache_page(60 * 30)  # 30 minutes — keyed per URL so each version is cached separately
 def changelog_detail(request, version):
     """
     Display a specific version's detailed changelog.
@@ -174,6 +177,7 @@ def changelog_detail(request, version):
     return render(request, 'changelog_detail.html', context)
 
 
+@cache_page(60 * 30)  # 30 minutes — static content
 def roadmap(request):
     """Display the Parliament 3.0 roadmap page."""
     context = {

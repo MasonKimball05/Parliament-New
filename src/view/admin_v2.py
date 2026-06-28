@@ -21,11 +21,18 @@ from src.models import (
     EventReminderLog, EventReminderRecipient,
     log_admin_action,
     APIToken, APIAccessLog,
+    WebAuthnCredential,
 )
+import json
 import os
 import secrets
 import string
 import logging
+
+import webauthn
+from webauthn.helpers.structs import UserVerificationRequirement, PublicKeyCredentialDescriptor
+from webauthn import base64url_to_bytes, options_to_json
+from src.view.webauthn import _rp_config as _webauthn_rp_config
 
 logger = logging.getLogger('function_calls')
 from django.views.decorators.http import require_POST
@@ -130,7 +137,141 @@ def admin_v2_login(request):
         messages.success(request, 'Admin v2 access granted')
         return redirect('admin_v2_dashboard')
 
-    return render(request, 'admin_v2/login.html')
+    return render(request, 'admin_v2/login.html', {
+        'has_passkeys': (
+            request.user.is_authenticated
+            and WebAuthnCredential.objects.filter(user=request.user).exists()
+        ),
+    })
+
+
+_SESSION_ADMIN_V2_PASSKEY_CHALLENGE = 'admin_v2_passkey_challenge'
+_security_logger = logging.getLogger('security')
+
+
+@require_POST
+def admin_v2_passkey_auth_begin(request):
+    """
+    Generate WebAuthn assertion options for admin-v2 second-factor auth.
+    User must already be logged in and in ALLOWED_USER_IDS.
+    Scopes allow_credentials to this user's registered keys so the authenticator
+    can prompt immediately without needing a discoverable/resident key.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not logged in.'}, status=403)
+    if not hasattr(request.user, 'user_id') or request.user.user_id not in ALLOWED_USER_IDS:
+        return JsonResponse({'error': 'Unauthorized.'}, status=403)
+
+    _rate_key = f'admin_v2_attempts_{request.user.pk}'
+    if cache.get(_rate_key, 0) >= ADMIN_V2_MAX_ATTEMPTS:
+        return JsonResponse({'error': 'Too many failed attempts. Try again in 15 minutes.'}, status=429)
+
+    rp_id, _ = _webauthn_rp_config(request)
+
+    user_creds = list(WebAuthnCredential.objects.filter(user=request.user))
+    if not user_creds:
+        return JsonResponse({'error': 'No passkeys registered for this account.'}, status=400)
+
+    allowed = [
+        PublicKeyCredentialDescriptor(id=bytes(c.credential_id))
+        for c in user_creds
+    ]
+
+    options = webauthn.generate_authentication_options(
+        rp_id=rp_id,
+        user_verification=UserVerificationRequirement.REQUIRED,
+        allow_credentials=allowed,
+    )
+
+    request.session[_SESSION_ADMIN_V2_PASSKEY_CHALLENGE] = list(options.challenge)
+    return JsonResponse(json.loads(options_to_json(options)))
+
+
+@require_POST
+def admin_v2_passkey_auth_complete(request):
+    """
+    Verify a WebAuthn assertion and grant admin-v2 access.
+    The credential must belong to the already-logged-in user (ownership enforced).
+    On success, sets the same admin_v2_authenticated session flag as password auth.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not logged in.'}, status=403)
+    if not hasattr(request.user, 'user_id') or request.user.user_id not in ALLOWED_USER_IDS:
+        return JsonResponse({'error': 'Unauthorized.'}, status=403)
+
+    rp_id, origin = _webauthn_rp_config(request)
+
+    challenge_list = request.session.pop(_SESSION_ADMIN_V2_PASSKEY_CHALLENGE, None)
+    if not challenge_list:
+        return JsonResponse({'error': 'No authentication in progress.'}, status=400)
+
+    _rate_key = f'admin_v2_attempts_{request.user.pk}'
+    _attempts = cache.get(_rate_key, 0)
+    if _attempts >= ADMIN_V2_MAX_ATTEMPTS:
+        return JsonResponse({'error': 'Too many failed attempts. Try again in 15 minutes.'}, status=429)
+
+    try:
+        body_json = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid request body.'}, status=400)
+
+    try:
+        cred_id_bytes = base64url_to_bytes(body_json['rawId'])
+    except Exception:
+        return JsonResponse({'error': 'Invalid credential data.'}, status=400)
+
+    # Credential must be registered to the currently authenticated user — no lateral movement possible
+    db_cred = WebAuthnCredential.objects.filter(
+        credential_id=cred_id_bytes,
+        user=request.user,
+    ).first()
+    if not db_cred:
+        cache.set(_rate_key, _attempts + 1, ADMIN_V2_LOCKOUT_SECONDS)
+        _security_logger.warning(
+            f'Admin-v2 passkey auth: unknown or unauthorized credential from {request.user.username}'
+        )
+        return JsonResponse({'error': 'Unknown or unauthorized credential.'}, status=400)
+
+    try:
+        verification = webauthn.verify_authentication_response(
+            credential=request.body.decode(),
+            expected_challenge=bytes(challenge_list),
+            expected_rp_id=rp_id,
+            expected_origin=origin,
+            credential_public_key=bytes(db_cred.public_key),
+            credential_current_sign_count=db_cred.sign_count,
+        )
+    except Exception as exc:
+        cache.set(_rate_key, _attempts + 1, ADMIN_V2_LOCKOUT_SECONDS)
+        _security_logger.warning(
+            f'Admin-v2 passkey verification failed for {request.user.username}: {exc}'
+        )
+        ActivityLog.log_activity(
+            action_type='security_violation',
+            user=request.user,
+            description=f'Failed Admin v2 passkey attempt by {request.user.get_display_name()}',
+            request=request,
+        )
+        return JsonResponse({'error': 'Passkey verification failed.'}, status=400)
+
+    # All good — update sign count and grant access
+    db_cred.mark_used(verification.new_sign_count)
+    cache.delete(_rate_key)
+
+    request.session['admin_v2_authenticated'] = True
+    request.session['admin_v2_auth_time'] = timezone.now().isoformat()
+    request.session.modified = True
+    request.session.set_expiry(7 * 24 * 60 * 60)
+
+    ActivityLog.log_activity(
+        action_type='admin_v2_access',
+        user=request.user,
+        description=f'{request.user.get_display_name()} accessed Admin v2 via passkey "{db_cred.name}"',
+        request=request,
+    )
+
+    from django.urls import reverse
+    return JsonResponse({'ok': True, 'redirect': reverse('admin_v2_dashboard')})
 
 
 def require_admin_v2_auth(view_func):
@@ -511,7 +652,6 @@ def admin_v2_dashboard(request):
     context = {
         'stats': stats,
         'feature_flags': feature_flags,
-        'all_feature_flags': FeatureFlag.objects.all().order_by('category', 'name'),
         'page_toggles': page_toggles,
         'chat_settings': chat_settings,
         'event_reminder_settings': event_reminder_settings,
@@ -682,6 +822,108 @@ def clear_push_subscriptions(request):
     )
 
     return redirect('admin_v2_dashboard')
+
+
+@require_admin_v2_auth
+def admin_v2_url_explorer(request):
+    """
+    Enumerate every registered URL pattern grouped by section prefix.
+    Introspects Django's URL resolver so no manual maintenance is needed.
+    """
+    from django.urls import get_resolver
+    import inspect
+
+    def _iter_patterns(resolver, prefix=''):
+        """Recursively yield (full_pattern, name, callback) triples."""
+        for pattern in resolver.url_patterns:
+            full = prefix + str(pattern.pattern)
+            if hasattr(pattern, 'url_patterns'):
+                yield from _iter_patterns(pattern, full)
+            else:
+                yield full, getattr(pattern, 'name', None), getattr(pattern, 'callback', None)
+
+    def _auth_level(callback):
+        """Guess the auth level from decorator chain / closure."""
+        if callback is None:
+            return 'unknown'
+        # Unwrap functools.wraps chains
+        func = callback
+        while hasattr(func, '__wrapped__'):
+            func = func.__wrapped__
+        src = ''
+        try:
+            src = inspect.getsource(func)
+        except Exception:
+            pass
+        closures = []
+        cb = callback
+        while hasattr(cb, '__closure__') and cb.__closure__:
+            for cell in cb.__closure__:
+                try:
+                    closures.append(type(cell.cell_contents).__name__)
+                except Exception:
+                    pass
+            cb = getattr(cb, '__wrapped__', None) or (cb.__closure__[0].cell_contents if cb.__closure__ else None)
+            if not callable(cb):
+                break
+        name = getattr(callback, '__name__', '') or ''
+        qualname = getattr(callback, '__qualname__', '') or ''
+
+        if 'require_admin_v2_auth' in qualname or 'admin_v2_authenticated' in src:
+            return 'admin-v2'
+        if 'staff_member_required' in str(getattr(callback, '__closure__', '')) or 'staff_member_required' in qualname:
+            return 'staff'
+        if 'is_officer' in src or 'officer_required' in src:
+            return 'officer'
+        if 'login_required' in qualname or 'LoginRequiredMixin' in src:
+            return 'login'
+        if 'csrf_exempt' in qualname:
+            return 'public (csrf_exempt)'
+        # Class-based views
+        view_class = getattr(callback, 'view_class', None)
+        if view_class:
+            mro_names = [c.__name__ for c in view_class.__mro__]
+            if 'LoginRequiredMixin' in mro_names:
+                return 'login'
+        return 'public'
+
+    def _section(pattern):
+        """Derive a section label from the URL prefix."""
+        parts = [p for p in pattern.lstrip('/').split('/') if p and '<' not in p and not p.isdigit()]
+        if not parts:
+            return 'root'
+        return parts[0]
+
+    _CACHE_KEY = 'admin_v2_url_explorer_data'
+    _CACHE_TTL = 60 * 60  # 1 hour — only changes on deploy
+
+    cached = cache.get(_CACHE_KEY)
+    if cached:
+        sorted_sections, total = cached
+    else:
+        raw = list(_iter_patterns(get_resolver()))
+
+        # Group by section
+        sections = {}
+        for pattern, name, callback in raw:
+            section = _section(pattern)
+            entry = {
+                'pattern': '/' + pattern.lstrip('^').rstrip('$'),
+                'name': name or '—',
+                'auth': _auth_level(callback),
+                'doc': (inspect.getdoc(callback) or '').split('\n')[0][:120] if callback else '',
+            }
+            sections.setdefault(section, []).append(entry)
+
+        # Sort sections and entries within each section
+        sorted_sections = {k: sorted(v, key=lambda e: e['pattern']) for k, v in sorted(sections.items())}
+        total = sum(len(v) for v in sorted_sections.values())
+        cache.set(_CACHE_KEY, (sorted_sections, total), _CACHE_TTL)
+
+    return render(request, 'admin_v2/url_explorer.html', {
+        'sections': sorted_sections,
+        'total': total,
+    })
 
 
 @require_admin_v2_auth

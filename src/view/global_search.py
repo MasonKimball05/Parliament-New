@@ -38,6 +38,11 @@ PAGES = [
 
     # Kai
     {'name': 'Submit Kai Report', 'url': 'submit_kai_report', 'icon': '📝', 'keywords': ['kai', 'report', 'submit', 'concern', 'feedback', 'issue'], 'description': 'Submit a Kai report'},
+
+    # Guide pages (member-facing)
+    {'name': 'Guide: Chat Channels', 'url': 'guide_chat', 'icon': '💬', 'keywords': ['guide', 'chat', 'channels', 'messaging', 'how to'], 'description': 'How to use chat channels'},
+    {'name': 'Guide: Service Hours', 'url': 'guide_service_hours', 'icon': '⏱️', 'keywords': ['guide', 'service', 'hours', 'logging', 'how to'], 'description': 'How to log service hours'},
+    {'name': 'Guide: Pledge Tasks', 'url': 'guide_pledge_tasks', 'icon': '📋', 'keywords': ['guide', 'pledge', 'tasks', 'quiz', 'how to'], 'description': 'How the pledge task tracker works'},
 ]
 
 # Officer-only pages
@@ -48,6 +53,10 @@ OFFICER_PAGES = [
     {'name': 'Manage Users', 'url': 'user_list', 'icon': '👥', 'keywords': ['manage', 'user', 'member', 'add', 'edit'], 'description': 'Manage chapter members'},
     {'name': 'View Kai Reports', 'url': 'view_kai_reports', 'icon': '📊', 'keywords': ['kai', 'report', 'view', 'review'], 'description': 'Review submitted Kai reports'},
     {'name': 'Review Excuses', 'url': 'review_excuses', 'icon': '📋', 'keywords': ['excuse', 'review', 'approve', 'absence'], 'description': 'Review excuse requests'},
+
+    # Guide pages (officer-facing)
+    {'name': 'Guide: Recruitment', 'url': 'guide_recruitment', 'icon': '🤝', 'keywords': ['guide', 'recruitment', 'rush', 'candidates', 'how to'], 'description': 'Recruitment committee guide'},
+    {'name': 'Guide: Education', 'url': 'guide_education', 'icon': '🎓', 'keywords': ['guide', 'education', 'pledge', 'vpe', 'how to'], 'description': 'Education committee guide'},
 ]
 
 # Admin-only pages
@@ -129,12 +138,12 @@ def global_search(request):
         results['pages'] = matching_pages[:8]
 
     # Search Legislation (title, description)
-    legislation_results = Legislation.objects.filter(
+    legislation_results = list(Legislation.objects.filter(
         Q(title__icontains=query) | Q(description__icontains=query),
         is_active=True
-    ).order_by('-created_at')[:10]
+    ).order_by('-created_at')[:10])
     if legislation_results:
-        results['legislation'] = list(legislation_results)
+        results['legislation'] = legislation_results
 
     # Search Passed Resolutions
     passed_resolutions = list(PassedResolution.objects.filter(
