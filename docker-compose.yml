@@ -69,8 +69,8 @@ services:
   web:
     build: .
     container_name: parliament-web
-    # Use gunicorn with config file instead of runserver
-    command: gunicorn --config gunicorn_config.py Parliament.wsgi:application
+    # Daphne (ASGI) — serves HTTP + WebSockets, matching prod (07-05-26)
+    command: daphne -b 0.0.0.0 -p 8000 Parliament.asgi:application
     volumes:
       - .:/app
       - static_volume:/app/staticfiles
@@ -78,7 +78,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DJANGO_SETTINGS_MODULE=Parliament.settings_postgres
+      - DJANGO_SETTINGS_MODULE=Parliament.settings
       - DEBUG=${DEBUG:-False}
       - SECRET_KEY=${SECRET_KEY}
       - DB_NAME=${DB_NAME:-parliament_db}
@@ -88,7 +88,6 @@ services:
       - DB_PORT=5432
       - DB_CONN_MAX_AGE=300
       - REDIS_URL=redis://redis:6379/0
-      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-2}
     deploy:
       resources:
         limits:

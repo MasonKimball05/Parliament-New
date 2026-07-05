@@ -57,7 +57,7 @@ python manage.py test src.test_comprehensive
 python manage.py test src.test_edge_cases
 
 # Pillar 1 — async infrastructure & live vote tallies (requires .env loaded)
-export $(grep -v '^#' .env | grep -v '^$' | xargs) && .venv/bin/python3 manage.py test src.test_pillar1 --settings=ci_settings
+export $(grep -v '^#' .env | grep -v '^$' | xargs) && .venv/bin/python3 manage.py test src.test_pillar1 --settings=Parliament.settings
 ```
 
 ### Run Specific Test Class

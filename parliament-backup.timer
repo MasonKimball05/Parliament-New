@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Parliament DB backup nightly at 03:30
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+# If the droplet was off/rebooting at 03:30, run on next boot
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

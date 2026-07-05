@@ -1,0 +1,14 @@
+[Unit]
+Description=Parliament nightly PostgreSQL backup
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/parliament-backup
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=parliament-backup

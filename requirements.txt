@@ -1,7 +1,6 @@
 asgiref==3.8.1
-Django==5.1.15
+Django==5.2.15
 icalendar==6.1.0
-psycopg2==2.9.10
 psycopg2-binary==2.9.10
 python-dotenv==1.2.2
 python-magic==0.4.27
@@ -10,20 +9,15 @@ requests==2.33.1
 sqlparse==0.5.5
 user-agents==2.2.0
 
-# Production server with async workers for better memory efficiency
-gunicorn==22.0.0
-gevent==24.11.1
-
-# Database connection pooling for better resource management
-psycopg2-pool==1.1
+# App server: Daphne (ASGI — HTTP + WebSockets). See daphne pin below with channels.
 
 # Redis for shared caching across workers (optional but recommended)
 redis==5.2.1
-django-redis==5.4.0
+django-redis==7.0.0
 
 # Celery — async task queue and periodic task scheduling
 celery==5.4.0
-django-celery-beat==2.7.0
+django-celery-beat==2.9.0
 
 # Web Push notifications (VAPID-signed push via pywebpush)
 pywebpush==2.3.0
@@ -44,7 +38,7 @@ mammoth==1.8.0
 reportlab==4.1.0
 
 # PDF to image conversion for mobile document viewing
-PyMuPDF==1.24.0
+PyMuPDF==1.27.2.3
 
 # Excel file generation for directory export
 openpyxl==3.1.2
@@ -57,7 +51,7 @@ qrcode==7.4.2
 djangorestframework==3.16.0
 
 # WebSockets (3.0.0 — replaces HTTP polling for chat)
-channels==4.2.0
+channels==4.3.2
 channels-redis==4.2.0
 daphne==4.1.2
 

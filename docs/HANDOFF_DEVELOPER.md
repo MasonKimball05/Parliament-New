@@ -243,7 +243,7 @@ The 16 sub-module files are the source of truth but `src/models/__init__.py` re-
 
 - **Development:** `Parliament/settings.py`
 - **Production:** Uses environment variables in `.env`. Run `python manage.py check_env` to validate all required variables are set.
-- **CI:** `ci_settings.py`
+- **CI:** single workflow `.github/workflows/ci.yml`, runs on `Parliament.settings` (env-driven)
 
 ### Authentication
 

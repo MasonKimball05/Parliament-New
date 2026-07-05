@@ -516,6 +516,14 @@ CELERY_RESULT_EXPIRES = 3600  # 1 hour
 # Beat scheduler — store schedules in the database (manageable via admin-v2)
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
+# Test runs (manage.py test / CI): execute celery tasks synchronously in-process
+# so tests don't need a broker, and task exceptions surface immediately.
+# (Replaces the old standalone ci_settings.py — removed 07-05-26.)
+import sys as _sys
+if 'test' in _sys.argv or os.getenv('PYTEST_CURRENT_TEST'):
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+
 # Password Reset Settings
 PASSWORD_RESET_TIMEOUT = 1800  # 30 minutes (in seconds) - shorter window for security
 PASSWORD_RESET_TIMEOUT_DAYS = 0  # Deprecated, but set to 0 for clarity

@@ -177,3 +177,14 @@ Then update the profile view to handle email updates.
 
 **Migrations:**
 - `src/migrations/0020_parliamentuser_email.py`
+
+## Database Backups (added 07-05-26)
+
+Nightly `pg_dump` at 03:30 via systemd timer. Files: `backup_database.sh` (install
+to `/usr/local/bin/parliament-backup`), `parliament-backup.service`,
+`parliament-backup.timer` — install instructions in the script header.
+Archives land in `/var/backups/parliament/`, 14-day retention.
+Restore: `pg_restore -d parliament_db -U parliament_user --clean --if-exists <file>`.
+
+**TODO:** these backups live on the same droplet — add offsite sync (rclone to
+Backblaze B2 is free for this size) for real disaster recovery.

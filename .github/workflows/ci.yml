@@ -1,5 +1,9 @@
 name: Django CI/CD
 
+# Consolidated workflow (07-05-26): django.yml was a subset of this file and was
+# removed. Tests run against the real Parliament.settings (ci_settings.py deleted
+# after the settings unification) with env-driven config below.
+
 on:
   push:
     branches: [ main, develop ]
@@ -26,6 +30,23 @@ jobs:
         ports:
           - 5432:5432
 
+    env:
+      DJANGO_SETTINGS_MODULE: Parliament.settings
+      DJANGO_SECRET_KEY: 'ci-test-secret-key-not-for-production'
+      # Valid Fernet key for EncryptedCharField/EncryptedEmailField in tests.
+      # CI-only — NOT a production secret.
+      ENCRYPTION_KEY: 'HjGdIfMrGRWLLYtZQPm6NyLyyYl9_Cpco4telPFcAh8='
+      DJANGO_DEBUG: 'True'
+      ALLOWED_HOSTS: 'localhost,127.0.0.1'
+      DB_ENGINE: django.db.backends.postgresql
+      DB_NAME: parliament_test_db
+      DB_USER: parliament_user
+      DB_PASSWORD: test_password
+      DB_HOST: localhost
+      DB_PORT: '5432'
+      DB_SSLMODE: disable
+      LOG_DIR: /tmp
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -41,40 +62,16 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
+    # Migrations are tracked in git as of 07-05-26. CI must never generate
+    # them — instead, fail if a model change is missing its migration.
+    - name: Check for missing migrations
+      run: python manage.py makemigrations --check --dry-run
+
     - name: Run migrations
-      env:
-        DJANGO_SETTINGS_MODULE: ci_settings
-        DJANGO_SECRET_KEY: 'ci-test-secret-key-not-for-production'
-        DJANGO_DEBUG: 'True'
-        ALLOWED_HOSTS: 'localhost,127.0.0.1'
-        DB_ENGINE: django.db.backends.postgresql
-        DB_NAME: parliament_test_db
-        DB_USER: parliament_user
-        DB_PASSWORD: test_password
-        DB_HOST: localhost
-        DB_PORT: '5432'
-        DB_SSLMODE: disable
-        LOG_DIR: /tmp
-      run: |
-        python manage.py makemigrations src --noinput
-        python manage.py migrate --noinput
+      run: python manage.py migrate --noinput
 
     - name: Run tests
-      env:
-        DJANGO_SETTINGS_MODULE: ci_settings
-        DJANGO_SECRET_KEY: 'ci-test-secret-key-not-for-production'
-        DJANGO_DEBUG: 'True'
-        ALLOWED_HOSTS: 'localhost,127.0.0.1'
-        DB_ENGINE: django.db.backends.postgresql
-        DB_NAME: parliament_test_db
-        DB_USER: parliament_user
-        DB_PASSWORD: test_password
-        DB_HOST: localhost
-        DB_PORT: '5432'
-        DB_SSLMODE: disable
-        LOG_DIR: /tmp
-      run: |
-        python manage.py test --verbosity=2
+      run: python manage.py test --verbosity=2
 
     - name: Check code formatting (optional)
       continue-on-error: true
