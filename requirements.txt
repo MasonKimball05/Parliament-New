@@ -1,4 +1,4 @@
-asgiref==3.8.1
+asgiref==3.9.2  # channels 4.3.2 needs >=3.9,<4
 Django==5.2.15
 icalendar==6.1.0
 psycopg2-binary==2.9.10

@@ -5,9 +5,9 @@ A comprehensive Django-based management platform for the Alpha Mu chapter of Bet
 
 [![Django CI/CD](https://github.com/MasonKimball05/Parliament-New/workflows/Django%20CI%2FCD/badge.svg)](https://github.com/MasonKimball05/Parliament-New/actions)
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
-[![Django 5.1+](https://img.shields.io/badge/django-5.1+-green.svg)](https://www.djangoproject.com/)
+[![Django 5.2+](https://img.shields.io/badge/django-5.2+-green.svg)](https://www.djangoproject.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-3.10.0-blue.svg)](changelogs/)
+[![Version](https://img.shields.io/badge/version-3.12.0-blue.svg)](changelogs/)
 
 ---
 
