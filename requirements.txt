@@ -38,7 +38,7 @@ mammoth==1.8.0
 reportlab==4.1.0
 
 # PDF to image conversion for mobile document viewing
-PyMuPDF==1.27.2.3
+PyMuPDF==1.28.0
 
 # Excel file generation for directory export
 openpyxl==3.1.2
