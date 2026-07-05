@@ -69,7 +69,7 @@ DEFAULT_FROM_EMAIL=noreply@am-parliament.org
 
 ### Step 4: Restart Services
 ```bash
-systemctl restart parliament
+systemctl restart parliament-gunicorn   # despite the name, this is the Daphne (ASGI) unit
 systemctl restart nginx
 ```
 

@@ -1,5 +1,12 @@
 [Unit]
-Description=Parliament Gunicorn Application Server
+# NOTE (07-05-26): Despite the filename, this unit runs DAPHNE (ASGI), not
+# gunicorn — Daphne is required for WebSockets (chat). The filename matches
+# the unit actually installed on prod (/etc/systemd/system/). If you ever
+# rename it to parliament-daphne.service (recommended for clarity):
+#   systemctl disable --now parliament-gunicorn
+#   mv /etc/systemd/system/parliament-{gunicorn,daphne}.service
+#   systemctl daemon-reload && systemctl enable --now parliament-daphne
+Description=Parliament Daphne Application Server (ASGI)
 After=network.target postgresql.service
 Requires=postgresql.service
 
@@ -8,7 +15,6 @@ Type=exec
 # User and group to run as (adjust as needed)
 User=root
 Group=root
-RuntimeDirectory=gunicorn
 WorkingDirectory=/var/www/Parliament-New
 
 # Environment variables
@@ -16,11 +22,10 @@ Environment="PATH=/var/www/Parliament-New/venv/bin"
 Environment="DJANGO_SETTINGS_MODULE=Parliament.settings"
 EnvironmentFile=/var/www/Parliament-New/.env
 
-# Memory optimization: Use the optimized gunicorn config
-ExecStart=/var/www/Parliament-New/venv/bin/gunicorn \
-    --config /var/www/Parliament-New/gunicorn_config.py \
-    --pid /run/gunicorn/parliament.pid \
-    Parliament.wsgi:application
+# Daphne serves both HTTP and WebSockets over the unix socket nginx proxies to.
+ExecStart=/var/www/Parliament-New/venv/bin/daphne \
+    -u /var/www/Parliament-New/parliament.sock \
+    Parliament.asgi:application
 
 # Restart policy
 Restart=on-failure
@@ -31,17 +36,14 @@ NoNewPrivileges=true
 PrivateTmp=true
 
 # Resource limits (optional but recommended)
-# 1 worker with 2 threads handles 2 concurrent requests at ~half the memory of 2 workers.
-# Increase GUNICORN_WORKERS env var if traffic grows and latency becomes an issue.
 LimitAS=268435456
 # 256MB in bytes
 MemoryLimit=256M
-# Systemd cgroup memory limit
 
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=parliament-gunicorn
+SyslogIdentifier=parliament-daphne
 
 [Install]
 WantedBy=multi-user.target
