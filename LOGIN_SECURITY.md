@@ -137,7 +137,7 @@ self.lockout_minutes = 30               # Lockout duration after exceeding limit
 ```
 
 ### Middleware Stack
-Located in `Parliament/settings_postgres.py`:
+Located in `Parliament/settings.py`:
 
 ```python
 MIDDLEWARE = [
@@ -314,7 +314,7 @@ from django.core.cache import cache
 If running multiple web servers, use Redis for shared cache:
 
 ```python
-# In settings_postgres.py
+# In settings.py
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
@@ -387,7 +387,7 @@ Already implemented in `src/validators.py`:
 - Not a common password
 
 ### Session Security
-Configured in `Parliament/settings_postgres.py`:
+Configured in `Parliament/settings.py`:
 ```python
 SESSION_COOKIE_SECURE = True      # HTTPS only
 SESSION_COOKIE_HTTPONLY = True    # No JavaScript access

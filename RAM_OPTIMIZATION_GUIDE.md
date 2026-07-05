@@ -41,7 +41,7 @@ This guide documents the comprehensive RAM optimizations implemented to reduce i
 - Fewer workers mean less memory duplication
 
 ### 2. Database Connection Pooling ✅
-**File**: `Parliament/settings_postgres.py`
+**File**: `Parliament/settings.py`
 
 **Changes**:
 ```python
@@ -80,7 +80,7 @@ deploy:
 - Hard memory limit prevents growth
 
 ### 4. Redis for Shared Caching ✅
-**Files**: `docker-compose.yml`, `Parliament/settings_postgres.py`
+**Files**: `docker-compose.yml`, `Parliament/settings.py`
 
 **Changes**:
 - Added Redis container with 64MB limit
@@ -121,7 +121,7 @@ nginx:     64M  (was unlimited)
 **Expected Impact**: **-50MB base image size**
 
 ### 7. Additional Django Optimizations ✅
-**File**: `Parliament/settings_postgres.py`
+**File**: `Parliament/settings.py`
 
 **Changes**:
 - Reduced `MAX_ENTRIES` in fallback cache from 10000 to 5000
@@ -306,7 +306,7 @@ DB_CONN_MAX_AGE=300
 REDIS_URL=redis://redis:6379/0
 
 # Django settings
-DJANGO_SETTINGS_MODULE=Parliament.settings_postgres
+DJANGO_SETTINGS_MODULE=Parliament.settings
 DEBUG=False
 ```
 

@@ -68,7 +68,7 @@ echo ""
 print_step "Step 1: Checking which users will be affected (dry run)..."
 echo ""
 
-DJANGO_SETTINGS_MODULE=Parliament.settings_postgres python manage.py reset_all_passwords \
+DJANGO_SETTINGS_MODULE=Parliament.settings python manage.py reset_all_passwords \
     --exclude "$EXCLUDE_IDS" \
     --dry-run
 
@@ -89,7 +89,7 @@ print_step "Step 2: Resetting passwords..."
 echo ""
 
 # Run actual reset
-DJANGO_SETTINGS_MODULE=Parliament.settings_postgres python manage.py reset_all_passwords \
+DJANGO_SETTINGS_MODULE=Parliament.settings python manage.py reset_all_passwords \
     --exclude "$EXCLUDE_IDS"
 
 echo ""

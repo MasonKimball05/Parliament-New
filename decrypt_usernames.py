@@ -9,7 +9,7 @@ import os
 import sys
 import django
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Parliament.settings_postgres')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Parliament.settings')
 django.setup()
 
 from django.db import connection

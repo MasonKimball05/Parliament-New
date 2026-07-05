@@ -274,9 +274,8 @@ Run from the repo root with the virtualenv active:
 
 ```
 Parliament-New/
-├── Parliament/                 # Django project settings (git submodule)
-│   ├── base_settings.py
-│   ├── settings_postgres.py    # Production settings
+├── Parliament/                 # Django project settings (tracked in this repo)
+│   ├── settings.py             # Unified settings — env-driven via .env
 │   ├── asgi.py                 # ASGI entry point (WebSocket support via Daphne)
 │   └── wsgi.py
 ├── src/

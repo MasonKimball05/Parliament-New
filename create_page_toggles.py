@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Script to create PageToggle entries for all pages with @require_page_enabled decorator.
-Run this with: DJANGO_SETTINGS_MODULE=Parliament.settings_postgres python3 manage.py shell < create_page_toggles.py
+Run this with: DJANGO_SETTINGS_MODULE=Parliament.settings python3 manage.py shell < create_page_toggles.py
 Or in Django shell: exec(open('create_page_toggles.py').read())
 """
 

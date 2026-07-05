@@ -82,7 +82,7 @@ self.lockout_minutes = 60          # Lockout duration after exceeding limits
 ```
 
 ### Token Expiration
-Located in `Parliament/settings_postgres.py`:
+Located in `Parliament/settings.py`:
 
 ```python
 PASSWORD_RESET_TIMEOUT = 1800  # 30 minutes (in seconds)
@@ -154,7 +154,7 @@ Too many password reset attempts. Please try again in 1 hour.
 If running multiple web servers, use Redis for shared cache:
 
 ```python
-# In settings_postgres.py
+# In settings.py
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',

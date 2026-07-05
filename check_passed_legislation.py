@@ -4,7 +4,7 @@ from django.core.wsgi import get_wsgi_application
 import os
 
 # Setup Django environment
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Parliament.settings_postgres')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Parliament.settings')
 application = get_wsgi_application()
 
 from src.models import *

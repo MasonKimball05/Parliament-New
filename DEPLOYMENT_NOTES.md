@@ -13,7 +13,7 @@
 - Added "Forgot Password?" link to login page
 
 ### 3. Configured Email Settings
-- Added email configuration to `Parliament/settings_postgres.py`
+- Added email configuration to `Parliament/settings.py`
 - Uses console backend for development
 - Configurable via environment variables for production
 
@@ -161,7 +161,7 @@ Then update the profile view to handle email updates.
 - `Parliament/urls.py` - Fixed import
 
 **Settings:**
-- `Parliament/settings_postgres.py` - Added email configuration
+- `Parliament/settings.py` - Added email configuration
 
 **Templates Created:**
 - `templates/registration/password_reset.html`

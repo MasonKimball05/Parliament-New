@@ -60,5 +60,5 @@ These scripts wrap common `manage.py` and database operations. Run them from the
 ## Notes
 
 - All scripts assume they're run from the repo root (`Parliament-New/`) unless they use `SCRIPT_DIR`.
-- Scripts that call `manage.py` inherit whichever Django settings are active. On prod this is `settings_postgres`.
+- Scripts that call `manage.py` inherit whichever Django settings are active. On prod this is `Parliament.settings`.
 - `users.json` in this directory is a **legacy migration artifact** from `migrate_users.sh`. It is gitignored. Do not commit it — it contains user PII.

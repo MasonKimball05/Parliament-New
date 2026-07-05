@@ -234,7 +234,7 @@ The `PageToggle` model (defined in `src/models_feature_flags.py`) includes:
 3. **Or use the script:**
    - Edit `create_page_toggles.py`
    - Add your page to the `page_toggles` list
-   - Run: `DJANGO_SETTINGS_MODULE=Parliament.settings_postgres python3 manage.py shell < create_page_toggles.py`
+   - Run: `DJANGO_SETTINGS_MODULE=Parliament.settings python3 manage.py shell < create_page_toggles.py`
 
 ---
 

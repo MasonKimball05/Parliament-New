@@ -68,7 +68,7 @@ worker_tmp_dir = '/dev/shm'  # Faster heartbeat using shared memory
 
 ### 2. Database Connection Pooling
 
-**File**: `Parliament/settings_postgres.py`
+**File**: `Parliament/settings.py`
 
 **Changes:**
 ```python
@@ -113,7 +113,7 @@ max_connections = 30           # Reduced from 100 (each ~2-3MB)
 
 ### 4. Redis for Shared Caching (Optional)
 
-**Files**: `install_redis.sh`, `Parliament/settings_postgres.py`
+**Files**: `install_redis.sh`, `Parliament/settings.py`
 
 **Configuration:**
 - Redis with 64MB memory limit
@@ -265,8 +265,8 @@ EOF
 
 # Run migrations and collect static
 source venv/bin/activate
-DJANGO_SETTINGS_MODULE=Parliament.settings_postgres python manage.py migrate
-DJANGO_SETTINGS_MODULE=Parliament.settings_postgres python manage.py collectstatic --noinput
+DJANGO_SETTINGS_MODULE=Parliament.settings python manage.py migrate
+DJANGO_SETTINGS_MODULE=Parliament.settings python manage.py collectstatic --noinput
 
 # Start optimized service
 sudo systemctl start parliament-gunicorn.service

@@ -41,7 +41,7 @@ cd /var/www/Parliament-New
 
 print_status "Step 1: Backing up current configuration..."
 cp docker-compose.yml docker-compose.yml.backup.$(date +%Y%m%d_%H%M%S) || true
-cp Parliament/settings_postgres.py Parliament/settings_postgres.py.backup.$(date +%Y%m%d_%H%M%S) || true
+cp Parliament/settings.py Parliament/settings.py.backup.$(date +%Y%m%d_%H%M%S) || true
 
 print_status "Step 2: Pulling latest code from repository..."
 git pull origin main

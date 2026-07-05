@@ -10,7 +10,7 @@ Group=root
 WorkingDirectory=/var/www/Parliament-New
 
 Environment="PATH=/var/www/Parliament-New/venv/bin"
-Environment="DJANGO_SETTINGS_MODULE=Parliament.settings_postgres"
+Environment="DJANGO_SETTINGS_MODULE=Parliament.settings"
 EnvironmentFile=/var/www/Parliament-New/.env
 
 # DatabaseScheduler reads/writes schedules from the DB so they can be managed

@@ -13,7 +13,7 @@ WorkingDirectory=/var/www/Parliament-New
 
 # Environment variables
 Environment="PATH=/var/www/Parliament-New/venv/bin"
-Environment="DJANGO_SETTINGS_MODULE=Parliament.settings_postgres"
+Environment="DJANGO_SETTINGS_MODULE=Parliament.settings"
 EnvironmentFile=/var/www/Parliament-New/.env
 
 # Memory optimization: Use the optimized gunicorn config

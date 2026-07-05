@@ -147,12 +147,12 @@ fi
 echo ""
 print_step "Step 7: Running Django migrations..."
 source venv/bin/activate
-DJANGO_SETTINGS_MODULE=Parliament.settings_postgres python manage.py migrate --noinput
+DJANGO_SETTINGS_MODULE=Parliament.settings python manage.py migrate --noinput
 print_status "Migrations complete"
 
 echo ""
 print_step "Step 8: Collecting static files..."
-DJANGO_SETTINGS_MODULE=Parliament.settings_postgres python manage.py collectstatic --noinput
+DJANGO_SETTINGS_MODULE=Parliament.settings python manage.py collectstatic --noinput
 print_status "Static files collected"
 
 echo ""

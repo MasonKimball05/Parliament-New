@@ -66,7 +66,7 @@ echo ""
 print_step "Step 1: Checking which usernames need updating (dry run)..."
 echo ""
 
-DJANGO_SETTINGS_MODULE=Parliament.settings_postgres python manage.py fix_usernames \
+DJANGO_SETTINGS_MODULE=Parliament.settings python manage.py fix_usernames \
     --exclude "$EXCLUDE_IDS" \
     --dry-run
 
@@ -87,7 +87,7 @@ print_step "Step 2: Updating usernames..."
 echo ""
 
 # Run actual update
-DJANGO_SETTINGS_MODULE=Parliament.settings_postgres python manage.py fix_usernames \
+DJANGO_SETTINGS_MODULE=Parliament.settings python manage.py fix_usernames \
     --exclude "$EXCLUDE_IDS"
 
 echo ""
