@@ -18,6 +18,22 @@ class EncryptedFieldMixin:
             kwargs['max_length'] = kwargs.get('max_length', 255) * 2
         super().__init__(*args, **kwargs)
 
+    def deconstruct(self):
+        """
+        Reverse the max_length doubling done in __init__.
+
+        Without this, every load of a migration re-doubles max_length
+        (declared 90 -> instance 180 -> migration stores 180 -> state loads
+        as 360 -> never equals the instance's 180), so makemigrations
+        emitted the same no-op AlterField forever (see historical 0217/0222).
+        Storing the *declared* value makes __init__/deconstruct a stable
+        round-trip.
+        """
+        name, path, args, kwargs = super().deconstruct()
+        if kwargs.get('max_length'):
+            kwargs['max_length'] //= 2
+        return name, path, args, kwargs
+
     def get_fernet(self):
         """Get Fernet cipher instance from settings"""
         key = getattr(settings, 'CRYPTOGRAPHY_KEY', None)

@@ -6,8 +6,9 @@ __pycache__/
 *.pyc
 
 # === Django Migrations ===
-**/migrations/
-!**/migrations/__init__.py
+# Tracked as of 07-05-26 (consolidated to a fresh 0001_initial) — migrations
+# now flow dev -> git -> prod like all other code. Only compiled cache ignored.
+**/migrations/__pycache__/
 
 # === Environment / Secrets ===
 .env
