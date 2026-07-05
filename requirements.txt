@@ -23,16 +23,16 @@ django-celery-beat==2.9.0
 pywebpush==2.3.0
 
 # Field-level encryption for sensitive data (AES encryption via Fernet)
-cryptography==46.0.7
+cryptography==48.0.1
 
 # Markdown rendering for changelog display
-markdown==3.7
+markdown==3.8.1
 
 # HTML sanitization to prevent stored XSS from rich-text editors
-bleach==6.2.0
+bleach==6.4.0
 
 # DOCX to HTML conversion for document preview
-mammoth==1.8.0
+mammoth==1.11.0
 
 # PDF generation for chapter minutes export
 reportlab==4.1.0
@@ -53,7 +53,7 @@ djangorestframework==3.16.0
 # WebSockets (3.0.0 — replaces HTTP polling for chat)
 channels==4.3.2
 channels-redis==4.2.0
-daphne==4.1.2
+daphne==4.2.2
 
 # Passkeys / WebAuthn (3.0.0 — optional fast-path login bypassing password + 2FA)
 webauthn==2.7.1

@@ -1,7 +1,7 @@
 from django.contrib.auth.decorators import login_required
 from django.db import models
 from django.shortcuts import render
-from src.models import ParliamentUser
+from src.models import ParliamentUser, ActivityLog
 from src.decorators import officer_required
 from src.constants import MemberType, MemberStatus
 from src.utils.export_utils import export_to_csv
