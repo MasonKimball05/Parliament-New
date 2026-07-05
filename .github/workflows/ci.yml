@@ -129,11 +129,13 @@ jobs:
       run: |
         pip-audit --ignore-vuln PYSEC-2025-49
 
+    # -lll = fail only on HIGH severity. (The old '-ll' failed on MEDIUM+,
+    # contradicting the step name — fixed 07-05-26.)
     - name: Static security scan (bandit) — fail on HIGH
       run: |
-        bandit -r src/ -ll --exclude src/migrations
+        bandit -r src/ -lll --exclude src/migrations
 
     - name: Static security scan (bandit) — warn on MEDIUM
       continue-on-error: true
       run: |
-        bandit -r src/ -l --exclude src/migrations
+        bandit -r src/ -ll --exclude src/migrations

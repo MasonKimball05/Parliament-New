@@ -66,7 +66,12 @@ class PwnedPasswordValidator:
     """
 
     def validate(self, password, user=None):
-        sha1 = hashlib.sha1(password.encode('utf-8')).hexdigest().upper()
+        # SHA-1 is mandated by the HIBP k-anonymity protocol — it's a lookup
+        # key here, not a security hash (we never store or trust it).
+        # usedforsecurity=False documents that and satisfies bandit B324.
+        sha1 = hashlib.sha1(
+            password.encode('utf-8'), usedforsecurity=False
+        ).hexdigest().upper()
         prefix, suffix = sha1[:5], sha1[5:]
         try:
             req = Request(
