@@ -5,9 +5,15 @@ Results are cached 24h per IP to avoid redundant lookups.
 """
 import logging
 import requests
+from django.conf import settings
 from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
+
+# Base URL for the IP geolocation provider. Defaults to ip-api.com's free
+# (HTTP-only) endpoint. Set GEO_API_BASE_URL in the environment to an HTTPS
+# endpoint (e.g. an ip-api.com Pro URL) to avoid sending lookups in cleartext.
+GEO_API_BASE_URL = getattr(settings, 'GEO_API_BASE_URL', 'http://ip-api.com/json/')
 
 PRIVATE_PREFIXES = ('10.', '172.16.', '172.17.', '172.18.', '172.19.',
                     '172.20.', '172.21.', '172.22.', '172.23.', '172.24.',
@@ -36,7 +42,7 @@ def get_ip_geo(ip_address, timeout=2):
 
     try:
         resp = requests.get(
-            f'http://ip-api.com/json/{ip_address}',
+            f'{GEO_API_BASE_URL}{ip_address}',
             params={'fields': API_FIELDS},
             timeout=timeout,
         )

@@ -333,18 +333,16 @@ class CommitteeTestCase(TestCase):
         """Set up test committee and users"""
         self.client = Client()
 
-        # Create role
-        self.role = Role.objects.create(
-            id=1,
+        # Use get_or_create to avoid IntegrityError if a prior migration already seeded
+        # these rows (data migrations run on the test DB before setUp executes).
+        self.role, _ = Role.objects.get_or_create(
             code='VPB',
-            name='Vice President of Brotherhood'
+            defaults={'name': 'Vice President of Brotherhood'},
         )
 
-        # Create committee
-        self.committee = Committee.objects.create(
-            id=1,
+        self.committee, _ = Committee.objects.get_or_create(
             code='BROTHER',
-            name='Brotherhood Committee'
+            defaults={'name': 'Brotherhood Committee'},
         )
 
         # Create users
@@ -379,9 +377,10 @@ class CommitteeTestCase(TestCase):
         self.assertFalse(self.committee.is_member(self.chair))
 
     def test_committee_detail_view(self):
-        """Test committee detail page loads"""
+        """Test committee home page loads (committee_detail now redirects here)"""
         self.client.force_login(self.chair)
-        response = self.client.get(reverse('committee_detail', args=[self.committee.code]), follow=True)
+        # committee_detail is a permanent redirect to committee_home — test the destination directly
+        response = self.client.get(reverse('committee_home', args=[self.committee.code]))
         self.assertEqual(response.status_code, 200)
 
     def test_committee_legislation_creation(self):

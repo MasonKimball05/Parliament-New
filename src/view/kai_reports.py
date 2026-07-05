@@ -411,6 +411,7 @@ def view_kai_reports(request):
 
 
 @login_required
+@require_feature_flag('kai_reports')
 @log_function_call
 def export_kai_reports_csv(request):
     """Export filtered Kai reports to CSV"""
@@ -535,6 +536,7 @@ def export_kai_reports_csv(request):
 
 
 @login_required
+@require_feature_flag('kai_reports')
 @log_function_call
 def manage_kai_report(request, report_id):
     """Manage a specific Kai report (mark as reviewed, add notes, etc.)"""
@@ -1382,6 +1384,7 @@ You may submit another closure request in the future if circumstances change.
 
 
 @login_required
+@require_feature_flag('kai_reports')
 @log_function_call
 def print_kai_report(request, report_id):
     """Print-friendly view for a Kai report (can be printed to PDF)"""
@@ -1439,6 +1442,7 @@ def kai_dashboard(request):
 
 
 @login_required
+@require_feature_flag('kai_reports')
 @log_function_call
 def bulk_actions_kai_reports(request):
     """Handle bulk actions on multiple Kai reports"""
@@ -1592,6 +1596,7 @@ def bulk_actions_kai_reports(request):
 
 
 @login_required
+@require_feature_flag('kai_reports')
 @log_function_call
 def manage_kai_templates(request):
     """Manage Kai report templates (for chairs only)"""
@@ -1616,6 +1621,7 @@ def manage_kai_templates(request):
 
 
 @login_required
+@require_feature_flag('kai_reports')
 @log_function_call
 def create_kai_template(request):
     """Create a new Kai report template"""
@@ -1664,6 +1670,7 @@ def create_kai_template(request):
 
 
 @login_required
+@require_feature_flag('kai_reports')
 @log_function_call
 def edit_kai_template(request, template_id):
     """Edit an existing Kai report template"""
@@ -1703,6 +1710,7 @@ def edit_kai_template(request, template_id):
 
 
 @login_required
+@require_feature_flag('kai_reports')
 def delete_kai_template(request, template_id):
     """Delete a Kai report template"""
     # Check if user is a Kai chair or admin

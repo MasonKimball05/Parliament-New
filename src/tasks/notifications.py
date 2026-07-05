@@ -869,6 +869,7 @@ def send_event_signup_announcements():
     email was delivered so transient SMTP failures retry on the next tick.
     """
     from django.conf import settings as _settings
+    from django.core.cache import cache
     from django.core.mail import send_mass_mail
     from django.urls import reverse
     from src.models import Event, ParliamentUser
@@ -948,6 +949,24 @@ def send_event_signup_announcements():
         if not recipients:
             continue
 
+        # De-duplicate against any addresses already successfully sent in a prior
+        # partial run.  send_mass_mail is all-or-nothing over a single SMTP
+        # connection — if the connection drops mid-batch, recipients that were
+        # delivered before the failure don't get rsvp_email_sent_at set, so the
+        # task retries next tick.  Without this guard those recipients would get
+        # a second email.
+        _sent_cache_key = f'signup_ann_sent_{event.pk}'
+        _already_sent: set = cache.get(_sent_cache_key) or set()
+        if _already_sent:
+            recipients = [e for e in recipients if e not in _already_sent]
+            if not recipients:
+                # Everyone already received it — mark the event done and move on.
+                event.rsvp_email_sent_at = now
+                event.save(update_fields=['rsvp_email_sent_at'])
+                cache.delete(_sent_cache_key)
+                sent_count += 1
+                continue
+
         # send_mass_mail reuses a single SMTP connection for all recipients.
         datatuple = [(subject, body, from_email, [email]) for email in recipients]
         try:
@@ -961,15 +980,25 @@ def send_event_signup_announcements():
         if dispatched > 0:
             event.rsvp_email_sent_at = now
             event.save(update_fields=['rsvp_email_sent_at'])
+            cache.delete(_sent_cache_key)
             sent_count += 1
             logger.info(
                 f'[signup_announcements] Event {event.pk} ({event.title}): '
                 f'emailed {dispatched} recipient(s)'
             )
         else:
+            # Record what we attempted so a retry can skip re-sending to these
+            # addresses.  Django's SMTP backend sends messages sequentially within
+            # the connection — some may have gone out before the failure.  Treat
+            # all attempted recipients as "sent" conservatively (better to skip
+            # one duplicate than to guarantee a re-send).  TTL: 24 h covers any
+            # realistic retry window; the key is deleted on success.
+            updated = _already_sent | set(recipients)
+            cache.set(_sent_cache_key, updated, 60 * 60 * 24)
             logger.warning(
                 f'[signup_announcements] Event {event.pk} ({event.title}): '
-                f'0 emails delivered — will retry next tick'
+                f'0 emails confirmed — will retry next tick '
+                f'({len(updated)} address(es) suppressed from retry)'
             )
 
     if sent_count:
@@ -1180,3 +1209,351 @@ def send_weekly_chapter_digest():
         f'(events={len(upcoming_events)} legislation={len(open_legislation)} '
         f'period={"yes" if active_period else "no"})'
     )
+
+
+@shared_task(name='tasks.fire_scheduled_notifications')
+def fire_scheduled_notifications():
+    """
+    Fire notifications for active NotificationSchedule records that are due.
+
+    Runs every 15 minutes. For each active schedule:
+
+      event_reminder      — fires for any upcoming event when
+                            now >= event.date_time - hours_before.
+      attendance_reminder — same, but restricted to events with
+                            requires_attendance=True.
+      vote_reminder       — fires for active legislation with voting_ends_at set
+                            when now >= voting_ends_at - hours_before; filtered
+                            to members who haven't voted yet.
+      dues_reminder / custom — not yet implemented; logged and skipped.
+
+    If schedule.send_at_time is set, the schedule only fires within an ±8-minute
+    window of that local time of day (covers every 15-minute Celery tick).
+
+    Deduplication is DB-backed: a NotificationLog with status='sent' for the
+    (schedule, object) pair suppresses re-firing even across Celery restarts.
+    All sent pairs are pre-fetched in a single query before the main loop to
+    avoid per-object EXISTS queries.
+
+    Delivery:
+      send_email=True  → send_mass_mail over DEFAULT_FROM_EMAIL
+      send_in_app=True → bulk-create Notification objects
+
+    Template placeholders by type:
+      event_reminder / attendance_reminder:
+        {event_name}, {event_date}, {event_time}, {event_location}
+      vote_reminder:
+        {legislation_title}, {vote_deadline}, {vote_deadline_date},
+        {vote_deadline_time}
+    """
+    from datetime import timedelta
+
+    from django.conf import settings as _settings
+    from django.core.cache import cache as _cache
+    from django.core.mail import send_mass_mail
+    from src.models import (
+        Event, Legislation, NotificationSchedule, NotificationLog,
+        Notification, ParliamentUser,
+    )
+
+    now = timezone.now()
+
+    schedules = list(
+        NotificationSchedule.objects
+        .filter(is_active=True)
+        .select_related('target_committee')
+    )
+    if not schedules:
+        return
+
+    from_email = getattr(_settings, 'DEFAULT_FROM_EMAIL', None)
+    fired_count = 0
+
+    # Pre-fetch all (schedule_id, related_object_id) pairs already confirmed sent,
+    # across all supported object types (event, legislation).  O(1) set lookup
+    # inside the loop replaces per-object EXISTS queries.
+    _fired_pairs = set(
+        NotificationLog.objects.filter(
+            schedule__in=schedules,
+            related_object_type__in=('event', 'legislation'),
+            status='sent',
+        ).values_list('schedule_id', 'related_object_id')
+    )
+
+    # -------------------------------------------------------------------------
+    # Helper: resolve target_audience → queryset of ParliamentUser
+    # Returns None if the audience can't be resolved (log + skip).
+    # -------------------------------------------------------------------------
+    def _resolve_recipients(schedule):
+        base = ParliamentUser.objects.filter(is_active=True, member_status='Active')
+        audience = schedule.target_audience
+
+        if audience == 'all_active':
+            return base
+        if audience == 'all_members':
+            # Includes alumni / inactive statuses
+            return ParliamentUser.objects.filter(is_active=True)
+        if audience == 'officers':
+            return base.filter(member_type='Officer')
+        if audience == 'pledges':
+            return base.filter(member_type='Pledge')
+        if audience == 'committee':
+            if not schedule.target_committee:
+                logger.warning(
+                    f'[scheduled_notifications] Schedule {schedule.pk} ({schedule.name}): '
+                    f'target_audience=committee but no target_committee set — skipping'
+                )
+                return None
+            return base.filter(committees=schedule.target_committee)
+        # 'custom' or unknown
+        logger.warning(
+            f'[scheduled_notifications] Schedule {schedule.pk} ({schedule.name}): '
+            f'target_audience="{audience}" is not resolvable — skipping'
+        )
+        return None
+
+    # -------------------------------------------------------------------------
+    # Helper: render a template string with event context
+    # Falls back to the raw string if a placeholder is malformed.
+    # -------------------------------------------------------------------------
+    def _render(template, ctx):
+        try:
+            return template.format(**ctx)
+        except (KeyError, ValueError, IndexError):
+            return template
+
+    # -------------------------------------------------------------------------
+    # Helper: deliver a notification (email + in-app) and write a log entry.
+    # Shared by all schedule types so the delivery path isn't duplicated.
+    #
+    # Returns True if delivery succeeded (or was not attempted), False on error.
+    # -------------------------------------------------------------------------
+    def _deliver(schedule, recipients, rendered_subject, rendered_message,
+                 obj_type, obj_id, scheduled_for, link, source_type):
+        nonlocal fired_count
+
+        log = NotificationLog.objects.create(
+            schedule=schedule,
+            notification_type=schedule.notification_type,
+            title=rendered_subject,
+            message=rendered_message,
+            sent_via_email=schedule.send_email,
+            sent_via_in_app=schedule.send_in_app,
+            recipient_count=len(recipients),
+            status='pending',
+            related_object_type=obj_type,
+            related_object_id=obj_id,
+            scheduled_for=scheduled_for,
+        )
+
+        delivery_ok = True
+        successful = 0
+
+        # -- Email delivery -------------------------------------------------------
+        if schedule.send_email and from_email:
+            emails = [u.email for u in recipients if u.email]
+            if emails:
+                datatuple = [
+                    (rendered_subject, rendered_message, from_email, [addr])
+                    for addr in emails
+                ]
+                try:
+                    successful = send_mass_mail(datatuple, fail_silently=False)
+                except Exception as mail_exc:
+                    logger.warning(
+                        f'[scheduled_notifications] SMTP error — schedule {schedule.pk} '
+                        f'{obj_type} {obj_id}: {mail_exc}'
+                    )
+                    delivery_ok = False
+                    log.error_message = str(mail_exc)[:500]
+
+        # -- In-app notifications -------------------------------------------------
+        if schedule.send_in_app:
+            in_app = [
+                Notification(
+                    recipient=user,
+                    notification_type='announcement',
+                    title=rendered_subject,
+                    message=rendered_message,
+                    link=link,
+                    source_type=source_type,
+                    source_id=obj_id,
+                )
+                for user in recipients
+            ]
+            try:
+                Notification.objects.bulk_create(in_app)
+                _cache.delete_many([f'notif_count_{u.pk}' for u in recipients])
+            except Exception as inapp_exc:
+                logger.warning(
+                    f'[scheduled_notifications] In-app error — schedule {schedule.pk} '
+                    f'{obj_type} {obj_id}: {inapp_exc}'
+                )
+                delivery_ok = False
+                if not log.error_message:
+                    log.error_message = str(inapp_exc)[:500]
+
+        # -- Finalise log entry ---------------------------------------------------
+        log.status = 'sent' if delivery_ok else 'failed'
+        log.successful_count = successful
+        if delivery_ok:
+            log.sent_at = timezone.now()
+            fired_count += 1
+            logger.info(
+                f'[scheduled_notifications] Fired schedule {schedule.pk} ({schedule.name}) '
+                f'for {obj_type} {obj_id} — {len(recipients)} recipient(s)'
+            )
+        else:
+            logger.warning(
+                f'[scheduled_notifications] Failed schedule {schedule.pk} ({schedule.name}) '
+                f'for {obj_type} {obj_id}'
+            )
+        log.save(update_fields=['status', 'sent_at', 'successful_count', 'error_message'])
+        return delivery_ok
+
+    # -------------------------------------------------------------------------
+    # Main loop
+    # -------------------------------------------------------------------------
+    for schedule in schedules:
+        # -- send_at_time gate ----------------------------------------------------
+        # If the schedule specifies a time of day, only fire within ±8 minutes of
+        # that local time.  The ±8-minute window reliably catches every 15-minute
+        # Celery tick while preventing the same schedule from firing twice in one
+        # day at the wrong hour.  Midnight-crossing is handled via modular
+        # arithmetic on minute-of-day.
+        if schedule.send_at_time:
+            import datetime as _dt
+            _local_now = timezone.localtime(now)
+            _now_min = _local_now.hour * 60 + _local_now.minute
+            _target_min = schedule.send_at_time.hour * 60 + schedule.send_at_time.minute
+            _diff = (_now_min - _target_min) % (24 * 60)
+            # _diff is in [0, 1440); values near 0 or 1440 are within the window
+            if not (_diff <= 8 or _diff >= (24 * 60 - 8)):
+                continue
+
+        # =====================================================================
+        # event_reminder / attendance_reminder
+        # Fires for upcoming events once now >= event.date_time - hours_before.
+        # =====================================================================
+        if schedule.notification_type in ('event_reminder', 'attendance_reminder'):
+            event_qs = Event.objects.filter(
+                is_active=True,
+                archived=False,
+                date_time__gt=now,
+                date_time__lte=now + timedelta(hours=schedule.hours_before),
+            )
+            if schedule.notification_type == 'attendance_reminder':
+                event_qs = event_qs.filter(requires_attendance=True)
+
+            for event in event_qs:
+                if (schedule.pk, event.pk) in _fired_pairs:
+                    continue
+
+                recipients_qs = _resolve_recipients(schedule)
+                if recipients_qs is None:
+                    continue
+                recipients = list(recipients_qs.select_related('preferences'))
+                if not recipients:
+                    continue
+
+                local_dt = timezone.localtime(event.date_time)
+                ctx = {
+                    'event_name':     event.title,
+                    'event_date':     local_dt.strftime('%A, %B %-d, %Y'),
+                    'event_time':     local_dt.strftime('%-I:%M %p'),
+                    'event_location': event.location or '',
+                }
+                rendered_message = _render(schedule.message_template, ctx)
+                subject_tmpl = schedule.email_subject_template.strip() or schedule.name
+                rendered_subject = _render(subject_tmpl, ctx)
+
+                _deliver(
+                    schedule=schedule,
+                    recipients=recipients,
+                    rendered_subject=rendered_subject,
+                    rendered_message=rendered_message,
+                    obj_type='event',
+                    obj_id=event.pk,
+                    scheduled_for=event.date_time - timedelta(hours=schedule.hours_before),
+                    link='/calendar/',
+                    source_type='event',
+                )
+
+        # =====================================================================
+        # vote_reminder
+        # Fires for active legislation with a voting deadline when
+        # now >= voting_ends_at - hours_before.  Only fires if voting_ends_at
+        # is set — legislation without a deadline is skipped (no target time).
+        # Optionally filters to members who haven't voted yet.
+        # =====================================================================
+        elif schedule.notification_type == 'vote_reminder':
+            leg_qs = Legislation.objects.filter(
+                status='active',
+                voting_closed=False,
+                is_active=True,
+                voting_ends_at__isnull=False,
+                voting_ends_at__gt=now,
+                voting_ends_at__lte=now + timedelta(hours=schedule.hours_before),
+            )
+
+            for leg in leg_qs:
+                if (schedule.pk, leg.pk) in _fired_pairs:
+                    continue
+
+                recipients_qs = _resolve_recipients(schedule)
+                if recipients_qs is None:
+                    continue
+
+                # Filter to members who haven't voted yet on this item
+                from src.models import Vote
+                voted_pks = set(
+                    Vote.objects.filter(legislation=leg)
+                    .values_list('user_id', flat=True)
+                )
+                recipients = [
+                    u for u in recipients_qs.select_related('preferences')
+                    if u.pk not in voted_pks
+                ]
+                if not recipients:
+                    # Everyone eligible has already voted — mark as sent and skip
+                    logger.info(
+                        f'[scheduled_notifications] vote_reminder schedule {schedule.pk}: '
+                        f'legislation {leg.pk} — all recipients have already voted, skipping'
+                    )
+                    continue
+
+                local_deadline = timezone.localtime(leg.voting_ends_at)
+                ctx = {
+                    'legislation_title': leg.title,
+                    'vote_deadline':     local_deadline.strftime('%A, %B %-d, %Y at %-I:%M %p'),
+                    'vote_deadline_date': local_deadline.strftime('%A, %B %-d, %Y'),
+                    'vote_deadline_time': local_deadline.strftime('%-I:%M %p'),
+                }
+                rendered_message = _render(schedule.message_template, ctx)
+                subject_tmpl = schedule.email_subject_template.strip() or schedule.name
+                rendered_subject = _render(subject_tmpl, ctx)
+
+                _deliver(
+                    schedule=schedule,
+                    recipients=recipients,
+                    rendered_subject=rendered_subject,
+                    rendered_message=rendered_message,
+                    obj_type='legislation',
+                    obj_id=leg.pk,
+                    scheduled_for=leg.voting_ends_at - timedelta(hours=schedule.hours_before),
+                    link=f'/legislation/{leg.pk}/',
+                    source_type='legislation',
+                )
+
+        # =====================================================================
+        # dues_reminder / custom — no data model yet; log and skip
+        # =====================================================================
+        else:
+            logger.debug(
+                f'[scheduled_notifications] Schedule {schedule.pk} ({schedule.name}): '
+                f'type "{schedule.notification_type}" not yet implemented — skipping'
+            )
+            continue
+
+    if fired_count:
+        logger.info(f'[scheduled_notifications] Fired {fired_count} scheduled notification(s) this tick')

@@ -894,8 +894,17 @@ def admin_v2_url_explorer(request):
             return 'root'
         return parts[0]
 
-    _CACHE_KEY = 'admin_v2_url_explorer_data'
-    _CACHE_TTL = 60 * 60  # 1 hour — only changes on deploy
+    # Key the cache on urls.py's mtime so it auto-invalidates on deploy
+    # (collectstatic / git pull touches urls.py whenever routes change).
+    # Falls back to a static key if the mtime can't be read.
+    try:
+        _urls_mtime = int(os.path.getmtime(
+            os.path.join(settings.BASE_DIR, 'src', 'urls.py')
+        ))
+    except Exception:
+        _urls_mtime = 0
+    _CACHE_KEY = f'admin_v2_url_explorer_data_{_urls_mtime}'
+    _CACHE_TTL = 60 * 60 * 24  # 24 h — effectively infinite; mtime-keyed invalidation handles freshness
 
     cached = cache.get(_CACHE_KEY)
     if cached:

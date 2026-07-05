@@ -10,6 +10,7 @@ assign/unassign operations) — this view is focused on the semester-handoff wor
 """
 import json
 import logging
+from collections import defaultdict
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -32,15 +33,24 @@ def role_transitions(request):
     Each role row shows active holders and a Transfer button. Submitting the
     modal POSTs to transfer_role which performs the atomic swap.
     """
-    roles = Role.objects.all().order_by('name')
+    roles = list(Role.objects.all().order_by('name'))
+
+    # One query for all holders instead of one per role (N+1). Selecting the
+    # M2M field alongside the filter yields one row per (user, role)
+    # membership; group them by role id in Python. Global name ordering
+    # keeps each role's holder list name-sorted, matching prior behavior.
+    holders_by_role = defaultdict(list)
+    holder_rows = (
+        ParliamentUser.objects.filter(roles__in=roles, member_status='Active')
+        .order_by('name')
+        .values('user_id', 'name', 'member_type', 'roles')
+    )
+    for row in holder_rows:
+        holders_by_role[row.pop('roles')].append(row)
 
     roles_data = []
     for role in roles:
-        holders = list(
-            ParliamentUser.objects.filter(roles=role, member_status='Active')
-            .order_by('name')
-            .values('user_id', 'name', 'member_type')
-        )
+        holders = holders_by_role.get(role.id, [])
         roles_data.append({
             'role': role,
             'holders': holders,

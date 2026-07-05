@@ -82,6 +82,15 @@ SCHEDULES = [
     },
 
     # -------------------------------------------------------------------------
+    # Officer-configured notification schedules — every 15 minutes
+    # -------------------------------------------------------------------------
+    {
+        'name': 'Fire scheduled notifications',
+        'task': 'tasks.fire_scheduled_notifications',
+        'interval': {'every': 15, 'period': IntervalSchedule.MINUTES},
+    },
+
+    # -------------------------------------------------------------------------
     # Housekeeping — daily tasks (3:00–3:30 AM CST = 09:00–09:30 UTC)
     # -------------------------------------------------------------------------
     {

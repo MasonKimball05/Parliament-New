@@ -59,9 +59,12 @@ def get_geolocation_from_ip(ip_address):
         }
 
     try:
-        # Using ip-api.com (free, no API key required, 45 req/min limit)
+        # Using ip-api.com (free, no API key required, 45 req/min limit).
+        # Base URL is configurable (GEO_API_BASE_URL) so an HTTPS endpoint can
+        # be used in production instead of sending lookups over cleartext HTTP.
+        base_url = getattr(settings, 'GEO_API_BASE_URL', 'http://ip-api.com/json/')
         response = requests.get(
-            f'http://ip-api.com/json/{ip_address}',
+            f'{base_url}{ip_address}',
             timeout=3
         )
 
@@ -243,9 +246,15 @@ def analyze_login_risk(user, ip_address, location_data, device_info):
             risk_factors.append(f'New device: {device_info.get("device_type")} with {device_info.get("browser")}')
             risk_score += 15
 
-        # Check for new IP (use unsliced queryset)
-        known_ips = previous_logins_base.filter(ip_address=ip_address)
-        if not known_ips.exists():
+        # Check for new IP.
+        # NOTE: LoginHistory.ip_address is an EncryptedCharField (Fernet). Its
+        # ciphertext is non-deterministic, so a direct `.filter(ip_address=...)`
+        # never matches and would flag every login as a new IP. Decrypt and
+        # compare in Python over a bounded slice of recent logins instead.
+        recent_ip_addresses = {
+            login.ip_address for login in previous_logins_base[:100]
+        }
+        if ip_address not in recent_ip_addresses:
             risk_factors.append(f'New IP address: {ip_address}')
             risk_score += 5
 
@@ -290,31 +299,35 @@ def analyze_login_risk(user, ip_address, location_data, device_info):
 
 def run_post_auth_pipeline(request, user, ip_address, user_agent, method='password'):
     """
-    Run the standard post-authentication security pipeline, shared by the password
-    and passkey login paths.
+    Run the pre-login() security gate shared by the password and passkey login
+    paths, and hand off context to the post-login signal handler.
 
     Covers:
     - IP blacklist check (deny before login() if blocked)
     - Geo / foreign-IP detection
     - Session flag injection (login_geo, login_geo_suspicious, etc.)
-    - LoginHistory creation
-    - LoginAlert creation for non-US logins
-    - Watch-flag alert
 
-    Call this BEFORE calling login() on the request. If the first return value is
-    not None, the IP is blocked and the view should return that error response
-    immediately without proceeding with login.
+    LoginHistory creation, the non-US LoginAlert + user notification, the
+    watch-flag alert, and success logging all happen exactly once — in
+    signals.py's `log_successful_login`, fired by Django's `user_logged_in`
+    signal when `login()` is called right after this function returns. This
+    keeps a single write path instead of one here and one in the signal
+    handler. This function stashes `request._login_pipeline` so that handler
+    can reuse the already-computed geo/is_foreign data and tag its alerts/logs
+    with the password-vs-passkey `method` label, instead of recomputing.
+
+    Call this BEFORE calling login() on the request. If the first return value
+    is not None, the IP is blocked and the view should return that error
+    response immediately without proceeding with login.
 
     Returns:
-        (error_response, None)    — IP is actively blacklisted; return error_response
-        (None, context_dict)      — pipeline passed; context_dict has 'is_foreign' and 'login_record'
+        (error_response, None)        — IP is actively blacklisted; return error_response
+        (None, {'is_foreign': bool})  — pipeline passed
     """
-    from src.models import IPBlacklist, UserSession, LoginHistory, LoginAlert
+    from src.models import IPBlacklist
     from src.geo_utils import is_foreign_ip
-    from src.security_notifications import send_watch_flag_alert
 
     security_log = logging.getLogger('admin_actions')
-    fn_log = logging.getLogger('function_calls')
 
     # --- Blacklist check ---
     # Redundant for the password-login path (login_view already checks before authenticate()),
@@ -336,7 +349,6 @@ def run_post_auth_pipeline(request, user, ip_address, user_agent, method='passwo
 
     # --- Geo check ---
     is_foreign, geo = is_foreign_ip(ip_address)
-    risk_factors = ['non_us_location'] if is_foreign else []
 
     request.session['login_geo'] = geo
     request.session['login_geo_suspicious'] = is_foreign
@@ -344,108 +356,20 @@ def run_post_auth_pipeline(request, user, ip_address, user_agent, method='passwo
         request.session['login_geo_country'] = geo.get('country', '')
         request.session['login_geo_city'] = geo.get('city', '')
 
-    # --- LoginHistory ---
-    login_record = None
-    try:
-        login_record = LoginHistory.objects.create(
-            user=user,
-            status='success',
-            ip_address=ip_address,
-            country=geo.get('country', '') if geo else '',
-            city=geo.get('city', '') if geo else '',
-            region=geo.get('region', '') if geo else '',
-            latitude=geo.get('lat') if geo else None,
-            longitude=geo.get('lon') if geo else None,
-            user_agent=user_agent,
-            is_suspicious=is_foreign,
-            risk_level='medium' if is_foreign else 'low',
-            risk_factors=risk_factors,
-            alert_created=is_foreign,
-        )
-    except Exception as exc:
-        security_log.warning(f'Failed to create LoginHistory: {exc}')
+    # Stash for signals.log_successful_login — avoids a second LoginHistory
+    # write (was the bug: this function used to create one here, and the
+    # user_logged_in signal handler created a second one for the same login)
+    # and a second geo lookup, and lets the signal handler tag its
+    # alerts/logs with the password-vs-passkey method.
+    request._login_pipeline = {
+        'method': method,
+        'is_foreign': is_foreign,
+        'geo': geo,
+        'ip_address': ip_address,
+        'user_agent': user_agent,
+    }
 
-    # --- LoginAlert + in-app notification for non-US logins ---
-    if is_foreign and geo:
-        try:
-            location_str = ', '.join(filter(None, [geo.get('city'), geo.get('region'), geo.get('country')]))
-            LoginAlert.objects.create(
-                user=user,
-                login_history=login_record,
-                alert_type='new_location',
-                severity='medium',
-                status='new',
-                title=f'Non-US login [{method}]: {user.name} from {geo.get("country", "Unknown")}',
-                description=(
-                    f'{user.name} logged in via {method} from outside the United States.\n\n'
-                    f'Location: {location_str}\n'
-                    f'IP: {ip_address}\n'
-                    f'ISP: {geo.get("isp", "Unknown")}\n'
-                    f'Coordinates: {geo.get("lat")}, {geo.get("lon")}\n\n'
-                    f'The user has been flagged for this session. Sensitive data exports '
-                    f'are restricted until they log in from a US IP address.'
-                ),
-            )
-        except Exception as exc:
-            security_log.warning(f'Failed to create LoginAlert: {exc}')
-
-        # Notify the user directly (in-app + email if they have one)
-        try:
-            from src.security_notifications import notify_user_security_event
-            notify_user_security_event(
-                user,
-                subject=f'New login from {geo.get("country", "outside the US")}',
-                body=(
-                    f'Your account was accessed from {location_str or geo.get("country", "an international location")}. '
-                    f'If this was you logging in while traveling, no action is needed. '
-                    f'If you don\'t recognize this login, contact an officer immediately and change your password.'
-                ),
-                ip_address=ip_address,
-            )
-        except Exception as exc:
-            security_log.warning(f'Failed to send non-US login user notification: {exc}')
-
-    # --- Logging ---
-    fn_log.info(
-        f'Successful login [{method}]: {user.name} ({user.member_type}) (user_id={user.user_id}) '
-        f'from IP {ip_address}'
-        + (f" [{geo.get('city')}, {geo.get('country')}]" if geo else '')
-    )
-    if is_foreign:
-        security_log.warning(
-            f'LOGIN SUCCESS (NON-US) [{method}]: User {user.username!r} (ID: {user.user_id}) '
-            f'from IP {ip_address} - Location: {geo.get("city", "?")}, {geo.get("country", "?")} '
-            f'(ISP: {geo.get("isp", "?")}). Session flagged as suspicious.'
-        )
-    else:
-        security_log.info(
-            f'LOGIN SUCCESS [{method}]: User {user.username!r} (ID: {user.user_id}) from IP {ip_address}'
-        )
-
-    # --- Watch-flag alert ---
-    try:
-        watch_flag = getattr(user, 'watch_flag', None)
-        if watch_flag and watch_flag.is_active:
-            from src.models import IPBlacklist as _IPB
-            send_watch_flag_alert(
-                watched_user=user,
-                event_type='success',
-                ip_address=ip_address,
-                geo=geo,
-                user_agent=user_agent,
-                is_whitelisted=False,
-                is_blacklisted=_IPB.objects.filter(ip_address=ip_address, is_active=True).exists(),
-                is_rate_limited=False,
-                risk_level='medium' if is_foreign else 'low',
-                risk_factors=risk_factors,
-                is_foreign=is_foreign,
-                watch_reason=watch_flag.reason,
-                login_history=login_record,
-            )
-    except Exception as exc:
-        security_log.error(f'Watch flag alert error [{method}]: {exc}')
-
-    return None, {'is_foreign': is_foreign, 'login_record': login_record}
+    return None, {'is_foreign': is_foreign}
 
 
 def create_login_alert(login_history, alert_type, severity, title, description):

@@ -32,18 +32,18 @@ def notification_dashboard(request):
     # Get recent logs
     recent_logs = NotificationLog.objects.all()[:20]
 
-    # Get stats
-    stats = {
-        'total_schedules': schedules.count(),
-        'active_schedules': schedules.filter(is_active=True).count(),
-        'logs_today': NotificationLog.objects.filter(
-            created_at__date=timezone.now().date()
-        ).count(),
-        'failed_today': NotificationLog.objects.filter(
-            created_at__date=timezone.now().date(),
-            status='failed'
-        ).count(),
-    }
+    # Get stats — two aggregate() calls instead of four separate COUNT queries
+    _sched_agg = NotificationSchedule.objects.aggregate(
+        total_schedules=Count('id'),
+        active_schedules=Count('id', filter=Q(is_active=True)),
+    )
+    _log_agg = NotificationLog.objects.filter(
+        created_at__date=timezone.now().date()
+    ).aggregate(
+        logs_today=Count('id'),
+        failed_today=Count('id', filter=Q(status='failed')),
+    )
+    stats = {**_sched_agg, **_log_agg}
 
     context = {
         'schedules': schedules,

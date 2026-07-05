@@ -57,21 +57,45 @@ def convert_pdf_to_images(file_path, max_pages=50, dpi=150):
         return None
 
 
+# Tags/attributes allowed in DOCX preview HTML. mammoth output is inserted into
+# the page via {{ docx_html|safe }}, so a malicious .docx must not be able to
+# inject script/style/event-handler markup. Everything else is stripped.
+_DOCX_ALLOWED_TAGS = [
+    'p', 'br', 'b', 'i', 'em', 'strong', 'u', 's', 'strike',
+    'a', 'blockquote', 'ol', 'ul', 'li',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th',
+    'img', 'hr', 'span', 'div', 'sup', 'sub', 'pre', 'code',
+    'figure', 'figcaption',
+]
+_DOCX_ALLOWED_ATTRS = {
+    # 'target' deliberately not allowed: a target=_blank link without
+    # rel=noopener enables reverse tabnabbing. Links open in the same tab.
+    'a':   ['href', 'title', 'rel'],
+    'img': ['src', 'alt', 'width', 'height'],
+}
+
+
 def convert_docx_to_html(file_path):
-    """Convert a DOCX file to HTML using mammoth and clean up the output"""
+    """Convert a DOCX file to HTML using mammoth and sanitize the output"""
     try:
         import mammoth
         import re
+        import bleach
 
         with open(file_path, 'rb') as docx_file:
             result = mammoth.convert_to_html(docx_file)
             html = result.value
 
-            # Strip all inline style attributes that might override our CSS
-            html = re.sub(r'\s*style="[^"]*"', '', html)
-
-            # Strip class attributes too since they might have unwanted styles
-            html = re.sub(r'\s*class="[^"]*"', '', html)
+            # Sanitize against a strict allowlist. This also removes any inline
+            # style/class attributes (not in the allowlist) that could override
+            # our CSS, replacing the previous fragile regex stripping.
+            html = bleach.clean(
+                html,
+                tags=_DOCX_ALLOWED_TAGS,
+                attributes=_DOCX_ALLOWED_ATTRS,
+                strip=True,
+            )
 
             # Preserve tabs by converting them to a span with tab styling
             html = html.replace('\t', '<span class="docx-tab"></span>')
@@ -135,6 +159,45 @@ def read_text_file(file_path, max_size=500000):
         return None
 
 
+def _build_document_context(document_field, *, title, document_type, back_url,
+                            description=None, uploaded_by=None, uploaded_at=None):
+    """
+    Build the shared context dict every document-viewer render needs.
+
+    `document_field` is a Django FileField (e.g. ``legislation.document``).
+    Callers are responsible for object lookup and permission checks before
+    calling this; this helper only handles the (identical) rendering prep:
+    file-type detection plus DOCX/PDF/text conversion.
+    """
+    file_info = get_file_type_info(document_field.name)
+
+    # Only one of these applies for any given file (mutually exclusive by extension).
+    docx_html = None
+    pdf_images = None
+    text_content = None
+    if file_info.get('is_docx'):
+        docx_html = convert_docx_to_html(document_field.path)
+    if file_info.get('is_pdf'):
+        pdf_images = convert_pdf_to_images(document_field.path)
+    if file_info.get('is_text'):
+        text_content = read_text_file(document_field.path)
+
+    return {
+        # Use relative URL - works on any host without localhost issues
+        'document_url': document_field.url,
+        'document_title': title,
+        'document_type': document_type,
+        'back_url': back_url,
+        'document_description': description,
+        'uploaded_by': uploaded_by,
+        'uploaded_at': uploaded_at,
+        'docx_html': docx_html,
+        'pdf_images': pdf_images,
+        'text_content': text_content,
+        **file_info,
+    }
+
+
 @login_required
 def view_legislation_document(request, legislation_id):
     """View for displaying legislation documents in an embedded viewer"""
@@ -144,39 +207,15 @@ def view_legislation_document(request, legislation_id):
         from django.http import Http404
         raise Http404("No document attached to this legislation")
 
-    file_info = get_file_type_info(legislation.document.name)
-
-    # Use relative URL - works on any host without localhost issues
-    document_url = legislation.document.url
-
-    # Convert DOCX to HTML if applicable
-    docx_html = None
-    if file_info.get('is_docx'):
-        docx_html = convert_docx_to_html(legislation.document.path)
-
-    # Convert PDF to images for mobile viewing
-    pdf_images = None
-    if file_info.get('is_pdf'):
-        pdf_images = convert_pdf_to_images(legislation.document.path)
-
-    # Read text file content if applicable
-    text_content = None
-    if file_info.get('is_text'):
-        text_content = read_text_file(legislation.document.path)
-
-    context = {
-        'document_url': document_url,
-        'document_title': legislation.title,
-        'document_type': 'Legislation Document',
-        'back_url': reverse('legislation_detail', args=[legislation_id]),
-        'document_description': legislation.description,
-        'uploaded_by': legislation.posted_by.username if legislation.posted_by else None,
-        'uploaded_at': legislation.created_at,
-        'docx_html': docx_html,
-        'pdf_images': pdf_images,
-        'text_content': text_content,
-        **file_info,
-    }
+    context = _build_document_context(
+        legislation.document,
+        title=legislation.title,
+        document_type='Legislation Document',
+        back_url=reverse('legislation_detail', args=[legislation_id]),
+        description=legislation.description,
+        uploaded_by=legislation.posted_by.username if legislation.posted_by else None,
+        uploaded_at=legislation.created_at,
+    )
 
     return render(request, 'view_document.html', context)
 
@@ -191,39 +230,15 @@ def view_chapter_document(request, document_id):
         from django.http import HttpResponseForbidden
         return HttpResponseForbidden("You don't have permission to view this document")
 
-    file_info = get_file_type_info(document.document.name)
-
-    # Use relative URL - works on any host without localhost issues
-    document_url = document.document.url
-
-    # Convert DOCX to HTML if applicable
-    docx_html = None
-    if file_info.get('is_docx'):
-        docx_html = convert_docx_to_html(document.document.path)
-
-    # Convert PDF to images for mobile viewing
-    pdf_images = None
-    if file_info.get('is_pdf'):
-        pdf_images = convert_pdf_to_images(document.document.path)
-
-    # Read text file content if applicable
-    text_content = None
-    if file_info.get('is_text'):
-        text_content = read_text_file(document.document.path)
-
-    context = {
-        'document_url': document_url,
-        'document_title': document.title,
-        'document_type': document.get_document_type_display() if hasattr(document, 'get_document_type_display') else 'Chapter Document',
-        'back_url': reverse('chapter_documents'),
-        'document_description': document.description,
-        'uploaded_by': document.uploaded_by.username if document.uploaded_by else None,
-        'uploaded_at': document.uploaded_at,
-        'docx_html': docx_html,
-        'pdf_images': pdf_images,
-        'text_content': text_content,
-        **file_info,
-    }
+    context = _build_document_context(
+        document.document,
+        title=document.title,
+        document_type=document.get_document_type_display() if hasattr(document, 'get_document_type_display') else 'Chapter Document',
+        back_url=reverse('chapter_documents'),
+        description=document.description,
+        uploaded_by=document.uploaded_by.username if document.uploaded_by else None,
+        uploaded_at=document.uploaded_at,
+    )
 
     return render(request, 'view_document.html', context)
 
@@ -241,39 +256,15 @@ def view_committee_document(request, code, document_id):
         from django.http import HttpResponseForbidden
         return HttpResponseForbidden("You don't have permission to view this document")
 
-    file_info = get_file_type_info(document.document.name)
-
-    # Use relative URL - works on any host without localhost issues
-    document_url = document.document.url
-
-    # Convert DOCX to HTML if applicable
-    docx_html = None
-    if file_info.get('is_docx'):
-        docx_html = convert_docx_to_html(document.document.path)
-
-    # Convert PDF to images for mobile viewing
-    pdf_images = None
-    if file_info.get('is_pdf'):
-        pdf_images = convert_pdf_to_images(document.document.path)
-
-    # Read text file content if applicable
-    text_content = None
-    if file_info.get('is_text'):
-        text_content = read_text_file(document.document.path)
-
-    context = {
-        'document_url': document_url,
-        'document_title': document.title,
-        'document_type': document.get_document_type_display() if hasattr(document, 'get_document_type_display') else 'Committee Document',
-        'back_url': reverse('committee_documents', args=[code]),
-        'document_description': document.description,
-        'uploaded_by': document.uploaded_by.username if document.uploaded_by else None,
-        'uploaded_at': document.uploaded_at,
-        'docx_html': docx_html,
-        'pdf_images': pdf_images,
-        'text_content': text_content,
-        **file_info,
-    }
+    context = _build_document_context(
+        document.document,
+        title=document.title,
+        document_type=document.get_document_type_display() if hasattr(document, 'get_document_type_display') else 'Committee Document',
+        back_url=reverse('committee_documents', args=[code]),
+        description=document.description,
+        uploaded_by=document.uploaded_by.username if document.uploaded_by else None,
+        uploaded_at=document.uploaded_at,
+    )
 
     return render(request, 'view_document.html', context)
 
@@ -287,39 +278,15 @@ def view_passed_legislation_document(request, pk):
         from django.http import Http404
         raise Http404("No document attached to this legislation")
 
-    file_info = get_file_type_info(legislation.document.name)
-
-    # Use relative URL - works on any host without localhost issues
-    document_url = legislation.document.url
-
-    # Convert DOCX to HTML if applicable
-    docx_html = None
-    if file_info.get('is_docx'):
-        docx_html = convert_docx_to_html(legislation.document.path)
-
-    # Convert PDF to images for mobile viewing
-    pdf_images = None
-    if file_info.get('is_pdf'):
-        pdf_images = convert_pdf_to_images(legislation.document.path)
-
-    # Read text file content if applicable
-    text_content = None
-    if file_info.get('is_text'):
-        text_content = read_text_file(legislation.document.path)
-
-    context = {
-        'document_url': document_url,
-        'document_title': legislation.title,
-        'document_type': 'Passed Legislation',
-        'back_url': reverse('passed_legislation_detail', args=[pk]),
-        'document_description': legislation.description,
-        'uploaded_by': legislation.posted_by.username if legislation.posted_by else None,
-        'uploaded_at': legislation.created_at,
-        'docx_html': docx_html,
-        'pdf_images': pdf_images,
-        'text_content': text_content,
-        **file_info,
-    }
+    context = _build_document_context(
+        legislation.document,
+        title=legislation.title,
+        document_type='Passed Legislation',
+        back_url=reverse('passed_legislation_detail', args=[pk]),
+        description=legislation.description,
+        uploaded_by=legislation.posted_by.username if legislation.posted_by else None,
+        uploaded_at=legislation.created_at,
+    )
 
     return render(request, 'view_document.html', context)
 

@@ -292,22 +292,13 @@ class AttendanceVotingTestCase(TestCase):
 
     def test_present_member_can_vote(self):
         """Test that present members appear in present list"""
-        # Mark as present
+        # Mark as present — save() override derives present=True from status='present'
         Attendance.objects.create(
             user=self.present_member,
             status='present'
         )
 
-        leg = Legislation.objects.create(
-            title='Attendance Test',
-            description='Test attendance',
-            posted_by=self.chair,
-            available_at=timezone.now(),
-            voting_ended_at=timezone.now() + timedelta(hours=1),
-            document='test.pdf'
-        )
-
-        # Check attendance window
+        # Check attendance window (created_at is auto_now_add so it falls within 3h)
         three_hours_ago = timezone.now() - timedelta(hours=3)
         recent_attendance = Attendance.objects.filter(
             user=self.present_member,

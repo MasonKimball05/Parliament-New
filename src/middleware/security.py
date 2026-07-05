@@ -609,8 +609,10 @@ class InputSanitizationMiddleware:
         # Prevent clickjacking
         response['X-Frame-Options'] = 'SAMEORIGIN'
 
-        # Enable XSS filter in browsers (legacy but still useful)
-        response['X-XSS-Protection'] = '1; mode=block'
+        # X-XSS-Protection is deprecated. The legacy '1; mode=block' value can
+        # introduce vulnerabilities in some older browsers, and modern browsers
+        # ignore it in favour of CSP (which we set below). Explicitly disable it.
+        response['X-XSS-Protection'] = '0'
 
         # Referrer policy
         response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
