@@ -48,7 +48,7 @@ django-otp==1.5.4
 qrcode==7.4.2
 
 # REST API (3.0.0 foundation)
-djangorestframework==3.16.0
+djangorestframework==3.17.1
 
 # WebSockets (3.0.0 — replaces HTTP polling for chat)
 channels==4.3.2
