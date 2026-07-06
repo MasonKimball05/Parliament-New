@@ -176,8 +176,8 @@ def linkify(value, autoescape=True):
         remaining_text = escape(remaining_text)
     result.append(remaining_text)
 
-    # nosec B308 B703 - all text segments are escaped, URLs are escaped in href and display
-    return mark_safe(''.join(result))
+    # Bandit only honors nosec on the flagged line itself — keep it inline below.
+    return mark_safe(''.join(result))  # nosec B308 B703 - all text segments are escaped, URLs are escaped in href and display
 
 
 @register.filter

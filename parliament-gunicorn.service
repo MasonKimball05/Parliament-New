@@ -12,9 +12,21 @@ Requires=postgresql.service
 
 [Service]
 Type=exec
-# User and group to run as (adjust as needed)
-User=root
-Group=root
+# SECURITY (07-06-26): run as a dedicated unprivileged user, NOT root.
+# Root would turn any app-level RCE into full-system compromise and undermines
+# NoNewPrivileges/PrivateTmp below.
+# One-time setup on prod BEFORE deploying this file:
+#   useradd --system --home /var/www/Parliament-New --shell /usr/sbin/nologin parliament
+#   usermod -aG parliament www-data        # nginx needs rw on the unix socket
+#   chown -R parliament:parliament /var/www/Parliament-New
+#   cp parliament-gunicorn.service /etc/systemd/system/
+#   systemctl daemon-reload && systemctl restart parliament-gunicorn
+# Then verify: ps -o user= -C daphne  → parliament ; site + chat (WebSocket) work.
+User=parliament
+Group=parliament
+# Socket is created by daphne as parliament:parliament; UMask 0007 + www-data
+# in the parliament group gives nginx rw without exposing it world-wide.
+UMask=0007
 WorkingDirectory=/var/www/Parliament-New
 
 # Environment variables

@@ -8,31 +8,46 @@ from cryptography.fernet import Fernet
 import base64
 
 
+def _fernet_storage_length(plaintext_length):
+    """
+    Exact storage size of a Fernet token for a plaintext of the given length.
+
+    Fernet token = base64url(version 1B + timestamp 8B + IV 16B +
+    AES-CBC ciphertext (padded to next 16B) + HMAC 32B).
+    """
+    ciphertext = 16 * (plaintext_length // 16 + 1)
+    raw = 1 + 8 + 16 + ciphertext + 32
+    return 4 * ((raw + 2) // 3)  # base64: 4 output chars per 3 input bytes
+
+
 class EncryptedFieldMixin:
-    """Mixin to add encryption/decryption to Django fields"""
+    """
+    Mixin to add encryption/decryption to Django fields.
 
-    def __init__(self, *args, **kwargs):
-        # Encrypted fields need more space for base64 encoding
-        if 'max_length' in kwargs:
-            # Fernet adds ~50% overhead, so increase max_length
-            kwargs['max_length'] = kwargs.get('max_length', 255) * 2
-        super().__init__(*args, **kwargs)
+    max_length semantics: the DECLARED max_length is the maximum *plaintext*
+    length (so Django's MaxLengthValidator validates user input correctly).
+    The database column is sized separately via db_type() using the exact
+    Fernet-token math above.
 
-    def deconstruct(self):
-        """
-        Reverse the max_length doubling done in __init__.
+    History (07-05-26): the old version doubled max_length in __init__ with
+    no inverse in deconstruct(), which (a) made makemigrations emit the same
+    no-op AlterField forever (historical 0217/0222), and (b) was too small
+    anyway — a Fernet token for a 45-char IP is ~140 chars, not 90. Prod
+    columns only fit because the state re-doubling accidentally widened them.
+    Now __init__/deconstruct are clean passthroughs (stable migrations) and
+    the column width is computed correctly.
+    """
 
-        Without this, every load of a migration re-doubles max_length
-        (declared 90 -> instance 180 -> migration stores 180 -> state loads
-        as 360 -> never equals the instance's 180), so makemigrations
-        emitted the same no-op AlterField forever (see historical 0217/0222).
-        Storing the *declared* value makes __init__/deconstruct a stable
-        round-trip.
-        """
-        name, path, args, kwargs = super().deconstruct()
-        if kwargs.get('max_length'):
-            kwargs['max_length'] //= 2
-        return name, path, args, kwargs
+    def db_type(self, connection):
+        """Size the column for the encrypted token, not the plaintext."""
+        if getattr(self, 'max_length', None):
+            original = self.max_length
+            try:
+                self.max_length = _fernet_storage_length(original)
+                return super().db_type(connection)
+            finally:
+                self.max_length = original
+        return super().db_type(connection)
 
     def get_fernet(self):
         """Get Fernet cipher instance from settings"""

@@ -46,6 +46,12 @@ jobs:
       DB_PORT: '5432'
       DB_SSLMODE: disable
       LOG_DIR: /tmp
+      # Test suite predates 2FA enforcement — tests exercise officer/admin
+      # views with plain sessions. Enforcement-specific behavior is tested
+      # explicitly in test_two_factor/test_security_reauth. (Matches the
+      # old ci_settings.py, which also set these False.)
+      REQUIRE_2FA_FOR_ADMINS: 'False'
+      REQUIRE_2FA_FOR_OFFICERS: 'False'
 
     steps:
     - name: Checkout code

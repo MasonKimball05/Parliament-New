@@ -5,6 +5,16 @@ This project is licensed under the MIT License. Copyright (c) 2025-2026 Mason Ki
 
 ---
 
+### v3.12.1 — Bandit Cleanup, Non-Root Service User & Purge Completion (2026-07-06)
+
+**Type:** Security Hardening / Fix
+
+All 9 bandit MEDIUM findings from CI triaged and resolved — five safe sites annotated with justified `# nosec` (incl. one suppression bandit was silently ignoring due to placement), `admin_v2` B104 confirmed false positive, and one real fix: `target` removed from the guide bleach allowlist (reverse-tabnabbing, matching the 07-05 docx fix). Bandit now reports 0 MEDIUM. `parliament-gunicorn.service` no longer runs Daphne as root — dedicated `parliament` user + `UMask=0007`, with one-time prod setup steps documented in the unit file. Local git repo: the 06-26 secret purge was completed — stale stash and two corrupt pre-rewrite branches (`backup-local`, `gh-pages`) were anchoring purged `.env.dev` history; backed up where possible, removed, pruned; `git fsck` now fully clean. See `changelogs/v3.12.1.md`.
+
+*(v3.12.0 — unified settings, tracked migrations, CI overhaul — is WIP; see `changelogs/v3.12.0.md`.)*
+
+---
+
 ### v3.11.1 — Security Fixes & Hardening (2026-06-28)
 
 **Type:** Security Fix / Bug Fix / Performance

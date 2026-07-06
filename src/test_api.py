@@ -56,6 +56,18 @@ def _token_header(token):
     return {'HTTP_AUTHORIZATION': f'Token {token.key}'}
 
 
+def _results(response):
+    """
+    Unwrap a list-endpoint response. Real settings use CursorPagination
+    (list responses are {"next", "previous", "results": [...]}); the old
+    ci_settings had no pagination, so tests used to see bare lists.
+    (Updated 07-05-26 when CI moved onto Parliament.settings.)
+    """
+    data = response.json()
+    return data['results'] if isinstance(data, dict) and 'results' in data else data
+
+
+
 # ---------------------------------------------------------------------------
 # Base class: creates the feature flag and a default member + token
 # ---------------------------------------------------------------------------
@@ -260,14 +272,14 @@ class MemberAPITestCase(APITestBase):
         _make_user('1002', 'Carol Active', 'carol')
         response = self.client.get('/api/v1/members/', **_token_header(self.token))
         self.assertEqual(response.status_code, 200)
-        names = [m['name'] for m in response.json()]
+        names = [m['name'] for m in _results(response)]
         self.assertIn('Alice Member', names)
         self.assertIn('Carol Active', names)
 
     def test_inactive_members_excluded(self):
         _make_user('1003', 'Dave Inactive', 'dave', is_active=False, member_status='Inactive')
         response = self.client.get('/api/v1/members/', **_token_header(self.token))
-        names = [m['name'] for m in response.json()]
+        names = [m['name'] for m in _results(response)]
         self.assertNotIn('Dave Inactive', names)
 
     def test_me_returns_own_record(self):
@@ -309,7 +321,7 @@ class EventAPITestCase(APITestBase):
     def test_list_returns_events(self):
         response = self.client.get('/api/v1/events/', **_token_header(self.token))
         self.assertEqual(response.status_code, 200)
-        titles = [e['title'] for e in response.json()]
+        titles = [e['title'] for e in _results(response)]
         self.assertIn('Chapter Meeting', titles)
 
     def test_upcoming_filters_to_30_days(self):
@@ -324,7 +336,7 @@ class EventAPITestCase(APITestBase):
         )
         response = self.client.get('/api/v1/events/upcoming/', **_token_header(self.token))
         self.assertEqual(response.status_code, 200)
-        titles = [e['title'] for e in response.json()]
+        titles = [e['title'] for e in _results(response)]
         self.assertIn('Chapter Meeting', titles)
         self.assertNotIn('Far Future Event', titles)
 
@@ -364,14 +376,14 @@ class LegislationAPITestCase(APITestBase):
     def test_list_excludes_removed(self):
         response = self.client.get('/api/v1/legislation/', **_token_header(self.token))
         self.assertEqual(response.status_code, 200)
-        titles = [l['title'] for l in response.json()]
+        titles = [l['title'] for l in _results(response)]
         self.assertIn('Test Bill', titles)
         self.assertNotIn('Removed Bill', titles)
 
     def test_active_endpoint_returns_open_votes(self):
         response = self.client.get('/api/v1/legislation/active/', **_token_header(self.token))
         self.assertEqual(response.status_code, 200)
-        titles = [l['title'] for l in response.json()]
+        titles = [l['title'] for l in _results(response)]
         self.assertIn('Test Bill', titles)
 
     def test_retrieve_single(self):
@@ -409,23 +421,23 @@ class CommitteeAPITestCase(APITestBase):
     def test_list_returns_visible_committees(self):
         response = self.client.get('/api/v1/committees/', **_token_header(self.token))
         self.assertEqual(response.status_code, 200)
-        names = [c['name'] for c in response.json()]
+        names = [c['name'] for c in _results(response)]
         self.assertIn('Brotherhood Committee', names)
 
     def test_slating_hidden_from_non_member(self):
         response = self.client.get('/api/v1/committees/', **_token_header(self.other_token))
-        names = [c['name'] for c in response.json()]
+        names = [c['name'] for c in _results(response)]
         self.assertNotIn('Slating Committee', names)
 
     def test_mine_returns_only_own_committees(self):
         response = self.client.get('/api/v1/committees/mine/', **_token_header(self.token))
         self.assertEqual(response.status_code, 200)
-        names = [c['name'] for c in response.json()]
+        names = [c['name'] for c in _results(response)]
         self.assertIn('Brotherhood Committee', names)
 
     def test_mine_excludes_unjoined_committees(self):
         response = self.client.get('/api/v1/committees/mine/', **_token_header(self.other_token))
-        names = [c['name'] for c in response.json()]
+        names = [c['name'] for c in _results(response)]
         self.assertNotIn('Brotherhood Committee', names)
 
     def test_chairs_and_members_are_user_id_strings(self):
@@ -471,7 +483,7 @@ class AttendanceAPITestCase(APITestBase):
     def test_list_returns_own_records_only(self):
         response = self.client.get('/api/v1/attendance/', **_token_header(self.token))
         self.assertEqual(response.status_code, 200)
-        ids = [r['id'] for r in response.json()]
+        ids = [r['id'] for r in _results(response)]
         self.assertIn(self.record.id, ids)
         self.assertNotIn(self.other_record.id, ids)
 
@@ -487,13 +499,13 @@ class AttendanceAPITestCase(APITestBase):
         )
         response = self.client.get('/api/v1/attendance/?type=committee', **_token_header(self.token))
         self.assertEqual(response.status_code, 200)
-        for r in response.json():
+        for r in _results(response):
             self.assertEqual(r['attendance_type'], 'committee')
 
     def test_year_filter(self):
         response = self.client.get(f'/api/v1/attendance/?year={timezone.now().year}', **_token_header(self.token))
         self.assertEqual(response.status_code, 200)
-        self.assertGreater(len(response.json()), 0)
+        self.assertGreater(len(_results(response)), 0)
 
     def test_event_title_in_response(self):
         response = self.client.get(f'/api/v1/attendance/{self.record.id}/', **_token_header(self.token))

@@ -22,7 +22,9 @@ _GUIDE_ALLOWED_TAGS = [
     'table', 'thead', 'tbody', 'tr', 'th', 'td',
 ]
 _GUIDE_ALLOWED_ATTRS = {
-    'a':   ['href', 'target', 'rel'],
+    # 'target' removed 07-06-26 (reverse-tabnabbing without forced rel=noopener),
+    # matching the docx allowlist fix in view_document.py.
+    'a':   ['href', 'rel'],
     'img': ['src', 'alt', 'class', 'width', 'height'],
     'span': ['class'],
     'div':  ['class'],
@@ -117,7 +119,7 @@ def guide_article(request, slug):
     article = get_object_or_404(GuideArticle, slug=slug, is_published=True)
 
     # Sanitize HTML before rendering to prevent stored XSS
-    safe_content = mark_safe(
+    safe_content = mark_safe(  # nosec B308 B703 - bleach-cleaned against strict allowlist; default protocols block javascript:
         bleach.clean(article.content or '', tags=_GUIDE_ALLOWED_TAGS,
                      attributes=_GUIDE_ALLOWED_ATTRS, strip=True)
     )
@@ -569,7 +571,7 @@ def _render_markdown_doc(file_path):
     with open(file_path, 'r') as f:
         raw = f.read()
     html = md_lib.markdown(raw, extensions=['tables', 'fenced_code', 'toc'])
-    return mark_safe(bleach.clean(html, tags=_HANDOFF_ALLOWED_TAGS,
+    return mark_safe(bleach.clean(html, tags=_HANDOFF_ALLOWED_TAGS,  # nosec B308 B703 - repo-controlled docs/ files, bleach-cleaned anyway
                                   attributes=_HANDOFF_ALLOWED_ATTRS, strip=True))
 
 

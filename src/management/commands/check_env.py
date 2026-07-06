@@ -250,7 +250,7 @@ class Command(BaseCommand):
                     'https://api.brevo.com/v3/account',
                     headers={'api-key': brevo_key, 'Accept': 'application/json'}
                 )
-                with urllib.request.urlopen(req, timeout=5) as resp:
+                with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 - fixed literal https:// URL, no user-controlled scheme
                     data = json.loads(resp.read())
                     plan = data.get('plan', [{}])
                     email_credits = next((p.get('credits') for p in plan if p.get('type') == 'payAsYouGo'), 'N/A')
