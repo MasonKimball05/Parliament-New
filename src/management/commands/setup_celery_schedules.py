@@ -147,16 +147,6 @@ SCHEDULES = [
         'task': 'tasks.send_daily_digest',
         'crontab': {'hour': '9', 'minute': '30'},  # 3:30 AM CST daily
     },
-
-    # -------------------------------------------------------------------------
-    # Weekly chapter digest — personalised email per member every Sunday morning
-    # 8:00 AM CST = 14:00 UTC, Sunday (day_of_week=0)
-    # -------------------------------------------------------------------------
-    {
-        'name': 'Send weekly chapter digest',
-        'task': 'tasks.send_weekly_chapter_digest',
-        'crontab': {'hour': '14', 'minute': '0', 'day_of_week': '0'},  # 8:00 AM CST Sunday
-    },
 ]
 
 

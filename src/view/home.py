@@ -40,10 +40,14 @@ def home(request):
 
     # Your active committees — evaluate to list once so the template and count()
     # below don't each fire a separate query.
+    # 07-06-26: only count active, non-archived committees — inactive/archived
+    # ones were inflating the "My Committees (#)" stat on the home page.
     user_committees = list(Committee.objects.filter(
         Q(members=request.user) |
         Q(chairs=request.user) |
-        Q(advisors=request.user)
+        Q(advisors=request.user),
+        is_active=True,
+        is_archived=False,
     ).distinct())
 
     # === YOUR PENDING VOTES ===

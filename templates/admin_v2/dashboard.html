@@ -740,8 +740,9 @@
                         <span class="font-medium text-gray-900 dark:text-gray-100">{{ login.user.name }}</span>
                         <span class="text-xs text-gray-500 dark:text-gray-500 block">{{ login.ip_address }}</span>
                     </div>
-                    <span class="text-xs {% if login.success %}text-green-600{% else %}text-red-600{% endif %} whitespace-nowrap ml-2">
-                        {% if login.success %}Success{% else %}Failed{% endif %}
+                    {# LoginHistory has a `status` choice field, not a `success` boolean — the old check always rendered "Failed" (fixed 07-06-26) #}
+                    <span class="text-xs {% if login.status == 'success' %}text-green-600{% elif login.status == 'blocked' %}text-amber-600{% else %}text-red-600{% endif %} whitespace-nowrap ml-2">
+                        {{ login.get_status_display }}
                     </span>
                 </div>
                 {% empty %}
