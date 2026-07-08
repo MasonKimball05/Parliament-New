@@ -14,6 +14,15 @@ def _fernet_storage_length(plaintext_length):
 
     Fernet token = base64url(version 1B + timestamp 8B + IV 16B +
     AES-CBC ciphertext (padded to next 16B) + HMAC 32B).
+
+    ⚠ ASCII assumption (07-08-26): plaintext_length is the field's max_length
+    in *characters*, but encryption pads on UTF-8 *bytes*
+    (get_prep_value does str(value).encode('utf-8')). For ASCII-only data
+    (IP addresses — the only current use) chars == bytes and this is exact.
+    If you add an encrypted field that can hold multi-byte characters
+    (names, emails with IDN, free text), a max-length value could produce a
+    token wider than the column. In that case size for the UTF-8 worst case —
+    pass plaintext_length * 4 here — or validate the field as ASCII-only.
     """
     ciphertext = 16 * (plaintext_length // 16 + 1)
     raw = 1 + 8 + 16 + ciphertext + 32
