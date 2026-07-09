@@ -160,7 +160,7 @@ from src.view.notification_admin import (
 from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event
 from src.view.officer.manage_members import add_member, edit_member, delete_member, initiate_pledges, get_all_roles, sync_officer_admins, get_admin_roles, bulk_import_members
 from src.view.officer.manage_roles import manage_roles, role_detail, add_role, delete_role, assign_role_member, unassign_role_member, get_assignable_members
-from src.view.officer.transitions import role_transitions, transfer_role
+from src.view.officer.transitions import role_transitions, transfer_role, transition_checklist, toggle_checklist_item
 from src.view.officer.set_member_house import set_member_house
 from src.view.officer.chapter_stats import chapter_stats
 from src.view.pledge_tasks import my_pledge_tasks, pledge_take_quiz
@@ -477,6 +477,8 @@ urlpatterns = [
     # Role Transitions (Officer)
     path('officers/transitions/', role_transitions, name='role_transitions'),
     path('officers/transitions/<int:role_id>/transfer/', transfer_role, name='transfer_role'),
+    path('officers/transitions/checklist/<int:role_history_id>/', transition_checklist, name='transition_checklist'),
+    path('officers/transitions/checklist/item/<int:status_id>/toggle/', toggle_checklist_item, name='toggle_checklist_item'),
 
     # Announcement Management (Officer)
     path('officers/announcements/', manage_announcements, name='manage_announcements'),

@@ -5,6 +5,14 @@ This project is licensed under the MIT License. Copyright (c) 2025-2026 Mason Ki
 
 ---
 
+### v3.13.0 — Officer Transition Checklist & Role-Transfer History (2026-07-08)
+
+**Type:** Feature / Fix
+
+Semester handoffs now leave a real audit trail and hand the incoming officer a working checklist. `transfer_role` closes the outgoing holder's `RoleHistory` and opens the incoming holder's (previously the handoff flow created no history at all), using the chapter's real Jan-to-Jan term structure — and the swap is now genuinely atomic (the docstring promised a transaction that never existed). New admin-editable `TransitionChecklistItem`/`TransitionChecklistStatus` models auto-attach a checklist to every transfer; a new checklist page (progress bar, AJAX toggles) is reachable by officers and the incoming holder themselves. Seed starter items with `manage.py seed_transition_checklist`. One new migration. See `changelogs/v3.13.0.md`.
+
+---
+
 ### v3.12.1 — Bandit Cleanup, Non-Root Service User & Purge Completion (2026-07-06)
 
 **Type:** Security Hardening / Fix

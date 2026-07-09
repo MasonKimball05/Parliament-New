@@ -10,6 +10,7 @@ from .models import (
     SecurityNotificationLog, CSPViolation, UserWatchFlag, LoginLockout, KaiReport, KaiReportTemplate,
     PassedResolution, UserSession, AnnouncementEmailLog, ChapterMinutes,
     SlatingPeriod, SlatingApplication,
+    TransitionChecklistItem, TransitionChecklistStatus,
 )
 from .models_feature_flags import FeatureFlag, PageToggle, ScheduledMaintenance
 import logging
@@ -194,6 +195,27 @@ class RoleAdmin(admin.ModelAdmin):
         count = obj.parliamentuser_set.count()
         return f"{count} member{'s' if count != 1 else ''}"
     member_count.short_description = 'Members'
+
+
+@admin.register(TransitionChecklistItem, site=admin_site)
+class TransitionChecklistItemAdmin(admin.ModelAdmin):
+    """Officer transition checklist items — edit here, no code changes needed."""
+    list_display = ('text', 'role', 'order', 'is_active')
+    list_filter = ('is_active', 'role')
+    search_fields = ('text',)
+    list_editable = ('order', 'is_active')
+    ordering = ('role', 'order')
+    list_per_page = 50
+
+
+@admin.register(TransitionChecklistStatus, site=admin_site)
+class TransitionChecklistStatusAdmin(admin.ModelAdmin):
+    """Read-mostly: completion state lives on the checklist page; this is for auditing/fixups."""
+    list_display = ('item', 'role_history', 'completed_by', 'completed_at')
+    list_filter = ('completed_at',)
+    search_fields = ('item__text', 'role_history__user__name', 'role_history__role_name')
+    raw_id_fields = ('item', 'role_history', 'completed_by')
+    list_per_page = 50
 
 
 @log_function_call

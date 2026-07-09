@@ -15,6 +15,12 @@ from src.models.users import (
     UserSession,
 )
 
+# Officer Transitions
+from src.models.transitions import (
+    TransitionChecklistItem,
+    TransitionChecklistStatus,
+)
+
 # Legislation
 from src.models.legislation import (
     validate_legislation_file,
@@ -359,4 +365,7 @@ __all__ = [
     'RecruitmentEvent',
     'RecruitmentEventRSVP',
     'RecruitmentMemberPermission',
+    # Officer Transitions
+    'TransitionChecklistItem',
+    'TransitionChecklistStatus',
 ]

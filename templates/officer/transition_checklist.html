@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Transition Checklist — {{ role_history.role_name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-3xl">
+
+    <!-- Header -->
+    <div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Transition Checklist</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {{ role_history.role_name }} — {{ role_history.user.name }}
+                ({{ role_history.start_semester }}{% if role_history.end_semester %} – {{ role_history.end_semester }}{% endif %})
+            </p>
+        </div>
+        {% if user.member_type == 'Officer' or user.is_admin %}
+        <a href="{% url 'role_transitions' %}"
+           class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition shadow-sm">
+            &larr; Role Transitions
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Progress -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
+        <div class="flex justify-between items-center mb-2">
+            <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Progress</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+                <span id="progress-done">{{ completed_count }}</span> / <span id="progress-total">{{ total_count }}</span> complete
+            </p>
+        </div>
+        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+            <div id="progress-bar" class="bg-green-500 h-2.5 rounded-full transition-all duration-300" style="width: {{ progress_pct }}%"></div>
+        </div>
+    </div>
+
+    <!-- Checklist -->
+    {% if statuses %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
+        {% for status in statuses %}
+        <label class="flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition"
+               for="item-{{ status.id }}">
+            <input type="checkbox" id="item-{{ status.id }}"
+                   class="mt-0.5 h-5 w-5 rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500"
+                   data-status-id="{{ status.id }}"
+                   {% if status.completed_at %}checked{% endif %}
+                   onchange="toggleItem(this)">
+            <div class="flex-1 min-w-0">
+                <p class="text-sm text-gray-900 dark:text-gray-100 {% if status.completed_at %}line-through opacity-60{% endif %}"
+                   id="item-text-{{ status.id }}">{{ status.item.text }}</p>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 {% if not status.completed_at %}hidden{% endif %}"
+                   id="item-meta-{{ status.id }}">
+                    {% if status.completed_at %}Completed by {{ status.completed_by.name|default:'—' }} on {{ status.completed_at|date:'M j, Y' }}{% endif %}
+                </p>
+            </div>
+        </label>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+            No checklist items are attached to this transition.
+            {% if user.member_type == 'Officer' or user.is_admin %}
+            Items are managed in the admin under <em>Transition checklist items</em>; new transfers pick them up automatically.
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+function toggleItem(checkbox) {
+    const statusId = checkbox.dataset.statusId;
+    checkbox.disabled = true;
+
+    fetch(`/officers/transitions/checklist/item/${statusId}/toggle/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrfToken() },
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (!data.success) throw new Error(data.error || 'toggle failed');
+        checkbox.checked = data.completed;
+
+        const text = document.getElementById(`item-text-${statusId}`);
+        const meta = document.getElementById(`item-meta-${statusId}`);
+        text.classList.toggle('line-through', data.completed);
+        text.classList.toggle('opacity-60', data.completed);
+        if (data.completed) {
+            const when = new Date(data.completed_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+            meta.textContent = `Completed by ${data.completed_by || '—'} on ${when}`;
+            meta.classList.remove('hidden');
+        } else {
+            meta.classList.add('hidden');
+        }
+
+        document.getElementById('progress-done').textContent = data.progress.done;
+        document.getElementById('progress-total').textContent = data.progress.total;
+        const pct = data.progress.total ? Math.round(100 * data.progress.done / data.progress.total) : 0;
+        document.getElementById('progress-bar').style.width = pct + '%';
+    })
+    .catch(() => { checkbox.checked = !checkbox.checked; })
+    .finally(() => { checkbox.disabled = false; });
+}
+
+function getCsrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta) return meta.getAttribute('content');
+    for (const c of document.cookie.split(';')) {
+        const t = c.trim();
+        if (t.startsWith('csrftoken=')) return decodeURIComponent(t.substring(10));
+    }
+    return '';
+}
+</script>
+{% endblock %}
