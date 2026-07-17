@@ -3,6 +3,7 @@ import logging
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.shortcuts import render, redirect
+from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from ..decorators import officer_required, log_function_call
@@ -98,13 +99,26 @@ def _create_appointment(request):
             return redirect('vote')
 
     # Validate available_at
+    # v3.13.3: make_aware() added — these were saved naive, and the DB layer
+    # interprets naive datetimes as UTC, so appointment vote open times were
+    # skewed by the UTC offset (~5-6 h for America/Chicago). The chapter
+    # upload path already converted correctly; this path was missed.
     available_at = parse_datetime(available_at_str) if available_at_str else None
     if not available_at:
         messages.error(request, 'Please set an available date for the appointment vote.')
         return redirect('vote')
+    if timezone.is_naive(available_at):
+        available_at = timezone.make_aware(available_at)
+    # v3.14.0: "Now" button — server-resolved, immune to device-clock skew
+    if request.POST.get('appt_available_at_is_now') == '1':
+        available_at = timezone.now()
 
     voting_starts_at = parse_datetime(voting_starts_at_str) if voting_starts_at_str else None
+    if voting_starts_at and timezone.is_naive(voting_starts_at):
+        voting_starts_at = timezone.make_aware(voting_starts_at)
     voting_ends_at = parse_datetime(voting_ends_at_str) if voting_ends_at_str else None
+    if voting_ends_at and timezone.is_naive(voting_ends_at):
+        voting_ends_at = timezone.make_aware(voting_ends_at)
 
     # Validate appointment_member for non-plurality votes
     appointment_member = None

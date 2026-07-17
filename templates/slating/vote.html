@@ -184,7 +184,7 @@
     </div>
     {% else %}
     <!-- Vote Form -->
-    <form method="post" class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+    <form method="post" class="js-vote-form bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
         {% csrf_token %}
         <div class="px-4 py-5 sm:p-6 space-y-6">
             <div>
@@ -242,8 +242,19 @@
                 <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Confirm with Password</label>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Enter your account password to verify your identity and cast your vote.</p>
                 <input type="password" name="password" id="password" required
+                    autocomplete="current-password"
                     class="mt-2 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
                     placeholder="Your password">
+                {% if has_passkeys %}
+                <button type="button"
+                        class="js-vote-passkey mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                    </svg>
+                    Confirm with a passkey instead
+                </button>
+                <p class="js-passkey-error hidden text-sm text-red-600 dark:text-red-400 mt-1"></p>
+                {% endif %}
             </div>
         </div>
 
@@ -362,4 +373,5 @@ document.addEventListener('DOMContentLoaded', function() {
     {% endif %}
 });
 </script>
+{% include 'components/vote_passkey_confirm.html' %}
 {% endblock %}

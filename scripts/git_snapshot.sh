@@ -14,13 +14,19 @@
 #   .env is NEVER committed in plaintext. It is encrypted with a passphrase
 #   (AES-256, openssl — nothing to install) and committed as .env.enc.
 #   Re-encrypted only when .env actually changes, so unchanged runs stay
-#   commit-free.
+#   commit-free. Each *.enc file gets a companion *.enc.hmac (HMAC-SHA256,
+#   keyed with the same passphrase) so tampering with the ciphertext in the
+#   snapshot repo is detectable — AES-CBC alone does not authenticate.
 #
-#   Restore .env:
+#   Restore .env (verify FIRST, then decrypt):
+#     python3 -c 'import hmac,hashlib,sys; \
+#       print(hmac.new(open(sys.argv[2],"rb").read().strip(), open(sys.argv[1],"rb").read(), hashlib.sha256).hexdigest())' \
+#       .env.enc /etc/parliament/snapshot.pass   # must equal contents of .env.enc.hmac
 #     openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
 #       -in .env.enc -out .env -pass file:/etc/parliament/snapshot.pass
 #     (or -pass pass:'<passphrase>' if the pass file is gone — keep the
 #      passphrase in your password manager too!)
+#   Same procedure for db_latest.dump.enc / db_latest.dump.enc.hmac.
 #
 # One-time setup on prod:
 #   1. sudo mkdir -p /etc/parliament
@@ -29,6 +35,7 @@
 #   2. Create the private GitHub repo; give prod's SSH key push access.
 #   3. Set SNAPSHOT_REMOTE_URL below (or export it in the cron line).
 #   4. chmod +x scripts/git_snapshot.sh
+#   5. Log rotation: sudo cp scripts/logrotate.parliament-snapshot /etc/logrotate.d/parliament-snapshot
 #
 # Suggested cron (sudo crontab -e), daily 4am:
 #   0 4 * * * SNAPSHOT_REMOTE_URL=git@github.com:MasonKimball05/parliament-snapshot.git /var/www/Parliament-New/scripts/git_snapshot.sh >> /var/log/parliament/git_snapshot.log 2>&1
@@ -45,14 +52,26 @@ PASS_FILE="${SNAPSHOT_PASS_FILE:-/etc/parliament/snapshot.pass}"
 
 log() { echo "[git_snapshot] $(date '+%F %T') $*"; }
 
+# HMAC-SHA256 of $1 keyed with the snapshot passphrase → $1.hmac
+# (python3 so the key never appears in argv; AES-CBC alone is malleable)
+hmac_file() {
+  python3 - "$1" "$PASS_FILE" > "$1.hmac" <<'PY'
+import hashlib, hmac, sys
+data = open(sys.argv[1], 'rb').read()
+key = open(sys.argv[2], 'rb').read().strip()
+print(hmac.new(key, data, hashlib.sha256).hexdigest())
+PY
+}
+
 # --- Excludes ----------------------------------------------------------------
 # Heavy/reproducible stuff stays out; the DB has its own backup_db pipeline.
 # .git/ is excluded from the copy AND thereby protected from --delete on the
 # receiving side. .env is excluded here because it's committed encrypted.
 EXCLUDES=(
   --exclude '.git/'
-  --exclude '.env'
-  --exclude '.env.enc'          # ours; don't let a stray app-dir copy clobber it
+  --exclude '.env*'             # ALL .env variants (.env.dev, .env.bak, …); also protects staging's .env.enc(+.hmac) from --delete
+  --exclude 'db_latest.dump.enc'      # ours (see DB dump section); protect from --delete
+  --exclude 'db_latest.dump.enc.hmac'
   --exclude 'venv/'
   --exclude '.venv/'
   --exclude '__pycache__/'
@@ -84,6 +103,7 @@ if [ -f "$APP_DIR/.env" ]; then
   if [ "$new_hash" != "$old_hash" ] || [ ! -f "$STAGING_DIR/.env.enc" ]; then
     openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
       -in "$APP_DIR/.env" -out "$STAGING_DIR/.env.enc" -pass "file:$PASS_FILE"
+    hmac_file "$STAGING_DIR/.env.enc"
     echo "$new_hash" > "$STATE_DIR/env.sha256"
     log "re-encrypted .env (contents changed)"
   fi
@@ -91,11 +111,23 @@ else
   log "WARNING: no .env in $APP_DIR — snapshot will not contain one"
 fi
 
-# Belt-and-braces: never let a plaintext .env slip into the snapshot repo.
-if [ -e "$STAGING_DIR/.env" ]; then
-  rm -f "$STAGING_DIR/.env"
-  log "WARNING: removed stray plaintext .env from staging"
+# --- Off-server copy of newest DB dump (encrypted + authenticated) -----------
+latest_dump=$(ls -t /var/backups/parliament/*.dump 2>/dev/null | head -1 || true)
+if [ -n "$latest_dump" ] && [ -r "$PASS_FILE" ]; then
+  dump_hash=$(sha256sum "$latest_dump" | cut -d' ' -f1)
+  old_dump_hash=$(cat "$STATE_DIR/dump.sha256" 2>/dev/null || true)
+  if [ "$dump_hash" != "$old_dump_hash" ] || [ ! -f "$STAGING_DIR/db_latest.dump.enc" ]; then
+    openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+      -in "$latest_dump" -out "$STAGING_DIR/db_latest.dump.enc" -pass "file:$PASS_FILE"
+    hmac_file "$STAGING_DIR/db_latest.dump.enc"
+    echo "$dump_hash" > "$STATE_DIR/dump.sha256"
+    log "re-encrypted newest DB dump ($(basename "$latest_dump"))"
+  fi
 fi
+
+# Belt-and-braces: never let ANY plaintext .env* slip into the snapshot repo.
+find "$STAGING_DIR" -name '.env*' ! -name '.env.enc' ! -name '.env.enc.hmac' -not -path '*/.git/*' \
+  -exec rm -fv {} + | while read -r f; do log "WARNING: removed stray $f from staging"; done
 
 # --- Init staging repo on first run ------------------------------------------
 if [ ! -d "$STAGING_DIR/.git" ]; then

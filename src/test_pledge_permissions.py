@@ -530,6 +530,13 @@ class HomePageVisibilityTestCase(TestCase):
 
     def test_pledge_home_shows_filtered_events(self):
         """Pledge home page should only show events they can see."""
+        # home.py filters events with visible_to__contains (JSONField), which
+        # sqlite doesn't support — skip on non-postgres backends; CI (postgres)
+        # still runs this.
+        from unittest import SkipTest
+        from django.db import connection
+        if connection.vendor != 'postgresql':
+            raise SkipTest('visible_to__contains lookup requires PostgreSQL')
         self.client.force_login(self.pledge)
         response = self.client.get(reverse('home'))
         self.assertEqual(response.status_code, 200)

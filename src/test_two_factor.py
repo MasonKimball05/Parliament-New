@@ -249,19 +249,26 @@ class TwoFactorDisableTestCase(TestCase):
         )
 
         self.client.force_login(self.user)
+        # v3.13.2: the disable page is no longer middleware-exempt — the
+        # session must be OTP-verified to reach it.
+        session = self.client.session
+        session['otp_device_id'] = self.device.persistent_id
+        session.save()
 
     def test_disable_page_accessible(self):
-        """Test that disable page loads"""
+        """Test that disable page loads (for an OTP-verified session)"""
         response = self.client.get(reverse('two_factor_disable'))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'two_factor/disable.html')
 
     def test_disable_removes_devices(self):
-        """Test that POST request removes all 2FA devices"""
+        """Test that POST with the correct password removes all 2FA devices
+        (v3.13.2: disable requires password re-authentication)"""
         # Verify device exists
         self.assertTrue(user_has_device(self.user))
 
-        response = self.client.post(reverse('two_factor_disable'))
+        response = self.client.post(
+            reverse('two_factor_disable'), {'password': 'testpass123'})
 
         # Device should be deleted
         self.assertFalse(user_has_device(self.user))
@@ -677,11 +684,16 @@ class TwoFactorProfileIntegrationTestCase(TestCase):
     def test_profile_shows_2fa_enabled(self):
         """Test that profile page shows 2FA as enabled when set up"""
         # Create confirmed device
-        TOTPDevice.objects.create(
+        device = TOTPDevice.objects.create(
             user=self.user,
             name='default',
             confirmed=True
         )
+        # v3.13.2: a session with a confirmed device must be OTP-verified to
+        # browse (voluntary 2FA is enforced) — mark this session verified.
+        session = self.client.session
+        session['otp_device_id'] = device.persistent_id
+        session.save()
 
         response = self.client.get(reverse('profile'))
         self.assertEqual(response.status_code, 200)

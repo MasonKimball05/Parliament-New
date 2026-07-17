@@ -15,6 +15,7 @@ from src.models import (
     SlateCandidate, SlatingActivity, SlatingAttendance
 )
 from .permissions import voting_member_required, slating_chair_required, can_view_applications
+from src.view.webauthn import check_vote_reauth
 import hashlib
 import secrets
 
@@ -91,9 +92,10 @@ def slating_vote(request, period_id):
             messages.error(request, 'You have already voted in this round.')
             return redirect('slating_vote', period_id=period_id)
 
-        password = request.POST.get('password')
-        if not user.check_password(password):
-            messages.error(request, 'Incorrect password. Please try again.')
+        # Identity confirmation: password, or passkey (v3.13.3)
+        reauth_ok, reauth_error = check_vote_reauth(request)
+        if not reauth_ok:
+            messages.error(request, reauth_error)
             return redirect('slating_vote', period_id=period_id)
 
         vote_choice = request.POST.get('vote_choice')
@@ -177,6 +179,7 @@ def slating_vote(request, period_id):
         'required_percentage': period.required_approval_percentage,
         'is_committee': is_committee,
         'voting_paused': False,
+        'has_passkeys': user.webauthn_credentials.exists(),
     }
 
     return render(request, 'slating/vote.html', context)
@@ -237,9 +240,10 @@ def individual_vote(request, period_id):
     )
 
     if request.method == 'POST':
-        password = request.POST.get('password')
-        if not user.check_password(password):
-            messages.error(request, 'Incorrect password. Please try again.')
+        # Identity confirmation: password, or passkey (v3.13.3)
+        reauth_ok, reauth_error = check_vote_reauth(request)
+        if not reauth_ok:
+            messages.error(request, reauth_error)
             return redirect('slating_vote_individual', period_id=period_id)
 
         # Validate: every unvoted pending position must have a selection
@@ -317,6 +321,7 @@ def individual_vote(request, period_id):
         'decided_candidates': decided_candidates,
         'all_voted': all_voted,
         'required_percentage': period.required_approval_percentage,
+        'has_passkeys': user.webauthn_credentials.exists(),
     }
 
     return render(request, 'slating/vote_individual.html', context)

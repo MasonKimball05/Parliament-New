@@ -1,0 +1,11 @@
+# Log rotation for the prod code-snapshot cron (scripts/git_snapshot.sh).
+# Install: sudo cp scripts/logrotate.parliament-snapshot /etc/logrotate.d/parliament-snapshot
+/var/log/parliament/git_snapshot.log {
+    monthly
+    rotate 6
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

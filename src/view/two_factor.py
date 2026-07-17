@@ -384,12 +384,55 @@ def two_factor_verify(request):
 @login_required
 def two_factor_disable(request):
     """
-    Disable Two-Factor Authentication for the current user
+    Disable Two-Factor Authentication for the current user.
+
+    Requires password re-authentication (v3.13.2, specced in v3.5.1): a
+    stolen/unattended session must not be able to strip 2FA — that's exactly
+    the attacker 2FA exists to stop. Attempts are rate-limited (5 per 15 min
+    per user) so this endpoint can't be used to brute-force the password.
     """
     if request.method == 'POST':
+        ip_address = get_client_ip(request)
+        # Shared credential-change bucket (v3.14.0 review fix): 2FA disable,
+        # passkey register, and passkey delete draw from ONE failure budget.
+        attempts_key = f'cred_change_attempts_{request.user.pk}'
+        failures = cache.get(attempts_key, 0)
+
+        if failures >= _2FA_MAX_FAILURES:
+            security_logger.warning(
+                f'2FA disable rate-limited for {request.user.username} from {ip_address} '
+                f'({failures} failed password attempts)'
+            )
+            messages.error(request, 'Too many failed attempts. Try again in 15 minutes.')
+            return render(request, 'two_factor/disable.html', status=429)
+
+        password = request.POST.get('password', '')
+        if not password or not request.user.check_password(password):
+            cache.set(attempts_key, failures + 1, _2FA_WINDOW_SECONDS)
+            security_logger.warning(
+                f'2FA disable denied (bad password) for {request.user.username} from {ip_address}'
+            )
+            messages.error(request, 'Incorrect password. Two-Factor Authentication was NOT disabled.')
+            return render(request, 'two_factor/disable.html', status=403)
+
+        cache.delete(attempts_key)
+
         # Delete all devices for this user (TOTP + backup codes)
         TOTPDevice.objects.filter(user=request.user).delete()
         StaticDevice.objects.filter(user=request.user, name='backup').delete()
+
+        security_logger.info(
+            f'2FA disabled by {request.user.username} from {ip_address} (password re-auth passed)'
+        )
+        from src.security_notifications import notify_user_security_event
+        notify_user_security_event(
+            request.user,
+            'Two-Factor Authentication was disabled on your account',
+            'Two-Factor Authentication (TOTP and backup codes) was just disabled on your '
+            'Parliament account after a correct password was entered.',
+            ip_address=ip_address,
+        )
+
         messages.success(request, 'Two-Factor Authentication has been disabled.')
         response = redirect('profile')
         clear_remember_cookie(response)

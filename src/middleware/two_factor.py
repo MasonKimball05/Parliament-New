@@ -44,7 +44,9 @@ class Enforce2FAMiddleware:
             '/accounts/two-factor/setup/',
             '/accounts/two-factor/qrcode/',
             '/accounts/two-factor/verify/',
-            '/accounts/two-factor/disable/',
+            # NOTE: /accounts/two-factor/disable/ is deliberately NOT exempt
+            # (v3.13.2): a session that passed the password check but not the
+            # TOTP step must not be able to strip 2FA from the account.
             '/accounts/two-factor/dismiss/',
             '/accounts/two-factor/recovery/',
             '/accounts/two-factor/recovery-confirm/',
@@ -73,8 +75,12 @@ class Enforce2FAMiddleware:
         # Check if user requires 2FA
         requires_2fa = self.user_requires_2fa(request.user)
 
+        # One device lookup per request (was queried twice — once here, once
+        # for the verified-session check below).
+        has_device = user_has_device(request.user)
+
         # If 2FA is required but not set up, redirect to setup page
-        if requires_2fa and not user_has_device(request.user):
+        if requires_2fa and not has_device:
             # Check if user has dismissed the prompt recently (within 1 hour)
             dismiss_until = getattr(request, 'session', {}).get('2fa_setup_dismissed_until')
             if dismiss_until:
@@ -93,8 +99,12 @@ class Enforce2FAMiddleware:
             if request.path != '/accounts/two-factor/setup/':
                 return redirect('two_factor_setup')
 
-        # If 2FA is required and set up, but not verified this session
-        if requires_2fa and user_has_device(request.user):
+        # If 2FA is set up but not verified this session, enforce the verify
+        # step — regardless of policy (v3.13.2, specced in v3.5.1): a user who
+        # voluntarily enabled 2FA expects it to actually protect their account,
+        # and an attacker must not be able to skip the TOTP step just because
+        # the global policy doesn't mandate 2FA for this user.
+        if has_device:
             if not request.user.is_verified() and request.path != '/accounts/two-factor/verify/':
                 # Passkey login sets this flag and counts as full authentication
                 if getattr(request, 'session', {}).get('webauthn_authenticated'):

@@ -8,6 +8,7 @@ from django.http import HttpResponseForbidden
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from src.notification_service import notify_users
+from src.utils.vote_events import broadcast_vote_event
 
 @login_required
 @require_POST
@@ -76,11 +77,19 @@ def end_vote(request, legislation_id):
         winner = most_voted if not has_tie else None
 
     # Update status based on vote outcome
+    # v3.13.3: failed votes are now marked 'failed', not 'removed' — the
+    # legislation history page excludes 'removed' entirely, so failed votes
+    # were vanishing from history and its Failed tab could never populate.
+    # ('removed' is reserved for admin deletion/removal.) The `passed` bool is
+    # also set now (the old set_passed() call was commented out), which the
+    # history pages' fallback filters rely on.
     if vote_passed:
         legislation.status = 'passed'
     else:
-        legislation.status = 'removed'
-    legislation.save(update_fields=['status'])
+        legislation.status = 'failed'
+    legislation.passed = vote_passed
+    legislation.save(update_fields=['status', 'passed'])
+    broadcast_vote_event('closed', legislation.id)  # v3.14.0: live page update
 
     _end_meta = {
         'result': 'passed' if vote_passed else 'failed',

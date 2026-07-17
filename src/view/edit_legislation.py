@@ -66,6 +66,10 @@ def edit_legislation(request, legislation_id):
             if voted_at_str:
                 try:
                     voted_at = parse_datetime(voted_at_str)
+                    # v3.13.3: naive datetimes are stored as UTC by the DB
+                    # layer — interpret the entered time in the local timezone
+                    if voted_at and timezone.is_naive(voted_at):
+                        voted_at = timezone.make_aware(voted_at)
                 except Exception:
                     pass
             if not voted_at:

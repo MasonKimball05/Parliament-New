@@ -1,4 +1,3 @@
-from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from django.conf import settings
 from src.storage import DualLocationStorage
@@ -187,7 +186,9 @@ class CommitteeLegislation(models.Model):
 
     required_percentage = models.CharField(max_length=10, choices=VOTE_THRESHOLDS, default='51')
     required_number = models.PositiveIntegerField(null=True, blank=True)
-    plurality_options = ArrayField(models.CharField(max_length=100), blank=True, null=True)
+    # List of option strings. JSONField (not postgres ArrayField) so the schema
+    # is backend-agnostic — sqlite dev/test runs work (swapped v3.13.2).
+    plurality_options = models.JSONField(blank=True, null=True)
 
     # Plurality voting enhancements
     plurality_votes_allowed = models.PositiveIntegerField(

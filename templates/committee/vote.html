@@ -89,9 +89,10 @@
 
             <!-- Voting Form - Only show if user hasn't voted yet -->
             {% if can_vote and leg.id not in user_voted %}
-                <form method="POST" class="space-y-4">
+                <form method="POST" class="js-vote-form space-y-4">
                     {% csrf_token %}
                     <input type="hidden" name="legislation_id" value="{{ leg.id }}">
+                    <input type="hidden" name="action" value="cast_vote">
 
                     {% if leg.vote_mode == 'plurality' %}
                         <!-- Plurality Voting -->
@@ -198,8 +199,19 @@
                                 Confirm with Password
                             </label>
                             <input type="password" name="password" required
+                                   autocomplete="current-password"
                                    class="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded px-3 py-2 w-full"
                                    placeholder="Enter your password">
+                            {% if has_passkeys %}
+                            <button type="button"
+                                    class="js-vote-passkey mt-1.5 inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                                </svg>
+                                Confirm with a passkey instead
+                            </button>
+                            <p class="js-passkey-error hidden text-xs text-red-600 dark:text-red-400 mt-1"></p>
+                            {% endif %}
                         </div>
                         <button type="submit"
                                 class="submit-vote-btn bg-primary-600 hover:bg-primary-700 text-white font-semibold px-6 py-2.5 rounded-lg
@@ -706,4 +718,5 @@ function confirmEndVote(legislationId) {
     document.getElementById('end-vote-form-' + legislationId).submit();
 }
 </script>
+{% include 'components/vote_passkey_confirm.html' %}
 {% endblock %}

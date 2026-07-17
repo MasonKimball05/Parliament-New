@@ -441,7 +441,8 @@ class EventArchivingTestCase(TestCase):
         """Test manually archiving an event"""
         self.client.force_login(self.admin)
 
-        response = self.client.get(reverse('archive_event', args=[self.recent_event.id]))
+        # archive_event is @require_POST — GET returns 405 and archives nothing
+        response = self.client.post(reverse('archive_event', args=[self.recent_event.id]))
 
         self.recent_event.refresh_from_db()
         self.assertTrue(self.recent_event.archived)
@@ -454,7 +455,8 @@ class EventArchivingTestCase(TestCase):
         self.old_event.save()
 
         self.client.force_login(self.admin)
-        response = self.client.get(reverse('unarchive_event', args=[self.old_event.id]))
+        # unarchive_event is @require_POST — GET returns 405 and changes nothing
+        response = self.client.post(reverse('unarchive_event', args=[self.old_event.id]))
 
         self.old_event.refresh_from_db()
         self.assertFalse(self.old_event.archived)
@@ -602,7 +604,8 @@ class PermissionTestCase(TestCase):
         )
 
         self.client.force_login(self.admin)
-        response = self.client.get(reverse('archive_event', args=[event.id]))
+        # archive_event is @require_POST — GET returns 405 and archives nothing
+        response = self.client.post(reverse('archive_event', args=[event.id]))
 
         event.refresh_from_db()
         self.assertTrue(event.archived)

@@ -229,12 +229,16 @@ class LegislationViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='active')
     def active(self, request):
+        # v3.13.3: was filter(status='active') — never matched (open
+        # legislation is status='draft'), so this endpoint always returned [].
         now = timezone.now()
         qs = self.get_queryset().filter(
-            status='active',
             voting_closed=False,
             available_at__lte=now,
-        )
+        ).filter(
+            models.Q(voting_starts_at__lte=now) |
+            models.Q(voting_starts_at__isnull=True, voting_manual_open=False)
+        ).exclude(status__in=['pending', 'tabled', 'passed', 'failed', 'removed'])
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
 

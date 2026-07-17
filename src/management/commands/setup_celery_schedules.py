@@ -37,6 +37,15 @@ SCHEDULES = [
     },
 
     # -------------------------------------------------------------------------
+    # Vote receipt expiry notices — daily (v3.14.0)
+    # -------------------------------------------------------------------------
+    {
+        'name': 'Notify expired vote receipts',
+        'task': 'tasks.notify_expired_vote_receipts',
+        'crontab': {'hour': '9', 'minute': '15'},  # 3:15 AM CST daily
+    },
+
+    # -------------------------------------------------------------------------
     # Scheduled announcement emails — every 5 minutes
     # -------------------------------------------------------------------------
     {

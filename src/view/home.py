@@ -25,10 +25,18 @@ def home(request):
     total_active_members = ParliamentUser.objects.filter(member_status='Active').count()
 
     # Active legislation count
-    active_legislation = Legislation.objects.filter(
+    # v3.13.3: was filter(status='active') — but no code path ever sets
+    # 'active' (open legislation is status='draft'), so this stat and the
+    # pending-votes widget below were permanently empty. Use the same
+    # open-voting semantics as the vote page instead.
+    open_legislation_qs = Legislation.objects.filter(
         voting_closed=False,
-        status='active'
-    ).count()
+        available_at__lte=now,
+    ).filter(
+        Q(voting_starts_at__lte=now) |
+        Q(voting_starts_at__isnull=True, voting_manual_open=False)
+    ).exclude(status__in=['pending', 'tabled', 'passed', 'failed', 'removed'])
+    active_legislation = open_legislation_qs.count()
 
     # Upcoming events (next 7 days)
     upcoming_events_count = Event.objects.filter(
@@ -53,10 +61,9 @@ def home(request):
     # === YOUR PENDING VOTES ===
     # Get legislation user hasn't voted on yet
     voted_legislation_ids = Vote.objects.filter(user=request.user).values_list('legislation_id', flat=True)
-    pending_votes = Legislation.objects.filter(
-        voting_closed=False,
-        status='active'
-    ).exclude(id__in=voted_legislation_ids).order_by('-available_at')[:5]
+    pending_votes = open_legislation_qs.exclude(
+        id__in=voted_legislation_ids
+    ).order_by('-available_at')[:5]
 
     # === UPCOMING EVENTS ===
     # Visibility: null/empty visible_to = all; otherwise member_type must be listed.

@@ -398,8 +398,10 @@
                                 </p>
                             </div>
                         </div>
-                        <form method="post" action="{% url 'passkey_delete' pk.pk %}" class="js-passkey-delete-form">
+                        <form method="post" action="{% url 'passkey_delete' pk.pk %}" class="js-passkey-delete-form flex items-center gap-2">
                             {% csrf_token %}
+                            <input type="password" name="password" autocomplete="current-password" placeholder="Current password"
+                                   class="js-passkey-delete-password hidden text-xs px-2 py-1 w-36 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                             <button type="submit" class="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium transition-colors">Remove</button>
                         </form>
                     </li>
@@ -409,6 +411,9 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400 italic">No passkeys registered yet.</p>
                 {% endif %}
 
+                <input type="password" id="add-passkey-password" autocomplete="current-password"
+                       placeholder="Confirm your current password"
+                       class="hidden w-full px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                 <button id="add-passkey-btn" class="btn-primary w-full flex items-center justify-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -1080,6 +1085,18 @@ if (phoneInput) {
             return;
         }
 
+        // Password re-auth (v3.13.2): reveal the field on first click,
+        // submit on the second. Registering a passkey must prove the
+        // current password so a hijacked session can't add a backdoor key.
+        const pwInput = document.getElementById('add-passkey-password');
+        if (pwInput.classList.contains('hidden')) {
+            pwInput.classList.remove('hidden');
+            pwInput.focus();
+            showStatus('Enter your current password, then click again to continue.', false);
+            return;
+        }
+        if (!pwInput.value) { pwInput.focus(); return; }
+
         const passkeyName = prompt('Give this passkey a name (e.g. "iPhone" or "MacBook"):', 'Passkey');
         if (passkeyName === null) return; // cancelled
 
@@ -1087,12 +1104,19 @@ if (phoneInput) {
         btn.textContent = 'Registering…';
 
         try {
-            // Step 1 — get options from server
+            // Step 1 — get options from server (password checked server-side)
             const beginResp = await fetch('{% url "passkey_register_begin" %}', {
                 method: 'POST',
                 headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                body: new URLSearchParams({ password: pwInput.value }),
             });
-            if (!beginResp.ok) throw new Error('Failed to start registration.');
+            if (!beginResp.ok) {
+                let msg = 'Failed to start registration.';
+                try { msg = (await beginResp.json()).error || msg; } catch (_) {}
+                throw new Error(msg);
+            }
+            pwInput.value = '';
+            pwInput.classList.add('hidden');
             const options = await beginResp.json();
 
             // Decode base64url fields the browser expects as ArrayBuffer
@@ -1223,6 +1247,17 @@ if (_removePicBtn) {
 
 document.querySelectorAll('.js-passkey-delete-form').forEach(function (form) {
     form.addEventListener('submit', function (e) {
+        // Password re-auth (v3.13.2): first click reveals the password
+        // field, second click (with password) confirms and submits.
+        var pw = form.querySelector('.js-passkey-delete-password');
+        if (pw.classList.contains('hidden')) {
+            e.preventDefault();
+            pw.classList.remove('hidden');
+            pw.required = true;
+            pw.focus();
+            return;
+        }
+        if (!pw.value) { e.preventDefault(); pw.focus(); return; }
         if (!confirm('Remove this passkey?')) { e.preventDefault(); }
     });
 });

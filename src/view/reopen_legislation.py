@@ -19,8 +19,14 @@ def reopen_legislation(request, legislation_id):
     if request.user != legislation.posted_by:
         return HttpResponseForbidden("Only the uploader can reopen this legislation.")
 
+    # v3.13.3: also reset status — end_vote leaves it 'failed'/'passed', and
+    # the vote page excludes those, so a reopened vote never reappeared on the
+    # vote page. 'draft' is the open status. voting_ended_at is cleared so the
+    # tally poller doesn't treat it as just-closed.
     legislation.voting_closed = False  # Reopen the voting
-    legislation.save()
+    legislation.status = 'draft'
+    legislation.voting_ended_at = None
+    legislation.save(update_fields=['voting_closed', 'status', 'voting_ended_at'])
 
     messages.success(request, "Legislation has been reopened.")
     return redirect('view_legislation_history')

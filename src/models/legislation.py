@@ -1,4 +1,3 @@
-from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from django.core.exceptions import ValidationError
 from src.storage import DualLocationStorage
@@ -28,6 +27,7 @@ class Legislation(models.Model):
     ], default='51')
 
     STATUS_CHOICES = [
+        ('draft', 'Draft (Open)'),
         ('pending', 'Pending'),
         ('active', 'Active Voting'),
         ('passed', 'Passed'),
@@ -36,7 +36,13 @@ class Legislation(models.Model):
         ('removed', 'Removed'),
     ]
 
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    # v3.13.3: this field was accidentally defined TWICE in this class (the
+    # second definition, default='draft', silently shadowed this one). Every
+    # legislation has therefore always been created with status='draft' —
+    # which wasn't even in STATUS_CHOICES. 'draft' is now an official choice
+    # (it's the de facto "open" status; admin-v2 and the committee model
+    # already treat it that way) and the duplicate definition is removed.
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     title = models.CharField(max_length=200)
     description = models.TextField()
     document = models.FileField(upload_to='legislation_docs/', validators=[validate_legislation_file], storage=DualLocationStorage(), blank=True, null=True)
@@ -44,6 +50,14 @@ class Legislation(models.Model):
     co_authors = models.ManyToManyField('ParliamentUser', blank=True, related_name='co_authored_legislation')
     available_at = models.DateTimeField(help_text="When the document becomes visible for review")
     voting_starts_at = models.DateTimeField(null=True, blank=True, help_text="When voting opens (defaults to available_at if not set)")
+    # v3.13.3: when True and voting_starts_at is empty, voting does NOT open
+    # with availability — it waits for the author to hit "Open Voting Now"
+    # (which sets voting_starts_at). False keeps the historical unified
+    # behavior: blank voting_starts_at = voting opens at available_at.
+    voting_manual_open = models.BooleanField(
+        default=False,
+        help_text="Voting stays closed until the author opens it manually "
+                  "(only meaningful while voting_starts_at is empty)")
     created_at = models.DateTimeField(auto_now_add=True)
     voting_ends_at = models.DateTimeField(null=True, blank=True, help_text="Optional: When voting should automatically close")
     voting_ended_at = models.DateTimeField(null=True, blank=True)
@@ -60,7 +74,9 @@ class Legislation(models.Model):
     )
 
     required_number = models.PositiveIntegerField(null=True, blank=True)
-    plurality_options = ArrayField(models.CharField(max_length=100), blank=True, null=True)  # Only for PostgreSQL
+    # List of option strings. JSONField (not postgres ArrayField) so the schema
+    # is backend-agnostic — sqlite dev/test runs work (swapped v3.13.2).
+    plurality_options = models.JSONField(blank=True, null=True)
 
     # Plurality voting enhancements
     plurality_votes_allowed = models.PositiveIntegerField(
@@ -96,7 +112,8 @@ class Legislation(models.Model):
     historical_no_votes = models.PositiveIntegerField(null=True, blank=True, help_text="Historical no vote count")
     historical_abstain_votes = models.PositiveIntegerField(null=True, blank=True, help_text="Historical abstain vote count")
 
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    # (duplicate `status` field removed here in v3.13.3 — see the field near
+    # the top of the class)
 
     # Chair appointment fields — only populated when legislation_type == 'appointment'
     LEGISLATION_TYPES = [
@@ -132,6 +149,11 @@ class Legislation(models.Model):
     def voting_has_started(self):
         """Check if voting period has begun."""
         from django.utils import timezone
+        # v3.13.3: manual-open mode — the uploader chose to separate voting
+        # from availability without scheduling a start; voting stays closed
+        # until they hit "Open Voting Now" (which sets voting_starts_at).
+        if self.voting_manual_open and not self.voting_starts_at:
+            return False
         # If voting_starts_at is set, use it; otherwise voting starts when available
         start_time = self.voting_starts_at or self.available_at
         return timezone.now() >= start_time
@@ -220,3 +242,7 @@ class Vote(models.Model):
     user = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE, limit_choices_to={'member_status': 'Active'})
     legislation = models.ForeignKey(Legislation, on_delete=models.CASCADE)
     vote_choice = models.CharField(max_length=100)
+    # v3.14.0: when the ballot was cast (null for rows predating this field).
+    # Used by My Ballots and to keep regenerated receipts anchored to the
+    # original cast time.
+    cast_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)

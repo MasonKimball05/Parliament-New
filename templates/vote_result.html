@@ -5,219 +5,233 @@
 {% block title %}Vote Results{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto mt-10 bg-white p-6 rounded-xl shadow-sm">
-    <h2 class="text-2xl font-bold mb-6">Vote Results for "{{ legislation.title }}"</h2>
-    <p class="text-sm mb-4 text-gray-600">Voting Mode: <strong>{{ legislation.vote_mode|title }}</strong></p>
+<div class="max-w-3xl mx-auto px-4 py-8 space-y-4">
 
-    {% if passed %}
-        {% if legislation.vote_mode == 'percentage' %}
-            <div class="bg-green-100 text-green-800 p-4 rounded mb-4 font-semibold">
-                ✅ Vote Passed
-                    <div class="text-sm mt-1">Required: {{ required_percentage }}% | Yes Votes: {{ yes_percentage }}%</div>
-            </div>
-        {% endif %}
-    {% else %}
-        {% if legislation.vote_mode == 'percentage' %}
-            <div class="bg-red-100 text-red-800 p-4 rounded mb-4 font-semibold">
-                ❌ Vote Failed
-                    <div class="text-sm mt-1">Required: {{ required_percentage }}% | Yes Votes: {{ yes_percentage }}%</div>
-            </div>
-        {% endif %}
-    {% endif %}
-
-    {% if legislation.vote_mode == 'percentage' and yes_percentage is defined and required_percentage is defined %}
-    <!-- Progress Bar -->
-    <div class="mb-6">
-        <div class="flex justify-center text-sm font-medium mb-1">
-            Yes: {{ yes_percentage }}% &nbsp; | &nbsp; Required: {{ required_percentage }}%
-        </div>
-        <div class="relative w-full bg-gray-200 rounded h-6 overflow-hidden">
-            <div class="absolute top-0 left-0 h-full bg-green-500" style="width: {{ yes_percentage|default:'0' }}%;"></div>
-            <div class="absolute top-0 left-[{{ required_percentage }}%] h-full w-1 bg-black opacity-70"></div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Pie Chart -->
-    <div class="w-full flex justify-center mt-6">
-        <canvas id="voteChart" class="w-full max-w-md h-64"></canvas>
-    </div>
-
-    {% if legislation.vote_mode == 'percentage' %}
-    <div class="flex justify-center space-x-4 text-sm mb-6">
-        <div class="flex items-center space-x-1"><span class="w-4 h-4 bg-green-500 inline-block rounded-sm"></span> <span>Yes</span></div>
-        <div class="flex items-center space-x-1"><span class="w-4 h-4 bg-red-500 inline-block rounded-sm"></span> <span>No</span></div>
-        <div class="flex items-center space-x-1"><span class="w-4 h-4 bg-yellow-400 inline-block rounded-sm"></span> <span>Abstain</span></div>
-    </div>
-    {% endif %}
-    {% if legislation.vote_mode == "plurality" %}
-        <!-- Plurality Results Summary -->
-        {% if winner %}
-            <div class="bg-green-100 text-green-800 p-4 rounded mb-4 font-semibold">
-                ✅ Winner: {{ winner }}
-                {% if votes_allowed > 1 %}
-                <div class="text-sm mt-1">Each voter could select up to {{ votes_allowed }} options. {{ unique_voter_count }} voter(s) participated.</div>
-                {% endif %}
-            </div>
-        {% elif has_tie %}
-            <div class="bg-yellow-100 text-yellow-800 p-4 rounded mb-4 font-semibold">
-                ⚠️ Tie Detected - No Clear Winner
-                {% if runoff_enabled %}
-                <div class="text-sm mt-1">A runoff vote can be created with the top {{ runoff_count }} options.</div>
-                {% endif %}
-            </div>
-        {% else %}
-            <div class="bg-red-100 text-red-800 p-4 rounded mb-4 font-semibold">
-                ❌ No Winner Determined
-            </div>
-        {% endif %}
-
-        {% if is_runoff and parent_legislation %}
-            <div class="bg-primary-100 text-primary-800 p-4 rounded mb-4">
-                <span class="font-semibold">ℹ️ This is a runoff vote</span>
-                <div class="text-sm mt-1">Original vote: {{ parent_legislation.title }}</div>
-            </div>
-        {% endif %}
-
-        <!-- Runoff Button -->
-        {% if runoff_enabled and has_tie and not is_runoff %}
-            <div class="mb-6">
-                <form method="post" action="{% url 'create_runoff' legislation.id %}">
-                    {% csrf_token %}
-                    <button type="submit" class="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium px-6 py-3 rounded-lg transition">
-                        Create Runoff Vote with Top {{ runoff_count }} Options
-                    </button>
-                </form>
-                <p class="text-sm text-gray-600 mt-2 text-center">
-                    Top options: {{ top_options_for_runoff|join:", " }}
+    <!-- Header -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/60 p-6">
+        <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0">
+                <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Vote Results</p>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">{{ legislation.title }}</h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {{ legislation.vote_mode|title }} vote
+                    {% if anonymous %} · anonymous ballot{% endif %}
+                    · {{ total_votes }} counted vote{{ total_votes|pluralize }}
                 </p>
             </div>
-        {% endif %}
+            <a href="{% url 'vote' %}" class="btn-secondary btn-sm whitespace-nowrap shrink-0">← Back to Votes</a>
+        </div>
+    </div>
+
+    <!-- Result banner -->
+    {% if passed %}
+    <div class="flex items-start gap-3 p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/60">
+        <div class="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+            </svg>
+        </div>
+        <div>
+            <p class="font-semibold text-green-700 dark:text-green-300">
+                {% if legislation.vote_mode == 'plurality' and winner %}Winner: {{ winner }}{% else %}Vote Passed{% endif %}
+            </p>
+            {% if legislation.vote_mode == 'percentage' %}
+            <p class="text-sm text-green-700 dark:text-green-300 mt-0.5">Required {{ required_percentage }}% · Yes votes {{ yes_percentage }}</p>
+            {% elif legislation.vote_mode == 'piecewise' %}
+            <p class="text-sm text-green-700 dark:text-green-300 mt-0.5">Required {{ legislation.required_number }} yes vote{{ legislation.required_number|pluralize }} · received {{ yes_votes }}</p>
+            {% elif votes_allowed > 1 %}
+            <p class="text-sm text-green-700 dark:text-green-300 mt-0.5">Each voter could select up to {{ votes_allowed }} options · {{ unique_voter_count }} voter{{ unique_voter_count|pluralize }} participated</p>
+            {% endif %}
+        </div>
+    </div>
+    {% elif legislation.vote_mode == 'plurality' and has_tie %}
+    <div class="flex items-start gap-3 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60">
+        <div class="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5 text-amber-600 dark:text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+        </div>
+        <div>
+            <p class="font-semibold text-amber-700 dark:text-amber-300">Tie — no clear winner</p>
+            {% if runoff_enabled %}
+            <p class="text-sm text-amber-700 dark:text-amber-300 mt-0.5">A runoff vote can be created with the top {{ runoff_count }} options.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="flex items-start gap-3 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/60">
+        <div class="w-9 h-9 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </div>
+        <div>
+            <p class="font-semibold text-red-700 dark:text-red-300">
+                {% if legislation.vote_mode == 'plurality' %}No winner determined{% else %}Vote Did Not Pass{% endif %}
+            </p>
+            {% if legislation.vote_mode == 'percentage' %}
+            <p class="text-sm text-red-700 dark:text-red-300 mt-0.5">Required {{ required_percentage }}% · Yes votes {{ yes_percentage }}</p>
+            {% elif legislation.vote_mode == 'piecewise' %}
+            <p class="text-sm text-red-700 dark:text-red-300 mt-0.5">Required {{ legislation.required_number }} yes vote{{ legislation.required_number|pluralize }} · received {{ yes_votes }}</p>
+            {% endif %}
+        </div>
+    </div>
     {% endif %}
 
+    {% if is_runoff and parent_legislation %}
+    <div class="p-4 rounded-xl bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800/60">
+        <p class="font-semibold text-primary-700 dark:text-primary-300 text-sm">This is a runoff vote</p>
+        <p class="text-sm text-primary-600 dark:text-primary-400 mt-0.5">Original vote: {{ parent_legislation.title }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Tally card: progress + chart -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/60 p-6">
+        {% if legislation.vote_mode == 'percentage' %}
+        <div class="mb-6">
+            <div class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                <span>Yes: {{ yes_percentage }}</span>
+                <span>Required: {{ required_percentage }}%</span>
+            </div>
+            <div class="relative w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
+                <div class="absolute top-0 left-0 h-full bg-green-500 rounded-full" style="width: {{ yes_percentage|default:'0' }};"></div>
+                {# threshold marker — inline style; Tailwind can't compile a class from a template var #}
+                <div class="absolute top-0 h-full w-0.5 bg-gray-900 dark:bg-gray-100 opacity-70" style="left: {{ required_percentage }}%;"></div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="w-full flex justify-center">
+            <canvas id="voteChart" class="w-full max-w-sm max-h-64"></canvas>
+        </div>
+
+        {% if legislation.vote_mode == 'percentage' %}
+        <div class="flex justify-center gap-5 text-sm text-gray-700 dark:text-gray-300 mt-4">
+            <span class="inline-flex items-center gap-1.5"><span class="w-3.5 h-3.5 bg-green-500 rounded-sm"></span> Yes ({{ yes_votes }})</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-3.5 h-3.5 bg-red-500 rounded-sm"></span> No ({{ vote_breakdown.no }})</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-3.5 h-3.5 bg-yellow-400 rounded-sm"></span> Abstain ({{ vote_breakdown.abstain }})</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Runoff Button -->
+    {% if legislation.vote_mode == 'plurality' and runoff_enabled and has_tie and not is_runoff %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/60 p-6">
+        <form method="post" action="{% url 'create_runoff' legislation.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn-primary w-full">
+                Create Runoff Vote with Top {{ runoff_count }} Options
+            </button>
+        </form>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-2 text-center">
+            Top options: {{ top_options_for_runoff|join:", " }}
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- Voter breakdown (non-anonymous only) -->
     {% if legislation.vote_mode == "plurality" and not anonymous %}
-        <div class="mt-6 text-sm">
-            <h3 class="font-semibold mb-4 text-center text-lg">Voter Breakdown by Option</h3>
-        <div class="grid grid-cols-2 gap-6 mt-10 text-sm justify-center text-center">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/60 p-6">
+        <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-4 text-center">Voter Breakdown by Option</h3>
+        <div class="grid sm:grid-cols-2 gap-6 text-sm">
             {% for result in plurality_results.results %}
-                <div>
-                    <h3 class="font-semibold mb-2 text-center">{{ result.option }}</h3>
-                    {% if result.voters %}
-                        <ul class="list-disc list-inside text-center">
-                            {% for voter in result.voters %}
-                                <li>{{ voter }}</li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p class="text-gray-500 italic">None</p>
-                    {% endif %}
-                </div>
+            <div>
+                <h4 class="font-semibold text-gray-700 dark:text-gray-200 mb-2">{{ result.option }} <span class="font-normal text-gray-400">({{ result.count }})</span></h4>
+                {% if result.voters %}
+                <ul class="space-y-1 text-gray-600 dark:text-gray-300">
+                    {% for voter in result.voters %}<li>{{ voter }}</li>{% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-gray-400 dark:text-gray-500 italic">None</p>
+                {% endif %}
+            </div>
             {% endfor %}
         </div>
     </div>
     {% endif %}
 
-    {% if not anonymous %}
-    <div class="grid grid-cols-3 gap-6 mt-10 text-sm">
-        {% if legislation.vote_mode == 'percentage' %}
+    {% if legislation.vote_mode == 'percentage' and not anonymous %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/60 p-6">
+        <div class="grid grid-cols-3 gap-6 text-sm">
             <div>
-                <h3 class="font-semibold mb-2 text-green-600">Yes</h3>
+                <h3 class="font-semibold mb-2 text-green-600 dark:text-green-400">Yes</h3>
                 {% if in_favor %}
-                    <ul class="list-disc list-inside">
-                        {% for vote in in_favor %}
-                            <li>{{ vote.user.name }}</li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="text-gray-500 italic">None</p>
-                {% endif %}
+                <ul class="space-y-1 text-gray-600 dark:text-gray-300">
+                    {% for vote in in_favor %}<li>{{ vote.user.name }}</li>{% endfor %}
+                </ul>
+                {% else %}<p class="text-gray-400 dark:text-gray-500 italic">None</p>{% endif %}
             </div>
             <div>
-                <h3 class="font-semibold mb-2 text-red-600">No</h3>
+                <h3 class="font-semibold mb-2 text-red-600 dark:text-red-400">No</h3>
                 {% if against %}
-                    <ul class="list-disc list-inside">
-                        {% for vote in against %}
-                            <li>{{ vote.user.name }}</li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="text-gray-500 italic">None</p>
-                {% endif %}
+                <ul class="space-y-1 text-gray-600 dark:text-gray-300">
+                    {% for vote in against %}<li>{{ vote.user.name }}</li>{% endfor %}
+                </ul>
+                {% else %}<p class="text-gray-400 dark:text-gray-500 italic">None</p>{% endif %}
             </div>
             <div>
-                <h3 class="font-semibold mb-2 text-yellow-600">Abstain</h3>
+                <h3 class="font-semibold mb-2 text-yellow-600 dark:text-yellow-400">Abstain</h3>
                 {% if abstain %}
-                    <ul class="list-disc list-inside">
-                        {% for vote in abstain %}
-                            <li>{{ vote.user.name }}</li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="text-gray-500 italic">None</p>
-                {% endif %}
+                <ul class="space-y-1 text-gray-600 dark:text-gray-300">
+                    {% for vote in abstain %}<li>{{ vote.user.name }}</li>{% endfor %}
+                </ul>
+                {% else %}<p class="text-gray-400 dark:text-gray-500 italic">None</p>{% endif %}
             </div>
-        {% endif %}
+        </div>
     </div>
     {% endif %}
 </div>
 
-<!-- Safe JSON data islands for chart — avoids |safe XSS via plurality option names -->
+<!-- Safe JSON data islands for chart — avoids |safe XSS via plurality option
+     names, and works for anonymous votes too (pre-v3.14.0 the percentage
+     chart used in_favor.count, which is absent for anonymous ballots → the
+     chart silently broke) -->
 {% if legislation.vote_mode == 'plurality' %}
 {{ vote_breakdown.keys|json_script:"vote-chart-labels" }}
 {{ vote_breakdown.values|json_script:"vote-chart-data" }}
+{% else %}
+{{ vote_breakdown|json_script:"vote-chart-breakdown" }}
 {% endif %}
 
 <!-- Chart.js Script -->
 <script src="{% static 'vendor/chart.min.js' %}"></script>
 <script nonce="{{ request.csp_nonce }}">
     const ctx = document.getElementById('voteChart').getContext('2d');
+    const isDark = document.documentElement.classList.contains('dark');
+    const legendColor = isDark ? 'rgb(209, 213, 219)' : 'rgb(55, 65, 81)';
+    const borderColor = isDark ? 'rgb(31, 41, 55)' : 'rgb(255, 255, 255)';
 
-    {% if legislation.vote_mode == 'percentage' %}
-    const chart = new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: ['Yes', 'No', 'Abstain'],
-            datasets: [{
-                label: 'Votes',
-                data: [
-                    {{ in_favor.count }},
-                    {{ against.count }},
-                    {{ abstain.count }}
-                ],
-                backgroundColor: [
-                    'rgb(34, 197, 94)',
-                    'rgb(239, 68, 68)',
-                    'rgb(250, 204, 21)'
-                ],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-        }
-    });
-    {% elif legislation.vote_mode == 'plurality' %}
-    const chart = new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: JSON.parse(document.getElementById('vote-chart-labels').textContent),
-            datasets: [{
-                label: 'Votes',
-                data: JSON.parse(document.getElementById('vote-chart-data').textContent),
-                backgroundColor: [
-                    'rgb(59, 130, 246)',
-                    'rgb(16, 185, 129)',
-                    'rgb(244, 114, 182)',
-                    'rgb(245, 158, 11)',
-                    'rgb(163, 53, 201)'
-                ],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-        }
-    });
+    {% if legislation.vote_mode == 'plurality' %}
+    const chartLabels = JSON.parse(document.getElementById('vote-chart-labels').textContent);
+    const chartData = JSON.parse(document.getElementById('vote-chart-data').textContent);
+    const chartColors = [
+        'rgb(59, 130, 246)', 'rgb(16, 185, 129)', 'rgb(244, 114, 182)',
+        'rgb(245, 158, 11)', 'rgb(163, 53, 201)', 'rgb(20, 184, 166)',
+        'rgb(249, 115, 22)', 'rgb(139, 92, 246)', 'rgb(236, 72, 153)', 'rgb(34, 197, 94)'
+    ];
+    {% else %}
+    const breakdown = JSON.parse(document.getElementById('vote-chart-breakdown').textContent);
+    const chartLabels = ['Yes', 'No', 'Abstain'];
+    const chartData = [breakdown.yes || 0, breakdown.no || 0, breakdown.abstain || 0];
+    const chartColors = ['rgb(34, 197, 94)', 'rgb(239, 68, 68)', 'rgb(250, 204, 21)'];
     {% endif %}
+
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                label: 'Votes',
+                data: chartData,
+                backgroundColor: chartColors,
+                borderColor: borderColor,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { labels: { color: legendColor } } }
+        }
+    });
 </script>
 {% endblock %}

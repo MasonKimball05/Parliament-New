@@ -3,14 +3,19 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
+from django.views.decorators.http import require_POST
 from django.utils import timezone
 from django.utils.timezone import make_aware
 from django.utils.dateparse import parse_datetime
 from datetime import timedelta
+from django.db import transaction
 from ..models import Legislation, Vote, Attendance, ParliamentUser, ActivityLog
 from src.utils.file_validation import validate_uploaded_file
 from src.feature_flag_decorators import require_page_enabled
+from src.view.webauthn import check_vote_reauth
+from src.utils.vote_events import broadcast_vote_event
+from src.utils.vote_receipts import make_receipt
 import logging
 
 @login_required
@@ -46,6 +51,26 @@ def vote_view(request):
         if raw_voting_starts_at:
             parsed_voting_starts_at = parse_datetime(raw_voting_starts_at)
             voting_starts_at = make_aware(parsed_voting_starts_at) if parsed_voting_starts_at else None
+
+        # v3.14.0: the "Now" buttons send an explicit is_now flag that the
+        # SERVER resolves — the browser-filled text is cosmetic. This makes
+        # "open it now" immune to any skew between the user's device clock /
+        # timezone and the server's (reported live: Now-filled votes landing
+        # minutes-to-hours in the future and never opening).
+        if request.POST.get('available_at_is_now') == '1':
+            available_at = timezone.now()
+        if request.POST.get('voting_starts_at_is_now') == '1' and voting_starts_at:
+            voting_starts_at = timezone.now()
+
+        # v3.13.3: voting-mode toggle. 'separate' + no start time means voting
+        # stays closed until the author hits "Open Voting Now". Anything else
+        # (including forms that don't send the field — committee push, older
+        # clients) keeps the historical unified behavior: blank start = voting
+        # opens at available_at.
+        voting_manual_open = (
+            request.POST.get('voting_mode_choice') == 'separate'
+            and not voting_starts_at
+        )
 
         # Parse voting_ends_at (optional)
         raw_voting_ends_at = request.POST.get('voting_ends_at')
@@ -98,7 +123,12 @@ def vote_view(request):
                 return redirect('vote')
             required_number = int(required_number)
 
-        if title and description and available_at and (document or vote_mode == 'plurality'):
+        # v3.13.3: document is optional when the description is detailed
+        # (20+ characters — same rule as the legislation tracker's add form)
+        # or for plurality votes.
+        detailed_description = description and len(description.strip()) >= 20
+        if title and description and available_at and (
+                document or vote_mode == 'plurality' or detailed_description):
             new_legislation = Legislation.objects.create(
                 title=title,
                 description=description,
@@ -106,6 +136,7 @@ def vote_view(request):
                 posted_by=user,
                 available_at=available_at,
                 voting_starts_at=voting_starts_at,
+                voting_manual_open=voting_manual_open,
                 voting_ends_at=voting_ends_at,
                 anonymous_vote=anonymous,
                 allow_abstain=allow_abstain,
@@ -137,33 +168,86 @@ def vote_view(request):
                 },
             )
 
-            messages.success(request, "Legislation uploaded successfully.")
+            # v3.13.3: echo back the parsed schedule so any clock/timezone
+            # mismatch is visible immediately instead of surfacing later as
+            # "it opened at the wrong time".
+            _now = timezone.now()
+            _visible = timezone.localtime(available_at)
+            if voting_manual_open:
+                _opens_text = 'when you open it (use "Open Voting Now" on the card)'
+            else:
+                _opens = timezone.localtime(voting_starts_at or available_at)
+                _opens_text = ('now' if (voting_starts_at or available_at) <= _now
+                               else _opens.strftime('%b %d at %I:%M %p'))
+            _msg = "Legislation uploaded — visible {} · voting opens {}.".format(
+                'now' if available_at <= _now else _visible.strftime('%b %d at %I:%M %p'),
+                _opens_text,
+            )
+            # If anything is scheduled for later, show the server's own clock —
+            # makes device-clock/timezone skew instantly visible (v3.14.0)
+            if available_at > _now or (
+                    not voting_manual_open and (voting_starts_at or available_at) > _now):
+                _msg += " Server time is now {}.".format(
+                    timezone.localtime(_now).strftime('%I:%M %p'))
+            messages.success(request, _msg)
+            if available_at <= _now:
+                broadcast_vote_event('opened', new_legislation.id)
+            return redirect('vote')
+        else:
+            # v3.13.3: explain instead of silently ignoring the POST
+            messages.error(
+                request,
+                "Legislation was NOT saved — title, description, and a go-live "
+                "time are required. A document is also required unless the "
+                "description is detailed (at least 20 characters) or it's a "
+                "plurality vote."
+            )
             return redirect('vote')
 
     # Quick attendance marking for officers (no event required)
     if request.method == 'POST' and request.POST.get('action') == 'mark_attendance_quick':
-        if user.member_type in ['Chair', 'Officer']:
-            target_user_id = request.POST.get('target_user_id')
-            new_status = request.POST.get('attendance_status')
-            if target_user_id and new_status in ['present', 'late', 'absent']:
-                now = timezone.now()
-                try:
-                    target = ParliamentUser.objects.get(user_id=target_user_id)
-                    Attendance.objects.update_or_create(
-                        user=target,
-                        date=now.date(),
-                        attendance_type='committee',
-                        committee=None,
-                        defaults={
-                            'status': new_status,
-                            'created_at': now,
-                            'marked_by': user,
-                            'marked_at': now,
-                        }
-                    )
-                except ParliamentUser.DoesNotExist:
-                    pass
-        return redirect('vote')
+        # v3.13.3: respond with JSON so the panel JS can detect failures and
+        # revert its optimistic UI. Previously this redirected to a full page
+        # render per click (and errors were invisible to the panel).
+        if user.member_type not in ['Chair', 'Officer']:
+            return JsonResponse({'ok': False, 'error': 'Not allowed.'}, status=403)
+        target_user_id = request.POST.get('target_user_id')
+        new_status = request.POST.get('attendance_status')
+        if not target_user_id or new_status not in ['present', 'late', 'absent']:
+            return JsonResponse({'ok': False, 'error': 'Invalid request.'}, status=400)
+        try:
+            target = ParliamentUser.objects.get(user_id=target_user_id)
+        except ParliamentUser.DoesNotExist:
+            return JsonResponse({'ok': False, 'error': 'Unknown member.'}, status=404)
+
+        now = timezone.now()
+        lookup = {
+            'user': target,
+            'date': now.date(),
+            'attendance_type': 'committee',
+            'committee': None,
+        }
+        defaults = {
+            'status': new_status,
+            'created_at': now,
+            'marked_by': user,
+            'marked_at': now,
+        }
+        try:
+            Attendance.objects.update_or_create(**lookup, defaults=defaults)
+        except Attendance.MultipleObjectsReturned:
+            # No unique constraint on the lookup keys, so two rapid clicks
+            # could race update_or_create into creating duplicate rows —
+            # after which every subsequent update_or_create for that member
+            # 500s and the panel silently stops saving (v3.13.3). Heal by
+            # keeping the newest row and updating it.
+            dupes = Attendance.objects.filter(**lookup).order_by('-created_at')
+            keep = dupes.first()
+            dupes.exclude(pk=keep.pk).delete()
+            for field, value in defaults.items():
+                setattr(keep, field, value)
+            keep.save()
+        return JsonResponse({'ok': True, 'status': new_status})
 
     # Determine if user is present/late and allowed to vote
     three_hours_ago = timezone.now() - timedelta(hours=3)
@@ -176,10 +260,33 @@ def vote_view(request):
     can_vote = bool(attendance) and user.can_vote
 
     # Handle voting
-    if request.method == 'POST' and ('vote_choice' in request.POST or 'vote_choices' in request.POST) and can_vote:
-        password = request.POST.get('password')
+    # v3.13.3: the form now sends action=cast_vote so a POST with no option
+    # selected still reaches this branch and gets an error message (previously
+    # it fell through and silently re-rendered the page). Same for can_vote —
+    # a stale page + expired 3-hour attendance window used to swallow votes
+    # without any feedback.
+    is_vote_post = request.method == 'POST' and (
+        request.POST.get('action') == 'cast_vote'
+        or 'vote_choice' in request.POST
+        or 'vote_choices' in request.POST
+    )
+    if is_vote_post:
+        if not can_vote:
+            if not user.can_vote:
+                messages.error(request, "Your membership type is not eligible to vote.")
+            else:
+                messages.error(
+                    request,
+                    "Your vote was NOT counted: you aren't marked present within "
+                    "the last 3 hours. Ask an officer to mark your attendance, "
+                    "then vote again."
+                )
+            return redirect('vote')
 
-        if user.check_password(password):
+        # Identity confirmation: password, or passkey (v3.13.3)
+        reauth_ok, reauth_error = check_vote_reauth(request)
+
+        if reauth_ok:
             legislation_id = request.POST.get('legislation_id')
             legislation = get_object_or_404(Legislation, id=legislation_id)
 
@@ -213,9 +320,13 @@ def vote_view(request):
                         messages.error(request, "Invalid vote option.")
                         return redirect('vote')
 
-                # Create a vote record for each selection
-                for choice in vote_choices:
-                    Vote.objects.create(user=user, legislation=legislation, vote_choice=choice)
+                # Create a vote record for each selection — atomic so a
+                # mid-loop failure can't record a partial ballot (v3.13.3)
+                with transaction.atomic():
+                    created_votes = [
+                        Vote.objects.create(user=user, legislation=legislation, vote_choice=choice)
+                        for choice in vote_choices
+                    ]
 
                 logger.info(f"{user.username} voted for {vote_choices} on '{legislation.title}' (ID: {legislation.id}) at {timezone.now()}")
                 if legislation.anonymous_vote:
@@ -234,7 +345,22 @@ def vote_view(request):
                     object_repr=legislation.title,
                     metadata=_vote_meta,
                 )
-                messages.success(request, f"Your {len(vote_choices)} vote(s) have been submitted.")
+                # v3.14.0 fix: mint the receipt AT CAST TIME from the rows just
+                # created — this is the only moment the choices are known-good.
+                # My Ballots regenerates from current DB rows and stays as the
+                # convenience re-issue.
+                request.session['fresh_vote_receipt'] = {
+                    'token': make_receipt(user, legislation, created_votes,
+                                          cast_at=created_votes[0].cast_at),
+                    'legislation_title': legislation.title,
+                }
+                messages.success(
+                    request,
+                    f"Your {len(vote_choices)} vote(s) have been submitted. "
+                    "Copy your receipt below — it can also be re-issued under "
+                    "My Work → My Ballots."
+                )
+                broadcast_vote_event('tally', legislation.id)
             else:
                 # Single-select voting (percentage, piecewise, or plurality with 1 vote)
                 vote_choice = request.POST.get('vote_choice')
@@ -249,7 +375,7 @@ def vote_view(request):
                     messages.error(request, "Invalid vote option.")
                     return redirect('vote')
 
-                Vote.objects.create(user=user, legislation=legislation, vote_choice=vote_choice)
+                new_vote = Vote.objects.create(user=user, legislation=legislation, vote_choice=vote_choice)
                 logger.info(f"{user.username} voted '{vote_choice}' on '{legislation.title}' (ID: {legislation.id}) at {timezone.now()}")
                 if legislation.anonymous_vote:
                     _vote_desc = f'{user.name} cast a vote on "{legislation.title}" (anonymous)'
@@ -267,22 +393,33 @@ def vote_view(request):
                     object_repr=legislation.title,
                     metadata=_vote_meta,
                 )
-                messages.success(request, "Your vote has been submitted.")
+                # v3.14.0 fix: mint the receipt at cast time (see plurality path)
+                request.session['fresh_vote_receipt'] = {
+                    'token': make_receipt(user, legislation, [new_vote],
+                                          cast_at=new_vote.cast_at),
+                    'legislation_title': legislation.title,
+                }
+                messages.success(
+                    request,
+                    "Your vote has been submitted. Copy your receipt below — "
+                    "it can also be re-issued under My Work → My Ballots."
+                )
+                broadcast_vote_event('tally', legislation.id)
 
             return redirect('vote')
         else:
-            messages.error(request, "Incorrect password.")
+            messages.error(request, reauth_error)
             return redirect('vote')
 
     # Gather available legislation
     # Show legislation that is available OR pending legislation created by the current user
     # Exclude tabled, passed, failed, and removed legislation
-    available_legislation = Legislation.objects.filter(
+    available_legislation = list(Legislation.objects.filter(
         Q(available_at__lte=timezone.now()) | Q(posted_by=user),
         voting_closed=False
     ).exclude(
         status__in=['pending', 'tabled', 'passed', 'failed', 'removed']
-    ).order_by('-available_at')
+    ).order_by('-available_at'))
 
     # Build vote data for uploader
     vote_data = {}
@@ -324,9 +461,40 @@ def vote_view(request):
             1 for m in members_attendance if m['status'] in ('present', 'late')
         )
 
+        # v3.14.0: live turnout per open vote — ballots cast vs voting-eligible
+        # members currently present, plus who hasn't voted yet (names only;
+        # reveals participation, never choices — anonymous-vote safe).
+        _present_voters = [
+            m['member'] for m in members_attendance
+            if m['status'] in ('present', 'late') and m['member'].can_vote
+        ]
+        for leg in available_legislation:
+            if leg.voting_closed or not leg.voting_has_started():
+                continue
+            _voter_pks = set(
+                Vote.objects.filter(legislation=leg).values_list('user', flat=True))
+            leg.turnout_info = {
+                'voted': len(_voter_pks),
+                'present': len(_present_voters),
+                'not_voted': [m for m in _present_voters if m.pk not in _voter_pks],
+            }
+
+    # v3.14.0: legislation the user already voted on — the template shows a
+    # "vote recorded" state instead of re-offering the ballot form
+    user_voted = set(
+        Vote.objects.filter(user=user, legislation__in=available_legislation)
+        .values_list('legislation_id', flat=True))
+
+    # One-shot: the receipt minted at cast time (set in the POST branch above,
+    # shown exactly once after the redirect, then gone from the session).
+    fresh_receipt = request.session.pop('fresh_vote_receipt', None)
+
     return render(request, 'vote.html', {
         'profile': user,
         'can_vote': can_vote,
+        'fresh_receipt': fresh_receipt,
+        'user_voted': user_voted,
+        'has_passkeys': user.webauthn_credentials.exists(),
         'legislation': available_legislation,
         'vote_data': vote_data,
         'default_vote_mode': 'percentage',
@@ -335,6 +503,97 @@ def vote_view(request):
         'members_attendance': members_attendance,
         'attendance_present_count': attendance_present_count,
     })
+
+
+@login_required
+def verify_vote_receipt(request):
+    """
+    v3.14.0 — vote receipt verification: checks the signature, that the
+    ballots still exist, and that the recorded choices are unchanged. Choices
+    themselves are never displayed (receipts are anonymous-vote safe).
+    """
+    from src.utils.vote_receipts import verify_receipt
+    result = None
+    # v3.14.0: My Ballots links prefill the token via ?receipt=
+    initial_receipt = request.GET.get('receipt', '')
+    if request.method == 'POST':
+        result = verify_receipt(request.POST.get('receipt', ''))
+        if result.get('valid'):
+            result['is_yours'] = result.get('voter_pk') == request.user.pk
+            if result.get('cast_at'):
+                from datetime import datetime, timezone as _dt_tz
+                result['cast_at_dt'] = datetime.fromtimestamp(
+                    result['cast_at'], tz=_dt_tz.utc)
+    return render(request, 'vote_receipt_verify.html', {
+        'result': result,
+        'initial_receipt': initial_receipt,
+    })
+
+
+@login_required
+@require_POST
+def open_legislation_now(request, legislation_id):
+    """
+    v3.13.3 "Now" buttons: instantly reveal scheduled legislation and/or open
+    voting, without editing timestamps by hand.
+
+    mode=show — make the document available now (voting keeps its scheduled
+                start, if one is set)
+    mode=open — make it available AND start voting now
+
+    Author or admin only. Other members' pages pick the change up within one
+    poll cycle (votable_ids reload).
+    """
+    legislation = get_object_or_404(Legislation, id=legislation_id)
+    if request.user != legislation.posted_by and not request.user.is_admin:
+        return HttpResponseForbidden("Only the uploader or an admin can open this legislation.")
+    if legislation.voting_closed:
+        messages.error(request, "Voting on this legislation has already ended.")
+        return redirect('vote')
+
+    mode = 'show' if request.POST.get('mode') == 'show' else 'open'
+    now = timezone.now()
+    update_fields = []
+
+    if legislation.available_at and legislation.available_at > now:
+        legislation.available_at = now
+        update_fields.append('available_at')
+    if mode == 'open':
+        if legislation.voting_starts_at and legislation.voting_starts_at > now:
+            legislation.voting_starts_at = now
+            update_fields.append('voting_starts_at')
+        elif legislation.voting_manual_open and not legislation.voting_starts_at:
+            # Manual-open mode: this click IS the act of opening voting
+            legislation.voting_starts_at = now
+            update_fields.append('voting_starts_at')
+
+    if update_fields:
+        legislation.save(update_fields=update_fields)
+        ActivityLog.log_activity(
+            action_type='legislation_created',
+            user=request.user,
+            description=(
+                f'{request.user.name} opened "{legislation.title}" early '
+                f'({"voting started" if mode == "open" else "made visible"} via Now button)'
+            ),
+            request=request,
+            object_type='Legislation',
+            object_id=legislation.id,
+            object_repr=legislation.title,
+            metadata={'action': 'open_now', 'mode': mode,
+                      'fields_advanced': update_fields},
+        )
+        if legislation.voting_has_started():
+            messages.success(request, f'"{legislation.title}" is now open for voting.')
+        else:
+            messages.success(
+                request,
+                f'"{legislation.title}" is now visible; voting opens at its scheduled time.'
+            )
+        broadcast_vote_event('opened', legislation.id)
+    else:
+        messages.info(request, "This legislation is already open.")
+    return redirect('vote')
 
 
 @login_required
@@ -383,4 +642,13 @@ def vote_tally_json(request):
     for leg in recently_closed:
         tallies[leg.id] = {'closed': True}
 
-    return JsonResponse({'tallies': tallies})
+    # v3.13.3: IDs currently open for voting, from this user's perspective.
+    # The page JS compares this against its baseline and reloads when a vote
+    # opens — previously legislation whose available_at / voting_starts_at
+    # passed while members were sitting on the page never appeared without a
+    # manual refresh ("it doesn't open on its own").
+    votable_ids = sorted(
+        leg.id for leg in active_legislation if leg.voting_has_started()
+    )
+
+    return JsonResponse({'tallies': tallies, 'votable_ids': votable_ids})

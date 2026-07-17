@@ -100,3 +100,37 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return channel.can_read(user)
         except ChatChannel.DoesNotExist:
             return False
+
+
+class VoteConsumer(AsyncWebsocketConsumer):
+    """
+    v3.14.0 — live vote-page updates.
+
+    Clients connect at /ws/votes/ and join the shared `vote_updates` group.
+    Receive-only: the server broadcasts {'event': 'opened'|'closed'|'tally',
+    'leg_id': N} pings via src.utils.vote_events.broadcast_vote_event, and the
+    page reacts by re-running its tally poll (which enforces per-user
+    visibility server-side). No ballot data travels over the socket.
+    """
+
+    GROUP = 'vote_updates'
+
+    async def connect(self):
+        user = self.scope.get('user')
+        if not user or not user.is_authenticated:
+            await self.close()
+            return
+        await self.channel_layer.group_add(self.GROUP, self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(self.GROUP, self.channel_name)
+
+    async def receive(self, text_data):
+        pass  # receive-only
+
+    async def vote_event(self, event):
+        await self.send(text_data=json.dumps({
+            'event': event['event'],
+            'leg_id': event['leg_id'],
+        }))

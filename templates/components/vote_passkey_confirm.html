@@ -1,0 +1,155 @@
+{% comment %}
+Shared vote-confirmation script (v3.13.3). Include ONCE at the bottom of any
+page with vote forms. Provides:
+  1. Passkey confirmation — wires every `.js-vote-passkey` button (render them
+     only when `has_passkeys`): begin → navigator.credentials.get → complete,
+     then submits the form with auth_method=passkey. Server side, the one-shot
+     session grant is consumed by check_vote_reauth().
+  2. Selection guard — a vote form submitted with no option selected is
+     blocked with a message instead of silently POSTing nothing.
+  3. Double-submit guard — the submit button is disabled once a valid submit
+     is in flight, preventing duplicate votes from double-clicks.
+Vote forms must carry class="js-vote-form". An optional
+<p class="js-passkey-error hidden"> inside the form shows passkey errors.
+{% endcomment %}
+<script nonce="{{ request.csp_nonce }}">
+(function () {
+    'use strict';
+
+    function bufToBase64url(buf) {
+        const bytes = new Uint8Array(buf);
+        let str = '';
+        for (const b of bytes) str += String.fromCharCode(b);
+        return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    }
+    function base64urlToBuf(str) {
+        str = str.replace(/-/g, '+').replace(/_/g, '/');
+        while (str.length % 4) str += '=';
+        const binary = atob(str);
+        const buf = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) buf[i] = binary.charCodeAt(i);
+        return buf;
+    }
+    function getCsrf(form) {
+        const el = (form && form.querySelector('[name=csrfmiddlewaretoken]'))
+            || document.querySelector('[name=csrfmiddlewaretoken]');
+        return el ? el.value : '';
+    }
+
+    // True if the form has a vote option selected (or uses per-item inputs
+    // this generic check can't see, e.g. slating individual ballots —
+    // those are validated server-side).
+    function hasChoice(form) {
+        if (form.querySelector('input[name="vote_choice"]:checked')) return true;
+        if (form.querySelectorAll('input[name="vote_choices"]:checked').length > 0) return true;
+        if (!form.querySelector('input[name="vote_choice"], input[name="vote_choices"]')) return true;
+        return false;
+    }
+
+    // ── 1. Passkey confirmation ──
+    document.querySelectorAll('.js-vote-passkey').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+            const form = btn.closest('form');
+            const errEl = form.querySelector('.js-passkey-error');
+            if (errEl) errEl.classList.add('hidden');
+
+            if (!hasChoice(form)) {
+                alert('Please select an option before confirming your vote.');
+                return;
+            }
+            if (!window.PublicKeyCredential) {
+                alert('This browser does not support passkeys — please confirm with your password.');
+                return;
+            }
+
+            const original = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Waiting for passkey…';
+            try {
+                const beginResp = await fetch('{% url "passkey_reauth_begin" %}', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCsrf(form) },
+                });
+                if (!beginResp.ok) {
+                    const err = await beginResp.json().catch(() => ({}));
+                    throw new Error(err.error || 'Could not start passkey confirmation.');
+                }
+                const options = await beginResp.json();
+                options.challenge = base64urlToBuf(options.challenge);
+                if (options.allowCredentials) {
+                    options.allowCredentials = options.allowCredentials.map(c => ({
+                        ...c, id: base64urlToBuf(c.id),
+                    }));
+                }
+
+                const assertion = await navigator.credentials.get({ publicKey: options });
+
+                const payload = {
+                    id: assertion.id,
+                    rawId: bufToBase64url(assertion.rawId),
+                    type: assertion.type,
+                    response: {
+                        clientDataJSON: bufToBase64url(assertion.response.clientDataJSON),
+                        authenticatorData: bufToBase64url(assertion.response.authenticatorData),
+                        signature: bufToBase64url(assertion.response.signature),
+                        userHandle: assertion.response.userHandle
+                            ? bufToBase64url(assertion.response.userHandle) : null,
+                    },
+                };
+                const completeResp = await fetch('{% url "passkey_reauth_complete" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCsrf(form),
+                    },
+                    body: JSON.stringify(payload),
+                });
+                const result = await completeResp.json().catch(() => ({}));
+                if (!completeResp.ok) throw new Error(result.error || 'Passkey confirmation failed.');
+
+                // Mark the auth method and submit. form.submit() skips HTML
+                // constraint validation, so the untouched (required) password
+                // field doesn't block the passkey path.
+                let method = form.querySelector('input[name="auth_method"]');
+                if (!method) {
+                    method = document.createElement('input');
+                    method.type = 'hidden';
+                    method.name = 'auth_method';
+                    form.appendChild(method);
+                }
+                method.value = 'passkey';
+                form.submit();
+            } catch (err) {
+                if (err.name !== 'NotAllowedError') { // NotAllowedError = user cancelled
+                    if (errEl) {
+                        errEl.textContent = err.message || 'Passkey confirmation failed.';
+                        errEl.classList.remove('hidden');
+                    } else {
+                        alert(err.message || 'Passkey confirmation failed.');
+                    }
+                }
+                btn.disabled = false;
+                btn.textContent = original;
+            }
+        });
+    });
+
+    // ── 2 + 3. Selection guard and double-submit guard (password path) ──
+    document.querySelectorAll('form.js-vote-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            if (!hasChoice(form)) {
+                e.preventDefault();
+                alert('Please select an option before submitting your vote.');
+                return;
+            }
+            if (form.dataset.submitted === '1') {
+                e.preventDefault();
+                return;
+            }
+            form.dataset.submitted = '1';
+            const submitBtn = form.querySelector('[type="submit"]');
+            if (submitBtn) setTimeout(function () { submitBtn.disabled = true; }, 0);
+        });
+    });
+})();
+</script>

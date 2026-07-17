@@ -400,8 +400,12 @@ def send_daily_digest():
         from src.models import Legislation, Vote, Announcement
         from django.db.models import Count as _DCount
 
-        if Legislation.objects.filter(status='active', voting_closed=True, is_active=True).count():
-            flag('medium', 'Legislation', f"{Legislation.objects.filter(status='active', voting_closed=True, is_active=True).count()} legislation item(s) are status='active' but voting_closed=True")
+        # v3.13.3: open legislation is status='draft' in practice ('active' was
+        # never assigned by any code path) — check both.
+        _open_closed = Legislation.objects.filter(
+            status__in=('active', 'draft'), voting_closed=True, is_active=True).count()
+        if _open_closed:
+            flag('medium', 'Legislation', f"{_open_closed} legislation item(s) have an open status but voting_closed=True")
 
         passed_mismatch = Legislation.objects.filter(passed=True, is_active=True).exclude(status='passed').count()
         if passed_mismatch:
@@ -412,7 +416,7 @@ def send_daily_digest():
             flag('low', 'Legislation', f"{orphan_votes} vote records belong to inactive legislation")
 
         now = timezone.now()
-        stale_active = Legislation.objects.filter(status='active', voting_closed=False, is_active=True, voting_starts_at__lt=now - timezone.timedelta(days=30)).count()
+        stale_active = Legislation.objects.filter(status__in=('active', 'draft'), voting_closed=False, is_active=True, voting_starts_at__lt=now - timezone.timedelta(days=30)).count()
         if stale_active:
             flag('low', 'Legislation', f"{stale_active} legislation item(s) have been open for voting for 30+ days")
 
@@ -1281,8 +1285,9 @@ def fire_scheduled_notifications():
         # Optionally filters to members who haven't voted yet.
         # =====================================================================
         elif schedule.notification_type == 'vote_reminder':
+            # v3.13.3: dropped status='active' — it never matched (open
+            # legislation is status='draft'), so vote reminders never fired.
             leg_qs = Legislation.objects.filter(
-                status='active',
                 voting_closed=False,
                 is_active=True,
                 voting_ends_at__isnull=False,

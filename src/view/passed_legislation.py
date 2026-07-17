@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.utils import timezone
@@ -15,6 +16,30 @@ from src.feature_flag_decorators import require_page_enabled
 logger = logging.getLogger(__name__)
 from datetime import timedelta
 
+
+def _present_members_in_window(vote_start, vote_end):
+    """
+    Latest present/late attendance row per user within the window.
+
+    v3.13.3: replaces `.distinct('user_id')` (DISTINCT ON — postgres-only,
+    broke the page on sqlite dev) with a Python dedupe; row counts here are
+    tiny (≤ chapter size per meeting). Status-based (was present=True): the
+    legacy bool is False for 'late' members, who were in the room and voted.
+    """
+    rows = (
+        Attendance.objects
+        .filter(status__in=('present', 'late'),
+                created_at__range=(vote_start, vote_end))
+        .order_by('user_id', '-created_at')
+        .select_related('user')
+    )
+    seen, latest = set(), []
+    for att in rows:
+        if att.user_id not in seen:
+            seen.add(att.user_id)
+            latest.append(att)
+    return latest
+
 @login_required
 @require_page_enabled('passed_legislation')
 @log_function_call
@@ -27,18 +52,66 @@ def passed_legislation(request):
     all_legislation = Legislation.objects.filter(is_active=True).exclude(status='removed')
 
     # Apply status filter
-    if status_filter == 'pending':
+    # v3.13.3: most legislation has voting_starts_at=NULL (the vote-page
+    # upload and committee push don't set it — voting then starts at
+    # available_at), and NULL fails both __gt and __lte, so those items were
+    # invisible to the Pending AND Active tabs. Each branch now falls back to
+    # available_at when voting_starts_at is NULL.
+    # The pending tab only shows not-yet-available legislation to its author —
+    # matching the vote page, which promises scheduled legislation is "not yet
+    # visible to others" (previously any member could preview scheduled items
+    # here).
+    _pending_q = Q(status='pending') | (
+        Q(voting_closed=False) & (
+            Q(voting_starts_at__gt=now) |
+            Q(voting_starts_at__isnull=True, available_at__gt=now) |
+            # manual-open mode: voting waits for the author (v3.13.3)
+            Q(voting_starts_at__isnull=True, voting_manual_open=True)
+        ) & (Q(available_at__lte=now) | Q(posted_by=request.user))
+    )
+    _active_q = Q(status='active') | (
+        Q(voting_closed=False) & (
+            Q(voting_starts_at__lte=now) |
+            Q(voting_starts_at__isnull=True, available_at__lte=now,
+              voting_manual_open=False)
+        )
+    )
+
+    personal_ballots = None
+    if status_filter == 'personal':
+        # v3.14.0: Personal tab — your own ballots, results, and receipts.
+        # Receipts are stateless (regenerated on demand) and verifiable for
+        # RECEIPT_MAX_AGE_DAYS; older ballots show an expired notice instead.
+        from src.utils.vote_receipts import make_receipt, RECEIPT_MAX_AGE_DAYS
+        my_votes = (Vote.objects.filter(user=request.user)
+                    .select_related('legislation')
+                    .order_by('-id'))
+        _grouped = {}
+        for v in my_votes:
+            _grouped.setdefault(v.legislation_id, []).append(v)
+        cutoff = now - timedelta(days=RECEIPT_MAX_AGE_DAYS)
+        personal_ballots = []
+        for rows in _grouped.values():
+            leg = rows[0].legislation
+            cast_at = rows[0].cast_at
+            fresh = bool(cast_at and cast_at >= cutoff)
+            personal_ballots.append({
+                'legislation': leg,
+                'choices': [r.vote_choice for r in rows],
+                'cast_at': cast_at,
+                'receipt': make_receipt(request.user, leg, rows, cast_at=cast_at) if fresh else None,
+                'receipt_expired': bool(cast_at and cast_at < cutoff),
+            })
+        personal_ballots.sort(
+            key=lambda b: b['cast_at'] or now - timedelta(days=3650), reverse=True)
+        queryset = all_legislation.none()
+    elif status_filter == 'pending':
         # Pending: voting hasn't started yet
-        queryset = all_legislation.filter(
-            Q(status='pending') |
-            (Q(voting_starts_at__gt=now) & Q(voting_closed=False))
-        ).order_by('-available_at')
+        queryset = all_legislation.filter(_pending_q).order_by('-available_at')
     elif status_filter == 'active':
         # Active: voting is open
-        queryset = all_legislation.filter(
-            Q(status='active') |
-            (Q(voting_closed=False) & Q(voting_starts_at__lte=now))
-        ).exclude(status__in=['tabled', 'removed']).order_by('-available_at')
+        queryset = all_legislation.filter(_active_q).exclude(
+            status__in=['tabled', 'removed']).order_by('-available_at')
     elif status_filter == 'passed':
         queryset = all_legislation.filter(Q(status='passed') | Q(passed=True, voting_closed=True)).order_by('-voting_ended_at')
     elif status_filter == 'failed':
@@ -55,17 +128,16 @@ def passed_legislation(request):
     # Count for each status tab
     status_counts = {
         'all': all_legislation.filter(voting_closed=True).count(),
-        'pending': all_legislation.filter(
-            Q(status='pending') | (Q(voting_starts_at__gt=now) & Q(voting_closed=False))
-        ).count(),
-        'active': all_legislation.filter(
-            Q(status='active') | (Q(voting_closed=False) & Q(voting_starts_at__lte=now))
-        ).exclude(status__in=['tabled', 'removed', 'pending']).count(),
+        'pending': all_legislation.filter(_pending_q).count(),
+        'active': all_legislation.filter(_active_q).exclude(
+            status__in=['tabled', 'removed', 'pending']).count(),
         'passed': all_legislation.filter(Q(status='passed') | Q(passed=True, voting_closed=True)).count(),
         'failed': all_legislation.filter(
             Q(status='failed') | (Q(passed=False) & Q(voting_closed=True))
         ).exclude(status__in=['passed', 'tabled', 'removed']).count(),
         'tabled': all_legislation.filter(status='tabled').count(),
+        'personal': Vote.objects.filter(user=request.user)
+                        .values('legislation').distinct().count(),
     }
 
     # Annotate vote counts onto the queryset so the loop makes zero per-leg
@@ -146,11 +218,8 @@ def passed_legislation(request):
             vote_end = leg.voting_ended_at or leg.voting_starts_at or leg.available_at
             vote_start = vote_end - timedelta(hours=6)
 
-            # Only get the latest attendance record per user in the window
-            present_members = Attendance.objects.filter(
-                present=True,
-                created_at__range=(vote_start, vote_end)
-            ).order_by('user_id', '-created_at').distinct('user_id').select_related('user')
+            # Only the latest attendance record per user in the window
+            present_members = _present_members_in_window(vote_start, vote_end)
 
         # Calculate percentages for display
         if leg.vote_mode != 'plurality':
@@ -193,10 +262,15 @@ def passed_legislation(request):
         'total_count': paginator.count,
         'status_filter': status_filter,
         'status_counts': status_counts,
+        'personal_ballots': personal_ballots,
     })
 
 
-class PassedLegislationDetailView(DetailView):
+class PassedLegislationDetailView(LoginRequiredMixin, DetailView):
+    # v3.13.3: LoginRequiredMixin added — this view had NO auth check (the
+    # function views here use @login_required, but this CBV had no mixin and
+    # there is no global login middleware), so vote results, individual voter
+    # names/choices, and the present-members list were publicly accessible.
     model = Legislation
     template_name = 'src/legislation_detail.html'
     context_object_name = 'legislation'
@@ -260,12 +334,7 @@ class PassedLegislationDetailView(DetailView):
         if total_cast > 0:
             vote_end = legislation.voting_ended_at or legislation.voting_starts_at or legislation.available_at
             vote_start = vote_end - timedelta(hours=6)
-            context['present_members'] = (
-                Attendance.objects.filter(
-                    present=True,
-                    created_at__range=(vote_start, vote_end)
-                ).order_by('user_id', '-created_at').distinct('user_id').select_related('user')
-            )
+            context['present_members'] = _present_members_in_window(vote_start, vote_end)
 
         return context
 

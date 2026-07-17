@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.contrib.auth import authenticate
 from datetime import timedelta
 from src.models import Committee, CommitteeLegislation, CommitteeVote, Attendance, ActivityLog
+from src.view.webauthn import check_vote_reauth
 import logging
 
 logger = logging.getLogger('function_calls')
@@ -39,10 +40,13 @@ def committee_vote(request, code):
 
     # Determine if user is present (same logic as chapter voting)
     three_hours_ago = timezone.now() - timedelta(hours=3)
+    # v3.13.3: filter on status (like chapter voting) instead of the legacy
+    # `present` boolean — that field misses 'late' members and can go stale
+    # (Attendance.save() syncs it, but saves with update_fields skip the sync).
     attendance = Attendance.objects.filter(
         user=user,
         created_at__gte=three_hours_ago,
-        present=True
+        status__in=['present', 'late']
     ).order_by('-created_at').first()
     can_vote = bool(attendance) and is_voting_member
 
@@ -166,10 +170,29 @@ def committee_vote(request, code):
         return redirect('vote', code=code)
 
     # Handle voting
-    if request.method == 'POST' and ('vote_choice' in request.POST or 'vote_choices' in request.POST) and can_vote:
-        password = request.POST.get('password')
+    # v3.13.3: action=cast_vote + explicit can_vote errors — see vote_view.py
+    is_vote_post = request.method == 'POST' and (
+        request.POST.get('action') == 'cast_vote'
+        or 'vote_choice' in request.POST
+        or 'vote_choices' in request.POST
+    )
+    if is_vote_post:
+        if not can_vote:
+            if not is_voting_member:
+                messages.error(request, "You aren't a voting member of this committee.")
+            else:
+                messages.error(
+                    request,
+                    "Your vote was NOT counted: you aren't marked present within "
+                    "the last 3 hours. Ask the chair to mark your attendance, "
+                    "then vote again."
+                )
+            return redirect('committee_vote', code=code)
 
-        if user.check_password(password):
+        # Identity confirmation: password, or passkey (v3.13.3)
+        reauth_ok, reauth_error = check_vote_reauth(request)
+
+        if reauth_ok:
             legislation_id = request.POST.get('legislation_id')
             legislation = get_object_or_404(CommitteeLegislation, id=legislation_id)
 
@@ -253,7 +276,7 @@ def committee_vote(request, code):
 
             return redirect('committee_vote', code=code)
         else:
-            messages.error(request, "Incorrect password.")
+            messages.error(request, reauth_error)
             return redirect('committee_vote', code=code)
 
     # Get available (active) legislation for this committee
@@ -297,6 +320,7 @@ def committee_vote(request, code):
         'committee': committee,
         'profile': user,
         'can_vote': can_vote,
+        'has_passkeys': user.webauthn_credentials.exists(),
         'is_chair': is_chair,
         'is_voting_member': is_voting_member,
         'legislation': available_legislation,

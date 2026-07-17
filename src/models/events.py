@@ -343,6 +343,12 @@ class Attendance(models.Model):
     def save(self, *args, **kwargs):
         # Update legacy 'present' field based on status
         self.present = self.status == 'present'
+        # v3.13.3: update_or_create() saves with update_fields (Django ≥4.2),
+        # which silently skipped this sync — the quick-attendance panel could
+        # set status='present' while the legacy present bool stayed False.
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None and 'present' not in update_fields:
+            kwargs['update_fields'] = list(update_fields) + ['present']
         super().save(*args, **kwargs)
 
 

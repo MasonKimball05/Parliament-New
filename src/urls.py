@@ -166,7 +166,7 @@ from src.view.officer.chapter_stats import chapter_stats
 from src.view.pledge_tasks import my_pledge_tasks, pledge_take_quiz
 from src.view.home import home
 from src.view.landing import landing_page, contact_submit
-from src.view.vote_view import vote_view, vote_tally_json
+from src.view.vote_view import vote_view, vote_tally_json, open_legislation_now, verify_vote_receipt
 from src.view.push_notifications import push_subscribe, push_unsubscribe, service_worker
 from src.view.two_factor import (
     two_factor_setup, two_factor_qrcode, two_factor_verify,
@@ -180,6 +180,7 @@ from src.view.webauthn import (
     passkey_register_begin, passkey_register_complete,
     passkey_authenticate_begin, passkey_authenticate_complete,
     passkey_delete, passkey_rename,
+    passkey_reauth_begin, passkey_reauth_complete,
 )
 from src.view.admin_two_factor import (
     two_factor_dashboard as admin_v2_two_factor_dashboard,
@@ -544,6 +545,8 @@ urlpatterns = [
     # Legislation / Voting Pages
     path('vote/', vote_view, name='vote'),
     path('vote/tally/', vote_tally_json, name='vote_tally'),
+    path('vote/open-now/<int:legislation_id>/', open_legislation_now, name='open_legislation_now'),
+    path('vote/verify-receipt/', verify_vote_receipt, name='verify_vote_receipt'),
     path('service-worker.js', service_worker, name='service_worker'),
     path('push/subscribe/', push_subscribe, name='push_subscribe'),
     path('push/unsubscribe/', push_unsubscribe, name='push_unsubscribe'),
@@ -796,6 +799,8 @@ urlpatterns = [
     path('accounts/passkeys/authenticate/complete/', passkey_authenticate_complete, name='passkey_authenticate_complete'),
     path('accounts/passkeys/<int:pk>/delete/', passkey_delete, name='passkey_delete'),
     path('accounts/passkeys/<int:pk>/rename/', passkey_rename, name='passkey_rename'),
+    path('accounts/passkeys/reauth/begin/', passkey_reauth_begin, name='passkey_reauth_begin'),
+    path('accounts/passkeys/reauth/complete/', passkey_reauth_complete, name='passkey_reauth_complete'),
 
     # Session Management
     path('account/sessions/', session_list, name='session_list'),
