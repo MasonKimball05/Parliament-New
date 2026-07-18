@@ -331,4 +331,8 @@ def serve_exportable_media(request, filename):
     # Serve the file
     response = FileResponse(open(resolved_path, 'rb'), content_type=content_type)
     response['Content-Disposition'] = f'inline; filename="{os.path.basename(resolved_path)}"'
+    # v3.14.1: without this, every page load re-fetched these assets through
+    # the full Django stack (and nothing could cache them). private: they're
+    # behind login; the public seal now lives in /static/ instead.
+    response['Cache-Control'] = 'private, max-age=86400'
     return response

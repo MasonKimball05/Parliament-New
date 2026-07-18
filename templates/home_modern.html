@@ -17,7 +17,7 @@
             <p class="text-sm opacity-85 mt-0.5">{{ user.member_type }}{% if not user.is_pledge %} · {{ user.user_id }}{% endif %}</p>
         </div>
         <button id="coat-modal-open" class="flex-shrink-0 focus:outline-none group flex flex-col items-center gap-1">
-            <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-0.5 shadow-lg transition-transform duration-200 group-hover:scale-110 cursor-pointer">
+            <img src="{% static 'images/am-coat-of-arms.png' %}" alt="Alpha Mu Coat of Arms" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-0.5 shadow-lg transition-transform duration-200 group-hover:scale-110 cursor-pointer">
             <span class="text-white/80 text-center leading-tight">
                 <span class="block text-xs">Ἀρετὴ Μονάζει</span>
                 <span class="block text-xs italic opacity-75">Virtue Stands Alone</span>
@@ -31,7 +31,7 @@
             <button id="coat-modal-close" class="absolute -top-3 -right-3 w-8 h-8 bg-white dark:bg-gray-700 rounded-full shadow-lg flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white z-10">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
-            <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms" class="w-full rounded-lg shadow-2xl bg-white p-4">
+            <img src="{% static 'images/am-coat-of-arms.png' %}" alt="Alpha Mu Coat of Arms" class="w-full rounded-lg shadow-2xl bg-white p-4">
             <p class="text-center text-white text-sm mt-3 font-medium opacity-90">"Virtue Stands Alone" — Alpha Mu Chapter, Beta Theta Pi</p>
         </div>
     </div>
@@ -81,6 +81,27 @@
             </div>
         </a>
     </div>
+
+    <!-- ── TRANSITION CHECKLIST CARD (v3.14.1) ───────────────────── -->
+    {% for cl in transition_checklists %}
+    <div class="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-5">
+        <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                </div>
+                <div class="min-w-0">
+                    <p class="text-sm font-bold text-amber-900 dark:text-amber-100 truncate">Transition Checklist — {{ cl.role_history__role_name }}</p>
+                    <p class="text-xs text-amber-700 dark:text-amber-300 mt-0.5">{{ cl.done }}/{{ cl.total }} task{{ cl.total|pluralize }} complete</p>
+                </div>
+            </div>
+            <a href="{% url 'transition_checklist' role_history_id=cl.role_history_id %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-amber-300 dark:border-amber-600 text-amber-800 dark:text-amber-200 bg-white dark:bg-gray-800 hover:bg-amber-50 dark:hover:bg-amber-900/30 text-xs font-medium rounded-lg transition-colors shrink-0">Continue →</a>
+        </div>
+        <div class="mt-3 h-2 bg-amber-100 dark:bg-amber-900/40 rounded-full overflow-hidden">
+            <div class="h-full bg-amber-500 rounded-full transition-all" style="width: {% widthratio cl.done cl.total 100 %}%"></div>
+        </div>
+    </div>
+    {% endfor %}
 
     <!-- ── SLATING CARD ──────────────────────────────────────────── -->
     {% if show_slating_card %}

@@ -891,3 +891,97 @@ class AlreadyVotedStateTests(TestCase):
         self.assertNotIn(f'name="legislation_id" value="{leg.id}"', content)
         self.assertContains(page, 'Your vote has been recorded')
         self.assertContains(page, 'View your ballot')
+
+
+class SplitEndpointTests(TestCase):
+    """v3.14.1 — vote_view POST multiplex split into dedicated endpoints.
+
+    The classes above still POST to reverse('vote'), which now exercises the
+    legacy dispatcher (kept so tabs opened before the deploy aren't silently
+    dropped) — do NOT "modernize" them, that coverage is intentional. This
+    class hits the new endpoints directly, which is what vote.html now does.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.client = Client()
+        self.officer = ParliamentUser.objects.create_user(
+            user_id='se1', name='Split Officer', username='se1',
+            member_type='Officer')
+        self.officer.set_password('testpass')
+        self.officer.save()
+        self.member = ParliamentUser.objects.create_user(
+            user_id='se2', name='Split Member', username='se2',
+            member_type='Member')
+        self.member.set_password('testpass')
+        self.member.save()
+        self.client.force_login(self.officer)
+        Attendance.objects.create(user=self.officer, status='present')
+        self.leg = Legislation.objects.create(
+            title='Split Endpoint Leg', description='D',
+            posted_by=self.officer, available_at=timezone.now(),
+            vote_mode='percentage', required_percentage='51',
+            document='test.pdf')
+
+    def test_cast_vote_endpoint_records_vote(self):
+        resp = self.client.post(reverse('cast_vote'), {
+            'action': 'cast_vote',
+            'legislation_id': self.leg.id,
+            'vote_choice': 'yes',
+            'password': 'testpass',
+        }, follow=True)
+        self.assertTrue(Vote.objects.filter(
+            user=self.officer, legislation=self.leg,
+            vote_choice='yes').exists())
+        self.assertRedirects(resp, reverse('vote'))
+
+    def test_cast_vote_endpoint_rejects_get(self):
+        self.assertEqual(self.client.get(reverse('cast_vote')).status_code, 405)
+
+    def test_upload_endpoint_creates_legislation(self):
+        stamp = timezone.localtime().strftime('%Y-%m-%dT%H:%M')
+        self.client.post(reverse('upload_chapter_legislation'), {
+            'title': 'Split Upload Leg',
+            'description': 'A sufficiently detailed description of this item.',
+            'available_at': stamp,
+            'available_at_is_now': '1',
+            'vote_mode': 'percentage',
+            'required_percentage': '51',
+        })
+        self.assertTrue(
+            Legislation.objects.filter(title='Split Upload Leg').exists())
+
+    def test_upload_endpoint_rejects_non_officer(self):
+        self.client.force_login(self.member)
+        resp = self.client.post(reverse('upload_chapter_legislation'), {
+            'title': 'Sneaky Leg',
+            'description': 'A sufficiently detailed description of this item.',
+            'available_at': timezone.localtime().strftime('%Y-%m-%dT%H:%M'),
+        }, follow=True)
+        self.assertFalse(Legislation.objects.filter(title='Sneaky Leg').exists())
+        self.assertContains(resp, 'Only chairs and officers')
+
+    def test_attendance_endpoint_marks_and_returns_json(self):
+        resp = self.client.post(reverse('mark_attendance_quick'), {
+            'target_user_id': self.member.user_id,
+            'attendance_status': 'present',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()['ok'])
+        self.assertTrue(Attendance.objects.filter(
+            user=self.member, status='present').exists())
+
+    def test_attendance_endpoint_403_for_members(self):
+        self.client.force_login(self.member)
+        resp = self.client.post(reverse('mark_attendance_quick'), {
+            'target_user_id': self.officer.user_id,
+            'attendance_status': 'present',
+        })
+        self.assertEqual(resp.status_code, 403)
+
+    def test_legacy_unrecognized_post_gets_error_not_silence(self):
+        """A POST to /vote/ matching no legacy branch must explain itself
+        (the v3.13.3 no-silent-drops rule), not quietly re-render."""
+        resp = self.client.post(reverse('vote'), {'bogus': '1'}, follow=True)
+        self.assertContains(resp, 'page may be out of date')
+        self.assertFalse(Vote.objects.exists())

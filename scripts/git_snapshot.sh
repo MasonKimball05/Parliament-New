@@ -28,6 +28,12 @@
 #      passphrase in your password manager too!)
 #   Same procedure for db_latest.dump.enc / db_latest.dump.enc.hmac.
 #
+#   DB dump lives on its own `db-dump` branch (single orphan commit,
+#   force-pushed each time the dump changes) so daily re-encrypted dumps
+#   never accumulate in main's history — encrypted blobs don't delta-compress,
+#   and GitHub hard-fails pushes on files >100 MB. To restore:
+#     git fetch origin db-dump && git checkout origin/db-dump -- db_latest.dump.enc db_latest.dump.enc.hmac
+#
 # One-time setup on prod:
 #   1. sudo mkdir -p /etc/parliament
 #      sudo sh -c 'umask 077; openssl rand -base64 32 > /etc/parliament/snapshot.pass'
@@ -48,6 +54,8 @@ STAGING_DIR="${SNAPSHOT_STAGING_DIR:-/var/backups/parliament-code-snapshot}"
 STATE_DIR="${STAGING_DIR}.state"                  # not committed
 REMOTE_URL="${SNAPSHOT_REMOTE_URL:?Set SNAPSHOT_REMOTE_URL to the private repo SSH URL}"
 BRANCH="${SNAPSHOT_BRANCH:-main}"
+DUMP_BRANCH="${SNAPSHOT_DUMP_BRANCH:-db-dump}"
+DUMP_DIR="${SNAPSHOT_DUMP_DIR:-/var/backups/parliament}"
 PASS_FILE="${SNAPSHOT_PASS_FILE:-/etc/parliament/snapshot.pass}"
 
 log() { echo "[git_snapshot] $(date '+%F %T') $*"; }
@@ -112,15 +120,23 @@ else
 fi
 
 # --- Off-server copy of newest DB dump (encrypted + authenticated) -----------
-latest_dump=$(ls -t /var/backups/parliament/*.dump 2>/dev/null | head -1 || true)
-if [ -n "$latest_dump" ] && [ -r "$PASS_FILE" ]; then
+# The dump is NOT committed to $BRANCH (see push section: it goes to
+# $DUMP_BRANCH as a single force-pushed orphan commit). dump_changed=1 tells
+# the push section a fresh push is needed.
+dump_changed=0
+latest_dump=$(ls -t "$DUMP_DIR"/*.dump 2>/dev/null | head -1 || true)
+if [ -z "$latest_dump" ]; then
+  log "WARNING: no *.dump in $DUMP_DIR — DB dump not snapshotted (is backup_db running?)"
+elif [ ! -r "$PASS_FILE" ]; then
+  log "WARNING: passphrase file $PASS_FILE missing/unreadable — DB dump not snapshotted"
+else
   dump_hash=$(sha256sum "$latest_dump" | cut -d' ' -f1)
   old_dump_hash=$(cat "$STATE_DIR/dump.sha256" 2>/dev/null || true)
   if [ "$dump_hash" != "$old_dump_hash" ] || [ ! -f "$STAGING_DIR/db_latest.dump.enc" ]; then
     openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
       -in "$latest_dump" -out "$STAGING_DIR/db_latest.dump.enc" -pass "file:$PASS_FILE"
     hmac_file "$STAGING_DIR/db_latest.dump.enc"
-    echo "$dump_hash" > "$STATE_DIR/dump.sha256"
+    dump_changed=1
     log "re-encrypted newest DB dump ($(basename "$latest_dump"))"
   fi
 fi
@@ -139,9 +155,13 @@ if [ ! -d "$STAGING_DIR/.git" ]; then
 fi
 git -C "$STAGING_DIR" remote set-url origin "$REMOTE_URL"
 
-# --- Commit + push -----------------------------------------------------------
+# --- Commit + push (code branch — dump excluded) -----------------------------
 # -f bypasses every .gitignore that rsync copied over — that's the point.
-git -C "$STAGING_DIR" add -Af .
+# The ':!' pathspecs keep the dump off $BRANCH so daily dump blobs never
+# accumulate in code history; one-time `rm --cached` migrates repos that
+# committed it before this change.
+git -C "$STAGING_DIR" rm --cached --quiet -- db_latest.dump.enc db_latest.dump.enc.hmac 2>/dev/null || true
+git -C "$STAGING_DIR" add -Af -- . ':!db_latest.dump.enc' ':!db_latest.dump.enc.hmac'
 
 src_commit=$(GIT_OPTIONAL_LOCKS=0 git -C "$APP_DIR" rev-parse --short HEAD 2>/dev/null || echo 'unknown')
 
@@ -155,3 +175,22 @@ fi
 # Always push — recovers cleanly if a previous run committed but failed to push.
 git -C "$STAGING_DIR" push -u origin "$BRANCH"
 log "push complete"
+
+# --- Push DB dump as a single orphan commit on $DUMP_BRANCH ------------------
+# Plumbing (hash-object/mktree/commit-tree), no checkout: the branch is
+# recreated parentless and force-pushed, so the remote always holds exactly
+# one commit — superseded blobs become unreachable and GitHub GCs them.
+if [ "$dump_changed" = 1 ] && [ -f "$STAGING_DIR/db_latest.dump.enc" ]; then
+  dump_blob=$(git -C "$STAGING_DIR" hash-object -w db_latest.dump.enc)
+  hmac_blob=$(git -C "$STAGING_DIR" hash-object -w db_latest.dump.enc.hmac)
+  dump_tree=$(printf '100644 blob %s\tdb_latest.dump.enc\n100644 blob %s\tdb_latest.dump.enc.hmac\n' \
+    "$dump_blob" "$hmac_blob" | git -C "$STAGING_DIR" mktree)
+  dump_commit=$(git -C "$STAGING_DIR" commit-tree "$dump_tree" \
+    -m "DB dump $(date -u '+%F %T UTC') — $(basename "$latest_dump")")
+  git -C "$STAGING_DIR" push -f origin "$dump_commit:refs/heads/$DUMP_BRANCH"
+  # State written only after a successful push — a failed push retries next run.
+  echo "$dump_hash" > "$STATE_DIR/dump.sha256"
+  log "force-pushed dump to $DUMP_BRANCH ($(basename "$latest_dump"))"
+  # Drop superseded local dump blobs so staging disk doesn't grow either.
+  git -C "$STAGING_DIR" gc --prune=now --quiet || true
+fi

@@ -166,7 +166,11 @@ from src.view.officer.chapter_stats import chapter_stats
 from src.view.pledge_tasks import my_pledge_tasks, pledge_take_quiz
 from src.view.home import home
 from src.view.landing import landing_page, contact_submit
-from src.view.vote_view import vote_view, vote_tally_json, open_legislation_now, verify_vote_receipt
+from src.view.serve_media import serve_media
+from src.view.vote_view import (
+    vote_view, vote_tally_json, open_legislation_now, verify_vote_receipt,
+    cast_vote, mark_attendance_quick, upload_chapter_legislation,
+)
 from src.view.push_notifications import push_subscribe, push_unsubscribe, service_worker
 from src.view.two_factor import (
     two_factor_setup, two_factor_qrcode, two_factor_verify,
@@ -354,6 +358,11 @@ urlpatterns = [
     path('songbook/song/<int:pk>/delete/', song_delete, name='song_delete'),
     path('songbook/categories/', manage_categories, name='manage_song_categories'),
     path('exportable_media/<path:filename>', serve_exportable_media, name='serve_exportable_media'),
+    # v3.14.1: authenticated /media/ serving — registered unconditionally so
+    # dev behaves like prod (the DEBUG-only static() route below still wins
+    # nothing: this pattern matches first). nginx must NOT serve /media/
+    # directly anymore; see src/view/serve_media.py.
+    path('media/<path:path>', serve_media, name='serve_media'),
 
     # Bug Reports
     path('bug-report/', submit_bug_report, name='bug_report'),
@@ -544,6 +553,10 @@ urlpatterns = [
 
     # Legislation / Voting Pages
     path('vote/', vote_view, name='vote'),
+    # v3.14.1: split from the old multiplexed vote_view POST
+    path('vote/cast/', cast_vote, name='cast_vote'),
+    path('vote/attendance/quick/', mark_attendance_quick, name='mark_attendance_quick'),
+    path('vote/upload/', upload_chapter_legislation, name='upload_chapter_legislation'),
     path('vote/tally/', vote_tally_json, name='vote_tally'),
     path('vote/open-now/<int:legislation_id>/', open_legislation_now, name='open_legislation_now'),
     path('vote/verify-receipt/', verify_vote_receipt, name='verify_vote_receipt'),

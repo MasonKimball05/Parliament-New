@@ -16,7 +16,7 @@
                 <p class="text-sm sm:text-base opacity-90">{{ user.member_type }}{% if not user.is_pledge %} • {{ user.user_id }}{% endif %}</p>
             </div>
             <button id="js-open-coat-modal" class="flex-shrink-0 focus:outline-none group flex flex-col items-center gap-1">
-                <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-contain bg-white p-1 shadow-lg transition-transform duration-200 group-hover:scale-110 cursor-pointer">
+                <img src="{% static 'images/am-coat-of-arms.png' %}" alt="Alpha Mu Coat of Arms" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-contain bg-white p-1 shadow-lg transition-transform duration-200 group-hover:scale-110 cursor-pointer">
                 <span class="text-white/80 text-center leading-tight">
                     <span class="block text-xs">Ἀρετὴ Μονάζει</span>
                     <span class="block text-xs italic opacity-75">Virtue Stands Alone</span>
@@ -29,7 +29,7 @@
                     <button class="js-close-coat-modal absolute -top-3 -right-3 w-8 h-8 bg-white dark:bg-gray-700 rounded-full shadow-lg flex items-center justify-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white z-10">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
-                    <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms" class="w-full rounded-lg shadow-2xl bg-white p-4">
+                    <img src="{% static 'images/am-coat-of-arms.png' %}" alt="Alpha Mu Coat of Arms" class="w-full rounded-lg shadow-2xl bg-white p-4">
                     <p class="text-center text-white text-sm mt-3 font-medium opacity-90">"Virtue Stands Alone" Alpha Mu Chapter — Beta Theta Pi</p>
                 </div>
             </div>
@@ -107,6 +107,27 @@
         </div>
     </div>
     {% endif %}
+
+    <!-- Transition Checklist Card (v3.14.1) — incoming officer's handoff progress -->
+    {% for cl in transition_checklists %}
+    <div class="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-l-4 border-amber-500 dark:border-amber-400 rounded-xl shadow-sm p-6 mb-8 transition-colors duration-200">
+        <div class="flex items-start">
+            <svg class="w-6 h-6 text-amber-500 dark:text-amber-400 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+            </svg>
+            <div class="flex-1">
+                <h3 class="text-lg font-semibold text-amber-900 dark:text-amber-100 mb-2">Transition Checklist — {{ cl.role_history__role_name }}</h3>
+                <p class="text-sm text-amber-700 dark:text-amber-200 mb-3">{{ cl.done }}/{{ cl.total }} task{{ cl.total|pluralize }} complete. Finish your handoff checklist to get fully up to speed.</p>
+                <div class="h-2 bg-amber-100 dark:bg-amber-900/40 rounded-full overflow-hidden mb-4">
+                    <div class="h-full bg-amber-500 rounded-full" style="width: {% widthratio cl.done cl.total 100 %}%"></div>
+                </div>
+                <a href="{% url 'transition_checklist' role_history_id=cl.role_history_id %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 transition">
+                    Continue Checklist
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
 
     <!-- Slating Card (shows for committee members OR when nominations/voting is open) -->
     {% if show_slating_card %}

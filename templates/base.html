@@ -8,8 +8,8 @@
     <title>{% block title %}Parliament{% endblock %}</title>
 
     <!-- Favicon & PWA -->
-    <link rel="icon" type="image/png" href="/exportable_media/am-coat-of-arms.png">
-    <link rel="apple-touch-icon" href="/exportable_media/am-coat-of-arms.png">
+    <link rel="icon" type="image/png" href="{% static 'images/am-coat-of-arms.png' %}">
+    <link rel="apple-touch-icon" href="{% static 'images/am-coat-of-arms.png' %}">
     <link rel="manifest" href="{% static 'manifest.json' %}">
     <meta name="theme-color" content="#003DA5">
 
@@ -84,7 +84,7 @@
             <div class="flex items-center justify-between h-14">
                 <div class="flex items-center space-x-4 lg:space-x-6">
                     <a href="{% url 'home' %}" class="flex items-center space-x-2 text-lg font-bold hover:text-primary-200 transition-colors whitespace-nowrap">
-                        <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms" class="w-8 h-8 rounded-full object-contain bg-white p-0.5">
+                        <img src="{% static 'images/am-coat-of-arms.png' %}" alt="Alpha Mu Coat of Arms" class="w-8 h-8 rounded-full object-contain bg-white p-0.5">
                         <span>Parliament</span>
                     </a>
 
@@ -1352,7 +1352,7 @@
     <div id="a2hs-banner" class="hidden bg-primary-700 text-white px-4 py-3" role="alert">
         <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
             <div class="flex items-center gap-3">
-                <img src="/exportable_media/am-coat-of-arms.png" alt="" class="w-8 h-8 rounded-full object-contain bg-white p-0.5 flex-shrink-0">
+                <img src="{% static 'images/am-coat-of-arms.png' %}" alt="" class="w-8 h-8 rounded-full object-contain bg-white p-0.5 flex-shrink-0">
                 <div>
                     <p class="text-sm font-medium" id="a2hs-message">Install Parliament on your home screen for quick access and push notifications.</p>
                     <p class="text-xs text-primary-200 mt-0.5" id="a2hs-ios-hint" style="display:none">

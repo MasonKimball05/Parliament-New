@@ -53,6 +53,7 @@ class Enforce2FAMiddleware:
             '/accounts/passkeys/authenticate/',  # passkey login endpoints
             '/static/',
             '/media/',
+            '/exportable_media/',  # media assets — 2FA-redirecting an <img> just breaks the image (v3.14.1)
             '/api/',  # API endpoints should handle auth separately
         ]
 

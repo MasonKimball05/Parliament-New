@@ -14,7 +14,10 @@
  *         notification with the same tag rather than stacking
  */
 
-const ICON = '/exportable_media/am-coat-of-arms.png';
+// v3.14.1: must be a /static/ path — /exportable_media/ is login-gated and
+// SW notification-icon fetches are cookieless, so the icon 302'd to the
+// login page and rendered broken (part of the mobile broken-seal bug).
+const ICON = '/static/images/am-coat-of-arms.png';
 
 // ─── Install / Activate ────────────────────────────────────────────────────
 

@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,8 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Beta Theta Pi — Alpha Mu at Samford University</title>
 
-    <link rel="icon" type="image/png" href="/exportable_media/am-coat-of-arms.png">
-    <link rel="apple-touch-icon" href="/exportable_media/am-coat-of-arms.png">
+    <link rel="icon" type="image/png" href="{% static 'images/am-coat-of-arms.png' %}">
+    <link rel="apple-touch-icon" href="{% static 'images/am-coat-of-arms.png' %}">
 
     <!-- SEO & Open Graph -->
     {% if content.meta_description %}
@@ -55,7 +56,7 @@
     {% endif %}
     <div class="max-w-5xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
         <a href="/" class="flex items-center gap-3">
-            <img src="/exportable_media/am-coat-of-arms.png" alt="Beta Theta Pi coat of arms"
+            <img src="{% static 'images/am-coat-of-arms.png' %}" alt="Beta Theta Pi coat of arms"
                  class="w-8 h-8 rounded-full object-contain bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-0.5">
             <span class="font-semibold text-gray-900 dark:text-white">Beta Theta Pi</span>
         </a>
@@ -99,7 +100,7 @@
 <!-- ── Hero ───────────────────────────────────────────────────────────────── -->
 <section id="hero-section" class="pt-32 pb-20 px-5 sm:px-8 text-center">
     <div class="max-w-2xl mx-auto">
-        <img src="/exportable_media/am-coat-of-arms.png" alt="Beta Theta Pi coat of arms"
+        <img src="{% static 'images/am-coat-of-arms.png' %}" alt="Beta Theta Pi coat of arms"
              class="w-40 h-40 mx-auto mb-8 drop-shadow-md">
 
         <h1 class="text-4xl sm:text-5xl font-bold tracking-tight text-gray-900 dark:text-white">
@@ -412,7 +413,7 @@
 <footer class="border-t border-gray-200 dark:border-gray-800 py-8 px-5 sm:px-8">
     <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-400 dark:text-gray-600">
         <div class="flex items-center gap-2.5">
-            <img src="/exportable_media/am-coat-of-arms.png" alt="Beta Theta Pi"
+            <img src="{% static 'images/am-coat-of-arms.png' %}" alt="Beta Theta Pi"
                  class="w-6 h-6 rounded-full object-contain bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-0.5 opacity-60">
             <span>Beta Theta Pi &bull; Alpha Mu &bull; Samford University</span>
         </div>

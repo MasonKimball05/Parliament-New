@@ -4,6 +4,7 @@ Vote auto-open/close runs every minute; announcement dispatch runs every 5 minut
 """
 from celery import shared_task
 from django.db import transaction
+from django.db.models import Count
 from django.utils import timezone
 import logging
 
@@ -47,13 +48,19 @@ def auto_open_close_chapter_votes():
                 continue  # Another process beat us to it
 
             votes = Vote.objects.filter(legislation=leg)
-            yes = votes.filter(vote_choice='yes').count()
-            no = votes.filter(vote_choice='no').count()
+            # Single GROUP BY instead of one COUNT query per choice
+            # (was 3 + N_options queries per closing bill — 07-16 review nit).
+            choice_counts = {
+                row['vote_choice']: row['n']
+                for row in votes.values('vote_choice').annotate(n=Count('id'))
+            }
+            yes = choice_counts.get('yes', 0)
+            no = choice_counts.get('no', 0)
             countable = yes + no
             # v3.14.0: plurality ballots aren't yes/no, so the old
             # `total = yes + no` was always 0 for plurality — auto-closed
             # plurality votes never got a result at all.
-            total_ballots = votes.count()
+            total_ballots = sum(choice_counts.values())
 
             leg.voting_closed = True
             leg.voting_ended_at = leg.voting_ends_at
@@ -64,7 +71,7 @@ def auto_open_close_chapter_votes():
                 elif leg.vote_mode == 'plurality':
                     # Tie handling matches end_vote: passes only with a
                     # single clear winner (v3.14.0 — a tie used to pass here)
-                    options = {opt: votes.filter(vote_choice=opt).count()
+                    options = {opt: choice_counts.get(opt, 0)
                                for opt in (leg.plurality_options or [])}
                     if options:
                         max_count = max(options.values())

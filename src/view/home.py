@@ -1,7 +1,7 @@
 import logging
 from ..decorators import log_function_call
 from ..models import ParliamentUser, Legislation, Event, Committee, Vote, Announcement, SlatingPeriod, SlatingBallot
-from django.db.models import Count, Q
+from django.db.models import Count, F, Q
 
 logger = logging.getLogger(__name__)
 from django.shortcuts import render
@@ -10,6 +10,28 @@ from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
 from src.feature_flag_decorators import require_page_enabled
+
+def transition_checklist_cards(user):
+    """v3.14.1 — data for the home-page transition-checklist card(s).
+
+    An incoming officer with an open term (end_semester='') and an incomplete
+    handoff checklist gets a "3/8 complete" card. One grouped query (same
+    aggregate pattern as toggle_checklist_item); returns [] for everyone else,
+    so the common case costs a single cheap query. Module-level (not inline in
+    the view) so it's unit-testable on sqlite — the full home view needs
+    postgres-only JSONField lookups.
+    """
+    from src.models import TransitionChecklistStatus
+    return list(
+        TransitionChecklistStatus.objects
+        .filter(role_history__user=user, role_history__end_semester='')
+        .values('role_history_id', 'role_history__role_name')
+        .annotate(total=Count('id'),
+                  done=Count('id', filter=Q(completed_at__isnull=False)))
+        .filter(done__lt=F('total'))
+        .order_by('role_history__role_name')
+    )
+
 
 @login_required
 @require_page_enabled('home')
@@ -27,15 +49,9 @@ def home(request):
     # Active legislation count
     # v3.13.3: was filter(status='active') — but no code path ever sets
     # 'active' (open legislation is status='draft'), so this stat and the
-    # pending-votes widget below were permanently empty. Use the same
-    # open-voting semantics as the vote page instead.
-    open_legislation_qs = Legislation.objects.filter(
-        voting_closed=False,
-        available_at__lte=now,
-    ).filter(
-        Q(voting_starts_at__lte=now) |
-        Q(voting_starts_at__isnull=True, voting_manual_open=False)
-    ).exclude(status__in=['pending', 'tabled', 'passed', 'failed', 'removed'])
+    # pending-votes widget below were permanently empty.
+    # v3.14.1: invariant moved to LegislationQuerySet.open_for_voting().
+    open_legislation_qs = Legislation.objects.open_for_voting(now)
     active_legislation = open_legislation_qs.count()
 
     # Upcoming events (next 7 days)
@@ -225,8 +241,12 @@ def home(request):
                     ).order_by('display_order')
                 )
 
+    # === TRANSITION CHECKLIST CARD (v3.14.1, specced 07-09) ===
+    transition_checklists = transition_checklist_cards(request.user)
+
     context = {
         'user': request.user,
+        'transition_checklists': transition_checklists,
         # Stats
         'total_active_members': total_active_members,
         'active_legislation': active_legislation,

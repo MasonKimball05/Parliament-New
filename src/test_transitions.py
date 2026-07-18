@@ -197,3 +197,83 @@ class ChecklistViewTests(TestCase):
     def test_toggle_requires_post(self):
         self.client.force_login(self.holder)
         self.assertEqual(self.client.get(self.toggle_url).status_code, 405)
+
+
+class HomeChecklistCardTests(TestCase):
+    """v3.14.1 — home-page transition-checklist progress card.
+
+    The aggregate helper is tested directly (sqlite-safe); the full home view
+    needs postgres-only JSONField lookups, so the render test is CI-gated —
+    same pattern as test_pledge_permissions.
+    """
+
+    def setUp(self):
+        self.holder = _make_user('hc1', 'Home Holder', 'hc1', member_type='Officer')
+        self.role = Role.objects.create(name='Secretary')
+        self.history = RoleHistory.objects.create(
+            user=self.holder, role_name='Secretary',
+            start_semester='Spring 2026', end_semester='')
+        self.items = [
+            TransitionChecklistItem.objects.create(text=f'Task {i}', order=i)
+            for i in range(3)
+        ]
+        for item in self.items:
+            TransitionChecklistStatus.objects.create(
+                item=item, role_history=self.history)
+
+    def _cards(self, user=None):
+        from src.view.home import transition_checklist_cards
+        return transition_checklist_cards(user or self.holder)
+
+    def test_progress_counts_for_open_incomplete_checklist(self):
+        from django.utils import timezone
+        status = self.history.checklist_statuses.first()
+        status.completed_at = timezone.now()
+        status.completed_by = self.holder
+        status.save()
+        cards = self._cards()
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0]['done'], 1)
+        self.assertEqual(cards[0]['total'], 3)
+        self.assertEqual(cards[0]['role_history_id'], self.history.pk)
+        self.assertEqual(cards[0]['role_history__role_name'], 'Secretary')
+
+    def test_no_card_when_checklist_complete(self):
+        from django.utils import timezone
+        self.history.checklist_statuses.update(
+            completed_at=timezone.now(), completed_by=self.holder)
+        self.assertEqual(self._cards(), [])
+
+    def test_no_card_for_closed_term(self):
+        self.history.end_semester = 'Fall 2026'
+        self.history.save()
+        self.assertEqual(self._cards(), [])
+
+    def test_no_card_for_other_users(self):
+        other = _make_user('hc2', 'Other Member', 'hc2')
+        self.assertEqual(self._cards(user=other), [])
+
+    def test_two_open_roles_two_cards(self):
+        history2 = RoleHistory.objects.create(
+            user=self.holder, role_name='Treasurer',
+            start_semester='Spring 2026', end_semester='')
+        TransitionChecklistStatus.objects.create(
+            item=self.items[0], role_history=history2)
+        cards = self._cards()
+        self.assertEqual([c['role_history__role_name'] for c in cards],
+                         ['Secretary', 'Treasurer'])
+
+    def test_home_page_renders_card(self):
+        """Full-view render check — postgres only (visible_to__contains)."""
+        from unittest import SkipTest
+        from django.db import connection
+        if connection.vendor != 'postgresql':
+            raise SkipTest('home view needs postgres JSONField lookups')
+        self.client.force_login(self.holder)
+        response = self.client.get(reverse('home'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Transition Checklist')
+        self.assertContains(
+            response,
+            reverse('transition_checklist',
+                    kwargs={'role_history_id': self.history.pk}))

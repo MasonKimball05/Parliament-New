@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from src.storage import DualLocationStorage
 
 
@@ -7,6 +8,47 @@ def validate_legislation_file(value):
     """Validates the file extension."""
     if not value.name.endswith('.pdf') and not value.name.endswith('.docx'):
         raise ValidationError('Only PDF and DOCX files are allowed.')
+
+
+class LegislationQuerySet(models.QuerySet):
+    """v3.14.1 — the open-for-voting invariant lives HERE, nowhere else.
+
+    Before this, the same Q-logic was hand-copied in home.py and
+    api/views.py (and had already rotted once: the pre-v3.13.3
+    `status='active'` filters that never matched anything). New list views
+    should call these methods instead of re-deriving the predicates.
+
+    The `now` parameter exists for deterministic tests and matches the
+    server-resolved-time pattern from v3.14.0; production callers can omit it.
+    """
+
+    def visible(self, now=None):
+        """Legislation whose availability date has passed."""
+        now = now or timezone.now()
+        return self.filter(available_at__lte=now)
+
+    def open_for_voting(self, now=None):
+        """Legislation a member could cast a ballot on right now.
+
+        Mirrors Legislation.voting_has_started() at queryset level:
+        available, not closed, not in a terminal/parked status, and either
+        the scheduled start has passed or voting auto-opened with
+        availability (blank voting_starts_at + voting_manual_open=False —
+        manual-open bills stay closed until the author opens them, which
+        sets voting_starts_at).
+
+        Note: this is "open to the chapter" — it does NOT include the
+        author's own not-yet-open bills; the vote page composes that
+        visibility separately (see vote_view.py / passed_legislation.py).
+        """
+        now = now or timezone.now()
+        return self.filter(
+            voting_closed=False,
+            available_at__lte=now,
+        ).filter(
+            models.Q(voting_starts_at__lte=now) |
+            models.Q(voting_starts_at__isnull=True, voting_manual_open=False)
+        ).exclude(status__in=Legislation.CLOSED_STATUSES)
 
 
 class Legislation(models.Model):
@@ -43,6 +85,14 @@ class Legislation(models.Model):
     # (it's the de facto "open" status; admin-v2 and the committee model
     # already treat it that way) and the duplicate definition is removed.
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+
+    # Statuses that mean "not on the ballot": terminal (passed/failed/removed)
+    # or parked (pending/tabled). Used by LegislationQuerySet.open_for_voting()
+    # and anywhere else that lists actionable legislation.
+    CLOSED_STATUSES = ['pending', 'tabled', 'passed', 'failed', 'removed']
+
+    objects = LegislationQuerySet.as_manager()
+
     title = models.CharField(max_length=200)
     description = models.TextField()
     document = models.FileField(upload_to='legislation_docs/', validators=[validate_legislation_file], storage=DualLocationStorage(), blank=True, null=True)

@@ -13,7 +13,7 @@
         <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
         <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div class="flex items-center gap-3">
-                <img src="/exportable_media/am-coat-of-arms.png" alt="Alpha Mu Coat of Arms"
+                <img src="{% static 'images/am-coat-of-arms.png' %}" alt="Alpha Mu Coat of Arms"
                      class="w-10 h-10 rounded-full object-contain bg-white/20 p-1">
                 <div>
                     <h1 class="text-2xl sm:text-3xl font-bold">Legislation</h1>
@@ -79,7 +79,7 @@
 
         <!-- ── General Legislation Form ── -->
         <div id="panel-legislation">
-        <form method="POST" enctype="multipart/form-data" class="space-y-4">
+        <form method="POST" action="{% url 'upload_chapter_legislation' %}" enctype="multipart/form-data" class="space-y-4">
             {% csrf_token %}
             <input type="hidden" name="upload_submit" value="1">
 
@@ -703,7 +703,7 @@
                     </p>
                 </div>
                 {% else %}
-                <form method="post" class="js-vote-form space-y-3 pt-1">
+                <form method="post" action="{% url 'cast_vote' %}" class="js-vote-form space-y-3 pt-1">
                     {% csrf_token %}
                     <input type="hidden" name="legislation_id" value="{{ leg.id }}">
                     {# action=cast_vote lets the server report errors instead of silently ignoring the POST (v3.13.3) #}
@@ -1015,7 +1015,7 @@
         fd.append('target_user_id', userId);
         fd.append('attendance_status', status);
         try {
-            const resp = await fetch(window.location.href, {
+            const resp = await fetch('{% url "mark_attendance_quick" %}', {
                 method: 'POST',
                 body: fd,
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
