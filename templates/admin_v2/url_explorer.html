@@ -68,13 +68,14 @@
 
         <!-- Entry table (visible when expanded OR when filtering) -->
         <div x-show="expanded['{{ section }}'] || q" x-transition>
-            <table class="w-full text-sm">
+            <div class="overflow-x-auto"><!-- v3.15.0 mobile: horizontal scroll instead of page blowout -->
+            <table class="min-w-full text-sm">
                 <thead>
                     <tr class="border-t border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
-                        <th class="px-5 py-2 text-left font-medium text-gray-500 dark:text-gray-400 w-2/5">Pattern</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-400 w-1/6">Name</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-400 w-1/8">Auth</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-400">Docstring</th>
+                        <th class="whitespace-nowrap px-5 py-2 text-left font-medium text-gray-500 dark:text-gray-400 w-2/5">Pattern</th>
+                        <th class="whitespace-nowrap px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-400 w-1/6">Name</th>
+                        <th class="whitespace-nowrap px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-400 w-1/8">Auth</th>
+                        <th class="whitespace-nowrap px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-400">Docstring</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -101,6 +102,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
     {% endfor %}

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Offline — Parliament</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; margin: 0;
+    background: #f9fafb; color: #111827;
+    text-align: center; padding: 1.5rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #111827; color: #f9fafb; }
+    p { color: #9ca3af; }
+  }
+  img { width: 96px; height: 96px; margin-bottom: 1rem; }
+  h1 { font-size: 1.25rem; margin: 0 0 .5rem; }
+  p { color: #6b7280; font-size: .95rem; max-width: 26rem; margin: 0 auto 1.25rem; }
+  a.retry {
+    display: inline-block; background: #1d4ed8; color: #fff;
+    border-radius: .5rem; padding: .6rem 1.4rem; font-size: .95rem;
+    text-decoration: none;
+  }
+  a.retry:hover { background: #1e40af; }
+</style>
+</head>
+<body>
+<main>
+  <img src="/static/images/am-coat-of-arms.png" alt="">
+  <h1>You're offline</h1>
+  <p>Parliament needs an internet connection. Check your connection and try again — nothing you submitted was lost if you saw this page instead of a confirmation.</p>
+  <!-- No JS: CSP-safe even if static files ever get the app's CSP header.
+       href="/home/" re-attempts a real navigation (SW serves this page again
+       if still offline). -->
+  <a class="retry" href="/home/">Try again</a>
+</main>
+</body>
+</html>

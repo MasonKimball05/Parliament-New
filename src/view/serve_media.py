@@ -18,10 +18,12 @@ file itself via FileResponse — fine at chapter scale.
 """
 import mimetypes
 import os
+from urllib.parse import quote
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404, HttpResponse
+from django.utils.http import content_disposition_header
 
 # Optional nginx X-Accel-Redirect fast path. Empty = serve via FileResponse.
 MEDIA_ACCEL_PREFIX = os.getenv('MEDIA_ACCEL_PREFIX', '')
@@ -44,12 +46,16 @@ def serve_media(request, path):
 
     if MEDIA_ACCEL_PREFIX:
         response = HttpResponse(content_type=content_type)
-        response['X-Accel-Redirect'] = f'{MEDIA_ACCEL_PREFIX}/{path}'
+        # v3.14.2: quote the path — spaces/%/non-ASCII in an uploaded
+        # filename would otherwise produce an invalid internal URI.
+        response['X-Accel-Redirect'] = f'{MEDIA_ACCEL_PREFIX}/{quote(path)}'
     else:
         response = FileResponse(open(resolved, 'rb'), content_type=content_type)
 
-    response['Content-Disposition'] = (
-        f'inline; filename="{os.path.basename(resolved)}"')
+    # v3.14.2: RFC 5987-safe filename (handles quotes + non-ASCII);
+    # was a raw f-string that broke on a `"` in the filename.
+    response['Content-Disposition'] = content_disposition_header(
+        as_attachment=False, filename=os.path.basename(resolved))
     # private: member-only content must never land in shared caches
     # (Cloudflare cached these PDFs publicly before this fix).
     response['Cache-Control'] = 'private, max-age=3600'

@@ -54,14 +54,15 @@
     <div>
         <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Periodic Tasks</h2>
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-            <table class="w-full text-sm">
+            <div class="overflow-x-auto"><!-- v3.15.0 mobile: horizontal scroll instead of page blowout -->
+            <table class="min-w-full text-sm">
                 <thead>
                     <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                        <th class="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-400">Task</th>
-                        <th class="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-400 hidden sm:table-cell">Schedule</th>
-                        <th class="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-400 hidden md:table-cell">Last Run</th>
-                        <th class="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-400 hidden md:table-cell">Run Count</th>
-                        <th class="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-400">Status</th>
+                        <th class="whitespace-nowrap text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-400">Task</th>
+                        <th class="whitespace-nowrap text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-400 hidden sm:table-cell">Schedule</th>
+                        <th class="whitespace-nowrap text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-400 hidden md:table-cell">Last Run</th>
+                        <th class="whitespace-nowrap text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-400 hidden md:table-cell">Run Count</th>
+                        <th class="whitespace-nowrap text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-400">Status</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
@@ -111,6 +112,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
         </div>
         <p class="text-xs text-gray-400 dark:text-gray-500 mt-3">
             Last checked: {{ now|date:"M j, Y g:i:s A" }} · Stale = last run more than 2× the scheduled interval ago · Worker ping timeout: 1s

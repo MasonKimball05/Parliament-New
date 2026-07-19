@@ -1,3 +1,6 @@
+from datetime import timedelta, timezone as dt_timezone
+from urllib.parse import urlencode
+
 from django.db import models
 from src.models.users import ParliamentUser
 
@@ -176,6 +179,26 @@ class Event(models.Model):
         """Check if event is in the future"""
         from django.utils import timezone
         return self.date_time > timezone.now()
+
+    @property
+    def google_calendar_url(self):
+        """v3.15.0 QOL — 'Add to Google Calendar' quick-add link.
+
+        Events have no end time; Google requires one, so we assume 1 hour
+        (same assumption the iCal export makes). Times are sent as UTC
+        (trailing Z) — Google renders them in the viewer's own calendar
+        timezone. urlencode handles all escaping.
+        """
+        start = self.date_time.astimezone(dt_timezone.utc)
+        end = start + timedelta(hours=1)
+        fmt = '%Y%m%dT%H%M%SZ'
+        return 'https://calendar.google.com/calendar/render?' + urlencode({
+            'action': 'TEMPLATE',
+            'text': self.title,
+            'dates': f'{start.strftime(fmt)}/{end.strftime(fmt)}',
+            'details': self.description or '',
+            'location': self.location or '',
+        })
 
     def is_visible_to_user(self, user):
         """Check if user should be able to see this event"""

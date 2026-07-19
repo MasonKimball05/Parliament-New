@@ -35,15 +35,16 @@
     </div>
 
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-        <table class="w-full">
+        <div class="overflow-x-auto"><!-- v3.15.0 mobile: horizontal scroll instead of page blowout -->
+        <table class="min-w-full">
             <thead class="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">User</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Timestamp</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">IP Address</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Location</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Device</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
+                    <th class="whitespace-nowrap px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">User</th>
+                    <th class="whitespace-nowrap px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Timestamp</th>
+                    <th class="whitespace-nowrap px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">IP Address</th>
+                    <th class="whitespace-nowrap px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Location</th>
+                    <th class="whitespace-nowrap px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Device</th>
+                    <th class="whitespace-nowrap px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -69,6 +70,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         {% if logins.has_other_pages %}
             <div class="bg-gray-50 dark:bg-gray-700 px-6 py-4 flex justify-between border-t">
                 <div class="text-sm">Showing {{ logins.start_index }} to {{ logins.end_index }} of {{ logins.paginator.count }}</div>

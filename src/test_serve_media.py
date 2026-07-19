@@ -61,6 +61,34 @@ class ServeMediaTests(TestCase):
                                        kwargs={'path': 'nope/missing.pdf'}))
         self.assertEqual(resp.status_code, 404)
 
+    def test_awkward_filename_headers(self):
+        """v3.14.2: spaces/quotes/non-ASCII in an uploaded filename must
+        yield a quoted X-Accel URI and an RFC 5987 Content-Disposition."""
+        fname = 'Résolution "Fall" 2026.pdf'
+        with open(os.path.join(_TMP_MEDIA, 'legislation_docs', fname), 'wb') as f:
+            f.write(b'%PDF-1.4 awkward')
+        self.client.force_login(self.member)
+        url = reverse('serve_media',
+                      kwargs={'path': f'legislation_docs/{fname}'})
+
+        # FileResponse mode: header must parse (no raw quote/space breakage)
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+        cd = resp['Content-Disposition']
+        self.assertTrue(cd.startswith('inline'))
+        self.assertNotIn('"Fall"', cd)  # raw inner quotes would corrupt the header
+        self.assertIn("filename*=utf-8''", cd)  # RFC 5987 form present
+
+        # Accel mode: internal URI must be percent-quoted, no raw specials
+        with mock.patch('src.view.serve_media.MEDIA_ACCEL_PREFIX',
+                        '/internal_media'):
+            resp = self.client.get(url)
+        accel = resp['X-Accel-Redirect']
+        self.assertTrue(accel.startswith('/internal_media/legislation_docs/'))
+        for raw in (' ', '"'):
+            self.assertNotIn(raw, accel)
+        self.assertIn('%20', accel)
+
     def test_accel_redirect_mode(self):
         """With MEDIA_ACCEL_PREFIX set, Django delegates the byte-shoving to
         nginx via X-Accel-Redirect but still enforces auth first."""

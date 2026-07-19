@@ -45,6 +45,7 @@
     <!-- Section Impacts List -->
     {% if section_impacts %}
         <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="overflow-x-auto"><!-- v3.15.0 mobile: horizontal scroll instead of page blowout -->
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
@@ -92,6 +93,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
         </div>
     {% else %}
         <!-- Empty State -->

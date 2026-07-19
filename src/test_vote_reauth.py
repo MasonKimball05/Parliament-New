@@ -31,7 +31,7 @@ class VoteReauthSmokeTests(TestCase):
             title='Smoke Test Leg', description='D', posted_by=self.voter,
             available_at=timezone.now(), vote_mode='percentage',
             required_percentage='51', document='test.pdf')
-        self.url = reverse('vote')
+        self.url = reverse('cast_vote')
 
     def _post_vote(self, leg=None, **extra):
         data = {'action': 'cast_vote',
@@ -133,7 +133,7 @@ class QuickAttendanceTests(TestCase):
         self.member = ParliamentUser.objects.create_user(
             user_id='m1', name='Member One', username='m1', member_type='Member')
         self.client.force_login(self.officer)
-        self.url = reverse('vote')
+        self.url = reverse('mark_attendance_quick')
 
     def _mark(self, status, target=None):
         return self.client.post(self.url, {
@@ -376,7 +376,7 @@ class VoteOpenTimingTests(TestCase):
         local wall clock) must open the vote immediately when set in the past."""
         local_now = timezone.localtime()
         stamp = (local_now - timedelta(minutes=5)).strftime('%Y-%m-%dT%H:%M')
-        resp = self.client.post(reverse('vote'), {
+        resp = self.client.post(reverse('upload_chapter_legislation'), {
             'title': 'Timing Upload Leg',
             'description': 'D',
             'available_at': stamp,
@@ -393,7 +393,7 @@ class VoteOpenTimingTests(TestCase):
     def test_upload_with_future_available_at_stays_scheduled(self):
         local_now = timezone.localtime()
         stamp = (local_now + timedelta(hours=2)).strftime('%Y-%m-%dT%H:%M')
-        self.client.post(reverse('vote'), {
+        self.client.post(reverse('upload_chapter_legislation'), {
             'title': 'Future Upload Leg',
             'description': 'D',
             'available_at': stamp,
@@ -496,7 +496,7 @@ class UploadSchedulingRenderTests(TestCase):
         }
         if extra:
             data.update(extra)
-        return self.client.post(reverse('vote'), data, follow=True)
+        return self.client.post(reverse('upload_chapter_legislation'), data, follow=True)
 
     def test_future_upload_renders_scheduled_not_open(self):
         resp = self._upload(45, 'Future Sched Leg')
@@ -533,7 +533,7 @@ class UploadSchedulingRenderTests(TestCase):
 
     def test_document_required_with_short_description(self):
         stamp = timezone.localtime().strftime('%Y-%m-%dT%H:%M')
-        resp = self.client.post(reverse('vote'), {
+        resp = self.client.post(reverse('upload_chapter_legislation'), {
             'title': 'Short Desc Leg',
             'description': 'Too short',
             'available_at': stamp,
@@ -565,7 +565,7 @@ class ManualVotingOpenTests(TestCase):
 
     def _upload(self, mode_choice, voting_starts=''):
         stamp = (timezone.localtime() - timedelta(minutes=1)).strftime('%Y-%m-%dT%H:%M')
-        return self.client.post(reverse('vote'), {
+        return self.client.post(reverse('upload_chapter_legislation'), {
             'title': 'Manual Mode Leg',
             'description': 'A sufficiently detailed description of this item.',
             'available_at': stamp,
@@ -713,7 +713,7 @@ class VoteReceiptTests(TestCase):
         self.assertFalse(verify_receipt('garbage.token.here')['valid'])
 
     def test_receipt_on_personal_tab_and_view_verifies(self):
-        resp = self.client.post(reverse('vote'), {
+        resp = self.client.post(reverse('cast_vote'), {
             'action': 'cast_vote', 'legislation_id': self.leg.id,
             'vote_choice': 'yes', 'password': 'testpass'}, follow=True)
         self.assertContains(resp, 'My Ballots')  # pointer in flash message
@@ -850,7 +850,7 @@ class ServerResolvedNowTests(TestCase):
         # Device clock an hour fast: the filled text is in the future, but the
         # flag says "now" — server time must win
         skewed = (timezone.localtime() + timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M')
-        client.post(reverse('vote'), {
+        client.post(reverse('upload_chapter_legislation'), {
             'title': 'Skewed Clock Leg',
             'description': 'A sufficiently detailed description of this item.',
             'available_at': skewed,
@@ -883,7 +883,7 @@ class AlreadyVotedStateTests(TestCase):
         page = client.get(reverse('vote'))
         self.assertIn(f'name="legislation_id" value="{leg.id}"', page.content.decode())
         # Vote, then: confirmation instead of the form
-        client.post(reverse('vote'), {
+        client.post(reverse('cast_vote'), {
             'action': 'cast_vote', 'legislation_id': leg.id,
             'vote_choice': 'yes', 'password': 'testpass'})
         page = client.get(reverse('vote'))
@@ -896,10 +896,9 @@ class AlreadyVotedStateTests(TestCase):
 class SplitEndpointTests(TestCase):
     """v3.14.1 — vote_view POST multiplex split into dedicated endpoints.
 
-    The classes above still POST to reverse('vote'), which now exercises the
-    legacy dispatcher (kept so tabs opened before the deploy aren't silently
-    dropped) — do NOT "modernize" them, that coverage is intentional. This
-    class hits the new endpoints directly, which is what vote.html now does.
+    v3.14.2 removed the forwarding dispatcher, so the classes above now POST
+    to the split endpoints directly (rerouted 07-19). Any POST to /vote/
+    itself gets the explicit stale-tab error — see the last test.
     """
 
     def setUp(self):
@@ -983,5 +982,15 @@ class SplitEndpointTests(TestCase):
         """A POST to /vote/ matching no legacy branch must explain itself
         (the v3.13.3 no-silent-drops rule), not quietly re-render."""
         resp = self.client.post(reverse('vote'), {'bogus': '1'}, follow=True)
+        self.assertContains(resp, 'page may be out of date')
+        self.assertFalse(Vote.objects.exists())
+
+    def test_legacy_valid_looking_post_also_gets_error(self):
+        """v3.14.2 (dispatcher removed): even a well-formed old-style cast
+        POSTed to /vote/ must be told to reload — and record NOTHING, not
+        silently drop. Guards against reducing vote_view to bare GET-only."""
+        resp = self.client.post(reverse('vote'), {
+            'action': 'cast_vote', 'legislation_id': self.leg.id,
+            'vote_choice': 'yes', 'password': 'testpass'}, follow=True)
         self.assertContains(resp, 'page may be out of date')
         self.assertFalse(Vote.objects.exists())

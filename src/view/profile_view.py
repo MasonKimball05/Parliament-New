@@ -468,6 +468,11 @@ def profile_view(request):
         ('Concentration', 'concentration', list(user.concentrations or [])),
     ]
 
+    # v3.15.0 QOL: recent-logins card. Successful logins only; city/region +
+    # browser/OS are shown, never the (encrypted) raw IP. Default ordering
+    # is -timestamp; [:5] keeps it one cheap indexed query.
+    recent_logins = list(user.login_history.filter(status='success')[:5])
+
     return render(request, 'profile.html', {
         'user': user,
         'password_form': password_form,
@@ -483,4 +488,5 @@ def profile_view(request):
         'role_histories': role_histories,
         'eligible_big_bros': eligible_big_bros,
         'academic_sections': academic_sections,
+        'recent_logins': recent_logins,
     })

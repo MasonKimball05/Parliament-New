@@ -132,6 +132,11 @@ jobs:
         pip install -r requirements.txt
 
     - name: Dependency vulnerability scan (pip-audit)
+      # PYSEC-2025-49 = setuptools PackageIndex path traversal (CVE-2025-47273),
+      # fixed in setuptools 78.1.1. Ignored because PackageIndex is
+      # easy_install-era build tooling — never imported at runtime by the app;
+      # setuptools here is just the CI environment's packaging shim.
+      # Justification reviewed 07-19-26.
       run: |
         pip-audit --ignore-vuln PYSEC-2025-49
 

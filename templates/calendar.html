@@ -148,11 +148,11 @@
     {% for day, day_events in events_by_day.items %}
         {% for event in day_events %}
             {% load custom_filters %}
-            <div id="eventModal{{ event.id }}" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 js-static-event-modal" data-event-id="{{ event.id }}">
+            <div id="eventModal{{ event.id }}" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 js-static-event-modal" data-event-id="{{ event.id }}" role="dialog" aria-modal="true" aria-labelledby="eventModalTitle{{ event.id }}">
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6 transition-colors duration-200">
                     <div class="flex justify-between items-start mb-4">
-                        <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ event.title }}</h3>
-                        <button class="js-static-event-close text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
+                        <h3 id="eventModalTitle{{ event.id }}" class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ event.title }}</h3>
+                        <button class="js-static-event-close text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" aria-label="Close event details">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                             </svg>
@@ -187,6 +187,20 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                             </svg>
                             <span>Posted by {{ event.created_by.get_display_name }}</span>
+                        </div>
+
+                        <!-- Add to calendar (v3.15.0 QOL) -->
+                        <div class="flex items-center gap-3 text-sm">
+                            <a href="{{ event.google_calendar_url }}" target="_blank" rel="noopener noreferrer"
+                               class="inline-flex items-center gap-1.5 text-primary-600 dark:text-primary-400 hover:underline">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                                Add to Google Calendar
+                            </a>
+                            <span class="text-gray-300 dark:text-gray-600">|</span>
+                            <a href="{% url 'export_event_ical' event.id %}"
+                               class="text-primary-600 dark:text-primary-400 hover:underline">Download .ics</a>
                         </div>
 
                         <!-- Recruitment event pill for recruitment committee members -->
@@ -696,7 +710,8 @@
         const id = ev.id, title = ev.title, description = ev.description, datetime = ev.full_datetime,
               location = ev.location, createdBy = ev.created_by,
               requiresAttendance = ev.requires_attendance, allowExcuses = ev.allow_excuses,
-              canSubmitExcuse = ev.can_submit_excuse, hasExcuse = ev.has_excuse, excuseStatus = ev.excuse_status;
+              canSubmitExcuse = ev.can_submit_excuse, hasExcuse = ev.has_excuse, excuseStatus = ev.excuse_status,
+              googleUrl = ev.google_url, icsUrl = ev.ics_url;
 
         // Build excuse section HTML
         let excuseHtml = '';
@@ -809,11 +824,11 @@
         }
 
         const modalHtml = `
-            <div id="eventModal${id}" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 js-dyn-modal-backdrop">
+            <div id="eventModal${id}" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 js-dyn-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="eventModalTitle${id}">
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6 transition-colors duration-200">
                     <div class="flex justify-between items-start mb-4">
-                        <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100">${escapeHtml(title)}</h3>
-                        <button class="js-dyn-modal-close text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
+                        <h3 id="eventModalTitle${id}" class="text-2xl font-bold text-gray-900 dark:text-gray-100">${escapeHtml(title)}</h3>
+                        <button class="js-dyn-modal-close text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" aria-label="Close event details">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                             </svg>
@@ -842,6 +857,19 @@
                             </svg>
                             <span>Posted by ${escapeHtml(createdBy)}</span>
                         </div>
+                        ${googleUrl ? `
+                        <div class="flex items-center gap-3 text-sm">
+                            <a href="${escapeHtml(googleUrl)}" target="_blank" rel="noopener noreferrer"
+                               class="inline-flex items-center gap-1.5 text-primary-600 dark:text-primary-400 hover:underline">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                                Add to Google Calendar
+                            </a>
+                            <span class="text-gray-300 dark:text-gray-600">|</span>
+                            <a href="${escapeHtml(icsUrl)}" class="text-primary-600 dark:text-primary-400 hover:underline">Download .ics</a>
+                        </div>
+                        ` : ''}
                         ${signupHtml}
                         ${excuseHtml}
                     </div>

@@ -79,7 +79,7 @@
 
         <!-- ── General Legislation Form ── -->
         <div id="panel-legislation">
-        <form method="POST" action="{% url 'upload_chapter_legislation' %}" enctype="multipart/form-data" class="space-y-4">
+        <form method="POST" action="{% url 'upload_chapter_legislation' %}" enctype="multipart/form-data" class="space-y-4" data-dirty-guard>
             {% csrf_token %}
             <input type="hidden" name="upload_submit" value="1">
 
@@ -258,7 +258,7 @@
 
         <!-- ── Chair Appointment Form ── -->
         <div id="panel-appointment" class="hidden">
-        <form method="POST" action="{% url 'upload_legislation' %}" class="space-y-4">
+        <form method="POST" action="{% url 'upload_legislation' %}" class="space-y-4" data-dirty-guard>
             {% csrf_token %}
             <input type="hidden" name="action_type" value="create_appointment">
 
@@ -1386,6 +1386,24 @@
             if (flag) flag.value = '1';
         });
     });
+</script>
+<script nonce="{{ request.csp_nonce }}">
+// v3.15.0 QOL: dirty-form guard on the two legislation upload forms —
+// half-written proposals shouldn't vanish on an accidental tab close.
+// Submitting (or casting a vote, which posts a different form) is exempt:
+// any form submission on the page clears the flag.
+(function () {
+    let dirty = false;
+    document.querySelectorAll('form[data-dirty-guard]').forEach(function (f) {
+        f.addEventListener('input', function () { dirty = true; });
+    });
+    document.addEventListener('submit', function () { dirty = false; }, true);
+    window.addEventListener('beforeunload', function (e) {
+        if (!dirty) return;
+        e.preventDefault();
+        e.returnValue = '';
+    });
+})();
 </script>
 {% include 'components/vote_passkey_confirm.html' %}
 {% endblock %}

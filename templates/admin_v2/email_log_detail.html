@@ -154,15 +154,16 @@
             </span>
         </div>
         <div class="p-4 max-h-64 overflow-y-auto">
+            <div class="overflow-x-auto"><!-- v3.15.0 mobile: horizontal scroll instead of page blowout -->
             <table class="min-w-full text-sm">
                 <thead>
                     <tr class="border-b dark:border-gray-700">
-                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">Name</th>
-                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">Email</th>
-                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">Member Type</th>
-                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">Status</th>
+                        <th class="whitespace-nowrap text-left py-2 px-3 text-gray-600 dark:text-gray-400">Name</th>
+                        <th class="whitespace-nowrap text-left py-2 px-3 text-gray-600 dark:text-gray-400">Email</th>
+                        <th class="whitespace-nowrap text-left py-2 px-3 text-gray-600 dark:text-gray-400">Member Type</th>
+                        <th class="whitespace-nowrap text-left py-2 px-3 text-gray-600 dark:text-gray-400">Status</th>
                         {% if 'Failed' in status %}
-                        <th class="text-left py-2 px-3 text-gray-600 dark:text-gray-400">Error</th>
+                        <th class="whitespace-nowrap text-left py-2 px-3 text-gray-600 dark:text-gray-400">Error</th>
                         {% endif %}
                     </tr>
                 </thead>
@@ -187,6 +188,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
     {% empty %}

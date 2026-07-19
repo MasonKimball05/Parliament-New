@@ -31,6 +31,7 @@
     {% endif %}
 
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div class="overflow-x-auto"><!-- v3.15.0 mobile: horizontal scroll instead of page blowout -->
         <table class="w-full text-sm">
             <thead class="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
@@ -65,6 +66,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 
     <p class="text-xs text-gray-500 dark:text-gray-400 mt-4">

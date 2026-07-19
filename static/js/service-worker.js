@@ -21,13 +21,43 @@ const ICON = '/static/images/am-coat-of-arms.png';
 
 // ─── Install / Activate ────────────────────────────────────────────────────
 
-// Skip waiting so the new SW activates immediately on update
-self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (event) => event.waitUntil(clients.claim()));
+// v3.15.0: tiny offline fallback. We still cache NO app content (login-gated;
+// intercepting credentialed requests causes session issues) — only a static
+// "you're offline" page + the seal, and the fetch handler below touches
+// nothing but failed top-level navigations.
+const OFFLINE_CACHE = 'parliament-offline-v1';
+const OFFLINE_URL = '/static/offline.html';
 
-// No fetch handler — Parliament is a login-gated app so offline caching
-// is not useful, and intercepting requests causes credential issues with
-// session-authenticated POST endpoints.
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        caches.open(OFFLINE_CACHE)
+            .then((cache) => cache.addAll([OFFLINE_URL, ICON]))
+            .then(() => self.skipWaiting())
+    );
+});
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys()
+            .then((keys) => Promise.all(
+                keys.filter((k) => k.startsWith('parliament-offline-') && k !== OFFLINE_CACHE)
+                    .map((k) => caches.delete(k))))
+            .then(() => clients.claim())
+    );
+});
+
+// ─── Fetch: offline fallback for navigations ONLY ──────────────────────────
+// Non-navigation requests (API, static, POSTs) are deliberately not handled —
+// the browser does its default thing and credentials flow untouched.
+
+self.addEventListener('fetch', (event) => {
+    if (event.request.mode !== 'navigate') return;
+    event.respondWith(
+        fetch(event.request).catch(() =>
+            caches.match(OFFLINE_URL).then((cached) => cached || Response.error())
+        )
+    );
+});
 
 // ─── Push event ────────────────────────────────────────────────────────────
 

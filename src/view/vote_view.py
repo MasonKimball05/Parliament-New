@@ -439,21 +439,14 @@ def cast_vote(request):
 def vote_view(request):
     user = request.user
 
-    # v3.14.1: POSTs now go to the split endpoints (cast_vote,
-    # mark_attendance_quick, upload_chapter_legislation) — this function is
-    # the GET page-builder. The dispatcher below keeps OLD-style multiplexed
-    # POSTs working: a tab opened before the deploy still submits to /vote/,
-    # and silently dropping those is exactly the failure class v3.13.3
-    # stamped out. Safe to remove a release or two after v3.14.1 ships.
+    # v3.14.1 split POSTs to dedicated endpoints (cast_vote,
+    # mark_attendance_quick, upload_chapter_legislation); v3.14.2 removed the
+    # forwarding dispatcher that lived here (Mason-directed, 07-19). This
+    # explicit-error guard stays: a tab opened before the deploy still
+    # submits to /vote/, and silently dropping that ballot is exactly the
+    # failure class v3.13.3 stamped out — the member gets told to reload
+    # instead. Do NOT reduce this to a bare GET-only view.
     if request.method == 'POST':
-        if request.POST.get('action') == 'mark_attendance_quick':
-            return mark_attendance_quick(request)
-        if (request.POST.get('action') == 'cast_vote'
-                or 'vote_choice' in request.POST
-                or 'vote_choices' in request.POST):
-            return cast_vote(request)
-        if 'title' in request.POST:
-            return upload_chapter_legislation(request)
         messages.error(
             request,
             "That action couldn't be processed — the page may be out of "

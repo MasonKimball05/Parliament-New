@@ -6,6 +6,7 @@ from django.db.models import Q
 from django.http import HttpResponseForbidden, FileResponse, Http404
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
+from django.utils.http import content_disposition_header
 from ..decorators import log_function_call
 from ..models import Song, SongCategory, Role, ParliamentUser
 from ..forms import SongForm, SongCategoryForm
@@ -303,7 +304,9 @@ def serve_song_audio(request, pk):
 
     # Serve the file
     response = FileResponse(open(file_path, 'rb'), content_type=content_type)
-    response['Content-Disposition'] = f'inline; filename="{os.path.basename(file_path)}"'
+    # v3.14.2: RFC 5987-safe filename (raw f-string broke on `"`/non-ASCII)
+    response['Content-Disposition'] = content_disposition_header(
+        as_attachment=False, filename=os.path.basename(file_path))
     return response
 
 
@@ -317,7 +320,9 @@ def serve_exportable_media(request, filename):
     exportable_root = os.path.realpath(os.path.join(settings.BASE_DIR, 'exportable_media'))
     resolved_path = os.path.realpath(file_path)
 
-    if not resolved_path.startswith(exportable_root):
+    # v3.14.2: `+ os.sep` — bare startswith would also match a sibling
+    # directory like `exportable_media_x` (same pattern as serve_media.py)
+    if not resolved_path.startswith(exportable_root + os.sep):
         raise Http404("File not found")
 
     if not os.path.exists(resolved_path) or not os.path.isfile(resolved_path):
@@ -330,7 +335,9 @@ def serve_exportable_media(request, filename):
 
     # Serve the file
     response = FileResponse(open(resolved_path, 'rb'), content_type=content_type)
-    response['Content-Disposition'] = f'inline; filename="{os.path.basename(resolved_path)}"'
+    # v3.14.2: RFC 5987-safe filename (raw f-string broke on `"`/non-ASCII)
+    response['Content-Disposition'] = content_disposition_header(
+        as_attachment=False, filename=os.path.basename(resolved_path))
     # v3.14.1: without this, every page load re-fetched these assets through
     # the full Django stack (and nothing could cache them). private: they're
     # behind login; the public seal now lives in /static/ instead.

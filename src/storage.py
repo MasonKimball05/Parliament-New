@@ -1,9 +1,37 @@
 import os
+import re
 from django.core.files.storage import FileSystemStorage
 from django.conf import settings
+from django.utils.text import slugify
 
 
-class DualLocationStorage(FileSystemStorage):
+class SanitizedFilenameMixin:
+    """v3.14.2 — slugify uploaded filenames at save time.
+
+    Why: filenames land in Content-Disposition headers, X-Accel-Redirect
+    URIs, and hand-written links; spaces/quotes/non-ASCII made every one of
+    those a special case (07-19 review). Sanitizing once at save kills the
+    whole class for future uploads.
+
+    `get_valid_name` is the Django hook for exactly this: it receives the
+    bare filename (upload_to directories are handled separately) and the
+    result still goes through `get_available_name`, so collisions get
+    Django's usual random 7-char suffix — no timestamp prefix needed.
+    Existing files on disk keep their stored names.
+    """
+
+    def get_valid_name(self, name):
+        stem, ext = os.path.splitext(name)
+        stem = slugify(stem) or 'file'
+        ext = re.sub(r'[^a-z0-9]', '', ext.lower())
+        return f'{stem}.{ext}' if ext else stem
+
+
+class SanitizedFileSystemStorage(SanitizedFilenameMixin, FileSystemStorage):
+    """Default storage (see settings.STORAGES) — plain FS + sanitized names."""
+
+
+class DualLocationStorage(SanitizedFilenameMixin, FileSystemStorage):
     """
     Custom storage that checks both media and exportable_media folders.
 

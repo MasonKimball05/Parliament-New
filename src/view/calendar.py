@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404
+from django.urls import reverse
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponse
 from django.db import transaction, models
@@ -256,6 +257,9 @@ def calendar_data_api(request):
             'signup_count': signup_count,
             'user_signed_up': user_signed_up,
             'signup_full': event.max_signups is not None and signup_count >= event.max_signups,
+            # v3.15.0 QOL: add-to-calendar links for the event modal
+            'google_url': event.google_calendar_url,
+            'ics_url': reverse('export_event_ical', args=[event.id]),
         })
 
     # Get local time for today's date

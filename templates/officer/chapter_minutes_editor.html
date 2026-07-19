@@ -1941,4 +1941,34 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('js-adjourn-meeting')?.addEventListener('click', adjournMeeting);
 });
 </script>
+<script nonce="{{ request.csp_nonce }}">
+// v3.15.0 QOL: dirty-form guard — warn before leaving with unsaved edits.
+// Edits mark the page dirty; any successful save to SAVE_URL or
+// ATTENDANCE_URL marks it clean (both persist server-side). The publish
+// form does its own synchronous save before submitting, so submitting it
+// clears the flag rather than triggering the warning.
+(function () {
+    let dirty = false;
+    document.addEventListener('input', function (e) {
+        if (e.target.matches('textarea, input, select')) dirty = true;
+    }, true);
+    const _fetch = window.fetch;
+    window.fetch = function (url, opts) {
+        const p = _fetch.apply(this, arguments);
+        if (typeof url === 'string'
+                && (url === SAVE_URL || url === ATTENDANCE_URL)
+                && opts && String(opts.method).toUpperCase() === 'POST') {
+            p.then(function (r) { if (r.ok) dirty = false; }).catch(function () {});
+        }
+        return p;
+    };
+    const pub = document.getElementById('publishForm');
+    if (pub) pub.addEventListener('submit', function () { dirty = false; });
+    window.addEventListener('beforeunload', function (e) {
+        if (!dirty) return;
+        e.preventDefault();
+        e.returnValue = '';  // browsers show their own generic warning text
+    });
+})();
+</script>
 {% endblock %}

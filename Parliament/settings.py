@@ -168,6 +168,15 @@ STATICFILES_DIRS = [
 MEDIA_URL = os.getenv('DJANGO_MEDIA_URL', os.getenv('MEDIA_URL', '/media/'))
 MEDIA_ROOT = os.path.join(BASE_DIR, os.getenv('MEDIA_ROOT','media'))
 
+# v3.14.2: default storage slugifies uploaded filenames at save time
+# (spaces/quotes/non-ASCII broke Content-Disposition and X-Accel headers —
+# 07-19 review). DualLocationStorage fields get the same via a shared mixin;
+# files already on disk are untouched. staticfiles entry = Django default.
+STORAGES = {
+    'default': {'BACKEND': 'src.storage.SanitizedFileSystemStorage'},
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+}
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
