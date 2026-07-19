@@ -320,6 +320,16 @@
 
         inner.appendChild(dotEl);
         inner.appendChild(nameBtn);
+        // v3.15.1: pledge-class color chip (gold gradient for founders)
+        if (node.class_color) {
+            const cc = document.createElement('span');
+            cc.className = 'inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ml-0.5';
+            cc.style.background = node.class_greek === 'Founder'
+                ? 'linear-gradient(135deg,#b8860b,#ffd700,#b8860b)'
+                : node.class_color;
+            cc.title = node.class_greek + ' Class';
+            inner.appendChild(cc);
+        }
         if (node.role_number) {
             const rn = document.createElement('span');
             rn.className = 'text-xs text-gray-400 dark:text-gray-500';
@@ -469,7 +479,15 @@
         let chapterRows = '';
         if (d.pledge_class) {
             let pcLabel = esc(d.pledge_class);
-            if (d.pledge_class_greek) {
+            // v3.15.1: colored badge from the server-resolved class
+            const badge = d.pledge_class_badge;
+            if (badge && badge.is_founders) {
+                pcLabel = `<span class="font-semibold px-1.5 py-0.5 rounded" style="background:linear-gradient(135deg,#b8860b,#ffd700,#b8860b);color:#3b1f00;">Founder Class</span> · ${esc(d.pledge_class)}`;
+            } else if (badge && badge.greek) {
+                const glyphs = badge.greek.trim().split(/\s+/).map(w => GREEK_GLYPHS[w.toLowerCase()] || '').join('');
+                const greekDisplay = glyphs ? `${esc(badge.greek)} (${glyphs})` : esc(badge.greek);
+                pcLabel = `<span class="font-semibold px-1.5 py-0.5 rounded" style="background:${esc(badge.color)};color:#fff;">${greekDisplay} Class</span> · ${esc(d.pledge_class)}`;
+            } else if (d.pledge_class_greek) {
                 const greek = d.pledge_class_greek.trim();
                 if (greek.toLowerCase() === 'founder') {
                     pcLabel = `<span class="font-semibold px-1.5 py-0.5 rounded" style="background:linear-gradient(135deg,#b8860b,#ffd700,#b8860b);color:#3b1f00;">Founder Class</span> · ${esc(d.pledge_class)}`;

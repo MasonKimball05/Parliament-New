@@ -9,6 +9,7 @@ from django.views.decorators.http import require_http_methods
 from src.models import ParliamentUser, Role
 from src.decorators import log_function_call
 from src.feature_flag_decorators import require_page_enabled
+from src.pledge_classes import badge_context
 
 
 def _get_historian_role():
@@ -41,12 +42,16 @@ def _build_tree(member, all_little_map, house_code):
         lb for lb in all_little_map.get(member.user_id, [])
         if not lb.house or lb.house == house_code
     ]
+    badge = badge_context(member.pledge_class, member.pledge_class_greek)
     return {
         'user_id': member.user_id,
         'name': member.get_display_name(),
         'member_type': member.member_type,
         'member_status': member.member_status,
         'role_number': member.role_number or '',
+        # v3.15.1: per-class color for the tree node dot (None if unresolved)
+        'class_color': badge['color'] if badge else '',
+        'class_greek': badge['greek'] if badge else '',
         'littles': [_build_tree(lb, all_little_map, house_code) for lb in relevant_littles],
     }
 

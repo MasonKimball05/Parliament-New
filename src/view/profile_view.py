@@ -207,8 +207,11 @@ def profile_view(request):
             # Save bio, chapter info, socials, other email, big brother
             # (majors/minors/concentrations managed separately via academic_item_add/delete)
             user.about_me = request.POST.get('about_me', '').strip()
-            user.pledge_class = request.POST.get('pledge_class', '').strip()
-            user.pledge_class_greek = request.POST.get('pledge_class_greek', '').strip()
+            # v3.15.0: canonicalize class + auto-fill its greek from the registry
+            from src.pledge_classes import apply_to_fields
+            user.pledge_class, user.pledge_class_greek = apply_to_fields(
+                request.POST.get('pledge_class', ''),
+                request.POST.get('pledge_class_greek', ''))
             user.graduation_semester = request.POST.get('graduation_semester', '').strip()
             raw_year = request.POST.get('graduation_year', '').strip()
             user.graduation_year = int(raw_year) if raw_year.isdigit() else None
@@ -473,6 +476,10 @@ def profile_view(request):
     # is -timestamp; [:5] keeps it one cheap indexed query.
     recent_logins = list(user.login_history.filter(status='success')[:5])
 
+    # v3.15.0: canonical pledge-class options for the datalist dropdown
+    from src.pledge_classes import all_classes
+    pledge_class_choices = all_classes()
+
     return render(request, 'profile.html', {
         'user': user,
         'password_form': password_form,
@@ -489,4 +496,5 @@ def profile_view(request):
         'eligible_big_bros': eligible_big_bros,
         'academic_sections': academic_sections,
         'recent_logins': recent_logins,
+        'pledge_class_choices': pledge_class_choices,
     })

@@ -112,13 +112,19 @@
                         <div>
                             <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Pledge class semester</label>
                             <input type="text" name="pledge_class" value="{{ target.pledge_class }}" placeholder="e.g. Spring 2024"
+                                   list="pledge-class-options" autocomplete="off"
                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
+                            <datalist id="pledge-class-options">
+                                {% for c in pledge_class_choices %}<option value="{{ c.label }}">{{ c.label }} — {{ c.greek }} Class</option>{% endfor %}
+                            </datalist>
                         </div>
                         <div>
                             <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Pledge class Greek name</label>
-                            <input type="text" name="pledge_class_greek" value="{{ target.pledge_class_greek }}" placeholder="e.g. Beta"
+                            <input type="text" name="pledge_class_greek" value="{{ target.pledge_class_greek }}" placeholder="Auto-fills from class"
                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Pick a class above and this fills in automatically.</p>
                         </div>
+                        {% include 'components/pledge_class_sync.html' %}
                         <div>
                             <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Big brother</label>
                             <select name="big_brother"

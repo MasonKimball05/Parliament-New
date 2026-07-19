@@ -5,6 +5,12 @@ import json
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, Http404
 from src.models import ParliamentUser
+from src.pledge_classes import badge_context
+
+
+def _pledge_badge(member):
+    """Resolved {greek, color, is_founders} for the class badge, or None."""
+    return badge_context(member.pledge_class, member.pledge_class_greek)
 
 
 @login_required
@@ -106,6 +112,8 @@ def profile_card_json(request, user_id):
         'academics': academics,
         'pledge_class': member.pledge_class,
         'pledge_class_greek': member.pledge_class_greek,
+        # v3.15.0: resolved per-class badge color/greek (None if unrecognized)
+        'pledge_class_badge': _pledge_badge(member),
         'graduation': grad,
         'big_brother': {
             'name': member.big_brother.get_display_name(),

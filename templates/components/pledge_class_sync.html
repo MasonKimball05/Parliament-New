@@ -1,0 +1,41 @@
+{% comment %}
+v3.15.1 — live pledge-class field sync. Include once per form that has an
+input[name="pledge_class"] + input[name="pledge_class_greek"] + the
+#pledge-class-options datalist. Requires `pledge_class_choices` in context.
+
+Picking a class from the dropdown (or typing a recognized semester/greek)
+instantly fills BOTH the semester and the Greek-name field — no need to touch
+the second box. Server-side apply_to_fields() still canonicalizes on save as
+the safety net.
+{% endcomment %}
+{{ pledge_class_choices|json_script:"pledge-class-data" }}
+<script nonce="{{ request.csp_nonce }}">
+(function () {
+    var raw = document.getElementById('pledge-class-data');
+    if (!raw) return;
+    var data = JSON.parse(raw.textContent);
+    var byLabel = {}, byGreek = {};
+    data.forEach(function (c) {
+        byLabel[c.label.toLowerCase()] = c;
+        byGreek[c.greek.toLowerCase()] = c;
+    });
+    document.querySelectorAll('input[name="pledge_class"]').forEach(function (pc) {
+        var form = pc.closest('form');
+        if (!form) return;
+        var greek = form.querySelector('input[name="pledge_class_greek"]');
+        if (!greek) return;
+        // Semester picked/typed -> fill greek (and canonicalize the label)
+        function fromSemester() {
+            var c = byLabel[pc.value.trim().toLowerCase()];
+            if (c) { pc.value = c.label; greek.value = c.greek; }
+        }
+        pc.addEventListener('change', fromSemester);
+        pc.addEventListener('input', fromSemester);
+        // Greek typed -> fill semester if it resolves to a single class
+        greek.addEventListener('change', function () {
+            var c = byGreek[greek.value.trim().toLowerCase()];
+            if (c) { greek.value = c.greek; if (!pc.value.trim()) pc.value = c.label; }
+        });
+    });
+})();
+</script>

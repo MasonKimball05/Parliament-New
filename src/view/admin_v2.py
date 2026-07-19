@@ -1419,8 +1419,11 @@ def edit_user_profile(request, user_id):
 
         elif action == 'extended':
             target.about_me = request.POST.get('about_me', '').strip()
-            target.pledge_class = request.POST.get('pledge_class', '').strip()
-            target.pledge_class_greek = request.POST.get('pledge_class_greek', '').strip()
+            # v3.15.0: canonicalize class + auto-fill its greek from the registry
+            from src.pledge_classes import apply_to_fields
+            target.pledge_class, target.pledge_class_greek = apply_to_fields(
+                request.POST.get('pledge_class', ''),
+                request.POST.get('pledge_class_greek', ''))
             target.graduation_semester = request.POST.get('graduation_semester', '').strip()
             raw_year = request.POST.get('graduation_year', '').strip()
             target.graduation_year = int(raw_year) if raw_year.isdigit() else None
@@ -1514,11 +1517,13 @@ def edit_user_profile(request, user_id):
         ('Minor', 'minor', list(target.minors or [])),
         ('Concentration', 'concentration', list(target.concentrations or [])),
     ]
+    from src.pledge_classes import all_classes
     return render(request, 'admin_v2/edit_user_profile.html', {
         'target': target,
         'all_members': all_members,
         'role_histories': role_histories,
         'academic_sections': academic_sections,
+        'pledge_class_choices': all_classes(),
     })
 
 

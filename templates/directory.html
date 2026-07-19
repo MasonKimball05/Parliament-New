@@ -845,7 +845,18 @@ function _renderProfile(d) {
     let chapterRows = '';
     if (d.pledge_class) {
         let pcLabel = d.pledge_class;
-        if (d.pledge_class_greek) {
+        // v3.15.0: badge = server-resolved greek + unique per-class color.
+        // Prefer d.pledge_class_badge; fall back to legacy greek text.
+        const badge = d.pledge_class_badge;
+        if (badge && badge.is_founders) {
+            pcLabel = `<span class="font-semibold px-1.5 py-0.5 rounded" style="background:linear-gradient(135deg,#b8860b,#ffd700,#b8860b);color:#3b1f00;">Founder Class</span> · ${d.pledge_class}`;
+        } else if (badge && badge.greek) {
+            const glyphs = badge.greek.trim().split(/\s+/)
+                .map(w => GREEK_GLYPHS[w.toLowerCase()] || '').join('');
+            const greekDisplay = glyphs ? `${badge.greek} (${glyphs})` : badge.greek;
+            pcLabel = `<span class="font-semibold px-1.5 py-0.5 rounded" style="background:${badge.color};color:#fff;">${greekDisplay} Class</span> · ${d.pledge_class}`;
+        } else if (d.pledge_class_greek) {
+            // Legacy fallback (greek text that didn't resolve to a known class)
             if (d.pledge_class_greek.trim().toLowerCase() === 'founder') {
                 pcLabel = `<span class="font-semibold px-1.5 py-0.5 rounded" style="background:linear-gradient(135deg,#b8860b,#ffd700,#b8860b);color:#3b1f00;">Founder Class</span> · ${d.pledge_class}`;
             } else {
