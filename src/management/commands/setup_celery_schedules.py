@@ -168,9 +168,18 @@ class Command(BaseCommand):
             action='store_true',
             help='Delete and recreate all managed schedules (use after renaming tasks)',
         )
+        parser.add_argument(
+            '--prune-orphans',
+            action='store_true',
+            help='Delete enabled PeriodicTask rows NOT in the managed set '
+                 '(stale leftovers from removed features, e.g. the old '
+                 '"Prune old auth tokens" / "Send weekly chapter digest" rows). '
+                 'Without this flag, orphans are only reported, never deleted.',
+        )
 
     def handle(self, *args, **options):
         reset = options['reset']
+        prune = options['prune_orphans']
         created = 0
         skipped = 0
 
@@ -228,3 +237,58 @@ class Command(BaseCommand):
         ))
         if skipped and not reset:
             self.stdout.write('  Run with --reset to force-recreate existing schedules.')
+
+        # --- Orphan reconciliation (v3.15.2) -------------------------------
+        # A DEAD orphan is a PeriodicTask whose `task` path is no longer a
+        # registered Celery task in the deployed code — beat can never run it,
+        # its last_run_at freezes, and it trips the daily digest's "Beat may be
+        # down" HIGH check forever (e.g. the v3.5.0 "Prune old auth tokens" row).
+        #
+        # Criterion is REGISTRATION, not the managed SCHEDULES set: a valid
+        # task that's simply seeded elsewhere (e.g. "Send daily honeypot
+        # digest") is still registered and must NOT be flagged. Reads the live
+        # registry, so it self-corrects to whatever code is actually deployed.
+        from celery import current_app
+        # Force all task modules to import so the registry is fully populated
+        # (a management command isn't a worker — without this, autodiscovered
+        # tasks may be absent and every row would look "dead").
+        try:
+            current_app.loader.import_default_modules()
+        except Exception as exc:  # pragma: no cover - defensive
+            self.stdout.write(self.style.WARNING(
+                f'\nSkipping orphan check — could not load task registry: {exc}'))
+            return
+        registered = set(current_app.tasks.keys())
+        # Safety fuse: if a known-always-present managed task is missing, the
+        # registry didn't load — refuse to flag/delete anything rather than
+        # risk nuking live schedules on a false negative.
+        SENTINEL = 'tasks.send_daily_digest'
+        if SENTINEL not in registered:
+            self.stdout.write(self.style.WARNING(
+                f'\nSkipping orphan check — task registry looks unloaded '
+                f'({SENTINEL!r} not registered). No rows touched.'))
+            return
+        dead = [t for t in PeriodicTask.objects.all()
+                if t.task not in registered]
+        if dead:
+            self.stdout.write(self.style.WARNING(
+                f'\n{len(dead)} orphan periodic task(s) point to UNREGISTERED '
+                f'tasks (dead — beat cannot run them):'))
+            for t in dead:
+                last = (t.last_run_at.strftime('%Y-%m-%d %H:%M')
+                        if t.last_run_at else 'NEVER')
+                self.stdout.write(
+                    f'  {"[enabled]" if t.enabled else "[disabled]"} '
+                    f'{t.name}  ->  {t.task}  (last run: {last})')
+            if prune:
+                PeriodicTask.objects.filter(
+                    pk__in=[t.pk for t in dead]).delete()
+                self.stdout.write(self.style.SUCCESS(
+                    f'  Pruned {len(dead)} orphan row(s).'))
+            else:
+                self.stdout.write(
+                    '  Re-run with --prune-orphans to delete these. '
+                    '(Verify none are still wanted first.)')
+        else:
+            self.stdout.write(self.style.SUCCESS(
+                '\nNo orphan periodic tasks (all point to registered tasks).'))
