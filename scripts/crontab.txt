@@ -4,6 +4,20 @@
 #
 # Logs go to /var/log/parliament/
 # Make sure the log dir exists: sudo mkdir -p /var/log/parliament
+#
+# Set this so the watchdog jobs below can email you (any non-empty output from
+# a cron job is mailed here — independent of the app's own SMTP):
+# MAILTO=mason.kimball05@gmail.com
+
+# ---------------------------------------------------------------------------
+# Uptime / 502 watchdog — external, every 5 min (v3.15.2)
+#
+# Emails once if the site has been failing for ~15 min (3 consecutive checks)
+# and once when it recovers. Plain shell + system cron on purpose: it must
+# survive a dead Daphne (the 07-19 502). Hits the origin through nginx so a
+# Cloudflare-cached 200 can't mask an origin outage.
+# ---------------------------------------------------------------------------
+*/5 * * * * bash /var/www/Parliament-New/scripts/check_uptime.sh
 
 # ---------------------------------------------------------------------------
 # Scheduled announcements — every 15 minutes
@@ -28,3 +42,16 @@
 
 # Monthly backup — 1st of month, 2am, June through August
 0 2 1 6-8 * cd /var/www/Parliament-New && source venv/bin/activate && python manage.py backup_db >> /var/log/parliament/backup.log 2>&1
+
+# ---------------------------------------------------------------------------
+# Daily digest watchdog — independent of Celery (v3.15.2)
+#
+# Alerts if the daily site digest hasn't successfully sent in ~26h — the fix
+# for the 07-15 incident where the digest silently stopped for 4 days. Runs
+# from SYSTEM cron on purpose: it must survive a dead Celery worker/beat.
+# Set MAILTO at the top of the crontab so a non-zero exit emails you via a
+# channel that doesn't depend on Django's SMTP:
+#   MAILTO=mason.kimball05@gmail.com
+# Run at noon UTC, after the 09:30 UTC digest window.
+# ---------------------------------------------------------------------------
+0 12 * * * cd /var/www/Parliament-New && source venv/bin/activate && python manage.py check_digest_freshness

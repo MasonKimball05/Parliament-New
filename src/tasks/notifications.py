@@ -5,6 +5,7 @@ event reminders, and the daily site health digest.
 from celery import shared_task
 from django.utils import timezone
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -626,10 +627,31 @@ def send_daily_digest():
             from django.conf import settings as _settings
             send_mail(subject=subject, message=message, from_email=_settings.DEFAULT_FROM_EMAIL, recipient_list=[email_to], fail_silently=False)
             logger.info(f"[digest] Report emailed to {email_to}")
+            # v3.15.2: heartbeat for the independent freshness watchdog
+            # (check_digest_freshness). Written ONLY on a successful send, so a
+            # stale heartbeat catches all three failure modes: task didn't run
+            # (Celery down), send raised (SMTP), or no recipient configured.
+            _write_digest_heartbeat()
         except Exception as exc:
             logger.error(f"[digest] Failed to email report: {exc}")
     else:
         logger.warning("[digest] No SECURITY_ALERT_EMAIL configured — daily digest not emailed")
+
+
+def _digest_heartbeat_path():
+    from django.conf import settings
+    log_dir = os.path.join(settings.BASE_DIR, os.getenv('LOG_DIR', 'logs'))
+    return os.path.join(log_dir, 'last_digest_sent')
+
+
+def _write_digest_heartbeat():
+    try:
+        path = _digest_heartbeat_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w') as f:
+            f.write(timezone.now().isoformat())
+    except Exception as exc:  # never let the heartbeat break the digest
+        logger.warning(f"[digest] Could not write heartbeat: {exc}")
 
 
 @shared_task(name='tasks.send_service_event_email_reminders')

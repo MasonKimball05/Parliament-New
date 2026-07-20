@@ -1,7 +1,6 @@
 """
 Security utilities for login tracking, geolocation, and anomaly detection
 """
-import requests
 import logging
 from datetime import datetime, timedelta
 from math import radians, cos, sin, asin, sqrt
@@ -10,6 +9,8 @@ from django.utils import timezone
 from django.utils.timezone import localtime
 from django.conf import settings
 from django.http import JsonResponse
+
+from src.geo_utils import get_ip_geo
 
 logger = logging.getLogger('security')
 
@@ -48,6 +49,19 @@ def get_geolocation_from_ip(ip_address):
         dict: Dictionary with country, city, region, latitude, longitude
               Returns empty dict if lookup fails
     """
+    # No IP available (e.g. REMOTE_ADDR missing on some proxy setups or in
+    # sessionless/test requests). Return Unknown instead of crashing on
+    # .startswith — the broad except in signals.track_login swallowed this,
+    # silently dropping login-history tracking for the affected login.
+    if not ip_address:
+        return {
+            'country': 'Unknown',
+            'city': 'Unknown',
+            'region': '',
+            'latitude': None,
+            'longitude': None
+        }
+
     # Skip private/local IPs
     if ip_address in ['127.0.0.1', 'localhost'] or ip_address.startswith('192.168.') or ip_address.startswith('10.'):
         return {
@@ -58,29 +72,21 @@ def get_geolocation_from_ip(ip_address):
             'longitude': None
         }
 
-    try:
-        # Using ip-api.com (free, no API key required, 45 req/min limit).
-        # Base URL is configurable (GEO_API_BASE_URL) so an HTTPS endpoint can
-        # be used in production instead of sending lookups over cleartext HTTP.
-        base_url = getattr(settings, 'GEO_API_BASE_URL', 'http://ip-api.com/json/')
-        response = requests.get(
-            f'{base_url}{ip_address}',
-            timeout=3
-        )
-
-        if response.status_code == 200:
-            data = response.json()
-            if data.get('status') == 'success':
-                return {
-                    'country': data.get('country', ''),
-                    'city': data.get('city', ''),
-                    'region': data.get('regionName', ''),
-                    'latitude': data.get('lat'),
-                    'longitude': data.get('lon')
-                }
-    except Exception as e:
-        logger.error(f"Failed to get geolocation for IP {ip_address}: {str(e)}")
-
+    # v3.15.2: delegate the actual external call to geo_utils.get_ip_geo, which
+    # caches 24h per IP AND has a circuit breaker. This used to be a separate,
+    # UNCACHED requests.get() — on the /login/ path (incl. failed logins) a
+    # brute-force flood turned it into a pile of blocking 3s calls that wedged
+    # Daphne (07-19 502 incident). Now repeat IPs are free and the breaker
+    # bounds the blocking calls under any flood.
+    geo = get_ip_geo(ip_address)
+    if geo:
+        return {
+            'country': geo.get('country', ''),
+            'city': geo.get('city', ''),
+            'region': geo.get('region', ''),
+            'latitude': geo.get('lat'),
+            'longitude': geo.get('lon'),
+        }
     return {
         'country': '',
         'city': '',

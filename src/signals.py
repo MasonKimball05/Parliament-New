@@ -26,8 +26,11 @@ def log_successful_login(sender, request, user, **kwargs):
     Log successful login and perform security analysis
     """
     try:
-        # Get IP address
-        ip_address = get_client_ip(request)
+        # Get IP address. Coerce a missing IP to 'unknown' (same convention as
+        # the security middleware): LoginHistory.ip_address is NOT NULL, and a
+        # None here previously crashed geo lookup / the insert and silently
+        # dropped tracking for the login (v3.15.2 fix).
+        ip_address = get_client_ip(request) or 'unknown'
 
         # Get geolocation data — reuse the 24h-cached lookup already done by
         # run_post_auth_pipeline() (stashed on the request) instead of making
@@ -251,8 +254,11 @@ def log_failed_login(sender, credentials, request, **kwargs):
     Log failed login attempts
     """
     try:
-        # Get IP address
-        ip_address = get_client_ip(request)
+        # Get IP address. Coerce a missing IP to 'unknown' (same convention as
+        # the security middleware): LoginHistory.ip_address is NOT NULL, and a
+        # None here previously crashed geo lookup / the insert and silently
+        # dropped tracking for the login (v3.15.2 fix).
+        ip_address = get_client_ip(request) or 'unknown'
 
         # Get geolocation data
         location_data = get_geolocation_from_ip(ip_address)
