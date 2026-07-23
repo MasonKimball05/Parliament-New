@@ -974,10 +974,14 @@ def manage_legislation(request):
         legislation_list = legislation_list.filter(status=status_filter)
 
     if search_query:
+        # ParliamentUser has no first_name/last_name (AbstractBaseUser) — the
+        # old lookups here raised FieldError whenever the search box was used.
+        # (v3.15.6, same latent bug as the page-visits drill filter.)
         legislation_list = legislation_list.filter(
             Q(title__icontains=search_query) |
-            Q(posted_by__first_name__icontains=search_query) |
-            Q(posted_by__last_name__icontains=search_query)
+            Q(posted_by__name__icontains=search_query) |
+            Q(posted_by__preferred_name__icontains=search_query) |
+            Q(posted_by__username__icontains=search_query)
         )
 
     # Paginate
@@ -1267,9 +1271,11 @@ def manage_login_history(request):
         logins_list = logins_list.filter(is_suspicious=True)
 
     if user_search:
+        # Same latent FieldError as above: first_name/last_name don't exist on
+        # ParliamentUser. Match the real fields. (v3.15.6)
         logins_list = logins_list.filter(
-            Q(user__first_name__icontains=user_search) |
-            Q(user__last_name__icontains=user_search) |
+            Q(user__name__icontains=user_search) |
+            Q(user__preferred_name__icontains=user_search) |
             Q(user__username__icontains=user_search)
         )
 
@@ -3306,11 +3312,24 @@ def track_page_visit(request):
     return JsonResponse({'ok': True}, status=200)
 
 
+def _page_visit_user_q(term):
+    """Name-search Q for PageVisit rows. ParliamentUser (AbstractBaseUser) has
+    no first_name/last_name fields — the old filter here used
+    user__first_name/user__last_name and raised FieldError the moment the
+    filter box was actually used. Match the real fields. (v3.15.6)"""
+    return (
+        Q(user__name__icontains=term) |
+        Q(user__preferred_name__icontains=term) |
+        Q(user__username__icontains=term)
+    )
+
+
 @require_admin_v2_auth
 def page_visits_dashboard(request):
     """
     Admin v2 view: aggregated page visit stats, sortable by total visits or user count.
-    Supports drilling into a specific path to see per-user breakdown.
+    Supports drilling into a specific path to see per-user breakdown, and
+    filtering both views by member name/username (v3.15.6).
     """
     sort = request.GET.get('sort', 'total')
     drill_path = request.GET.get('path', '').strip()
@@ -3325,10 +3344,7 @@ def page_visits_dashboard(request):
             .order_by('-count')
         )
         if user_filter:
-            rows = rows.filter(
-                Q(user__first_name__icontains=user_filter) |
-                Q(user__last_name__icontains=user_filter)
-            )
+            rows = rows.filter(_page_visit_user_q(user_filter))
         return render(request, 'admin_v2/page_visits.html', {
             'drill_path': drill_path,
             'rows': rows,
@@ -3336,9 +3352,29 @@ def page_visits_dashboard(request):
             'user_filter': user_filter,
         })
 
-    # Aggregate by path
+    # Aggregate by path — optionally restricted to visits by matching member(s),
+    # so the dashboard can answer "what has this member been looking at" without
+    # drilling path-by-path. Totals/unique counts then reflect only the matched
+    # members. (v3.15.6)
+    visits = PageVisit.objects.all()
+    matched_users = None
+    if user_filter:
+        visits = visits.filter(_page_visit_user_q(user_filter))
+        # Small, bounded list of who matched, for display + disambiguation.
+        matched_users = list(
+            ParliamentUser.objects
+            .filter(page_visits__isnull=False)
+            .filter(
+                Q(name__icontains=user_filter) |
+                Q(preferred_name__icontains=user_filter) |
+                Q(username__icontains=user_filter)
+            )
+            .distinct()
+            .order_by('name')[:20]
+        )
+
     qs = (
-        PageVisit.objects
+        visits
         .values('path')
         .annotate(
             total=Sum('count'),
@@ -3355,6 +3391,7 @@ def page_visits_dashboard(request):
         'sort': sort,
         'drill_path': None,
         'user_filter': user_filter,
+        'matched_users': matched_users,
     })
 
 

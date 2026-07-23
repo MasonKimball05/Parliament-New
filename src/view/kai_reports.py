@@ -32,18 +32,12 @@ def submit_kai_report(request):
                     messages.error(request, f'File upload error: {str(e)}')
                     # Re-initialize form with templates
                     form = KaiReportForm()
-                    try:
-                        queryset = ParliamentUser.objects.filter(member_status='Active').order_by('name')
-                        list(queryset)
-                        form.fields['targeted_to'].queryset = queryset
-                    except Exception:
-                        try:
-                            queryset = ParliamentUser.objects.filter(is_active=True).only('name', 'member_type').order_by('name')
-                            list(queryset)
-                            form.fields['targeted_to'].queryset = queryset
-                        except Exception:
-                            queryset = ParliamentUser.objects.all().only('name', 'member_type')
-                            form.fields['targeted_to'].queryset = queryset
+                    # Migrations are consolidated + tracked (07-05-26), so the
+                    # schema-probe fallback tiers (and their discarded
+                    # list(queryset) force-evaluation, which doubled the query)
+                    # are gone. (v3.15.6, 07-23 report item #3.)
+                    form.fields['targeted_to'].queryset = (
+                        ParliamentUser.objects.filter(member_status='Active').order_by('name'))
                     templates = KaiReportTemplate.objects.filter(is_active=True)
                     return render(request, 'kai/submit_report.html', {'form': form, 'templates': templates})
 
@@ -158,28 +152,14 @@ Please log in to the Kai Committee page to review this report.
         else:
             form = KaiReportForm()
 
-        # Populate the targeted_to dropdown with active members
-        # Use is_active for compatibility with test database
-        try:
-            queryset = ParliamentUser.objects.filter(
-                member_status='Active'
-            ).order_by('name')
-            # Force evaluation to catch missing column error
-            list(queryset)
-            form.fields['targeted_to'].queryset = queryset
-        except Exception:
-            # Fallback for test database that doesn't have member_status
-            try:
-                queryset = ParliamentUser.objects.filter(
-                    is_active=True
-                ).only('name', 'member_type').order_by('name')
-                # Force evaluation
-                list(queryset)
-                form.fields['targeted_to'].queryset = queryset
-            except Exception:
-                # If that still fails, just get all users with minimal fields
-                queryset = ParliamentUser.objects.all().only('name', 'member_type')
-                form.fields['targeted_to'].queryset = queryset
+        # Populate the targeted_to dropdown with active members.
+        # The old three-tier schema-probe fallback (member_status → is_active →
+        # all users), with its discarded list(queryset) force-evaluations that
+        # doubled the member-table query per render, predates the migration
+        # consolidation (07-05-26) — the test DB now has the real schema, so a
+        # single queryset is correct. (v3.15.6, 07-23 report item #3.)
+        form.fields['targeted_to'].queryset = (
+            ParliamentUser.objects.filter(member_status='Active').order_by('name'))
 
         # Get active templates
         templates = KaiReportTemplate.objects.filter(is_active=True)
@@ -307,12 +287,9 @@ def view_kai_reports(request):
             except ValueError:
                 pass
 
-        # Try select_related for production, fallback without it for test
-        try:
-            reports = list(reports.select_related('submitted_by', 'reviewed_by', 'targeted_to').order_by('-submitted_at'))
-        except Exception:
-            # Test database missing columns - query without select_related
-            reports = list(reports.order_by('-submitted_at'))
+        # select_related directly — the test-DB schema-probe fallback is gone
+        # (migrations consolidated + tracked since 07-05-26). (v3.15.6)
+        reports = list(reports.select_related('submitted_by', 'reviewed_by', 'targeted_to').order_by('-submitted_at'))
 
         # Get counts for status filters
         counts = {
@@ -475,11 +452,8 @@ def export_kai_reports_csv(request):
             except ValueError:
                 pass
 
-        # Try select_related
-        try:
-            reports = list(reports.select_related('submitted_by', 'reviewed_by', 'targeted_to').order_by('-submitted_at'))
-        except Exception:
-            reports = list(reports.order_by('-submitted_at'))
+        # select_related directly — test-DB fallback removed (v3.15.6)
+        reports = list(reports.select_related('submitted_by', 'reviewed_by', 'targeted_to').order_by('-submitted_at'))
 
         # Create CSV response
         response = HttpResponse(content_type='text/csv')

@@ -16,12 +16,16 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Per-user visit counts for this page</p>
                 {% else %}
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Page Visits</h1>
+                {% if user_filter %}
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Visit counts for members matching &ldquo;{{ user_filter }}&rdquo;</p>
+                {% else %}
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Aggregated visit counts across all tracked pages</p>
+                {% endif %}
                 {% endif %}
             </div>
             <div class="flex items-center gap-3">
                 {% if drill_path %}
-                <a href="{% url 'admin_v2_page_visits' %}?sort={{ sort }}"
+                <a href="{% url 'admin_v2_page_visits' %}?sort={{ sort }}{% if user_filter %}&user={{ user_filter|urlencode }}{% endif %}"
                    class="inline-flex items-center gap-1.5 text-sm text-primary-600 dark:text-primary-400 hover:text-primary-800 transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
@@ -96,13 +100,45 @@
     </div>
 
     {% else %}
+    <!-- Member filter form (v3.15.6): restrict all counts to matching member(s) -->
+    <form method="get" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-4 flex gap-3">
+        <input type="hidden" name="sort" value="{{ sort }}">
+        <input type="text" name="user" value="{{ user_filter }}"
+               placeholder="Filter by member name or username…"
+               class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
+        <button type="submit"
+                class="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition">
+            Filter
+        </button>
+        {% if user_filter %}
+        <a href="?sort={{ sort }}"
+           class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm rounded-lg transition">
+            Clear
+        </a>
+        {% endif %}
+    </form>
+
+    {% if user_filter %}
+    <div class="mb-4 text-sm text-gray-600 dark:text-gray-300">
+        {% if matched_users %}
+        <span class="text-gray-500 dark:text-gray-400">Showing visits by:</span>
+        {% for u in matched_users %}
+        <span class="inline-block px-2 py-0.5 mx-0.5 rounded-full bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 text-xs font-medium">{{ u.get_display_name }}</span>
+        {% endfor %}
+        {% if matched_users|length == 20 %}<span class="text-xs text-gray-400">(first 20 shown)</span>{% endif %}
+        {% else %}
+        <span class="text-amber-600 dark:text-amber-400">No members with recorded visits match &ldquo;{{ user_filter }}&rdquo;.</span>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <!-- Sort controls -->
     <div class="flex gap-2 mb-4">
-        <a href="?sort=total"
+        <a href="?sort=total{% if user_filter %}&user={{ user_filter|urlencode }}{% endif %}"
            class="px-4 py-2 rounded-lg text-sm font-medium transition {% if sort == 'total' or not sort %}bg-primary-600 text-white{% else %}bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
             Sort by Total Visits
         </a>
-        <a href="?sort=users"
+        <a href="?sort=users{% if user_filter %}&user={{ user_filter|urlencode }}{% endif %}"
            class="px-4 py-2 rounded-lg text-sm font-medium transition {% if sort == 'users' %}bg-primary-600 text-white{% else %}bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
             Sort by Unique Users
         </a>
@@ -117,10 +153,10 @@
                 <tr>
                     <th class="whitespace-nowrap px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Page</th>
                     <th class="whitespace-nowrap px-6 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        <a href="?sort=total" class="hover:text-gray-700 dark:hover:text-gray-200 transition">Total Visits</a>
+                        <a href="?sort=total{% if user_filter %}&user={{ user_filter|urlencode }}{% endif %}" class="hover:text-gray-700 dark:hover:text-gray-200 transition">Total Visits</a>
                     </th>
                     <th class="whitespace-nowrap px-6 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        <a href="?sort=users" class="hover:text-gray-700 dark:hover:text-gray-200 transition">Unique Users</a>
+                        <a href="?sort=users{% if user_filter %}&user={{ user_filter|urlencode }}{% endif %}" class="hover:text-gray-700 dark:hover:text-gray-200 transition">Unique Users</a>
                     </th>
                     <th class="whitespace-nowrap px-6 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Drill Down</th>
                 </tr>
@@ -138,7 +174,7 @@
                         {{ page.unique_users }}
                     </td>
                     <td class="px-6 py-3 text-right">
-                        <a href="?path={{ page.path }}&sort={{ sort }}"
+                        <a href="?path={{ page.path|urlencode }}&sort={{ sort }}{% if user_filter %}&user={{ user_filter|urlencode }}{% endif %}"
                            class="text-xs text-primary-600 dark:text-primary-400 hover:underline">
                             Users →
                         </a>
