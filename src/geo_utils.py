@@ -38,14 +38,34 @@ _BREAKER_FAIL_THRESHOLD = 5      # consecutive-ish failures to trip
 _BREAKER_FAIL_WINDOW = 120       # seconds the failure count accrues over
 _BREAKER_COOLDOWN = 300          # seconds the breaker stays open once tripped
 
+# Negative cache: remember a failed lookup for a single IP so a repeat hit on
+# the same bad/unresolved IP doesn't re-issue the external call. Short TTL so a
+# transient failure (or a valid IP caught during a brief provider blip) is
+# retried soon. Only the geo *label* is affected — is_foreign_ip treats an
+# empty geo as "benefit of the doubt" (same as a private IP), so there's no
+# security regression, and once the breaker is open failures short-circuit
+# before this point (so at most a handful of IPs are ever negative-cached).
+_NEG_CACHE_TTL = 300             # seconds to remember a failed lookup per IP
+
 
 def _breaker_is_open():
     return cache.get(_BREAKER_OPEN_KEY) is not None
 
 
 def _breaker_record_failure():
-    n = (cache.get(_BREAKER_FAIL_KEY) or 0) + 1
-    cache.set(_BREAKER_FAIL_KEY, n, _BREAKER_FAIL_WINDOW)
+    # Atomic increment so simultaneous failures across worker processes aren't
+    # lost. A plain get()+set() (what this used to be) can drop concurrent
+    # increments and delay tripping the breaker under exactly the flood it
+    # guards against. cache.add() seeds the counter only if absent (no-op if it
+    # already exists), so the window TTL is fixed from the first failure and the
+    # count rolls over that window; incr() is atomic on Redis.
+    cache.add(_BREAKER_FAIL_KEY, 0, _BREAKER_FAIL_WINDOW)
+    try:
+        n = cache.incr(_BREAKER_FAIL_KEY)
+    except ValueError:
+        # Counter expired between add() and incr() — reseed.
+        cache.set(_BREAKER_FAIL_KEY, 1, _BREAKER_FAIL_WINDOW)
+        n = 1
     if n >= _BREAKER_FAIL_THRESHOLD:
         cache.set(_BREAKER_OPEN_KEY, True, _BREAKER_COOLDOWN)
         logger.warning(
@@ -108,10 +128,12 @@ def get_ip_geo(ip_address, timeout=2):
             # Non-success includes rate-limit responses — count toward the breaker.
             logger.warning(f"ip-api.com returned non-success for {ip_address}: {data.get('message')}")
             _breaker_record_failure()
+            cache.set(cache_key, {}, _NEG_CACHE_TTL)
             return {}
     except Exception as e:
         logger.warning(f"Geo lookup failed for {ip_address}: {e}")
         _breaker_record_failure()
+        cache.set(cache_key, {}, _NEG_CACHE_TTL)
         return {}
 
 

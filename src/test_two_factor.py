@@ -328,6 +328,40 @@ class TwoFactorMiddlewareTestCase(TestCase):
             # Should not redirect
             self.assertNotEqual(getattr(response, 'url', None), reverse('two_factor_setup'))
 
+    def test_session_api_endpoints_no_longer_exempt_from_2fa(self):
+        """07-22 sweep Finding A: session-authenticated /api/... endpoints must
+        be subject to 2FA enforcement. Only the token API (/api/v1/) is exempt.
+        Previously the broad '/api/' exemption let a 2FA-required session skip
+        enforcement on these."""
+        SiteSetting.objects.update_or_create(
+            key='2fa_policy_mode',
+            defaults={'value': 'all_members', 'setting_type': 'string'}
+        )
+        for path in ['/api/roles/', '/api/service-hours/adjustment/add/',
+                     '/api/notifications/', '/api/debug/cache/clear/',
+                     '/api/token/request/']:
+            request = self.factory.get(path)
+            request.user = self.member_user
+            response = self.middleware(request)
+            self.assertEqual(response.status_code, 302,
+                             msg=f'{path} should be 2FA-enforced, not exempt')
+            self.assertEqual(response.url, reverse('two_factor_setup'))
+
+    def test_token_api_v1_and_health_still_exempt(self):
+        """The token-authenticated DRF API (/api/v1/, incl. honeypot export) and
+        the liveness probe stay exempt — they auth per-request / must never
+        require a second factor."""
+        SiteSetting.objects.update_or_create(
+            key='2fa_policy_mode',
+            defaults={'value': 'all_members', 'setting_type': 'string'}
+        )
+        for path in ['/api/v1/users/export/', '/api/v1/anything/', '/api/health-check/']:
+            request = self.factory.get(path)
+            request.user = self.member_user
+            response = self.middleware(request)
+            self.assertEqual(response.status_code, 200,
+                             msg=f'{path} should remain exempt')
+
     def test_policy_none_allows_all(self):
         """Test that 'none' policy allows all users without 2FA"""
         SiteSetting.objects.update_or_create(

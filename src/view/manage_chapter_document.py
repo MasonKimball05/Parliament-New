@@ -4,6 +4,7 @@ View for managing chapter documents (edit, delete, publish/unpublish)
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.http import HttpResponseForbidden
 from src.models import CommitteeDocument, ChapterFolder, Committee
 from src.decorators import officer_required
 
@@ -12,6 +13,18 @@ from src.decorators import officer_required
 def manage_chapter_document(request, doc_id):
     """Allow officers to edit/manage chapter documents"""
     document = get_object_or_404(CommitteeDocument, id=doc_id)
+
+    # Authorization: a committee-owned document may only be edited/deleted by an
+    # admin or that committee's chair. Chapter-level documents (no committee) may
+    # be managed by any officer (@officer_required already gates this view).
+    # Without this guard any officer/chair could delete or edit ANOTHER
+    # committee's document — only the committee-reassignment branch below was
+    # scoped. Guards both the GET (edit form) and the POST mutations.
+    # (07-22 auth security sweep, Finding B.)
+    if not (request.user.is_admin
+            or document.committee is None
+            or document.committee.is_chair(request.user)):
+        return HttpResponseForbidden("You don't have permission to manage this document.")
 
     # Get all folders for the dropdown
     folders = ChapterFolder.objects.all().order_by('name')

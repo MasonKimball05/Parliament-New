@@ -7,6 +7,8 @@ Supports both auto-fill from slate results and manual entry/overrides.
 Can be executed immediately or scheduled for a future date.
 """
 
+import logging
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -20,6 +22,8 @@ from src.models import (
     SlatingPosition, SlatingActivity
 )
 from src.decorators import admin_required
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -288,6 +292,7 @@ def check_and_execute_scheduled_transitions():
     for period in pending_periods:
         try:
             results = execute_transition(period, period.officer_transition_data)
-            print(f"Executed scheduled transition for {period.name}: {len(results['added'])} added, {len(results['removed'])} removed")
+            logger.info("Executed scheduled transition for %s: %d added, %d removed",
+                        period.name, len(results['added']), len(results['removed']))
         except Exception as e:
-            print(f"Error executing scheduled transition for {period.name}: {e}")
+            logger.exception("Error executing scheduled transition for %s", period.name)

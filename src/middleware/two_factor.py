@@ -54,7 +54,17 @@ class Enforce2FAMiddleware:
             '/static/',
             '/media/',
             '/exportable_media/',  # media assets — 2FA-redirecting an <img> just breaks the image (v3.14.1)
-            '/api/',  # API endpoints should handle auth separately
+            # Token-authenticated API only — the DRF app under /api/v1/ (incl.
+            # the honeypot export) authenticates per-request and handles auth
+            # itself. This deliberately is NOT the broad '/api/' prefix: many
+            # SESSION-cookie-authenticated AJAX endpoints live under /api/...
+            # (roles, notifications, chat, slating, service-hours, /api/debug/*,
+            # and /api/token/* which can MINT an API token). Exempting all of
+            # /api/ let a password-only, 2FA-UNVERIFIED session reach them and
+            # skip the verify-step enforcement below — partially defeating 2FA.
+            # (07-22 auth security sweep, Finding A.)
+            '/api/v1/',
+            '/api/health-check/',  # liveness probe — must never require a second factor
         ]
 
         # Check if current path is exempt

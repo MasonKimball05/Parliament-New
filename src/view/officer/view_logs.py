@@ -3,8 +3,11 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.conf import settings
+import logging
 import os
 import re
+
+logger = logging.getLogger(__name__)
 
 LOG_FILE_PATH = os.path.join(settings.BASE_DIR, 'logs', 'django_actions.log')
 
@@ -17,13 +20,12 @@ def view_logs(request):
     logs = []
 
     try:
-        print(f"[VIEW_LOGS] Log file path: {LOG_FILE_PATH}")
-        print(f"[VIEW_LOGS] File exists: {os.path.exists(LOG_FILE_PATH)}")
+        logger.debug("view_logs: reading %s (exists=%s)", LOG_FILE_PATH, os.path.exists(LOG_FILE_PATH))
 
         if os.path.exists(LOG_FILE_PATH):
             with open(LOG_FILE_PATH, 'r') as f:
                 log_lines = f.readlines()[-200:]  # Show last 200 lines for performance
-                print(f"[VIEW_LOGS] Read {len(log_lines)} lines from file")
+                logger.debug("view_logs: read %d lines from file", len(log_lines))
 
                 for line in reversed(log_lines):
                     line = line.strip()
@@ -48,15 +50,13 @@ def view_logs(request):
                             'message': line
                         })
 
-            print(f"[VIEW_LOGS] Parsed {len(logs)} log entries")
+            logger.debug("view_logs: parsed %d log entries", len(logs))
         else:
             messages.warning(request, "Log file not found.")
-            print("[VIEW_LOGS] Log file not found!")
+            logger.warning("view_logs: log file not found at %s", LOG_FILE_PATH)
     except Exception as e:
         messages.error(request, f"Error reading log file: {e}")
-        print(f"[VIEW_LOGS] Exception: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.exception("view_logs: error reading log file")
 
-    print(f"[VIEW_LOGS] Returning {len(logs)} logs to template")
+    logger.debug("view_logs: returning %d logs to template", len(logs))
     return render(request, 'admin/view_logs.html', {'logs': logs})

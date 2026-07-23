@@ -36,12 +36,12 @@ def submit_kai_report(request):
                         queryset = ParliamentUser.objects.filter(member_status='Active').order_by('name')
                         list(queryset)
                         form.fields['targeted_to'].queryset = queryset
-                    except:
+                    except Exception:
                         try:
                             queryset = ParliamentUser.objects.filter(is_active=True).only('name', 'member_type').order_by('name')
                             list(queryset)
                             form.fields['targeted_to'].queryset = queryset
-                        except:
+                        except Exception:
                             queryset = ParliamentUser.objects.all().only('name', 'member_type')
                             form.fields['targeted_to'].queryset = queryset
                     templates = KaiReportTemplate.objects.filter(is_active=True)
@@ -167,7 +167,7 @@ Please log in to the Kai Committee page to review this report.
             # Force evaluation to catch missing column error
             list(queryset)
             form.fields['targeted_to'].queryset = queryset
-        except:
+        except Exception:
             # Fallback for test database that doesn't have member_status
             try:
                 queryset = ParliamentUser.objects.filter(
@@ -176,7 +176,7 @@ Please log in to the Kai Committee page to review this report.
                 # Force evaluation
                 list(queryset)
                 form.fields['targeted_to'].queryset = queryset
-            except:
+            except Exception:
                 # If that still fails, just get all users with minimal fields
                 queryset = ParliamentUser.objects.all().only('name', 'member_type')
                 form.fields['targeted_to'].queryset = queryset
@@ -310,7 +310,7 @@ def view_kai_reports(request):
         # Try select_related for production, fallback without it for test
         try:
             reports = list(reports.select_related('submitted_by', 'reviewed_by', 'targeted_to').order_by('-submitted_at'))
-        except:
+        except Exception:
             # Test database missing columns - query without select_related
             reports = list(reports.order_by('-submitted_at'))
 
@@ -478,7 +478,7 @@ def export_kai_reports_csv(request):
         # Try select_related
         try:
             reports = list(reports.select_related('submitted_by', 'reviewed_by', 'targeted_to').order_by('-submitted_at'))
-        except:
+        except Exception:
             reports = list(reports.order_by('-submitted_at'))
 
         # Create CSV response
@@ -1335,37 +1335,37 @@ You may submit another closure request in the future if circumstances change.
     # Get activity log
     try:
         activity_log = list(report.activity_log.all().select_related('user')[:20])  # Last 20 activities
-    except:
+    except Exception:
         activity_log = []
 
     # Get related reports
     try:
         related_reports = list(report.related_reports.all().select_related('submitted_by', 'targeted_to'))
-    except:
+    except Exception:
         related_reports = []
 
     # Get available reports to link (excluding current report and already linked ones)
     try:
         available_reports = KaiReport.objects.exclude(id=report.id).exclude(id__in=[r.id for r in related_reports]).select_related('submitted_by', 'targeted_to').order_by('-submitted_at')[:20]
-    except:
+    except Exception:
         available_reports = []
 
     # Get all members for accused person selection (active first, then inactive/alumni)
     try:
         all_members = ParliamentUser.objects.exclude(member_status='Removed').order_by('member_status', 'name')
-    except:
+    except Exception:
         all_members = ParliamentUser.objects.exclude(member_status='Removed').order_by('name')
 
     # Get pending closure requests for this report
     try:
         closure_requests = list(report.closure_requests.all().select_related('requested_by', 'reviewed_by').order_by('-requested_at'))
-    except:
+    except Exception:
         closure_requests = []
 
     # Get custom field responses
     try:
         custom_responses = list(report.custom_responses.all().select_related('field'))
-    except:
+    except Exception:
         custom_responses = []
 
     context = {
@@ -1409,7 +1409,7 @@ def print_kai_report(request, report_id):
     # Get activity log
     try:
         activity_log = list(report.activity_log.all().select_related('user'))
-    except:
+    except Exception:
         activity_log = []
 
     ActivityLog.log_activity(

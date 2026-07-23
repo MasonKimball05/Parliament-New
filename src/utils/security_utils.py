@@ -53,7 +53,13 @@ def get_geolocation_from_ip(ip_address):
     # sessionless/test requests). Return Unknown instead of crashing on
     # .startswith — the broad except in signals.track_login swallowed this,
     # silently dropping login-history tracking for the affected login.
-    if not ip_address:
+    #
+    # 'unknown' is the sentinel signals.py substitutes for a missing IP
+    # (get_client_ip(request) or 'unknown'). It's truthy and isn't a private
+    # prefix, so without this it would fall through to a live ip-api.com call
+    # for /json/unknown (a wasted 3s-timeout request that always fails) — most
+    # notably on the failed-login path, which has no cached pipeline geo.
+    if not ip_address or ip_address == 'unknown':
         return {
             'country': 'Unknown',
             'city': 'Unknown',

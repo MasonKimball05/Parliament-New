@@ -101,7 +101,7 @@ def committee_detail(request, code):
                 kai_reports = list(KaiReport.objects.filter(
                     status__in=['pending', 'reviewed']
                 ).select_related('submitted_by', 'reviewed_by', 'targeted_to').order_by('-submitted_at')[:10])
-            except:
+            except Exception:
                 # Fallback for test database without select_related
                 kai_reports = list(KaiReport.objects.filter(
                     status__in=['pending', 'reviewed']

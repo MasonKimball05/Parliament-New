@@ -1,6 +1,5 @@
 import logging
 from functools import wraps
-from django.conf import settings
 from django.contrib import messages
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
@@ -161,7 +160,6 @@ def vpp_required(view_func):
     """
     Restrict access to VPP (Vice President of Programming) role holders and admins.
     Used for Service Hours officer pages.
-    In DEBUG mode (dev server only), allows any authenticated user for testing.
     """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
@@ -174,10 +172,9 @@ def vpp_required(view_func):
         if request.user.roles.filter(code__iexact='VPP').exists():
             return view_func(request, *args, **kwargs)
 
-        # Allow any authenticated user in DEBUG mode (dev server only)
-        if settings.DEBUG:
-            return view_func(request, *args, **kwargs)
-
+        # NOTE: no DEBUG bypass — authorization must not depend on DEBUG (a stray
+        # DJANGO_DEBUG=True in prod would promote every member to VPP). For local
+        # testing, grant the dev user the VPP role. (07-22 auth security sweep, C.)
         messages.error(request, 'Only the Vice President of Programming can access this page.')
         return redirect('home')
 

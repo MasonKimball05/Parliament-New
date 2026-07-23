@@ -40,6 +40,32 @@ class GeoBreakerTests(SimpleTestCase):
         self.assertLessEqual(call_count['n'], geo_utils._BREAKER_FAIL_THRESHOLD)
         self.assertTrue(geo_utils._breaker_is_open())
 
+    def test_failed_lookup_is_negative_cached(self):
+        # A repeat hit on the same failing IP must be served from the negative
+        # cache, not re-issue the external call (breaker stays closed here since
+        # one failure is below threshold).
+        with mock.patch('src.geo_utils.requests.get',
+                        side_effect=self._fail_response) as g:
+            first = geo_utils.get_ip_geo('8.8.8.8')
+            second = geo_utils.get_ip_geo('8.8.8.8')
+        self.assertEqual(first, {})
+        self.assertEqual(second, {})
+        self.assertEqual(g.call_count, 1)            # second served from neg-cache
+        self.assertEqual(cache.get('geo_8.8.8.8'), {})
+        self.assertFalse(geo_utils._breaker_is_open())
+
+    def test_breaker_counter_survives_concurrent_increments(self):
+        # The failure counter uses add()+incr() (atomic), so N distinct failures
+        # trip the breaker at exactly the threshold — no lost increments.
+        with mock.patch('src.geo_utils.requests.get',
+                        side_effect=self._fail_response):
+            for i in range(geo_utils._BREAKER_FAIL_THRESHOLD):
+                geo_utils.get_ip_geo(f'8.8.{i}.{i}')
+        self.assertEqual(
+            cache.get(geo_utils._BREAKER_FAIL_KEY),
+            geo_utils._BREAKER_FAIL_THRESHOLD)
+        self.assertTrue(geo_utils._breaker_is_open())
+
     def test_success_resets_breaker(self):
         ok = mock.Mock()
         ok.json.return_value = {'status': 'success', 'country': 'United States',

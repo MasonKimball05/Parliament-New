@@ -496,7 +496,7 @@ def add_service_adjustment(request):
 
     try:
         hours = Decimal(hours)
-    except:
+    except Exception:
         return JsonResponse({'success': False, 'error': 'Invalid hours value'}, status=400)
 
     if hours == 0:

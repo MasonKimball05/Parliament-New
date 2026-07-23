@@ -171,10 +171,11 @@ def user_service_dashboard(request):
         submitted_by=user
     ).select_related('period', 'reviewed_by').order_by('-submitted_at')
 
-    # Check if user is VPP (to show admin link) - case-insensitive
-    # Also show on DEBUG mode for dev testing
-    from django.conf import settings
-    is_vpp = user.is_admin or user.roles.filter(code__iexact='VPP').exists() or settings.DEBUG
+    # Check if user is VPP (to show the admin link) - case-insensitive.
+    # No DEBUG shortcut: the VPP admin pages are gated by @vpp_required, so
+    # showing the link to every user in DEBUG just diverged from the real gate.
+    # (07-22 cleanup, sibling of the vpp_required DEBUG-bypass removal.)
+    is_vpp = user.is_admin or user.roles.filter(code__iexact='VPP').exists()
 
     context = {
         'current_period': current_period,
@@ -268,7 +269,7 @@ def submit_service_hours(request):
                     elif field.field_type == 'number':
                         try:
                             response.number_value = Decimal(value)
-                        except:
+                        except Exception:
                             response.text_value = value
                     elif field.field_type in ['multiselect', 'checkbox']:
                         response.json_value = request.POST.getlist(field_name)
@@ -366,7 +367,7 @@ def edit_service_submission(request, submission_id):
                     elif field.field_type == 'number':
                         try:
                             response.number_value = Decimal(value)
-                        except:
+                        except Exception:
                             response.text_value = value
                     elif field.field_type in ['multiselect', 'checkbox']:
                         response.json_value = request.POST.getlist(field_name)
