@@ -5,7 +5,7 @@
 {% block admin_content %}
 <div class="container mx-auto px-4 py-8">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"><!-- v3.15.7 mobile -->
             <div>
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">🔒 Login Security</h1>
                 <p class="text-gray-600 dark:text-gray-400">{{ target_user.name }} (ID: {{ target_user.user_id }})</p>
@@ -34,10 +34,10 @@
                     {% endif %}
                 </p>
                 <div class="bg-white dark:bg-gray-800 border border-yellow-300 dark:border-yellow-700 rounded p-4 mb-3">
-                    <div class="flex items-center justify-between">
-                        <div>
+                    <div class="flex flex-wrap items-center justify-between gap-3"><!-- v3.15.7 mobile -->
+                        <div class="min-w-0">
                             <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">New Password:</div>
-                            <div class="text-xl font-mono font-bold text-gray-900 dark:text-gray-100" id="temp-password">{{ temp_password_data.password }}</div>
+                            <div class="text-xl font-mono font-bold text-gray-900 dark:text-gray-100 break-all" id="temp-password">{{ temp_password_data.password }}</div>
                         </div>
                         <button type="button" id="js-copy-password-btn" class="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded text-sm">
                             📋 Copy

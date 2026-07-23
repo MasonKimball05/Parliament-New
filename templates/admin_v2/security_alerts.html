@@ -5,7 +5,7 @@
 {% block admin_content %}
 <div class="container mx-auto px-4 py-8">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"><!-- v3.15.7 mobile -->
             <div>
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">⚠️ Security Alerts</h1>
                 <p class="text-gray-600 dark:text-gray-400">Monitor and respond to suspicious login activity across all users</p>
@@ -40,7 +40,7 @@
 
     <!-- Bulk Actions -->
     {% if stats.new_alerts %}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-6 flex items-center justify-between">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-6 flex flex-wrap items-center justify-between gap-3"><!-- v3.15.7 mobile -->
         <p class="text-sm text-gray-600 dark:text-gray-400">{{ stats.new_alerts }} unreviewed alert{{ stats.new_alerts|pluralize }}</p>
         <button type="button" id="dismiss-all-btn"
             class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium">
@@ -85,9 +85,9 @@
         <div class="space-y-3">
             {% for alert in alerts %}
             <div class="border {% if alert.severity == 'critical' %}border-red-500{% elif alert.severity == 'high' %}border-orange-500{% elif alert.severity == 'medium' %}border-yellow-500{% else %}border-gray-300 dark:border-gray-700{% endif %} rounded-lg p-4">
-                <div class="flex items-start justify-between">
-                    <div class="flex-1">
-                        <div class="flex items-center gap-2 mb-2">
+                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"><!-- v3.15.7 mobile: actions drop below content -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex flex-wrap items-center gap-2 mb-2"><!-- v3.15.7 mobile: badges wrap -->
                             <span class="font-bold text-gray-900 dark:text-gray-100">{{ alert.title }}</span>
                             <span class="px-2 py-1 text-xs rounded-full {% if alert.severity == 'critical' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200{% elif alert.severity == 'high' %}bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200{% elif alert.severity == 'medium' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200{% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200{% endif %}">
                                 {{ alert.get_severity_display }}
@@ -123,7 +123,7 @@
                         {% endif %}
                     </div>
 
-                    <div class="ml-4 flex flex-col gap-2">
+                    <div class="sm:ml-4 flex flex-row sm:flex-col gap-2 flex-shrink-0"><!-- v3.15.7 mobile: side-by-side buttons on phones -->
                         <a href="{% url 'admin_v2_user_login_security' alert.user.user_id %}" class="px-3 py-1.5 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded text-center" title="View user's login security">
                             Investigate
                         </a>

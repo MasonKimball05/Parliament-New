@@ -5,7 +5,7 @@
 {% block admin_content %}
 <div class="container mx-auto px-4 py-8">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"><!-- v3.15.7 mobile -->
             <div>
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">🔐 Login History</h1>
                 <p class="text-gray-600 dark:text-gray-400">View security and login logs</p>
@@ -15,7 +15,7 @@
     </div>
 
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
-        <form method="get" class="flex gap-4">
+        <form method="get" class="flex flex-wrap gap-4"><!-- v3.15.7 mobile -->
             <div class="flex-1 min-w-[200px]">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Search User</label>
                 <input type="text" name="user" value="{{ user_search }}" placeholder="Name or username..." class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
@@ -72,12 +72,12 @@
         </table>
         </div>
         {% if logins.has_other_pages %}
-            <div class="bg-gray-50 dark:bg-gray-700 px-6 py-4 flex justify-between border-t">
+            <div class="bg-gray-50 dark:bg-gray-700 px-6 py-4 flex flex-wrap justify-between gap-3 border-t"><!-- v3.15.7 mobile; pagination now preserves filters -->
                 <div class="text-sm">Showing {{ logins.start_index }} to {{ logins.end_index }} of {{ logins.paginator.count }}</div>
                 <div class="flex gap-2">
-                    {% if logins.has_previous %}<a href="?page={{ logins.previous_page_number }}" class="px-3 py-1 bg-white border rounded">Previous</a>{% endif %}
+                    {% if logins.has_previous %}<a href="?{% if user_search %}user={{ user_search|urlencode }}&{% endif %}{% if suspicious_filter %}suspicious={{ suspicious_filter }}&{% endif %}page={{ logins.previous_page_number }}" class="px-3 py-1 bg-white border rounded">Previous</a>{% endif %}
                     <span class="px-3 py-1 bg-primary-600 text-white rounded">{{ logins.number }}</span>
-                    {% if logins.has_next %}<a href="?page={{ logins.next_page_number }}" class="px-3 py-1 bg-white border rounded">Next</a>{% endif %}
+                    {% if logins.has_next %}<a href="?{% if user_search %}user={{ user_search|urlencode }}&{% endif %}{% if suspicious_filter %}suspicious={{ suspicious_filter }}&{% endif %}page={{ logins.next_page_number }}" class="px-3 py-1 bg-white border rounded">Next</a>{% endif %}
                 </div>
             </div>
         {% endif %}

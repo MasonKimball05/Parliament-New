@@ -5,7 +5,7 @@
 {% block admin_content %}
 <div class="container mx-auto px-4 py-8">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"><!-- v3.15.7 mobile -->
             <div>
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Quarantine Management</h1>
                 <p class="text-gray-600 dark:text-gray-400">Manage accounts that have been locked due to suspicious activity</p>
@@ -25,8 +25,8 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select User</label>
                     <select name="user_id" required class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                         <option value="">-- Select User --</option>
-                        {% for user in active_users %}
-                        <option value="{{ user.user_id }}">{{ user.name }} ({{ user.username }})</option>
+                        {% for user in selectable_users %}
+                        <option value="{{ user.user_id }}">{{ user.name }} ({{ user.username }}){% if user.member_status != 'Active' %} — {{ user.member_status }}{% endif %}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -60,7 +60,7 @@
         <div class="space-y-4">
             {% for q in active_quarantines %}
             <div class="border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
-                <div class="flex justify-between items-start mb-3">
+                <div class="flex flex-wrap justify-between items-start gap-2 mb-3"><!-- v3.15.7 mobile -->
                     <div>
                         <span class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ q.user.name }}</span>
                         <span class="text-gray-500 dark:text-gray-400">({{ q.user.username }})</span>

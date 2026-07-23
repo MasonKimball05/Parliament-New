@@ -9,6 +9,8 @@ Covers:
   AbstractBaseUser and has neither, so the filter box raised FieldError the
   moment it was actually used (latent bug fixed in v3.15.6)
 - filter matches name, preferred_name, and username, case-insensitively
+- the member-status filter (v3.15.7): Active/Inactive/Alumni/Removed options
+  on both the aggregate and drill views
 """
 from unittest import mock
 
@@ -35,10 +37,13 @@ class PageVisitsDashboardFilterTests(TestCase):
         self.alice = make_user('901', 'Alice Alpha', 'alice_a')
         self.bob = make_user('902', 'Bob Beta', 'bob_b',
                              preferred_name='Bobby')
+        self.zed = make_user('903', 'Zed Zeta', 'zed_z',
+                             member_status='Alumni')
 
         PageVisit.objects.create(user=self.alice, path='/home/', count=5)
         PageVisit.objects.create(user=self.alice, path='/vote/', count=2)
         PageVisit.objects.create(user=self.bob, path='/home/', count=7)
+        PageVisit.objects.create(user=self.zed, path='/home/', count=3)
 
         # require_admin_v2_auth: allowed id + session flags
         self._allowed = mock.patch.object(
@@ -60,8 +65,8 @@ class PageVisitsDashboardFilterTests(TestCase):
         response = self._get()
         self.assertEqual(response.status_code, 200)
         pages = {p['path']: p for p in response.context['pages']}
-        self.assertEqual(pages['/home/']['total'], 12)
-        self.assertEqual(pages['/home/']['unique_users'], 2)
+        self.assertEqual(pages['/home/']['total'], 15)   # 5 + 7 + 3 (alumni)
+        self.assertEqual(pages['/home/']['unique_users'], 3)
         self.assertEqual(pages['/vote/']['total'], 2)
 
     def test_aggregate_user_filter_restricts_counts(self):
@@ -105,4 +110,38 @@ class PageVisitsDashboardFilterTests(TestCase):
     def test_drill_unfiltered_shows_all_visitors_desc(self):
         response = self._get(path='/home/')
         rows = list(response.context['rows'])
-        self.assertEqual([r.count for r in rows], [7, 5])
+        self.assertEqual([r.count for r in rows], [7, 5, 3])
+
+    # -- member-status filter (v3.15.7) --------------------------------------
+
+    def test_aggregate_status_filter_active_excludes_alumni(self):
+        response = self._get(status='Active')
+        pages = {p['path']: p for p in response.context['pages']}
+        self.assertEqual(pages['/home/']['total'], 12)   # Zed's 3 excluded
+        self.assertEqual(pages['/home/']['unique_users'], 2)
+
+    def test_aggregate_status_filter_alumni_only(self):
+        response = self._get(status='Alumni')
+        pages = {p['path']: p for p in response.context['pages']}
+        self.assertEqual(list(pages), ['/home/'])
+        self.assertEqual(pages['/home/']['total'], 3)
+        self.assertEqual(pages['/home/']['unique_users'], 1)
+
+    def test_status_filter_combines_with_name_filter(self):
+        # Name matches Zed, but status=Active excludes him -> empty.
+        response = self._get(user='zed', status='Active')
+        self.assertEqual(list(response.context['pages']), [])
+        self.assertEqual(response.context['matched_users'], [])
+
+    def test_unknown_status_value_treated_as_all(self):
+        response = self._get(status='Bogus')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['status_filter'], '')
+        pages = {p['path']: p for p in response.context['pages']}
+        self.assertEqual(pages['/home/']['total'], 15)
+
+    def test_drill_status_filter(self):
+        response = self._get(path='/home/', status='Alumni')
+        rows = list(response.context['rows'])
+        self.assertEqual([r.user_id for r in rows], [self.zed.pk])
+        self.assertEqual(rows[0].count, 3)

@@ -5,7 +5,7 @@
 {% block admin_content %}
 <div class="container mx-auto px-4 py-8">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"><!-- v3.15.7 mobile -->
             <div>
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Emergency Lockdown Control</h1>
                 <p class="text-gray-600 dark:text-gray-400">Block all access to the system except from whitelisted IPs</p>
@@ -16,7 +16,7 @@
 
     <!-- Current Status -->
     <div class="{% if lockdown.is_active %}bg-red-600{% else %}bg-green-600{% endif %} text-white rounded-xl shadow-sm p-6 mb-6">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"><!-- v3.15.7 mobile -->
             <div class="flex items-center">
                 {% if lockdown.is_active %}
                 <svg class="w-10 h-10 mr-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -36,7 +36,7 @@
                 </div>
                 {% endif %}
             </div>
-            <div class="text-right text-sm">
+            <div class="sm:text-right text-sm">
                 {% if lockdown.is_active %}
                 <p>Activated: {{ lockdown.activated_at|date:"M d, Y H:i" }}</p>
                 <p>By: {{ lockdown.activated_by.name }}</p>

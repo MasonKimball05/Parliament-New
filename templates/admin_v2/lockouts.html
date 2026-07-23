@@ -7,12 +7,12 @@
 
     <!-- Header -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"><!-- v3.15.7 mobile -->
             <div>
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">Login Lockouts</h1>
                 <p class="text-gray-600 dark:text-gray-400">Active rate-limit lockouts from all three enforcement systems</p>
             </div>
-            <div class="flex gap-3">
+            <div class="flex flex-wrap gap-3">
                 {% if active_count > 0 %}
                 <form method="post" class="js-confirm-submit" data-confirm-msg="Clear all {{ active_count }} active lockout(s)?">
                     {% csrf_token %}

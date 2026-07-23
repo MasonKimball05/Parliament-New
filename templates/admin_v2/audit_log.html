@@ -7,12 +7,12 @@
 
     <!-- Header -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"><!-- v3.15.7 mobile -->
             <div>
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Admin Action Audit Log</h1>
                 <p class="text-gray-600 dark:text-gray-400">Officer-level actions: token approvals, quarantines, role changes, and IP blacklist edits</p>
             </div>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
                 <a href="?{% if action_filter %}action={{ action_filter }}&{% endif %}{% if actor_filter %}actor={{ actor_filter }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}export=csv"
                    class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition flex items-center gap-1.5">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -131,7 +131,7 @@
 
         <!-- Pagination -->
         {% if page_obj.has_other_pages %}
-        <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3"><!-- v3.15.7 mobile -->
             <p class="text-sm text-gray-500 dark:text-gray-400">
                 Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
             </p>

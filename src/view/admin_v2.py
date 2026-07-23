@@ -2702,17 +2702,20 @@ def quarantine_management(request):
         released_at__isnull=False
     ).select_related('user', 'quarantined_by', 'released_by').order_by('-released_at')[:50]
 
-    # Get list of users that can be quarantined
+    # Get list of users that can be quarantined. All member statuses are
+    # selectable (was is_active=True only — you couldn't quarantine an
+    # inactive/alumni/removed account even though those can still hold
+    # credentials); non-Active members are labeled with their status in the
+    # dropdown. (v3.15.7, Mason 07-23)
     from src.models import ParliamentUser
-    active_users = ParliamentUser.objects.filter(
-        is_active=True,
+    selectable_users = ParliamentUser.objects.filter(
         is_quarantined=False
-    ).order_by('name')
+    ).order_by('member_status', 'name')
 
     return render(request, 'admin_v2/quarantine_management.html', {
         'active_quarantines': active_quarantines,
         'released_quarantines': released_quarantines,
-        'active_users': active_users,
+        'selectable_users': selectable_users,
     })
 
 
@@ -3324,16 +3327,24 @@ def _page_visit_user_q(term):
     )
 
 
+#: Member-status choices offered by the page-visits dashboard filter (v3.15.7).
+_PAGE_VISIT_STATUSES = ('Active', 'Inactive', 'Alumni', 'Removed')
+
+
 @require_admin_v2_auth
 def page_visits_dashboard(request):
     """
     Admin v2 view: aggregated page visit stats, sortable by total visits or user count.
     Supports drilling into a specific path to see per-user breakdown, and
-    filtering both views by member name/username (v3.15.6).
+    filtering both views by member name/username (v3.15.6) and by member
+    status — Active/Inactive/Alumni/Removed (v3.15.7).
     """
     sort = request.GET.get('sort', 'total')
     drill_path = request.GET.get('path', '').strip()
     user_filter = request.GET.get('user', '').strip()
+    status_filter = request.GET.get('status', '').strip()
+    if status_filter not in _PAGE_VISIT_STATUSES:
+        status_filter = ''  # unknown value -> All statuses
 
     if drill_path:
         # Per-user breakdown for a specific path
@@ -3345,11 +3356,15 @@ def page_visits_dashboard(request):
         )
         if user_filter:
             rows = rows.filter(_page_visit_user_q(user_filter))
+        if status_filter:
+            rows = rows.filter(user__member_status=status_filter)
         return render(request, 'admin_v2/page_visits.html', {
             'drill_path': drill_path,
             'rows': rows,
             'sort': sort,
             'user_filter': user_filter,
+            'status_filter': status_filter,
+            'status_choices': _PAGE_VISIT_STATUSES,
         })
 
     # Aggregate by path — optionally restricted to visits by matching member(s),
@@ -3358,10 +3373,12 @@ def page_visits_dashboard(request):
     # members. (v3.15.6)
     visits = PageVisit.objects.all()
     matched_users = None
+    if status_filter:
+        visits = visits.filter(user__member_status=status_filter)
     if user_filter:
         visits = visits.filter(_page_visit_user_q(user_filter))
         # Small, bounded list of who matched, for display + disambiguation.
-        matched_users = list(
+        matched = (
             ParliamentUser.objects
             .filter(page_visits__isnull=False)
             .filter(
@@ -3369,9 +3386,10 @@ def page_visits_dashboard(request):
                 Q(preferred_name__icontains=user_filter) |
                 Q(username__icontains=user_filter)
             )
-            .distinct()
-            .order_by('name')[:20]
         )
+        if status_filter:
+            matched = matched.filter(member_status=status_filter)
+        matched_users = list(matched.distinct().order_by('name')[:20])
 
     qs = (
         visits
@@ -3391,6 +3409,8 @@ def page_visits_dashboard(request):
         'sort': sort,
         'drill_path': None,
         'user_filter': user_filter,
+        'status_filter': status_filter,
+        'status_choices': _PAGE_VISIT_STATUSES,
         'matched_users': matched_users,
     })
 
