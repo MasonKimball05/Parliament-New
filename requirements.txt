@@ -34,6 +34,12 @@ bleach==6.4.0
 # DOCX to HTML conversion for document preview
 mammoth==1.11.0
 
+# Image handling — DIRECT dependency (profile_picture, landing photos/og_image,
+# security screenshot ImageFields all require Pillow), previously installed
+# only by luck as reportlab's transitive dep. Pinned v3.16.1 after the
+# preflight pip-audit flagged a stale installed copy.
+pillow==12.3.0
+
 # PDF generation for chapter minutes export
 reportlab==4.1.0
 

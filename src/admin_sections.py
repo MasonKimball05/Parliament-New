@@ -84,7 +84,7 @@ SECTIONS = {
         'SystemLockdown', 'SecurityNotificationLog', 'CSPViolation', 'UserWatchFlag',
     ],
     'Audit & Activity': [
-        'ActivityLog', 'AdminActionLog', 'PageVisit',
+        'ActivityLog', 'AdminActionLog', 'PageVisit', 'LogEntry',
     ],
     'API': [
         'APIToken', 'APIAccessLog',

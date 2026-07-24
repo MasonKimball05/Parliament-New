@@ -866,14 +866,27 @@ class AnnouncementAdmin(admin.ModelAdmin):
         # Only officers and admins can edit announcements
         return request.user.is_authenticated and (request.user.is_admin or request.user.is_officer)
 
-"""
-@admin.register(LogEntry)
+# v3.16.1: this registration was dead code — commented out in a docstring,
+# with field names ('action', 'date', 'reason') that don't exist on Django's
+# LogEntry — so the built-in admin action log was never viewable. Registered
+# for real, read-only (it's an audit trail; rows are created by the admin
+# framework itself).
+@admin.register(LogEntry, site=admin_site)
 class LogEntryAdmin(admin.ModelAdmin):
-    list_display = ('user', 'action', 'date', 'reason')
-    search_fields = ('user__name',)
-    list_filter = ('action', 'date')
-    actions = ['export_as_csv']
-"""
+    list_display = ('action_time', 'user', 'content_type', 'object_repr', 'action_flag')
+    list_filter = ('action_flag', 'content_type')
+    search_fields = ('user__username', 'user__name', 'object_repr', 'change_message')
+    date_hierarchy = 'action_time'
+    actions = [export_as_csv]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 # === VIEW LOGS IN ADMIN ===
 
