@@ -1,7 +1,31 @@
 {
   "_comment": "SHA-256 hashes of self-hosted vendor files. Regenerate with: python manage.py check_env --update-hashes",
-  "_generated": "2026-06-16",
+  "_generated": "2026-07-24",
   "files": {
+    "static/vendor/chart.min.js": {
+      "source": "https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js",
+      "version": "3.9.1",
+      "sha256": "fbc45926e6b46845a0f905552a0e0b1331049bff1115ecf94dbe0904d895e710",
+      "sri": "sha384-9MhbyIRcBVQiiC7FSd7T38oJNj2Zh+EfxS7/vjhBi4OOT78NlHSnzM31EZRWR1LZ",
+      "size": 199560,
+      "note": "hash recorded from the vendored file 07-24-26; source URL is presumed \u2014 verify against upstream release when convenient"
+    },
+    "static/vendor/cropper.min.css": {
+      "source": "https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css",
+      "version": "1.6.1",
+      "sha256": "f7f61b6cc4219716618f8295502eadf36f9612f4a4a8fadfce9d165bd58dbac4",
+      "sri": "sha384-AMJcAgMUmNt1Zo4ranquGLeT5m7yOrVbtNsNk0oZohvxqKk6RRzXHqlEaS9gFXR7",
+      "size": 3768,
+      "note": "hash recorded from the vendored file 07-24-26; source URL is presumed \u2014 verify against upstream release when convenient"
+    },
+    "static/vendor/cropper.min.js": {
+      "source": "https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js",
+      "version": "1.6.1",
+      "sha256": "b20765dff4a5c832a07a5e86d2f46d429ba60024b2c8a0a746d7f5ef5eaad33c",
+      "sri": "sha384-jzwsV9ieM/KUDMeo+d8dc+jm0GEl7ywPNwg10alB5BodVuC/Kx9RpEnyrl2Om9zH",
+      "size": 37380,
+      "note": "hash recorded from the vendored file 07-24-26; source URL is presumed \u2014 verify against upstream release when convenient"
+    },
     "static/vendor/quill/quill.min.js": {
       "source": "https://cdn.quilljs.com/1.3.7/quill.min.js",
       "version": "1.3.7",

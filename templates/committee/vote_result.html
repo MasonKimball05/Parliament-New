@@ -144,13 +144,23 @@
             </div>
         {% endif %}
 
-        {% if legislation.vote_mode == 'plurality' %}
-            <div class="flex flex-wrap justify-center gap-4 text-sm mb-6 mt-4">
-                {% for option, count in vote_breakdown.items %}
-                    <div class="flex items-center space-x-2">
-                        <span class="w-4 h-4 inline-block rounded-sm" style="background-color: {{ forloop.counter0|add:0|default_if_none:0|divisibleby:5|yesno:'rgb(59, 130, 246),rgb(59, 130, 246)' }};"></span>
-                        <span class="text-gray-700 dark:text-gray-300">{{ option }} ({{ count }})</span>
+        {% if legislation.vote_mode == 'plurality' and plurality_bars %}
+            <!-- Per-option bars (v3.15.9): easier to compare close races than the
+                 pie. Replaces the old legend row, whose swatch color expression
+                 always evaluated to the same blue anyway. -->
+            <div class="max-w-md mx-auto space-y-2.5 mb-6 mt-4 text-left">
+                {% for bar in plurality_bars %}
+                <div>
+                    <div class="flex justify-between gap-3 text-sm mb-1">
+                        <span class="font-medium truncate {% if bar.is_winner %}text-green-600 dark:text-green-400{% else %}text-gray-700 dark:text-gray-300{% endif %}">
+                            {{ bar.option }}{% if bar.is_winner %} — winner{% endif %}
+                        </span>
+                        <span class="text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ bar.count }} · {{ bar.pct }}%</span>
                     </div>
+                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                        <div class="h-full rounded-full {% if bar.is_winner %}bg-green-500{% else %}bg-primary-600{% endif %}" style="width: {{ bar.width }}%;"></div>
+                    </div>
+                </div>
                 {% endfor %}
             </div>
         {% endif %}

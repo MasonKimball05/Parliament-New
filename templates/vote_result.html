@@ -101,6 +101,25 @@
         </div>
         {% endif %}
 
+        {% if legislation.vote_mode == 'plurality' and plurality_bars %}
+        <!-- Per-option bars (v3.15.9): easier to compare close races than the pie -->
+        <div class="mb-6 space-y-2.5">
+            {% for bar in plurality_bars %}
+            <div>
+                <div class="flex justify-between gap-3 text-sm mb-1">
+                    <span class="font-medium truncate {% if bar.is_winner %}text-green-600 dark:text-green-400{% else %}text-gray-700 dark:text-gray-300{% endif %}">
+                        {{ bar.option }}{% if bar.is_winner %} — winner{% endif %}
+                    </span>
+                    <span class="text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ bar.count }} · {{ bar.pct }}%</span>
+                </div>
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                    <div class="h-full rounded-full {% if bar.is_winner %}bg-green-500{% else %}bg-primary-600{% endif %}" style="width: {{ bar.width }}%;"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
         <div class="w-full flex justify-center">
             <canvas id="voteChart" class="w-full max-w-sm max-h-64"></canvas>
         </div>

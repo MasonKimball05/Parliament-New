@@ -37,6 +37,20 @@ class ParliamentAdminSite(admin.AdminSite):
     site_title = "Parliament Admin"
     index_title = "Chapter Management Dashboard"
 
+    def get_app_list(self, request, app_label=None):
+        """Group the index + nav sidebar into feature-area sections (v3.16.1).
+
+        With 125 registered models (v3.16.0 full-coverage pass), the default
+        one-app alphabetical list is unusable. Sections are defined in
+        src/admin_sections.py; single-app views (/admin/src/) keep Django's
+        default behavior. New models not yet mapped land in 'Other / Unsorted'.
+        """
+        app_list = super().get_app_list(request, app_label)
+        if app_label:
+            return app_list
+        from .admin_sections import build_sectioned_app_list
+        return build_sectioned_app_list(app_list)
+
     def index(self, request, extra_context=None):
         """Custom admin index with dashboard stats"""
         extra_context = extra_context or {}
@@ -2585,3 +2599,10 @@ def custom_admin_urls():
     return [path('view-logs/', view_logs, name="view_logs")] + original_get_urls()
 
 admin.site.get_urls = custom_admin_urls
+
+
+# === EXTRA REGISTRATIONS (v3.16.0) ===
+# Full-coverage pass: every model not registered above is registered in
+# admin_extra.py (grouped by feature area; logs/audit/ballots read-only,
+# secrets excluded from forms). Imported last so admin_site exists.
+from . import admin_extra  # noqa: E402,F401  isort:skip

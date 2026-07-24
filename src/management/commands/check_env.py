@@ -494,17 +494,21 @@ class Command(BaseCommand):
                 self.fail('Asset integrity manifest', str(e)[:80])
 
         # ── 2. CDN drift detection — no external CDN refs in templates ───
+        # All assets are self-hosted as of v3.15.9 (Chart.js was the last CDN
+        # holdout), so every known CDN host is now a hard fail. cdnjs was added
+        # in v3.15.10 — the CSP-blocked chapter-stats Chart.js came from
+        # cdnjs.cloudflare.com and this check never watched that host.
+        # Prod CSP is script-src 'self' + nonce, so ANY external script host
+        # is both a supply-chain risk and dead-on-arrival in prod anyway.
         cdn_patterns = [
             'cdn.tailwindcss.com', 'play.tailwindcss.com',
-            'cdn.quilljs.com', 'unpkg.com/quill', 'unpkg.com/tailwind',
+            'cdn.quilljs.com', 'unpkg.com/',
+            'cdnjs.cloudflare.com', 'cdn.jsdelivr.net',
         ]
-        # Chart.js CDN is a known remaining dependency — warn rather than fail
-        warn_patterns = ['cdn.jsdelivr.net/npm/chart']
 
         template_dir = base_dir / 'templates'
         html_files = list(template_dir.rglob('*.html'))
         cdn_hits = []
-        warn_hits = []
         for f in html_files:
             try:
                 content = f.read_text(errors='replace')
@@ -513,21 +517,12 @@ class Command(BaseCommand):
             for pat in cdn_patterns:
                 if pat in content:
                     cdn_hits.append(f'{f.relative_to(base_dir)}: {pat}')
-            for pat in warn_patterns:
-                if pat in content:
-                    warn_hits.append(str(f.relative_to(base_dir)))
 
         if cdn_hits:
             for hit in cdn_hits:
                 self.fail('CDN ref found', hit)
         else:
-            self.ok('No blocked CDN refs in templates', f'scanned {len(html_files)} files')
-
-        if warn_hits:
-            unique = sorted(set(warn_hits))
-            self.warn('Chart.js CDN (known, low risk)', f'{len(unique)} template(s) — consider self-hosting')
-        else:
-            self.ok('No Chart.js CDN refs', 'all clear')
+            self.ok('No CDN refs in templates', f'scanned {len(html_files)} files')
 
         # ── 3. Python dependency CVE scan (pip-audit) ────────────────────
         import subprocess, shutil
@@ -573,11 +568,20 @@ class Command(BaseCommand):
         base_dir = settings.BASE_DIR
         manifest_path = base_dir / 'static' / 'vendor' / '.integrity.json'
 
-        tracked = [
-            'static/vendor/quill/quill.min.js',
-            'static/vendor/quill/quill.snow.css',
-            'static/css/tailwind.css',
-        ]
+        # Auto-discover everything under static/vendor/ instead of a hardcoded
+        # list — the old 3-file list silently left chart.min.js and cropper.*
+        # untracked, so the integrity check never watched them, and the
+        # documented "regenerate" command couldn't fix it. (v3.15.10,
+        # 07-24 report item #3.)
+        vendor_dir = base_dir / 'static' / 'vendor'
+        tracked = sorted(
+            str(p.relative_to(base_dir))
+            for p in vendor_dir.rglob('*')
+            if p.is_file() and p.name != '.integrity.json'
+        )
+        # tailwind.css lives outside static/vendor/ but is a locally-built,
+        # hash-tracked asset too.
+        tracked.append('static/css/tailwind.css')
 
         files_entry = {}
         import base64

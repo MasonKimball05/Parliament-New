@@ -447,7 +447,7 @@
 </div>
 {% endif %}
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 const CSRF = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
 
 const STATUS_EMOJI = {

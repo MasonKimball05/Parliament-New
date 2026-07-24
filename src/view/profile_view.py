@@ -476,6 +476,18 @@ def profile_view(request):
     # is -timestamp; [:5] keeps it one cheap indexed query.
     recent_logins = list(user.login_history.filter(status='success')[:5])
 
+    # v3.15.9: surface failed/blocked attempts too — the signal that lets a
+    # member catch someone guessing at their account. Count + latest timestamp
+    # over the last 30 days; still no raw IPs exposed.
+    from django.utils import timezone as _tz
+    from datetime import timedelta as _td
+    _failed_qs = user.login_history.filter(
+        status__in=['failed', 'blocked'],
+        timestamp__gte=_tz.now() - _td(days=30),
+    )
+    failed_login_count_30d = _failed_qs.count()
+    last_failed_login = _failed_qs.first() if failed_login_count_30d else None
+
     # v3.15.0: canonical pledge-class options for the datalist dropdown
     from src.pledge_classes import all_classes
     pledge_class_choices = all_classes()
@@ -496,5 +508,7 @@ def profile_view(request):
         'eligible_big_bros': eligible_big_bros,
         'academic_sections': academic_sections,
         'recent_logins': recent_logins,
+        'failed_login_count_30d': failed_login_count_30d,
+        'last_failed_login': last_failed_login,
         'pledge_class_choices': pledge_class_choices,
     })

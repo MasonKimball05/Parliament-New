@@ -218,7 +218,7 @@
 
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.querySelectorAll('.js-checkin-toggle').forEach(function(cb) {
     cb.addEventListener('change', function() {
         var userId = this.dataset.userId;

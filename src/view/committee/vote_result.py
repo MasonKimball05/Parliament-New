@@ -79,9 +79,26 @@ def committee_vote_result(request, code, legislation_id):
             len(top_options) >= 2
         )
 
+        # Per-option horizontal bars (v3.15.9) — same treatment as the chapter
+        # results page; pie slices are hard to compare in close races.
+        _sorted = sorted(vote_breakdown.items(), key=lambda kv: kv[1], reverse=True)
+        _lead = _sorted[0][1] if _sorted else 0
+        _denom = sum(vote_breakdown.values())
+        plurality_bars = [
+            {
+                'option': opt,
+                'count': cnt,
+                'pct': round(cnt * 100.0 / _denom, 1) if _denom else 0,
+                'width': round(cnt * 100.0 / _lead, 1) if _lead else 0,
+                'is_winner': winning_option is not None and opt == winning_option,
+            }
+            for opt, cnt in _sorted
+        ]
+
         return render(request, 'committee/vote_result.html', {
             'committee': committee,
             'legislation': legislation,
+            'plurality_bars': plurality_bars,
             'votes': votes,
             'vote_breakdown': vote_breakdown,
             'plurality_results': plurality_results,

@@ -162,6 +162,23 @@ def end_vote(request, legislation_id):
             ]
         }
 
+        # Per-option horizontal bars (v3.15.9): pie slices are hard to compare
+        # in close races. `width` is relative to the leader (leader = full bar)
+        # so small differences stay visible; `pct` is share of all choice
+        # selections (multi-vote plurality casts several selections per ballot).
+        _lead = sorted_results[0]['count'] if sorted_results else 0
+        _denom = sum(r['count'] for r in sorted_results)
+        context['plurality_bars'] = [
+            {
+                'option': r['option'],
+                'count': r['count'],
+                'pct': round(r['count'] * 100.0 / _denom, 1) if _denom else 0,
+                'width': round(r['count'] * 100.0 / _lead, 1) if _lead else 0,
+                'is_winner': winner is not None and r['option'] == winner,
+            }
+            for r in sorted_results
+        ]
+
         # Add runoff information
         context['has_tie'] = legislation.has_plurality_tie()
         context['runoff_enabled'] = legislation.plurality_runoff_enabled

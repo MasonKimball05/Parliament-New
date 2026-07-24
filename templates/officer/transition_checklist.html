@@ -70,7 +70,7 @@
 
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 function toggleItem(checkbox) {
     const statusId = checkbox.dataset.statusId;
     checkbox.disabled = true;

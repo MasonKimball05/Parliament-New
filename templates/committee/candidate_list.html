@@ -200,7 +200,7 @@
   {% endfor %}
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 (function () {
   const popover    = document.getElementById('statusPopover');
   const csrfToken  = '{{ csrf_token }}';
@@ -280,7 +280,7 @@
 {% endif %}
 
 <!-- Notes toggle + add/delete (always present for users who can see notes) -->
-<script>
+<script nonce="{{ request.csp_nonce }}">
 (function () {
   const csrfToken = '{{ csrf_token }}';
 

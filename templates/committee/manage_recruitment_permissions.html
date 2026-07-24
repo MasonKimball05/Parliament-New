@@ -77,7 +77,7 @@
 
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 var pendingUpdates = {};
 
 document.querySelectorAll('.js-perm-toggle').forEach(function(cb) {
