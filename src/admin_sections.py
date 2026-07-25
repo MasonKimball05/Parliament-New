@@ -51,10 +51,10 @@ SECTIONS = {
         'PledgeTask', 'PledgeTaskQuestion', 'PledgeTaskCompletion',
         'PledgeQuizAnswer', 'PledgePageRestriction',
     ],
-    'Kai Committee': [
-        'KaiReport', 'KaiReportTemplate', 'KaiFormField', 'KaiReportActivity',
-        'KaiReportFieldResponse', 'KaiClosureRequest', 'KaiMemberPermission',
-    ],
+    # v3.16.2: the 'Kai Committee' section was removed along with the Kai admin
+    # registrations. Kai (judicial/disciplinary) case data is confidential and
+    # is governed by in-app KaiMemberPermission grants — do NOT re-add a Kai
+    # section or register Kai models here.
     'Governing Documents (CNB)': [
         'GoverningDocument', 'Article', 'Section', 'Resolution',
         'ResolutionAmendment', 'ResolutionCollaborator', 'ResolutionSectionImpact',

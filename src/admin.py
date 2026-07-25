@@ -7,7 +7,7 @@ from .models import (
     ChatMessage, ChatReadReceipt, UserAnnouncementView, DocumentTag, DocumentVersion,
     Event, ActivityLog, LoginHistory, LoginAlert, BugReport, Notification,
     IPWhitelist, IPBlacklist, QuarantinedAccount, HoneypotAccess, SystemLockdown,
-    SecurityNotificationLog, CSPViolation, UserWatchFlag, LoginLockout, KaiReport, KaiReportTemplate,
+    SecurityNotificationLog, CSPViolation, UserWatchFlag, LoginLockout,
     PassedResolution, UserSession, AnnouncementEmailLog, ChapterMinutes,
     SlatingPeriod, SlatingApplication,
     TransitionChecklistItem, TransitionChecklistStatus,
@@ -126,7 +126,14 @@ def export_as_csv(modeladmin, request, queryset):
     response['Content-Disposition'] = 'attachment; filename="export.csv"'
     writer = csv.writer(response)
 
-    fields = [field.name for field in queryset.model._meta.fields]
+    # v3.16.2: honour the ModelAdmin's `exclude`. Previously this dumped every
+    # field on the model, which silently bypassed field-level redactions (e.g.
+    # confidential slating interview notes, application answer values) — the
+    # detail page hid them but "Export selected as CSV" did not. Row-level
+    # limits are already safe: admin actions operate on the changelist
+    # queryset, which get_queryset() has already filtered.
+    excluded = set(getattr(modeladmin, 'exclude', None) or ())
+    fields = [f.name for f in queryset.model._meta.fields if f.name not in excluded]
     writer.writerow(fields)
 
     for obj in queryset:
@@ -535,11 +542,27 @@ class LegislationAdmin(admin.ModelAdmin):
 
 @admin.register(Vote, site=admin_site)
 class VoteAdmin(admin.ModelAdmin):
-    list_display = ('user', 'legislation', 'vote_choice_badge')
+    """v3.16.2: read-only (ballot integrity — same rule as CommitteeVote), and
+    votes on anonymous_vote legislation are excluded entirely: the app only
+    reveals per-member choices on non-anonymous votes, and the admin must not
+    bypass that promise. Anonymous-vote turnout/tallies live in the app."""
+    list_display = ('user', 'legislation', 'vote_choice_badge', 'cast_at')
     search_fields = ('user__name', 'legislation__title')
     list_filter = ('vote_choice', 'legislation')
     list_per_page = 100
     autocomplete_fields = ['user']
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).exclude(legislation__anonymous_vote=True)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
     def vote_choice_badge(self, obj):
         colors = {
@@ -2211,123 +2234,10 @@ class LoginLockoutAdmin(admin.ModelAdmin):
 
 
 # === KAI COMMITTEE ===
-
-@admin.register(KaiReport, site=admin_site)
-class KaiReportAdmin(admin.ModelAdmin):
-    list_display = ('title', 'category_badge', 'status_badge', 'deliberation_badge', 'submitted_by', 'targeted_to', 'submitted_at', 'accused_notified')
-    list_filter = ('status', 'category', 'deliberation_outcome', 'accused_notified', 'submitted_at')
-    search_fields = ('title', 'description', 'submitted_by__name', 'targeted_to__name', 'chair_notes')
-    ordering = ('-submitted_at',)
-    readonly_fields = ('submitted_at',)
-    list_per_page = 50
-    date_hierarchy = 'submitted_at'
-    autocomplete_fields = ['submitted_by', 'targeted_to', 'reviewed_by']
-    filter_horizontal = ('related_reports',)
-
-    fieldsets = (
-        ('Report Information', {
-            'fields': ('title', 'category', 'description', 'attachment')
-        }),
-        ('Submission', {
-            'fields': ('submitted_by', 'submitted_at', 'targeted_to')
-        }),
-        ('Status & Review', {
-            'fields': ('status', 'reviewed_by', 'reviewed_at', 'tags', 'chair_notes')
-        }),
-        ('Deliberation', {
-            'fields': ('deliberation_outcome', 'committee_notes', 'closed_by_accused_request'),
-            'classes': ('collapse',)
-        }),
-        ('Accused Notification', {
-            'fields': ('accused_notified', 'accused_notified_at', 'accused_notification_message', 'accused_email_viewed_at'),
-            'classes': ('collapse',)
-        }),
-        ('Related Reports', {
-            'fields': ('related_reports',),
-            'classes': ('collapse',)
-        }),
-    )
-
-    def category_badge(self, obj):
-        colors = {
-            'academic': '#3b82f6',
-            'behavioral': '#f59e0b',
-            'hazing': '#dc2626',
-            'social': '#8b5cf6',
-            'financial': '#10b981',
-            'other': '#6b7280',
-        }
-        color = colors.get(obj.category, '#6b7280')
-        return format_html(
-            '<span style="background-color: {}; color: white; padding: 2px 7px; border-radius: 4px; font-size: 11px;">{}</span>',
-            color,
-            obj.get_category_display()
-        )
-    category_badge.short_description = 'Category'
-    category_badge.admin_order_field = 'category'
-
-    def status_badge(self, obj):
-        colors = {'pending': '#f59e0b', 'reviewed': '#3b82f6', 'archived': '#6b7280'}
-        color = colors.get(obj.status, '#6b7280')
-        return format_html(
-            '<span style="background-color: {}; color: white; padding: 2px 7px; border-radius: 4px; font-size: 11px;">{}</span>',
-            color,
-            obj.get_status_display()
-        )
-    status_badge.short_description = 'Status'
-    status_badge.admin_order_field = 'status'
-
-    def deliberation_badge(self, obj):
-        colors = {
-            'pending': '#6b7280',
-            'under_investigation': '#f59e0b',
-            'scheduled': '#3b82f6',
-            'heard': '#8b5cf6',
-            'warning_issued': '#f97316',
-            'sanctions_applied': '#ef4444',
-            'mediation': '#06b6d4',
-            'referred': '#dc2626',
-            'dismissed': '#10b981',
-            'thrown_out': '#6b7280',
-        }
-        color = colors.get(obj.deliberation_outcome, '#6b7280')
-        return format_html(
-            '<span style="background-color: {}; color: white; padding: 2px 7px; border-radius: 4px; font-size: 11px;">{}</span>',
-            color,
-            obj.get_deliberation_outcome_display()
-        )
-    deliberation_badge.short_description = 'Deliberation'
-    deliberation_badge.admin_order_field = 'deliberation_outcome'
-
-
-@admin.register(KaiReportTemplate, site=admin_site)
-class KaiReportTemplateAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'active_badge', 'created_by', 'created_at', 'updated_at')
-    list_filter = ('is_active', 'category')
-    search_fields = ('name', 'description', 'title_template')
-    ordering = ('category', 'name')
-    readonly_fields = ('created_at', 'updated_at')
-    autocomplete_fields = ['created_by']
-
-    fieldsets = (
-        ('Template Info', {
-            'fields': ('name', 'description', 'category', 'is_active')
-        }),
-        ('Template Content', {
-            'fields': ('title_template', 'description_template', 'suggested_tags')
-        }),
-        ('Metadata', {
-            'fields': ('created_by', 'created_at', 'updated_at'),
-            'classes': ('collapse',)
-        }),
-    )
-
-    def active_badge(self, obj):
-        if obj.is_active:
-            return format_html('<span style="color: #10b981; font-weight: bold;">✓ Active</span>')
-        return format_html('<span style="color: #6b7280;">✗ Inactive</span>')
-    active_badge.short_description = 'Status'
-    active_badge.admin_order_field = 'is_active'
+# v3.16.2: Kai (judicial/disciplinary) models are deliberately NOT registered
+# in the Django admin. Kai case data is confidential — visibility is governed
+# by KaiMemberPermission grants inside the app, and superuser/admin status
+# must not bypass that. Manage Kai entirely through the in-app module.
 
 
 # === PASSED RESOLUTIONS ===

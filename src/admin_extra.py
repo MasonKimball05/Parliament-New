@@ -47,9 +47,6 @@ from .models import (
     EventReminderLog, EventReminderRecipient, EventSignup,
     # guide
     GuideTour, GuideTourStep, UserTourProgress, GuideArticle,
-    # kai
-    KaiReportActivity, KaiFormField, KaiReportFieldResponse, KaiClosureRequest,
-    KaiMemberPermission,
     # landing page
     ResolutionSectionImpact, LandingPageContent, LandingPagePhoto,
     ContactSubmission, LandingPageSocialLink, LandingPageContactTopic,
@@ -153,9 +150,9 @@ class AnnouncementPollOptionAdmin(admin.ModelAdmin):
 
 @admin.register(AnnouncementPollResponse, site=admin_site)
 class AnnouncementPollResponseAdmin(ReadOnlyAdmin):
-    """Read-only. NOTE: respondent is visible here even for polls marked
-    is_anonymous — anonymity is enforced at the app layer, so treat this
-    view as officer-eyes-only and don't screenshot it into chapter chats."""
+    """Read-only participation record (who responded to which poll — same
+    model as SlatingBallot). Safe to show respondent because answer CONTENT
+    for anonymous polls is excluded from AnnouncementPollAnswerAdmin below."""
     list_display = ('poll', 'respondent', 'submitted_at')
     list_filter = ('submitted_at',)
     search_fields = ('poll__title',)
@@ -163,8 +160,15 @@ class AnnouncementPollResponseAdmin(ReadOnlyAdmin):
 
 @admin.register(AnnouncementPollAnswer, site=admin_site)
 class AnnouncementPollAnswerAdmin(ReadOnlyAdmin):
+    """v3.16.2: answers to is_anonymous polls are excluded — the response FK
+    resolves to the respondent's name, so this view previously joined
+    identity to answer content on anonymous polls. Aggregate results for
+    anonymous polls live in the app."""
     list_display = ('response', 'question', 'text_answer')
     search_fields = ('text_answer',)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).exclude(response__poll__is_anonymous=True)
 
 
 @admin.register(AnnouncementEmailRecipient, site=admin_site)
@@ -302,12 +306,15 @@ class CommitteeLegislationAdmin(admin.ModelAdmin):
 
 @admin.register(CommitteeVote, site=admin_site)
 class CommitteeVoteAdmin(ReadOnlyAdmin):
-    """Read-only: same integrity rule as chapter votes. NOTE: voter identity
-    is visible here even on anonymous_vote legislation — anonymity is an
-    app-layer promise."""
+    """Read-only: same integrity rule as chapter votes. v3.16.2: votes on
+    anonymous_vote legislation are excluded — the admin must not bypass the
+    app-layer anonymity promise (previously voter identity was visible here)."""
     list_display = ('legislation', 'user', 'vote_choice', 'is_active', 'created_at')
     list_filter = ('vote_choice', 'is_active')
     search_fields = ('legislation__title', 'user__username', 'user__name')
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).exclude(legislation__anonymous_vote=True)
 
 
 # ──────────────────────────────────────────────────── documents & minutes
@@ -445,42 +452,13 @@ class GuideArticleAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('title',)}
 
 
-# ─────────────────────────────────────────── kai (confidential — tread lightly)
-
-@admin.register(KaiFormField, site=admin_site)
-class KaiFormFieldAdmin(admin.ModelAdmin):
-    list_display = ('label', 'field_name', 'field_type', 'section', 'display_order',
-                    'is_required', 'is_active', 'is_builtin')
-    list_filter = ('field_type', 'is_active', 'is_builtin')
-    search_fields = ('label', 'field_name')
-
-
-@admin.register(KaiReportActivity, site=admin_site)
-class KaiReportActivityAdmin(ReadOnlyAdmin):
-    list_display = ('report', 'user', 'action', 'timestamp')
-    list_filter = ('action',)
-    date_hierarchy = 'timestamp'
-
-
-@admin.register(KaiReportFieldResponse, site=admin_site)
-class KaiReportFieldResponseAdmin(ReadOnlyAdmin):
-    list_display = ('report', 'field', 'created_at')
-
-
-@admin.register(KaiClosureRequest, site=admin_site)
-class KaiClosureRequestAdmin(ReadOnlyAdmin):
-    """Read-only: closure review is an in-app Kai-committee flow."""
-    list_display = ('report', 'requested_by', 'request_type', 'status',
-                    'requested_at', 'reviewed_by')
-    list_filter = ('request_type', 'status')
-
-
-@admin.register(KaiMemberPermission, site=admin_site)
-class KaiMemberPermissionAdmin(admin.ModelAdmin):
-    list_display = ('user', 'committee', 'can_view_report_details', 'can_view_submitter_identity',
-                    'can_view_accused_identity', 'can_close_cases', 'granted_by', 'granted_at')
-    list_filter = ('can_view_submitter_identity', 'can_view_accused_identity', 'can_close_cases')
-    search_fields = ('user__username', 'user__name')
+# ──────────────────────────────────────────────────────────────────── kai
+# v3.16.2: ALL Kai (judicial/disciplinary) models deliberately unregistered
+# from the admin — case data, activity, responses, closure requests, AND
+# KaiMemberPermission (editing grants here would let any Django admin award
+# themselves submitter/accused identity visibility, bypassing the in-app
+# grant flow). Kai visibility is governed exclusively by KaiMemberPermission
+# inside the app; admin/superuser status must not bypass it.
 
 
 # ─────────────────────────────────────────────────────────── landing page
@@ -682,16 +660,24 @@ class SlatingFormFieldAdmin(admin.ModelAdmin):
 
 @admin.register(SlatingApplicationResponse, site=admin_site)
 class SlatingApplicationResponseAdmin(ReadOnlyAdmin):
+    """v3.16.2: metadata-only — the answer values are excluded because
+    SlatingFormField.is_confidential is enforced at the app layer only, and
+    this view would show confidential answers to every Django admin."""
     list_display = ('application', 'field', 'created_at')
+    exclude = ('text_value', 'number_value', 'json_value', 'file_value')
 
 
 @admin.register(SlatingInterview, site=admin_site)
 class SlatingInterviewAdmin(ReadOnlyAdmin):
     """Read-only so the notes-destruction feature can't be reversed by an
-    admin edit."""
+    admin edit. v3.16.2: the free-text deliberation content (notes/strengths/
+    concerns — 'CONFIDENTIAL interview notes' per the model) is excluded;
+    it's slating-committee-only in the app and pending destruction, so the
+    admin must not expose it. Scheduling/outcome metadata stays visible."""
     list_display = ('application', 'scheduled_at', 'completed_at', 'recommendation',
                     'notes_destroyed')
     list_filter = ('recommendation', 'notes_destroyed')
+    exclude = ('notes', 'strengths', 'concerns')
 
 
 @admin.register(Slate, site=admin_site)
@@ -727,10 +713,16 @@ class SlatingBallotAdmin(ReadOnlyAdmin):
 
 @admin.register(SlatingVote, site=admin_site)
 class SlatingVoteAdmin(ReadOnlyAdmin):
-    """Read-only: anonymous vote content — deliberately no voter FK here."""
+    """Read-only: anonymous vote content — deliberately no voter FK here.
+    v3.16.2: voted_at hidden — with SlatingBallot's per-voter timestamps in
+    the next section over, second-level timestamps on choices allow a
+    correlation join that de-anonymizes ballots in a small electorate.
+    (Residual caveat: sequential PKs still leak coarse ordering — never add
+    voted_at or id-adjacent ballot data back to this view.)"""
     list_display = ('period', 'slate', 'slate_candidate', 'voting_attempt',
-                    'vote_choice', 'voted_at')
+                    'vote_choice')
     list_filter = ('vote_choice', 'voting_attempt')
+    exclude = ('voted_at',)
 
 
 @admin.register(SlatingActivity, site=admin_site)
