@@ -10,6 +10,7 @@ Member views:
   - poll_confirmation           — shown after submission
 """
 import csv
+import random
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -256,26 +257,41 @@ def _export_poll_csv(poll, questions, responses):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
     writer = csv.writer(response)
-    headers = ['Submitted At']
-    if not poll.is_anonymous:
-        headers.insert(0, 'Respondent')
+
+    # v3.16.2: for anonymous polls, omit the submission timestamp AND shuffle
+    # row order. The respondent name was already omitted, but submitted_at
+    # (and, failing that, the -submitted_at row ordering) is a join key: pair
+    # it with any per-respondent timestamp and the answers are re-identified.
+    # Non-anonymous polls are unchanged.
+    headers = [] if poll.is_anonymous else ['Respondent', 'Submitted At']
     for q in questions:
         headers.append(q.text[:80])
     writer.writerow(headers)
 
-    for resp in responses:
-        row = [resp.submitted_at.strftime('%Y-%m-%d %H:%M')]
-        if not poll.is_anonymous:
-            row.insert(0, resp.respondent.get_display_name() if resp.respondent else '')
+    rows_source = list(responses)
+    if poll.is_anonymous:
+        random.shuffle(rows_source)
+
+    for resp in rows_source:
+        if poll.is_anonymous:
+            row = []
+        else:
+            row = [
+                resp.respondent.get_display_name() if resp.respondent else '',
+                resp.submitted_at.strftime('%Y-%m-%d %H:%M'),
+            ]
+        # v3.16.2 perf: the caller prefetches `answers__selected_options`, but
+        # `resp.answers.get(question=q)` bypasses the prefetch cache and fired
+        # one query per response × question. Index the prefetched rows instead.
+        answers_by_question = {a.question_id: a for a in resp.answers.all()}
         for q in questions:
-            try:
-                answer = resp.answers.get(question=q)
-                if q.question_type in ('single', 'multiple'):
-                    row.append(', '.join(o.text for o in answer.selected_options.all()))
-                else:
-                    row.append(answer.text_answer)
-            except AnnouncementPollAnswer.DoesNotExist:
+            answer = answers_by_question.get(q.id)
+            if answer is None:
                 row.append('')
+            elif q.question_type in ('single', 'multiple'):
+                row.append(', '.join(o.text for o in answer.selected_options.all()))
+            else:
+                row.append(answer.text_answer)
         writer.writerow(row)
 
     return response

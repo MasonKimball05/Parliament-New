@@ -17,7 +17,30 @@ class Command(BaseCommand):
             {
                 'name': 'calendar_subscriptions',
                 'display_name': 'Calendar Subscriptions',
-                'description': 'Enable iCal calendar subscription functionality',
+                'description': (
+                    'Enable the iCal calendar subscription ENDPOINTS '
+                    '(/calendar/subscribe/ and token regeneration). Pairs with '
+                    '"iCal Export" (ical_export), which controls the Subscribe '
+                    'BUTTON on the calendar page — turn both on/off together.'
+                ),
+                'category': 'features',
+                'is_enabled': True,
+            },
+            {
+                # v3.16.2: this flag gates the Subscribe button in
+                # templates/calendar.html ({% if feature_flags.ical_export %}).
+                # It was only ever defined in seed_admin_v2.py, so installs
+                # seeded via THIS command never got a row — and template flag
+                # lookups fail CLOSED (missing row → falsy), so the button was
+                # silently invisible even though the whole feature (model,
+                # view, routes, tests) worked. Found 07-25-26.
+                'name': 'ical_export',
+                'display_name': 'iCal Export',
+                'description': (
+                    'Show the Subscribe button + modal on the calendar page. '
+                    'The underlying feed endpoints are gated separately by '
+                    '"Calendar Subscriptions" (calendar_subscriptions).'
+                ),
                 'category': 'features',
                 'is_enabled': True,
             },

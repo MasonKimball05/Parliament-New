@@ -150,12 +150,19 @@ class AnnouncementPollOptionAdmin(admin.ModelAdmin):
 
 @admin.register(AnnouncementPollResponse, site=admin_site)
 class AnnouncementPollResponseAdmin(ReadOnlyAdmin):
-    """Read-only participation record (who responded to which poll — same
-    model as SlatingBallot). Safe to show respondent because answer CONTENT
-    for anonymous polls is excluded from AnnouncementPollAnswerAdmin below."""
+    """Read-only participation record. v3.16.2: anonymous polls are excluded
+    entirely — this view exposed `respondent` + `submitted_at` per row, which
+    (a) bypassed the app's deliberate "reveal respondents only once >2 have
+    responded" threshold, and (b) supplied the join key that de-anonymized
+    the poll CSV export (which carries submitted_at + answers). Participation
+    for anonymous polls is available, threshold-protected, on the in-app
+    results page."""
     list_display = ('poll', 'respondent', 'submitted_at')
     list_filter = ('submitted_at',)
     search_fields = ('poll__title',)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).exclude(poll__is_anonymous=True)
 
 
 @admin.register(AnnouncementPollAnswer, site=admin_site)
@@ -768,6 +775,17 @@ class TwoFactorRequirementAdmin(admin.ModelAdmin):
     list_display = ('user', 'requirement', 'set_by', 'updated_at')
     list_filter = ('requirement',)
     search_fields = ('user__username', 'user__name')
+
+
+# ──────────────────────────────────────────────── deliberately unregistered
+# CalendarSubscription (src/models_calendar_subscription.py) is intentionally
+# NOT registered. Its `token` is a bearer credential: anyone holding it can
+# read that member's personal event feed anonymously at
+# /calendar/feed/<token>/. It lives outside src/models/, so the v3.16.0
+# coverage pass never enumerated it — that gap is now a deliberate choice.
+# If it is ever registered, it MUST exclude `token` (see APIToken/
+# EmailVerificationToken). Members rotate their own token via
+# regenerate_calendar_token; officers don't need admin visibility.
 
 
 # ──────────────────────────────────────────────────────────────── webauthn

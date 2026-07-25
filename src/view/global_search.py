@@ -11,6 +11,8 @@ from src.models import (
 )
 from django.utils import timezone
 from src.feature_flag_decorators import require_feature_flag
+from src.models_feature_flags import FeatureFlag
+from src.view.kai_reports import _get_kai_access
 
 
 # Define all searchable pages with keywords
@@ -272,13 +274,28 @@ def global_search(request):
         if slating_periods:
             results['slating_periods'] = slating_periods
 
-    # Search Kai Reports (for Kai committee members and admins)
-    if request.user.is_admin or request.user.committees.filter(is_kai_committee=True).exists():
-        kai_reports = list(KaiReport.objects.filter(
-            Q(title__icontains=query) | Q(description__icontains=query)
-        ).order_by('-submitted_at')[:10])
-        if kai_reports:
-            results['kai_reports'] = kai_reports
+    # Search Kai Reports — v3.16.2: gated by the SAME rule the Kai module
+    # uses (_get_kai_access → KaiMemberPermission), not by mere committee
+    # membership. Previously any member of the Kai committee could full-text
+    # search report titles AND descriptions (the allegation body) here even
+    # with can_view_report_list/can_view_report_details set False, which is
+    # exactly what the in-app module denies them. Also honours the
+    # 'kai_reports' feature flag, which this view never checked.
+    if FeatureFlag.is_feature_enabled('kai_reports'):
+        kai_committee = Committee.objects.filter(is_kai_committee=True).first()
+        if kai_committee is not None:
+            kai_access = _get_kai_access(request.user, kai_committee)
+            if kai_access['can_view_report_list']:
+                # Only search the allegation body for users cleared to read
+                # details; list-only users match on title alone.
+                kai_q = Q(title__icontains=query)
+                if kai_access['can_view_report_details']:
+                    kai_q |= Q(description__icontains=query)
+                kai_reports = list(
+                    KaiReport.objects.filter(kai_q).order_by('-submitted_at')[:10]
+                )
+                if kai_reports:
+                    results['kai_reports'] = kai_reports
 
     # All result values are now lists — len() is free, no extra DB queries
     total_count = sum(len(v) for v in results.values())

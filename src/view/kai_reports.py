@@ -194,14 +194,21 @@ Please log in to the Kai Committee page to review this report.
         return redirect('home')
 
 
-@login_required
-@require_feature_flag('kai_reports')
-@log_function_call
 def _get_kai_access(user, committee):
     """
     Return a dict of Kai permission flags for the given user.
     Chairs and site admins get full access. Other users get their KaiMemberPermission
     flags; users with no permission row get all False.
+
+    NOTE — v3.16.2: this helper previously carried @login_required,
+    @require_feature_flag and @log_function_call, orphaned from an earlier
+    view when the helper was inserted above it (06-05-26). All three expect a
+    *request* as the first positional arg and dereference `request.user`;
+    this function receives a ParliamentUser, which has no `.user`, so every
+    call raised AttributeError and 500'd the whole Kai review module. The
+    decorators are also redundant here — all five call sites are views that
+    already apply @login_required + @require_feature_flag('kai_reports').
+    Do not re-add them to this helper.
     """
     FIELDS = [
         'can_view_report_list', 'can_view_report_details',
@@ -490,7 +497,11 @@ def export_kai_reports_csv(request):
                 report.reviewed_by.name if report.reviewed_by else '',
                 localtime(report.reviewed_at).strftime('%Y-%m-%d %H:%M:%S') if report.reviewed_at else '',
                 ', '.join(report.tags),
-                report.description
+                # v3.16.2: the allegation body is governed by
+                # can_view_report_details, but this export only gates on
+                # can_view_report_list — a list-only reviewer could dump every
+                # description via CSV. Redact to match the in-app detail view.
+                report.description if kai_access['can_view_report_details'] else '[Redacted]'
             ])
 
         ActivityLog.log_activity(
