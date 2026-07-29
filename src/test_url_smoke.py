@@ -50,6 +50,13 @@ KNOWN_FAILURES = {}
 class ZeroArgumentUrlSmokeTests(TestCase):
     """Every page an admin can reach without arguments must not 5xx."""
 
+    def setUp(self):
+        # See the note in NoNPlusOneOnZeroArgumentPagesTests: visiting the whole
+        # site fills caches that outlive the test database.
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+
     @classmethod
     def setUpTestData(cls):
         cls.admin = ParliamentUser.objects.create(
@@ -145,7 +152,7 @@ class NoNPlusOneOnZeroArgumentPagesTests(TestCase):
         from django.utils import timezone
 
         from src.models import (ActivityLog, Announcement, Committee, Event,
-                                Legislation, Vote)
+                                Legislation, Role, Vote)
 
         cls.admin = ParliamentUser.objects.create(
             user_id='npo-admin', name='NPO Admin', username='npoadmin',
@@ -154,15 +161,27 @@ class NoNPlusOneOnZeroArgumentPagesTests(TestCase):
         cls.admin.set_password('npo-pass-12345!')
         cls.admin.save()
 
+        # v3.17.3: member_type is spread across all four kinds on purpose. The
+        # directory renders a separate section per type, and with six members
+        # all of one type the other sections were empty — so the role-badge
+        # N+1 inside them never fired and `/directory/` looked clean here while
+        # doing 12 extra queries in production. Same failure mode as the missing
+        # `role` below: a fixture that doesn't vary the data doesn't reach the
+        # code.
+        member_types = ['Officer', 'Chair', 'Member', 'Advisor']
         members = []
         for i in range(6):
             member = ParliamentUser.objects.create(
                 user_id=f'npo-{i}', name=f'Member {i}', username=f'npo{i}',
-                member_type='Member', member_status='Active',
+                member_type=member_types[i % len(member_types)],
+                member_status='Active',
             )
             member.set_password('npo-pass-12345!')
             member.save()
             members.append(member)
+            # Roles drive the directory's badge block and several dashboards.
+            member.roles.add(
+                Role.objects.create(name=f'NPO Role {i}', code=f'npor{i}'))
 
         now = timezone.now()
         for i in range(6):
@@ -181,10 +200,33 @@ class NoNPlusOneOnZeroArgumentPagesTests(TestCase):
                 user=members[i], legislation=legislation, vote_choice='yes')
             ActivityLog.objects.create(
                 action_type='login', user=members[i], description=f'entry {i}')
+            # v3.17.3: committees are built WITH a `role` and with every
+            # membership relation populated, because the first version of this
+            # fixture did neither and missed a real N+1 as a result:
+            # `Committee.get_vp()` returns early when `role_id` is None, so the
+            # committee index looked clean here while doing two queries per
+            # committee in production. A fixture that skips the optional FK
+            # tests the early-return path, not the page.
+            role = Role.objects.create(name=f'NPO VP {i}', code=f'npovp{i}')
+            members[i % len(members)].roles.add(role)
             committee = Committee.objects.create(
-                name=f'C{i}', code=f'npo{i}', is_active=True)
+                name=f'C{i}', code=f'npo{i}', is_active=True, role=role)
             committee.members.add(*members[:3])
             committee.chairs.add(members[0])
+            committee.advisors.add(members[1])
+            committee.voting_members.add(members[2])
+
+    def setUp(self):
+        # This class GETs ~282 pages, which populates every cache the site uses
+        # — feature flags, page toggles, per-user preferences, the maintenance
+        # banner. `TestCase` rolls back the database between tests but NOT the
+        # cache, so without this the entries outlive the rows they describe and
+        # the next test class inherits them. That is not hypothetical: it made
+        # `test_login_as` return 403 from an admin-only view when this module
+        # happened to run first.
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
 
     def test_no_page_repeats_a_query_shape(self):
         import re
@@ -193,11 +235,25 @@ class NoNPlusOneOnZeroArgumentPagesTests(TestCase):
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
 
+        from django.core.cache import cache
+
         literal = re.compile(r"('[^']*'|\b\d+\b)")
         client = Client()
         client.force_login(self.admin)
 
+        # v3.17.3: clear the cache between pages.
+        #
+        # Requesting 282 URLs back to back trips the app's own rate limiting and
+        # lockdown counters, which live in the cache — and once tripped, every
+        # page after it returns 403 and is silently skipped by the
+        # `status_code >= 400` guard below. That is how `/directory/` escaped
+        # this test while carrying a 12-query N+1: it was not clean, it was
+        # never reached. `/directory/` returns 200 in isolation.
+        #
+        # `pages_checked` is asserted at the end so a future regression in
+        # reachability fails loudly instead of quietly shrinking the sweep.
         offenders = []
+        pages_checked = 0
         for name in ZeroArgumentUrlSmokeTests._zero_argument_url_names(self):
             try:
                 url = reverse(name)
@@ -205,6 +261,7 @@ class NoNPlusOneOnZeroArgumentPagesTests(TestCase):
                 continue
             if url.startswith('/admin/') or 'logout' in url or name in KNOWN_FAILURES:
                 continue
+            cache.clear()
             try:
                 with CaptureQueriesContext(connection) as ctx:
                     response = client.get(url)
@@ -212,6 +269,7 @@ class NoNPlusOneOnZeroArgumentPagesTests(TestCase):
                 continue                       # covered by the smoke test above
             if response.status_code >= 400:
                 continue
+            pages_checked += 1
             shapes = Counter(literal.sub('?', q['sql']) for q in ctx.captured_queries)
             worst_shape, worst_count = shapes.most_common(1)[0] if shapes else ('', 0)
             if worst_count >= 4:
@@ -221,4 +279,9 @@ class NoNPlusOneOnZeroArgumentPagesTests(TestCase):
                     f'{table.group(1) if table else worst_shape[:60]}'
                 )
 
+        self.assertGreater(
+            pages_checked, 100,
+            f'only {pages_checked} pages were actually exercised — the sweep is '
+            f'shrinking, which hides N+1s rather than reporting them',
+        )
         self.assertEqual(offenders, [], 'pages with a repeated query shape (N+1)')

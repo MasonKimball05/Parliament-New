@@ -4,6 +4,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.conf import settings
+from django.db.models import Count
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_http_methods
 from src.models import Committee, Role, ParliamentUser, CommitteeLegislation, CommitteeDocument, CommitteeMinutes, ActivityLog, log_admin_action
@@ -46,14 +47,23 @@ def committee_index(request):
     if not show_archived:
         all_committees_list = [c for c in all_committees_list if not c.is_archived]
 
+    # v3.17.3: this view was ~9 queries per committee — dev mode reported
+    # `get_vp` firing 14× twice over (once for its redundant `.exists()`, once
+    # for the `.first()`), and that was only the part it grouped. Per committee
+    # it also ran four `.exists()` calls for the viewer's own roles and three
+    # `.count()` calls for the badges. At 14 committees that is ~150 queries for
+    # one page. Everything below is now batched: the per-committee work is
+    # dictionary lookups, and the query count no longer depends on how many
+    # committees the chapter has.
+
+    # VPs for every committee on the page — two queries, not two per committee.
+    vp_by_committee = Committee.vp_map(all_committees_list)
+
     # Prepare all committees info for dropdown (filtered by visibility)
-    all_committees_info = []
-    for committee in all_committees_list:
-        committee_vp = committee.get_vp()
-        all_committees_info.append({
-            'committee': committee,
-            'vp': committee_vp,
-        })
+    all_committees_info = [
+        {'committee': committee, 'vp': vp_by_committee.get(committee.pk)}
+        for committee in all_committees_list
+    ]
 
     # Count archived committees the user is a member of (for toggle pill)
     archived_count = sum(1 for c in user_committees if c.is_archived and c.is_visible_to(user))
@@ -66,33 +76,53 @@ def committee_index(request):
         if not show_archived:
             display_committees = [c for c in display_committees if not c.is_archived]
 
-    # Add role information to each committee
+    # The viewer's own role in each committee: four id sets, fetched once,
+    # instead of four `.exists()` queries per committee.
+    chair_ids = set(chair_committees.values_list('id', flat=True))
+    advisor_ids = set(advisor_committees.values_list('id', flat=True))
+    member_ids = set(member_committees.values_list('id', flat=True))
+    voting_ids = set(voting_committees.values_list('id', flat=True))
+
+    # Badge counts: one aggregate over the committees actually being shown,
+    # replacing three `.count()` calls per committee. `distinct=True` is
+    # load-bearing — three multi-valued joins in one annotate() multiply each
+    # other's rows and inflate all three counts without it.
+    display_ids = [c.pk for c in display_committees]
+    counts_by_committee = {
+        row['id']: row
+        for row in Committee.objects.filter(id__in=display_ids).values('id').annotate(
+            member_total=Count('members', distinct=True),
+            chair_total=Count('chairs', distinct=True),
+            advisor_total=Count('advisors', distinct=True),
+        )
+    }
+
+    # `display_committees` can come from `user_committees` rather than
+    # `all_committees_list`, so it may hold committees the VP map above never
+    # saw. One more batched call covers them; it is a no-op when it doesn't.
+    missing_vp = [c for c in display_committees if c.pk not in vp_by_committee]
+    if missing_vp:
+        vp_by_committee.update(Committee.vp_map(missing_vp))
+
     committees_with_roles = []
     for committee in display_committees:
         roles = []
-
-        # Check each role individually by ID
-        if chair_committees.filter(id=committee.id).exists():
+        if committee.id in chair_ids:
             roles.append('Chair')
-        if advisor_committees.filter(id=committee.id).exists():
+        if committee.id in advisor_ids:
             roles.append('Advisor')
-        if member_committees.filter(id=committee.id).exists():
+        if committee.id in member_ids:
             roles.append('Member')
 
-        # Check if voting member
-        is_voting_member = voting_committees.filter(id=committee.id).exists()
-
-        # Get VP for this committee
-        committee_vp = committee.get_vp()
-
+        counts = counts_by_committee.get(committee.pk, {})
         committees_with_roles.append({
             'committee': committee,
             'roles': roles,
-            'is_voting_member': is_voting_member,
-            'committee_vp': committee_vp,
-            'member_count': committee.members.count(),
-            'chair_count': committee.chairs.count(),
-            'advisor_count': committee.advisors.count(),
+            'is_voting_member': committee.id in voting_ids,
+            'committee_vp': vp_by_committee.get(committee.pk),
+            'member_count': counts.get('member_total', 0),
+            'chair_count': counts.get('chair_total', 0),
+            'advisor_count': counts.get('advisor_total', 0),
         })
 
     context = {

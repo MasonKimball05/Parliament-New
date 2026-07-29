@@ -636,3 +636,326 @@ class NoCredentialColumnsOnJoinsTests(TestCase):
             offenders, [],
             'build deferral with member_defer() rather than looping the constant',
         )
+
+
+class CommitteeIndexScalingTests(TestCase):
+    """
+    The committee index must not care how many committees the chapter has.
+
+    v3.17.3 (fourth pass). Dev mode reported `Committee.get_vp` firing 14× —
+    twice over, because it was `vps.first() if vps.exists() else None`, two
+    queries for an answer `.first()` gives on its own. That was only the part
+    the panel grouped: the same loop also ran four `.exists()` calls for the
+    viewer's own roles and three `.count()` calls for the badges, so the page
+    was ~9 queries per committee.
+
+    Measured before the fix: 65 queries at 3 committees, 173 at 14, 349 at 30.
+    Linear in the roster of committees, on the page whose whole job is listing
+    them.
+    """
+
+    def _build(self, n_committees):
+        from src.models import Committee, Role
+
+        admin = make_user('cs0', member_type='Officer', is_admin=True)
+        members = [make_user(f'cs{i + 1}') for i in range(4)]
+        for i in range(n_committees):
+            role = Role.objects.create(name=f'VP {i}', code=f'csvp{i}')
+            members[i % len(members)].roles.add(role)
+            committee = Committee.objects.create(
+                name=f'C{i}', code=f'cs{i}', is_active=True, role=role)
+            committee.members.add(admin, *members[:2])
+            committee.chairs.add(members[0])
+            committee.advisors.add(members[1])
+            committee.voting_members.add(admin)
+        return admin
+
+    def _queries(self, admin):
+        client = Client()
+        client.force_login(admin)
+        with CaptureQueriesContext(connection) as ctx:
+            response = client.get('/committees/')
+        self.assertEqual(response.status_code, 200)
+        return len(ctx.captured_queries), response
+
+    def _reset(self):
+        from src.models import Committee, Role
+
+        Committee.objects.all().delete()
+        Role.objects.all().delete()
+        ParliamentUser.objects.all().delete()
+
+    def test_query_count_is_flat_in_committee_count(self):
+        small, _ = self._queries(self._build(3))
+        self._reset()
+        large, response = self._queries(self._build(30))
+        self.assertEqual(len(response.context['committees']), 30)
+        # Ten times the committees must not mean measurably more queries.
+        self.assertLessEqual(
+            large, small + 3,
+            f'query count grew with committee count: {small} -> {large}',
+        )
+
+    def test_get_vp_is_a_single_query(self):
+        from src.models import Committee, Role
+
+        member = make_user('cs9', name='Vee Pee')
+        role = Role.objects.create(name='Solo VP', code='solovp')
+        member.roles.add(role)
+        committee = Committee.objects.create(
+            name='Solo', code='solo', is_active=True, role=role)
+        with self.assertNumQueries(1):
+            self.assertEqual(committee.get_vp().pk, member.pk)
+
+    def test_get_vp_costs_nothing_without_a_role(self):
+        from src.models import Committee
+
+        committee = Committee.objects.create(
+            name='NoRole', code='norole', is_active=True)
+        with self.assertNumQueries(0):
+            self.assertIsNone(committee.get_vp())
+
+    def test_vp_map_agrees_with_get_vp(self):
+        """Batching must not change who is displayed."""
+        from src.models import Committee, Role
+
+        members = [make_user(f'cv{i}') for i in range(3)]
+        committees = []
+        for i in range(3):
+            role = Role.objects.create(name=f'R{i}', code=f'cvr{i}')
+            # Two holders, so "which one" is a real question: get_vp() takes
+            # .first() under ParliamentUser's Meta ordering (user_id).
+            members[i].roles.add(role)
+            members[(i + 1) % 3].roles.add(role)
+            committees.append(Committee.objects.create(
+                name=f'CV{i}', code=f'cv{i}', is_active=True, role=role))
+        committees.append(Committee.objects.create(
+            name='CVnone', code='cvnone', is_active=True))
+
+        batched = Committee.vp_map(committees)
+        for committee in committees:
+            expected = committee.get_vp()
+            got = batched[committee.pk]
+            self.assertEqual(
+                getattr(expected, 'pk', None), getattr(got, 'pk', None),
+                f'vp_map disagrees with get_vp for {committee.code}')
+
+    def test_vp_map_is_two_queries_regardless_of_size(self):
+        from src.models import Committee, Role
+
+        member = make_user('cvm')
+        committees = []
+        for i in range(12):
+            role = Role.objects.create(name=f'M{i}', code=f'cvm{i}')
+            member.roles.add(role)
+            committees.append(Committee.objects.create(
+                name=f'M{i}', code=f'cvm{i}', is_active=True, role=role))
+        with self.assertNumQueries(2):
+            self.assertEqual(len(Committee.vp_map(committees)), 12)
+
+
+class AdminV2FlagSeedingTests(TestCase):
+    """
+    The admin-v2 dashboard seeds its push flags in one query, not one per flag.
+
+    v3.17.3 (fifth pass). Reported from the panel as 5× the same
+    `WHERE name = ?` shape from `FeatureFlag.objects.get_or_create` — five
+    uncached SELECTs on every load, plus an INSERT each the first time.
+
+    Worth recording why v3.17.1's flag caching did not help: that cached
+    `FeatureFlag.is_feature_enabled`, and this code never calls it. It goes to
+    the manager directly, so it bypassed the cache entirely. **"We cached the
+    flag lookup" is only true of the lookup that was cached.**
+
+    Measured before: 14 FeatureFlag queries on first load, 9 in steady state,
+    worst repeated shape 6×. After: 6 and 5, worst shape 1×.
+
+    Deliberately ONE test doing two page loads rather than four tests doing
+    five: this dashboard costs ~85 queries a load, and at ~10s each the
+    finer-grained version was 39s of suite time for the same coverage.
+    """
+
+    PUSH_FLAG_COUNT = 5
+
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.admin = make_user('73', member_type='Officer', is_admin=True)
+
+    def _dashboard(self, client):
+        """GET the dashboard past its two-factor gate (allowlist + session)."""
+        from unittest.mock import patch
+
+        from django.utils import timezone as tz
+
+        import src.view.admin_v2 as admin_v2
+
+        session = client.session
+        session['admin_v2_authenticated'] = True
+        session['admin_v2_auth_time'] = tz.now().isoformat()
+        session.save()
+        with patch.object(admin_v2, 'ALLOWED_USER_IDS', {'73'}):
+            with CaptureQueriesContext(connection) as ctx:
+                response = client.get('/admin-v2/dashboard/')
+        return response, ctx.captured_queries
+
+    @staticmethod
+    def _flag_shapes(queries):
+        import re
+        from collections import Counter
+
+        literal = re.compile(r"('[^']*'|\b\d+\b)")
+        return Counter(
+            literal.sub('?', q['sql']) for q in queries
+            if 'src_featureflag' in q['sql']
+        )
+
+    def test_seeding_is_batched_idempotent_and_cache_correct(self):
+        # Prime the cache with the fail-open default for a flag with no row, so
+        # the invalidation assertion at the end is meaningful.
+        self.assertTrue(FeatureFlag.is_feature_enabled('push_slating'))
+
+        client = Client()
+        client.force_login(self.admin)
+
+        # --- first load: seeds the five flags -------------------------------
+        response, queries = self._dashboard(client)
+        self.assertEqual(response.status_code, 200)
+        self.assertLessEqual(
+            max(self._flag_shapes(queries).values(), default=0), 2,
+            'a FeatureFlag query shape is repeating — seeding is back to '
+            'one query per flag',
+        )
+        self.assertEqual(
+            FeatureFlag.objects.filter(name__startswith='push_').count(),
+            self.PUSH_FLAG_COUNT,
+        )
+
+        # `bulk_create` does not send post_save, so the invalidation receivers
+        # in models_feature_flags.py never fire for its rows — and these names
+        # were just cached as the FAIL-OPEN default. The view invalidates by
+        # hand; this is what keeps that from being dropped, because the symptom
+        # would be a freshly-created flag still reading as its default: the same
+        # fail-open/fail-closed split that cost a day on 07-25-26.
+        row = FeatureFlag.objects.get(name='push_slating')
+        row.is_enabled = False
+        row.save()
+        self.assertFalse(FeatureFlag.is_feature_enabled('push_slating'))
+
+        # --- second load: steady state, no writes ---------------------------
+        before = FeatureFlag.objects.count()
+        _response, queries = self._dashboard(client)
+        self.assertEqual(FeatureFlag.objects.count(), before)
+        writes = [q for q in queries
+                  if q['sql'].lstrip().upper().startswith('INSERT')
+                  and 'src_featureflag' in q['sql']]
+        self.assertEqual(writes, [], 'steady state must not write flags')
+        self.assertLessEqual(
+            max(self._flag_shapes(queries).values(), default=0), 2)
+
+
+class AdminV2DashboardBreadthTests(TestCase):
+    """
+    The admin-v2 dashboard's numbers must come from one query per table.
+
+    v3.17.3 (seventh pass). The N+1 detector was quiet on this page because
+    nothing repeated a *shape* — it was **breadth**: profiling found 46 separate
+    COUNT queries across 28 tables (five on Legislation, five on Event, four each
+    on Committee and APIToken, three each on Announcement, ActivityLog,
+    LoginHistory and LoginAlert). 71 queries in steady state.
+
+    After collapsing each table into one conditional aggregate: **41 queries, 20
+    COUNTs.** Every one of the 70 numbers the page publishes was captured before
+    and after and asserted unchanged — the point of the change is that it is
+    invisible.
+
+    This test guards the property rather than the number: no single table may be
+    COUNTed more than twice in one render.
+    """
+
+    MAX_COUNTS_PER_TABLE = 2
+
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.admin = make_user('73', member_type='Officer', is_admin=True)
+
+    def _dashboard(self):
+        from unittest.mock import patch
+
+        from django.utils import timezone as tz
+
+        import src.view.admin_v2 as admin_v2
+
+        client = Client()
+        client.force_login(self.admin)
+        session = client.session
+        session['admin_v2_authenticated'] = True
+        session['admin_v2_auth_time'] = tz.now().isoformat()
+        session.save()
+        with patch.object(admin_v2, 'ALLOWED_USER_IDS', {'73'}):
+            client.get('/admin-v2/dashboard/')       # warm: seeds flags/settings
+            with CaptureQueriesContext(connection) as ctx:
+                response = client.get('/admin-v2/dashboard/')
+        return response, ctx.captured_queries
+
+    def test_no_table_is_counted_more_than_twice(self):
+        import re
+        from collections import Counter
+
+        response, queries = self._dashboard()
+        self.assertEqual(response.status_code, 200)
+
+        per_table = Counter()
+        for query in queries:
+            sql = query['sql']
+            if 'COUNT(' not in sql.upper():
+                continue
+            match = re.search(r'FROM "(\w+)"', sql)
+            if match:
+                per_table[match.group(1)] += 1
+
+        offenders = {t: n for t, n in per_table.items()
+                     if n > self.MAX_COUNTS_PER_TABLE}
+        self.assertEqual(
+            offenders, {},
+            'these tables are COUNTed several times in one render — collapse '
+            'them into a single aggregate()',
+        )
+
+    def test_first_load_shows_the_flags_it_just_seeded(self):
+        """
+        The push-flag card and the grouped Feature Flags list are both built
+        from one fetch, which must happen AFTER seeding. Before v3.17.3 the
+        grouped list was fetched first, so on a cold database the five push
+        flags were created and then omitted from it until the next load.
+        """
+        from unittest.mock import patch
+
+        from django.utils import timezone as tz
+
+        import src.view.admin_v2 as admin_v2
+
+        self.assertEqual(
+            FeatureFlag.objects.filter(name__startswith='push_').count(), 0)
+
+        client = Client()
+        client.force_login(self.admin)
+        session = client.session
+        session['admin_v2_authenticated'] = True
+        session['admin_v2_auth_time'] = tz.now().isoformat()
+        session.save()
+        with patch.object(admin_v2, 'ALLOWED_USER_IDS', {'73'}):
+            response = client.get('/admin-v2/dashboard/')   # first load, cold DB
+
+        card = list(response.context['push_flags'])
+        self.assertEqual(len(card), 5, 'push card empty on a first load')
+        self.assertEqual([f.name for f in card],
+                         sorted(f.name for f in card),
+                         'card must stay ordered by name')
+        grouped = {f.name for group in response.context['feature_flags'].values()
+                   for f in group}
+        self.assertTrue(
+            {f.name for f in card} <= grouped,
+            'flags seeded this request are missing from the grouped list',
+        )

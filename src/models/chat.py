@@ -46,8 +46,130 @@ class ChatChannel(models.Model):
     def __str__(self):
         return self.name
 
-    def has_access(self, user, admin_override=False):
-        """Check if user has access to this channel"""
+    @classmethod
+    def access_context(cls, user):
+        """
+        Everything `has_access` needs about `user`, fetched once.
+
+        v3.17.3. `has_access` asks the database the same questions about the
+        same user for every channel it is called on, and the chat index calls it
+        **twice per channel**. Dev mode measured the fallout: `is_member` 15×,
+        the guest-permission `.exists()` 9×, on one page load.
+
+        This is deliberately a *context object consumed by the existing method*
+        rather than a second copy of the access rules. Duplicating an
+        authorization predicate is how v3.16.3's Kai search ended up wrong in
+        two places at once — "the duplication is why both were wrong". There is
+        still exactly one implementation of who can read a channel; this only
+        changes where its inputs come from.
+
+        Pass it to `has_access(..., ctx=...)`, or use `access_map()`.
+        """
+        from django.utils import timezone
+
+        permissions = list(
+            ChatChannelPermission.objects
+            .filter(can_read=True)
+            .filter(models.Q(expires_at__isnull=True)
+                    | models.Q(expires_at__gt=timezone.now()))
+            .values('channel_id', 'user_id', 'member_type', 'chairs_only',
+                    'officers_only', 'alumni_only')
+        )
+        return {
+            'user_id': user.pk,
+            'member_type': user.member_type,
+            'member_status': user.member_status,
+            'is_admin': bool(user.is_admin),
+            'is_officer': bool(user.is_officer),
+            'is_chair': user.chair_roles.exists(),
+            'committee_ids': set(user.committees.values_list('id', flat=True)),
+            'permissions': permissions,
+        }
+
+    def _has_access_cached(self, ctx, admin_override=False):
+        """`has_access`, answered from an `access_context()` — no queries."""
+        if not self.is_active:
+            return False
+        if admin_override and ctx['is_admin']:
+            return True
+        if self.access_type == 'open':
+            return True
+
+        rows = [p for p in ctx['permissions'] if p['channel_id'] == self.pk]
+
+        if self.access_type == 'committee' and self.committee_id:
+            if self.committee_id in ctx['committee_ids']:
+                return True
+            return any(p['user_id'] == ctx['user_id'] for p in rows)
+
+        if self.access_type == 'restricted':
+            return (
+                any(p['user_id'] == ctx['user_id'] for p in rows)
+                or any(p['member_type'] == ctx['member_type'] for p in rows)
+                or (any(p['chairs_only'] for p in rows) and ctx['is_chair'])
+                or (any(p['officers_only'] for p in rows) and ctx['is_officer'])
+                or (any(p['alumni_only'] for p in rows)
+                    and ctx['member_status'] == 'Alumni')
+            )
+
+        return False
+
+    @classmethod
+    def access_map(cls, channels, user, admin_override=False):
+        """
+        ``{channel_id: bool}`` for many channels in a fixed number of queries.
+
+        Three queries (guest permissions, the user's committees, the chair
+        check) whatever the channel count, against 2–13 per channel before.
+        """
+        ctx = cls.access_context(user)
+        return {
+            channel.pk: channel._has_access_cached(ctx, admin_override)
+            for channel in channels
+        }
+
+    @classmethod
+    def unread_map(cls, channels, user):
+        """
+        ``{channel_id: unread_count}`` in two queries.
+
+        v3.17.3: `get_unread_count` was one `ChatReadReceipt.objects.get` plus
+        one `.count()` per channel. Same arithmetic, batched: one pass for the
+        user's receipts, one grouped count of undeleted messages newer than each
+        receipt's marker.
+        """
+        channel_ids = [c.pk for c in channels]
+        if not channel_ids:
+            return {}
+
+        markers = {}
+        for row in (ChatReadReceipt.objects
+                    .filter(user=user, channel_id__in=channel_ids)
+                    .select_related('last_read_message')
+                    .values('channel_id', 'last_read_message__created_at')):
+            markers[row['channel_id']] = row['last_read_message__created_at']
+
+        counts = {cid: 0 for cid in channel_ids}
+        for row in (ChatMessage.objects
+                    .filter(channel_id__in=channel_ids, is_deleted=False)
+                    .values('channel_id', 'created_at')):
+            marker = markers.get(row['channel_id'])
+            # No receipt, or a receipt with no marker message, means everything
+            # is unread — matching get_unread_count's two fallback branches.
+            if marker is None or row['created_at'] > marker:
+                counts[row['channel_id']] += 1
+        return counts
+
+    def has_access(self, user, admin_override=False, ctx=None):
+        """
+        Check if user has access to this channel.
+
+        `ctx` is an optional `access_context()`; supply it and this answers
+        without touching the database. See `access_map()` for many channels.
+        """
+        if ctx is not None:
+            return self._has_access_cached(ctx, admin_override)
+
         if not self.is_active:
             return False
 

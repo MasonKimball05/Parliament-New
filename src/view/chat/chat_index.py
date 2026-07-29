@@ -18,16 +18,38 @@ def chat_index(request):
     accessible_channels = []
 
     # Get all active channels
-    all_channels = ChatChannel.objects.filter(is_active=True).select_related('committee')
+    all_channels = list(
+        ChatChannel.objects.filter(is_active=True).select_related('committee')
+    )
+
+    # v3.17.3: this loop called `has_access` TWICE per channel — once with the
+    # admin override and once without — and each call asked the database the
+    # same questions about the same user again. Dev mode measured `is_member`
+    # 15×, the guest-permission `.exists()` 9×, and `get_unread_count`'s receipt
+    # lookup + count 5× and 4×, on one page load.
+    #
+    # Both maps below are a fixed number of queries regardless of how many
+    # channels exist, and the access rules still live in exactly one place —
+    # `has_access` answers from a context object rather than from a second copy
+    # of the predicate. See ChatChannel.access_context().
+    normal_access = ChatChannel.access_map(all_channels, user, admin_override=False)
+    if view_all:
+        override_access = ChatChannel.access_map(
+            all_channels, user, admin_override=True)
+    else:
+        # Without the override the two answers are identical by definition;
+        # computing it twice was half the cost of this page.
+        override_access = normal_access
+
+    unread_counts = ChatChannel.unread_map(
+        [c for c in all_channels if normal_access.get(c.pk)], user)
 
     for channel in all_channels:
-        if channel.has_access(user, admin_override=view_all):
-            # Check if user has normal access (without admin override)
-            has_normal_access = channel.has_access(user, admin_override=False)
-
+        if override_access.get(channel.pk):
+            has_normal_access = normal_access.get(channel.pk, False)
             accessible_channels.append({
                 'channel': channel,
-                'unread_count': channel.get_unread_count(user) if has_normal_access else 0,
+                'unread_count': unread_counts.get(channel.pk, 0) if has_normal_access else 0,
                 'type': channel.channel_type,
                 'admin_only_access': view_all and not has_normal_access
             })

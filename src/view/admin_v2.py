@@ -355,6 +355,53 @@ def _safe_count(fn):
         return 0
 
 
+def _safe_agg(fn, fallback):
+    """
+    `_safe_count` for an `aggregate()` — returns `fallback` if the table isn't
+    there yet.
+
+    v3.17.3: needed because collapsing several `_safe_count` calls on one table
+    into a single `aggregate()` also collapses their error handling. Returning
+    the dict of zeros keeps the pre-migration behaviour the originals had.
+    """
+    try:
+        return fn()
+    except Exception:
+        return dict(fallback)
+
+
+
+def _seed_site_settings(defaults):
+    """
+    Create any missing SiteSetting rows in one SELECT + one bulk INSERT.
+
+    v3.17.3: was `get_or_create` per key, in two separate loops on the admin-v2
+    dashboard — six uncached SELECTs on every load (plus an INSERT each the
+    first time). Same shape as the push-flag seeding fix in the same view, and
+    the same reasoning: seeding is a write-path idiom and this runs on a GET.
+
+    `ignore_conflicts` covers the race with a concurrent officer, which is what
+    get_or_create's own IntegrityError branch was doing.
+    """
+    keys = [d['key'] for d in defaults]
+    existing = set(
+        SiteSetting.objects.filter(key__in=keys).values_list('key', flat=True)
+    )
+    missing = [
+        SiteSetting(
+            key=d['key'],
+            display_name=d['display_name'],
+            description=d['description'],
+            category=d['category'],
+            setting_type=d['setting_type'],
+            value=d['default_value'],
+            default_value=d['default_value'],
+        )
+        for d in defaults if d['key'] not in existing
+    ]
+    if missing:
+        SiteSetting.objects.bulk_create(missing, ignore_conflicts=True)
+
 @require_admin_v2_auth
 def admin_v2_dashboard(request):
     """
@@ -378,162 +425,159 @@ def admin_v2_dashboard(request):
         last_24h=Count('user_id', filter=Q(last_login__gte=timezone.now() - timezone.timedelta(hours=24))),
         never_logged_in=Count('user_id', filter=Q(last_login__isnull=True)),
     )
+
+    # v3.17.3: the rest of the dashboard's numbers, one aggregate per table.
+    #
+    # The user block above was collapsed in an earlier pass and the pattern was
+    # never carried to its eleven neighbours: profiling this page found **46
+    # separate COUNT queries across 28 tables** — five on Legislation, five on
+    # Event, four each on Committee and APIToken, three each on Announcement,
+    # ActivityLog, LoginHistory and LoginAlert, and so on. None of them repeated
+    # a *shape*, so the N+1 detector was quiet; it was breadth, not a loop, and
+    # breadth is why the page cost ~85 queries.
+    #
+    # Conditional aggregation evaluates every predicate for a table in a single
+    # pass, so each group below is now one round trip. Every value is computed
+    # from the same predicate as before — a probe captured all 70 numbers this
+    # page publishes and asserted them unchanged.
+    _now = timezone.now()
+    _24h = _now - timezone.timedelta(hours=24)
+    _7d = _now - timezone.timedelta(days=7)
+    _month_start = _now.replace(day=1, hour=0, minute=0, second=0)
+    _next_month = (_month_start + timezone.timedelta(days=32)).replace(day=1)
+
+    _legislation_agg = Legislation.objects.aggregate(
+        total=Count('pk'),
+        draft=Count('pk', filter=Q(status='draft')),
+        passed=Count('pk', filter=Q(status='passed')),
+        removed=Count('pk', filter=Q(status='removed')),
+        voting_closed=Count('pk', filter=Q(voting_closed=True)),
+    )
+    _vote_total = Vote.objects.count()
+
+    _event_agg = Event.objects.aggregate(
+        total=Count('pk'),
+        upcoming=Count('pk', filter=Q(date_time__gte=_now, is_active=True)),
+        past=Count('pk', filter=Q(date_time__lt=_now)),
+        archived=Count('pk', filter=Q(archived=True)),
+        this_month=Count('pk', filter=Q(date_time__gte=_month_start,
+                                        date_time__lt=_next_month)),
+    )
+
+    # `with_members` was `annotate(Count('members')).filter(member_count__gt=0)
+    # .count()`. As a conditional count that is "has at least one row in the M2M",
+    # i.e. members__isnull=False — and `distinct=True` is required because the
+    # join multiplies a committee by its member count.
+    _committee_agg = Committee.objects.aggregate(
+        total=Count('pk', distinct=True),
+        active=Count('pk', filter=Q(is_active=True), distinct=True),
+        inactive=Count('pk', filter=Q(is_active=False), distinct=True),
+        with_members=Count('pk', filter=Q(members__isnull=False), distinct=True),
+    )
+    _document_agg = CommitteeDocument.objects.aggregate(
+        total_documents=Count('pk'),
+        published_docs=Count('pk', filter=Q(published_to_chapter=True)),
+    )
+    _committee_vote_total = CommitteeVote.objects.count()
+
+    _announcement_agg = Announcement.objects.aggregate(
+        total=Count('pk'),
+        active=Count('pk', filter=Q(is_active=True)),
+        inactive=Count('pk', filter=Q(is_active=False)),
+    )
+
+    _activity_agg = ActivityLog.objects.aggregate(
+        total_activity_logs=Count('pk'),
+        logs_last_24h=Count('pk', filter=Q(timestamp__gte=_24h)),
+        logs_last_7d=Count('pk', filter=Q(timestamp__gte=_7d)),
+    )
+
+    # `failed_logins_24h` keeps its `hasattr` guard: LoginHistory has no
+    # `successful` field, so the original always produced 0 and no query. Left
+    # as a literal rather than silently changing what the card shows.
+    _login_agg = LoginHistory.objects.aggregate(
+        total_logins=Count('pk'),
+        logins_24h=Count('pk', filter=Q(timestamp__gte=_24h)),
+        logins_7d=Count('pk', filter=Q(timestamp__gte=_7d)),
+    )
+    _login_agg['failed_logins_24h'] = (
+        LoginHistory.objects.filter(timestamp__gte=_24h, successful=False).count()
+        if hasattr(LoginHistory, 'successful') else 0
+    )
+
+    # `new_login_alerts` and `recent_alerts` are the same number under two names
+    # — the template uses both. Now one COUNT feeds both instead of two queries.
+    _alert_agg = LoginAlert.objects.aggregate(
+        total_alerts=Count('pk'),
+        _new=Count('pk', filter=Q(status='new')),
+    )
+    _alert_agg['new_login_alerts'] = _alert_agg['_new']
+    _alert_agg['recent_alerts'] = _alert_agg.pop('_new')
+
+    _quarantine_total = _safe_count(lambda: QuarantinedAccount.objects.filter(
+        released_at__isnull=True
+    ).filter(
+        Q(expires_at__isnull=True) | Q(expires_at__gt=_now)
+    ).count())
+    _blocked_ip_total = _safe_count(
+        lambda: IPBlacklist.objects.filter(is_active=True).count())
+    _honeypot_total = _safe_count(
+        lambda: HoneypotAccess.objects.filter(accessed_at__gte=_24h).count())
+    _security_notification_agg = _safe_agg(
+        lambda: SecurityNotificationLog.objects.aggregate(
+            security_notifications_24h=Count('pk', filter=Q(sent_at__gte=_24h)),
+            critical_notifications=Count(
+                'pk', filter=Q(severity__in=['high', 'critical'], sent_at__gte=_24h)),
+        ),
+        {'security_notifications_24h': 0, 'critical_notifications': 0},
+    )
+
+    _api_token_agg = APIToken.objects.aggregate(
+        total=Count('pk'),
+        active=Count('pk', filter=Q(status=APIToken.STATUS_ACTIVE)),
+        pending=Count('pk', filter=Q(status=APIToken.STATUS_PENDING)),
+        revoked=Count('pk', filter=Q(status=APIToken.STATUS_REVOKED)),
+    )
+    _api_log_agg = APIAccessLog.objects.aggregate(
+        requests_24h=Count('pk', filter=Q(timestamp__gte=_24h)),
+        requests_7d=Count('pk', filter=Q(timestamp__gte=_7d)),
+    )
+
     stats = {
         'users': _user_agg,
         'legislation': {
-            'total': Legislation.objects.count(),
-            'draft': Legislation.objects.filter(status='draft').count(),
-            'passed': Legislation.objects.filter(status='passed').count(),
-            'removed': Legislation.objects.filter(status='removed').count(),
-            'voting_closed': Legislation.objects.filter(voting_closed=True).count(),
-            'total_votes': Vote.objects.count(),
+            **_legislation_agg,
+            'total_votes': _vote_total,
             'recent_votes': 0,  # Vote model doesn't have timestamp field
         },
-        'events': {
-            'total': Event.objects.count(),
-            'upcoming': Event.objects.filter(date_time__gte=timezone.now(), is_active=True).count(),
-            'past': Event.objects.filter(date_time__lt=timezone.now()).count(),
-            'archived': Event.objects.filter(archived=True).count(),
-            'this_month': Event.objects.filter(
-                date_time__gte=timezone.now().replace(day=1, hour=0, minute=0, second=0),
-                date_time__lt=(timezone.now().replace(day=1, hour=0, minute=0, second=0) + timezone.timedelta(days=32)).replace(day=1)
-            ).count(),
-        },
+        'events': _event_agg,
         'committees': {
-            'total': Committee.objects.count(),
-            'active': Committee.objects.filter(is_active=True).count(),
-            'inactive': Committee.objects.filter(is_active=False).count(),
-            'with_members': Committee.objects.annotate(member_count=Count('members')).filter(member_count__gt=0).count(),
-            'total_documents': CommitteeDocument.objects.count(),
-            'published_docs': CommitteeDocument.objects.filter(published_to_chapter=True).count(),
-            'total_committee_votes': CommitteeVote.objects.count(),
+            **_committee_agg,
+            **_document_agg,
+            'total_committee_votes': _committee_vote_total,
         },
-        'announcements': {
-            'total': Announcement.objects.count(),
-            'active': Announcement.objects.filter(is_active=True).count(),
-            'inactive': Announcement.objects.filter(is_active=False).count(),
-        },
+        'announcements': _announcement_agg,
         'communications': {
             'total_channels': 0,  # Channel model not yet implemented
-            'total_activity_logs': ActivityLog.objects.count(),
-            'logs_last_24h': ActivityLog.objects.filter(timestamp__gte=timezone.now() - timezone.timedelta(hours=24)).count(),
-            'logs_last_7d': ActivityLog.objects.filter(timestamp__gte=timezone.now() - timezone.timedelta(days=7)).count(),
+            **_activity_agg,
         },
         'security': {
-            'total_logins': LoginHistory.objects.count(),
-            'logins_24h': LoginHistory.objects.filter(timestamp__gte=timezone.now() - timezone.timedelta(hours=24)).count(),
-            'logins_7d': LoginHistory.objects.filter(timestamp__gte=timezone.now() - timezone.timedelta(days=7)).count(),
-            'new_login_alerts': LoginAlert.objects.filter(status='new').count(),
-            'recent_alerts': LoginAlert.objects.filter(status='new').count(),
-            'total_alerts': LoginAlert.objects.count(),
-            'failed_logins_24h': LoginHistory.objects.filter(
-                timestamp__gte=timezone.now() - timezone.timedelta(hours=24),
-                successful=False
-            ).count() if hasattr(LoginHistory, 'successful') else 0,
-            'quarantined_accounts': _safe_count(lambda: QuarantinedAccount.objects.filter(
-                released_at__isnull=True
-            ).filter(
-                Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
-            ).count()),
-            'blocked_ips': _safe_count(lambda: IPBlacklist.objects.filter(is_active=True).count()),
-            'honeypot_24h': _safe_count(lambda: HoneypotAccess.objects.filter(accessed_at__gte=timezone.now() - timezone.timedelta(hours=24)).count()),
-            'security_notifications_24h': _safe_count(lambda: SecurityNotificationLog.objects.filter(sent_at__gte=timezone.now() - timezone.timedelta(hours=24)).count()),
-            'critical_notifications': _safe_count(lambda: SecurityNotificationLog.objects.filter(severity__in=['high', 'critical'], sent_at__gte=timezone.now() - timezone.timedelta(hours=24)).count()),
+            **_login_agg,
+            **_alert_agg,
+            'quarantined_accounts': _quarantine_total,
+            'blocked_ips': _blocked_ip_total,
+            'honeypot_24h': _honeypot_total,
+            **_security_notification_agg,
         },
         'database': {
             'tables': len(connection.introspection.table_names()),
         },
         'api': {
-            'total': APIToken.objects.count(),
-            'active': APIToken.objects.filter(status=APIToken.STATUS_ACTIVE).count(),
-            'pending': APIToken.objects.filter(status=APIToken.STATUS_PENDING).count(),
-            'revoked': APIToken.objects.filter(status=APIToken.STATUS_REVOKED).count(),
-            'requests_24h': APIAccessLog.objects.filter(
-                timestamp__gte=timezone.now() - timezone.timedelta(hours=24)
-            ).count(),
-            'requests_7d': APIAccessLog.objects.filter(
-                timestamp__gte=timezone.now() - timezone.timedelta(days=7)
-            ).count(),
+            **_api_token_agg,
+            **_api_log_agg,
         },
     }
 
-    # Get feature flags grouped by category — one query instead of two per category
-    feature_flags = {}
-    for flag in FeatureFlag.objects.order_by('category', 'name'):
-        label = flag.get_category_display()
-        feature_flags.setdefault(label, []).append(flag)
-
-    # Get page toggles
-    page_toggles = PageToggle.objects.all().order_by('display_name')
-
-    # Ensure chat settings exist
-    # Note: chat_active_poll_interval and chat_inactive_poll_interval were removed in v3.0.0
-    # — messages are now pushed via WebSocket (Django Channels), not polled.
-    chat_settings_defaults = [
-        {
-            'key': 'chat_active_users_poll_interval',
-            'display_name': 'Active Users Poll Interval',
-            'description': 'How often (in milliseconds) to refresh the active users list. Messages are real-time via WebSocket.',
-            'category': 'chat',
-            'setting_type': 'integer',
-            'default_value': '5000',
-        },
-    ]
-    for setting_data in chat_settings_defaults:
-        SiteSetting.objects.get_or_create(
-            key=setting_data['key'],
-            defaults={
-                'display_name': setting_data['display_name'],
-                'description': setting_data['description'],
-                'category': setting_data['category'],
-                'setting_type': setting_data['setting_type'],
-                'value': setting_data['default_value'],
-                'default_value': setting_data['default_value'],
-            }
-        )
-
-    # Get chat settings (excludes legacy polling keys if they still exist in DB)
-    chat_settings = SiteSetting.objects.filter(
-        category='chat',
-        key='chat_active_users_poll_interval',
-    )
-
-    # Ensure event reminder settings exist
-    event_reminder_defaults = [
-        {
-            'key': 'event_reminders_enabled',
-            'display_name': 'Event Reminder Notifications',
-            'description': 'Master switch for event push reminder notifications. When off, no reminders are sent regardless of per-event settings.',
-            'category': 'notifications',
-            'setting_type': 'boolean',
-            'default_value': 'true',
-        },
-        {
-            'key': 'event_reminder_default_hours',
-            'display_name': 'Default Reminder Lead Time (hours)',
-            'description': 'Default number of hours before an event to send the push reminder. Officers can override this per event.',
-            'category': 'notifications',
-            'setting_type': 'integer',
-            'default_value': '24',
-        },
-    ]
-    for setting_data in event_reminder_defaults:
-        SiteSetting.objects.get_or_create(
-            key=setting_data['key'],
-            defaults={
-                'display_name': setting_data['display_name'],
-                'description': setting_data['description'],
-                'category': setting_data['category'],
-                'setting_type': setting_data['setting_type'],
-                'value': setting_data['default_value'],
-                'default_value': setting_data['default_value'],
-            }
-        )
-    event_reminder_settings = SiteSetting.objects.filter(
-        key__in=['event_reminders_enabled', 'event_reminder_default_hours']
-    ).order_by('key')
-
-    # Seed push notification feature flags
     push_flag_defaults = [
         {
             'name': 'push_notifications_enabled',
@@ -571,23 +615,125 @@ def admin_v2_dashboard(request):
             'is_enabled': True,
         },
     ]
-    for flag_data in push_flag_defaults:
-        FeatureFlag.objects.get_or_create(
+
+    # Seed any missing push flags.
+    #
+    # v3.17.3: was `get_or_create` per flag — five uncached SELECTs (plus an
+    # INSERT each on first load) on every load of this dashboard. Worth being
+    # precise about why v3.17.1's flag caching did not help: that cached
+    # `FeatureFlag.is_feature_enabled`, and this code never calls it. It goes
+    # to the manager directly, so it bypassed the cache entirely — which is a
+    # reminder that "we cached the flag lookup" is only true of the lookup that
+    # was cached.
+    #
+    # One SELECT for the names that already exist, one bulk INSERT for the rest,
+    # and nothing at all in the common case where they are all present.
+    # `ignore_conflicts` covers the race with a concurrent officer, which is
+    # what get_or_create's own IntegrityError branch was doing.
+    _existing_push = set(
+        FeatureFlag.objects
+        .filter(name__in=[f['name'] for f in push_flag_defaults])
+        .values_list('name', flat=True)
+    )
+    _missing_push = [
+        FeatureFlag(
             name=flag_data['name'],
-            defaults={
-                'display_name': flag_data['display_name'],
-                'description': flag_data['description'],
-                'category': flag_data['category'],
-                'is_enabled': flag_data['is_enabled'],
-            }
+            display_name=flag_data['display_name'],
+            description=flag_data['description'],
+            category=flag_data['category'],
+            is_enabled=flag_data['is_enabled'],
         )
+        for flag_data in push_flag_defaults
+        if flag_data['name'] not in _existing_push
+    ]
+    if _missing_push:
+        FeatureFlag.objects.bulk_create(_missing_push, ignore_conflicts=True)
+        # bulk_create does not send post_save, so the cache invalidation
+        # receivers in models_feature_flags.py never fire. Invalidate by hand —
+        # these names were just answered from the fail-open default and are
+        # cached as such.
+        for flag in _missing_push:
+            FeatureFlag.invalidate_cache(flag.name)
+        cache.delete('context_feature_flags')
+
+    # Get feature flags grouped by category — one query instead of two per category.
+    # v3.17.3: materialised once and reused for the push-notification card
+    # further down, which was re-querying the same table for a subset.
+    _all_flags = list(FeatureFlag.objects.order_by('category', 'name'))
+    feature_flags = {}
+    for flag in _all_flags:
+        label = flag.get_category_display()
+        feature_flags.setdefault(label, []).append(flag)
+
+    # Get page toggles
+    page_toggles = PageToggle.objects.all().order_by('display_name')
+
+    # Ensure chat settings exist
+    # Note: chat_active_poll_interval and chat_inactive_poll_interval were removed in v3.0.0
+    # — messages are now pushed via WebSocket (Django Channels), not polled.
+    chat_settings_defaults = [
+        {
+            'key': 'chat_active_users_poll_interval',
+            'display_name': 'Active Users Poll Interval',
+            'description': 'How often (in milliseconds) to refresh the active users list. Messages are real-time via WebSocket.',
+            'category': 'chat',
+            'setting_type': 'integer',
+            'default_value': '5000',
+        },
+    ]
+
+    # Get chat settings (excludes legacy polling keys if they still exist in DB)
+    chat_settings = SiteSetting.objects.filter(
+        category='chat',
+        key='chat_active_users_poll_interval',
+    )
+
+    # Ensure event reminder settings exist
+    event_reminder_defaults = [
+        {
+            'key': 'event_reminders_enabled',
+            'display_name': 'Event Reminder Notifications',
+            'description': 'Master switch for event push reminder notifications. When off, no reminders are sent regardless of per-event settings.',
+            'category': 'notifications',
+            'setting_type': 'boolean',
+            'default_value': 'true',
+        },
+        {
+            'key': 'event_reminder_default_hours',
+            'display_name': 'Default Reminder Lead Time (hours)',
+            'description': 'Default number of hours before an event to send the push reminder. Officers can override this per event.',
+            'category': 'notifications',
+            'setting_type': 'integer',
+            'default_value': '24',
+        },
+    ]
+    # Both groups seeded together: one SELECT + one bulk INSERT for the lot.
+    _seed_site_settings(chat_settings_defaults + event_reminder_defaults)
+    event_reminder_settings = SiteSetting.objects.filter(
+        key__in=['event_reminders_enabled', 'event_reminder_default_hours']
+    ).order_by('key')
+
+    # Seed push notification feature flags
 
     # Push notification stats
-    push_flags = FeatureFlag.objects.filter(name__startswith='push_').order_by('name')
-    push_stats = {
-        'total_subscribers': _safe_count(lambda: PushSubscription.objects.values('user').distinct().count()),
-        'total_devices': _safe_count(lambda: PushSubscription.objects.count()),
-    }
+    # v3.17.3: filtered in Python from the list fetched above rather than a
+    # second SELECT. NOTE the ordering: the query was `order_by('name')` while
+    # `_all_flags` is `('category', 'name')`, so re-sort to keep the card's order
+    # byte-identical.
+    push_flags = sorted(
+        (f for f in _all_flags if f.name.startswith('push_')),
+        key=lambda f: f.name,
+    )
+    # v3.17.3: two COUNTs over the same table → one aggregate. `distinct=True`
+    # on the subscriber count preserves the `.values('user').distinct()` meaning
+    # (people, not devices).
+    push_stats = _safe_agg(
+        lambda: PushSubscription.objects.aggregate(
+            total_subscribers=Count('user', distinct=True),
+            total_devices=Count('pk'),
+        ),
+        {'total_subscribers': 0, 'total_devices': 0},
+    )
 
     # Recent activity logs (last 30)
     recent_logs = ActivityLog.objects.select_related('user').defer(*member_defer('user')).order_by('-timestamp')[:30]
@@ -634,10 +780,17 @@ def admin_v2_dashboard(request):
 
     # Page visit summary for dashboard card (PageVisit is cumulative — no timestamps)
     from django.db.models import Sum as _Sum
-    _pv_agg = PageVisit.objects.aggregate(total_hits=_Sum('count'))
+    # v3.17.3: the sum and the distinct-path count are one pass, not two.
+    _pv_agg = _safe_agg(
+        lambda: PageVisit.objects.aggregate(
+            total_hits=_Sum('count'),
+            unique_paths=Count('path', distinct=True),
+        ),
+        {'total_hits': 0, 'unique_paths': 0},
+    )
     page_visit_summary = {
         'total_hits': _pv_agg['total_hits'] or 0,
-        'unique_paths': _safe_count(lambda: PageVisit.objects.values('path').distinct().count()),
+        'unique_paths': _pv_agg['unique_paths'] or 0,
         'top_paths': list(
             PageVisit.objects.values('path')
             .annotate(total=_Sum('count'))

@@ -15,24 +15,34 @@ def member_directory(request):
     """Display a public directory of all active members."""
     show_alumni = request.GET.get('show_alumni') == '1'
 
-    # Get all active members, ordered by name
+    # v3.17.3: directory.html renders each member's role badges, so every one of
+    # these querysets needs `roles` prefetched — dev mode reported 12 + 11
+    # repeats of the two role queries on a single directory load, attributed to
+    # `directory.html:128 {% if member.roles.exists %}` and `:130 {% for role in
+    # member.roles.all %}`.
+    #
+    # The template also had to change: `.exists()` on a prefetched relation
+    # **bypasses the prefetch cache** and issues its own query, which is why
+    # prefetching alone would have fixed only half of it. That is item five on
+    # CLAUDE.md's own performance-sweep checklist, and this is what it looks like
+    # in the wild.
     members = ParliamentUser.objects.filter(
         member_status='Active'
     ).exclude(
         member_type='Advisor'
-    ).order_by('name')
+    ).prefetch_related('roles').order_by('name')
 
     # Get advisors separately (materialized to list so .sort() works in sort branches below)
     advisors = list(ParliamentUser.objects.filter(
         member_status='Active',
         member_type='Advisor'
-    ).order_by('name'))
+    ).prefetch_related('roles').order_by('name'))
 
     alumni = []
     if show_alumni:
         alumni = list(ParliamentUser.objects.filter(
             member_status='Alumni'
-        ).order_by('name'))
+        ).prefetch_related('roles').order_by('name'))
 
     # Group members by type for display
     officers = [m for m in members if m.member_type == 'Officer']

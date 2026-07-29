@@ -109,12 +109,66 @@ class Committee(models.Model):
         return user.roles.filter(pk=self.role.id).exists()
 
     def get_vp(self):
-        """Get the VP of the committee"""
-        if not self.role:
+        """
+        Get the VP of the committee.
+
+        v3.17.3: was `vps.first() if vps.exists() else None` — two queries for
+        one answer, since `.first()` already returns None on an empty queryset.
+        The `.exists()` was pure cost, and dev mode caught it firing 14× on the
+        committee index (once per committee) alongside 14 `.first()` calls.
+
+        `role_id` rather than `self.role` so a committee with no VP costs no
+        query at all instead of dereferencing the FK to find out.
+
+        For more than one committee use `vp_map()` — this is O(committees).
+        """
+        if not self.role_id:
             return None
         from src.models.users import ParliamentUser
-        vps = ParliamentUser.objects.filter(roles=self.role)
-        return vps.first() if vps.exists() else None
+
+        return ParliamentUser.objects.filter(roles=self.role_id).first()
+
+    @classmethod
+    def vp_map(cls, committees):
+        """
+        ``{committee_id: ParliamentUser | None}`` for many committees, in two
+        queries however many there are.
+
+        v3.17.3. `get_vp()` in a loop was the committee index's worst offender.
+        Extracted here rather than fixed in the one view because four call sites
+        want it (index ×2, detail, committee home) and the next one will too.
+
+        Ordering matches `get_vp()`: ParliamentUser's Meta ordering is
+        `['user_id']`, so the VP is the lowest `user_id` holding the role. Kept
+        deliberately identical so batching cannot change who is displayed.
+        """
+        from src.models.users import (MEMBER_ACCOUNT_FIELDS,
+                                      MEMBER_PROFILE_FIELDS, ParliamentUser)
+
+        by_role = {}
+        role_ids = {c.role_id for c in committees if c.role_id}
+        if role_ids:
+            # One row per (role, user); ordered so the first seen per role is
+            # the same member `.first()` would have returned.
+            pairs = (ParliamentUser.objects
+                     .filter(roles__id__in=role_ids)
+                     .order_by('user_id')
+                     .values_list('roles__id', 'pk'))
+            first_pk_for_role = {}
+            for role_id, user_pk in pairs:
+                first_pk_for_role.setdefault(role_id, user_pk)
+
+            users = {
+                u.pk: u for u in ParliamentUser.objects
+                .filter(pk__in=set(first_pk_for_role.values()))
+                .defer(*(MEMBER_PROFILE_FIELDS + MEMBER_ACCOUNT_FIELDS))
+            }
+            by_role = {
+                role_id: users.get(pk)
+                for role_id, pk in first_pk_for_role.items()
+            }
+
+        return {c.pk: by_role.get(c.role_id) for c in committees}
 
     def is_visible_to(self, user):
         """Check if this committee should be visible to the user."""
