@@ -34,9 +34,25 @@ comments. That bluntness is why they catch real bugs; work around it here.
   .pdev-tab[aria-selected="true"] { color:var(--pdev-fg); background:#131b24; }
   .pdev-pane { display:none; padding:8px 10px; }
   .pdev-pane.pdev-on { display:block; }
-  .pdev-row { border-bottom:1px solid var(--pdev-line); padding:4px 0; display:grid; grid-template-columns:auto 1fr; gap:10px; }
+  /* v3.17.3 — text wrapping.
+     Two things were pushing content off-screen. First, `.pdev-row` is a grid and
+     grid items refuse to shrink below their min-content width by default, so one
+     long token in the right-hand column widened the row instead of wrapping:
+     hence `min-width:0`. Second, most of what the panel prints is unbroken
+     tokens — file paths, SQL identifiers, param reprs, template expressions —
+     which normal wrapping will not break at all, hence `overflow-wrap:anywhere`
+     across the body.
+     `.pdev-rowsbox` is deliberately exempt: a results table should scroll
+     sideways rather than reflow its columns. */
+  .pdev-body, .pdev-body * { overflow-wrap:anywhere; }
+  .pdev-body .pdev-rowsbox, .pdev-body .pdev-rowsbox * { overflow-wrap:normal; }
+  .pdev-row { border-bottom:1px solid var(--pdev-line); padding:4px 0; display:grid; grid-template-columns:auto minmax(0,1fr); gap:10px; }
+  .pdev-row > * { min-width:0; }
   .pdev-row:last-child { border-bottom:0; }
-  .pdev-t { color:var(--pdev-dim); white-space:nowrap; }
+  /* Wrapping by default. Kept on one line only where `.pdev-t` is a grid label
+     or the timing cell — those are short and column alignment matters. */
+  .pdev-t { color:var(--pdev-dim); }
+  .pdev-row > .pdev-t { white-space:nowrap; }
   .pdev-sql { white-space:pre-wrap; word-break:break-word; color:var(--pdev-fg); }
   .pdev-warnbox { border-left:2px solid var(--pdev-warn); padding:5px 8px; margin-bottom:8px; background:#1a1408; }
   .pdev-warnbox.pdev-sev { border-left-color:var(--pdev-bad); background:#1d0f0f; }
@@ -82,10 +98,13 @@ comments. That bluntness is why they catch real bugs; work around it here.
   /* Inline annotations from {% templatetag openblock %} dev_value {% templatetag closeblock %} */
   .pdev-val { position:relative; outline:1px dotted rgba(122,162,247,.55); outline-offset:1px; cursor:help; }
   .pdev-val.pdev-gated { outline-color:rgba(255,107,107,.75); }
+  /* v3.17.3: was `white-space:nowrap`, which let a long `raw` value (up to 200
+     chars) run off the viewport. Bounded and wrapping instead. */
   .pdev-tip { display:none; position:absolute; left:0; top:calc(100% + 4px); z-index:2147483001;
               background:var(--pdev-bg); color:var(--pdev-fg); border:1px solid var(--pdev-line); padding:6px 8px;
-              font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px; line-height:1.5; white-space:nowrap;
-              display:none; grid-template-columns:auto 1fr; gap:2px 10px; }
+              font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px; line-height:1.5;
+              max-width:min(420px,90vw); grid-template-columns:auto minmax(0,1fr); gap:2px 10px; }
+  .pdev-tip > * { min-width:0; }
   .pdev-val:hover .pdev-tip, .pdev-val:focus .pdev-tip { display:grid; }
   .pdev-tip .pdev-k { color:var(--pdev-dim); }
   .pdev-badge { display:inline-block; background:var(--pdev-bg); color:var(--pdev-fg); border:1px solid var(--pdev-line);
