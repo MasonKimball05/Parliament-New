@@ -41,6 +41,7 @@ from webauthn import base64url_to_bytes, options_to_json
 from src.models.webauthn import WebAuthnCredential
 from src.utils.security_utils import get_client_ip, run_post_auth_pipeline
 from src.auth_backends import AUTH_BACKEND_PATH
+from src.models.users import member_defer
 
 logger = logging.getLogger(__name__)
 security_logger = logging.getLogger('security')
@@ -248,7 +249,7 @@ def passkey_authenticate_complete(request):
         logger.warning(f'Passkey auth: bad rawId: {exc}')
         return JsonResponse({'error': 'Invalid credential data.'}, status=400)
 
-    db_cred = WebAuthnCredential.objects.select_related('user').filter(
+    db_cred = WebAuthnCredential.objects.select_related('user').defer(*member_defer('user')).filter(
         credential_id=cred_id_bytes
     ).first()
 

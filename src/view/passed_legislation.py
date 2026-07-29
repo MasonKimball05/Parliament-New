@@ -2,6 +2,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
@@ -19,6 +20,7 @@ from src.feature_flag_decorators import require_page_enabled
 
 logger = logging.getLogger(__name__)
 from datetime import timedelta
+from src.models.users import member_defer
 
 
 # v3.17.1 — see MEMBER_DISPLAY_FIELDS in src/models/users.py. ParliamentUser is a
@@ -27,6 +29,13 @@ from datetime import timedelta
 ATTENDANCE_DISPLAY_FIELDS = (
     'id', 'user_id', 'created_at', 'status',
 ) + tuple(f'user__{name}' for name in MEMBER_DISPLAY_FIELDS)
+
+
+# Statuses the list always shows, whether or not any votes were cast. Used in
+# two places that must agree: the SQL KEEP filter and the loop's invariant
+# check. They were separate literals until v3.17.3, when paginating the
+# queryset made a disagreement between them visible as short pages.
+_ALWAYS_SHOWN_STATUSES = ['tabled', 'pending', 'active', 'passed', 'failed']
 
 
 def _present_members_in_window(vote_start, vote_end):
@@ -43,7 +52,7 @@ def _present_members_in_window(vote_start, vote_end):
         .filter(status__in=('present', 'late'),
                 created_at__range=(vote_start, vote_end))
         .order_by('user_id', '-created_at')
-        .select_related('user')
+        .select_related('user').defer(*member_defer('user'))
     )
     return _dedupe_latest_per_user(rows)
 
@@ -195,6 +204,31 @@ def passed_legislation(request):
         total_count=Count('vote'),
     )
 
+    # v3.17.3: the loop below used to `continue` past vote-less legislation that
+    # isn't passed and has no explicit status — dropping rows AFTER they had
+    # been counted and paginated. That was survivable while pagination happened
+    # last; now that we paginate the queryset it would give ragged pages (19
+    # rows, or 3) and a `total_count` that overstates what is actually shown.
+    #
+    # So the same predicate is expressed once, here, in SQL. Written as the
+    # KEEP condition rather than a negated skip: a row survives if it has real
+    # yes/no votes, or it passed, or its status is one the page always shows.
+    # Historical overrides win over the annotated counts, exactly as the loop
+    # does. The skip only ever applied when the user is NOT on a specific
+    # status tab (on those tabs every matching row is shown by definition), so
+    # the filter is applied under the same condition.
+    if status_filter not in _ALWAYS_SHOWN_STATUSES:
+        queryset = queryset.annotate(
+            _effective_non_abstain=(
+                Coalesce('historical_yes_votes', 'yes_count')
+                + Coalesce('historical_no_votes', 'no_count')
+            )
+        ).filter(
+            Q(_effective_non_abstain__gt=0)
+            | Q(passed=True)
+            | Q(status__in=_ALWAYS_SHOWN_STATUSES)
+        )
+
     # v3.17.1 perf — dev mode surfaced two 6× N+1 groups here, both fired
     # lazily during template rendering (the stack pointed at the render() call,
     # which is what lazy evaluation looks like).
@@ -209,21 +243,47 @@ def passed_legislation(request):
     # posted_by is deferred (see MEMBER_PROFILE_FIELDS on why defer beats only
     # for a related queryset); co_authors gets an explicit Prefetch queryset,
     # which is the only way to narrow a prefetch.
-    legislation_list = list(
+    queryset = (
         queryset
         .select_related('posted_by')
-        .defer(*(f'posted_by__{f}' for f in MEMBER_PROFILE_FIELDS))
+        .defer(*member_defer('posted_by'))
         .prefetch_related(Prefetch(
             'co_authors',
             queryset=ParliamentUser.objects.only(*MEMBER_DISPLAY_FIELDS),
         ))
     )
 
+    # v3.17.3: PAGINATE FIRST. Until now this view built its per-row dicts for
+    # every piece of legislation the filter matched — computing percentages,
+    # formatting attendance and calling reverse() four times each — and only
+    # then handed the finished list to Paginator, which threw away all but 20.
+    # Every cost below is therefore proportional to the size of the archive
+    # rather than the size of the page, which is the wrong axis: the page shows
+    # 20 items in a chapter's first year and 20 in its tenth.
+    #
+    # Paginating the *queryset* means the joins and prefetch above apply to the
+    # 20 rows on screen, `windows` spans ~20 meetings instead of the whole
+    # archive, and the attendance scan below is bounded. `status_counts` is
+    # deliberately computed further up, on the unpaginated queryset, because the
+    # tab badges must count everything.
+    #
+    # NOTE the two page objects: `page_obj` pages Legislation instances and
+    # exists only to drive includes/pagination.html; the template iterates
+    # `passed_legislation`, which is the list of display dicts built below.
+    paginator = Paginator(queryset, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    legislation_list = list(page_obj.object_list)
+
     # Attendance was one query per legislation — `_present_members_in_window`
     # inside the loop. Every window is `vote_end - 6h .. vote_end`, so fetch the
-    # union of all windows once and slice it in Python. Row counts here are tiny
-    # (≤ chapter size per meeting), which is the same reasoning that made the
-    # v3.13.3 Python dedupe acceptable.
+    # union of all windows once and bucket it in Python.
+    #
+    # v3.17.3: the union here is a bounding box (min start .. max end), not a
+    # union of the individual windows, so before pagination it spanned the
+    # chapter's entire history and pulled every present/late row in it — then
+    # re-scanned that whole list once per bill (bills × rows). Both are now
+    # bounded by the page: ~20 windows, so the box is ~20 meetings wide, and the
+    # single bucketing pass below replaces the per-bill re-scan.
     windows = {}
     for leg in legislation_list:
         end = leg.voting_ended_at or leg.voting_starts_at or leg.available_at
@@ -251,6 +311,33 @@ def passed_legislation(request):
             .only(*ATTENDANCE_DISPLAY_FIELDS)
         )
 
+    # One pass over the fetched rows fills every window's bucket, instead of
+    # re-walking the whole list once per legislation. Rows arrive ordered by
+    # (user_id, -created_at) and appending preserves that, which is the
+    # ordering contract `_dedupe_latest_per_user` relies on.
+    attendance_by_leg = {pk: [] for pk in windows}
+    for row in attendance_rows:
+        created = row.created_at
+        for pk, (start, end) in windows.items():
+            if start <= created <= end:
+                attendance_by_leg[pk].append(row)
+
+    # v3.17.3: plurality bills needed a per-choice tally, and the loop below was
+    # doing one GROUP BY per bill for it — the last per-row query on this page.
+    # One query covers every plurality bill on the page; non-plurality bills
+    # don't need it, so the query is skipped entirely when there are none.
+    plurality_pks = [
+        leg.pk for leg in legislation_list
+        if leg.vote_mode == 'plurality' and leg.plurality_options
+    ]
+    plurality_tally = {}
+    if plurality_pks:
+        for row in (Vote.objects
+                    .filter(legislation_id__in=plurality_pks)
+                    .values('legislation_id', 'vote_choice')
+                    .annotate(count=Count('id'))):
+            plurality_tally.setdefault(row['legislation_id'], {})[row['vote_choice']] = row['count']
+
     passed = []
 
     for leg in legislation_list:
@@ -267,12 +354,17 @@ def passed_legislation(request):
         # - It's marked as passed
         # - It's tabled, pending, or active (these should show regardless of votes)
         # - We're filtering by a specific status (user wants to see all items in that status)
+        #
+        # v3.17.3: this is now enforced in SQL before pagination (see the KEEP
+        # filter above), so it should never fire. Kept as the invariant check —
+        # if the two ever disagree, dropping the row here is the safe direction,
+        # and it keeps the rule readable next to the numbers it depends on.
         if total_non_abstain == 0 and not leg.passed:
             # Always show if filtering by specific status
-            if status_filter in ['tabled', 'pending', 'active', 'passed', 'failed']:
+            if status_filter in _ALWAYS_SHOWN_STATUSES:
                 pass  # Don't skip
             # Always show items whose status is explicitly set
-            elif leg.status in ['tabled', 'pending', 'active', 'passed', 'failed']:
+            elif leg.status in _ALWAYS_SHOWN_STATUSES:
                 pass  # Don't skip
             else:
                 continue
@@ -296,13 +388,9 @@ def passed_legislation(request):
 
         # Calculate vote breakdown based on mode
         if leg.vote_mode == 'plurality' and leg.plurality_options:
-            # Single query: group all votes for this leg by choice
-            raw_map = {
-                row['vote_choice']: row['count']
-                for row in Vote.objects.filter(legislation=leg)
-                    .values('vote_choice')
-                    .annotate(count=Count('id'))
-            }
+            # v3.17.3: read from the page-wide tally built above (was one
+            # GROUP BY per plurality bill).
+            raw_map = plurality_tally.get(leg.pk, {})
             vote_breakdown = {option: raw_map.get(option, 0) for option in leg.plurality_options}
             winner = max(vote_breakdown, key=vote_breakdown.get) if vote_breakdown else None
         else:
@@ -314,14 +402,12 @@ def passed_legislation(request):
         # Use total_cast so plurality votes (which have no yes/no) still get attendance
         present_members = []
         if total_cast > 0 and leg.pk in windows:
-            # v3.17.1: sliced from the single batched fetch above rather than
-            # one query per legislation. Same semantics — latest present/late
-            # row per user inside this legislation's own 6-hour window.
-            vote_start, vote_end = windows[leg.pk]
-            present_members = _dedupe_latest_per_user(
-                row for row in attendance_rows
-                if vote_start <= row.created_at <= vote_end
-            )
+            # v3.17.1: read from the single batched fetch above rather than one
+            # query per legislation. v3.17.3: read from this legislation's
+            # pre-built bucket rather than re-filtering every fetched row.
+            # Same semantics — latest present/late row per user inside this
+            # legislation's own 6-hour window.
+            present_members = _dedupe_latest_per_user(attendance_by_leg[leg.pk])
 
         # Calculate percentages for display
         if leg.vote_mode != 'plurality':
@@ -350,16 +436,20 @@ def passed_legislation(request):
             'winner': winner,
         })
 
+        # v3.17.3: was logger.info with an f-string listing every attendee by
+        # name. Two problems: it wrote member attendance rosters into the
+        # application log on an ordinary GET — member data outside the app's own
+        # access controls, in a file that gets rotated, backed up and read
+        # during debugging — and the f-string was built even when INFO was
+        # filtered out. %-style args are only interpolated if the record is
+        # actually emitted, and the count is the part that was ever useful.
         if present_members:
-            logger.info(f"{leg.title} present members: {[a.user.name for a in present_members]}")
+            logger.debug('%s present members: %d', leg.title, len(present_members))
 
-    # Pagination - 20 items per page
-    paginator = Paginator(passed, 20)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
+    # Pagination happened before the loop above (see the note there). `passed`
+    # is already just this page's rows; `page_obj` drives the page controls.
     return render(request, 'passed_legislation.html', {
-        'passed_legislation': page_obj,
+        'passed_legislation': passed,
         'page_obj': page_obj,
         'total_count': paginator.count,
         'status_filter': status_filter,
@@ -380,23 +470,48 @@ class PassedLegislationDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         legislation = self.object
-        votes = Vote.objects.filter(legislation=legislation).select_related('user')
+        # v3.17.3: `select_related('user')` here fed one thing — the voter's
+        # name in the individual-votes table. Narrow it to the display columns
+        # rather than joining all ~43 ParliamentUser columns per ballot.
+        # See MEMBER_DISPLAY_FIELDS in src/models/users.py.
+        votes = (
+            Vote.objects.filter(legislation=legislation)
+            .select_related('user')
+            .only('id', 'user_id', 'legislation_id', 'vote_choice', 'cast_at',
+                  *(f'user__{f}' for f in MEMBER_DISPLAY_FIELDS))
+        )
+
+        # v3.17.3: one GROUP BY replaces what was up to `len(options) + 4`
+        # separate COUNT round trips — one per plurality option, plus yes/no/
+        # abstain/total. This is the third site of the pattern v3.17.1 and
+        # v3.17.2 each fixed once; the shape is identical to the tally in
+        # view_legislation_history.
+        # Built from a plain queryset rather than off `votes` above: .values()
+        # discards select_related/only anyway, and keeping them separate makes
+        # it obvious that this is an aggregate, not a row fetch.
+        tally = {
+            row['vote_choice']: row['n']
+            for row in Vote.objects.filter(legislation=legislation)
+                                   .values('vote_choice')
+                                   .annotate(n=Count('id'))
+        }
+        cast_total = sum(tally.values())
 
         if legislation.vote_mode == 'plurality':
             options = legislation.plurality_options or []
-            vote_counts = {opt: votes.filter(vote_choice=opt).count() for opt in options}
+            vote_counts = {opt: tally.get(opt, 0) for opt in options}
             winner = max(vote_counts, key=vote_counts.get) if vote_counts else None
             context['vote_result'] = {
                 'mode': 'plurality',
                 'options': vote_counts,
                 'winner': winner,
-                'total': votes.count(),
+                'total': cast_total,
             }
 
         elif legislation.vote_mode == 'piecewise':
-            yes = legislation.historical_yes_votes if legislation.historical_yes_votes is not None else votes.filter(vote_choice='yes').count()
-            no  = legislation.historical_no_votes  if legislation.historical_no_votes  is not None else votes.filter(vote_choice='no').count()
-            abstain = legislation.historical_abstain_votes if legislation.historical_abstain_votes is not None else votes.filter(vote_choice='abstain').count()
+            yes = legislation.historical_yes_votes if legislation.historical_yes_votes is not None else tally.get('yes', 0)
+            no  = legislation.historical_no_votes  if legislation.historical_no_votes  is not None else tally.get('no', 0)
+            abstain = legislation.historical_abstain_votes if legislation.historical_abstain_votes is not None else tally.get('abstain', 0)
             required = legislation.required_number or 0
             context['vote_result'] = {
                 'mode': 'piecewise',
@@ -409,9 +524,9 @@ class PassedLegislationDetailView(LoginRequiredMixin, DetailView):
             }
 
         else:  # percentage
-            yes = legislation.historical_yes_votes if legislation.historical_yes_votes is not None else votes.filter(vote_choice='yes').count()
-            no  = legislation.historical_no_votes  if legislation.historical_no_votes  is not None else votes.filter(vote_choice='no').count()
-            abstain = legislation.historical_abstain_votes if legislation.historical_abstain_votes is not None else votes.filter(vote_choice='abstain').count()
+            yes = legislation.historical_yes_votes if legislation.historical_yes_votes is not None else tally.get('yes', 0)
+            no  = legislation.historical_no_votes  if legislation.historical_no_votes  is not None else tally.get('no', 0)
+            abstain = legislation.historical_abstain_votes if legislation.historical_abstain_votes is not None else tally.get('abstain', 0)
             countable = yes + no
             yes_pct = (yes / countable * 100) if countable > 0 else 0
             required_pct = int(legislation.required_percentage)
@@ -427,12 +542,14 @@ class PassedLegislationDetailView(LoginRequiredMixin, DetailView):
                 'total': yes + no + abstain,
             }
 
-        # Individual votes (only if not anonymous and votes exist in DB)
-        if not legislation.anonymous_vote and votes.exists():
+        # Individual votes (only if not anonymous and votes exist in DB).
+        # v3.17.3: `votes.exists()` then `votes.count()` were two more round
+        # trips asking what the tally above already answered.
+        if not legislation.anonymous_vote and cast_total > 0:
             context['individual_votes'] = list(votes.order_by('user__name'))
 
         # Present members: look back 6 hours from when voting ended
-        total_cast = votes.count()
+        total_cast = cast_total
         if total_cast > 0:
             vote_end = legislation.voting_ended_at or legislation.voting_starts_at or legislation.available_at
             vote_start = vote_end - timedelta(hours=6)

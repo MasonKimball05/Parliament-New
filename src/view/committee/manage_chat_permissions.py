@@ -5,6 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from src.models import Committee, ChatChannel, ChatChannelPermission, ParliamentUser
+from src.models.users import member_defer
 
 
 def _check_chair_access(request, committee):
@@ -61,7 +62,7 @@ def manage_chat_permissions(request, code):
         user__isnull=False
     ).exclude(
         user__user_id__in=committee_member_ids
-    ).select_related('user').order_by('user__member_status', 'user__name')
+    ).select_related('user').defer(*member_defer('user')).order_by('user__member_status', 'user__name')
 
     # Available users: active + alumni, excluding committee members
     available_users = ParliamentUser.objects.filter(

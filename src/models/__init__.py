@@ -5,6 +5,9 @@
 from src.models.users import (
     MEMBER_DISPLAY_FIELDS,
     MEMBER_PROFILE_FIELDS,
+    MEMBER_ACCOUNT_FIELDS,
+    member_defer,
+    member_prefetch,
     _default_user_prefs,
     validate_profile_picture,
     ParliamentUserManager,

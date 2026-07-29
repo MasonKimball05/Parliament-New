@@ -18,6 +18,7 @@ from .permissions import voting_member_required, slating_chair_required, can_vie
 from src.view.webauthn import check_vote_reauth
 import hashlib
 import secrets
+from src.models.users import member_defer
 
 
 @login_required
@@ -53,7 +54,7 @@ def slating_vote(request, period_id):
 
     candidates = slate.candidates.select_related(
         'position', 'application__applicant'
-    ).order_by('display_order')
+    ).defer(*member_defer('application__applicant')).order_by('display_order')
 
     # If vote type is individual, redirect to individual voting
     if not voting_paused and period.vote_type == 'individual':
@@ -221,7 +222,7 @@ def individual_vote(request, period_id):
     # All primary candidates ordered for display
     all_candidates = list(
         slate.candidates.filter(is_runoff=False)
-        .select_related('position', 'application__applicant', 'write_in_member')
+        .select_related('position', 'application__applicant', 'write_in_member').defer(*member_defer('application__applicant', 'write_in_member'))
         .order_by('display_order')
     )
 

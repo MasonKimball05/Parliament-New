@@ -17,6 +17,7 @@ from django.utils import timezone
 
 from src.feature_flag_decorators import require_page_enabled
 from src.models import Committee, ParliamentUser, PledgeTask, PledgeTaskCompletion, PledgePageRestriction, PledgeTaskQuestion, PledgeQuizAnswer  # noqa: F401 PledgeQuizAnswer used in quiz submissions view
+from src.models.users import member_defer, member_prefetch
 
 
 def _parse_non_negative_int(value, default=0):
@@ -45,14 +46,17 @@ def education_home(request, code):
     phases = ['all', '1', '2', '3']
     phase_labels = {'all': 'All Phases', '1': 'Phase 1', '2': 'Phase 2', '3': 'Phase 3'}
 
-    tasks = PledgeTask.objects.filter(is_active=True).select_related('created_by').prefetch_related('assigned_to').order_by('display_order', 'due_date', 'title')
+    tasks = (PledgeTask.objects.filter(is_active=True)
+             # v3.17.3: created_by joined but never rendered by education.html
+             .prefetch_related(member_prefetch('assigned_to'))
+             .order_by('display_order', 'due_date', 'title'))
     pledges = ParliamentUser.objects.filter(member_type='Pledge', is_active=True).order_by('name')
 
     # Build completion map: {(task_pk, pledge_pk): PledgeTaskCompletion}
     completions = PledgeTaskCompletion.objects.filter(
         task__in=tasks,
         pledge__in=pledges,
-    ).select_related('reviewed_by')
+    ).select_related('reviewed_by').defer(*member_defer('reviewed_by'))
     completion_map = {(c.task_id, c.pledge_id): c for c in completions}
 
     # Per-task: list of (pledge, completion_or_None, applies)
@@ -334,7 +338,7 @@ def education_quiz_submissions(request, code, task_pk):
     # Fetch all answers in one query, keyed by (pledge_pk, question_pk)
     answers = PledgeQuizAnswer.objects.filter(
         question__task=task,
-    ).select_related('pledge')
+    ).select_related('pledge').defer(*member_defer('pledge'))
     answer_map = {(a.pledge_id, a.question_id): a.answer_text for a in answers}
 
     # Fetch completions

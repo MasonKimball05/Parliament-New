@@ -366,6 +366,8 @@
             </div>
             {% endfor %}
         </div>
+        {# v3.17.3: this page rendered every bill the user ever authored. #}
+        {% include 'includes/pagination.html' with page_obj=page_obj %}
         {% endif %}
 
     </div>{# end section-legislation #}
@@ -384,7 +386,12 @@
         {% else %}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden divide-y divide-gray-200 dark:divide-gray-700">
             {% for poll in my_polls %}
-            {% with response_count=poll.responses.count question_count=poll.questions.count accepting=poll.is_accepting_responses %}
+            {% comment %}
+            v3.17.3: response_total / question_total are annotations from the
+            view. They were `poll.responses.count` / `poll.questions.count`,
+            which needed every related row prefetched just to be counted.
+            {% endcomment %}
+            {% with response_count=poll.response_total question_count=poll.question_total accepting=poll.is_accepting_responses %}
             <div class="flex gap-0">
 
                 <!-- Status strip -->

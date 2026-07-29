@@ -19,6 +19,7 @@ from django.utils import timezone
 from django.utils.timezone import localtime
 import base64
 import logging
+from src.models.users import member_defer
 
 logger = logging.getLogger('src')
 
@@ -27,7 +28,7 @@ logger = logging.getLogger('src')
 @log_function_call
 def manage_announcements(request):
     """View to manage all announcements"""
-    announcements = Announcement.objects.select_related('posted_by').order_by('-posted_at')
+    announcements = Announcement.objects.select_related('posted_by').defer(*member_defer('posted_by')).order_by('-posted_at')
 
     # Pagination - 25 announcements per page
     paginator = Paginator(announcements, 25)

@@ -5,11 +5,12 @@ from django.shortcuts import render
 from django.core.paginator import Paginator
 from src.models import ActivityLog, ParliamentUser
 from ..decorators import officer_required
-from django.db.models import Q
+from django.db.models import Count, Q
 from datetime import datetime, timedelta
 from django.utils import timezone
 from django.utils.timezone import localtime
 from src.utils.export_utils import export_to_csv
+from src.models.users import member_defer
 
 
 @officer_required
@@ -25,7 +26,7 @@ def activity_logs_view(request):
     date_range = request.GET.get('date_range', '7')  # Default to last 7 days
 
     # Start with all logs
-    logs = ActivityLog.objects.all().select_related('user')
+    logs = ActivityLog.objects.all().select_related('user').defer(*member_defer('user'))
 
     # Apply date range filter
     now = timezone.now()
@@ -78,15 +79,22 @@ def activity_logs_view(request):
     total_logs = logs.count()
     unique_users = logs.values('user').distinct().count()
 
-    # Get category counts for the filtered results
-    category_counts = {}
-    for category_code, category_name in ActivityLog.ACTION_CATEGORIES:
-        count = logs.filter(action_category=category_code).count()
-        if count > 0:
-            category_counts[category_code] = {
-                'name': category_name,
-                'count': count
-            }
+    # Category counts for the filtered results.
+    #
+    # v3.17.3 (second pass): was one COUNT round trip per category — nine of
+    # them, every load, over the same filtered queryset, and this page is
+    # already scanning a date-ranged slice of the largest table in the schema.
+    # One GROUP BY answers all nine. Categories with no rows are dropped by the
+    # comprehension, matching the previous `if count > 0`.
+    _counts = {
+        row['action_category']: row['n']
+        for row in logs.values('action_category').annotate(n=Count('id'))
+    }
+    category_counts = {
+        code: {'name': name, 'count': _counts[code]}
+        for code, name in ActivityLog.ACTION_CATEGORIES
+        if _counts.get(code)
+    }
 
     context = {
         'page_obj': page_obj,
@@ -120,7 +128,7 @@ def export_activity_logs(request):
     date_range = request.GET.get('date_range', '7')
 
     # Apply same filters as the main view
-    logs = ActivityLog.objects.all().select_related('user')
+    logs = ActivityLog.objects.all().select_related('user').defer(*member_defer('user'))
 
     # Apply date range filter
     now = timezone.now()

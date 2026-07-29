@@ -13,6 +13,7 @@ from src.models import (
     SlatingPeriod, SlatingApplication, SlatingPosition, SlatingActivity
 )
 from .permissions import slating_committee_required, slating_chair_required
+from src.models.users import member_defer
 
 
 @login_required
@@ -31,7 +32,7 @@ def applications_list(request, period_id):
 
     applications = period.applications.exclude(
         status='draft'
-    ).select_related('applicant').order_by('-submitted_at')
+    ).select_related('applicant').defer(*member_defer('applicant')).order_by('-submitted_at')
 
     # Apply filters
     if status_filter:

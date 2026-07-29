@@ -13,6 +13,7 @@ from ..forms import SongForm, SongCategoryForm
 import os
 import logging
 import mimetypes
+from src.models.users import member_defer
 
 logger = logging.getLogger('function_calls')
 
@@ -33,7 +34,7 @@ def songbook_list(request):
     category_filter = request.GET.get('category', '')
 
     # Base queryset - active songs only
-    songs = Song.objects.filter(is_active=True).select_related('category', 'created_by')
+    songs = Song.objects.filter(is_active=True).select_related('category', 'created_by').defer(*member_defer('created_by'))
 
     # Apply category filter
     if category_filter:

@@ -22,6 +22,7 @@ from src.models import (
     ServiceMemberExpectation
 )
 from src.forms import ServiceHoursSubmissionForm
+from src.models.users import member_defer
 
 logger = logging.getLogger('function_calls')
 
@@ -164,12 +165,12 @@ def user_service_dashboard(request):
         adjustments = ServiceHoursAdjustment.objects.filter(
             member=user,
             period=current_period
-        ).select_related('adjusted_by').order_by('-created_at')
+        ).select_related('adjusted_by').defer(*member_defer('adjusted_by')).order_by('-created_at')
 
     # Get all submissions for this user
     submissions = ServiceHoursSubmission.objects.filter(
         submitted_by=user
-    ).select_related('period', 'reviewed_by').order_by('-submitted_at')
+    ).select_related('period', 'reviewed_by').defer(*member_defer('reviewed_by')).order_by('-submitted_at')
 
     # Check if user is VPP (to show the admin link) - case-insensitive.
     # No DEBUG shortcut: the VPP admin pages are gated by @vpp_required, so
@@ -211,7 +212,7 @@ def user_view_submission(request, submission_id):
     # Get activity log
     activity_log = ServiceActivity.objects.filter(
         submission=submission
-    ).select_related('user').order_by('-timestamp')
+    ).select_related('user').defer(*member_defer('user')).order_by('-timestamp')
 
     context = {
         'submission': submission,

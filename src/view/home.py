@@ -10,6 +10,9 @@ from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
 from src.feature_flag_decorators import require_page_enabled
+from src.models.users import member_defer
+from src.utils.visibility import visible_to_q
+from src.context_processors import get_user_prefs
 
 def transition_checklist_cards(user):
     """v3.14.1 — data for the home-page transition-checklist card(s).
@@ -79,32 +82,57 @@ def home(request):
     voted_legislation_ids = Vote.objects.filter(user=request.user).values_list('legislation_id', flat=True)
     pending_votes = open_legislation_qs.exclude(
         id__in=voted_legislation_ids
+    ).select_related('posted_by').defer(
+        *member_defer('posted_by')
     ).order_by('-available_at')[:5]
 
     # === UPCOMING EVENTS ===
-    # Visibility: null/empty visible_to = all; otherwise member_type must be listed.
-    # 'Member' in the list also covers Chair and Officer (matching is_visible_to_user logic).
-    _member_type = request.user.member_type
-    _vis_q = (
-        Q(visible_to__isnull=True) |
-        Q(visible_to__len=0) |
-        Q(visible_to__contains=[_member_type])
-    )
-    if _member_type in ('Chair', 'Officer'):
-        _vis_q |= Q(visible_to__contains=['Member'])
+    # Visibility: null/empty visible_to = all; otherwise member_type must be
+    # listed, and 'Member' also covers Chair and Officer.
+    #
+    # v3.17.3: this was built inline here and was wrong in two ways —
+    # `visible_to__contains` is unsupported on SQLite (so the whole home page
+    # 500'd under the documented local-dev setup), and `visible_to__len=0` was
+    # silently a JSON *key* lookup, so an explicitly-empty visible_to matched
+    # nothing on any backend. The rule now lives in one place, next to a test
+    # that compares it against the models' own is_visible_to_user().
+    _vis_q = visible_to_q(request.user.member_type)
 
+    # v3.17.3 (second pass): the four home-page card querysets below had NO
+    # select_related at all, so a template that prints an author name — e.g.
+    # home_modern.html:317 `{{ announcement.posted_by.get_display_name }}` —
+    # lazily fetched that member per row. Dev mode showed the announcements
+    # card firing THREE identical full-column `ParliamentUser` pk lookups on a
+    # single home-page load, one per announcement, all for the same author.
+    #
+    # Worth being precise about why the v3.17.3 sweep did not catch these: that
+    # sweep *narrowed existing joins*, it did not *add missing ones*. A
+    # queryset with no `select_related` has no join to narrow, so it was
+    # invisible to the scan. The lesson for the next pass: "every member join
+    # is narrow" and "every member dereference is joined" are two different
+    # properties, and only the first one was checked.
+    #
+    # These are `[:3]` slices, so the join is over three rows and the deferred
+    # profile columns keep it cheap.
     upcoming_events = Event.objects.filter(
         is_active=True,
         archived=False,
         date_time__gte=now,
     ).filter(_vis_q).order_by('date_time')[:3]
+    # NOTE: no select_related('created_by') — neither home layout renders the
+    # event's author. It was added here in the first pass alongside the three
+    # querysets that DO need one, and removed in the wasted-join audit that
+    # followed. Adding a join reflexively "because the others have one" is the
+    # mirror image of the bug this block's comment is about.
 
     # === RECENT ANNOUNCEMENTS ===
     announcements = Announcement.objects.filter(
         is_active=True,
     ).filter(
         Q(publish_at__isnull=True) | Q(publish_at__lte=now)
-    ).filter(_vis_q).order_by('-posted_at')[:3]
+    ).filter(_vis_q).select_related('posted_by').defer(
+        *member_defer('posted_by')
+    ).order_by('-posted_at')[:3]
 
     # === RECENTLY PASSED LEGISLATION ===
     recently_passed_legislation = Legislation.objects.annotate(
@@ -114,6 +142,13 @@ def home(request):
         voting_closed=True,
         status='passed'
     ).order_by('-voting_ended_at')[:3]
+    # NOTE: deliberately NOT select_related('posted_by'). The loop below turns
+    # these rows into plain dicts (`legislation_previews`) and never touches the
+    # author — the templates render `item.title` and `item.detail_url` only. An
+    # earlier pass added the join reflexively along with the other three
+    # querysets on this page; it was a wasted INNER JOIN on every home-page
+    # load. Joining a relation nothing reads is the same mistake as not joining
+    # one that everything reads, just quieter.
 
     # Pre-fetch all vote choice breakdowns for the preview items in one query
     # instead of firing per-option or per-legislation COUNTs inside the loop.
@@ -238,7 +273,7 @@ def home(request):
                 slating_slate_candidates = list(
                     slating_passed_slate.candidates.select_related(
                         'position', 'application__applicant'
-                    ).order_by('display_order')
+                    ).defer(*member_defer('application__applicant')).order_by('display_order')
                 )
 
     # === TRANSITION CHECKLIST CARD (v3.14.1, specced 07-09) ===
@@ -273,6 +308,9 @@ def home(request):
         'slating_slate_candidates': slating_slate_candidates,
     }
 
-    layout = getattr(request.user.preferences, 'home_layout', 'modern')
+    # v3.17.3: was `request.user.preferences`, a reverse one-to-one dereference
+    # — i.e. a query — for a row the user_preferences context processor loads
+    # and caches for this same render anyway.
+    layout = getattr(get_user_prefs(request.user), 'home_layout', 'modern')
     template = 'home_classic.html' if layout == 'classic' else 'home_modern.html'
     return render(request, template, context)

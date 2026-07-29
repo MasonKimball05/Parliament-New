@@ -16,6 +16,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from src.decorators import cnb_required
+from src.models.users import member_defer
 from src.models import (
     GoverningDocument, Article, Section, Resolution, ResolutionAmendment,
     ResolutionCollaborator, ParliamentUser,
@@ -32,7 +33,8 @@ def cnb_viewer(request):
     The 'manage' tab is only shown to CNB permission holders.
     """
     documents = GoverningDocument.objects.prefetch_related('articles__sections').all()
-    resolutions = Resolution.objects.select_related('created_by').prefetch_related('amendments').order_by('-created_at')
+    # v3.17.3: `created_by` was joined and never read by cnb/viewer.html.
+    resolutions = Resolution.objects.prefetch_related('amendments').order_by('-created_at')
     is_cnb = request.user.has_cnb_permission
 
     protected_sections = []
@@ -67,7 +69,8 @@ def cnb_viewer(request):
 def cnb_dashboard(request):
     """CNB Chair management dashboard — overview of documents and active resolutions."""
     documents = GoverningDocument.objects.prefetch_related('articles').all()
-    resolutions = Resolution.objects.select_related('created_by').all()
+    # v3.17.3: `created_by` was joined and never read by cnb/dashboard.html.
+    resolutions = Resolution.objects.all()
     protected_sections = Section.objects.filter(amendment_protected=True).select_related(
         'article__document'
     )
@@ -276,7 +279,7 @@ def toggle_article_active(request, article_id):
 @login_required
 def resolution_list(request):
     """List all resolutions — readable by any authenticated member."""
-    resolutions = Resolution.objects.select_related('created_by').prefetch_related('amendments').all()
+    resolutions = Resolution.objects.select_related('created_by').defer(*member_defer('created_by')).prefetch_related('amendments').all()
     context = {'resolutions': resolutions}
     return render(request, 'cnb/resolution_list.html', context)
 
@@ -286,7 +289,8 @@ def resolution_detail(request, resolution_id):
     """View a resolution — readable by any authenticated member.
     Edit controls are shown to CNB permission holders and editor collaborators."""
     resolution = get_object_or_404(
-        Resolution.objects.select_related('created_by').prefetch_related(
+        # v3.17.3: `created_by` was joined and never read by resolution_print.html.
+        Resolution.objects.prefetch_related(
             'amendments__section__article__document',
             'collaborators__user',
         ),
@@ -608,7 +612,7 @@ def remove_collaborator(request, resolution_id, collaborator_id):
 def resolution_print(request, resolution_id):
     """Standalone printable resolution — no nav, formatted for Cmd+P → Save as PDF."""
     resolution = get_object_or_404(
-        Resolution.objects.select_related('created_by').prefetch_related(
+        Resolution.objects.select_related('created_by').defer(*member_defer('created_by')).prefetch_related(
             'amendments__section__article__document',
         ),
         pk=resolution_id

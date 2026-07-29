@@ -48,6 +48,26 @@ comments. That bluntness is why they catch real bugs; work around it here.
                border:1px solid var(--pdev-ok); color:var(--pdev-fg); padding:3px 7px; font-size:10px;
                font-family:ui-monospace,Menlo,Consolas,monospace; display:none; }
   .pdev-hint.pdev-on { display:block; }
+  /* v3.17.3 — template attribution for lazily-fired queries. Deliberately the
+     loudest thing in a query row: if a query has one of these, the template is
+     the answer and the Python stack below it is noise. */
+  .pdev-tplhit { margin-top:3px; padding:3px 6px; border-left:2px solid var(--pdev-key);
+                 background:rgba(255,255,255,.04); }
+  .pdev-tplhit b { color:var(--pdev-key); font-weight:600; }
+  .pdev-tplhit code { color:var(--pdev-fg); }
+  /* v3.17.3 — result rows. Muted rather than highlighted: this is the only
+     place the panel shows record content, so it should not invite browsing. */
+  .pdev-rows summary { color:var(--pdev-dim); }
+  .pdev-rowsbox { overflow-x:auto; margin-top:4px; }
+  .pdev-rowsbox table { border-collapse:collapse; font-size:11px; width:100%; }
+  .pdev-rowsbox th { text-align:left; color:var(--pdev-key); font-weight:600;
+                     padding:2px 8px 2px 0; border-bottom:1px solid var(--pdev-line);
+                     white-space:nowrap; }
+  .pdev-rowsbox td { padding:2px 8px 2px 0; color:var(--pdev-fg);
+                     border-bottom:1px solid rgba(255,255,255,.05);
+                     max-width:340px; overflow:hidden; text-overflow:ellipsis;
+                     white-space:nowrap; }
+  .pdev-redacted { color:var(--pdev-dim); font-style:italic; }
   .pdev-stack { margin-top:3px; padding-left:8px; border-left:1px solid var(--pdev-line); }
   .pdev-stack div { color:var(--pdev-dim); }
   .pdev-stack b { color:var(--pdev-key); font-weight:600; }
@@ -100,6 +120,53 @@ comments. That bluntness is why they catch real bugs; work around it here.
           <span>
             <span class="pdev-sql">{{ q.sql }}</span>
             {% if q.params %}<div class="pdev-meta">params {{ q.params }}</div>{% endif %}
+            {% comment %}
+            v3.17.3: template attribution. A query with template frames was
+            fired lazily *during rendering* — which is the definition of a
+            queryset the view failed to prefetch — and the innermost frame is
+            the expression that did it. This is shown above the Python stack on
+            purpose: for these queries the Python stack is just the view's
+            render() call and tells you nothing.
+            {% endcomment %}
+            {% if q.template %}
+            {% with tpl=q.template|last %}
+            <div class="pdev-tplhit">
+              <b>template</b> {{ tpl.template }}:{{ tpl.line }}
+              {% if tpl.source %}<code>{{ tpl.source }}</code>{% endif %}
+              {% if q.template|length > 1 %}
+              <details class="pdev-d"><summary>rendered via</summary>
+                <div class="pdev-stack">
+                  {% for f in q.template %}<div><b>{{ f.template }}:{{ f.line }}</b>{% if f.source %} — {{ f.source }}{% endif %}</div>{% endfor %}
+                </div>
+              </details>
+              {% endif %}
+            </div>
+            {% endwith %}
+            {% endif %}
+            {% comment %}
+            v3.17.3: the rows the query returned. Collapsed by default — this is
+            the one place the panel shows record CONTENT, and it should take a
+            deliberate click. Redaction policy (fails closed, withholds judicial
+            / ballot / credential tables whole) lives in src/dev_mode_rows.py.
+            {% endcomment %}
+            {% if q.row_columns %}
+            <details class="pdev-d pdev-rows">
+              <summary>rows ({{ q.row_values|length }}) — click to read</summary>
+              <div class="pdev-rowsbox">
+                <table>
+                  <tr>{% for c in q.row_columns %}<th>{{ c }}</th>{% endfor %}</tr>
+                  {% for r in q.row_values %}
+                  <tr>{% for cell in r %}<td>{{ cell }}</td>{% endfor %}</tr>
+                  {% empty %}
+                  <tr><td colspan="{{ q.row_columns|length }}">no rows returned</td></tr>
+                  {% endfor %}
+                </table>
+                {% if q.rows_note %}<div class="pdev-t">{{ q.rows_note }}</div>{% endif %}
+              </div>
+            </details>
+            {% elif q.rows_note %}
+            <div class="pdev-meta pdev-redacted">rows withheld — {{ q.rows_note }}</div>
+            {% endif %}
             {% if q.stack %}
             <details class="pdev-d">
               <summary>{% with f=q.stack|last %}from {{ f.where }} {{ f.func }}{% endwith %}{% if q.tables %} · <span class="pdev-tables">{{ q.tables|join:", " }}</span>{% endif %}</summary>
@@ -161,9 +228,19 @@ comments. That bluntness is why they catch real bugs; work around it here.
     </div>
 
     <div class="pdev-pane" data-pane="dup">
-      {% for sql, count, ms, sample, stacks in dev_duplicates %}
+      {% for sql, count, ms, sample, stacks, templates in dev_duplicates %}
         <div class="pdev-warnbox {% if count >= 10 %}pdev-sev{% endif %}">
           <div><b>{{ count }}×</b> the same query shape, {{ ms }}ms total.</div>
+          {% if templates %}
+          <div class="pdev-stack">
+            <div class="pdev-t">Template expression that fired it:</div>
+            {% for t in templates %}
+            <div><b>{{ t.where }}</b>{% if t.source %} — <code>{{ t.source }}</code>{% endif %}
+              {% if t.via %}<span class="pdev-t"> (via {{ t.via }})</span>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
           {% if stacks %}
           <div class="pdev-stack">
             <div class="pdev-t">Fired from:</div>

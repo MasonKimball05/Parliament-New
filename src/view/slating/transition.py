@@ -22,6 +22,7 @@ from src.models import (
     SlatingPosition, SlatingActivity
 )
 from src.decorators import admin_required
+from src.models.users import member_defer
 
 logger = logging.getLogger(__name__)
 
@@ -191,14 +192,14 @@ def build_auto_assignments(period):
     # Get winning candidates from passed slate
     passed_slate = period.slates.filter(passed=True).first()
     if passed_slate:
-        for candidate in passed_slate.candidates.select_related('position', 'application__applicant'):
+        for candidate in passed_slate.candidates.select_related('position', 'application__applicant').defer(*member_defer('application__applicant')):
             assignments[candidate.position_id] = candidate.application.applicant
     else:
         # Check for individual voting results
         individual_winners = SlateCandidate.objects.filter(
             slate__period=period,
             individual_passed=True
-        ).select_related('position', 'application__applicant')
+        ).select_related('position', 'application__applicant').defer(*member_defer('application__applicant'))
 
         for candidate in individual_winners:
             assignments[candidate.position_id] = candidate.application.applicant

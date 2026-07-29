@@ -114,7 +114,26 @@ class ActivityLog(models.Model):
 
     # Related objects (optional)
     object_type = models.CharField(max_length=100, blank=True, help_text='Type of object affected (e.g., Legislation, User)')
-    object_id = models.IntegerField(null=True, blank=True, help_text='ID of the affected object')
+    # v3.17.3: was an IntegerField, and that was a latent login outage.
+    #
+    # Most models here have integer primary keys, but ParliamentUser's pk is
+    # `user_id`, a CharField. ~17 call sites log a user pk into this column —
+    # including `signals.log_successful_login`, which runs on EVERY login — so
+    # any member whose user_id is not purely numeric raised
+    # `ValueError: Field 'object_id' expected a number but got 'ab-12'`,
+    # inside the login signal, breaking the login itself. The chapter's ids
+    # happen to be numeric today, which is the only reason this has not fired
+    # in production; it is one non-numeric member id away from doing so, and it
+    # is what kept 8 tests in test_pledge_permissions red.
+    #
+    # A CharField holds both kinds of pk. Nothing filters or joins on this
+    # column — it is read only by the admin detail page and the activity-log
+    # CSV export — so widening it is display-compatible: integers render the
+    # same as before.
+    object_id = models.CharField(
+        max_length=64, null=True, blank=True,
+        help_text='ID of the affected object (string — user pks are not integers)',
+    )
     object_repr = models.CharField(max_length=500, blank=True, help_text='String representation of the affected object')
 
     # Additional data

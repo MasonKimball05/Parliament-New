@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from src.notification_service import notify_users
 from src.utils.vote_events import broadcast_vote_event
+from src.models.users import member_defer
 
 @login_required
 @require_POST
@@ -156,7 +157,7 @@ def end_vote(request, legislation_id):
                 {
                     'option': r['option'],
                     'count': r['count'],
-                    'voters': [v.user.name for v in votes.filter(vote_choice=r['option']).select_related('user')]
+                    'voters': [v.user.name for v in votes.filter(vote_choice=r['option']).select_related('user').defer(*member_defer('user'))]
                 }
                 for r in sorted_results
             ]

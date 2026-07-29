@@ -7,6 +7,7 @@ from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
 import logging
+from src.models.users import member_defer
 
 logger = logging.getLogger(__name__)
 
@@ -261,7 +262,7 @@ def notify_expired_vote_receipts():
     lower = upper - timezone.timedelta(days=1)
     crossed = (Vote.objects
                .filter(cast_at__gte=lower, cast_at__lt=upper)
-               .select_related('user', 'legislation'))
+               .select_related('user', 'legislation').defer(*member_defer('user')))
 
     per_user = {}
     for v in crossed:

@@ -15,6 +15,7 @@ from src.tasks import send_email
 from django.db.models import Q
 import logging
 
+from src.models.users import member_defer
 from src.models import (
     Committee, KaiReport, KaiReportActivity, KaiClosureRequest,
     KaiFormField, KaiReportFieldResponse, ActivityLog
@@ -41,7 +42,7 @@ def user_kai_dashboard(request):
     # Get all reports submitted by this user
     submitted_reports = KaiReport.objects.filter(
         submitted_by=user
-    ).select_related('targeted_to', 'reviewed_by').order_by('-submitted_at')
+    ).select_related('targeted_to').defer(*member_defer('targeted_to')).order_by('-submitted_at')  # v3.17.3: reviewed_by unused by user_dashboard.html
 
     # Get reports where user is the accused (targeted_to)
     # Only show reports where deliberation has progressed past "pending"
@@ -52,13 +53,13 @@ def user_kai_dashboard(request):
         submitted_by=user  # Don't show if user reported themselves
     ).exclude(
         deliberation_outcome='pending'  # Only show once case has been addressed
-    ).select_related('submitted_by', 'reviewed_by').order_by('-submitted_at')
+    ).select_related('submitted_by').defer(*member_defer('submitted_by')).order_by('-submitted_at')  # v3.17.3: reviewed_by unused
 
     # Get pending closure requests by this user
     pending_closures = KaiClosureRequest.objects.filter(
         requested_by=user,
         status='pending'
-    ).select_related('report')
+    )  # v3.17.3: select_related('report') removed — the template never reads it
 
     # Check if user is Kai chair (to show admin link)
     is_kai_chair = False

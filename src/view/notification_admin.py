@@ -15,6 +15,7 @@ import json
 from src.models import NotificationSchedule, NotificationLog, Committee
 from src.decorators import admin_required
 from src.view.admin_v2 import require_admin_v2_auth
+from src.models.users import member_defer
 
 
 @login_required
@@ -25,9 +26,9 @@ def notification_dashboard(request):
     Shows overview of schedules and recent logs.
     """
     # Get all schedules
-    schedules = NotificationSchedule.objects.all().select_related(
-        'target_committee', 'created_by'
-    )
+    # v3.17.3: neither `target_committee` nor `created_by` is read by
+    # dashboard.html — both joins were pure cost.
+    schedules = NotificationSchedule.objects.all()
 
     # Get recent logs
     recent_logs = NotificationLog.objects.all()[:20]
@@ -60,9 +61,9 @@ def notification_schedules(request):
     """
     Manage notification schedules.
     """
-    schedules = NotificationSchedule.objects.all().select_related(
-        'target_committee', 'created_by'
-    ).order_by('notification_type', 'name')
+    # v3.17.3: same as the dashboard — schedules.html reads neither relation.
+    schedules = NotificationSchedule.objects.all().order_by(
+        'notification_type', 'name')
 
     committees = Committee.objects.filter(is_active=True)
 
@@ -207,7 +208,8 @@ def notification_logs(request):
     """
     View notification logs with filtering.
     """
-    logs = NotificationLog.objects.all().select_related('schedule')
+    # v3.17.3: `schedule` was joined and never read by logs.html.
+    logs = NotificationLog.objects.all()
 
     # Filtering
     status = request.GET.get('status')

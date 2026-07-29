@@ -13,6 +13,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from src.models import SlatingPeriod, SlatingApplication
 from .period_setup import check_and_auto_transition_status
+from src.models.users import member_defer
 
 
 @login_required
@@ -74,7 +75,7 @@ def slating_dashboard(request):
         pending_reviews = SlatingApplication.objects.filter(
             period_id__in=period_ids,
             status='submitted'
-        ).select_related('applicant', 'period').order_by('-submitted_at')[:10]
+        ).select_related('applicant', 'period').defer(*member_defer('applicant')).order_by('-submitted_at')[:10]
 
     # Has the user already voted in any open voting period?
     from src.models import SlatingBallot

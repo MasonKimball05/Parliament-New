@@ -9,6 +9,7 @@ from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 
 from src.models.api import APIToken
+from src.models.users import member_defer
 
 
 class APITokenAuthentication(BaseAuthentication):
@@ -34,7 +35,7 @@ class APITokenAuthentication(BaseAuthentication):
 
         key = auth[1]
         try:
-            token = APIToken.objects.select_related('user').get(key=key)
+            token = APIToken.objects.select_related('user').defer(*member_defer('user')).get(key=key)
         except APIToken.DoesNotExist:
             raise AuthenticationFailed('Invalid token.')
 

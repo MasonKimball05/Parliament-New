@@ -58,11 +58,23 @@ def attendance_dashboard(request):
         attendance_type='event'
     )
 
-    total_records = attendance_records.count()
-    present_count = attendance_records.filter(status='present').count()
-    absent_count = attendance_records.filter(status='absent').count()
-    excused_count = attendance_records.filter(status='excused').count()
-    late_count = attendance_records.filter(status='late').count()
+    # v3.17.3 (second pass): was five COUNT round trips over the same filtered
+    # queryset — a total plus one per status — each of them re-running the
+    # `event__in=events` subquery. Conditional aggregation evaluates all five in
+    # a single pass. Same pattern as the legislation status tabs (v3.17.2) and
+    # the activity-log category counts.
+    _status = attendance_records.aggregate(
+        n_total=Count('pk'),
+        n_present=Count('pk', filter=Q(status='present')),
+        n_absent=Count('pk', filter=Q(status='absent')),
+        n_excused=Count('pk', filter=Q(status='excused')),
+        n_late=Count('pk', filter=Q(status='late')),
+    )
+    total_records = _status['n_total']
+    present_count = _status['n_present']
+    absent_count = _status['n_absent']
+    excused_count = _status['n_excused']
+    late_count = _status['n_late']
 
     # Calculate attendance rate (present + late + excused as "attended/excused")
     if total_records > 0:
@@ -148,52 +160,68 @@ def attendance_dashboard(request):
     # Sort by attendance rate
     event_series_stats.sort(key=lambda x: x['attendance_rate'], reverse=True)
 
-    # Individual event statistics (recent events)
-    recent_events = []
-    for event in events[:15]:  # Last 15 events
-        event_attendance = Attendance.objects.filter(
-            event=event,
-            attendance_type='event'
+    # Individual event statistics (recent events).
+    #
+    # v3.17.3 (second pass): was two COUNTs per event over the 15 shown — 30
+    # round trips. One GROUP BY covers all of them.
+    recent_event_list = list(events[:15])
+    _per_event = {
+        row['event']: row
+        for row in Attendance.objects
+        .filter(event__in=recent_event_list, attendance_type='event')
+        .values('event')
+        .annotate(
+            total=Count('pk'),
+            present=Count('pk', filter=Q(status__in=['present', 'late'])),
         )
-        total = event_attendance.count()
-        if total > 0:
-            present = event_attendance.filter(status__in=['present', 'late']).count()
-            rate = round((present / total) * 100, 1)
-        else:
-            rate = 0
-            present = 0
-
+    }
+    recent_events = []
+    for event in recent_event_list:
+        row = _per_event.get(event.pk, {})
+        total = row.get('total', 0)
+        present = row.get('present', 0)
         recent_events.append({
             'event': event,
-            'attendance_rate': rate,
+            'attendance_rate': round((present / total) * 100, 1) if total else 0,
             'present_count': present,
             'total_count': total,
         })
 
-    # Member statistics
-    active_members = ParliamentUser.objects.filter(member_status='Active').order_by('name')
+    # Member statistics.
+    #
+    # v3.17.3 (second pass): THIS WAS THE BIG ONE. The loop ran five COUNT
+    # queries per active member — a total plus one per status — each of them
+    # re-running the `event__in=events` subquery. At chapter scale that is
+    # ~500 queries on a single page load of the officer attendance dashboard,
+    # growing linearly with the roster, and it is the page an officer opens to
+    # look at the roster.
+    #
+    # One GROUP BY over (user, status) replaces all of it. Members with no
+    # attendance rows simply do not appear in the aggregate and fall through to
+    # the zero defaults below, exactly as the `if member_total > 0` branch did.
+    active_members = list(
+        ParliamentUser.objects.filter(member_status='Active').order_by('name')
+    )
+    _by_member = {}
+    for row in (Attendance.objects
+                .filter(user__in=active_members, event__in=events,
+                        attendance_type='event')
+                .values('user', 'status')
+                .annotate(n=Count('pk'))):
+        _by_member.setdefault(row['user'], {})[row['status']] = row['n']
+
     member_stats = []
-
     for member in active_members:
-        member_attendance = Attendance.objects.filter(
-            user=member,
-            event__in=events,
-            attendance_type='event'
+        counts = _by_member.get(member.pk, {})
+        member_total = sum(counts.values())
+        member_present = counts.get('present', 0)
+        member_late = counts.get('late', 0)
+        member_absent = counts.get('absent', 0)
+        member_excused = counts.get('excused', 0)
+        member_rate = (
+            round(((member_present + member_late) / member_total) * 100, 1)
+            if member_total else 0
         )
-
-        member_total = member_attendance.count()
-        if member_total > 0:
-            member_present = member_attendance.filter(status='present').count()
-            member_late = member_attendance.filter(status='late').count()
-            member_absent = member_attendance.filter(status='absent').count()
-            member_excused = member_attendance.filter(status='excused').count()
-            member_rate = round(((member_present + member_late) / member_total) * 100, 1)
-        else:
-            member_present = 0
-            member_late = 0
-            member_absent = 0
-            member_excused = 0
-            member_rate = 0
 
         member_stats.append({
             'member': member,

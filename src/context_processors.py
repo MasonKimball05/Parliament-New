@@ -4,6 +4,32 @@ Context processors to make data available to all templates
 from src.models_feature_flags import FeatureFlag, PageToggle
 
 
+def get_user_prefs(user):
+    """
+    This user's UserPreferences, through the shared 5-minute cache.
+
+    v3.17.3: extracted from the context processor below so views can read
+    preferences without paying for them twice. `request.user.preferences` is a
+    reverse one-to-one dereference — a fresh query every time — and the home
+    view used it to pick its layout while the context processor was loading the
+    same row for the template a moment later. Same defect the base.html nav had
+    (v3.17.2, 25 dereferences), on the Python side.
+
+    Whichever of the view or the context processor runs first pays; the other
+    is free. Cache is invalidated by the preferences save view and by
+    `set_dev_mode`, both of which delete this exact key.
+    """
+    from django.core.cache import cache
+    from src.models import UserPreferences
+
+    cache_key = f'user_prefs_{user.pk}'
+    preferences = cache.get(cache_key)
+    if preferences is None:
+        preferences, _created = UserPreferences.objects.get_or_create(user=user)
+        cache.set(cache_key, preferences, 300)
+    return preferences
+
+
 def user_preferences(request):
     """
     Ensures user preferences exist and are available in all templates.
@@ -16,15 +42,7 @@ def user_preferences(request):
     if not request.user.is_authenticated:
         return {'user_prefs': None}
 
-    from django.core.cache import cache
-    from src.models import UserPreferences
-
-    cache_key = f'user_prefs_{request.user.pk}'
-    preferences = cache.get(cache_key)
-    if preferences is None:
-        preferences, created = UserPreferences.objects.get_or_create(user=request.user)
-        cache.set(cache_key, preferences, 300)
-    return {'user_prefs': preferences}
+    return {'user_prefs': get_user_prefs(request.user)}
 
 
 def notifications(request):

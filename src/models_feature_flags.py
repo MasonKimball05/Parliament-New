@@ -62,10 +62,11 @@ class FeatureFlag(models.Model):
         # v3.17.1: cached. This is called from @require_feature_flag on a large
         # fraction of views and repeatedly within a single view — the admin-v2
         # dashboard alone asked for 'push_notifications_enabled' five times per
-        # page load, five identical uncached `objects.get`s. Invalidated on
-        # save() and delete(), so a toggle in the admin takes effect at once;
-        # the TTL is only a backstop for writes that bypass the model (raw SQL,
-        # a restored dump).
+        # page load, five identical uncached `objects.get`s. v3.17.3: invalidated
+        # by post_save/post_delete (see the bottom of this module), so a toggle
+        # OR a bulk delete in the admin takes effect at once; the TTL is only a
+        # backstop for writes no signal sees (raw SQL, `queryset.update()`, a
+        # restored dump).
         cache_key = cls._cache_key(feature_name)
         cached = cache.get(cache_key)
         if cached is not None:
@@ -96,8 +97,9 @@ class FeatureFlag(models.Model):
     @classmethod
     def invalidate_cache(cls, feature_name=None):
         """
-        Drop cached lookups. Called from save()/delete(); also useful from tests
-        and from any management command that writes flags outside the ORM.
+        Drop cached lookups. Called from the post_save/post_delete receivers at
+        the bottom of this module; also useful from tests and from any
+        management command that writes flags outside the ORM.
         """
         from django.core.cache import cache
         if feature_name is not None:
@@ -105,24 +107,12 @@ class FeatureFlag(models.Model):
             return
         cache.delete_many([cls._cache_key(n) for n in cls.objects.values_list('name', flat=True)])
 
-    def save(self, *args, **kwargs):
-        result = super().save(*args, **kwargs)
-        # Also clear the template-facing dict built by the feature_flags context
-        # processor — otherwise a toggle shows up in Python immediately and in
-        # templates up to 60s later, which is exactly the sort of split-brain
-        # this codebase has been bitten by before.
-        from django.core.cache import cache
-        type(self).invalidate_cache(self.name)
-        cache.delete('context_feature_flags')
-        return result
-
-    def delete(self, *args, **kwargs):
-        from django.core.cache import cache
-        name = self.name
-        result = super().delete(*args, **kwargs)
-        type(self).invalidate_cache(name)
-        cache.delete('context_feature_flags')
-        return result
+    # v3.17.3: invalidation moved from save()/delete() overrides to post_save /
+    # post_delete signals at the bottom of this module. See the note there —
+    # `queryset.delete()`, which is what the Django admin's "Delete selected"
+    # action calls, never invokes Model.delete(), so a flag deleted from the
+    # changelist kept answering from cache on every worker until the TTL
+    # expired. Signals fire for both paths.
 
 
 class PageToggle(models.Model):
@@ -180,8 +170,8 @@ class PageToggle(models.Model):
 
         v3.17.2: cached, for the same reason FeatureFlag.is_feature_enabled is.
         `@require_page_enabled` decorates a large number of views, so this was an
-        uncached `objects.get` on essentially every page load. Invalidated on
-        save()/delete().
+        uncached `objects.get` on essentially every page load. v3.17.3:
+        invalidated by post_save/post_delete — see the bottom of this module.
         """
         from django.core.cache import cache
 
@@ -200,20 +190,8 @@ class PageToggle(models.Model):
         cache.set(cache_key, {'result': result}, cls.CACHE_TTL)
         return result
 
-    def save(self, *args, **kwargs):
-        result = super().save(*args, **kwargs)
-        from django.core.cache import cache
-        type(self).invalidate_cache(self.url_name)
-        cache.delete('context_feature_flags')
-        return result
-
-    def delete(self, *args, **kwargs):
-        from django.core.cache import cache
-        url_name = self.url_name
-        result = super().delete(*args, **kwargs)
-        type(self).invalidate_cache(url_name)
-        cache.delete('context_feature_flags')
-        return result
+    # v3.17.3: invalidation moved to post_save / post_delete signals — see the
+    # note at the bottom of this module.
 
 
 class SiteSetting(models.Model):
@@ -528,3 +506,54 @@ This is an automated message from Parliament.
         # Update record
         self.completed_at = timezone.now()
         self.save()
+
+
+# ---------------------------------------------------------------------------
+# Cache invalidation
+# ---------------------------------------------------------------------------
+#
+# v3.17.3. `FeatureFlag.is_feature_enabled` and `PageToggle.is_page_enabled`
+# are cached (v3.17.1 / v3.17.2) and correctness comes from invalidating on
+# write, not from the 300 s TTL. Until now that invalidation lived in `save()`
+# and `delete()` overrides on each model — which covers the ORM's per-object
+# path and misses the bulk one:
+#
+#     FeatureFlag.objects.filter(...).delete()   # never calls Model.delete()
+#
+# and that bulk path is exactly what the Django admin's "Delete selected"
+# action uses. So deleting a flag from the changelist left every worker
+# answering from a cache entry for a row that no longer existed, for up to five
+# minutes, with no way to tell from the admin that anything was stale. Given
+# this codebase's history with flags failing open in Python and closed in
+# templates (07-25-26), a five-minute window where a *deleted* flag still gates
+# is worth closing properly.
+#
+# post_save / post_delete fire for both paths, so the signals below are a
+# superset of what the overrides did. `invalidate_cache()` remains a public
+# classmethod for the cases signals still cannot see — raw SQL, a restored
+# dump, `queryset.update()` — where the TTL is the only other backstop.
+#
+# `context_feature_flags` is the template-facing dict built by the
+# feature_flags context processor; it has to be dropped alongside the
+# per-flag entries or Python and templates disagree for the length of its TTL.
+from django.db.models.signals import post_delete, post_save
+from django.dispatch import receiver
+
+
+def _drop_context_dict():
+    from django.core.cache import cache
+    cache.delete('context_feature_flags')
+
+
+@receiver(post_save, sender=FeatureFlag)
+@receiver(post_delete, sender=FeatureFlag)
+def _invalidate_feature_flag_cache(sender, instance, **kwargs):
+    FeatureFlag.invalidate_cache(instance.name)
+    _drop_context_dict()
+
+
+@receiver(post_save, sender=PageToggle)
+@receiver(post_delete, sender=PageToggle)
+def _invalidate_page_toggle_cache(sender, instance, **kwargs):
+    PageToggle.invalidate_cache(instance.url_name)
+    _drop_context_dict()

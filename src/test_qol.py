@@ -88,5 +88,20 @@ class ProfileRecentLoginsTests(TestCase):
         self.assertNotContains(resp, '203.0.113.7')  # IP never rendered
 
     def test_empty_history_has_friendly_state(self):
+        # v3.17.3: this asserted an empty state that its own setUp made
+        # unreachable. `force_login` sends `user_logged_in`, so
+        # `signals.track_login` records a successful LoginHistory row before
+        # the request is ever made — `recent_logins` was never empty and the
+        # {% else %} branch never rendered. The template and the view were both
+        # correct; only the test's premise was wrong.
+        LoginHistory.objects.filter(user=self.user).delete()
         resp = self.client.get(reverse('profile'))
         self.assertContains(resp, 'No login history recorded yet')
+
+    def test_login_is_recorded_for_the_card(self):
+        """
+        The other half of the same fact, asserted deliberately rather than
+        relied on by accident: logging in produces the row the card shows.
+        """
+        self.assertTrue(
+            LoginHistory.objects.filter(user=self.user, status='success').exists())

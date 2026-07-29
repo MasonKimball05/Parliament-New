@@ -42,6 +42,7 @@ from src.logging_utils import get_client_ip
 from src.middleware.performance import get_performance_summary, get_slow_requests
 from src.notifications import send_announcement_notification
 from src.notification_service import notify_all_active_members
+from src.models.users import member_defer
 
 
 _raw_allowed_ids = os.environ.get('ADMIN_V2_USER_IDS', os.environ.get('ADMIN_V2_USER_ID', ''))
@@ -589,10 +590,10 @@ def admin_v2_dashboard(request):
     }
 
     # Recent activity logs (last 30)
-    recent_logs = ActivityLog.objects.select_related('user').order_by('-timestamp')[:30]
+    recent_logs = ActivityLog.objects.select_related('user').defer(*member_defer('user')).order_by('-timestamp')[:30]
 
     # Recent logins (last 20)
-    recent_logins = LoginHistory.objects.select_related('user').order_by('-timestamp')[:20]
+    recent_logins = LoginHistory.objects.select_related('user').defer(*member_defer('user')).order_by('-timestamp')[:20]
 
     # Recent users (last 10 created)
     recent_users = ParliamentUser.objects.order_by('-date_joined')[:10] if hasattr(ParliamentUser, 'date_joined') else []
@@ -799,7 +800,7 @@ def push_subscriptions_list(request):
     """
     List all push subscriptions grouped by user, with individual delete.
     """
-    subscriptions = PushSubscription.objects.select_related('user').order_by('user__name', '-created_at')
+    subscriptions = PushSubscription.objects.select_related('user').defer(*member_defer('user')).order_by('user__name', '-created_at')
     return render(request, 'admin_v2/push_subscriptions.html', {'subscriptions': subscriptions})
 
 
@@ -987,7 +988,7 @@ def manage_legislation(request):
     search_query = request.GET.get('search', '')
 
     # Build query
-    legislation_list = Legislation.objects.select_related('posted_by').order_by('-created_at')
+    legislation_list = Legislation.objects.select_related('posted_by').defer(*member_defer('posted_by')).order_by('-created_at')
 
     if status_filter:
         legislation_list = legislation_list.filter(status=status_filter)
@@ -1284,7 +1285,7 @@ def manage_login_history(request):
     user_search = request.GET.get('user', '')
 
     # Build query
-    logins_list = LoginHistory.objects.select_related('user').order_by('-timestamp')
+    logins_list = LoginHistory.objects.select_related('user').defer(*member_defer('user')).order_by('-timestamp')
 
     if suspicious_filter == 'yes':
         logins_list = logins_list.filter(is_suspicious=True)
@@ -1323,7 +1324,7 @@ def manage_announcements(request):
     active_filter = request.GET.get('active', '')
 
     # Build query
-    announcements_list = Announcement.objects.select_related('posted_by').order_by('-posted_at')
+    announcements_list = Announcement.objects.select_related('posted_by').defer(*member_defer('posted_by')).order_by('-posted_at')
 
     if active_filter == 'yes':
         announcements_list = announcements_list.filter(is_active=True)
@@ -2015,7 +2016,9 @@ def manage_security_alerts(request):
     status_filter = request.GET.get('status', '')
     severity_filter = request.GET.get('severity', '')
 
-    alerts = LoginAlert.objects.select_related('user', 'login_history').order_by('-created_at')
+    # v3.17.3: `login_history` was joined and never read — security_alerts.html
+    # renders the alert and the member, not the LoginHistory row.
+    alerts = LoginAlert.objects.select_related('user').defer(*member_defer('user')).order_by('-created_at')
 
     if status_filter:
         alerts = alerts.filter(status=status_filter)
@@ -2434,14 +2437,14 @@ def email_logs(request):
     # Get sent email logs
     logs = AnnouncementEmailLog.objects.select_related(
         'announcement', 'initiated_by'
-    ).prefetch_related('recipients').order_by('-created_at')[:50]
+    ).defer(*member_defer('initiated_by')).prefetch_related('recipients').order_by('-created_at')[:50]
 
     # Get pending scheduled announcements (haven't sent emails yet)
     pending_announcements = Announcement.objects.filter(
         send_email_on_publish=True,
         email_sent_at__isnull=True,
         is_active=True,
-    ).select_related('posted_by').order_by('-posted_at')
+    ).select_related('posted_by').defer(*member_defer('posted_by')).order_by('-posted_at')
 
     context = {
         'logs': logs,
@@ -2579,7 +2582,7 @@ def security_dashboard(request):
         released_at__isnull=True,
     ).filter(
         Q(expires_at__isnull=True) | Q(expires_at__gt=now)
-    ).select_related('user', 'quarantined_by')
+    ).select_related('user', 'quarantined_by').defer(*member_defer('user', 'quarantined_by'))
 
     # Honeypot
     recent_honeypot = HoneypotAccess.objects.order_by('-accessed_at')[:15]
@@ -2603,7 +2606,7 @@ def security_dashboard(request):
     active_lockouts = active_lockouts_qs.order_by('-locked_at')[:10]
 
     # Security alerts (LoginAlert)
-    new_alerts = LoginAlert.objects.filter(status='new').select_related('user').order_by('-created_at')[:8]
+    new_alerts = LoginAlert.objects.filter(status='new').select_related('user').defer(*member_defer('user')).order_by('-created_at')[:8]
     new_alerts_count = LoginAlert.objects.filter(status='new').count()
     critical_alerts_count = LoginAlert.objects.filter(
         status='new', severity__in=['critical', 'high']
@@ -2715,11 +2718,11 @@ def quarantine_management(request):
         released_at__isnull=True,
     ).filter(
         Q(expires_at__isnull=True) | Q(expires_at__gt=_now)
-    ).select_related('user', 'quarantined_by')
+    ).select_related('user', 'quarantined_by').defer(*member_defer('user', 'quarantined_by'))
 
     released_quarantines = QuarantinedAccount.objects.filter(
         released_at__isnull=False
-    ).select_related('user', 'quarantined_by', 'released_by').order_by('-released_at')[:50]
+    ).select_related('user', 'quarantined_by', 'released_by').defer(*member_defer('user', 'quarantined_by', 'released_by')).order_by('-released_at')[:50]
 
     # Get list of users that can be quarantined. All member statuses are
     # selectable (was is_active=True only — you couldn't quarantine an
@@ -3151,7 +3154,7 @@ def audit_log(request):
     from src.models import AdminActionLog
     from django.core.paginator import Paginator
 
-    qs = AdminActionLog.objects.select_related('actor', 'target_user').order_by('-timestamp')
+    qs = AdminActionLog.objects.select_related('actor', 'target_user').defer(*member_defer('actor', 'target_user')).order_by('-timestamp')
 
     # Filters
     action_filter = request.GET.get('action', '').strip()
@@ -3370,7 +3373,7 @@ def page_visits_dashboard(request):
         rows = (
             PageVisit.objects
             .filter(path=drill_path)
-            .select_related('user')
+            .select_related('user').defer(*member_defer('user'))
             .order_by('-count')
         )
         if user_filter:
@@ -3472,7 +3475,7 @@ def event_reminder_log_detail(request, log_id):
     Detail view for a single EventReminderLog — shows per-user recipient breakdown.
     """
     log = get_object_or_404(EventReminderLog, id=log_id)
-    recipients = log.recipients.select_related('user').order_by('status', 'user_name')
+    recipients = log.recipients.select_related('user').defer(*member_defer('user')).order_by('status', 'user_name')
 
     dispatched = recipients.filter(status='dispatched')
     skipped = recipients.exclude(status='dispatched')

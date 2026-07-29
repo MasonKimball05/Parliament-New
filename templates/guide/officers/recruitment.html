@@ -49,22 +49,27 @@
 
     <div class="space-y-8">
 
-        <!-- Quick Actions -->
-        <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
-            <h3 class="text-sm font-semibold text-orange-800 dark:text-orange-200 mb-2">Quick Actions</h3>
-            <div class="flex flex-wrap gap-2">
-                <a href="{% url 'recruitment_dashboard' %}" class="inline-flex items-center px-3 py-1.5 bg-orange-600 text-white text-sm rounded-md hover:bg-orange-700 transition-colors">
-                    Recruitment Dashboard
-                </a>
-                {% comment %}
-                v3.16.3: a "Manage Sign-Ups" button linked to a route named manage_signups,
-                which does not exist and raised NoReverseMatch — this guide page has been a
-                hard 500 since the button was added. Sign-ups are per-event
-                (event_signup_list takes an event_id), so there is no chapter-wide page to
-                link here. Button removed rather than pointed somewhere arbitrary.
-                {% endcomment %}
-            </div>
-        </div>
+        {% comment %}
+        v3.16.3 removed a "Manage Sign-Ups" button here whose route name
+        (manage_signups) does not exist. v3.17.3 removes the whole Quick Actions
+        block, because the one remaining button had the same defect in a form
+        v3.16.3's TemplateUrlNameTests could not see:
+
+            {% url 'recruitment_dashboard' %}
+
+        The NAME exists, so the name scan passed — but the route is
+        committee/<code>/recruitment/ and takes a `code` argument, so reversing
+        it with none raises NoReverseMatch and this guide page has been a hard
+        500 the entire time. Its own docstring predicted this exact miss
+        ("knowingly does not check arguments"); a smoke test that GETs every
+        zero-argument URL found it on the first run (07-29-26).
+
+        Removed rather than repointed, following the precedent set for the
+        identically committee-scoped education_home on the education guide: this
+        page has no committee in context, so there is nothing correct to pass.
+        If a chapter-wide recruitment entry point is wanted here, add the route
+        first — that is a feature decision, not a bug fix.
+        {% endcomment %}
 
         <!-- Section 1: Overview -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">

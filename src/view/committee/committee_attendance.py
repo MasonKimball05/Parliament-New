@@ -9,6 +9,7 @@ from django.db.models import Q
 
 from src.models import Committee, Attendance, ParliamentUser, ActivityLog, CommitteePermissions
 from src.decorators import officer_required
+from src.models.users import member_defer
 
 
 @login_required
@@ -38,7 +39,7 @@ def committee_attendance(request, code):
             committee=committee,
             attendance_type='committee',
             date=today
-        ).select_related('user')
+        ).select_related('user').defer(*member_defer('user'))
     }
 
     if request.method == 'POST':
@@ -130,7 +131,7 @@ def committee_attendance_history(request, code):
     attendance_records = Attendance.objects.filter(
         committee=committee,
         attendance_type='committee'
-    ).select_related('user', 'marked_by').order_by('-date', 'user__name')
+    ).select_related('user', 'marked_by').defer(*member_defer('user', 'marked_by')).order_by('-date', 'user__name')
 
     # Group by date
     attendance_by_date = {}

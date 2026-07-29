@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from src.models import Event, Attendance, ParliamentUser, AttendanceExcuse, ActivityLog
 from src.decorators import officer_required
 from src.feature_flag_decorators import require_feature_flag
+from src.models.users import member_defer
 
 
 @login_required
@@ -59,19 +60,19 @@ def mark_event_attendance(request, event_id):
     # Get existing attendance records (only event attendance)
     existing_attendance = {
         att.user_id: att
-        for att in Attendance.objects.filter(event=event, attendance_type='event').select_related('user')
+        for att in Attendance.objects.filter(event=event, attendance_type='event').select_related('user').defer(*member_defer('user'))
     }
 
     # Get all excuse requests for this event
     all_excuses = {
         exc.user_id: exc
-        for exc in AttendanceExcuse.objects.filter(event=event).select_related('user')
+        for exc in AttendanceExcuse.objects.filter(event=event).select_related('user').defer(*member_defer('user'))
     }
 
     # Get approved excuses for this event
     approved_excuses = {
         exc.user_id: exc
-        for exc in AttendanceExcuse.objects.filter(event=event, status='approved').select_related('user')
+        for exc in AttendanceExcuse.objects.filter(event=event, status='approved').select_related('user').defer(*member_defer('user'))
     }
 
     if request.method == 'POST' and not is_read_only:
@@ -301,7 +302,7 @@ def review_excuses(request, event_id=None):
         # Get excuses for this event
         event_excuses = AttendanceExcuse.objects.filter(
             event=event
-        ).select_related('user', 'reviewed_by').order_by('-submitted_at')
+        ).select_related('user', 'reviewed_by').defer(*member_defer('user', 'reviewed_by')).order_by('-submitted_at')
 
         # Apply status filter
         if status_filter and status_filter != 'all':

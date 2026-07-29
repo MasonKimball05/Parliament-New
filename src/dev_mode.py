@@ -170,13 +170,23 @@ class DevRecorder:
     def record_template(self, name, context_keys):
         self.templates.append({'name': name, 'keys': context_keys})
 
-    def record_query(self, sql, params, ms, rows, stack):
+    def record_query(self, sql, params, ms, rows, stack, template=None,
+                     raw_params=None):
         self.queries.append({
             'sql': sql,
             'params': params,
+            # The real parameter values, kept only so the row inspector can
+            # re-run the statement (src/dev_mode_rows.py). Never rendered —
+            # the panel shows the truncated `params` repr above.
+            'raw_params': raw_params,
             'ms': ms,
             'rows': rows,
             'stack': stack,
+            # v3.17.3: the template frames rendering when this query fired.
+            # Empty for queries the view issued itself — which is exactly the
+            # distinction you want, because a query with template frames is by
+            # definition a lazy load the view failed to prefetch.
+            'template': template or [],
             'tables': extract_tables(sql),
         })
 
@@ -197,6 +207,94 @@ class DevRecorder:
 def get_recorder():
     """The active recorder, or None when dev mode is off. Never raises."""
     return _recorder.get()
+
+
+# --------------------------------------------------------------------------
+# Template attribution
+# --------------------------------------------------------------------------
+#
+# THE PROBLEM THIS SOLVES (v3.17.3)
+# ---------------------------------
+# A query fired lazily during template rendering had a useless stack. Django's
+# own frames are stripped (rightly — "came from QuerySet._fetch_all" is never
+# the answer), which for a template-triggered query leaves exactly one project
+# frame: the view's `return render(...)` line. So the panel would show six
+# identical member fetches, all attributed to `home.py:280`, and the actual
+# cause — `{{ announcement.posted_by.get_display_name }}` on line 317 of
+# home_modern.html — was nowhere on screen. You could tell there was an N+1 and
+# not which template expression caused it, which is most of the work.
+#
+# HOW
+# ---
+# `Node.render_annotated` is the one method every template node passes through:
+# `NodeList.render` calls it for each child, and unlike `render` it is never
+# overridden by node subclasses. Wrapping it lets us keep a stack of
+# (template, line, source text) for whatever is rendering right now, and stamp
+# each query with the innermost few frames.
+#
+# Every node carries `origin.template_name` and `token.lineno`, and
+# `token.contents` is the literal source — `announcement.posted_by.get_display_name`
+# — so the panel can name the exact expression rather than just a line number.
+#
+# COST
+# ----
+# One ContextVar read per node when dev mode is off, which is why the guard is
+# the first thing in the wrapper. When it is on, a push/pop per non-text node —
+# a few hundred per page, against a request that is already doing real work.
+_template_stack: ContextVar = ContextVar('parliament_dev_template_stack', default=None)
+
+#: How many enclosing template frames to record per query. The innermost is
+#: almost always the answer; the ones above it tell you which include or block
+#: it sits in, which is what you need when the culprit is in a component.
+MAX_TEMPLATE_FRAMES = 4
+
+
+def install_template_node_instrumentation():
+    """Patch Node.render_annotated once. No-op when already wrapped."""
+    from django.template.base import Node
+
+    if getattr(Node.render_annotated, '_parliament_dev_wrapped', False):
+        return
+
+    original = Node.render_annotated
+
+    def render_annotated(self, context):
+        stack = _template_stack.get()
+        if stack is None:                      # dev mode off — straight through
+            return original(self, context)
+
+        token = getattr(self, 'token', None)
+        if token is None:                      # TextNode and friends: no source
+            return original(self, context)
+
+        stack.append((
+            getattr(getattr(self, 'origin', None), 'template_name', None) or '(inline)',
+            getattr(token, 'lineno', None),
+            (getattr(token, 'contents', '') or '').strip()[:120],
+        ))
+        try:
+            return original(self, context)
+        finally:
+            stack.pop()
+
+    render_annotated._parliament_dev_wrapped = True
+    Node.render_annotated = render_annotated
+
+
+def current_template_frames():
+    """
+    The innermost few template frames, outermost first, as display dicts.
+
+    Empty when nothing is rendering — which is the honest answer for a query
+    the view issued itself, and is how the panel tells the two apart.
+    """
+    stack = _template_stack.get()
+    if not stack:
+        return []
+    return [
+        {'template': name, 'line': lineno, 'source': source}
+        for name, lineno, source in stack[-MAX_TEMPLATE_FRAMES:]
+    ]
 
 
 def install_template_instrumentation():
@@ -236,11 +334,15 @@ def install_template_instrumentation():
 def start_recording():
     recorder = DevRecorder()
     _recorder.set(recorder)
+    # A live list is also the "dev mode is on" signal for the node wrapper, so
+    # it has to be set here and cleared in stop_recording().
+    _template_stack.set([])
     return recorder
 
 
 def stop_recording():
     _recorder.set(None)
+    _template_stack.set(None)
 
 
 # -- convenience wrappers used by instrumented code -------------------------
@@ -363,7 +465,9 @@ def find_duplicate_queries(queries):
     for query in queries:
         key = normalize_sql(query['sql'])
         entry = groups.setdefault(
-            key, {'count': 0, 'ms': 0.0, 'sample': query['sql'], 'stacks': []}
+            key,
+            {'count': 0, 'ms': 0.0, 'sample': query['sql'], 'stacks': [],
+             'templates': []},
         )
         entry['count'] += 1
         entry['ms'] += query['ms']
@@ -373,8 +477,27 @@ def find_duplicate_queries(queries):
             if caller not in [s['where'] for s in entry['stacks']]:
                 entry['stacks'].append(origin[-1])
 
+        # v3.17.3: the template expression that fired it, if any. For a lazy
+        # load this is the whole answer, and the Python stack is not — every
+        # query in the group will share the view's `render()` line, so grouping
+        # by Python caller alone made six member fetches look like one
+        # unexplained blob.
+        frames = query.get('template') or []
+        if frames:
+            innermost = frames[-1]
+            label = f"{innermost['template']}:{innermost['line']}"
+            if label not in [t['where'] for t in entry['templates']]:
+                entry['templates'].append({
+                    'where': label,
+                    'source': innermost['source'],
+                    'via': ' → '.join(
+                        f"{f['template']}:{f['line']}" for f in frames[:-1]
+                    ),
+                })
+
     duplicates = [
-        (key, entry['count'], round(entry['ms'], 1), entry['sample'], entry['stacks'])
+        (key, entry['count'], round(entry['ms'], 1), entry['sample'],
+         entry['stacks'], entry['templates'])
         for key, entry in groups.items()
         if entry['count'] >= N_PLUS_ONE_THRESHOLD
     ]

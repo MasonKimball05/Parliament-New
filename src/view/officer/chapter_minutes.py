@@ -23,6 +23,7 @@ from src.models import (
     CommitteeDocument, ActivityLog
 )
 from src.decorators import officer_required
+from src.models.users import member_defer
 
 
 @login_required
@@ -189,7 +190,7 @@ def edit_chapter_minutes(request, minutes_id):
         # Get all excuse requests for this event
         excuses = AttendanceExcuse.objects.filter(
             event=minutes.event
-        ).select_related('user')
+        ).select_related('user').defer(*member_defer('user'))
         for excuse in excuses:
             excuse_map[str(excuse.user.user_id)] = {
                 'status': excuse.status,
@@ -200,7 +201,7 @@ def edit_chapter_minutes(request, minutes_id):
         event_records = Attendance.objects.filter(
             event=minutes.event,
             attendance_type='event',
-        ).select_related('user')
+        ).select_related('user').defer(*member_defer('user'))
         for record in event_records:
             event_attendance_map[str(record.user.user_id)] = record.status
 
@@ -396,7 +397,7 @@ def save_minutes_attendance(request, minutes_id):
         # Linked to an event — write event-type attendance records
         # Build a map of pending/approved excuses for this event
         excuses_by_user = {}
-        for excuse in AttendanceExcuse.objects.filter(event=minutes.event).select_related('user'):
+        for excuse in AttendanceExcuse.objects.filter(event=minutes.event).select_related('user').defer(*member_defer('user')):
             excuses_by_user[str(excuse.user.user_id)] = excuse
 
         for entry in attendance_list:

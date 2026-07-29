@@ -16,6 +16,7 @@ from src.models import (
 )
 from .permissions import slating_chair_required, can_view_applications
 from src.decorators import pledge_page_allowed
+from src.models.users import member_defer
 
 
 @login_required
@@ -49,7 +50,7 @@ def view_results(request, period_id):
     # Get candidates
     candidates = slate.candidates.select_related(
         'position', 'application__applicant', 'write_in_member'
-    ).order_by('display_order')
+    ).defer(*member_defer('application__applicant', 'write_in_member')).order_by('display_order')
 
     # Calculate final results
     total_ballots = SlatingBallot.objects.filter(
@@ -234,7 +235,7 @@ def _save_results_to_documents(period, uploaded_by):
     # Get candidates
     candidates = slate.candidates.select_related(
         'position', 'application__applicant', 'write_in_member'
-    ).order_by('display_order')
+    ).defer(*member_defer('application__applicant', 'write_in_member')).order_by('display_order')
 
     # Calculate results
     slate_votes = SlatingVote.objects.filter(

@@ -5,6 +5,7 @@ from django.conf import settings
 from django.db.models import Q
 from src.models import Committee, CommitteePermissions, ParliamentUser, KaiReport, SlatingPeriod
 from src.constants import MemberType, MemberStatus
+from src.models.users import member_defer
 
 @login_required
 def committee_detail(request, code):
@@ -100,7 +101,7 @@ def committee_detail(request, code):
             try:
                 kai_reports = list(KaiReport.objects.filter(
                     status__in=['pending', 'reviewed']
-                ).select_related('submitted_by', 'reviewed_by', 'targeted_to').order_by('-submitted_at')[:10])
+                ).select_related('submitted_by', 'targeted_to').defer(*member_defer('submitted_by', 'targeted_to')).order_by('-submitted_at')[:10])  # v3.17.3: reviewed_by dropped — detail.html never renders it
             except Exception:
                 # Fallback for test database without select_related
                 kai_reports = list(KaiReport.objects.filter(

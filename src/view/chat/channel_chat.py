@@ -6,6 +6,7 @@ from django.utils import timezone
 from src.models import ChatChannel, ChatMessage, ChatReadReceipt, Committee
 from src.models_feature_flags import SiteSetting, FeatureFlag
 from src.feature_flag_decorators import require_feature_flag
+from src.models.users import member_defer
 
 
 def _ws_broadcast(group_name, payload):
@@ -75,7 +76,7 @@ def _dispatch_chat_push(channel, message, mentioned_pks=None):
             ChatReadReceipt.objects
             .filter(channel=channel)
             .exclude(user_id__in=active_ids)
-            .select_related('user__preferences')
+            .select_related('user__preferences').defer(*member_defer('user'))
         )
 
         # Load per-channel prefs for all candidate recipients in one query
@@ -144,7 +145,7 @@ def channel_chat(request, channel_id=None, code=None):
     messages_qs = ChatMessage.objects.filter(
         channel=channel,
         is_deleted=False
-    ).select_related('sender').order_by('-created_at')
+    ).select_related('sender').defer(*member_defer('sender')).order_by('-created_at')
 
     messages_batch = list(messages_qs[:50])
     has_more_messages = len(messages_batch) == 50
@@ -267,21 +268,21 @@ def get_channel_messages(request, channel_id=None, code=None):
             channel=channel,
             created_at__gt=since_dt,
             is_deleted=False
-        ).select_related('sender').order_by('created_at')
+        ).select_related('sender').defer(*member_defer('sender')).order_by('created_at')
     elif before:
         # Load more: get messages before this timestamp (older history)
         messages_qs = ChatMessage.objects.filter(
             channel=channel,
             created_at__lt=before,
             is_deleted=False
-        ).select_related('sender').order_by('-created_at')[:50]
+        ).select_related('sender').defer(*member_defer('sender')).order_by('-created_at')[:50]
         messages = list(reversed(list(messages_qs)))
     else:
         # Initial load fallback
         messages_qs = ChatMessage.objects.filter(
             channel=channel,
             is_deleted=False
-        ).select_related('sender').order_by('-created_at')[:50]
+        ).select_related('sender').defer(*member_defer('sender')).order_by('-created_at')[:50]
         messages = list(reversed(list(messages_qs)))
 
     # Update read receipt (marks user as active + invalidates nav badge cache)
@@ -562,7 +563,7 @@ def get_channel_active_users(request, channel_id=None, code=None):
     active_receipts = ChatReadReceipt.objects.filter(
         channel=channel,
         last_read_at__gte=cutoff_time
-    ).select_related('user').order_by('user__name')
+    ).select_related('user').defer(*member_defer('user')).order_by('user__name')
 
     active_users = [{
         'user_id': receipt.user.user_id,

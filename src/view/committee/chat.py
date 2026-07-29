@@ -8,6 +8,7 @@ from django.views.decorators.http import require_http_methods
 from src.models import Committee, ChatMessage, ChatReadReceipt, ChatChannel
 from django.utils import timezone
 from src.feature_flag_decorators import require_feature_flag
+from src.models.users import member_defer
 
 
 @login_required
@@ -61,13 +62,13 @@ def get_chat_messages(request, code):
             channel=channel,
             created_at__gt=since,
             is_deleted=False
-        ).select_related('sender').order_by('created_at')
+        ).select_related('sender').defer(*member_defer('sender')).order_by('created_at')
     else:
         # Return last 50 messages if no timestamp provided
         messages = ChatMessage.objects.filter(
             channel=channel,
             is_deleted=False
-        ).select_related('sender').order_by('-created_at')[:50]
+        ).select_related('sender').defer(*member_defer('sender')).order_by('-created_at')[:50]
         messages = reversed(messages)
 
     data = [{
@@ -181,7 +182,7 @@ def get_active_users(request, code):
     active_receipts = ChatReadReceipt.objects.filter(
         channel=channel,
         last_read_at__gte=cutoff_time
-    ).select_related('user').order_by('user__name')
+    ).select_related('user').defer(*member_defer('user')).order_by('user__name')
 
     active_users = [{
         'user_id': receipt.user.user_id,

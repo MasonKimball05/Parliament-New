@@ -29,6 +29,7 @@ from src.models import (
 )
 from src.decorators import officer_required
 from src.utils.semester import transition_semesters
+from src.models.users import member_defer
 
 logger = logging.getLogger(__name__)
 
@@ -294,7 +295,7 @@ def transition_checklist(request, role_history_id):
     member works this list while ramping up, possibly before member_type flips.
     """
     role_history = get_object_or_404(
-        RoleHistory.objects.select_related('user'), id=role_history_id,
+        RoleHistory.objects.select_related('user').defer(*member_defer('user')), id=role_history_id,
     )
     if not _can_access_checklist(request.user, role_history):
         # Full-page view — render the styled 403 (same pattern as
@@ -308,7 +309,7 @@ def transition_checklist(request, role_history_id):
     statuses = list(
         TransitionChecklistStatus.objects
         .filter(role_history=role_history)
-        .select_related('item', 'completed_by')
+        .select_related('item', 'completed_by').defer(*member_defer('completed_by'))
         .order_by('item__order', 'item__id')
     )
     completed = sum(1 for s in statuses if s.completed_at is not None)

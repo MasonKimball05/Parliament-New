@@ -16,6 +16,7 @@ from src.forms import KaiReportForm
 from src.decorators import log_function_call
 from src.feature_flag_decorators import require_feature_flag
 from src.utils.file_validation import validate_uploaded_file
+from src.models.users import member_defer
 
 logger = logging.getLogger('src')
 
@@ -372,7 +373,7 @@ def view_kai_reports(request):
 
         # select_related directly — the test-DB schema-probe fallback is gone
         # (migrations consolidated + tracked since 07-05-26). (v3.15.6)
-        reports = list(reports.select_related('submitted_by', 'reviewed_by', 'targeted_to').order_by('-submitted_at'))
+        reports = list(reports.select_related('submitted_by', 'reviewed_by', 'targeted_to').defer(*member_defer('submitted_by', 'reviewed_by', 'targeted_to')).order_by('-submitted_at'))
 
         # Status counts — v3.16.3: one aggregate instead of four separate
         # .count() round trips, matching the category pattern directly below.
@@ -474,7 +475,7 @@ def view_kai_reports(request):
         }
 
         recent_activities = list(
-            KaiReportActivity.objects.select_related('report', 'user').order_by('-timestamp')[:8]
+            KaiReportActivity.objects.select_related('report', 'user').defer(*member_defer('user')).order_by('-timestamp')[:8]
         )
     except Exception:
         category_data = {}
@@ -575,7 +576,7 @@ def export_kai_reports_csv(request):
                 pass
 
         # select_related directly — test-DB fallback removed (v3.15.6)
-        reports = list(reports.select_related('submitted_by', 'reviewed_by', 'targeted_to').order_by('-submitted_at'))
+        reports = list(reports.select_related('submitted_by', 'reviewed_by', 'targeted_to').defer(*member_defer('submitted_by', 'reviewed_by', 'targeted_to')).order_by('-submitted_at'))
 
         # Create CSV response
         response = HttpResponse(content_type='text/csv')
@@ -1464,19 +1465,19 @@ You may submit another closure request in the future if circumstances change.
 
     # Get activity log
     try:
-        activity_log = list(report.activity_log.all().select_related('user')[:20])  # Last 20 activities
+        activity_log = list(report.activity_log.all().select_related('user').defer(*member_defer('user'))[:20])  # Last 20 activities
     except Exception:
         activity_log = []
 
     # Get related reports
     try:
-        related_reports = list(report.related_reports.all().select_related('submitted_by', 'targeted_to'))
+        related_reports = list(report.related_reports.all().select_related('submitted_by', 'targeted_to').defer(*member_defer('submitted_by', 'targeted_to')))
     except Exception:
         related_reports = []
 
     # Get available reports to link (excluding current report and already linked ones)
     try:
-        available_reports = KaiReport.objects.exclude(id=report.id).exclude(id__in=[r.id for r in related_reports]).select_related('submitted_by', 'targeted_to').order_by('-submitted_at')[:20]
+        available_reports = KaiReport.objects.exclude(id=report.id).exclude(id__in=[r.id for r in related_reports]).select_related('submitted_by', 'targeted_to').defer(*member_defer('submitted_by', 'targeted_to')).order_by('-submitted_at')[:20]
     except Exception:
         available_reports = []
 
@@ -1488,7 +1489,7 @@ You may submit another closure request in the future if circumstances change.
 
     # Get pending closure requests for this report
     try:
-        closure_requests = list(report.closure_requests.all().select_related('requested_by', 'reviewed_by').order_by('-requested_at'))
+        closure_requests = list(report.closure_requests.all().select_related('requested_by', 'reviewed_by').defer(*member_defer('requested_by', 'reviewed_by')).order_by('-requested_at'))
     except Exception:
         closure_requests = []
 
@@ -1545,7 +1546,7 @@ def print_kai_report(request, report_id):
 
     # Get activity log
     try:
-        activity_log = list(report.activity_log.all().select_related('user'))
+        activity_log = list(report.activity_log.all().select_related('user').defer(*member_defer('user')))
     except Exception:
         activity_log = []
 
@@ -1704,7 +1705,7 @@ def bulk_actions_kai_reports(request):
                 'Reviewed By', 'Reviewed At', 'Tags', 'Description'
             ])
 
-            for report in reports.select_related('submitted_by', 'reviewed_by', 'targeted_to'):
+            for report in reports.select_related('submitted_by', 'reviewed_by', 'targeted_to').defer(*member_defer('submitted_by', 'reviewed_by', 'targeted_to')):
                 writer.writerow([
                     report.id,
                     report.title,

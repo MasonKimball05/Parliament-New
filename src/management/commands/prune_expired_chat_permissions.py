@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from src.models import ChatChannelPermission
+from src.models.users import member_defer
 
 
 class Command(BaseCommand):
@@ -26,7 +27,7 @@ class Command(BaseCommand):
 
         if options['dry_run']:
             self.stdout.write(f'Would delete {count} expired permission(s):')
-            for perm in expired.select_related('user', 'channel'):
+            for perm in expired.select_related('user', 'channel').defer(*member_defer('user')):
                 self.stdout.write(f'  - {perm.user.name if perm.user else "role"} → {perm.channel.name} (expired {perm.expires_at})')
         else:
             expired.delete()

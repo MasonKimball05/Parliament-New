@@ -4,13 +4,14 @@ from django.contrib.auth.decorators import login_required
 from collections import defaultdict
 from src.feature_flag_decorators import require_page_enabled
 from src.decorators import pledge_page_allowed
+from src.models.users import member_defer
 
 @login_required
 @require_page_enabled('chapter_documents')
 @pledge_page_allowed('chapter_documents')
 def chapter_documents(request):
     """View for displaying all documents published to the chapter, organized by folder and committee"""
-    all_documents = CommitteeDocument.objects.filter(published_to_chapter=True).select_related('committee', 'uploaded_by', 'chapter_folder')
+    all_documents = CommitteeDocument.objects.filter(published_to_chapter=True).select_related('committee', 'uploaded_by', 'chapter_folder').defer(*member_defer('uploaded_by'))
 
     # Filter documents based on visibility permissions
     documents = [doc for doc in all_documents if doc.can_user_view(request.user)]
@@ -62,7 +63,7 @@ def chapter_documents(request):
     pushed_votes = CommitteeLegislation.objects.filter(
         pushed_to_chapter=True,
         voting_closed=True
-    ).select_related('committee', 'posted_by').order_by('-voting_ended_at')
+    ).select_related('committee', 'posted_by').defer(*member_defer('posted_by')).order_by('-voting_ended_at')
 
     # Build vote tallies for pushed votes
     vote_results = {}

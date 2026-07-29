@@ -14,6 +14,7 @@ from src.models import (
     Slate, SlateCandidate, SlatingActivity, ParliamentUser
 )
 from .permissions import slating_chair_required, voting_member_required
+from src.models.users import member_defer
 
 
 @login_required
@@ -53,7 +54,7 @@ def build_slate(request, period_id):
 
     # Get current slate assignments keyed by (position_id, is_runoff)
     assignments = {}  # position_id -> {'primary': sc, 'runoff': sc|None}
-    for sc in slate.candidates.select_related('application', 'application__applicant'):
+    for sc in slate.candidates.select_related('application', 'application__applicant').defer(*member_defer('application__applicant')):
         entry = assignments.setdefault(sc.position_id, {'primary': None, 'runoff': None})
         if sc.is_runoff:
             entry['runoff'] = sc
@@ -71,7 +72,7 @@ def build_slate(request, period_id):
         status__in=['draft', 'withdrawn']
     ).exclude(
         slate_assignments__slate=slate
-    ).select_related('applicant').prefetch_related('interviews').order_by('applicant__name')
+    ).select_related('applicant').defer(*member_defer('applicant')).prefetch_related('interviews').order_by('applicant__name')
 
     # Organize applications by first choice position preference
     apps_by_position = {p.id: [] for p in positions}
@@ -243,7 +244,7 @@ def slate_preview(request, period_id, slate_id):
 
     candidates = slate.candidates.select_related(
         'position', 'application', 'application__applicant'
-    ).order_by('display_order')
+    ).defer(*member_defer('application__applicant')).order_by('display_order')
 
     context = {
         'period': period,
@@ -278,7 +279,7 @@ def view_approved_slate(request, period_id):
 
     candidates = slate.candidates.select_related(
         'position', 'application', 'application__applicant'
-    ).order_by('display_order')
+    ).defer(*member_defer('application__applicant')).order_by('display_order')
 
     context = {
         'period': period,
@@ -474,13 +475,13 @@ def edit_approved_slate(request, period_id):
         sc.position_id: sc
         for sc in slate.candidates.filter(is_runoff=False).select_related(
             'position', 'application__applicant', 'write_in_member'
-        )
+        ).defer(*member_defer('application__applicant', 'write_in_member'))
     }
 
     # All non-withdrawn applications for this period
     applications = list(
         period.applications.exclude(status__in=['draft', 'withdrawn'])
-        .select_related('applicant')
+        .select_related('applicant').defer(*member_defer('applicant'))
         .order_by('applicant__name')
     )
 

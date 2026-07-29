@@ -11,6 +11,7 @@ from src.models import (
 from src.constants import MemberType, MemberStatus
 from datetime import timedelta
 from src.feature_flag_decorators import require_page_enabled
+from src.models.users import member_defer
 
 @login_required
 @require_page_enabled('committee_home')
@@ -89,7 +90,7 @@ def committee_home(request, code):
     total_documents = CommitteeDocument.objects.filter(committee=committee).count()
     recent_documents = CommitteeDocument.objects.filter(
         committee=committee
-    ).select_related('uploaded_by').order_by('-uploaded_at')[:5]
+    ).select_related('uploaded_by').defer(*member_defer('uploaded_by')).order_by('-uploaded_at')[:5]
     published_documents = CommitteeDocument.objects.filter(
         committee=committee, published_to_chapter=True
     ).count()
@@ -146,7 +147,10 @@ def committee_home(request, code):
             try:
                 kai_reports = list(KaiReport.objects.filter(
                     status__in=['pending', 'reviewed']
-                ).select_related('submitted_by', 'reviewed_by', 'targeted_to').order_by('-submitted_at')[:10])
+                # v3.17.3: reviewed_by was joined here and never rendered.
+                ).select_related('submitted_by', 'targeted_to').defer(
+                    *member_defer('submitted_by', 'targeted_to')
+                ).order_by('-submitted_at')[:10])
             except Exception:
                 kai_reports = list(KaiReport.objects.filter(
                     status__in=['pending', 'reviewed']

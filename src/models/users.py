@@ -40,22 +40,47 @@ def validate_profile_picture(file):
 
 
 class ParliamentUserManager(BaseUserManager):
-    def create_user(self, user_id, name, username, member_type, password=None):
+    def create_user(self, user_id, name, username, member_type, password=None,
+                    **extra_fields):
+        """
+        Create a member.
+
+        v3.17.3 fixed two things here, both long-standing:
+
+        1. **`username` was accepted and then thrown away.** The body read
+           `user.username = name`, so the caller's username became the member's
+           display name. `username` is `unique=True` and is what login looks up,
+           so two members called "John Smith" collided on creation and anyone
+           made this way could not log in with the credential the caller thought
+           they had set. `create_superuser` inherited it, which meant
+           `manage.py createsuperuser` produced a superuser whose login was
+           their full name. The argument is now honoured; passing an empty
+           username still raises, as before.
+
+        2. **No `**extra_fields`.** Every other Django user manager takes them,
+           and callers reasonably expect `create_user(..., is_admin=True)` to
+           work — all 12 tests in `src/test_page_visits_filter.py` were red for
+           exactly this reason, which is why the module has been failing since
+           it was written.
+        """
         if not user_id:
             raise ValueError('Users must have an ID')
         if not username:
             raise ValueError('Users must have an username')
-        user = self.model(user_id=user_id, name=name, member_type=member_type)
-        user.username = name  # Set username as name by default
+        user = self.model(
+            user_id=user_id, name=name, username=username,
+            member_type=member_type, **extra_fields,
+        )
         user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, user_id, name, username, member_type, password):
-        user = self.create_user(user_id, name, username, member_type, password)
-        user.is_admin = True
-        user.save(using=self._db)
-        return user
+    def create_superuser(self, user_id, name, username, member_type, password,
+                         **extra_fields):
+        extra_fields.setdefault('is_admin', True)
+        return self.create_user(
+            user_id, name, username, member_type, password, **extra_fields,
+        )
 
 
 class ActiveUserManager(ParliamentUserManager):
@@ -418,6 +443,90 @@ MEMBER_PROFILE_FIELDS = (
     'pledge_class_greek',
     'onboarding_data',
 )
+
+
+#: Columns that only mean something for the person who is *logged in*, and are
+#: never rendered about a third party.
+#:
+#: v3.17.3 (second pass). `member_defer` originally dropped only the profile
+#: columns, which left every joined member still carrying ~29 — among them
+#: `password`. That is the argon2/pbkdf2 hash, and it was being selected into
+#: the result set of essentially every list page on the site: the home page,
+#: activity logs, committee rosters, the calendar feed. It is never rendered,
+#: so this was not a disclosure — but a password hash has no business travelling
+#: from the database to the application on a page that prints someone's name,
+#: and for a codebase being handed to a successor "we don't select it unless we
+#: need it" is a cheaper rule to keep than "we select it but never print it".
+#:
+#: ⚠️ These are deferred on **joins only**. They must NEVER be added to
+#: `DeferredProfileModelBackend.DEFERRED_FIELDS`: `request.user.password` backs
+#: `get_session_auth_hash()`, which Django checks on every authenticated
+#: request, so deferring it there would add a query per request at best and
+#: break session validation at worst. `DEFERRED_FIELDS` is derived from
+#: MEMBER_PROFILE_FIELDS alone, and a test asserts these stay out of it.
+#:
+#: Verified against every template before adding: none is dereferenced off a
+#: joined member. `last_login` and `has_default_password` do appear in
+#: admin-v2, but on querysets of ParliamentUser itself, which never go through
+#: member_defer(). `role_number` is NOT here — 32 templates render it.
+MEMBER_ACCOUNT_FIELDS = (
+    'password',
+    'last_login',
+    'force_password_change',
+    'has_default_password',
+    'backup_codes_acknowledged',
+    'onboarding_complete',
+)
+
+
+def member_defer(*relations):
+    """
+    Field names to hand to ``.defer()`` to strip the profile columns off one or
+    more joined-member relations.
+
+    ::
+
+        Attendance.objects.select_related('user', 'marked_by')
+                          .defer(*member_defer('user', 'marked_by'))
+
+    v3.17.3. This exists because the sweep it was written for touched ~120 call
+    sites, and at that volume the difference between ``.only()`` and
+    ``.defer()`` stops being a stylistic one:
+
+    * ``.only()`` is a **whitelist**. Omit a column some template happens to
+      read and you get a fresh query per row — you have re-created the N+1 you
+      were removing, silently, on a page you may not have opened.
+    * ``.defer()`` is a **blacklist** of columns we have specifically
+      established are not used outside the profile/directory/house-map/chat-card
+      surfaces. Getting it wrong on a page that *does* read one costs a single
+      extra query on that page and nothing else.
+
+    So `MEMBER_DISPLAY_FIELDS` + ``.only()`` stays the right tool when you have
+    read the template and know exactly what it renders (the legislation pages
+    do this). For a broad sweep, defer is the one that cannot fail closed.
+    """
+    return tuple(
+        f'{relation}__{field}'
+        for relation in relations
+        for field in MEMBER_PROFILE_FIELDS + MEMBER_ACCOUNT_FIELDS
+    )
+
+
+def member_prefetch(lookup, to_attr=None):
+    """
+    A ``Prefetch`` for a member relation with the profile columns deferred.
+
+    A plain ``prefetch_related('members')`` always selects every column; an
+    explicit ``Prefetch`` queryset is the only way to narrow one. Deferring
+    rather than ``.only()``-ing, for the reason in ``member_defer``.
+    """
+    from django.db.models import Prefetch
+
+    queryset = ParliamentUser.objects.defer(
+        *(MEMBER_PROFILE_FIELDS + MEMBER_ACCOUNT_FIELDS))
+    if to_attr:
+        return Prefetch(lookup, queryset=queryset, to_attr=to_attr)
+    return Prefetch(lookup, queryset=queryset)
 
 
 def _default_user_prefs():

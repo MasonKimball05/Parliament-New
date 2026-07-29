@@ -13,6 +13,7 @@ from datetime import timedelta
 from src.models import Event, Attendance, AttendanceExcuse, ActivityLog, ParliamentUser
 from src.utils.file_validation import validate_uploaded_file
 from src.feature_flag_decorators import require_feature_flag
+from src.models.users import member_defer
 
 
 @login_required
@@ -24,7 +25,7 @@ def my_excuses(request):
     # Get member's existing excuse requests
     my_excuse_requests = AttendanceExcuse.objects.filter(
         user=request.user
-    ).select_related('event', 'reviewed_by').order_by('-submitted_at')
+    ).select_related('event', 'reviewed_by').defer(*member_defer('reviewed_by')).order_by('-submitted_at')
 
     # Get upcoming events that allow excuses (regardless of whether attendance is required)
     now = timezone.now()

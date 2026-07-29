@@ -2,6 +2,7 @@ from src.decorators import officer_or_advisor_required
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required, user_passes_test
 from src.models import CommitteeDocument
+from src.models.users import member_defer
 
 @login_required
 @officer_or_advisor_required
@@ -11,7 +12,7 @@ def view_all_reports(request):
     # Get all committee documents, including those not published to chapter
     all_documents = CommitteeDocument.objects.select_related(
         'committee', 'uploaded_by'
-    ).order_by('-uploaded_at')
+    ).defer(*member_defer('uploaded_by')).order_by('-uploaded_at')
 
     # Group by document type for easier viewing
     reports = all_documents.filter(document_type='report')

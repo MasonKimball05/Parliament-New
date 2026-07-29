@@ -23,6 +23,7 @@ from src.models.api import APIAccessLog
 from .authentication import APITokenAuthentication
 from .pagination import ParliamentAPIPagination
 from .permissions import APIEnabled, ScopePermission
+from src.models.users import member_defer, member_prefetch
 from .serializers import (
     MemberSerializer, EventSerializer, LegislationSerializer,
     CommitteeSerializer, AttendanceSerializer,
@@ -164,7 +165,7 @@ class EventViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
         return (
             Event.objects
             .filter(is_active=True, archived=False)
-            .select_related('created_by')
+            .select_related('created_by').defer(*member_defer('created_by'))
             .order_by('date_time')
         )
 
@@ -222,8 +223,8 @@ class LegislationViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
             Legislation.objects
             .exclude(status='removed')
             .filter(is_active=True)
-            .select_related('posted_by')
-            .prefetch_related('co_authors')
+            .select_related('posted_by').defer(*member_defer('posted_by'))
+            .prefetch_related(member_prefetch('co_authors'))
             .order_by('-created_at')
         )
 
@@ -253,7 +254,7 @@ class CommitteeViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
         return (
             Committee.objects
             .filter(is_active=True, is_archived=False)
-            .prefetch_related('chairs', 'members')
+            .prefetch_related(member_prefetch('chairs'), member_prefetch('members'))
             .order_by('name')
         )
 
@@ -279,7 +280,7 @@ class CommitteeViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
             .filter(
                 models.Q(members=user) | models.Q(chairs=user)
             )
-            .prefetch_related('chairs', 'members')
+            .prefetch_related(member_prefetch('chairs'), member_prefetch('members'))
             .distinct()
             .order_by('name')
         )

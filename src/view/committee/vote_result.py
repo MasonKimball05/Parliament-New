@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404, render
 from django.contrib.auth.decorators import login_required
 from src.models import Committee, CommitteeLegislation, CommitteeVote
+from src.models.users import member_defer
 
 __all__ = ['committee_vote_result']
 
@@ -27,7 +28,7 @@ def committee_vote_result(request, code, legislation_id):
         return redirect('vote', code=code)
 
     # Get all votes
-    votes = CommitteeVote.objects.filter(legislation=legislation).select_related('user')
+    votes = CommitteeVote.objects.filter(legislation=legislation).select_related('user').defer(*member_defer('user'))
 
     # Calculate results based on vote mode
     anonymous = legislation.anonymous_vote

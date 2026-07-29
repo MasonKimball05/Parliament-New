@@ -24,6 +24,7 @@ from src.models import (
     AnnouncementPollOption, AnnouncementPollResponse, AnnouncementPollAnswer,
 )
 from src.decorators import officer_required
+from src.models.users import member_defer
 
 
 # ---------------------------------------------------------------------------
@@ -178,7 +179,7 @@ def poll_results(request, announcement_id):
     poll = get_object_or_404(AnnouncementPoll, announcement=announcement)
 
     questions = poll.questions.prefetch_related('options').all()
-    responses = poll.responses.select_related('respondent').prefetch_related(
+    responses = poll.responses.select_related('respondent').defer(*member_defer('respondent')).prefetch_related(
         'answers__selected_options', 'answers__question',
     ).all()
 

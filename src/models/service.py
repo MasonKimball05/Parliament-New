@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from src.storage import DualLocationStorage
+from src.models.users import member_defer
 
 
 class ServicePeriod(models.Model):
@@ -445,7 +446,7 @@ class ServiceEvent(models.Model):
 
     def get_present_attendees(self):
         """Return Attendance queryset for members marked present at this event."""
-        return self.event.attendance_records.filter(status='present').select_related('user')
+        return self.event.attendance_records.filter(status='present').select_related('user').defer(*member_defer('user'))
 
     def get_hours_for_user(self, user_pk):
         """

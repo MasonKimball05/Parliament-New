@@ -6,6 +6,7 @@ from celery import shared_task
 from django.utils import timezone
 import logging
 import os
+from src.models.users import member_defer
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ def notify_expiring_api_tokens():
         expires_at__isnull=False,
         expires_at__gt=timezone.now(),
         expires_at__lte=warning_cutoff,
-    ).select_related('user')
+    ).select_related('user').defer(*member_defer('user'))
 
     notified = 0
     for token in expiring:
@@ -806,7 +807,7 @@ def send_recruitment_rsvp_reminders():
         going_rsvps = list(
             RecruitmentEventRSVP.objects
             .filter(recruitment_event=re, status='going')
-            .select_related('user')
+            .select_related('user').defer(*member_defer('user'))
         )
 
         if not going_rsvps:

@@ -13,6 +13,7 @@ from src.models import (
     SlatingApplication, SlatingBallot, SlatingVote, Slate
 )
 from .permissions import slating_chair_required, slating_committee_required
+from src.models.users import member_defer
 
 
 @login_required
@@ -235,7 +236,7 @@ def slate_candidates(request, period_id, slate_id):
     slate = get_object_or_404(Slate, id=slate_id, period=period)
 
     candidates = []
-    for sc in slate.candidates.select_related('position', 'application__applicant'):
+    for sc in slate.candidates.select_related('position', 'application__applicant').defer(*member_defer('application__applicant')):
         candidates.append({
             'id': sc.id,
             'position': {

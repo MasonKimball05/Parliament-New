@@ -40,28 +40,35 @@ that page.
 from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
 
+from src.models.users import MEMBER_PROFILE_FIELDS
+
 
 class DeferredProfileModelBackend(ModelBackend):
     """ModelBackend, but `get_user` skips the profile-only columns."""
 
     #: Columns not read on ordinary pages. See the module docstring before editing.
-    DEFERRED_FIELDS = (
-        'about_me',
-        'majors',
-        'minors',
-        'concentrations',
-        'custom_socials',
-        'initiation_chapters',
-        'instagram',
-        'twitter',
-        'linkedin',
-        'snapchat',
-        'facebook',
-        'other_email',
-        'house',
-        'big_brother',
-        'pledge_class_greek',
-        'initiation_chapters',
+    #:
+    #: v3.17.3: derived from MEMBER_PROFILE_FIELDS rather than retyped. The two
+    #: lists were maintained by hand and had already drifted — this one listed
+    #: `initiation_chapters` twice — and the reasoning for each difference lived
+    #: in a docstring rather than in the code, which is a poor place for a rule
+    #: that a `defer()` typo turns into a site-wide login outage (Django raises
+    #: FieldError on an unknown defer name, and this runs on every authenticated
+    #: request). `test_dev_mode.DeferredProfileFieldTests` now asserts every name
+    #: resolves to a real field.
+    #:
+    #: The two documented differences from MEMBER_PROFILE_FIELDS:
+    #:
+    #: * `big_brother` is deferred HERE but is not a "profile column" for the
+    #:   purposes of a joined member display, so it isn't in the shared list.
+    #: * `onboarding_data` is in the shared list but must NOT be deferred here —
+    #:   components/onboarding_checklist.html is included on both home layouts,
+    #:   so deferring it adds a query to the most-visited page.
+    DEFERRED_FIELDS = tuple(
+        dict.fromkeys(  # order-preserving de-duplication
+            [f for f in MEMBER_PROFILE_FIELDS if f != 'onboarding_data']
+            + ['big_brother']
+        )
     )
 
     def get_user(self, user_id):

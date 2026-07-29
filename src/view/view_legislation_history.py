@@ -1,8 +1,10 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.urls import reverse
 from django.db.models import Count, Q
 from django.db.models import Prefetch
+from src.models.users import member_defer
 from ..models import (
     Legislation, Vote, AnnouncementPoll, ParliamentUser,
     MEMBER_DISPLAY_FIELDS, MEMBER_PROFILE_FIELDS,
@@ -33,17 +35,40 @@ def view_legislation_history(request):
     else:
         queryset = base_qs
 
-    # Counts for status tabs
+    # Counts for status tabs.
+    #
+    # v3.17.3: was five separate COUNT round trips over the same table — the
+    # pattern v3.17.2 collapsed in passed_legislation.py and did not carry over
+    # to its sibling. Conditional aggregation evaluates all five predicates in a
+    # single pass.
+    #
+    # `distinct=True` is load-bearing, not decoration: base_qs joins co_authors
+    # (`Q(posted_by=user) | Q(co_authors=user)`) and carries a `.distinct()`,
+    # which applies to the row stream and not to an aggregate. Without it, a
+    # bill the user both posted and co-authored would be counted twice. The
+    # aliases are `n_`-prefixed because an aggregate may not share a name with a
+    # model field — `passed` is also a BooleanField.
+    _failed_q = (
+        (Q(status='failed') | (Q(passed=False) & Q(voting_closed=True)))
+        & ~Q(status__in=['passed', 'tabled'])
+    )
+    _counts = base_qs.aggregate(
+        n_all=Count('pk', distinct=True),
+        n_active=Count('pk', filter=Q(voting_closed=False), distinct=True),
+        n_passed=Count(
+            'pk',
+            filter=Q(status='passed') | Q(passed=True, voting_closed=True),
+            distinct=True,
+        ),
+        n_failed=Count('pk', filter=_failed_q, distinct=True),
+        n_tabled=Count('pk', filter=Q(status='tabled'), distinct=True),
+    )
     status_counts = {
-        'all': base_qs.count(),
-        'active': base_qs.filter(voting_closed=False).count(),
-        'passed': base_qs.filter(
-            Q(status='passed') | Q(passed=True, voting_closed=True)
-        ).count(),
-        'failed': base_qs.filter(
-            Q(status='failed') | (Q(passed=False) & Q(voting_closed=True))
-        ).exclude(status__in=['passed', 'tabled']).count(),
-        'tabled': base_qs.filter(status='tabled').count(),
+        'all': _counts['n_all'],
+        'active': _counts['n_active'],
+        'passed': _counts['n_passed'],
+        'failed': _counts['n_failed'],
+        'tabled': _counts['n_tabled'],
     }
 
     # v3.17.1 perf. This page was ~7 queries per row of legislation:
@@ -62,13 +87,21 @@ def view_legislation_history(request):
     queryset = (
         queryset
         .select_related('posted_by')
-        .defer(*(f'posted_by__{f}' for f in MEMBER_PROFILE_FIELDS))
+        .defer(*member_defer('posted_by'))
         .prefetch_related(Prefetch(
             'co_authors',
             queryset=ParliamentUser.objects.only(*MEMBER_DISPLAY_FIELDS),
         ))
     )
-    legislation_list = list(queryset)
+    # v3.17.3: this page had no pagination at all — it rendered every bill the
+    # user has ever authored or co-authored, each with two reverse() calls, a
+    # set_passed() and a full context dict. It was the only legislation page
+    # without a page size. Paginating the queryset (not the finished list) also
+    # keeps the joins and prefetch above scoped to the 20 rows on screen, and
+    # bounds the set_passed() calls in the loop below.
+    paginator = Paginator(queryset, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    legislation_list = list(page_obj.object_list)
 
     tally = {}
     for row in (
@@ -158,15 +191,28 @@ def view_legislation_history(request):
             'detail_url': reverse('legislation_detail', args=[leg.id]),
         })
 
+    # v3.17.3: the template wants two numbers per poll — how many questions and
+    # how many responses. It was getting them by prefetching every question and
+    # every response object and calling `.count()` on the cached lists, so a
+    # poll with 300 answers pulled 300 rows to render "300". Two annotations do
+    # it in the same single query, and nothing else on the page touches the
+    # related objects. `distinct=True` on both is required: two multi-valued
+    # joins in one annotate() multiply each other's rows and inflate BOTH counts
+    # without it.
     my_polls = list(
         AnnouncementPoll.objects.filter(created_by=user)
         .select_related('announcement')
-        .prefetch_related('questions', 'responses')
+        .annotate(
+            response_total=Count('responses', distinct=True),
+            question_total=Count('questions', distinct=True),
+        )
         .order_by('-created_at')
     )
 
     return render(request, 'legislation_history.html', {
         'legislation_history': legislation_history,
+        'page_obj': page_obj,
+        'total_count': paginator.count,
         'status_filter': status_filter,
         'status_counts': status_counts,
         'my_polls': my_polls,

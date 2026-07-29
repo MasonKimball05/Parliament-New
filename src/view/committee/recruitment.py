@@ -14,6 +14,7 @@ from src.models import (
     ActivityLog,
 )
 from src.feature_flag_decorators import require_page_enabled
+from src.models.users import member_defer
 
 RECRUIT_PERM_FIELDS = ['can_manage_events', 'can_view_private', 'can_take_attendance']
 
@@ -107,14 +108,15 @@ def recruitment_dashboard(request, code):
     upcoming = (
         RecruitmentEvent.objects
         .filter(committee=committee, event__date_time__gte=now)
-        .select_related('event', 'created_by')
+        # v3.17.3: created_by joined but never rendered by recruitment_dashboard.html
+        .select_related('event')
         .annotate(signup_count=_signup_annotation)
         .order_by('event__date_time')
     )
     past = (
         RecruitmentEvent.objects
         .filter(committee=committee, event__date_time__lt=now)
-        .select_related('event', 'created_by')
+        .select_related('event')
         .annotate(signup_count=_signup_annotation)
         .order_by('-event__date_time')[:20]
     )
@@ -130,7 +132,7 @@ def recruitment_dashboard(request, code):
         candidates = (
             RecruitmentCandidate.objects
             .filter(committee=committee)
-            .select_related('assigned_to', 'source_event__event')
+            .select_related('assigned_to', 'source_event__event').defer(*member_defer('assigned_to'))
             .order_by('status', 'name')
         )
 
@@ -444,7 +446,7 @@ def edit_recruitment_event(request, code, recruitment_event_id):
 def recruitment_event_detail(request, code, recruitment_event_id):
     committee = _get_committee(code)
     re = get_object_or_404(
-        RecruitmentEvent.objects.select_related('event', 'created_by'),
+        RecruitmentEvent.objects.select_related('event', 'created_by').defer(*member_defer('created_by')),
         id=recruitment_event_id,
         committee=committee,
     )
@@ -471,7 +473,7 @@ def recruitment_event_detail(request, code, recruitment_event_id):
         signups = list(
             EventSignup.objects
             .filter(event=re.event, is_cancelled=False)
-            .select_related('user')
+            .select_related('user').defer(*member_defer('user'))
             .order_by('signed_up_at')
         )
         signup_count = len(signups)
@@ -482,7 +484,7 @@ def recruitment_event_detail(request, code, recruitment_event_id):
     else:
         signups = None
         signup_count = 0
-        rsvps = list(re.rsvps.select_related('user').order_by('user__name'))
+        rsvps = list(re.rsvps.select_related('user').defer(*member_defer('user')).order_by('user__name'))
         user_rsvp = next((r for r in rsvps if r.user_id == request.user.pk), None)
         going_count = sum(1 for r in rsvps if r.status == 'going')
         checked_in_count = sum(1 for r in rsvps if r.checked_in)
@@ -575,7 +577,7 @@ def manage_recruitment_permissions(request, code):
 
     existing_perms = {
         p.user_id: p
-        for p in RecruitmentMemberPermission.objects.filter(committee=committee).select_related('user')
+        for p in RecruitmentMemberPermission.objects.filter(committee=committee).select_related('user').defer(*member_defer('user'))
     }
 
     member_rows = []
@@ -664,9 +666,9 @@ def _candidate_list_legacy(request, code):
     candidates = (
         RecruitmentCandidate.objects
         .filter(committee=committee)
-        .select_related('assigned_to', 'source_event__event', 'added_by')
+        .select_related('assigned_to', 'source_event__event', 'added_by').defer(*member_defer('assigned_to', 'added_by'))
         .prefetch_related(
-            Prefetch('note_entries', queryset=RecruitmentCandidateNote.objects.select_related('author').order_by('created_at'))
+            Prefetch('note_entries', queryset=RecruitmentCandidateNote.objects.select_related('author').defer(*member_defer('author')).order_by('created_at'))
         )
         .order_by('name')
     )

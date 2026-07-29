@@ -1,5 +1,6 @@
 from django.db import models
 from src.models.users import ParliamentUser
+from src.models.users import member_defer
 
 
 class Announcement(models.Model):
@@ -96,7 +97,7 @@ class Announcement(models.Model):
 
     def get_viewers(self):
         """Get list of users who have viewed this announcement with source"""
-        return self.views.select_related('user').order_by('-viewed_at')
+        return self.views.select_related('user').defer(*member_defer('user')).order_by('-viewed_at')
 
 
 class UserAnnouncementView(models.Model):

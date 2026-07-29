@@ -14,6 +14,7 @@ from src.models import (
     SlatingPosition, SlatingActivity, ParliamentUser
 )
 from .permissions import slating_committee_required, slating_chair_required
+from src.models.users import member_defer, member_prefetch
 
 
 @login_required
@@ -29,8 +30,8 @@ def interview_list(request, period_id):
         application__period=period
     ).select_related(
         'application', 'application__applicant'
-    ).prefetch_related(
-        'interviewers', 'recommended_positions'
+    ).defer(*member_defer('application__applicant')).prefetch_related(
+        member_prefetch('interviewers'), 'recommended_positions'
     ).order_by('-scheduled_at')
 
     # Filter options
@@ -51,7 +52,7 @@ def interview_list(request, period_id):
         status__in=['submitted', 'under_review']
     ).exclude(
         interviews__isnull=False
-    ).select_related('applicant')
+    ).select_related('applicant').defer(*member_defer('applicant'))
 
     # Get committee members for interviewer selection
     interviewers_list = []

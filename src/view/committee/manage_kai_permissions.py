@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from src.models import Committee, ParliamentUser, KaiMemberPermission
+from src.models.users import member_defer
 
 # All permission fields exposed in the UI
 KAI_PERM_FIELDS = [
@@ -52,7 +53,7 @@ def manage_kai_permissions(request, code):
     # Existing permissions keyed by user pk for fast lookup
     existing_perms = {
         p.user_id: p
-        for p in KaiMemberPermission.objects.filter(committee=committee).select_related('user')
+        for p in KaiMemberPermission.objects.filter(committee=committee).select_related('user').defer(*member_defer('user'))
     }
 
     # Build flat rows; chairs are flagged as full-access (checkboxes disabled in template)

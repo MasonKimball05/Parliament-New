@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from src.models import CommitteeDocument, Committee, ChapterFolder
 from src.decorators import officer_required
 from collections import defaultdict
+from src.models.users import member_defer
 
 
 @officer_required
@@ -14,7 +15,7 @@ def manage_chapter_documents(request):
     # Get the Chapter committee
     try:
         chapter_committee = Committee.objects.get(is_chapter_committee=True)
-        documents = CommitteeDocument.objects.filter(committee=chapter_committee).select_related('uploaded_by', 'chapter_folder').order_by('-uploaded_at')
+        documents = CommitteeDocument.objects.filter(committee=chapter_committee).select_related('uploaded_by', 'chapter_folder').defer(*member_defer('uploaded_by')).order_by('-uploaded_at')
     except Committee.DoesNotExist:
         documents = CommitteeDocument.objects.none()
 

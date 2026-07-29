@@ -27,10 +27,23 @@ class GeoIpGuardTests(SimpleTestCase):
         # must short-circuit to the Unknown dict, NOT fall through to a live
         # ip-api.com lookup for /json/unknown (wasted 3s-timeout request on the
         # failed-login path, which has no cached pipeline geo).
-        with patch('src.utils.security_utils.requests.get') as mock_get:
+        #
+        # v3.17.3: the patch target was `src.utils.security_utils.requests.get`,
+        # which stopped existing in v3.15.3 when the direct, uncached
+        # `requests.get` was replaced by delegation to `geo_utils.get_ip_geo`
+        # (cached + circuit-breakered) and the now-unused `requests` import was
+        # dropped. `patch()` fails loudly on a missing target, so this test had
+        # been erroring rather than guarding anything since then.
+        #
+        # Now asserted at two levels: security_utils must not even delegate,
+        # and no HTTP call may happen anywhere below it. The first assertion is
+        # the one that survives a future refactor of geo_utils.
+        with patch('src.utils.security_utils.get_ip_geo') as mock_geo, \
+                patch('src.geo_utils.requests.get') as mock_get:
             result = get_geolocation_from_ip('unknown')
         self.assertEqual(result['country'], 'Unknown')
         self.assertIsNone(result['latitude'])
+        mock_geo.assert_not_called()
         mock_get.assert_not_called()
 
     def test_private_ip_still_local(self):

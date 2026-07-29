@@ -2,6 +2,7 @@ from src.decorators import officer_or_advisor_required
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required, user_passes_test
 from src.models import Legislation, CommitteeLegislation, CommitteeDocument
+from src.models.users import member_defer
 
 @login_required
 @officer_or_advisor_required
@@ -11,17 +12,17 @@ def view_all_activity(request):
     # Get all chapter legislation
     all_chapter_legislation = Legislation.objects.select_related(
         'posted_by'
-    ).order_by('-created_at')
+    ).defer(*member_defer('posted_by')).order_by('-created_at')
 
     # Get all committee legislation
     all_committee_legislation = CommitteeLegislation.objects.select_related(
         'committee', 'posted_by'
-    ).order_by('-created_at')
+    ).defer(*member_defer('posted_by')).order_by('-created_at')
 
     # Get all committee documents
     all_committee_docs = CommitteeDocument.objects.select_related(
         'committee', 'uploaded_by'
-    ).order_by('-uploaded_at')
+    ).defer(*member_defer('uploaded_by')).order_by('-uploaded_at')
 
     # Filter by status
     draft_chapter_leg = all_chapter_legislation.filter(status='draft')

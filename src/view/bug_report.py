@@ -11,6 +11,7 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
 from src.models import BugReport, ActivityLog
+from src.models.users import member_defer
 
 
 @login_required
@@ -166,7 +167,7 @@ def bug_report_detail(request, bug_id):
     View details of a specific bug report
     """
     try:
-        bug_report = BugReport.objects.select_related('submitted_by', 'resolved_by').get(id=bug_id)
+        bug_report = BugReport.objects.select_related('submitted_by', 'resolved_by').defer(*member_defer('submitted_by', 'resolved_by')).get(id=bug_id)
     except BugReport.DoesNotExist:
         messages.error(request, 'Bug report not found.')
         return redirect('bug_tracker')
@@ -210,7 +211,7 @@ def bug_admin(request):
     )
 
     # Base queryset with custom ordering
-    bug_reports = BugReport.objects.all().select_related('submitted_by', 'resolved_by').annotate(
+    bug_reports = BugReport.objects.all().select_related('submitted_by', 'resolved_by').defer(*member_defer('submitted_by', 'resolved_by')).annotate(
         status_priority=status_order
     ).order_by('status_priority', '-submitted_at')
 

@@ -33,10 +33,12 @@ from django.db import connection
 from src.dev_mode import (
     analyse_shapes,
     capture_stack,
+    current_template_frames,
     dev_mode_enabled_for,
     find_duplicate_queries,
     get_recorder,
     install_template_instrumentation,
+    install_template_node_instrumentation,
     start_recording,
     stop_recording,
 )
@@ -45,6 +47,11 @@ from src.dev_mode import (
 # at middleware import is the earliest reliable point that doesn't require an
 # AppConfig.ready() hook. No-op when dev mode is off.
 install_template_instrumentation()
+
+# v3.17.3: per-node wrapping, so a query fired during rendering can name the
+# template expression that caused it instead of pointing at the view's
+# `render()` call. See the long note in src/dev_mode.py.
+install_template_node_instrumentation()
 
 
 class DevModeMiddleware:
@@ -80,6 +87,7 @@ class DevModeMiddleware:
                 recorder.shapes = []
 
         try:
+            self._attach_rows(recorder)
             self._record_capabilities(request, recorder)
             self._record_request_info(request, response, recorder)
             self._inject_panel(request, response, recorder)
@@ -118,11 +126,44 @@ class DevModeMiddleware:
                     ms=duration,
                     rows=rows,
                     stack=capture_stack(),
+                    template=current_template_frames(),
+                    raw_params=None if many else params,
                 )
             except Exception:
                 pass
 
     # ------------------------------------------------------------------
+    @staticmethod
+    def _attach_rows(recorder):
+        """
+        Re-run each SELECT to show what it returned, subject to redaction.
+
+        Done here — after the view, before the panel renders — rather than at
+        capture time, because the original cursor is consumed by Django and
+        there is no way to read it twice. See src/dev_mode_rows.py for the
+        redaction policy; the short version is that it fails closed and that
+        judicial, ballot and credential tables are withheld whole.
+
+        Bounded on purpose: only the first N distinct queries get rows, so a
+        page with 200 queries does not silently double its own workload just
+        because someone left dev mode on.
+        """
+        from src.dev_mode_rows import fetch_rows
+
+        budget = 40
+        for query in recorder.queries:
+            if budget <= 0:
+                query['rows_note'] = 'not inspected — per-request budget reached'
+                continue
+            budget -= 1
+            try:
+                columns, rows, note = fetch_rows(query['sql'], query.get('raw_params'))
+            except Exception:                      # noqa: BLE001
+                columns, rows, note = None, None, 'inspector error'
+            query['row_columns'] = columns
+            query['row_values'] = rows
+            query['rows_note'] = note
+
     @staticmethod
     def _record_capabilities(request, recorder):
         """
@@ -236,7 +277,37 @@ class DevModeMiddleware:
 
 
 def _short_params(params):
-    """Params for display. Truncated — they can be large, and they are not the point."""
+    """
+    Params for display. Truncated — they can be large, and they are not the point.
+
+    WHY PARAMS ARE SHOWN WHEN ROW VALUES ARE NOT
+    --------------------------------------------
+    This is the one place the panel carries *values* rather than metadata, and
+    that is a deliberate exception to the rule stated at the top of
+    `src/dev_mode.py` and enforced on the Shapes tab, which deliberately shows
+    row counts and never row contents. Recorded here because the exception is
+    not obvious and a future reader will otherwise assume the rule is
+    panel-wide (07-29-26 auto-run, finding 4).
+
+    The reasoning: the Shapes tab would have to *re-run* a captured SELECT to
+    show rows, which turns the developer allowlist into a read-anything key
+    that bypasses every app-level gate — the bypass class v3.16.0–v3.16.3 spent
+    four releases closing. Params are different in kind. They are the values the
+    *current request* supplied: filter values the developer already holds, and
+    on a write, the payload the developer is themselves submitting. They reveal
+    nothing the developer could not read by looking at the form they just
+    filled in.
+
+    That is a narrower claim than "params are safe", so keep it true. Before
+    instrumenting a new query path, ask whether its params could contain data
+    the developer is not cleared for — a list of PKs gathered under someone
+    else's permission, an identity resolved server-side, a token. Anonymous
+    poll responses are the near-miss worth knowing about: the respondent-id
+    lookup at `announcement_polls.py` takes a list of user PKs as a param, and
+    it is only outside this exception because the view already refuses to build
+    that list below the reveal threshold. If a case like that ever falls the
+    other way, redact here rather than arguing the exception wider.
+    """
     try:
         text = repr(params)
     except Exception:

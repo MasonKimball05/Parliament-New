@@ -8,10 +8,13 @@ from src.models import Event, EventSignup, ActivityLog, AttendanceExcuse
 from src.models_calendar_subscription import CalendarSubscription
 from src.feature_flag_decorators import require_page_enabled, require_feature_flag
 from icalendar import Calendar, Event as ICalEvent
+from icalendar.prop import vDuration
 import calendar
 from datetime import datetime, timedelta
 from collections import defaultdict
 import pytz
+from src.models.users import member_defer
+from src.utils.visibility import visible_to_q
 
 @login_required
 @require_page_enabled('calendar')
@@ -300,16 +303,26 @@ def export_calendar_ical(request):
     days_ahead = int(request.GET.get('days', 90))
     end_date = now + timedelta(days=days_ahead)
 
-    # Get all active upcoming events
-    all_events = Event.objects.filter(
-        is_active=True,
-        archived=False,
-        date_time__gte=now,
-        date_time__lte=end_date
-    ).order_by('date_time')
-
-    # Filter by visibility
-    events = [e for e in all_events if e.is_visible_to_user(request.user)]
+    # Get all active upcoming events.
+    #
+    # v3.17.3 (second pass): the loop below prints `event.created_by.get_display_name()`,
+    # and this queryset had no select_related — so exporting a 90-day calendar
+    # fired one full ParliamentUser fetch per event. Visibility is also filtered
+    # in SQL now rather than by walking every event in the window in Python;
+    # `visible_to_q` is the same rule `is_visible_to_user` applies, with a test
+    # asserting they agree.
+    events = list(
+        Event.objects.filter(
+            is_active=True,
+            archived=False,
+            date_time__gte=now,
+            date_time__lte=end_date,
+        )
+        .filter(visible_to_q(request.user.member_type))
+        .select_related('created_by')
+        .defer(*member_defer('created_by'))
+        .order_by('date_time')
+    )
 
     # Create iCal calendar
     cal = Calendar()
@@ -442,16 +455,25 @@ def calendar_subscription_feed(request, token):
     start_date = now - timedelta(days=30)
     end_date = now + timedelta(days=365)
 
-    # Get all active events in range
-    all_events = Event.objects.filter(
-        is_active=True,
-        archived=False,
-        date_time__gte=start_date,
-        date_time__lte=end_date
-    ).order_by('date_time')
-
-    # Filter by visibility - only show events this user can see
-    events = [e for e in all_events if e.is_visible_to_user(user)]
+    # Get all active events in range.
+    #
+    # v3.17.3 (second pass): same fix as export_calendar_ical — the loop prints
+    # `event.created_by.get_display_name()`, and this feed covers a 13-month
+    # window, so one member fetch per event was the largest instance of the
+    # pattern on the site. This endpoint is polled by calendar clients on a
+    # schedule, unattended, which makes it the worst place to leave an N+1.
+    events = list(
+        Event.objects.filter(
+            is_active=True,
+            archived=False,
+            date_time__gte=start_date,
+            date_time__lte=end_date,
+        )
+        .filter(visible_to_q(user.member_type))
+        .select_related('created_by')
+        .defer(*member_defer('created_by'))
+        .order_by('date_time')
+    )
 
     # Create iCal calendar
     cal = Calendar()
@@ -460,8 +482,22 @@ def calendar_subscription_feed(request, token):
     cal.add('x-wr-calname', f'Chapter Events - {user.get_display_name()}')
     cal.add('x-wr-caldesc', 'Personal chapter events calendar - automatically updated')
     cal.add('x-wr-timezone', 'America/Chicago')
-    cal.add('refresh-interval', 'PT1H')  # Suggest 1 hour refresh
-    cal.add('x-published-ttl', 'PT1H')
+    # Suggest a 1-hour refresh to subscribing clients.
+    #
+    # v3.17.3: these were raw 'PT1H' strings. That produces correct output on
+    # the pinned icalendar 6.1.0, but 6.x is the last version that accepts it:
+    # on icalendar 7.x, Component.add() routes duration-valued properties
+    # through the vDuration constructor, which rejects a str with
+    # "You must use datetime, date, timedelta, time or tuple" — a TypeError
+    # raised inside the view, i.e. a 500 on the calendar subscription feed.
+    #
+    # Passing an explicit vDuration is correct on both: it emits `PT1H` on
+    # 6.1.0 (a bare timedelta does NOT — it renders as `1:00:00`, which is not
+    # a valid ICS duration) and it is the type 7.x builds internally. Worth
+    # doing now because there are open dependabot PRs, and this feature has
+    # already been silently broken once before (the 07-25-26 flag-seeding bug).
+    cal.add('refresh-interval', vDuration(timedelta(hours=1)))
+    cal.add('x-published-ttl', vDuration(timedelta(hours=1)))
 
     # Add each event to the calendar
     for event in events:
@@ -718,7 +754,7 @@ def event_signup_list(request, event_id):
     all_active = list(
         EventSignup.objects
         .filter(event=event, is_cancelled=False)
-        .select_related('user')
+        .select_related('user').defer(*member_defer('user'))
         .order_by('waitlist_position', 'signed_up_at')
     )
     signups   = [s for s in all_active if s.waitlist_position is None]
@@ -726,7 +762,7 @@ def event_signup_list(request, event_id):
     cancelled = list(
         EventSignup.objects
         .filter(event=event, is_cancelled=True)
-        .select_related('user')
+        .select_related('user').defer(*member_defer('user'))
         .order_by('cancelled_at')
     )
 
@@ -756,7 +792,7 @@ def event_signup_export(request, event_id):
     all_active = (
         EventSignup.objects
         .filter(event=event, is_cancelled=False)
-        .select_related('user')
+        .select_related('user').defer(*member_defer('user'))
         .order_by('waitlist_position', 'signed_up_at')
     )
 

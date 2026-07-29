@@ -607,12 +607,18 @@ class QueryCaptureTests(CacheIsolatedTestCase):
              'stack': [{'where': 'src/view/a.py:%d' % (10 + i % 2), 'func': 'f', 'code': ''}]}
             for i in range(6)
         ]
-        (shape, count, ms, sample, stacks), = find_duplicate_queries(queries)
+        # v3.17.3: the tuple grew a sixth element, `templates` — the template
+        # expressions that fired the group, which for a lazily-evaluated query
+        # is the only useful attribution (every such query shares the view's
+        # render() line, so the Python stack alone cannot tell them apart).
+        # Empty here because these fixtures carry no template frames.
+        (shape, count, ms, sample, stacks, templates), = find_duplicate_queries(queries)
         self.assertEqual(count, 6)
         self.assertEqual(
             sorted(s['where'] for s in stacks),
             ['src/view/a.py:10', 'src/view/a.py:11'],
         )
+        self.assertEqual(templates, [])
 
     def test_shapes_aggregate_counts_rows_and_tables(self):
         from src.dev_mode import analyse_shapes

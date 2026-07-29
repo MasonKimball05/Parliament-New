@@ -23,6 +23,7 @@ from src.models import (
 from src.forms import ServicePeriodForm, ServiceMemberExpectationForm
 from src.decorators import vpp_required
 from django.http import JsonResponse
+from src.models.users import member_defer
 
 logger = logging.getLogger('function_calls')
 
@@ -123,7 +124,7 @@ def service_dashboard(request):
         # Recent submissions
         recent_submissions = submissions.select_related(
             'submitted_by', 'reviewed_by'
-        ).order_by('-submitted_at')[:10]
+        ).defer(*member_defer('submitted_by', 'reviewed_by')).order_by('-submitted_at')[:10]
 
     context = {
         'current_period': current_period,
@@ -143,7 +144,7 @@ def view_service_submissions(request):
     """
     submissions = ServiceHoursSubmission.objects.select_related(
         'period', 'submitted_by', 'reviewed_by'
-    ).order_by('-submitted_at')
+    ).defer(*member_defer('submitted_by', 'reviewed_by')).order_by('-submitted_at')
 
     # Filters
     period_id = request.GET.get('period')
@@ -179,7 +180,7 @@ def manage_service_submission(request, submission_id):
     View and approve/reject a single submission.
     """
     submission = get_object_or_404(
-        ServiceHoursSubmission.objects.select_related('period', 'submitted_by', 'reviewed_by'),
+        ServiceHoursSubmission.objects.select_related('period', 'submitted_by', 'reviewed_by').defer(*member_defer('submitted_by', 'reviewed_by')),
         id=submission_id
     )
 
@@ -228,7 +229,7 @@ def manage_service_submission(request, submission_id):
     # Get activity log
     activity_log = ServiceActivity.objects.filter(
         submission=submission
-    ).select_related('user').order_by('-timestamp')
+    ).select_related('user').defer(*member_defer('user')).order_by('-timestamp')
 
     # Get custom field responses
     custom_responses = ServiceFieldResponse.objects.filter(
@@ -312,7 +313,7 @@ def export_service_csv(request):
 
     submissions = ServiceHoursSubmission.objects.select_related(
         'period', 'submitted_by', 'reviewed_by'
-    ).order_by('submitted_by__name', '-submitted_at')
+    ).defer(*member_defer('submitted_by', 'reviewed_by')).order_by('submitted_by__name', '-submitted_at')
 
     if period_id:
         submissions = submissions.filter(period_id=period_id)
@@ -423,7 +424,7 @@ def manage_member_expectations(request, period_id):
     # Get existing expectations
     expectations = ServiceMemberExpectation.objects.filter(
         period=period
-    ).select_related('member', 'created_by').order_by('member__name')
+    ).select_related('member', 'created_by').defer(*member_defer('member', 'created_by')).order_by('member__name')
 
     # Get members without expectations
     members_with_expectations = expectations.values_list('member_id', flat=True)
@@ -567,7 +568,7 @@ def get_member_adjustments(request, period_id, member_id):
     adjustments = ServiceHoursAdjustment.objects.filter(
         period=period,
         member=member
-    ).select_related('adjusted_by').order_by('-created_at')
+    ).select_related('adjusted_by').defer(*member_defer('adjusted_by')).order_by('-created_at')
 
     adjustments_data = [{
         'id': adj.id,
@@ -898,7 +899,7 @@ def service_event_detail(request, service_event_id):
     and (if not yet finalized) the "Finalize & Apply Hours" button.
     """
     se = get_object_or_404(
-        ServiceEvent.objects.select_related('event', 'period', 'created_by'),
+        ServiceEvent.objects.select_related('event', 'period', 'created_by').defer(*member_defer('created_by')),
         id=service_event_id,
     )
     event = se.event
@@ -907,7 +908,7 @@ def service_event_detail(request, service_event_id):
     members = ParliamentUser.objects.filter(member_status='Active').order_by('name')
     existing = {
         att.user_id: att
-        for att in Attendance.objects.filter(event=event, attendance_type='event').select_related('user')
+        for att in Attendance.objects.filter(event=event, attendance_type='event').select_related('user').defer(*member_defer('user'))
     }
     member_data = []
     for m in members:

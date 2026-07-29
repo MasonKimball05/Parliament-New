@@ -14,6 +14,7 @@ from src.models import (
     Slate, SlatingAttendance, SlatingBallot, SlatingVote, SlatingPosition
 )
 from .permissions import slating_admin_required, slating_chair_required
+from src.models.users import member_defer
 
 
 def check_and_auto_transition_status(period):
@@ -332,7 +333,7 @@ def edit_period(request, period_id):
 
                 candidates_qs = slate.candidates.filter(is_runoff=False).select_related(
                     'position', 'application__applicant', 'write_in_member'
-                ).order_by('display_order')
+                ).defer(*member_defer('application__applicant', 'write_in_member')).order_by('display_order')
 
                 position_breakdown = []
                 for candidate in candidates_qs:
@@ -385,7 +386,7 @@ def edit_period(request, period_id):
                 rejection_breakdown = []
                 if position_counts:
                     positions = {p.id: p for p in SlatingPosition.objects.filter(id__in=position_counts.keys())}
-                    candidates = {c.position_id: c for c in slate.candidates.select_related('application__applicant', 'write_in_member')}
+                    candidates = {c.position_id: c for c in slate.candidates.select_related('application__applicant', 'write_in_member').defer(*member_defer('application__applicant', 'write_in_member'))}
                     for pos_id, count in position_counts.most_common():
                         pos = positions.get(pos_id)
                         candidate = candidates.get(pos_id)
@@ -424,7 +425,7 @@ def edit_period(request, period_id):
         if approved_slate:
             filled_ids = approved_slate.candidates.filter(is_runoff=False, write_in_member__isnull=True).values_list('position_id', flat=True)
             blank_positions = list(period.positions.filter(is_active=True).exclude(id__in=filled_ids))
-            write_in_candidates = list(approved_slate.candidates.filter(write_in_member__isnull=False).select_related('position', 'write_in_member'))
+            write_in_candidates = list(approved_slate.candidates.filter(write_in_member__isnull=False).select_related('position', 'write_in_member').defer(*member_defer('write_in_member')))
             if blank_positions:
                 active_members = list(ParliamentUser.objects.filter(
                     member_status__in=['Active', 'Inactive'],
@@ -436,7 +437,7 @@ def edit_period(request, period_id):
 
                 # Who is already on the slate in any capacity
                 slated_user_ids = []
-                for sc in approved_slate.candidates.select_related('application__applicant', 'write_in_member'):
+                for sc in approved_slate.candidates.select_related('application__applicant', 'write_in_member').defer(*member_defer('application__applicant', 'write_in_member')):
                     if sc.application_id:
                         slated_user_ids.append(sc.application.applicant.user_id)
                     elif sc.write_in_member_id:
@@ -445,7 +446,7 @@ def edit_period(request, period_id):
                 # Applicants by position (non-withdrawn)
                 apps = list(period.applications.exclude(
                     status__in=['draft', 'withdrawn']
-                ).select_related('applicant'))
+                ).select_related('applicant').defer(*member_defer('applicant')))
 
                 pos_applicants = {}
                 for pos in blank_positions:

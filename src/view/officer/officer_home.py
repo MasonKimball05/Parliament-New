@@ -7,6 +7,7 @@ from src.models import (
 )
 from src.decorators import officer_or_advisor_required
 from src.feature_flag_decorators import require_page_enabled
+from src.models.users import member_defer
 
 @login_required
 @officer_or_advisor_required
@@ -17,28 +18,31 @@ def officer_home(request):
     # Get recent reports (last 5)
     recent_reports = CommitteeDocument.objects.filter(
         document_type='report'
-    ).select_related('committee', 'uploaded_by').order_by('-uploaded_at')[:5]
+    ).select_related('committee', 'uploaded_by').defer(*member_defer('uploaded_by')).order_by('-uploaded_at')[:5]
 
     # Get upcoming meetings/events (next 5, exclude archived)
     upcoming_events = Event.objects.filter(
         date_time__gte=now,
         is_active=True,
         archived=False
-    ).select_related('created_by').order_by('date_time')[:5]
+    # v3.17.3: `created_by` was joined here and never read — officer_home.html
+    # renders the event, not its author. Pre-existing; the v3.17.3 sweep made
+    # the join narrow when it should have removed it.
+    ).order_by('date_time')[:5]
 
     # Get recent member actions - recent legislation and committee documents (last 5)
     recent_legislation = Legislation.objects.filter(
         status='draft'
-    ).select_related('posted_by').order_by('-created_at')[:3]
+    ).select_related('posted_by').defer(*member_defer('posted_by')).order_by('-created_at')[:3]
 
     recent_committee_docs = CommitteeDocument.objects.select_related(
         'committee', 'uploaded_by'
-    ).order_by('-uploaded_at')[:3]
+    ).defer(*member_defer('uploaded_by')).order_by('-uploaded_at')[:3]
 
     # Get recent committee legislation
     recent_committee_legislation = CommitteeLegislation.objects.filter(
         status='draft'
-    ).select_related('committee', 'posted_by').order_by('-created_at')[:2]
+    ).select_related('committee', 'posted_by').defer(*member_defer('posted_by')).order_by('-created_at')[:2]
 
     # Contact submissions — most recent 10, with unread count
     contact_submissions = ContactSubmission.objects.all()[:10]
@@ -95,7 +99,7 @@ def officer_home(request):
                 slating_slate_candidates = list(
                     slating_passed_slate.candidates.select_related(
                         'position', 'application__applicant'
-                    ).order_by('display_order')
+                    ).defer(*member_defer('application__applicant')).order_by('display_order')
                 )
 
     context = {

@@ -28,6 +28,7 @@ from src.models import ActivityLog
 from src.models.admin_audit import log_admin_action
 
 import logging
+from src.models.users import member_defer
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +184,7 @@ def admin_api_tokens(request):
     status_filter = request.GET.get('status', 'all')
     tokens = (
         APIToken.objects
-        .select_related('user', 'approved_by', 'revoked_by')
+        .select_related('user', 'approved_by', 'revoked_by').defer(*member_defer('user', 'approved_by', 'revoked_by'))
         .order_by('-created_at')
     )
     if status_filter != 'all':
@@ -358,7 +359,7 @@ def admin_api_token_logs(request, token_id):
     if forbidden:
         return forbidden
     try:
-        token = APIToken.objects.select_related('user').get(id=token_id)
+        token = APIToken.objects.select_related('user').defer(*member_defer('user')).get(id=token_id)
     except APIToken.DoesNotExist:
         raise Http404
     logs = APIAccessLog.objects.filter(token=token).order_by('-timestamp')[:200]

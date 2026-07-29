@@ -7,7 +7,7 @@ A comprehensive Django-based management platform for the Alpha Mu chapter of Bet
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![Django 5.2+](https://img.shields.io/badge/django-5.2+-green.svg)](https://www.djangoproject.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-3.16.0-blue.svg)](changelogs/)
+[![Version](https://img.shields.io/badge/version-3.17.0-blue.svg)](changelogs/)
 
 ---
 
