@@ -125,6 +125,64 @@ def impersonation(request):
     return {'is_impersonating': False, 'impersonation_original_name': None}
 
 
+class _TrackedToggleDict(dict):
+    """
+    A dict that reports every lookup a template makes to dev mode.
+
+    WHY THIS EXISTS
+    ---------------
+    There are two entirely separate ways to ask whether a feature is on:
+
+      * `FeatureFlag.is_feature_enabled('x')` in Python, which is instrumented
+        inside that method, and
+      * `{% if feature_flags.x %}` in a template, which never calls that method
+        at all — it just indexes the dict this context processor builds.
+
+    Dev mode originally only saw the first, which is why some flags appeared in
+    the Flags panel and some didn't (07-28-26). This subclass closes that gap by
+    recording lookups at the point templates actually make them.
+
+    It also makes the fail-open/fail-closed asymmetry visible for the first
+    time: a name with no enabled row raises KeyError here, Django swallows it
+    and substitutes '' (falsy), so the feature silently vanishes from the
+    template — while the same name in Python would return True. That is exactly
+    how the calendar Subscribe button disappeared for weeks (07-25-26).
+
+    Behaviour is unchanged: KeyError is re-raised so Django's normal
+    string_if_invalid path still runs.
+    """
+
+    _kind = 'feature flag'
+
+    def __getitem__(self, key):
+        from src.dev_mode import record_flag
+        try:
+            value = super().__getitem__(key)
+        except KeyError:
+            record_flag(
+                key, False,
+                f'template lookup, no enabled row → "" (fail-CLOSED; '
+                f'Python would return True for this name)',
+            )
+            raise
+        record_flag(key, bool(value), 'template lookup, enabled row')
+        return value
+
+
+class _TrackedPageDict(_TrackedToggleDict):
+    _kind = 'page toggle'
+
+    def __getitem__(self, key):
+        from src.dev_mode import record_flag
+        try:
+            value = super(_TrackedToggleDict, self).__getitem__(key)
+        except KeyError:
+            record_flag(key, False, 'page toggle template lookup, no enabled row → ""')
+            raise
+        record_flag(key, bool(value), 'page toggle template lookup, enabled row')
+        return value
+
+
 def feature_flags(request):
     """
     Makes feature flags available in all templates.
@@ -134,6 +192,10 @@ def feature_flags(request):
         {% if feature_flags.announcements %}
             <!-- Show announcements -->
         {% endif %}
+
+    The two dicts are tracked subclasses so dev mode can report which flags a
+    template actually consulted — see _TrackedToggleDict. They pickle fine, so
+    tracking survives the cache round-trip below.
     """
     from django.core.cache import cache
 
@@ -144,12 +206,12 @@ def feature_flags(request):
         return cached_data
 
     # Get all enabled feature flags
-    enabled_features = {}
+    enabled_features = _TrackedToggleDict()
     for flag in FeatureFlag.objects.filter(is_enabled=True):
         enabled_features[flag.name] = True
 
     # Get all enabled pages
-    enabled_pages = {}
+    enabled_pages = _TrackedPageDict()
     for toggle in PageToggle.objects.filter(is_enabled=True):
         enabled_pages[toggle.url_name] = True
 

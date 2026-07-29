@@ -1,0 +1,410 @@
+{% comment %}
+Developer-mode panel. Injected before </body> by DevModeMiddleware — never
+{% include %}d, because the query list is only complete after the view and the
+template have finished running.
+
+The styling is deliberately anti-Parliament: monospace, high density, no rounded
+corners, no brand colours. The point is that you can never mistake a dev-mode
+page for a normal one, and that information wins over layout.
+
+The inline script and style blocks below carry request.csp_nonce, matching every
+other inline block in this project — a nonce-less inline script is dead in prod
+(see CLAUDE.md, v3.15.9). src/test_csp_templates.py enforces this.
+
+NOTE: do not write a literal script tag, or the string "feature_flags" followed
+by a dot, in this file's prose. test_csp_templates.py and
+test_feature_flag_seeding.py are deliberately dumb string scanners — they cannot
+tell documentation from code, and both fired on an earlier draft of these
+comments. That bluntness is why they catch real bugs; work around it here.
+{% endcomment %}
+<style nonce="{{ request.csp_nonce }}">
+  :root { --pdev-bg:#0b0f14; --pdev-fg:#c8d3df; --pdev-dim:#7c8b9a; --pdev-line:#1e2833;
+          --pdev-warn:#ffb454; --pdev-bad:#ff6b6b; --pdev-ok:#7ee787; --pdev-key:#7aa2f7; }
+  .pdev-root { position:fixed; z-index:2147483000; bottom:0; right:0; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11px; line-height:1.45; color:var(--pdev-fg); }
+  .pdev-fab { background:var(--pdev-bg); border:1px solid var(--pdev-line); border-right:0; border-bottom:0;
+              padding:5px 10px; cursor:pointer; display:flex; gap:10px; align-items:center; }
+  .pdev-fab b { color:var(--pdev-key); font-weight:600; }
+  .pdev-fab .pdev-n { color:var(--pdev-warn); }
+  .pdev-fab .pdev-bad { color:var(--pdev-bad); }
+  .pdev-body { display:none; background:var(--pdev-bg); border:1px solid var(--pdev-line); border-right:0; border-bottom:0;
+               width:min(760px,100vw); max-height:min(70vh,760px); overflow:auto; }
+  .pdev-root.pdev-open .pdev-body { display:block; }
+  .pdev-tabs { display:flex; border-bottom:1px solid var(--pdev-line); position:sticky; top:0; background:var(--pdev-bg); }
+  .pdev-tab { padding:6px 12px; cursor:pointer; color:var(--pdev-dim); border-right:1px solid var(--pdev-line); background:none; border-top:0; border-left:0; border-bottom:0; font:inherit; }
+  .pdev-tab[aria-selected="true"] { color:var(--pdev-fg); background:#131b24; }
+  .pdev-pane { display:none; padding:8px 10px; }
+  .pdev-pane.pdev-on { display:block; }
+  .pdev-row { border-bottom:1px solid var(--pdev-line); padding:4px 0; display:grid; grid-template-columns:auto 1fr; gap:10px; }
+  .pdev-row:last-child { border-bottom:0; }
+  .pdev-t { color:var(--pdev-dim); white-space:nowrap; }
+  .pdev-sql { white-space:pre-wrap; word-break:break-word; color:var(--pdev-fg); }
+  .pdev-warnbox { border-left:2px solid var(--pdev-warn); padding:5px 8px; margin-bottom:8px; background:#1a1408; }
+  .pdev-warnbox.pdev-sev { border-left-color:var(--pdev-bad); background:#1d0f0f; }
+  .pdev-empty { color:var(--pdev-dim); padding:6px 0; }
+  .pdev-yes { color:var(--pdev-ok); } .pdev-no { color:var(--pdev-bad); }
+  .pdev-row.pdev-hit { background:#132a1a; outline:1px solid var(--pdev-ok); outline-offset:-1px; }
+  .pdev-val.pdev-linked { outline:2px solid var(--pdev-ok); background:rgba(126,231,135,.14); }
+  .pdev-hint { position:fixed; bottom:34px; right:8px; z-index:2147483002; background:var(--pdev-bg);
+               border:1px solid var(--pdev-ok); color:var(--pdev-fg); padding:3px 7px; font-size:10px;
+               font-family:ui-monospace,Menlo,Consolas,monospace; display:none; }
+  .pdev-hint.pdev-on { display:block; }
+  .pdev-stack { margin-top:3px; padding-left:8px; border-left:1px solid var(--pdev-line); }
+  .pdev-stack div { color:var(--pdev-dim); }
+  .pdev-stack b { color:var(--pdev-key); font-weight:600; }
+  .pdev-verdict { color:var(--pdev-warn); }
+  .pdev-meta { color:var(--pdev-dim); }
+  .pdev-tables { color:var(--pdev-ok); }
+  details.pdev-d > summary { cursor:pointer; color:var(--pdev-dim); list-style:none; }
+  details.pdev-d > summary::-webkit-details-marker { display:none; }
+  details.pdev-d > summary:before { content:'▸ '; }
+  details.pdev-d[open] > summary:before { content:'▾ '; }
+
+  /* Inline annotations from {% templatetag openblock %} dev_value {% templatetag closeblock %} */
+  .pdev-val { position:relative; outline:1px dotted rgba(122,162,247,.55); outline-offset:1px; cursor:help; }
+  .pdev-val.pdev-gated { outline-color:rgba(255,107,107,.75); }
+  .pdev-tip { display:none; position:absolute; left:0; top:calc(100% + 4px); z-index:2147483001;
+              background:var(--pdev-bg); color:var(--pdev-fg); border:1px solid var(--pdev-line); padding:6px 8px;
+              font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px; line-height:1.5; white-space:nowrap;
+              display:none; grid-template-columns:auto 1fr; gap:2px 10px; }
+  .pdev-val:hover .pdev-tip, .pdev-val:focus .pdev-tip { display:grid; }
+  .pdev-tip .pdev-k { color:var(--pdev-dim); }
+  .pdev-badge { display:inline-block; background:var(--pdev-bg); color:var(--pdev-fg); border:1px solid var(--pdev-line);
+                padding:0 4px; margin-left:4px; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:10px; }
+</style>
+
+<div class="pdev-root" id="pdev-root">
+  <div class="pdev-fab" id="pdev-fab" role="button" tabindex="0" aria-expanded="false">
+    <span><b>DEV</b></span>
+    <span>{{ dev.total_ms }}ms</span>
+    <span class="{% if dev.query_count > 40 %}pdev-bad{% endif %}">{{ dev.query_count }}q / {{ dev.query_ms }}ms</span>
+    {% if dev.n_plus_one_count %}<span class="pdev-n">⚠ {{ dev.n_plus_one_count }} N+1</span>{% endif %}
+    <span>{{ dev.flags|length }}f {{ dev.permissions|length }}p</span>
+  </div>
+
+  <div class="pdev-body" id="pdev-body">
+    <div class="pdev-tabs" role="tablist">
+      <button class="pdev-tab" role="tab" aria-selected="true" data-pane="sql">SQL ({{ dev.query_count }})</button>
+      <button class="pdev-tab" role="tab" aria-selected="false" data-pane="shapes">Shapes ({{ dev_shapes|length }})</button>
+      <button class="pdev-tab" role="tab" aria-selected="false" data-pane="req">Request</button>
+      <button class="pdev-tab" role="tab" aria-selected="false" data-pane="dup">N+1 ({{ dev.n_plus_one_count }})</button>
+      <button class="pdev-tab" role="tab" aria-selected="false" data-pane="perm">Perms ({{ dev.permissions|length }})</button>
+      <button class="pdev-tab" role="tab" aria-selected="false" data-pane="flags">Flags ({{ dev.flags|length }})</button>
+      <button class="pdev-tab" role="tab" aria-selected="false" data-pane="obj">Objects ({{ dev.objects|length }})</button>
+      <button class="pdev-tab" role="tab" aria-selected="false" data-pane="notes">Notes ({{ dev.notes|length }})</button>
+    </div>
+
+    <div class="pdev-pane pdev-on" data-pane="sql">
+      {% for q in dev_queries %}
+        <div class="pdev-row" data-pdev-tables="{{ q.tables|join:" " }}">
+          <span class="pdev-t">{{ q.ms|floatformat:1 }}ms{% if q.rows >= 0 %}<br>{{ q.rows }}r{% endif %}</span>
+          <span>
+            <span class="pdev-sql">{{ q.sql }}</span>
+            {% if q.params %}<div class="pdev-meta">params {{ q.params }}</div>{% endif %}
+            {% if q.stack %}
+            <details class="pdev-d">
+              <summary>{% with f=q.stack|last %}from {{ f.where }} {{ f.func }}{% endwith %}{% if q.tables %} · <span class="pdev-tables">{{ q.tables|join:", " }}</span>{% endif %}</summary>
+              <div class="pdev-stack">
+                {% for f in q.stack %}<div><b>{{ f.where }}</b> {{ f.func }}{% if f.code %} — {{ f.code }}{% endif %}</div>{% endfor %}
+              </div>
+            </details>
+            {% endif %}
+          </span>
+        </div>
+      {% empty %}
+        <div class="pdev-empty">No queries — served entirely from cache or static context.</div>
+      {% endfor %}
+    </div>
+
+    <div class="pdev-pane" data-pane="shapes">
+      <div class="pdev-t" style="margin-bottom:6px">
+        Unique query shapes, most-repeated first. Shows what each query <em>did</em> — tables,
+        rows returned, access pattern — deliberately not the values it returned. Reading raw
+        rows here would bypass every permission gate in the app; see src/dev_mode.py.
+      </div>
+      {% for sh in dev_shapes %}
+        <div class="pdev-row" data-pdev-tables="{{ sh.tables|join:" " }}">
+          <span class="pdev-t">{{ sh.count }}×<br>{{ sh.ms }}ms{% if sh.rows != None %}<br>{{ sh.rows }}r{% endif %}</span>
+          <span>
+            <div class="pdev-verdict">{{ sh.verdict }}</div>
+            {% if sh.tables %}<div class="pdev-tables">{{ sh.tables|join:", " }}</div>{% endif %}
+            {% if sh.origins %}<div class="pdev-meta">from {{ sh.origins|join:" · " }}</div>{% endif %}
+            <details class="pdev-d"><summary>SQL</summary><div class="pdev-sql">{{ sh.sample }}</div></details>
+          </span>
+        </div>
+      {% empty %}
+        <div class="pdev-empty">No queries on this request.</div>
+      {% endfor %}
+    </div>
+
+    <div class="pdev-pane" data-pane="req">
+      <div class="pdev-row"><span class="pdev-t">url name</span><span>{{ dev_request.url_name }}{% if dev_request.namespace != "—" %} (ns {{ dev_request.namespace }}){% endif %}</span></div>
+      <div class="pdev-row"><span class="pdev-t">view</span><span>{{ dev_request.view }}</span></div>
+      <div class="pdev-row"><span class="pdev-t">request</span><span>{{ dev_request.method }} {{ dev_request.path }} → {{ dev_request.status }}</span></div>
+      <div class="pdev-row"><span class="pdev-t">url args</span><span>{{ dev_request.args }} {{ dev_request.kwargs }}</span></div>
+      <div class="pdev-row"><span class="pdev-t">user</span><span>{{ dev_request.user }}</span></div>
+      <div class="pdev-row">
+        <span class="pdev-t">time</span>
+        <span>{{ dev_request.total_ms }}ms total —
+          <span class="pdev-tables">{{ dev_request.db_ms }}ms in SQL</span> /
+          {{ dev_request.python_ms }}ms Python+render</span>
+      </div>
+      <div class="pdev-row">
+        <span class="pdev-t">templates</span>
+        <span>
+          {% for t in dev.templates %}
+            <details class="pdev-d"><summary>{{ t.name }}</summary>
+              <div class="pdev-stack"><div>context: {{ t.keys|join:", " }}</div></div>
+            </details>
+          {% empty %}<span class="pdev-meta">none recorded</span>{% endfor %}
+        </span>
+      </div>
+    </div>
+
+    <div class="pdev-pane" data-pane="dup">
+      {% for sql, count, ms, sample, stacks in dev_duplicates %}
+        <div class="pdev-warnbox {% if count >= 10 %}pdev-sev{% endif %}">
+          <div><b>{{ count }}×</b> the same query shape, {{ ms }}ms total.</div>
+          {% if stacks %}
+          <div class="pdev-stack">
+            <div class="pdev-t">Fired from:</div>
+            {% for f in stacks %}<div><b>{{ f.where }}</b> {{ f.func }}{% if f.code %} — {{ f.code }}{% endif %}</div>{% endfor %}
+          </div>
+          {% endif %}
+          <details class="pdev-d"><summary>SQL</summary>
+            <div class="pdev-sql">{{ sample }}</div>
+          </details>
+          <div class="pdev-t">Likely a loop calling .count()/.exists()/.filter(), or a missing
+            select_related/prefetch_related on the queryset feeding this template.</div>
+        </div>
+      {% empty %}
+        <div class="pdev-empty">No query shape repeated {{ dev.n_plus_one_threshold|default:"4" }}+ times. Nothing that looks like an N+1.</div>
+      {% endfor %}
+    </div>
+
+    <div class="pdev-pane" data-pane="perm">
+      <details class="pdev-d" open><summary>This user's standing capabilities</summary>
+        <div class="pdev-stack">
+          {% for c in dev.capabilities %}
+          <div><b>{{ c.label }}</b> {{ c.value }}</div>
+          {% endfor %}
+        </div>
+      </details>
+      <div class="pdev-t" style="margin:6px 0">
+        Gates that fired on this request. Inline <code>if request.user.is_admin</code> checks
+        inside views are not recorded individually — the capabilities above answer for those.
+      </div>
+      {% for p in dev.permissions %}
+        <div class="pdev-row">
+          <span class="pdev-t">{{ p.label }}</span>
+          <span>{{ p.result }} <span class="pdev-t">— {{ p.detail }}</span></span>
+        </div>
+      {% empty %}
+        <div class="pdev-empty">No instrumented permission gate ran on this request.</div>
+      {% endfor %}
+    </div>
+
+    <div class="pdev-pane" data-pane="flags">
+      {% for f in dev.flags %}
+        <div class="pdev-row">
+          <span class="pdev-t">{{ f.name }}{% if f.count > 1 %} ×{{ f.count }}{% endif %}</span>
+          <span>
+            {% if f.result %}<span class="pdev-yes">enabled</span>{% else %}<span class="pdev-no">disabled</span>{% endif %}
+            <span class="pdev-t">— {{ f.source }}</span>
+          </span>
+        </div>
+      {% empty %}
+        <div class="pdev-empty">
+          No feature flag or page toggle was consulted on this request — neither in Python
+          nor in a template.
+        </div>
+      {% endfor %}
+      <div class="pdev-t" style="margin-top:8px">
+        Reminder: Python fails OPEN on a missing flag, templates fail CLOSED — a
+        template lookup on an unseeded flag name resolves to '' and is falsy. So a flag
+        showing “no row → fail-open default” above is enabled in Python and simultaneously
+        invisible in any template that gates on it. That asymmetry hid the calendar
+        Subscribe button for weeks (07-25-26).
+      </div>
+    </div>
+
+    <div class="pdev-pane" data-pane="obj">
+      {% for o in dev.objects %}
+        <div class="pdev-row">
+          <span class="pdev-t">{{ o.model }}#{{ o.pk }}</span>
+          <span>{{ o.field }} <span class="pdev-t">— {{ o.loading }}</span>{% if o.gated %} <span class="pdev-no">[gated]</span>{% endif %}</span>
+        </div>
+      {% empty %}
+        <div class="pdev-empty">
+          No annotated values on this page. Add <code>{% templatetag openblock %} load dev_tags {% templatetag closeblock %}</code> and
+          <code>{% templatetag openblock %} dev_value obj 'field' {% templatetag closeblock %}</code> to inspect one.
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="pdev-pane" data-pane="notes">
+      {% for n in dev.notes %}
+        <div class="pdev-row"><span class="pdev-t">{{ n.label }}</span><span>{{ n.value }}</span></div>
+      {% empty %}
+        <div class="pdev-empty">No notes. Add one with <code>{% templatetag openblock %} dev_note "label" value {% templatetag closeblock %}</code>.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+(function () {
+    var root = document.getElementById('pdev-root');
+    var fab  = document.getElementById('pdev-fab');
+    if (!root || !fab) return;
+
+    // Open/closed survives navigation. sessionStorage, not localStorage: dev
+    // mode is a working session, not a durable preference — the durable one is
+    // the toggle in Preferences.
+    var KEY = 'parliament-dev-panel-open';
+    try { if (sessionStorage.getItem(KEY) === '1') root.classList.add('pdev-open'); } catch (e) {}
+
+    function toggle() {
+        var open = root.classList.toggle('pdev-open');
+        fab.setAttribute('aria-expanded', open ? 'true' : 'false');
+        try { sessionStorage.setItem(KEY, open ? '1' : '0'); } catch (e) {}
+    }
+
+    fab.addEventListener('click', toggle);
+    fab.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
+
+    root.querySelectorAll('.pdev-tab').forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            var target = tab.getAttribute('data-pane');
+            root.querySelectorAll('.pdev-tab').forEach(function (t) {
+                t.setAttribute('aria-selected', t === tab ? 'true' : 'false');
+            });
+            root.querySelectorAll('.pdev-pane').forEach(function (p) {
+                p.classList.toggle('pdev-on', p.getAttribute('data-pane') === target);
+            });
+        });
+    });
+
+    // Ctrl+` toggles the panel.
+    document.addEventListener('keydown', function (e) {
+        if (e.ctrlKey && e.key === '`') { e.preventDefault(); toggle(); }
+    });
+
+    // ------------------------------------------------------------------
+    // Dwell-hover linking: hold the pointer on an annotated value for
+    // DWELL_MS and the panel highlights the queries that touched that
+    // table. The two directions of the same link:
+    //
+    //   page element  -> the SQL/Shapes rows that produced it
+    //   panel row     -> the page elements it produced
+    //
+    // Matching is by database table, which is why dev_value emits
+    // data-pdev-table and every panel row carries data-pdev-tables.
+    // A dwell rather than a plain mouseover: annotated values sit inside
+    // ordinary prose, and firing on every incidental pass would make the
+    // page flicker.
+    // ------------------------------------------------------------------
+    var DWELL_MS = 600;
+    var dwellTimer = null;
+    var hint = document.createElement('div');
+    hint.className = 'pdev-hint';
+    document.body.appendChild(hint);
+
+    function clearHighlight() {
+        root.querySelectorAll('.pdev-row.pdev-hit').forEach(function (r) {
+            r.classList.remove('pdev-hit');
+        });
+        document.querySelectorAll('.pdev-val.pdev-linked').forEach(function (v) {
+            v.classList.remove('pdev-linked');
+        });
+        hint.classList.remove('pdev-on');
+    }
+
+    function rowsForTable(table) {
+        return Array.prototype.filter.call(
+            root.querySelectorAll('.pdev-row[data-pdev-tables]'),
+            function (r) {
+                return r.getAttribute('data-pdev-tables').split(/\s+/).indexOf(table) !== -1;
+            }
+        );
+    }
+
+    function highlightFromElement(el) {
+        var table = el.getAttribute('data-pdev-table');
+        if (!table) return;
+        clearHighlight();
+
+        var rows = rowsForTable(table);
+        if (!rows.length) {
+            hint.textContent = table + ' — no query on this request (cached or prefetched)';
+            hint.classList.add('pdev-on');
+            return;
+        }
+
+        root.classList.add('pdev-open');
+        fab.setAttribute('aria-expanded', 'true');
+        rows.forEach(function (r) { r.classList.add('pdev-hit'); });
+        el.classList.add('pdev-linked');
+
+        // Show whichever tab the matches are on, preferring the one already open.
+        var pane = rows[0].closest('.pdev-pane');
+        if (pane && !pane.classList.contains('pdev-on')) {
+            var name = pane.getAttribute('data-pane');
+            root.querySelectorAll('.pdev-tab').forEach(function (t) {
+                t.setAttribute('aria-selected', t.getAttribute('data-pane') === name ? 'true' : 'false');
+            });
+            root.querySelectorAll('.pdev-pane').forEach(function (p) {
+                p.classList.toggle('pdev-on', p === pane);
+            });
+        }
+        rows[0].scrollIntoView({ block: 'nearest' });
+
+        hint.textContent = rows.length + ' quer' + (rows.length === 1 ? 'y' : 'ies') +
+                           ' touched ' + table;
+        hint.classList.add('pdev-on');
+    }
+
+    document.addEventListener('mouseover', function (e) {
+        var el = e.target.closest ? e.target.closest('.pdev-val') : null;
+        if (!el) return;
+        clearTimeout(dwellTimer);
+        dwellTimer = setTimeout(function () { highlightFromElement(el); }, DWELL_MS);
+    });
+
+    document.addEventListener('mouseout', function (e) {
+        if (e.target.closest && e.target.closest('.pdev-val')) {
+            clearTimeout(dwellTimer);
+        }
+    });
+
+    // Keyboard parity: annotated values are focusable, so Tab + hold works too.
+    document.addEventListener('focusin', function (e) {
+        if (e.target.classList && e.target.classList.contains('pdev-val')) {
+            highlightFromElement(e.target);
+        }
+    });
+
+    // Reverse direction: hovering a panel row lights up the page elements it
+    // produced. No dwell here — you are already inside the panel on purpose.
+    root.addEventListener('mouseover', function (e) {
+        var row = e.target.closest ? e.target.closest('.pdev-row[data-pdev-tables]') : null;
+        if (!row) return;
+        var tables = row.getAttribute('data-pdev-tables').split(/\s+/);
+        document.querySelectorAll('.pdev-val[data-pdev-table]').forEach(function (v) {
+            v.classList.toggle(
+                'pdev-linked', tables.indexOf(v.getAttribute('data-pdev-table')) !== -1);
+        });
+    });
+
+    root.addEventListener('mouseleave', function () {
+        document.querySelectorAll('.pdev-val.pdev-linked').forEach(function (v) {
+            v.classList.remove('pdev-linked');
+        });
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') clearHighlight();
+    });
+})();
+</script>

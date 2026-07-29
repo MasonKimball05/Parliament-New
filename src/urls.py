@@ -204,7 +204,7 @@ from src.view.profile_view import profile_view
 from src.view.directory import member_directory, export_directory
 from src.view.profile_card import profile_card_json
 from src.view.house_map import house_map
-from src.view.preferences import preferences_view
+from src.view.preferences import preferences_view, toggle_dev_mode
 from src.view.session_viewer import session_list, revoke_session, revoke_all_other_sessions
 from src.view.activity_logs import activity_logs_view, export_activity_logs
 from src.view.upload_legislation import upload_legislation
@@ -312,6 +312,8 @@ urlpatterns = [
     path('house-map/', house_map, name='house_map'),
     path('profile/', profile_view, name='profile'),
     path('preferences/', preferences_view, name='preferences'),
+    # Developer mode toggle — gated on ADMIN_V2_USER_IDS inside the view.
+    path('preferences/dev-mode/', toggle_dev_mode, name='toggle_dev_mode'),
     path('set-email/', set_email, name='set_email'),
     path('set-email/confirm/<uuid:token>/', confirm_email_change, name='confirm_email_change'),
     path('upload/', upload_legislation, name='upload_legislation'),

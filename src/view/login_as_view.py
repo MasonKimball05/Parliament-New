@@ -4,6 +4,7 @@ from django.shortcuts import get_object_or_404, redirect
 from ..models import ParliamentUser, ActivityLog
 from django.contrib.auth import login
 import logging
+from src.auth_backends import AUTH_BACKEND_PATH
 
 security_logger = logging.getLogger('security')
 logger = logging.getLogger('function_calls')
@@ -26,7 +27,7 @@ def login_as_view(request, user_id):
     original_pk   = request.user.pk
 
     # Perform the login (Django will flush/cycle the session here)
-    target.backend = 'django.contrib.auth.backends.ModelBackend'
+    target.backend = AUTH_BACKEND_PATH
     login(request, target)
 
     # Restore impersonation tracking into the new session
@@ -81,7 +82,7 @@ def return_to_original_user(request):
     )
 
     # Perform the login back as the original admin
-    original_admin.backend = 'django.contrib.auth.backends.ModelBackend'
+    original_admin.backend = AUTH_BACKEND_PATH
     login(request, original_admin)
 
     # Clear impersonation keys from the new session

@@ -22,7 +22,7 @@
     <!-- Dark Mode Initialization - MUST run BEFORE styles apply -->
     <script nonce="{{ request.csp_nonce }}">
         (function() {
-            const theme = '{{ user.preferences.theme|default:"light" }}';
+            const theme = '{{ user_prefs.theme|default:"light" }}';
             if (theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.classList.add('dark');
             } else {
@@ -91,17 +91,17 @@
                     {% if user.is_authenticated %}
                         <!-- Desktop Navigation - Condensed -->
                         <div class="hidden xl:flex space-x-1">
-                            {% if user.preferences.show_vote_menu %}
+                            {% if user_prefs.show_vote_menu %}
                             <a href="{% url 'vote' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Vote
                             </a>
                             {% endif %}
-                            {% if user.preferences.show_committees_menu %}
+                            {% if user_prefs.show_committees_menu %}
                             <a href="{% url 'committee_index' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Committees
                             </a>
                             {% endif %}
-                            {% if user.preferences.show_chats_menu and feature_flags.chats %}
+                            {% if user_prefs.show_chats_menu and feature_flags.chats %}
                             <span class="inline-flex items-center">
                                 <a href="{% url 'chat_index' %}" class="relative px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                     Chats
@@ -118,42 +118,42 @@
                             <a href="{% url 'my_pledge_tasks' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 My Tasks
                             </a>
-                            {% elif user.preferences.show_documents_menu %}
+                            {% elif user_prefs.show_documents_menu %}
                             <a href="{% url 'chapter_documents' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Documents
                             </a>
                             {% endif %}
-                            {% if user.preferences.show_announcements_menu %}
+                            {% if user_prefs.show_announcements_menu %}
                             <a href="{% url 'announcements' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Announcements
                             </a>
                             {% endif %}
-                            {% if user.preferences.show_calendar_menu %}
+                            {% if user_prefs.show_calendar_menu %}
                             <a href="{% url 'calendar' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Calendar
                             </a>
                             {% endif %}
-                            {% if user.preferences.show_legislation_menu %}
+                            {% if user_prefs.show_legislation_menu %}
                             <a href="{% url 'passed_legislation' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Legislation
                             </a>
                             {% endif %}
-                            {% if user.preferences.show_cnb_menu %}
+                            {% if user_prefs.show_cnb_menu %}
                             <a href="{% url 'constitution_bylaws' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 C&amp;B
                             </a>
                             {% endif %}
-                            {% if user.preferences.show_resolutions_menu %}
+                            {% if user_prefs.show_resolutions_menu %}
                             <a href="{% url 'cnb_resolution_list' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Resolutions
                             </a>
                             {% endif %}
-                            {% if user.preferences.show_excuses_menu %}
+                            {% if user_prefs.show_excuses_menu %}
                             <a href="{% url 'my_excuses' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 My Excuses
                             </a>
                             {% endif %}
-                            {% if user.preferences.show_roberts_rules_menu %}
+                            {% if user_prefs.show_roberts_rules_menu %}
                             <a href="{% url 'roberts_rules' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Robert's Rules
                             </a>
@@ -169,7 +169,7 @@
 
                 <div class="flex items-center space-x-1.5">
                     {% if user.is_authenticated %}
-                        {% if user.preferences.show_search_menu and feature_flags.global_search %}
+                        {% if user_prefs.show_search_menu and feature_flags.global_search %}
                         <!-- Search Bar - More Compact -->
                         <form method="get" action="{% url 'global_search' %}" class="hidden lg:block">
                             <div class="relative">
@@ -290,22 +290,22 @@
                 <a href="{% url 'home' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     🏠 Home
                 </a>
-                {% if user.preferences.show_search_menu and feature_flags.global_search %}
+                {% if user_prefs.show_search_menu and feature_flags.global_search %}
                 <a href="{% url 'global_search' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     🔍 Search
                 </a>
                 {% endif %}
-                {% if user.preferences.show_vote_menu %}
+                {% if user_prefs.show_vote_menu %}
                 <a href="{% url 'vote' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     🗳️ Vote
                 </a>
                 {% endif %}
-                {% if user.preferences.show_committees_menu %}
+                {% if user_prefs.show_committees_menu %}
                 <a href="{% url 'committee_index' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     👥 Committees
                 </a>
                 {% endif %}
-                {% if user.preferences.show_chats_menu and feature_flags.chats %}
+                {% if user_prefs.show_chats_menu and feature_flags.chats %}
                 <span class="flex items-center">
                     <a href="{% url 'chat_index' %}" class="flex-1 block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                         💬 Chats{% if unread_chat_count %} <span id="chat-unread-badge-mobile" class="chat-unread-mobile inline-flex items-center justify-center ml-1 px-1.5 py-0.5 text-xs font-bold bg-red-500 rounded-full">{{ unread_chat_count }}</span>{% endif %}
@@ -319,42 +319,42 @@
                 <a href="{% url 'my_pledge_tasks' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📋 My Tasks
                 </a>
-                {% elif user.preferences.show_documents_menu %}
+                {% elif user_prefs.show_documents_menu %}
                 <a href="{% url 'chapter_documents' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📄 Documents
                 </a>
                 {% endif %}
-                {% if user.preferences.show_legislation_menu %}
+                {% if user_prefs.show_legislation_menu %}
                 <a href="{% url 'passed_legislation' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📜 Legislation
                 </a>
                 {% endif %}
-                {% if user.preferences.show_cnb_menu %}
+                {% if user_prefs.show_cnb_menu %}
                 <a href="{% url 'constitution_bylaws' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📜 Constitution &amp; Bylaws
                 </a>
                 {% endif %}
-                {% if user.preferences.show_resolutions_menu %}
+                {% if user_prefs.show_resolutions_menu %}
                 <a href="{% url 'cnb_resolution_list' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📋 Resolutions
                 </a>
                 {% endif %}
-                {% if user.preferences.show_announcements_menu %}
+                {% if user_prefs.show_announcements_menu %}
                 <a href="{% url 'announcements' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📢 Announcements
                 </a>
                 {% endif %}
-                {% if user.preferences.show_calendar_menu %}
+                {% if user_prefs.show_calendar_menu %}
                 <a href="{% url 'calendar' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📅 Calendar
                 </a>
                 {% endif %}
-                {% if user.preferences.show_excuses_menu %}
+                {% if user_prefs.show_excuses_menu %}
                 <a href="{% url 'my_excuses' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📝 My Excuses
                 </a>
                 {% endif %}
-                {% if user.preferences.show_roberts_rules_menu %}
+                {% if user_prefs.show_roberts_rules_menu %}
                 <a href="{% url 'roberts_rules' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     📖 Robert's Rules
                 </a>

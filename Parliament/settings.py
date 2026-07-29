@@ -44,7 +44,21 @@ TIME_ZONE = os.getenv('TIME_ZONE', 'America/Chicago')  # Central Time (CST/CDT)
 AUTH_USER_MODEL = os.getenv('DJANGO_AUTH_USER_MODEL', 'src.ParliamentUser')
 
 AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',  # Supports custom user models
+    # ModelBackend, but the per-request session-user load skips the profile-only
+    # columns (bio, JSON lists, socials, house). ParliamentUser is a wide table
+    # and every authenticated request was reading all of it; those fields are
+    # only used by profile/directory/house_map. See src/auth_backends.py.
+    'src.auth_backends.DeferredProfileModelBackend',
+
+    # Stock ModelBackend is kept listed ON PURPOSE. Django writes the backend's
+    # dotted path into the session at login and, on every later request, logs
+    # the user out if that path is no longer in this list. Dropping it would
+    # therefore sign out every live session the moment this deploys, and would
+    # break any `login(..., backend=...)` call still naming the old path. It
+    # never wins a login (the deferring backend is tried first); it exists so
+    # the transition is not a mass logout. Safe to remove a release or two
+    # after this ships, once no session predates it.
+    'django.contrib.auth.backends.ModelBackend',
 ]
 
 
@@ -153,6 +167,13 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',  # Required
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'src.middleware.geo_restriction.GeoRestrictionMiddleware',  # Block export endpoints for non-US sessions
+    # Developer mode — MUST be last. Its request phase runs after everything
+    # above (so request.user and request.csp_nonce exist), and its response phase
+    # runs before them (so the injected panel is in the body before
+    # InputSanitizationMiddleware computes the CSP header, and the panel's
+    # nonce-bearing <script> is therefore allowed). Inert unless the user is on
+    # ADMIN_V2_USER_IDS *and* has switched it on in preferences.
+    'src.middleware.dev_mode.DevModeMiddleware',
 ]
 
 

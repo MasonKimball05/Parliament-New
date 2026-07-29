@@ -219,15 +219,29 @@ def _get_kai_access(user, committee):
         'can_view_submitter_identity', 'can_view_accused_identity',
         'can_edit_open_cases', 'can_add_activity', 'can_close_cases',
     ]
+    from src.dev_mode import record_permission
+
     # v3.16.3 perf: `user.is_admin` is a plain field read; `committee.is_chair`
     # costs 1-2 queries. Testing is_admin first means admins reach the same
     # answer without touching the DB, at all six call sites.
     if user.is_admin or committee.is_chair(user):
-        return {f: True for f in FIELDS} | {'is_full_access': True}
+        access = {f: True for f in FIELDS} | {'is_full_access': True}
+        record_permission(
+            'kai_access', 'full',
+            'is_admin' if user.is_admin else 'committee chair',
+        )
+        return access
     try:
         perm = KaiMemberPermission.objects.get(committee=committee, user=user)
-        return {f: getattr(perm, f) for f in FIELDS} | {'is_full_access': False}
+        access = {f: getattr(perm, f) for f in FIELDS} | {'is_full_access': False}
+        record_permission(
+            'kai_access',
+            ', '.join(f for f in FIELDS if access[f]) or 'none granted',
+            'KaiMemberPermission row',
+        )
+        return access
     except KaiMemberPermission.DoesNotExist:
+        record_permission('kai_access', 'none', 'no KaiMemberPermission row')
         return {f: False for f in FIELDS} | {'is_full_access': False}
 
 

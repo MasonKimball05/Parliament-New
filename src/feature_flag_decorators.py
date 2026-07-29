@@ -42,7 +42,14 @@ def require_page_enabled(url_name):
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
-            if not PageToggle.is_page_enabled(url_name):
+            # Recorded for the dev-mode Flags panel: @require_page_enabled is a
+            # gate like any other, and a page 403ing because of a PageToggle row
+            # is otherwise indistinguishable from a permission failure.
+            from src.dev_mode import record_flag
+
+            page_enabled = PageToggle.is_page_enabled(url_name)
+            record_flag(url_name, page_enabled, 'page toggle (@require_page_enabled)')
+            if not page_enabled:
                 try:
                     toggle = PageToggle.objects.get(url_name=url_name)
                     message = toggle.disabled_message

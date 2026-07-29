@@ -762,6 +762,49 @@
         </div>
     </div>
 
+    {% comment %}
+    Developer mode. This card is rendered ONLY for accounts on the
+    ADMIN_V2_USER_IDS allowlist — for everyone else the markup does not exist in
+    the page at all, which is the point of keeping it out of UserPreferencesForm.
+    The POST target re-checks the allowlist server-side; the template condition
+    is presentation, not security.
+    {% endcomment %}
+    {% if can_use_dev_mode %}
+    <div class="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200 border-l-4 border-slate-700 dark:border-slate-500">
+        <div class="flex items-start justify-between gap-4 flex-col sm:flex-row">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <span class="font-mono text-xs px-1.5 py-0.5 rounded bg-slate-800 text-slate-100">DEV</span>
+                    Developer Mode
+                </h2>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mt-2 max-w-prose">
+                    Adds a debug panel to every page: every SQL query with N+1 detection, which
+                    feature flags and permission gates were evaluated and what they returned, and
+                    hover details on any value a template annotates. Styling is deliberately stark
+                    so a dev-mode page is never mistaken for a normal one.
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-500 mt-2 max-w-prose">
+                    It does not widen what you can see — record content still renders through the
+                    same permission checks as normal. Toggling it either way is logged.
+                </p>
+            </div>
+            <form method="post" action="{% url 'toggle_dev_mode' %}" class="flex-shrink-0">
+                {% csrf_token %}
+                <input type="hidden" name="enabled" value="{% if dev_mode_on %}0{% else %}1{% endif %}">
+                <button type="submit"
+                        class="px-4 py-2 rounded-lg font-medium text-sm transition-colors {% if dev_mode_on %}bg-slate-800 text-white hover:bg-slate-900{% else %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600{% endif %}">
+                    {% if dev_mode_on %}Disable{% else %}Enable{% endif %}
+                </button>
+            </form>
+        </div>
+        {% if dev_mode_on %}
+        <p class="mt-4 text-xs font-mono text-gray-500 dark:text-gray-400">
+            Active. Panel is bottom-right; Ctrl+` toggles it.
+        </p>
+        {% endif %}
+    </div>
+    {% endif %}
+
 </div>
 
 <script nonce="{{ request.csp_nonce }}">

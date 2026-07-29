@@ -40,6 +40,7 @@ from webauthn import base64url_to_bytes, options_to_json
 
 from src.models.webauthn import WebAuthnCredential
 from src.utils.security_utils import get_client_ip, run_post_auth_pipeline
+from src.auth_backends import AUTH_BACKEND_PATH
 
 logger = logging.getLogger(__name__)
 security_logger = logging.getLogger('security')
@@ -292,7 +293,7 @@ def passkey_authenticate_complete(request):
         return error_response
 
     # Log the user in (bypasses password check — WebAuthn already verified identity)
-    login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+    login(request, user, backend=AUTH_BACKEND_PATH)
 
     # Mark session as fully authenticated — Enforce2FAMiddleware checks this flag
     request.session['webauthn_authenticated'] = True

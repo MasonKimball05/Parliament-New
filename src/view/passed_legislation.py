@@ -10,11 +10,23 @@ from django.views.decorators.http import require_http_methods
 from django.urls import reverse
 import logging
 from ..decorators import log_function_call
-from ..models import Legislation, Vote, Attendance
+from django.db.models import Prefetch
+from ..models import (
+    Legislation, Vote, Attendance, ParliamentUser,
+    MEMBER_DISPLAY_FIELDS, MEMBER_PROFILE_FIELDS,
+)
 from src.feature_flag_decorators import require_page_enabled
 
 logger = logging.getLogger(__name__)
 from datetime import timedelta
+
+
+# v3.17.1 — see MEMBER_DISPLAY_FIELDS in src/models/users.py. ParliamentUser is a
+# wide table carrying the whole member profile; a page that only prints names has
+# no business selecting the bio and five JSON columns for every joined row.
+ATTENDANCE_DISPLAY_FIELDS = (
+    'id', 'user_id', 'created_at', 'status',
+) + tuple(f'user__{name}' for name in MEMBER_DISPLAY_FIELDS)
 
 
 def _present_members_in_window(vote_start, vote_end):
@@ -33,6 +45,18 @@ def _present_members_in_window(vote_start, vote_end):
         .order_by('user_id', '-created_at')
         .select_related('user')
     )
+    return _dedupe_latest_per_user(rows)
+
+
+def _dedupe_latest_per_user(rows):
+    """
+    Keep the newest attendance row per user.
+
+    Split out in v3.17.1 so the list view can batch one attendance fetch for the
+    whole page and slice it per legislation, instead of calling
+    `_present_members_in_window` once per row. Expects rows already ordered by
+    (user_id, -created_at) — which both call sites guarantee.
+    """
     seen, latest = set(), []
     for att in rows:
         if att.user_id not in seen:
@@ -125,17 +149,38 @@ def passed_legislation(request):
         # All - show closed legislation (passed + failed)
         queryset = all_legislation.filter(voting_closed=True).order_by('-voting_ended_at')
 
-    # Count for each status tab
+    # Count for each status tab.
+    #
+    # v3.17.2: was six separate COUNT round trips over the same table, one per
+    # tab. They are six different predicates, but conditional aggregation
+    # evaluates all of them in a single pass — `Count` with a `filter=` counts
+    # only the rows matching that Q. The `personal` tab counts a different table
+    # so it stays its own query.
+    _passed_q = Q(status='passed') | Q(passed=True, voting_closed=True)
+    _failed_q = (
+        (Q(status='failed') | (Q(passed=False) & Q(voting_closed=True)))
+        & ~Q(status__in=['passed', 'tabled', 'removed'])
+    )
+    _active_tab_q = _active_q & ~Q(status__in=['tabled', 'removed', 'pending'])
+
+    # Aliases are prefixed because an aggregate may not share a name with a model
+    # field — `passed` is both a tab and a BooleanField, and Django rejects the
+    # collision with "Cannot compute Count('passed'): 'passed' is an aggregate".
+    _counts = all_legislation.aggregate(
+        n_all=Count('pk', filter=Q(voting_closed=True), distinct=True),
+        n_pending=Count('pk', filter=_pending_q, distinct=True),
+        n_active=Count('pk', filter=_active_tab_q, distinct=True),
+        n_passed=Count('pk', filter=_passed_q, distinct=True),
+        n_failed=Count('pk', filter=_failed_q, distinct=True),
+        n_tabled=Count('pk', filter=Q(status='tabled'), distinct=True),
+    )
     status_counts = {
-        'all': all_legislation.filter(voting_closed=True).count(),
-        'pending': all_legislation.filter(_pending_q).count(),
-        'active': all_legislation.filter(_active_q).exclude(
-            status__in=['tabled', 'removed', 'pending']).count(),
-        'passed': all_legislation.filter(Q(status='passed') | Q(passed=True, voting_closed=True)).count(),
-        'failed': all_legislation.filter(
-            Q(status='failed') | (Q(passed=False) & Q(voting_closed=True))
-        ).exclude(status__in=['passed', 'tabled', 'removed']).count(),
-        'tabled': all_legislation.filter(status='tabled').count(),
+        'all': _counts['n_all'],
+        'pending': _counts['n_pending'],
+        'active': _counts['n_active'],
+        'passed': _counts['n_passed'],
+        'failed': _counts['n_failed'],
+        'tabled': _counts['n_tabled'],
         'personal': Vote.objects.filter(user=request.user)
                         .values('legislation').distinct().count(),
     }
@@ -150,9 +195,65 @@ def passed_legislation(request):
         total_count=Count('vote'),
     )
 
+    # v3.17.1 perf — dev mode surfaced two 6× N+1 groups here, both fired
+    # lazily during template rendering (the stack pointed at the render() call,
+    # which is what lazy evaluation looks like).
+    #
+    #  * `posted_by`: user_id is ParliamentUser's PRIMARY KEY, so every row
+    #    re-fetched the same author by pk. select_related joins it once.
+    #  * `co_authors`: the template iterates it per row. prefetch_related makes
+    #    that one query for the whole page.
+    # v3.17.2: narrow BOTH relations. select_related and prefetch_related each
+    # fetch every column by default, so the earlier fix removed the N+1 while
+    # still dragging ~43 ParliamentUser columns per author and per co-author.
+    # posted_by is deferred (see MEMBER_PROFILE_FIELDS on why defer beats only
+    # for a related queryset); co_authors gets an explicit Prefetch queryset,
+    # which is the only way to narrow a prefetch.
+    legislation_list = list(
+        queryset
+        .select_related('posted_by')
+        .defer(*(f'posted_by__{f}' for f in MEMBER_PROFILE_FIELDS))
+        .prefetch_related(Prefetch(
+            'co_authors',
+            queryset=ParliamentUser.objects.only(*MEMBER_DISPLAY_FIELDS),
+        ))
+    )
+
+    # Attendance was one query per legislation — `_present_members_in_window`
+    # inside the loop. Every window is `vote_end - 6h .. vote_end`, so fetch the
+    # union of all windows once and slice it in Python. Row counts here are tiny
+    # (≤ chapter size per meeting), which is the same reasoning that made the
+    # v3.13.3 Python dedupe acceptable.
+    windows = {}
+    for leg in legislation_list:
+        end = leg.voting_ended_at or leg.voting_starts_at or leg.available_at
+        if end:
+            windows[leg.pk] = (end - timedelta(hours=6), end)
+
+    attendance_rows = []
+    if windows:
+        attendance_rows = list(
+            Attendance.objects
+            .filter(
+                status__in=('present', 'late'),
+                created_at__range=(
+                    min(start for start, _ in windows.values()),
+                    max(end for _, end in windows.values()),
+                ),
+            )
+            .order_by('user_id', '-created_at')
+            .select_related('user')
+            # v3.17.1: this page renders one thing about each attendee — their
+            # name. `select_related('user')` without `.only()` was joining all
+            # ~43 ParliamentUser columns per attendance row: the bio, five JSON
+            # fields, six social handles, house assignment. Narrow it to the
+            # columns actually rendered. See MEMBER_DISPLAY_FIELDS.
+            .only(*ATTENDANCE_DISPLAY_FIELDS)
+        )
+
     passed = []
 
-    for leg in queryset:
+    for leg in legislation_list:
         # Prefer historical overrides; fall back to annotated DB counts
         yes = leg.historical_yes_votes if leg.historical_yes_votes is not None else leg.yes_count
         no = leg.historical_no_votes if leg.historical_no_votes is not None else leg.no_count
@@ -212,14 +313,15 @@ def passed_legislation(request):
         # Determine time range for attendance window (only if there were votes)
         # Use total_cast so plurality votes (which have no yes/no) still get attendance
         present_members = []
-        if total_cast > 0:
-            # Anchor the window on when voting started (or ended) and look back up to 6 hours
-            # to capture attendance marked at the beginning of a long meeting
-            vote_end = leg.voting_ended_at or leg.voting_starts_at or leg.available_at
-            vote_start = vote_end - timedelta(hours=6)
-
-            # Only the latest attendance record per user in the window
-            present_members = _present_members_in_window(vote_start, vote_end)
+        if total_cast > 0 and leg.pk in windows:
+            # v3.17.1: sliced from the single batched fetch above rather than
+            # one query per legislation. Same semantics — latest present/late
+            # row per user inside this legislation's own 6-hour window.
+            vote_start, vote_end = windows[leg.pk]
+            present_members = _dedupe_latest_per_user(
+                row for row in attendance_rows
+                if vote_start <= row.created_at <= vote_end
+            )
 
         # Calculate percentages for display
         if leg.vote_mode != 'plurality':

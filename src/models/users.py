@@ -108,6 +108,9 @@ class ParliamentUser(AbstractBaseUser):
         ('Removed', 'Removed'),
     )
 
+    # ------------------------------------------------------------------
+    # ParliamentUser is a WIDE table — see MEMBER_DISPLAY_FIELDS below.
+    # ------------------------------------------------------------------
     user_id = models.CharField(max_length=30, unique=True, primary_key=True)
     name = models.CharField(max_length=100)
     preferred_name = models.CharField(max_length=50, blank=True, help_text='Optional: Preferred first name (will display as "Preferred LastName")')
@@ -348,6 +351,73 @@ class RoleHistory(models.Model):
     def __str__(self):
         end = self.end_semester or 'present'
         return f'{self.user.name} — {self.role_name} ({self.start_semester}–{end})'
+
+
+#: The columns a page needs to *show who someone is* — a name, an avatar, a
+#: badge. Nothing else.
+#:
+#: v3.17.1. ParliamentUser carries the entire member profile in one table: a
+#: bio, five JSON fields (majors, minors, concentrations, custom_socials,
+#: initiation_chapters), six social handles, house assignment, graduation
+#: details. That is ~43 columns. Any `select_related('user')` without a matching
+#: `.only()` drags all of it across the wire — for every joined row — on pages
+#: that render a single name.
+#:
+#: Use it like this::
+#:
+#:     Attendance.objects.select_related('user').only(
+#:         'id', 'created_at',
+#:         *(f'user__{f}' for f in MEMBER_DISPLAY_FIELDS),
+#:     )
+#:
+#: The profile fields are only genuinely needed by `profile`, `directory`,
+#: `house_map`, the chat member card and the admin-v2 profile editor. Splitting
+#: them into a `MemberProfile` one-to-one would make that structural rather than
+#: a convention — worth doing, but it is a migration touching every profile
+#: read, so it deserves its own release rather than riding along with a perf
+#: pass. Until then, this constant is the convention.
+MEMBER_DISPLAY_FIELDS = (
+    'user_id',
+    'name',
+    'preferred_name',
+    'member_type',
+    'member_status',
+    'profile_picture',
+    'profile_picture_removed_by_admin',
+)
+
+#: The heavy profile columns — the complement of MEMBER_DISPLAY_FIELDS, for use
+#: with `.defer()`.
+#:
+#: `.only()` is the right tool on a ParliamentUser queryset. On a *related*
+#: queryset it is the wrong one: `Legislation.objects.select_related('posted_by')
+#: .only('posted_by__name', ...)` forces you to enumerate every Legislation field
+#: the page touches too, which is long and breaks the moment a template reads one
+#: more. Deferring the known-heavy related columns says the same thing without
+#: that fragility::
+#:
+#:     Legislation.objects.select_related('posted_by').defer(
+#:         *(f'posted_by__{f}' for f in MEMBER_PROFILE_FIELDS)
+#:     )
+#:
+#: Keep this and MEMBER_DISPLAY_FIELDS disjoint — `test_dev_mode` asserts it.
+MEMBER_PROFILE_FIELDS = (
+    'about_me',
+    'majors',
+    'minors',
+    'concentrations',
+    'custom_socials',
+    'initiation_chapters',
+    'instagram',
+    'twitter',
+    'linkedin',
+    'snapchat',
+    'facebook',
+    'other_email',
+    'house',
+    'pledge_class_greek',
+    'onboarding_data',
+)
 
 
 def _default_user_prefs():

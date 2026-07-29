@@ -477,7 +477,7 @@ class ParliamentUserAdmin(admin.ModelAdmin):
         original_id   = request.user.user_id
         original_name = request.user.get_display_name()
 
-        target.backend = 'django.contrib.auth.backends.ModelBackend'
+        target.backend = AUTH_BACKEND_PATH
         login(request, target)
 
         request.session[SESSION_ORIGINAL_ID]   = original_id
@@ -2529,3 +2529,4 @@ admin.site.get_urls = custom_admin_urls
 # admin_extra.py (grouped by feature area; logs/audit/ballots read-only,
 # secrets excluded from forms). Imported last so admin_site exists.
 from . import admin_extra  # noqa: E402,F401  isort:skip
+from src.auth_backends import AUTH_BACKEND_PATH

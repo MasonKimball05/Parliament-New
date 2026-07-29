@@ -3,6 +3,8 @@
 
 # Users
 from src.models.users import (
+    MEMBER_DISPLAY_FIELDS,
+    MEMBER_PROFILE_FIELDS,
     _default_user_prefs,
     validate_profile_picture,
     ParliamentUserManager,

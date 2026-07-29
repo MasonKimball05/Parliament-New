@@ -48,16 +48,81 @@ class FeatureFlag(models.Model):
         """
         Check if a feature is enabled
         Usage: FeatureFlag.is_feature_enabled('voting_system')
+
+        NOTE the fail-OPEN default below, and that it is the opposite of how
+        templates behave: `{% if feature_flags.x %}` resolves a missing flag to
+        '' (falsy), so an unseeded flag is invisible in a template and enabled
+        in Python. Dev mode records which of the three branches produced each
+        answer precisely because that asymmetry is invisible otherwise — it cost
+        a day of debugging on the calendar Subscribe button (07-25-26).
         """
+        from django.core.cache import cache
+        from src.dev_mode import record_flag
+
+        # v3.17.1: cached. This is called from @require_feature_flag on a large
+        # fraction of views and repeatedly within a single view — the admin-v2
+        # dashboard alone asked for 'push_notifications_enabled' five times per
+        # page load, five identical uncached `objects.get`s. Invalidated on
+        # save() and delete(), so a toggle in the admin takes effect at once;
+        # the TTL is only a backstop for writes that bypass the model (raw SQL,
+        # a restored dump).
+        cache_key = cls._cache_key(feature_name)
+        cached = cache.get(cache_key)
+        if cached is not None:
+            record_flag(feature_name, cached['result'], cached['source'] + ' (cached)')
+            return cached['result']
+
         try:
             flag = cls.objects.get(name=feature_name)
-            return flag.is_enabled
+            result, source = flag.is_enabled, 'db row'
         except cls.DoesNotExist:
             # Some flags should default to disabled for safety
             if feature_name in cls.DISABLED_BY_DEFAULT:
-                return False
-            # Default to enabled if flag doesn't exist
-            return True
+                result, source = False, 'no row → DISABLED_BY_DEFAULT'
+            else:
+                # Default to enabled if flag doesn't exist
+                result, source = True, 'no row → fail-open default'
+
+        cache.set(cache_key, {'result': result, 'source': source}, cls.CACHE_TTL)
+        record_flag(feature_name, result, source)
+        return result
+
+    CACHE_TTL = 300  # seconds; correctness comes from invalidation, not expiry
+
+    @classmethod
+    def _cache_key(cls, feature_name):
+        return f'feature_flag:{feature_name}'
+
+    @classmethod
+    def invalidate_cache(cls, feature_name=None):
+        """
+        Drop cached lookups. Called from save()/delete(); also useful from tests
+        and from any management command that writes flags outside the ORM.
+        """
+        from django.core.cache import cache
+        if feature_name is not None:
+            cache.delete(cls._cache_key(feature_name))
+            return
+        cache.delete_many([cls._cache_key(n) for n in cls.objects.values_list('name', flat=True)])
+
+    def save(self, *args, **kwargs):
+        result = super().save(*args, **kwargs)
+        # Also clear the template-facing dict built by the feature_flags context
+        # processor — otherwise a toggle shows up in Python immediately and in
+        # templates up to 60s later, which is exactly the sort of split-brain
+        # this codebase has been bitten by before.
+        from django.core.cache import cache
+        type(self).invalidate_cache(self.name)
+        cache.delete('context_feature_flags')
+        return result
+
+    def delete(self, *args, **kwargs):
+        from django.core.cache import cache
+        name = self.name
+        result = super().delete(*args, **kwargs)
+        type(self).invalidate_cache(name)
+        cache.delete('context_feature_flags')
+        return result
 
 
 class PageToggle(models.Model):
@@ -91,18 +156,64 @@ class PageToggle(models.Model):
         status = "✓" if self.is_enabled else "✗"
         return f"{status} {self.display_name} ({self.url_name})"
 
+    CACHE_TTL = 300  # correctness comes from invalidation, not expiry
+
+    @classmethod
+    def _cache_key(cls, url_name):
+        return f'page_toggle:{url_name}'
+
+    @classmethod
+    def invalidate_cache(cls, url_name=None):
+        from django.core.cache import cache
+        if url_name is not None:
+            cache.delete(cls._cache_key(url_name))
+            return
+        cache.delete_many([
+            cls._cache_key(n) for n in cls.objects.values_list('url_name', flat=True)
+        ])
+
     @classmethod
     def is_page_enabled(cls, url_name):
         """
         Check if a page is enabled
         Usage: PageToggle.is_page_enabled('home')
+
+        v3.17.2: cached, for the same reason FeatureFlag.is_feature_enabled is.
+        `@require_page_enabled` decorates a large number of views, so this was an
+        uncached `objects.get` on essentially every page load. Invalidated on
+        save()/delete().
         """
+        from django.core.cache import cache
+
+        cache_key = cls._cache_key(url_name)
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached['result']
+
         try:
             toggle = cls.objects.get(url_name=url_name)
-            return toggle.is_enabled
+            result = toggle.is_enabled
         except cls.DoesNotExist:
             # Default to enabled if toggle doesn't exist
-            return True
+            result = True
+
+        cache.set(cache_key, {'result': result}, cls.CACHE_TTL)
+        return result
+
+    def save(self, *args, **kwargs):
+        result = super().save(*args, **kwargs)
+        from django.core.cache import cache
+        type(self).invalidate_cache(self.url_name)
+        cache.delete('context_feature_flags')
+        return result
+
+    def delete(self, *args, **kwargs):
+        from django.core.cache import cache
+        url_name = self.url_name
+        result = super().delete(*args, **kwargs)
+        type(self).invalidate_cache(url_name)
+        cache.delete('context_feature_flags')
+        return result
 
 
 class SiteSetting(models.Model):

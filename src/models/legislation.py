@@ -215,15 +215,41 @@ class Legislation(models.Model):
     def __str__(self):
         return self.title
 
-    def set_passed(self):
+    def set_passed(self, commit=True, counts=None):
+        """
+        Recompute `passed` from the votes cast.
+
+        v3.17.1 — two changes, both because this was being called for every row
+        on every GET of the legislation history page:
+
+        `counts`: an optional {vote_choice: n} mapping. Supply it and this method
+        issues **no queries at all**; the caller has usually just aggregated the
+        same numbers and there is no reason to fetch them again per row.
+
+        `commit`: the save is now conditional and narrow. Previously every call
+        did a full-row `self.save()`, so simply *viewing* the page rewrote every
+        closed piece of legislation — a write on a GET request, bumping any
+        auto_now field and generating write load proportional to page views. Now
+        it writes only when the value actually changed, and only that column.
+
+        Returns the computed value.
+        """
         from collections import Counter
 
-        total_votes = Vote.objects.filter(legislation=self)
+        previous = self.passed
+
+        if counts is not None:
+            vote_counts = Counter({k: v for k, v in counts.items() if v})
+            total_votes = None
+        else:
+            total_votes = Vote.objects.filter(legislation=self)
+            vote_counts = None
 
         if self.vote_mode == 'plurality':
             # Count votes for each option (each vote counts as 1, even with multi-select)
-            vote_choices = [v.vote_choice for v in total_votes]
-            vote_counts = Counter(vote_choices)
+            if vote_counts is None:
+                vote_choices = [v.vote_choice for v in total_votes]
+                vote_counts = Counter(vote_choices)
             if vote_counts:
                 max_votes = max(vote_counts.values())
                 winners = [option for option, count in vote_counts.items() if count == max_votes]
@@ -233,19 +259,28 @@ class Legislation(models.Model):
             else:
                 self.passed = False
         elif self.vote_mode == 'piecewise':
-            yes_votes = total_votes.filter(vote_choice='yes').count()
+            if counts is not None:
+                yes_votes = counts.get('yes', 0)
+            else:
+                yes_votes = total_votes.filter(vote_choice='yes').count()
             self.passed = yes_votes >= self.required_yes_votes
         else:  # percentage
-            total_votes = total_votes.exclude(vote_choice='abstain')
-            total = total_votes.count()
-            yes = total_votes.filter(vote_choice='yes').count()
+            if counts is not None:
+                yes = counts.get('yes', 0)
+                total = sum(n for choice, n in counts.items() if choice != 'abstain')
+            else:
+                total_votes = total_votes.exclude(vote_choice='abstain')
+                total = total_votes.count()
+                yes = total_votes.filter(vote_choice='yes').count()
             if total > 0:
                 yes_pct = (yes / total) * 100
                 self.passed = yes_pct >= float(self.required_percentage)
             else:
                 self.passed = False
 
-        self.save()
+        if commit and self.passed != previous:
+            self.save(update_fields=['passed'])
+        return self.passed
 
     def get_plurality_results(self):
         """Get vote counts for each plurality option, sorted by count descending."""

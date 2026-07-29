@@ -869,9 +869,21 @@ class UserPreferencesForm(forms.Form):
             )
         return cleaned_data
 
+    # Sections of `prefs` that this form does not manage and must not destroy.
+    # `save()` rebuilds prefs wholesale, so anything set by another surface has
+    # to be carried across explicitly or it is silently wiped the next time the
+    # user touches this page. 'dev' is written by the gated toggle_dev_mode
+    # endpoint (developer mode), never by this form.
+    PRESERVED_SECTIONS = ('dev',)
+
     def save(self):
         """Write cleaned data into instance.prefs and save. Returns the instance."""
         p = self._instance
+        preserved = {
+            section: (p.prefs or {})[section]
+            for section in self.PRESERVED_SECTIONS
+            if section in (p.prefs or {})
+        }
         p.theme = self.cleaned_data['theme']
         p.prefs = {
             'email': {
@@ -914,6 +926,7 @@ class UserPreferencesForm(forms.Form):
                 'chat': self.cleaned_data['push_chat'],
             },
         }
+        p.prefs.update(preserved)
         p.save()
         return p
 

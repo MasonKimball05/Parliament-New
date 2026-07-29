@@ -286,12 +286,31 @@ def require_admin_v2_auth(view_func):
             return redirect('login')
 
         # Check if user is authorized
-        if not hasattr(request.user, 'user_id') or request.user.user_id not in ALLOWED_USER_IDS:
+        # v3.17.1: both halves of the admin-v2 gate are recorded for dev mode.
+        # This is a two-factor gate (env allowlist + a separate authenticated
+        # session), and when it redirects you want to know WHICH half refused.
+        from src.dev_mode import record_permission
+
+        on_allowlist = (
+            hasattr(request.user, 'user_id') and request.user.user_id in ALLOWED_USER_IDS
+        )
+        record_permission(
+            'admin_v2: ADMIN_V2_USER_IDS allowlist',
+            'allowed' if on_allowlist else 'DENIED',
+            f'user_id={getattr(request.user, "user_id", "?")}',
+        )
+        if not on_allowlist:
             messages.error(request, 'Unauthorized access')
             return redirect('home')
 
         # Check if Admin v2 session is active and not expired
-        if not request.session.get('admin_v2_authenticated'):
+        session_ok = bool(request.session.get('admin_v2_authenticated'))
+        record_permission(
+            'admin_v2: session authenticated',
+            'allowed' if session_ok else 'DENIED',
+            'separate password/passkey step, 7-day expiry',
+        )
+        if not session_ok:
             messages.warning(request, 'Please authenticate to access Admin v2')
             return redirect('admin_v2_login')
 

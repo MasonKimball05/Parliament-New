@@ -7,6 +7,8 @@ from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.contrib import messages
+from django.views.decorators.http import require_POST
+from src.dev_mode import dev_mode_enabled_for, set_dev_mode, user_may_use_dev_mode
 from src.forms import UserPreferencesForm
 from src.models import UserPreferences, ActivityLog, PushSubscription, WebAuthnCredential
 from src.models.api import APIToken, DEFINED_SCOPES
@@ -94,6 +96,53 @@ def preferences_view(request):
         'api_token_defined_scopes': DEFINED_SCOPES,
         'api_token_last_rejected': last_rejected_token,
         'show_passkey_nudge': show_passkey_nudge,
+        # Developer mode. `can_use_dev_mode` drives whether the card renders at
+        # all — for everyone else the section simply does not exist in the HTML,
+        # which is why the toggle is not a field on UserPreferencesForm (a form
+        # field would be present in the DOM and settable by a crafted POST).
+        'can_use_dev_mode': user_may_use_dev_mode(request.user),
+        'dev_mode_on': dev_mode_enabled_for(request.user),
     }
 
     return render(request, 'preferences.html', context)
+
+
+@login_required
+@require_POST
+def toggle_dev_mode(request):
+    """
+    Flip developer mode for the current user.
+
+    Deliberately a separate endpoint from `preferences_view`:
+
+    * It is gated on the ADMIN_V2_USER_IDS allowlist, so a non-developer POSTing
+      here gets a 403 rather than silently writing a preference that would then
+      sit in their prefs JSON forever.
+    * It keeps the flag off `UserPreferencesForm` entirely. That form rebuilds
+      `prefs` wholesale on save, so anything it doesn't know about would be
+      clobbered — see the explicit carry-over of the 'dev' section in its
+      `save()`.
+    * Both directions are logged. Turning on a debug overlay that can surface
+      SQL and permission internals should leave a trail, even for you.
+    """
+    if not user_may_use_dev_mode(request.user):
+        return JsonResponse({'error': 'Not available for this account.'}, status=403)
+
+    enabled = request.POST.get('enabled') == '1'
+    set_dev_mode(request.user, enabled)
+
+    ActivityLog.log_activity(
+        action_type='preferences_updated',
+        user=request.user,
+        description=(
+            f'{request.user.get_display_name()} turned developer mode '
+            f'{"ON" if enabled else "OFF"}'
+        ),
+        request=request,
+    )
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'enabled': enabled})
+
+    messages.success(request, f'Developer mode {"enabled" if enabled else "disabled"}.')
+    return redirect('preferences')

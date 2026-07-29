@@ -29,6 +29,7 @@ from django_otp.plugins.otp_static.models import StaticDevice
 
 from src.models import ParliamentUser, ActivityLog
 from src.utils.security_utils import get_client_ip
+from src.auth_backends import AUTH_BACKEND_PATH
 
 _RECOVERY_LIMIT = 3       # max requests per user per 24 hours
 _RECOVERY_WINDOW = 86400  # 24 hours
@@ -204,7 +205,7 @@ def two_factor_recovery_confirm(request, uidb64, token):
     from django.contrib.auth import login as auth_login
     if not request.user.is_authenticated or request.user.pk != user.pk:
         # Specify the backend so Django doesn't complain about multiple backends
-        user.backend = 'django.contrib.auth.backends.ModelBackend'
+        user.backend = AUTH_BACKEND_PATH
         auth_login(request, user)
 
     return redirect('two_factor_setup')
