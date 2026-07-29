@@ -3,7 +3,7 @@ Global search functionality across all Parliament content
 """
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
-from django.db.models import Q
+from django.db.models import Q, Count
 from src.models import (
     Legislation, Announcement, Event,
     ParliamentUser, CommitteeDocument, Committee, ChatChannel,
@@ -189,8 +189,14 @@ def global_search(request):
         results['chapter_documents'] = chapter_docs
 
     # Search Committees (name, code)
+    # v3.16.3: annotate the two counts the template renders. It previously
+    # called committee.members.count / committee.chairs.count inside the
+    # result loop — 2 queries per committee row, up to 20 per search.
     committees = list(Committee.objects.filter(
         Q(name__icontains=query) | Q(code__icontains=query)
+    ).annotate(
+        member_total=Count('members', distinct=True),
+        chair_total=Count('chairs', distinct=True),
     )[:10])
     if committees:
         results['committees'] = committees
@@ -281,21 +287,39 @@ def global_search(request):
     # with can_view_report_list/can_view_report_details set False, which is
     # exactly what the in-app module denies them. Also honours the
     # 'kai_reports' feature flag, which this view never checked.
-    if FeatureFlag.is_feature_enabled('kai_reports'):
-        kai_committee = Committee.objects.filter(is_kai_committee=True).first()
-        if kai_committee is not None:
-            kai_access = _get_kai_access(request.user, kai_committee)
-            if kai_access['can_view_report_list']:
-                # Only search the allegation body for users cleared to read
-                # details; list-only users match on title alone.
-                kai_q = Q(title__icontains=query)
-                if kai_access['can_view_report_details']:
-                    kai_q |= Q(description__icontains=query)
-                kai_reports = list(
-                    KaiReport.objects.filter(kai_q).order_by('-submitted_at')[:10]
-                )
-                if kai_reports:
-                    results['kai_reports'] = kai_reports
+    #
+    # v3.16.3 perf: the feature-flag lookup moved BELOW the access check.
+    # FeatureFlag.is_feature_enabled is an uncached objects.get, and checking
+    # it first meant every searcher on the site — including pledges who can
+    # never match this branch — paid for it. Now only Kai-cleared users do.
+    #
+    # Deliberately NOT short-circuited on `request.user.committees.filter(
+    # is_kai_committee=True).exists()`: a KaiMemberPermission row is not
+    # guaranteed to imply membership of the committee's `members` M2M (the
+    # permission UI also lists chairs and voting_members, and the AJAX grant
+    # endpoint takes an arbitrary user_id), so that cheaper pre-check could
+    # silently hide results from someone legitimately granted access.
+    # _get_kai_access stays the single source of truth.
+    kai_can_view_details = False
+    kai_committee = Committee.objects.filter(is_kai_committee=True).first()
+    if kai_committee is not None:
+        kai_access = _get_kai_access(request.user, kai_committee)
+        if kai_access['can_view_report_list'] and FeatureFlag.is_feature_enabled('kai_reports'):
+            # Only search the allegation body for users cleared to read
+            # details; list-only users match on title alone.
+            kai_q = Q(title__icontains=query)
+            if kai_access['can_view_report_details']:
+                kai_q |= Q(description__icontains=query)
+            kai_reports = list(
+                KaiReport.objects.filter(kai_q).order_by('-submitted_at')[:10]
+            )
+            if kai_reports:
+                results['kai_reports'] = kai_reports
+                # v3.16.3: the template renders a description preview on each
+                # Kai card. That is the allegation body — the same field this
+                # view refuses to *search* for list-only reviewers — so the
+                # template must gate on the same flag. See global_search.html.
+                kai_can_view_details = kai_access['can_view_report_details']
 
     # All result values are now lists — len() is free, no extra DB queries
     total_count = sum(len(v) for v in results.values())
@@ -304,4 +328,5 @@ def global_search(request):
         'query': query,
         'results': results,
         'total_count': total_count,
+        'kai_can_view_details': kai_can_view_details,
     })

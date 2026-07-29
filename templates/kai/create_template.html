@@ -114,10 +114,24 @@ Witnesses:
           <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
             Suggested Tags <span class="text-gray-500 dark:text-gray-400 text-xs">(Optional)</span>
           </label>
-          <input type="text" name="suggested_tags"
-                 placeholder="e.g., academic, dishonesty, exam"
-                 class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Comma-separated tags that will be suggested when using this template</p>
+          {% comment %}
+          v3.16.3: was a free-text input. suggested_tags feeds KaiReport.tags, which is a
+          closed vocabulary for confidentiality reasons — see KaiReport.TAG_CHOICES.
+          {% endcomment %}
+          <div class="space-y-2">
+            {% for value, label in tag_choices %}
+            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+              <input type="checkbox" name="suggested_tags" value="{{ value }}"
+                     class="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500 dark:bg-gray-700">
+              <span>{{ label }}</span>
+            </label>
+            {% endfor %}
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Pre-selected on reports created from this template. Tags are visible to every
+            reviewer who can see the report list, so the list is fixed and contains no
+            personal information.
+          </p>
         </div>
 
         <!-- Active Status -->

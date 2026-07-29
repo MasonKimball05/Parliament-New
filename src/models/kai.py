@@ -34,6 +34,46 @@ class KaiReport(models.Model):
         ('other', 'Other'),
     ]
 
+    # ------------------------------------------------------------------
+    # Tag vocabulary — SECURITY BOUNDARY, added 07-28-26 (v3.16.3).
+    #
+    # `tags` used to be free text. That made it a hole straight through the
+    # Kai identity redaction: a chair could type a member's name into a tag,
+    # and every reviewer holding only `can_view_report_list` could then search
+    # it (`_kai_search_q` searches tags unconditionally), read it on the list
+    # card, and export it in the CSV — the three surfaces v3.16.2/v3.16.3
+    # spent two releases redacting `submitted_by` and `targeted_to` out of.
+    #
+    # Tags are now a closed vocabulary. Nothing free-form reaches this field,
+    # so it carries no identity and stays safe to search and display at list
+    # level. Two rules for whoever maintains this:
+    #
+    #   1. Every value added here is visible to ANY reviewer who can see the
+    #      report list, regardless of their identity permissions. Never add a
+    #      tag that names or describes a specific person.
+    #   2. If this is ever loosened back to free text, `_kai_search_q` must
+    #      start gating `tags__icontains`, and the list card and CSV must
+    #      redact the tag chips. See the note in that function.
+    #
+    # Adding a tag is a code change on purpose — it forces rule 1 to be read.
+    # ------------------------------------------------------------------
+    TAG_CHOICES = [
+        ('urgent', 'Urgent'),
+        ('follow-up', 'Follow-Up Needed'),
+        ('repeat-incident', 'Repeat Incident'),
+        ('awaiting-response', 'Awaiting Response'),
+        ('awaiting-hearing', 'Awaiting Hearing'),
+        ('documentation-pending', 'Documentation Pending'),
+        ('minor', 'Minor'),
+        ('escalated', 'Escalated'),
+        ('resolved-informally', 'Resolved Informally'),
+        ('referred-out', 'Referred Out of Chapter'),
+        ('policy-review', 'Prompts Policy Review'),
+        ('no-action', 'No Action Required'),
+    ]
+    ALLOWED_TAGS = [value for value, _ in TAG_CHOICES]
+    TAG_LABELS = dict(TAG_CHOICES)
+
     # Report Details
     title = models.CharField(max_length=255, help_text="Brief title for the report")
     category = models.CharField(
@@ -154,6 +194,78 @@ class KaiReport(models.Model):
         """Return tags as a list"""
         return self.tags or []
 
+    def get_tag_labels(self):
+        """Tags as human-readable labels, for display. Unknown values pass through."""
+        return [self.TAG_LABELS.get(t, t) for t in self.get_tags_list()]
+
+    @classmethod
+    def normalize_tags(cls, raw):
+        """
+        Split `raw` into (accepted, rejected) against the closed vocabulary.
+
+        Accepts a list, or a comma-separated string (what the form posts).
+        Matching is case- and separator-insensitive, so 'Follow Up',
+        'follow_up' and 'FOLLOW-UP' all land on 'follow-up' — the vocabulary is
+        the security boundary, not the typing.
+
+        Order is preserved and duplicates are dropped. Anything not in the
+        vocabulary is returned in `rejected` so the caller can tell the user
+        rather than silently discarding it.
+        """
+        if raw is None:
+            return [], []
+        if isinstance(raw, str):
+            parts = raw.split(',')
+        else:
+            parts = list(raw)
+
+        lookup = {}
+        for value in cls.ALLOWED_TAGS:
+            lookup[value] = value
+            lookup[value.replace('-', '')] = value
+        for value, label in cls.TAG_CHOICES:
+            lookup[label.lower()] = value
+            lookup[label.lower().replace(' ', '')] = value
+
+        accepted, rejected = [], []
+        for part in parts:
+            text = str(part).strip()
+            if not text:
+                continue
+            key = text.lower()
+            match = lookup.get(key) or lookup.get(key.replace(' ', '').replace('_', '').replace('-', ''))
+            if match is None:
+                rejected.append(text)
+            elif match not in accepted:
+                accepted.append(match)
+        return accepted, rejected
+
+    def clean(self):
+        """
+        Reject out-of-vocabulary tags at the model layer too.
+
+        The view is the real gate (it can report rejections to the user), but
+        `full_clean()` runs from the Django admin and from any future form, so
+        this stops the boundary being bypassed by a surface that doesn't exist
+        yet. Note `save()` does NOT call this — the management command
+        `normalize_kai_tags` exists to clean up anything that got in before
+        07-28-26 or via a raw `.save()`.
+        """
+        from django.core.exceptions import ValidationError
+        super().clean()
+        _, rejected = self.normalize_tags(self.tags)
+        if rejected:
+            raise ValidationError({
+                'tags': (
+                    'Not in the allowed tag vocabulary: '
+                    + ', '.join(rejected)
+                    + '. Tags are visible to every reviewer who can see the report '
+                      'list, so they are restricted to a fixed list that contains no '
+                      'personal information. Allowed: '
+                    + ', '.join(self.ALLOWED_TAGS)
+                )
+            })
+
     def mark_as_reviewed(self, reviewer):
         """Mark the report as reviewed"""
         from django.utils import timezone
@@ -226,7 +338,11 @@ class KaiReportTemplate(models.Model):
     suggested_tags = models.JSONField(
         default=list,
         blank=True,
-        help_text="List of suggested tags for this type of report"
+        help_text=(
+            "Tags pre-selected for reports created from this template. Restricted to "
+            "KaiReport.TAG_CHOICES — this feeds straight into KaiReport.tags, so a free-text "
+            "value here would reopen the identity leak that vocabulary closes."
+        )
     )
     is_active = models.BooleanField(default=True, help_text="Whether this template is currently available")
     created_by = models.ForeignKey(
@@ -245,6 +361,25 @@ class KaiReportTemplate(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.get_category_display()})"
+
+    def clean(self):
+        """
+        `suggested_tags` feeds KaiReport.tags, so it obeys the same vocabulary.
+
+        Without this the template editor would be a side door into the field
+        the vocabulary exists to protect — see the TAG_CHOICES comment on
+        KaiReport.
+        """
+        from django.core.exceptions import ValidationError
+        super().clean()
+        _, rejected = KaiReport.normalize_tags(self.suggested_tags)
+        if rejected:
+            raise ValidationError({
+                'suggested_tags': (
+                    'Not in the allowed tag vocabulary: ' + ', '.join(rejected)
+                    + '. Allowed: ' + ', '.join(KaiReport.ALLOWED_TAGS)
+                )
+            })
 
 
 class KaiFormField(models.Model):

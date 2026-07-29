@@ -667,17 +667,49 @@
           <div class="p-6">
             {% if report.get_tags_list %}
             <div class="flex flex-wrap gap-2 mb-4">
-              {% for tag in report.get_tags_list %}
+              {% for tag in report.get_tag_labels %}
               <span class="px-3 py-1 bg-primary-100 dark:bg-primary-900/50 text-primary-800 dark:text-primary-200 rounded-full text-sm">{{ tag }}</span>
               {% endfor %}
+            </div>
+            {% endif %}
+            {% comment %}
+            v3.16.3 — SECURITY: this was a free-text input. Tags are searchable, rendered
+            on the report list card, and exported in the CSV for ANY reviewer holding
+            can_view_report_list, with no identity gate — so a tag naming a member walked
+            straight through the redaction v3.16.2/v3.16.3 built around submitted_by and
+            targeted_to. Tags are now a closed vocabulary (KaiReport.TAG_CHOICES) and this
+            is a checkbox list. The view re-validates; do not restore a free-text input.
+            {% endcomment %}
+            {% if legacy_tags %}
+            <div class="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+              <p class="text-xs text-amber-800 dark:text-amber-200">
+                <span class="font-semibold">Legacy tags on this case:</span>
+                {{ legacy_tags|join:", " }}.
+                These predate the fixed tag list and will be removed when you save. If any of
+                them names a person, that information is visible to every reviewer who can see
+                the report list — record it in the chair notes instead, which are restricted to
+                reviewers with detail access.
+              </p>
             </div>
             {% endif %}
             {% if kai_access.can_edit_open_cases %}
             <form method="post">
               {% csrf_token %}
               <input type="hidden" name="action" value="update_tags">
-              <input type="text" name="tags" value="{{ report.tags|join:', ' }}" placeholder="urgent, academic, follow-up..."
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm mb-2">
+              <div class="space-y-2 mb-3">
+                {% for value, label in tag_choices %}
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                  <input type="checkbox" name="tags" value="{{ value }}"
+                         {% if value in selected_tags %}checked{% endif %}
+                         class="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500 dark:bg-gray-700">
+                  <span>{{ label }}</span>
+                </label>
+                {% endfor %}
+              </div>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                Tags are visible to every reviewer who can see the report list, including those
+                without identity access. Never use them to record who is involved.
+              </p>
               <button type="submit" class="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium text-sm">
                 Update Tags
               </button>

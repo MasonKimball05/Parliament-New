@@ -56,9 +56,13 @@
                 <a href="{% url 'recruitment_dashboard' %}" class="inline-flex items-center px-3 py-1.5 bg-orange-600 text-white text-sm rounded-md hover:bg-orange-700 transition-colors">
                     Recruitment Dashboard
                 </a>
-                <a href="{% url 'manage_signups' %}" class="inline-flex items-center px-3 py-1.5 bg-white dark:bg-gray-800 border border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-300 text-sm rounded-md hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors">
-                    Manage Sign-Ups
-                </a>
+                {% comment %}
+                v3.16.3: a "Manage Sign-Ups" button linked to a route named manage_signups,
+                which does not exist and raised NoReverseMatch — this guide page has been a
+                hard 500 since the button was added. Sign-ups are per-event
+                (event_signup_list takes an event_id), so there is no chapter-wide page to
+                link here. Button removed rather than pointed somewhere arbitrary.
+                {% endcomment %}
             </div>
         </div>
 

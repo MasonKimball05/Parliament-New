@@ -47,7 +47,11 @@
         <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
             <h3 class="text-sm font-semibold text-green-800 dark:text-green-200 mb-2">Quick Actions</h3>
             <div class="flex flex-wrap gap-2">
-                <a href="{% url 'service_user_dashboard' %}" class="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 transition-colors">
+                {% comment %}
+                v3.16.3: the route name was transposed ("service_user_dashboard"), which
+                raised NoReverseMatch and 500'd this whole guide page.
+                {% endcomment %}
+                <a href="{% url 'user_service_dashboard' %}" class="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 transition-colors">
                     My Service Hours
                 </a>
             </div>

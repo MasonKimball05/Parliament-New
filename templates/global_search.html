@@ -101,7 +101,7 @@
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <span class="text-purple-600 dark:text-purple-400 mr-2">👥</span>
-                    Committees ({{ results.committees.count }})
+                    Committees ({{ results.committees|length }})
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {% for committee in results.committees %}
@@ -111,12 +111,8 @@
                             <span class="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 text-xs font-medium rounded">{{ committee.code }}</span>
                         </div>
                         <p class="text-xs text-gray-500 dark:text-gray-500">
-                            {% with committee.members.count as member_count %}
-                                {{ member_count }} member{{ member_count|pluralize }}
-                            {% endwith %}
-                            {% with committee.chairs.count as chair_count %}
-                                • {{ chair_count }} chair{{ chair_count|pluralize }}
-                            {% endwith %}
+                            {{ committee.member_total }} member{{ committee.member_total|pluralize }}
+                            • {{ committee.chair_total }} chair{{ committee.chair_total|pluralize }}
                         </p>
                     </a>
                     {% endfor %}
@@ -129,7 +125,7 @@
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <span class="text-primary-600 dark:text-primary-400 mr-2">📄</span>
-                    Active Legislation ({{ results.legislation.count }})
+                    Active Legislation ({{ results.legislation|length }})
                 </h2>
                 <div class="space-y-3">
                     {% for item in results.legislation %}
@@ -151,7 +147,7 @@
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <span class="text-green-600 dark:text-green-400 mr-2">📜</span>
-                    Passed Resolutions ({{ results.passed_resolutions.count }})
+                    Passed Resolutions ({{ results.passed_resolutions|length }})
                 </h2>
                 <div class="space-y-3">
                     {% for item in results.passed_resolutions %}
@@ -214,7 +210,7 @@
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <span class="text-yellow-600 dark:text-yellow-400 mr-2">📁</span>
-                    Chapter Documents ({{ results.chapter_documents.count }})
+                    Chapter Documents ({{ results.chapter_documents|length }})
                 </h2>
                 <div class="space-y-3">
                     {% for item in results.chapter_documents %}
@@ -238,7 +234,7 @@
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <span class="text-indigo-600 dark:text-indigo-400 mr-2">📋</span>
-                    Committee Documents ({{ results.committee_documents.count }})
+                    Committee Documents ({{ results.committee_documents|length }})
                 </h2>
                 <div class="space-y-3">
                     {% for item in results.committee_documents %}
@@ -261,7 +257,7 @@
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <span class="text-orange-600 dark:text-orange-400 mr-2">🗳️</span>
-                    Election Periods ({{ results.slating_periods.count }})
+                    Election Periods ({{ results.slating_periods|length }})
                 </h2>
                 <div class="space-y-3">
                     {% for item in results.slating_periods %}
@@ -287,16 +283,35 @@
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <span class="text-red-600 dark:text-red-400 mr-2">📊</span>
-                    Kai Reports ({{ results.kai_reports.count }})
+                    Kai Reports ({{ results.kai_reports|length }})
                 </h2>
                 <div class="space-y-3">
                     {% for item in results.kai_reports %}
-                    <a href="{% url 'kai_report_detail' report_id=item.id %}" class="block p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                    {% comment %}
+                    v3.16.3: this used to name the route "kai_report_detail", which has
+                    never existed (the view is manage_kai_report), so rendering this
+                    block raised NoReverseMatch and 500'd the whole search page.
+                    {% endcomment %}
+                    <a href="{% url 'manage_kai_report' report_id=item.id %}" class="block p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                         <div class="flex items-center justify-between">
                             <h3 class="font-semibold text-gray-900 dark:text-white">{{ item.title }}</h3>
-                            <span class="px-2 py-1 bg-{{ item.category_color }}-100 dark:bg-{{ item.category_color }}-900/30 text-{{ item.category_color }}-800 dark:text-{{ item.category_color }}-300 text-xs font-medium rounded">{{ item.get_category_display }}</span>
+                            {% comment %}
+                            v3.16.3: these classes were built from an item.category_color
+                            attribute that KaiReport has never had, so they resolved to dead
+                            class names like "bg--100". Fixed neutral styling instead.
+                            {% endcomment %}
+                            <span class="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 text-xs font-medium rounded">{{ item.get_category_display }}</span>
                         </div>
+                        {% comment %}
+                        v3.16.3: description is the allegation body, governed by
+                        can_view_report_details. global_search.py already refuses to SEARCH
+                        it for list-only reviewers; rendering a preview to them anyway made
+                        search more permissive than manage_kai_report, which denies them the
+                        detail page outright.
+                        {% endcomment %}
+                        {% if kai_can_view_details %}
                         <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ item.description|truncatewords:20 }}</p>
+                        {% endif %}
                         <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">
                             Submitted: {{ item.submitted_at|date:"M j, Y" }} • Status: {{ item.get_status_display }}
                         </p>
@@ -311,7 +326,7 @@
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                     <span class="text-teal-600 dark:text-teal-400 mr-2">👤</span>
-                    Members ({{ results.users.count }})
+                    Members ({{ results.users|length }})
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {% for item in results.users %}

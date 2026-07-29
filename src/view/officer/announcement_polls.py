@@ -14,6 +14,7 @@ import random
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db.models import Count
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -86,6 +87,23 @@ def create_or_edit_poll(request, announcement_id):
             if k.startswith('question_text_')
         ), key=lambda x: int(x) if x.isdigit() else 0)
 
+        # v3.16.3 perf: the loops below used to do one .get() per submitted
+        # question and one per submitted option — a 6-question / 4-option poll
+        # cost ~30 point lookups on every save. Fetch both sets once and index
+        # in Python. Scoping the fetch to this poll preserves the ownership
+        # check the per-row .get(id=..., poll=poll) was doing.
+        existing_questions = {q.id: q for q in poll.questions.all()}
+        existing_options = {}
+        for option in AnnouncementPollOption.objects.filter(question__poll=poll):
+            existing_options.setdefault(option.question_id, {})[option.id] = option
+
+        def _as_pk(raw):
+            """POST ids arrive as strings; anything unparseable means 'new row'."""
+            try:
+                return int(raw)
+            except (TypeError, ValueError):
+                return None
+
         for order, idx in enumerate(question_indices):
             text = request.POST.get(f'question_text_{idx}', '').strip()
             q_type = request.POST.get(f'question_type_{idx}', 'single')
@@ -95,12 +113,8 @@ def create_or_edit_poll(request, announcement_id):
             if not text:
                 continue
 
-            if q_id:
-                try:
-                    question = AnnouncementPollQuestion.objects.get(id=q_id, poll=poll)
-                except AnnouncementPollQuestion.DoesNotExist:
-                    question = AnnouncementPollQuestion(poll=poll)
-            else:
+            question = existing_questions.get(_as_pk(q_id)) if q_id else None
+            if question is None:
                 question = AnnouncementPollQuestion(poll=poll)
 
             question.text = text
@@ -127,12 +141,11 @@ def create_or_edit_poll(request, announcement_id):
                     opt_id = request.POST.get(f'option_id_{idx}_{opt_idx}', '')
                     if not opt_text:
                         continue
-                    if opt_id:
-                        try:
-                            option = AnnouncementPollOption.objects.get(id=opt_id, question=question)
-                        except AnnouncementPollOption.DoesNotExist:
-                            option = AnnouncementPollOption(question=question)
-                    else:
+                    option = (
+                        existing_options.get(question.id, {}).get(_as_pk(opt_id))
+                        if opt_id else None
+                    )
+                    if option is None:
                         option = AnnouncementPollOption(question=question)
                     option.text = opt_text
                     option.order = opt_order
@@ -169,28 +182,45 @@ def poll_results(request, announcement_id):
         'answers__selected_options', 'answers__question',
     ).all()
 
+    # v3.16.3 perf: these counts used to be one COUNT query per option per
+    # question (a 6-question poll with 4 options each = 24 queries), plus one
+    # more query per free-text question. Both are now single aggregates for
+    # the whole poll, looked up in Python below.
+    option_count_map = {
+        (row['question_id'], row['selected_options']): row['n']
+        for row in (
+            AnnouncementPollAnswer.objects
+            .filter(question__poll=poll, selected_options__isnull=False)
+            .values('question_id', 'selected_options')
+            .annotate(n=Count('id'))
+        )
+    }
+    text_answer_map = {}
+    for q_id, text in (
+        AnnouncementPollAnswer.objects
+        .filter(question__poll=poll)
+        .exclude(text_answer='')
+        .values_list('question_id', 'text_answer')
+    ):
+        text_answer_map.setdefault(q_id, []).append(text)
+
     # Build per-question aggregate counts
     question_stats = []
     for question in questions:
         if question.question_type in ('single', 'multiple'):
-            option_counts = {}
-            for option in question.options.all():
-                count = AnnouncementPollAnswer.objects.filter(
-                    question=question, selected_options=option
-                ).count()
-                option_counts[option] = count
+            option_counts = {
+                option: option_count_map.get((question.id, option.id), 0)
+                for option in question.options.all()
+            }
             question_stats.append({
                 'question': question,
                 'option_counts': option_counts,
                 'total_answers': sum(option_counts.values()),
             })
         else:
-            text_answers = AnnouncementPollAnswer.objects.filter(
-                question=question
-            ).exclude(text_answer='').values_list('text_answer', flat=True)
             question_stats.append({
                 'question': question,
-                'text_answers': list(text_answers),
+                'text_answers': text_answer_map.get(question.id, []),
             })
 
     non_respondents = poll.get_non_respondents()
@@ -270,7 +300,11 @@ def _export_poll_csv(poll, questions, responses):
 
     rows_source = list(responses)
     if poll.is_anonymous:
-        random.shuffle(rows_source)
+        # v3.16.3: os.urandom-backed rather than the module-level Mersenne
+        # Twister. This shuffle is an unlinkability control, not a cosmetic
+        # one — the global `random` state is shared process-wide and its
+        # output is reconstructable from enough observed values.
+        random.SystemRandom().shuffle(rows_source)
 
     for resp in rows_source:
         if poll.is_anonymous:

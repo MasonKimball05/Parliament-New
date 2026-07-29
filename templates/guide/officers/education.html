@@ -49,19 +49,15 @@
 
     <div class="space-y-8">
 
-        <!-- Quick Actions -->
-        <div class="bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 rounded-lg p-4">
-            <h3 class="text-sm font-semibold text-violet-800 dark:text-violet-200 mb-2">Quick Actions</h3>
-            <div class="flex flex-wrap gap-2">
-                <a href="{% url 'manage_pledge_tasks' %}" class="inline-flex items-center px-3 py-1.5 bg-violet-600 text-white text-sm rounded-md hover:bg-violet-700 transition-colors">
-                    Manage Tasks
-                </a>
-                <a href="{% url 'pledge_progress_overview' %}" class="inline-flex items-center px-3 py-1.5 bg-white dark:bg-gray-800 border border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 text-sm rounded-md hover:bg-violet-50 dark:hover:bg-violet-900/30 transition-colors">
-                    Pledge Progress Overview
-                </a>
-            </div>
-        </div>
-
+        {% comment %}
+        v3.16.3: the Quick Actions block linked to routes named manage_pledge_tasks and
+        pledge_progress_overview. Neither exists, so NoReverseMatch made this guide page a
+        hard 500 from the moment the block was added. Removed rather than repointed: the
+        education dashboard is education_home, which is scoped to a committee
+        (committee/<code>/education/) and this guide page has no committee in context, and
+        there is no pledge-progress route at all. If a chapter-wide entry point is wanted
+        here, add the route first.
+        {% endcomment %}
         <!-- Section 1: Overview -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">

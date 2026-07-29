@@ -1,4 +1,5 @@
-from django.db.models import Count
+from django.db.models import Count, Q
+from django.db.models.functions import TruncMonth
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -9,11 +10,14 @@ from django.utils.timezone import localtime
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError
 import csv
+import logging
 from src.models import KaiReport, Committee, ParliamentUser, KaiReportActivity, KaiReportTemplate, KaiFormField, KaiReportFieldResponse, KaiClosureRequest, ActivityLog, KaiMemberPermission
 from src.forms import KaiReportForm
 from src.decorators import log_function_call
 from src.feature_flag_decorators import require_feature_flag
 from src.utils.file_validation import validate_uploaded_file
+
+logger = logging.getLogger('src')
 
 
 @login_required
@@ -122,7 +126,7 @@ Submitted at: {localtime(report.submitted_at).strftime('%B %d, %Y at %I:%M %p %Z
 Description:
 {report.description}
 
-Tags: {', '.join(report.tags) if report.tags else 'None'}
+Tags: {', '.join(report.get_tag_labels()) if report.tags else 'None'}
 
 Please log in to the Kai Committee page to review this report.
                         """
@@ -215,13 +219,78 @@ def _get_kai_access(user, committee):
         'can_view_submitter_identity', 'can_view_accused_identity',
         'can_edit_open_cases', 'can_add_activity', 'can_close_cases',
     ]
-    if committee.is_chair(user) or user.is_admin:
+    # v3.16.3 perf: `user.is_admin` is a plain field read; `committee.is_chair`
+    # costs 1-2 queries. Testing is_admin first means admins reach the same
+    # answer without touching the DB, at all six call sites.
+    if user.is_admin or committee.is_chair(user):
         return {f: True for f in FIELDS} | {'is_full_access': True}
     try:
         perm = KaiMemberPermission.objects.get(committee=committee, user=user)
         return {f: getattr(perm, f) for f in FIELDS} | {'is_full_access': False}
     except KaiMemberPermission.DoesNotExist:
         return {f: False for f in FIELDS} | {'is_full_access': False}
+
+
+def _kai_search_q(search_query, kai_access):
+    """
+    Build the Kai report search predicate for a user with `kai_access`.
+
+    v3.16.3 — SECURITY. A filter predicate is a join key. Both the report list
+    and the CSV export used to filter unconditionally on submitted_by__name,
+    targeted_to__name and description, while redacting exactly those columns
+    in the output for users lacking the matching permission. That made the
+    redaction cosmetic: a list-only reviewer could type a member's name and
+    read off which cases that member submitted or was accused in, or
+    binary-search the allegation body a word at a time.
+
+    Each searchable field is now gated by the same flag that governs *reading*
+    it. Title and tags are visible to anyone who can see the list at all, so
+    they are always searchable.
+
+    TAGS ARE ONLY SAFE HERE BECAUSE THEY ARE A CLOSED VOCABULARY. Tags were
+    free text until 07-28-26, which meant a chair could type a member's name
+    into one and hand it to every list-level reviewer — searchable, rendered on
+    the list card, and exported in the CSV — straight through the identity
+    redaction the rest of this function exists to enforce. `KaiReport.tags` is
+    now validated against `KaiReport.ALLOWED_TAGS` at every write site. If you
+    ever loosen that back to free text, this line has to become gated too.
+
+    Kept as one shared helper on purpose: the list view and the export had
+    duplicated copies of this filter, which is how both ended up wrong. If a
+    new searchable field is added, it gets gated here once.
+    """
+    q = Q(title__icontains=search_query) | Q(tags__icontains=search_query)
+    if kai_access['can_view_report_details']:
+        q |= Q(description__icontains=search_query)
+    if kai_access['can_view_submitter_identity']:
+        q |= Q(submitted_by__name__icontains=search_query)
+    if kai_access['can_view_accused_identity']:
+        q |= Q(targeted_to__name__icontains=search_query)
+    return q
+
+
+def _kai_search_placeholder(kai_access):
+    """
+    Describe, for the search box, exactly the fields `_kai_search_q` will search.
+
+    v3.16.3: the template hardcoded the full field list, so after the predicate
+    was gated a list-only reviewer could search a member's name, get nothing,
+    and conclude that member has no cases. Keep this in step with
+    `_kai_search_q` — they are two views of one decision.
+    """
+    fields = ['title']
+    if kai_access['can_view_report_details']:
+        fields.append('description')
+    if kai_access['can_view_submitter_identity']:
+        fields.append('submitter')
+    if kai_access['can_view_accused_identity']:
+        fields.append('targeted person')
+    fields.append('tags')
+    if len(fields) == 2:
+        joined = ' or '.join(fields)
+    else:
+        joined = ', '.join(fields[:-1]) + ', or ' + fields[-1]
+    return f'Search by {joined}...'
 
 
 @login_required
@@ -264,16 +333,9 @@ def view_kai_reports(request):
         if category_filter != 'all':
             reports = reports.filter(category=category_filter)
 
-        # Apply search filter
+        # Apply search filter — v3.16.3: permission-gated, see _kai_search_q
         if search_query:
-            from django.db.models import Q
-            reports = reports.filter(
-                Q(title__icontains=search_query) |
-                Q(description__icontains=search_query) |
-                Q(submitted_by__name__icontains=search_query) |
-                Q(targeted_to__name__icontains=search_query) |
-                Q(tags__icontains=search_query)
-            )
+            reports = reports.filter(_kai_search_q(search_query, kai_access))
 
         # Apply date range filter
         if date_from:
@@ -298,12 +360,17 @@ def view_kai_reports(request):
         # (migrations consolidated + tracked since 07-05-26). (v3.15.6)
         reports = list(reports.select_related('submitted_by', 'reviewed_by', 'targeted_to').order_by('-submitted_at'))
 
-        # Get counts for status filters
+        # Status counts — v3.16.3: one aggregate instead of four separate
+        # .count() round trips, matching the category pattern directly below.
+        status_map = {
+            row['status']: row['total']
+            for row in KaiReport.objects.values('status').annotate(total=Count('id'))
+        }
         counts = {
-            'all': KaiReport.objects.count(),
-            'pending': KaiReport.objects.filter(status='pending').count(),
-            'reviewed': KaiReport.objects.filter(status='reviewed').count(),
-            'archived': KaiReport.objects.filter(status='archived').count(),
+            'all': sum(status_map.values()),
+            'pending': status_map.get('pending', 0),
+            'reviewed': status_map.get('reviewed', 0),
+            'archived': status_map.get('archived', 0),
         }
 
         # Get counts for category filters — one aggregated query instead of one per category
@@ -339,23 +406,58 @@ def view_kai_reports(request):
             if cat_map.get(cat_value, 0)
         }
 
-        outcome_pending = KaiReport.objects.filter(deliberation_outcome='pending').count()
-        outcome_heard = KaiReport.objects.filter(deliberation_outcome='heard').count()
-        outcome_thrown_out = KaiReport.objects.filter(deliberation_outcome='thrown_out').count()
+        # Deliberation outcomes — v3.16.3: one aggregate, was three .count() calls.
+        outcome_map = {
+            row['deliberation_outcome']: row['total']
+            for row in KaiReport.objects.values('deliberation_outcome').annotate(total=Count('id'))
+        }
+        outcome_pending = outcome_map.get('pending', 0)
+        outcome_heard = outcome_map.get('heard', 0)
+        outcome_thrown_out = outcome_map.get('thrown_out', 0)
 
-        monthly_data = {}
-        current_date = timezone.now()
-        for i in range(5, -1, -1):
-            month_date = current_date - timedelta(days=30 * i)
-            month_key = month_date.strftime('%b %Y')
-            month_start = month_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            if month_date.month == 12:
-                next_month_start = month_date.replace(year=month_date.year + 1, month=1, day=1)
-            else:
-                next_month_start = month_date.replace(month=month_date.month + 1, day=1)
-            monthly_data[month_key] = KaiReport.objects.filter(
-                submitted_at__gte=month_start, submitted_at__lt=next_month_start
-            ).count()
+        # Six-month trend.
+        #
+        # v3.16.3 — this was two bugs. It walked months with
+        # `current_date - timedelta(days=30 * i)`, which is not one step per
+        # calendar month: on 32 days of 2026 two of the six steps land in the
+        # same month, so one dict key overwrote another and the chart silently
+        # rendered five bars instead of six. On 2026-03-01 the keys came out
+        # ['Oct','Nov','Dec','Dec','Jan','Mar'] — February missing entirely and
+        # December double-counted. It also fired one COUNT per month.
+        #
+        # Now: step by calendar month, and bucket every report in the window
+        # with a single grouped query.
+        now = timezone.localtime()
+        month_starts = []
+        cursor = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        for _ in range(6):
+            month_starts.append(cursor)
+            cursor = (cursor - timedelta(days=1)).replace(
+                day=1, hour=0, minute=0, second=0, microsecond=0
+            )
+        month_starts.reverse()
+
+        window_start = month_starts[0]
+        month_counts = {}
+        for row in (
+            KaiReport.objects
+            .filter(submitted_at__gte=window_start)
+            .annotate(bucket=TruncMonth('submitted_at'))
+            .values('bucket')
+            .annotate(total=Count('id'))
+        ):
+            bucket = row['bucket']
+            if bucket is None:
+                continue
+            if timezone.is_aware(bucket):
+                bucket = timezone.localtime(bucket)
+            month_counts[(bucket.year, bucket.month)] = row['total']
+
+        # Built in order, one entry per calendar month — no key can collide.
+        monthly_data = {
+            ms.strftime('%b %Y'): month_counts.get((ms.year, ms.month), 0)
+            for ms in month_starts
+        }
 
         recent_activities = list(
             KaiReportActivity.objects.select_related('report', 'user').order_by('-timestamp')[:8]
@@ -372,6 +474,8 @@ def view_kai_reports(request):
         'status_filter': status_filter,
         'category_filter': category_filter,
         'search_query': search_query,
+        # v3.16.3: describes exactly what _kai_search_q will search for THIS user.
+        'search_placeholder': _kai_search_placeholder(kai_access),
         'date_from': date_from,
         'date_to': date_to,
         'counts': counts,
@@ -432,15 +536,12 @@ def export_kai_reports_csv(request):
         if category_filter != 'all':
             reports = reports.filter(category=category_filter)
 
+        # v3.16.3: same permission-gated predicate the list view uses. The
+        # export redacts Submitted By / Targeted To / Description below; before
+        # this change it still *filtered* on them, which handed the redacted
+        # values straight back to the caller.
         if search_query:
-            from django.db.models import Q
-            reports = reports.filter(
-                Q(title__icontains=search_query) |
-                Q(description__icontains=search_query) |
-                Q(submitted_by__name__icontains=search_query) |
-                Q(targeted_to__name__icontains=search_query) |
-                Q(tags__icontains=search_query)
-            )
+            reports = reports.filter(_kai_search_q(search_query, kai_access))
 
         if date_from:
             from datetime import datetime
@@ -496,7 +597,7 @@ def export_kai_reports_csv(request):
                 'Yes' if report.closed_by_accused_request else 'No',
                 report.reviewed_by.name if report.reviewed_by else '',
                 localtime(report.reviewed_at).strftime('%Y-%m-%d %H:%M:%S') if report.reviewed_at else '',
-                ', '.join(report.tags),
+                ', '.join(report.get_tag_labels()),
                 # v3.16.2: the allegation body is governed by
                 # can_view_report_details, but this export only gates on
                 # can_view_report_list — a list-only reviewer could dump every
@@ -515,8 +616,17 @@ def export_kai_reports_csv(request):
 
         return response
 
-    except Exception as e:
-        messages.error(request, f'Failed to export reports: {str(e)}')
+    except Exception:
+        # v3.16.3: this used to interpolate str(e) into the flash message,
+        # surfacing DB/driver internals (table and column names, query text) to
+        # any list-level reviewer. Log it for the operator; show the user
+        # nothing they'd have to be trusted with.
+        logger.exception('Kai CSV export failed for user %s', request.user.pk)
+        messages.error(
+            request,
+            'Failed to export reports. The error has been logged — contact an administrator '
+            'if it keeps happening.'
+        )
         return redirect('view_kai_reports')
 
 
@@ -676,8 +786,29 @@ You can view the full report details at the Kai Committee page.
             )
 
         elif action == 'update_tags':
-            tags_str = request.POST.get('tags', '')
-            report.tags = [t.strip() for t in tags_str.split(',') if t.strip()]
+            # v3.16.3 — SECURITY: tags are a closed vocabulary, not free text.
+            # This is the only write site for KaiReport.tags. A free-text tag
+            # naming a member would be searchable, rendered on the list card
+            # and exported in the CSV for every list-level reviewer, bypassing
+            # the identity redaction entirely. See KaiReport.TAG_CHOICES.
+            #
+            # The form now posts checkboxes, so `rejected` should only ever be
+            # non-empty for a hand-crafted POST or a stale form — report it
+            # rather than silently dropping the value.
+            submitted = request.POST.getlist('tags') or request.POST.get('tags', '')
+            accepted, rejected = KaiReport.normalize_tags(submitted)
+            if rejected:
+                messages.error(
+                    request,
+                    'These tags are not in the allowed list and were not saved: '
+                    + ', '.join(rejected)
+                    + '. Tags are visible to every reviewer who can see the report list, '
+                      'so they are restricted to a fixed vocabulary that carries no '
+                      'personal information.'
+                )
+                return redirect('manage_kai_report', report_id=report.id)
+
+            report.tags = accepted
             report.save(update_fields=['tags'])
             messages.success(request, 'Tags updated successfully.')
 
@@ -686,7 +817,7 @@ You can view the full report details at the Kai Committee page.
                 report=report,
                 user=request.user,
                 action='tags_updated',
-                details=f'Tags updated to: {", ".join(report.tags) if report.tags else "none"}'
+                details=f'Tags updated to: {", ".join(report.get_tag_labels()) if report.tags else "none"}'
             )
             ActivityLog.log_activity(
                 action_type='kai_action',
@@ -1363,6 +1494,13 @@ You may submit another closure request in the future if circumstances change.
         'closure_requests': closure_requests,
         'custom_responses': custom_responses,
         'kai_access': kai_access,
+        # v3.16.3: the tag editor is a checkbox list over the closed vocabulary
+        # rather than a free-text box. `selected_tags` includes any legacy
+        # out-of-vocabulary value still on the record so the checkbox state is
+        # honest; `legacy_tags` drives the warning banner.
+        'tag_choices': KaiReport.TAG_CHOICES,
+        'selected_tags': report.get_tags_list(),
+        'legacy_tags': [t for t in report.get_tags_list() if t not in KaiReport.ALLOWED_TAGS],
     }
 
     return render(request, 'kai/manage_report.html', context)
@@ -1565,7 +1703,7 @@ def bulk_actions_kai_reports(request):
                     'Yes' if report.closed_by_accused_request else 'No',
                     report.reviewed_by.name if report.reviewed_by else '',
                     report.reviewed_at.strftime('%Y-%m-%d %H:%M:%S') if report.reviewed_at else '',
-                    ', '.join(report.tags),
+                    ', '.join(report.get_tag_labels()),
                     report.description
                 ])
 
@@ -1626,11 +1764,20 @@ def create_kai_template(request):
         category = request.POST.get('category')
         title_template = request.POST.get('title_template')
         description_template = request.POST.get('description_template')
-        suggested_tags_str = request.POST.get('suggested_tags', '')
-        suggested_tags = [t.strip() for t in suggested_tags_str.split(',') if t.strip()]
+        # v3.16.3: same closed vocabulary as KaiReport.tags — suggested_tags
+        # feeds that field, so free text here would be a side door.
+        suggested_tags, rejected_tags = KaiReport.normalize_tags(
+            request.POST.getlist('suggested_tags') or request.POST.get('suggested_tags', '')
+        )
         is_active = request.POST.get('is_active') == 'on'
 
-        if name and description and category and title_template and description_template:
+        if rejected_tags:
+            messages.error(
+                request,
+                'These suggested tags are not in the allowed list: ' + ', '.join(rejected_tags)
+                + '. Template not created.'
+            )
+        elif name and description and category and title_template and description_template:
             template = KaiReportTemplate.objects.create(
                 name=name,
                 description=description,
@@ -1649,6 +1796,7 @@ def create_kai_template(request):
     context = {
         'kai_committee': kai_committee,
         'category_choices': KaiReport.CATEGORY_CHOICES,
+        'tag_choices': KaiReport.TAG_CHOICES,
     }
 
     return render(request, 'kai/create_template.html', context)
@@ -1677,8 +1825,19 @@ def edit_kai_template(request, template_id):
         template.category = request.POST.get('category')
         template.title_template = request.POST.get('title_template')
         template.description_template = request.POST.get('description_template')
-        suggested_tags_str = request.POST.get('suggested_tags', '')
-        template.suggested_tags = [t.strip() for t in suggested_tags_str.split(',') if t.strip()]
+        # v3.16.3: closed vocabulary — see KaiReport.TAG_CHOICES.
+        accepted_tags, rejected_tags = KaiReport.normalize_tags(
+            request.POST.getlist('suggested_tags') or request.POST.get('suggested_tags', '')
+        )
+        if rejected_tags:
+            messages.error(
+                request,
+                'These suggested tags are not in the allowed list: ' + ', '.join(rejected_tags)
+                + '. No changes were saved.'
+            )
+            return redirect('edit_kai_template', template_id=template.id)
+
+        template.suggested_tags = accepted_tags
         template.is_active = request.POST.get('is_active') == 'on'
         template.save(update_fields=['name', 'description', 'category', 'title_template', 'description_template', 'suggested_tags', 'is_active'])
 
@@ -1689,6 +1848,7 @@ def edit_kai_template(request, template_id):
         'template': template,
         'kai_committee': kai_committee,
         'category_choices': KaiReport.CATEGORY_CHOICES,
+        'tag_choices': KaiReport.TAG_CHOICES,
     }
 
     return render(request, 'kai/edit_template.html', context)
