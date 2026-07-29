@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from django.utils.timezone import localtime
-from django.db.models import Count
+from django.db.models import Count, Q
 from collections import Counter
 from src.models import (
     SlatingPeriod, Slate, SlatingBallot, SlatingVote, SlatingActivity, SlatingPosition
@@ -373,18 +373,25 @@ def results_summary(request, period_id):
     # Get all slates
     slates = period.slates.filter(is_approved=True).order_by('-created_at')
 
-    # Get voting history by attempt
+    # Get voting history by attempt.
+    #
+    # v3.17.3: was three COUNTs per voting attempt — nine queries after three
+    # rounds, growing with every re-vote. One GROUP BY over (attempt, choice)
+    # covers every attempt at once. Found by the detail-route sweep; this page
+    # takes a period_id, so the zero-argument N+1 test never reached it.
+    _tally = {}
+    for row in (SlatingVote.objects
+                .filter(period=period, slate__isnull=False)
+                .values('voting_attempt', 'vote_choice')
+                .annotate(n=Count('pk'))):
+        _tally.setdefault(row['voting_attempt'], {})[row['vote_choice']] = row['n']
+
     voting_history = []
     for attempt in range(1, period.current_voting_attempt + 1):
-        votes = SlatingVote.objects.filter(
-            period=period,
-            voting_attempt=attempt,
-            slate__isnull=False
-        )
-
-        approve = votes.filter(vote_choice='approve').count()
-        reject = votes.filter(vote_choice='reject').count()
-        abstain = votes.filter(vote_choice='abstain').count()
+        _by_choice = _tally.get(attempt, {})
+        approve = _by_choice.get('approve', 0)
+        reject = _by_choice.get('reject', 0)
+        abstain = _by_choice.get('abstain', 0)
         total = approve + reject + abstain
         counted = approve + reject
 
@@ -411,14 +418,14 @@ def results_summary(request, period_id):
 
     participation_rate = (total_unique_voters / eligible_voters * 100) if eligible_voters > 0 else 0
 
-    # Application stats
-    app_stats = {
-        'total': period.applications.count(),
-        'submitted': period.applications.filter(status='submitted').count(),
-        'interviewed': period.applications.filter(status='interviewed').count(),
-        'slated': period.applications.filter(status='slated').count(),
-        'withdrawn': period.applications.filter(status='withdrawn').count(),
-    }
+    # Application stats — v3.17.3: five COUNTs over one table became one pass.
+    app_stats = period.applications.aggregate(
+        total=Count('pk'),
+        submitted=Count('pk', filter=Q(status='submitted')),
+        interviewed=Count('pk', filter=Q(status='interviewed')),
+        slated=Count('pk', filter=Q(status='slated')),
+        withdrawn=Count('pk', filter=Q(status='withdrawn')),
+    )
 
     context = {
         'period': period,

@@ -744,10 +744,13 @@ def event_cancel_signup(request, event_id):
 @require_page_enabled('calendar')
 def event_signup_list(request, event_id):
     """Officer view — list all active sign-ups for an event, including waitlist."""
-    from src.utils.officer_check import is_officer
+    # v3.17.3: was `from src.utils.officer_check import is_officer` — a module
+    # that has NEVER existed. The import was added in v3.9.1 and the module was
+    # never created, so this view has been a hard 500 (ModuleNotFoundError) ever
+    # since. `is_officer` is a property on ParliamentUser; use that.
     event = get_object_or_404(Event, pk=event_id, is_active=True, requires_signup=True)
 
-    if not is_officer(request.user):
+    if not request.user.is_officer:
         from django.core.exceptions import PermissionDenied
         raise PermissionDenied
 
@@ -781,11 +784,14 @@ def event_signup_list(request, event_id):
 def event_signup_export(request, event_id):
     """Officer-only CSV download of the active sign-up (and waitlist) roster."""
     import csv
-    from src.utils.officer_check import is_officer
 
+    # v3.17.3: was `from src.utils.officer_check import is_officer` — a module
+    # that has NEVER existed. The import was added in v3.9.1 and the module was
+    # never created, so this view has been a hard 500 (ModuleNotFoundError) ever
+    # since. `is_officer` is a property on ParliamentUser; use that.
     event = get_object_or_404(Event, pk=event_id, is_active=True, requires_signup=True)
 
-    if not is_officer(request.user):
+    if not request.user.is_officer:
         from django.core.exceptions import PermissionDenied
         raise PermissionDenied
 

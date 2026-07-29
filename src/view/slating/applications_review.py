@@ -8,7 +8,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
-from django.db.models import Q
+from django.db.models import Count, Q
 from src.models import (
     SlatingPeriod, SlatingApplication, SlatingPosition, SlatingActivity
 )
@@ -30,9 +30,15 @@ def applications_list(request, period_id):
     gpa_level_filter = request.GET.get('gpa_level', '')
     search = request.GET.get('search', '')
 
+    # v3.17.3: applications_review.html:130 renders an "Interviewed" marker per
+    # row from `app.interviews`, which was a query per application. Prefetching
+    # is the whole fix — `.exists()` on a prefetched relation costs nothing (see
+    # PrefetchCacheBehaviourTests; CLAUDE.md's checklist is wrong about this).
     applications = period.applications.exclude(
         status='draft'
-    ).select_related('applicant').defer(*member_defer('applicant')).order_by('-submitted_at')
+    ).select_related('applicant').defer(*member_defer('applicant')).prefetch_related(
+        'interviews'
+    ).order_by('-submitted_at')
 
     # Apply filters
     if status_filter:
@@ -60,12 +66,23 @@ def applications_list(request, period_id):
     # Get positions for filter dropdown
     positions = period.positions.filter(is_active=True).order_by('display_order')
 
-    # Status counts
-    status_counts = {}
-    for status, label in SlatingApplication.STATUS_CHOICES:
-        if status != 'draft':
-            count = period.applications.filter(status=status).count()
-            status_counts[status] = {'label': label, 'count': count}
+    # Status counts.
+    #
+    # v3.17.3: was one COUNT per status choice — eight round trips over the same
+    # table, found by the detail-route sweep (this page takes a period_id, so the
+    # zero-argument N+1 test never reached it). One GROUP BY answers all of them;
+    # statuses with no applications keep their explicit 0 rather than vanishing,
+    # which is what the previous loop produced.
+    _counts = dict(
+        period.applications.exclude(status='draft')
+        .values_list('status')
+        .annotate(n=Count('pk'))
+    )
+    status_counts = {
+        status: {'label': label, 'count': _counts.get(status, 0)}
+        for status, label in SlatingApplication.STATUS_CHOICES
+        if status != 'draft'
+    }
 
     context = {
         'period': period,

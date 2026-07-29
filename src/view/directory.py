@@ -21,11 +21,14 @@ def member_directory(request):
     # `directory.html:128 {% if member.roles.exists %}` and `:130 {% for role in
     # member.roles.all %}`.
     #
-    # The template also had to change: `.exists()` on a prefetched relation
-    # **bypasses the prefetch cache** and issues its own query, which is why
-    # prefetching alone would have fixed only half of it. That is item five on
-    # CLAUDE.md's own performance-sweep checklist, and this is what it looks like
-    # in the wild.
+    # The prefetch is the whole fix. ⚠️ Note for the next sweep: CLAUDE.md's
+    # checklist says `.exists()` on a prefetched relation bypasses the cache. On
+    # Django 5.2 it does NOT — the related manager hands back the cached
+    # queryset and `.exists()` short-circuits on `_result_cache`, so `.exists()`,
+    # `.all()` and `.count()` are all zero queries once prefetched (measured;
+    # see test_prefetched_relation_accessors_cost_nothing). What *does* still
+    # query is adding a filter first — `member.roles.filter(...).exists()` builds
+    # a new queryset that is not the cached one.
     members = ParliamentUser.objects.filter(
         member_status='Active'
     ).exclude(

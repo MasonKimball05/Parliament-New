@@ -290,9 +290,10 @@ def my_applications(request):
     """
     View user's own applications.
     """
+    # v3.17.3: my_applications.html:76 checks `app.interviews` per row.
     applications = SlatingApplication.objects.filter(
         applicant=request.user
-    ).select_related('period').order_by('-created_at')
+    ).select_related('period').prefetch_related('interviews').order_by('-created_at')
 
     context = {
         'applications': applications,

@@ -125,8 +125,7 @@
                             {{ member.phone_number|format_phone }}
                         </a>
                         {% endif %}
-                        {# v3.17.3: `.all` not `.exists` — .exists() bypasses the prefetch cache #}
-                        {% if member.roles.all %}
+                        {% if member.roles.exists %}
                         <div class="mt-2 flex flex-wrap gap-1">
                             {% for role in member.roles.all %}
                             <span class="badge badge-purple">
@@ -186,8 +185,7 @@
                             {{ member.phone_number|format_phone }}
                         </a>
                         {% endif %}
-                        {# v3.17.3: `.all` not `.exists` — .exists() bypasses the prefetch cache #}
-                        {% if member.roles.all %}
+                        {% if member.roles.exists %}
                         <div class="mt-2 flex flex-wrap gap-1">
                             {% for role in member.roles.all %}
                             <span class="badge badge-blue">

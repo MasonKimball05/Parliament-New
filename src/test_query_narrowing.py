@@ -959,3 +959,79 @@ class AdminV2DashboardBreadthTests(TestCase):
             {f.name for f in card} <= grouped,
             'flags seeded this request are missing from the grouped list',
         )
+
+
+class PrefetchCacheBehaviourTests(TestCase):
+    """
+    What a prefetched relation actually costs — measured, because the belief
+    written down in CLAUDE.md is wrong and it cost real work.
+
+    That checklist says: *".exists() called on a prefetched relation (bypasses
+    the prefetch cache — use list(.all()))"*. On Django 5.2 it does **not**.
+    `RelatedManager.get_queryset()` returns the cached queryset and
+    `QuerySet.exists()` short-circuits on `_result_cache`, so `.exists()`,
+    `.all()` and `.count()` are all **zero queries** once the relation is
+    prefetched.
+
+    Acting on the wrong version of this rule during the v3.17.3 sweep produced a
+    round of template edits that changed nothing, and a comment asserting a
+    bypass that does not happen. The real bug on `/directory/` was simply the
+    **absence of a prefetch**.
+
+    The genuine hazard is narrower and is asserted below: **adding a filter
+    first defeats the cache**, because `.filter(...)` builds a new queryset that
+    is not the cached one.
+    """
+
+    def setUp(self):
+        from src.models import Role
+
+        self.members = []
+        for i in range(4):
+            member = make_user(f'pc{i}')
+            member.roles.add(Role.objects.create(name=f'Role {i}', code=f'pcr{i}'))
+            self.members.append(member)
+
+    def test_prefetched_relation_accessors_cost_nothing(self):
+        users = list(ParliamentUser.objects.prefetch_related('roles'))
+        self.assertEqual(len(users), 4)
+
+        with self.assertNumQueries(0):
+            for user in users:
+                user.roles.exists()
+        with self.assertNumQueries(0):
+            for user in users:
+                list(user.roles.all())
+        with self.assertNumQueries(0):
+            for user in users:
+                user.roles.count()
+
+    def test_without_a_prefetch_each_access_is_a_query(self):
+        """The contrast — this is what the directory was doing."""
+        users = list(ParliamentUser.objects.all())
+        with self.assertNumQueries(len(users)):
+            for user in users:
+                user.roles.exists()
+
+    def test_filtering_a_prefetched_relation_does_query(self):
+        """
+        The real hazard, stated precisely: the cache is keyed to the exact
+        prefetched queryset, so any further `.filter()` starts a new one.
+        """
+        users = list(ParliamentUser.objects.prefetch_related('roles'))
+        with self.assertNumQueries(len(users)):
+            for user in users:
+                user.roles.filter(code__startswith='pcr').exists()
+
+    def test_reverse_fk_behaves_the_same_way(self):
+        author = make_user('pc9')
+        for i in range(3):
+            Legislation.objects.create(
+                title=f'L{i}', description='d', posted_by=author,
+                available_at=timezone.now(), vote_mode='percentage',
+                required_percentage='50')
+        fetched = list(ParliamentUser.objects.prefetch_related('legislation_set'))
+        with self.assertNumQueries(0):
+            for user in fetched:
+                user.legislation_set.exists()
+                user.legislation_set.count()
