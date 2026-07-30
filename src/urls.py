@@ -317,7 +317,7 @@ urlpatterns = [
     path('set-email/', set_email, name='set_email'),
     path('set-email/confirm/<uuid:token>/', confirm_email_change, name='confirm_email_change'),
     path('upload/', upload_legislation, name='upload_legislation'),
-    path('change_password/', change_password, name='change_password'),
+    path('change-password/', change_password, name='change_password'),
     path('forced-password-change/', forced_password_change, name='forced_password_change'),
     path('onboarding/', onboarding_view, name='onboarding'),
     path('onboarding/complete/', onboarding_complete_view, name='onboarding_complete'),
@@ -359,7 +359,7 @@ urlpatterns = [
     path('songbook/song/<int:pk>/edit/', song_edit, name='song_edit'),
     path('songbook/song/<int:pk>/delete/', song_delete, name='song_delete'),
     path('songbook/categories/', manage_categories, name='manage_song_categories'),
-    path('exportable_media/<path:filename>', serve_exportable_media, name='serve_exportable_media'),
+    path('exportable-media/<path:filename>', serve_exportable_media, name='serve_exportable_media'),
     # v3.14.1: authenticated /media/ serving — registered unconditionally so
     # dev behaves like prod (the DEBUG-only static() route below still wins
     # nothing: this pattern matches first). nginx must NOT serve /media/
@@ -461,10 +461,10 @@ urlpatterns = [
     path('officers/minutes/<int:minutes_id>/download-pdf/', download_minutes_pdf, name='download_minutes_pdf'),
     path('officers/minutes/<int:minutes_id>/delete/', delete_chapter_minutes, name='delete_chapter_minutes'),
 
-    path('make_event/', make_event, name='make_event'),
-    path('manage_event/', manage_event, name='manage_event'),
-    path('user_list/', user_list, name='user_list'),
-    path('user_list/export/', export_user_list, name='export_user_list'),
+    path('make-event/', make_event, name='make_event'),
+    path('manage-event/', manage_event, name='manage_event'),
+    path('user-list/', user_list, name='user_list'),
+    path('user-list/export/', export_user_list, name='export_user_list'),
 
     # Member Management (Officer)
     path('officers/members/add/', add_member, name='add_member'),
@@ -568,7 +568,7 @@ urlpatterns = [
     path('vote/end/<int:legislation_id>/', end_vote, name='end_vote'),
     path('vote/runoff/<int:legislation_id>/', create_runoff, name='create_runoff'),
     path('vote/delete/<int:legislation_id>/', delete_chapter_legislation, name='delete_chapter_legislation'),
-    path('passed_legislation/', passed_legislation, name='passed_legislation'),
+    path('passed-legislation/', passed_legislation, name='passed_legislation'),
     path('legislation/add/', add_legislation, name='add_legislation'),
     path('legislation/detail/<int:pk>/', PassedLegislationDetailView.as_view(), name='passed_legislation_detail'),
     path('legislation/detail/<int:pk>/document/', view_passed_legislation_document, name='view_passed_legislation_document'),
@@ -601,8 +601,8 @@ urlpatterns = [
     path('committee/<str:code>/vote/<int:legislation_id>/result/', committee_vote_result, name='committee_vote_result'),
     path('committee/<str:code>/vote/<int:legislation_id>/runoff/', create_committee_runoff, name='create_committee_runoff'),
     path('committee/<str:code>/vote/<int:legislation_id>/delete/', delete_committee_vote, name='delete_committee_vote'),
-    path('committee/<str:code>/manage_members/', committee_manage_members, name='manage_members'),
-    path('committee/<str:code>/upload_document/', committee_upload_document, name='upload_document'),
+    path('committee/<str:code>/manage-members/', committee_manage_members, name='manage_members'),
+    path('committee/<str:code>/upload-document/', committee_upload_document, name='upload_document'),
 
     # New committee action URLs
     path('committee/<str:code>/add-member/', committee_add_member, name='committee_add_member'),
@@ -824,7 +824,6 @@ urlpatterns = [
 
     # Admin v2 - Advanced Administration
     path('admin-v2/', admin_v2_login, name='admin_v2_login'),
-    path('admin_v2/', admin_v2_login, name='admin_v2_login'),
     path('admin-v2/dashboard/', admin_v2_dashboard, name='admin_v2_dashboard'),
     path('admin-v2/feature-flag/<int:flag_id>/toggle/', toggle_feature_flag, name='toggle_feature_flag'),
     path('admin-v2/page/<int:toggle_id>/toggle/', toggle_page, name='toggle_page'),
