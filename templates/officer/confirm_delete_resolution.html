@@ -22,7 +22,7 @@
                 <p class="text-red-800 text-sm mb-2">Deleting this resolution will:</p>
                 <ul class="list-disc list-inside text-red-800 text-sm space-y-1">
                     <li>Permanently remove the resolution from the database</li>
-                    <li>Delete all associated section impact tags ({{ resolution.section_impacts.count }} tag{% if resolution.section_impacts.count != 1 %}s{% endif %})</li>
+                    <li>Delete all associated section impact tags ({{ resolution.section_impacts.all|length }} tag{{ resolution.section_impacts.all|length|pluralize }})</li>
                     <li>Remove it from the public Passed Resolutions page</li>
                     <li>This <strong>cannot be reversed</strong></li>
                 </ul>
@@ -38,7 +38,7 @@
 
         {% if resolution.section_impacts.all %}
             <div class="mt-4">
-                <p class="text-sm font-semibold text-gray-700 mb-2">Section Impacts ({{ resolution.section_impacts.count }}):</p>
+                <p class="text-sm font-semibold text-gray-700 mb-2">Section Impacts ({{ resolution.section_impacts.all|length }}):</p>
                 <div class="flex flex-wrap gap-2">
                     {% for impact in resolution.section_impacts.all %}
                         <span class="px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-700">

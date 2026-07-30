@@ -55,9 +55,9 @@
         </a>
 
         <!-- Active Quarantines -->
-        <a href="{% url 'admin_v2_quarantine' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 {% if active_quarantines.count > 0 %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} hover:shadow-md transition-shadow">
+        <a href="{% url 'admin_v2_quarantine' %}" class="block bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 {% if active_quarantines|length > 0 %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} hover:shadow-md transition-shadow">
             <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">Quarantined</div>
-            <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ active_quarantines.count }}</div>
+            <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ active_quarantines|length }}</div>
             <div class="text-xs text-gray-400">accounts</div>
         </a>
 
@@ -109,7 +109,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
                 </svg>
                 <span class="text-xs font-medium text-center">Quarantine</span>
-                {% if active_quarantines.count > 0 %}<span class="text-xs bg-rose-600 text-white rounded-full px-1.5 py-0.5 leading-none">{{ active_quarantines.count }}</span>{% endif %}
+                {% if active_quarantines|length > 0 %}<span class="text-xs bg-rose-600 text-white rounded-full px-1.5 py-0.5 leading-none">{{ active_quarantines|length }}</span>{% endif %}
             </a>
 
             <a href="{% url 'admin_v2_lockouts' %}" class="flex flex-col items-center gap-1.5 px-3 py-3 rounded-lg bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/20 dark:hover:bg-orange-900/40 text-orange-700 dark:text-orange-300 transition-colors">
@@ -219,8 +219,8 @@
             <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Quarantined Accounts</h2>
-                    {% if active_quarantines.count > 0 %}
-                    <span class="px-2 py-0.5 text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 rounded-full">{{ active_quarantines.count }}</span>
+                    {% if active_quarantines|length > 0 %}
+                    <span class="px-2 py-0.5 text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 rounded-full">{{ active_quarantines|length }}</span>
                     {% endif %}
                 </div>
                 <a href="{% url 'admin_v2_quarantine' %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">Manage →</a>

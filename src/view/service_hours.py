@@ -35,7 +35,7 @@ def service_dashboard(request):
     Shows statistics, charts, and recent submissions.
     """
     # Get current period
-    today = timezone.now().date()
+    today = timezone.localdate()   # v3.17.4: calendar date, not UTC
     current_period = ServicePeriod.objects.filter(
         is_active=True,
         start_date__lte=today,

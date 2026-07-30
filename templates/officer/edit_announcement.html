@@ -215,12 +215,12 @@
         {% if announcement.poll %}
         <div class="px-6 py-4">
             <div class="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-                <span><strong class="text-gray-900 dark:text-gray-100">{{ announcement.poll.questions.count }}</strong> question{{ announcement.poll.questions.count|pluralize }}</span>
+                <span><strong class="text-gray-900 dark:text-gray-100">{{ poll_question_total }}</strong> question{{ poll_question_total|pluralize }}</span>
                 <span class="text-gray-300 dark:text-gray-600">|</span>
                 {% if announcement.poll.is_anonymous %}<span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">Anonymous</span>{% endif %}
                 {% if announcement.poll.is_open %}<span class="px-2 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded text-xs">Open</span>
                 {% else %}<span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded text-xs">Closed</span>{% endif %}
-                <span><strong class="text-gray-900 dark:text-gray-100">{{ announcement.poll.responses.count }}</strong> response{{ announcement.poll.responses.count|pluralize }}</span>
+                <span><strong class="text-gray-900 dark:text-gray-100">{{ poll_response_total }}</strong> response{{ poll_response_total|pluralize }}</span>
             </div>
         </div>
         {% else %}

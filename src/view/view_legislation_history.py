@@ -10,6 +10,11 @@ from ..models import (
     MEMBER_DISPLAY_FIELDS, MEMBER_PROFILE_FIELDS,
 )
 
+#: Ceiling on the "my polls" panel at the bottom of this page. See the comment
+#: at its queryset — it is a ceiling on an already-user-scoped list, not a page
+#: size, so it is deliberately generous.
+MY_POLLS_LIMIT = 100
+
 
 @login_required
 def view_legislation_history(request):
@@ -199,6 +204,12 @@ def view_legislation_history(request):
     # related objects. `distinct=True` on both is required: two multi-valued
     # joins in one annotate() multiply each other's rows and inflate BOTH counts
     # without it.
+    #
+    # v3.17.5: `[:MY_POLLS_LIMIT]`. The expensive half was fixed above, but the
+    # queryset still had no ceiling — it returned every poll the user has ever
+    # created, and this is a secondary panel at the bottom of a page about
+    # something else. Scoped to `created_by=user` so it is small by
+    # construction; the cap is a ceiling, not a page size.
     my_polls = list(
         AnnouncementPoll.objects.filter(created_by=user)
         .select_related('announcement')
@@ -206,7 +217,7 @@ def view_legislation_history(request):
             response_total=Count('responses', distinct=True),
             question_total=Count('questions', distinct=True),
         )
-        .order_by('-created_at')
+        .order_by('-created_at')[:MY_POLLS_LIMIT]
     )
 
     return render(request, 'legislation_history.html', {

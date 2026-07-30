@@ -42,7 +42,7 @@
             <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ slate.name }}</h3>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    {{ slate.candidates.filter.is_runoff.False.count|default:slate.candidates.count }} of {{ positions.count }} positions filled
+                    {{ primary_filled_count }} of {{ positions|length }} positions filled
                 </p>
             </div>
 
@@ -117,7 +117,7 @@
         <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
             <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">Available Candidates</h3>
-                <p class="text-sm text-gray-500 dark:text-gray-400">{{ available_apps.count }} candidates</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">{{ available_apps|length }} candidates</p>
             </div>
 
             {% if available_apps %}

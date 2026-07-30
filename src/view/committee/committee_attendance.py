@@ -32,7 +32,7 @@ def committee_attendance(request, code):
     members = committee.members.filter(member_status='Active').order_by('name')
 
     # Get today's attendance records for this committee (using local timezone)
-    today = timezone.localtime(timezone.now()).date()
+    today = timezone.localdate()   # v3.17.4: same value, one spelling site-wide
     existing_attendance = {
         att.user_id: att
         for att in Attendance.objects.filter(

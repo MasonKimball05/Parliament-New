@@ -2731,11 +2731,28 @@ def security_dashboard(request):
     now = timezone.now()
 
     # Quarantines — exclude expired records so the list stays in sync with is_active
-    active_quarantines = QuarantinedAccount.objects.filter(
-        released_at__isnull=True,
-    ).filter(
-        Q(expires_at__isnull=True) | Q(expires_at__gt=now)
-    ).select_related('user', 'quarantined_by').defer(*member_defer('user', 'quarantined_by'))
+    #
+    # v3.17.5: materialized. This was a lazy queryset and the template calls
+    # `active_quarantines.count` at FOUR places (the card border, the card
+    # number, the nav badge and the section badge) before iterating it — and
+    # `.count` on a queryset is a fresh `SELECT COUNT(*)` every time, so the
+    # page ran five queries for one small list. Dev mode reported it as a 4×
+    # repeated shape.
+    #
+    # Bounded in practice rather than by a slice: the filter is
+    # unreleased-and-unexpired, and a member can only be quarantined once at a
+    # time, so this is capped by chapter size. Ordered explicitly because a
+    # `list()` with no `order_by` has whatever order the backend feels like.
+    active_quarantines = list(
+        QuarantinedAccount.objects.filter(
+            released_at__isnull=True,
+        ).filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gt=now)
+        )
+        .select_related('user', 'quarantined_by')
+        .defer(*member_defer('user', 'quarantined_by'))
+        .order_by('-quarantined_at')
+    )
 
     # Honeypot
     recent_honeypot = HoneypotAccess.objects.order_by('-accessed_at')[:15]
@@ -2866,12 +2883,21 @@ def quarantine_management(request):
         return redirect('admin_v2_quarantine')
 
     # Get all quarantine records — exclude expired so UI matches is_active property
+    #
+    # v3.17.5: materialized, same reason as `security_dashboard` above —
+    # `quarantine_management.html` calls `.count` for the heading, tests the
+    # queryset for truthiness, then iterates it: three queries for one list.
     _now = timezone.now()
-    active_quarantines = QuarantinedAccount.objects.filter(
-        released_at__isnull=True,
-    ).filter(
-        Q(expires_at__isnull=True) | Q(expires_at__gt=_now)
-    ).select_related('user', 'quarantined_by').defer(*member_defer('user', 'quarantined_by'))
+    active_quarantines = list(
+        QuarantinedAccount.objects.filter(
+            released_at__isnull=True,
+        ).filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gt=_now)
+        )
+        .select_related('user', 'quarantined_by')
+        .defer(*member_defer('user', 'quarantined_by'))
+        .order_by('-quarantined_at')
+    )
 
     released_quarantines = QuarantinedAccount.objects.filter(
         released_at__isnull=False

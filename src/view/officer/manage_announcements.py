@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.http import HttpResponse, JsonResponse
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.views.decorators.http import require_POST
 from django.core.cache import cache
 from django.template.loader import render_to_string
@@ -28,12 +28,26 @@ logger = logging.getLogger('src')
 @log_function_call
 def manage_announcements(request):
     """View to manage all announcements"""
-    announcements = Announcement.objects.select_related('posted_by').defer(*member_defer('posted_by')).order_by('-posted_at')
+    # v3.17.4: the template calls `announcement.get_view_stats` per row, which
+    # was four queries each, and `{% if announcement.poll %}` was a fifth — about
+    # 100 queries for a 25-row page. Now: the three view counts are annotated,
+    # `poll` is joined (reverse OneToOne), and the active-member counts per type
+    # are fetched once and handed to each object so the target-audience number
+    # needs no query either.
+    announcements = Announcement.annotate_view_stats(
+        Announcement.objects
+        .select_related('posted_by', 'poll')
+        .defer(*member_defer('posted_by'))
+    ).order_by('-posted_at')
 
     # Pagination - 25 announcements per page
     paginator = Paginator(announcements, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+
+    active_counts = Announcement.active_counts_by_member_type()
+    for announcement in page_obj:
+        announcement._active_counts_by_type = active_counts
 
     return render(request, 'officer/manage_announcements.html', {
         'announcements': page_obj,
@@ -674,11 +688,24 @@ def edit_announcement(request, announcement_id):
     ).order_by('title')
     linked_doc_ids = list(announcement.linked_documents.values_list('id', flat=True))
 
+    # v3.17.5: edit_announcement.html printed `announcement.poll.questions.count`
+    # and `announcement.poll.responses.count` twice each (:218, :223 — once for
+    # the number, once for `|pluralize`), which is four COUNT round trips for
+    # two numbers. One aggregate over the poll instead.
+    poll_totals = {'poll_question_total': 0, 'poll_response_total': 0}
+    poll = getattr(announcement, 'poll', None)
+    if poll is not None:
+        poll_totals = AnnouncementPoll.objects.filter(pk=poll.pk).aggregate(
+            poll_question_total=Count('questions', distinct=True),
+            poll_response_total=Count('responses', distinct=True),
+        )
+
     return render(request, 'officer/edit_announcement.html', {
         'form': form,
         'announcement': announcement,
         'chapter_docs': chapter_docs,
         'linked_doc_ids': linked_doc_ids,
+        **poll_totals,
     })
 
 @login_required

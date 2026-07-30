@@ -269,7 +269,7 @@
                             {{ resolution.get_resolution_type_display }}
                             {% if resolution.authors %}· {{ resolution.authors }}{% endif %}
                             {% if resolution.vote_date %}· Vote: {{ resolution.vote_date|date:"M j, Y" }}{% endif %}
-                            · {{ resolution.amendments.count }} amendment{{ resolution.amendments.count|pluralize }}
+                            · {{ resolution.amendment_total }} amendment{{ resolution.amendment_total|pluralize }}
                         </p>
                     </div>
                     <span class="flex-shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold
@@ -325,7 +325,7 @@
                     <div>
                         <p class="font-medium text-gray-900 dark:text-gray-100">{{ doc.title }}</p>
                         <p class="text-xs text-gray-500 dark:text-gray-400">
-                            {{ doc.articles.count }} article{{ doc.articles.count|pluralize }}
+                            {{ doc.articles.all|length }} article{{ doc.articles.all|length|pluralize }}
                             {% if doc.last_reviewed %}· Reviewed {{ doc.last_reviewed|date:"M j, Y" }}{% endif %}
                         </p>
                     </div>
@@ -383,7 +383,7 @@
                     <div class="min-w-0">
                         <p class="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{{ resolution.title }}</p>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                            {{ resolution.amendments.count }} amendment{{ resolution.amendments.count|pluralize }}
+                            {{ resolution.amendment_total }} amendment{{ resolution.amendment_total|pluralize }}
                             {% if resolution.vote_date %}· Vote: {{ resolution.vote_date|date:"M j, Y" }}{% endif %}
                         </p>
                     </div>

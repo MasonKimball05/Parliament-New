@@ -93,7 +93,14 @@ def edit_resolution(request, resolution_id):
 @admin_required
 def delete_resolution(request, resolution_id):
     """Delete a passed resolution"""
-    resolution = get_object_or_404(PassedResolution, id=resolution_id)
+    # v3.17.5: `prefetch_related('section_impacts')`. The confirmation page
+    # counts the impacts twice and then lists them; without the prefetch that
+    # was three queries, and the two counts were `.count` round trips. The
+    # template now uses `|length` on the prefetched `.all`, which is free.
+    resolution = get_object_or_404(
+        PassedResolution.objects.prefetch_related('section_impacts'),
+        id=resolution_id,
+    )
 
     if request.method == 'POST':
         title = resolution.title

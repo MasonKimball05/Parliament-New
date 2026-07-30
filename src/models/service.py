@@ -46,7 +46,10 @@ class ServicePeriod(models.Model):
 
     def is_current(self):
         """Check if this period is currently active based on dates"""
-        today = timezone.now().date()
+        # v3.17.4: localdate(). start_date/end_date are calendar dates a human
+        # typed; with a UTC "today" a period stopped being current at 19:00
+        # Central on its own last day.
+        today = timezone.localdate()
         return self.start_date <= today <= self.end_date and self.is_active
 
     def get_member_expected_hours(self, member):

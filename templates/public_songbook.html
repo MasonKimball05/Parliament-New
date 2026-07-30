@@ -68,7 +68,7 @@
         <a href="{% if query %}?q={{ query }}{% else %}?{% endif %}"
            class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors
                   {% if not active_category %}bg-primary-600 text-white{% else %}bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
-            All <span class="ml-1 opacity-70">{{ songs.count }}</span>
+            All <span class="ml-1 opacity-70">{{ songs|length }}</span>
         </a>
         {% for cat in categories %}
         {% if cat.public_count > 0 %}

@@ -172,17 +172,29 @@ def create_committee(request):
 @officer_required
 def manage_committees(request):
     """Manage all committees - list, add, edit, delete (officers and admins)"""
-    committees = Committee.objects.select_related('role').all().order_by('name')
+    # v3.17.4: three COUNTs per committee became one conditional aggregate —
+    # the same fix `committee_index` got in v3.17.3, which was never carried to
+    # this page. `distinct=True` is load-bearing: three multi-valued joins in one
+    # annotate() multiply each other's rows and inflate all three counts.
+    committees = list(
+        Committee.objects.select_related('role')
+        .annotate(
+            member_total=Count('members', distinct=True),
+            chair_total=Count('chairs', distinct=True),
+            advisor_total=Count('advisors', distinct=True),
+        )
+        .order_by('name')
+    )
 
-    # Add member counts for each committee
-    committees_data = []
-    for committee in committees:
-        committees_data.append({
+    committees_data = [
+        {
             'committee': committee,
-            'member_count': committee.members.count(),
-            'chair_count': committee.chairs.count(),
-            'advisor_count': committee.advisors.count(),
-        })
+            'member_count': committee.member_total,
+            'chair_count': committee.chair_total,
+            'advisor_count': committee.advisor_total,
+        }
+        for committee in committees
+    ]
 
     # Get roles for the create form
     roles = Role.objects.all().order_by('name')
@@ -192,7 +204,7 @@ def manage_committees(request):
 
     context = {
         'committees_data': committees_data,
-        'total_committees': committees.count(),
+        'total_committees': len(committees),
         'roles': roles,
         'members': members,
         'form': CommitteeCreateForm(),

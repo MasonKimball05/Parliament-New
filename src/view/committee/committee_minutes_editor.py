@@ -386,7 +386,11 @@ def save_committee_minutes_attendance(request, code, minutes_id):
             continue
         Attendance.objects.update_or_create(
             user=member,
-            date=now.date(),
+            # v3.17.4: was now.date() (UTC). This path passes a real committee,
+            # so the unique constraint on (committee, user, date) turned the
+            # missed lookup into an IntegrityError — saving committee minutes a
+            # second time in the evening was a hard 500.
+            date=timezone.localdate(),
             attendance_type='committee',
             committee=committee,
             defaults={

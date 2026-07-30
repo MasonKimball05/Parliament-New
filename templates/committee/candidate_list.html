@@ -117,7 +117,7 @@
                             class="notes-toggle text-xs text-gray-400 dark:text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 mr-3 transition-colors"
                             data-target="notes-row-{{ c.id }}"
                             title="Toggle notes">
-                            Notes{% if c.note_entries.count %} ({{ c.note_entries.count }}){% endif %}
+                            Notes{% if c.note_entries.all %} ({{ c.note_entries.all|length }}){% endif %}
                         </button>
                         <a href="{% url 'edit_candidate' committee.code c.id %}" class="text-xs text-purple-600 dark:text-purple-400 hover:underline mr-3">Edit</a>
                         {% if can_manage %}

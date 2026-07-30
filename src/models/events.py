@@ -2,6 +2,11 @@ from datetime import timedelta, timezone as dt_timezone
 from urllib.parse import urlencode
 
 from django.db import models
+# `timezone` is already taken by `datetime.timezone` above (aliased dt_timezone),
+# so Django's is imported under a distinct alias. It is needed at module scope —
+# not just inside methods, as elsewhere in this file — because `Attendance.date`
+# uses `dj_timezone.localdate` as a field default.
+from django.utils import timezone as dj_timezone
 from src.models.users import ParliamentUser
 
 
@@ -329,8 +334,31 @@ class Attendance(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True, help_text='Additional notes about attendance')
 
-    # Legacy field for backwards compatibility
-    date = models.DateField(auto_now_add=True)
+    # Legacy field for backwards compatibility.
+    #
+    # v3.17.4 — this was `auto_now_add=True`, which was wrong in two ways that
+    # combined into a nightly bug.
+    #
+    # 1. `auto_now_add` populates a DateField from `datetime.date.today()`, which
+    #    is the SERVER-LOCAL date. Django sets `os.environ['TZ']` from
+    #    `TIME_ZONE`, so that is the Central date. Meanwhile every caller looked
+    #    the row up with `timezone.now().date()`, which is the UTC date. Those
+    #    two disagree from 19:00 Central until midnight — i.e. for the whole of
+    #    every evening meeting. `update_or_create(date=<utc today>)` therefore
+    #    could not find the row it had itself written, so it inserted another
+    #    one, stamped with the Central date, which the next request also missed.
+    # 2. `auto_now_add` also makes the field non-editable, so the explicit
+    #    `date=` those callers passed was silently DISCARDED on insert. That is
+    #    why the mismatch could not be fixed in the callers alone: no value they
+    #    passed could ever reach the column.
+    #
+    # A callable `default` keeps the auto-population but honours an explicit
+    # value, so a lookup key and the row it creates finally agree. `localdate`
+    # (not `now().date()`) is deliberate: every row already in the table was
+    # written on the Central calendar by `date.today()`, so Central is the basis
+    # that reads history correctly — and it is what a human means by the date of
+    # a meeting. See `AttendanceDateBasisTests`.
+    date = models.DateField(default=dj_timezone.localdate)
     present = models.BooleanField(default=False)
 
     class Meta:

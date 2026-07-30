@@ -854,7 +854,7 @@
             </div>
             <div class="px-5 py-4">
                 <p class="text-xs text-red-600 dark:text-red-400 mb-3">
-                    Permanently removes all applications ({{ period.applications.count }}), positions, slates, and votes.
+                    Permanently removes all applications ({{ period.applications.all|length }}), positions, slates, and votes.
                 </p>
                 <form method="post"
                     class="js-confirm-submit" data-confirm-msg="Delete this slating period and ALL associated data? This cannot be undone.">

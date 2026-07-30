@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import HttpResponseForbidden, FileResponse, Http404
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
@@ -51,9 +51,15 @@ def songbook_list(request):
     songs = songs.order_by('title')
 
     # Get all categories for filter tabs with song counts
-    categories = list(SongCategory.objects.all().order_by('display_order', 'name'))
-    for cat in categories:
-        cat.song_count = cat.songs.filter(is_active=True).count()
+    #
+    # v3.17.5: this was a `.count()` inside a Python loop — one query per
+    # category on every songbook page load. A filtered conditional aggregate
+    # gets all of them in the same single query that fetches the categories.
+    categories = list(
+        SongCategory.objects
+        .annotate(song_count=Count('songs', filter=Q(songs__is_active=True)))
+        .order_by('display_order', 'name')
+    )
 
     # Category counts
     category_counts = {
@@ -186,7 +192,11 @@ def manage_categories(request):
     if not request.user.is_admin:
         return HttpResponseForbidden("Only administrators can manage categories.")
 
-    categories = SongCategory.objects.all()
+    # v3.17.5: `songbook_categories.html:105` prints `{{ category.songs.count }}`
+    # inside the category loop — one COUNT per category. Annotated instead. The
+    # songs themselves are never iterated on this page, so there is nothing to
+    # prefetch.
+    categories = SongCategory.objects.annotate(song_total=Count('songs'))
 
     # Get or create the Chorister role
     chorister_role, _ = Role.objects.get_or_create(

@@ -90,7 +90,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
                     </svg>
                     Existing Categories
-                    <span class="ml-auto text-sm font-normal text-gray-500 dark:text-gray-400">{{ categories.count }} total</span>
+                    <span class="ml-auto text-sm font-normal text-gray-500 dark:text-gray-400">{{ categories|length }} total</span>
                 </h2>
             </div>
 
@@ -102,7 +102,7 @@
                         <span class="inline-block w-3 h-3 rounded-full bg-{{ category.color }}-500"></span>
                         <div>
                             <span class="font-medium text-gray-900 dark:text-white">{{ category.name }}</span>
-                            <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">({{ category.songs.count }} songs)</span>
+                            <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">({{ category.song_total }} song{{ category.song_total|pluralize }})</span>
                             {% if category.description %}
                             <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ category.description }}</p>
                             {% endif %}
@@ -172,7 +172,7 @@
                 <div>
                     <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                         Current Choristers
-                        <span class="text-gray-500 dark:text-gray-400 font-normal">({{ choristers.count }})</span>
+                        <span class="text-gray-500 dark:text-gray-400 font-normal">({{ choristers|length }})</span>
                     </h3>
                     {% if choristers %}
                     <div class="space-y-2">

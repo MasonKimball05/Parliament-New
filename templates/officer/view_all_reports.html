@@ -34,25 +34,37 @@
     <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-2 transition-colors duration-200">
         <div class="flex space-x-1" role="tablist">
             <button id="tab-all" data-tab="all" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300">
-                All Documents ({{ all_documents|length }})
+                All Documents ({{ total_documents }})
             </button>
             <button id="tab-reports" data-tab="reports" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                Reports ({{ reports|length }})
+                Reports ({{ type_totals.report|default:0 }})
             </button>
             <button id="tab-minutes" data-tab="minutes" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                Minutes ({{ minutes|length }})
+                Minutes ({{ type_totals.minutes|default:0 }})
             </button>
             <button id="tab-agendas" data-tab="agendas" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                Agendas ({{ agendas|length }})
+                Agendas ({{ type_totals.agenda|default:0 }})
             </button>
             <button id="tab-policies" data-tab="policies" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                Policies ({{ policies|length }})
+                Policies ({{ type_totals.policy|default:0 }})
             </button>
             <button id="tab-general" data-tab="general" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                General ({{ general_docs|length }})
+                General ({{ type_totals.general|default:0 }})
             </button>
         </div>
     </div>
+
+    {% if documents_truncated %}
+    {# v3.17.5 — the tab badges show TRUE totals from a GROUP BY, so they can
+       exceed what is rendered. Say so rather than letting the numbers disagree
+       with the rows silently. #}
+    <div class="mb-6 rounded-xl border-l-4 border-amber-400 bg-amber-50 dark:bg-amber-900/20 p-4">
+        <p class="text-sm text-amber-800 dark:text-amber-200">
+            Showing the {{ document_fetch_limit }} most recent of {{ total_documents }} documents.
+            The tab counts above are totals; older documents remain available from each committee's page.
+        </p>
+    </div>
+    {% endif %}
 
     <!-- All Documents Tab -->
     <div id="content-all" class="tab-content">

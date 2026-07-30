@@ -87,11 +87,29 @@ def _ensure_builtin_fields():
         },
     ]
 
-    for field_data in builtin_fields:
-        ServiceFormField.objects.get_or_create(
-            field_name=field_data['field_name'],
-            defaults=field_data
-        )
+    # v3.17.4: was `get_or_create` per built-in field — six SELECTs on every
+    # load of the form builder (plus an INSERT each the first time), which the
+    # N+1 sweep reported as a 6× group. One SELECT for the names that already
+    # exist, one bulk INSERT for the rest, and nothing at all in the steady
+    # state.
+    #
+    # This is the THIRD place tonight with this exact idiom (the admin-v2 push
+    # flags and the SiteSetting seeding were the others). Seeding-on-read is a
+    # write-path pattern running on a GET; if you add another, batch it the same
+    # way. `ignore_conflicts` covers the race two officers loading at once,
+    # which is what get_or_create's IntegrityError branch was doing.
+    existing = set(
+        ServiceFormField.objects
+        .filter(field_name__in=[f['field_name'] for f in builtin_fields])
+        .values_list('field_name', flat=True)
+    )
+    missing = [
+        ServiceFormField(**field_data)
+        for field_data in builtin_fields
+        if field_data['field_name'] not in existing
+    ]
+    if missing:
+        ServiceFormField.objects.bulk_create(missing, ignore_conflicts=True)
 
 
 @vpp_required
@@ -117,7 +135,15 @@ def service_form_builder(request):
         return redirect('service_form_builder')
 
     # GET request - show form builder
-    fields = ServiceFormField.objects.filter(is_active=True).order_by('display_order', 'section')
+    # v3.17.4: `fields` was a lazy queryset iterated once here to build
+    # `sections` and again by the template, and the active/inactive split was a
+    # second SELECT — six queries on one small table. One fetch, split in
+    # Python.
+    all_fields = list(
+        ServiceFormField.objects.all().order_by('display_order', 'section')
+    )
+    fields = [f for f in all_fields if f.is_active]
+    inactive_fields = [f for f in all_fields if not f.is_active]
 
     # Group by section
     sections = {}
@@ -126,9 +152,6 @@ def service_form_builder(request):
         if section not in sections:
             sections[section] = []
         sections[section].append(field)
-
-    # Get inactive fields (excluding built-in which should always be restorable)
-    inactive_fields = ServiceFormField.objects.filter(is_active=False)
 
     context = {
         'fields': fields,

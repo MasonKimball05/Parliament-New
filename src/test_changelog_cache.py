@@ -202,3 +202,83 @@ class ChangelogContentIsStillCachedTests(TestCase):
         client.get('/changelog/v3.17.3/')
         keys = ['changelog_detail_v1:v3.17.3']
         self.assertTrue(any(cache.get(k) is not None for k in keys))
+
+
+class ChangelogDetailCacheKeysAreBoundedTests(TestCase):
+    """
+    The second half of the caching problem (v3.17.5).
+
+    Removing `@cache_page` fixed *whose* page was served. It did not fix *how
+    many* cache entries an anonymous visitor could create. The replacement keyed
+    on `f'changelog_detail_v1:{safe_version}'` and let the not-found branch fall
+    through to the same `cache.set(...)` as a hit — so every junk URL minted its
+    own 30-minute entry, and the route is public with no rate limit.
+
+    ⚠️ WHY THIS IS NOT MERELY CACHE BLOAT: settings.py sets
+    `SESSION_ENGINE = 'django.contrib.sessions.backends.cache'` with
+    `SESSION_CACHE_ALIAS = 'default'`, so sessions and this cache are the same
+    Redis. Filling it either evicts sessions (chapter-wide logout, under an
+    `allkeys-*` maxmemory policy) or makes Redis refuse writes — and the write
+    that fails is the session write, so login breaks.
+
+    The fix validates the version against the changelogs directory before
+    touching the cache, so the key space is bounded by the number of files that
+    exist however many URLs are requested.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    @staticmethod
+    def _detail_keys():
+        backend = getattr(cache, '_cache', {})
+        return [k for k in backend if 'changelog_detail_v1:' in k]
+
+    def test_unknown_versions_create_no_cache_entries(self):
+        client = Client()
+        for n in range(25):
+            client.get(f'/changelog/junk{n}deadbeef/')
+        self.assertEqual(
+            self._detail_keys(), [],
+            'an anonymous visitor minted cache entries for versions that do '
+            'not exist — this is the session-Redis fill vector',
+        )
+
+    def test_unknown_version_is_a_404_not_a_cached_200(self):
+        response = Client().get('/changelog/nosuchversion/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_a_real_version_is_still_cached(self):
+        """The bound must not cost the saving it was added to protect."""
+        response = Client().get('/changelog/v3.17.3/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(cache.get('changelog_detail_v1:v3.17.3'))
+
+    def test_known_versions_come_from_the_directory(self):
+        from src.view.changelog import known_versions
+
+        versions = known_versions()
+        self.assertIn('v3.17.3', versions)
+        self.assertNotIn('junk0deadbeef', versions)
+        # Bounded by what is on disk, which is the whole point.
+        on_disk = {p.stem for p in (SRC.parent / 'changelogs').glob('*.md')}
+        self.assertEqual(set(versions), on_disk)
+
+    def test_no_raw_exception_text_is_rendered_on_the_public_pages(self):
+        """
+        `changelog_html` is rendered through `|safe` on public pages, so a raw
+        `str(e)` there showed anonymous visitors the server's absolute BASE_DIR
+        — and cached it for 30 minutes. Same shape as the CSV export leak fixed
+        07-28-26.
+        """
+        source = (SRC / 'view' / 'changelog.py').read_text(encoding='utf-8')
+        for line_no, line in enumerate(source.splitlines(), 1):
+            stripped = line.strip()
+            if stripped.startswith('#'):
+                continue
+            self.assertNotIn(
+                'str(e)', stripped,
+                f'src/view/changelog.py:{line_no} interpolates exception text '
+                f'into a page rendered with |safe',
+            )

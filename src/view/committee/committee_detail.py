@@ -10,7 +10,7 @@ from src.models.users import member_defer
 @login_required
 def committee_detail(request, code):
     """Display details for a specific committee"""
-    committee = get_object_or_404(Committee.objects.select_related('role'), code=code)
+    committee = get_object_or_404(Committee.objects.select_related("role").prefetch_related("members"), code=code)
 
     # Check if user has access to this committee
     user = request.user

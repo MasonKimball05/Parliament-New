@@ -41,9 +41,9 @@
         </form>
         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
           {% if user.is_admin %}
-            Admin view: All {{ committees.count }} committees
+            Admin view: All {{ committees|length }} committees
           {% else %}
-            Your committees: {{ committees.count }}
+            Your committees: {{ committees|length }}
           {% endif %}
         </p>
       </div>

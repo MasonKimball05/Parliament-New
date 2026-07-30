@@ -80,6 +80,10 @@ class ZeroArgumentUrlSmokeTests(TestCase):
         return sorted(names)
 
     def test_no_zero_argument_page_raises_or_500s(self):
+        from django.core.cache import cache
+
+        from src.models import IPBlacklist
+
         client = Client()
         client.force_login(self.admin)
 
@@ -93,6 +97,10 @@ class ZeroArgumentUrlSmokeTests(TestCase):
                 continue
             if name in KNOWN_FAILURES:
                 continue
+            # See the note in NoNPlusOneOnZeroArgumentPagesTests: the sweep
+            # blacklists its own IP partway through if we let it.
+            cache.clear()
+            IPBlacklist.objects.all().delete()
             try:
                 response = client.get(url)
             except Exception as exc:           # noqa: BLE001 — that's the point
@@ -237,6 +245,8 @@ class NoNPlusOneOnZeroArgumentPagesTests(TestCase):
 
         from django.core.cache import cache
 
+        from src.models import IPBlacklist
+
         literal = re.compile(r"('[^']*'|\b\d+\b)")
         client = Client()
         client.force_login(self.admin)
@@ -262,6 +272,14 @@ class NoNPlusOneOnZeroArgumentPagesTests(TestCase):
             if url.startswith('/admin/') or 'logout' in url or name in KNOWN_FAILURES:
                 continue
             cache.clear()
+            # v3.17.4: the security middleware auto-blacklists an IP into the
+            # DATABASE after enough suspicious requests, and a sweep of 300 URLs
+            # from one client trips it. Clearing the cache is not enough — the
+            # block is a row — so after ~132 pages every later page returned 403
+            # and was silently skipped by the guard below. That is how the
+            # `manage_announcements` N+1 (5 queries per row) hid from this test.
+            # Drop any block the sweep created about itself.
+            IPBlacklist.objects.all().delete()
             try:
                 with CaptureQueriesContext(connection) as ctx:
                     response = client.get(url)

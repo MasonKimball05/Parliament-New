@@ -4,8 +4,8 @@ Covers: password path, passkey grant (fresh / one-shot / expired), explicit
 errors for no-selection and stale attendance, vote password rate limiting,
 and the legacy Attendance.present update_fields sync.
 """
-from datetime import timedelta
-from unittest import skipUnless
+from datetime import date, datetime, timedelta, timezone as dt_timezone
+from unittest import mock, skipUnless
 
 from django.core.cache import cache
 from django.db import connection
@@ -166,15 +166,22 @@ class QuickAttendanceTests(TestCase):
         self.assertEqual(resp.status_code, 400)
 
     def test_duplicate_rows_are_healed(self):
+        # v3.17.4: `timezone.localdate()`, not `now().date()`. The fixture used
+        # the UTC date, which is the same mistake the endpoint itself was making
+        # — so the two agreed and the test passed, but only because both were
+        # wrong. Now that `Attendance.date` honours an explicit value, a UTC date
+        # here builds the duplicates on a different day from the one the endpoint
+        # heals, and the test would be asserting nothing.
         now = timezone.now()
+        today = timezone.localdate()
         for status in ('absent', 'present'):
             Attendance.objects.create(
-                user=self.member, date=now.date(), attendance_type='committee',
+                user=self.member, date=today, attendance_type='committee',
                 committee=None, status=status, created_at=now)
         resp = self._mark('late')
         self.assertEqual(resp.status_code, 200)
         rows = Attendance.objects.filter(
-            user=self.member, date=now.date(), attendance_type='committee', committee=None)
+            user=self.member, date=today, attendance_type='committee', committee=None)
         self.assertEqual(rows.count(), 1)
         self.assertEqual(rows.first().status, 'late')
 
@@ -994,3 +1001,149 @@ class SplitEndpointTests(TestCase):
             'vote_choice': 'yes', 'password': 'testpass'}, follow=True)
         self.assertContains(resp, 'page may be out of date')
         self.assertFalse(Vote.objects.exists())
+
+
+class AttendanceDateBasisTests(TestCase):
+    """
+    v3.17.4 — `Attendance.date` and the code that looks it up must agree on
+    which calendar "today" is on.
+
+    They did not. The field was `auto_now_add=True`, which Django populates from
+    `datetime.date.today()` — the server-local (Central) date, because Django
+    sets `os.environ['TZ']` from `TIME_ZONE`. Every caller looked the row up with
+    `timezone.now().date()` — the UTC date. From 19:00 Central until midnight
+    those are different days, so `update_or_create()` could not find the row it
+    had just written and inserted another one instead.
+
+    Two things make that worth a dedicated test class rather than a comment:
+
+    * The window is exactly when chapter and committee meetings happen. This was
+      not a rare edge; it was every evening.
+    * `auto_now_add` also made the field non-editable, so the explicit `date=`
+      the callers passed was silently dropped on insert. No caller-side change
+      could have fixed it — the field had to change too.
+
+    Every test here pins `timezone.now()` to 03:00 UTC, which is 22:00 Central
+    the PREVIOUS day, so the two calendars disagree no matter what time the suite
+    actually runs. Without that these assertions pass for ~19 hours a day and
+    fail overnight, which is how the bug survived: the three tests it broke in
+    this module only went red when the suite ran late.
+    """
+
+    #: 2020-01-02 03:00 UTC == 2020-01-01 21:00 America/Chicago (CST, UTC-6).
+    #:
+    #: Deliberately in the distant past. `auto_now_add` reads the real system
+    #: clock via `datetime.date.today()`, which `mock.patch` on
+    #: `timezone.now` cannot reach — so with a frozen instant near today's date
+    #: the old buggy behaviour would produce the expected value by coincidence
+    #: and these tests would pass against the very code they exist to catch. A
+    #: date six years back cannot collide with the real clock.
+    FROZEN_UTC = datetime(2020, 1, 2, 3, 0, tzinfo=dt_timezone.utc)
+    EXPECTED_LOCAL_DATE = date(2020, 1, 1)
+
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+        patcher = mock.patch('django.utils.timezone.now', return_value=self.FROZEN_UTC)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.officer = ParliamentUser.objects.create_user(
+            user_id='tzoff', name='TZ Officer', username='tzoff',
+            member_type='Officer')
+        self.officer.set_password('testpass')
+        self.officer.save()
+        self.member = ParliamentUser.objects.create_user(
+            user_id='tzmem', name='TZ Member', username='tzmem',
+            member_type='Member')
+
+    def test_the_two_calendars_really_do_disagree_at_this_instant(self):
+        """
+        Guard for the guard: if this ever fails, the frozen instant no longer
+        straddles a date boundary and every other test in this class has
+        quietly stopped proving anything.
+        """
+        self.assertNotEqual(
+            timezone.now().date(), timezone.localdate(),
+            'frozen instant no longer spans a UTC/Central date boundary — pick '
+            'another one or these tests are vacuous',
+        )
+        self.assertEqual(timezone.localdate(), self.EXPECTED_LOCAL_DATE)
+
+    def test_new_row_lands_on_the_local_date(self):
+        att = Attendance.objects.create(
+            user=self.member, attendance_type='committee', status='present')
+        self.assertEqual(
+            att.date, self.EXPECTED_LOCAL_DATE,
+            'the default must be the local calendar date, matching every row '
+            'already in the table (written by date.today() under TZ=Central)',
+        )
+
+    def test_an_explicit_date_is_honoured(self):
+        """`auto_now_add` silently discarded this, which is the root cause."""
+        chosen = date(2026, 1, 2)
+        att = Attendance.objects.create(
+            user=self.member, attendance_type='committee',
+            status='present', date=chosen)
+        att.refresh_from_db()
+        self.assertEqual(att.date, chosen)
+
+    def test_update_or_create_round_trips_across_the_boundary(self):
+        """The core of the bug, at the ORM level: write, then find it again."""
+        lookup = dict(user=self.member, date=timezone.localdate(),
+                      attendance_type='committee', committee=None)
+        Attendance.objects.update_or_create(**lookup, defaults={'status': 'present'})
+        _, created = Attendance.objects.update_or_create(
+            **lookup, defaults={'status': 'late'})
+        self.assertFalse(
+            created, 'second update_or_create created a duplicate instead of '
+                     'updating — lookup and insert disagree on the date')
+        self.assertEqual(Attendance.objects.filter(user=self.member).count(), 1)
+
+    def test_quick_attendance_updates_instead_of_duplicating(self):
+        """
+        And end to end, through the endpoint an officer actually clicks. Two
+        marks for one member on one evening is one row, not two.
+        """
+        client = Client()
+        client.force_login(self.officer)
+        url = reverse('mark_attendance_quick')
+        for status in ('present', 'late'):
+            resp = client.post(url, {
+                'action': 'mark_attendance_quick',
+                'target_user_id': self.member.user_id,
+                'attendance_status': status,
+            })
+            self.assertEqual(resp.status_code, 200)
+            self.assertTrue(resp.json()['ok'])
+
+        rows = Attendance.objects.filter(user=self.member)
+        self.assertEqual(
+            rows.count(), 1,
+            'the evening window made every click insert a new row rather than '
+            'update the existing one',
+        )
+        row = rows.get()
+        self.assertEqual(row.status, 'late')
+        self.assertEqual(row.date, self.EXPECTED_LOCAL_DATE)
+        self.assertTrue(row.present is False)  # 'late' is not 'present'
+
+    def test_committee_minutes_resave_does_not_violate_the_unique_constraint(self):
+        """
+        The committee path passes a real committee, so the missed lookup hit
+        `unique_committee_user_date_attendance` on the second insert — saving
+        the same minutes twice in the evening was a hard 500, not just a dupe.
+        """
+        from django.db import IntegrityError
+
+        from src.models import Committee
+
+        committee = Committee.objects.create(
+            name='TZ Committee', code='tzc', is_active=True)
+        lookup = dict(user=self.member, date=timezone.localdate(),
+                      attendance_type='committee', committee=committee)
+        Attendance.objects.update_or_create(**lookup, defaults={'status': 'present'})
+        try:
+            Attendance.objects.update_or_create(**lookup, defaults={'status': 'late'})
+        except IntegrityError as exc:
+            self.fail(f'unique constraint hit on re-save: {exc}')
+        self.assertEqual(Attendance.objects.filter(committee=committee).count(), 1)

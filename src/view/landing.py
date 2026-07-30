@@ -97,7 +97,7 @@ def landing_page(request):
     social_links = LandingPageSocialLink.objects.all()
 
     # Recruitment banner — auto-hide after end date
-    today = timezone.now().date()
+    today = timezone.localdate()   # v3.17.4: banner hid 5 hours early on its end date
     show_banner = (
         content.recruitment_banner_active
         and bool(content.recruitment_banner_message)

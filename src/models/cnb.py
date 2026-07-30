@@ -276,7 +276,7 @@ class Resolution(models.Model):
 
         if not self.vote_date:
             from django.utils import timezone
-            base_date = timezone.now().date()
+            base_date = timezone.localdate()   # v3.17.4: calendar date, not UTC
         else:
             base_date = self.vote_date
 

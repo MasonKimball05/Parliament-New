@@ -39,7 +39,10 @@ def notification_dashboard(request):
         active_schedules=Count('id', filter=Q(is_active=True)),
     )
     _log_agg = NotificationLog.objects.filter(
-        created_at__date=timezone.now().date()
+        # v3.17.4: `__date` on a DateTimeField is evaluated in the CURRENT
+        # timezone, so it must be compared against the local date — a UTC date
+        # counted the wrong day's logs all evening.
+        created_at__date=timezone.localdate()
     ).aggregate(
         logs_today=Count('id'),
         failed_today=Count('id', filter=Q(status='failed')),

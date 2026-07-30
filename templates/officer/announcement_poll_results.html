@@ -168,7 +168,7 @@
             {% if non_respondents_partial %}
             <span class="ml-2 text-xs font-normal text-purple-600 dark:text-purple-400">(partial list — some withheld to protect anonymity)</span>
             {% else %}
-            ({{ non_respondents.count }})
+            ({{ non_respondents|length }})
             {% endif %}
         </h2>
         <div class="flex flex-wrap gap-2">

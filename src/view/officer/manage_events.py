@@ -11,6 +11,7 @@ from src.models import Event
 from src.forms import EventForm
 from src.decorators import officer_required
 from src.notification_service import notify_all_active_members
+from src.models.users import member_defer
 
 @login_required
 @officer_required
@@ -53,6 +54,12 @@ def manage_events(request):
     else:  # upcoming (default)
         events = Event.objects.filter(archived=False, date_time__gte=now).order_by('date_time')
         parent_event = None
+
+    # v3.17.4: manage_events.html renders `event.created_by.get_display_name`
+    # twice per row and nothing joined it — one member fetch per event. Every
+    # branch above builds its own queryset, so the join goes here where they
+    # converge.
+    events = events.select_related('created_by').defer(*member_defer('created_by'))
 
     # For series view, add instance counts
     if show_filter == 'series':

@@ -238,6 +238,8 @@ class DetailRouteSmokeTests(TestCase):
         """GET every reversible argument-taking route; return per-route results."""
         from django.core.cache import cache
         from django.db import connection
+
+        from src.models import IPBlacklist
         from django.test.utils import CaptureQueriesContext
 
         values = self._arg_values()
@@ -267,6 +269,14 @@ class DetailRouteSmokeTests(TestCase):
             # app's own rate limiting, and every page after that returns 403 and
             # is silently skipped. Learned the hard way in test_url_smoke.
             cache.clear()
+            # v3.17.4: the security middleware auto-blacklists an IP into the
+            # DATABASE after enough suspicious requests, and a sweep of 300 URLs
+            # from one client trips it. Clearing the cache is not enough — the
+            # block is a row — so after ~132 pages every later page returned 403
+            # and was silently skipped by the guard below. That is how the
+            # `manage_announcements` N+1 (5 queries per row) hid from this test.
+            # Drop any block the sweep created about itself.
+            IPBlacklist.objects.all().delete()
             try:
                 with CaptureQueriesContext(connection) as ctx:
                     response = client.get(url)

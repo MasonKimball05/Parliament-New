@@ -62,7 +62,7 @@ def attendance(request):
 
             Attendance.objects.update_or_create(
                 user=user,
-                date=now.date(),
+                date=timezone.localdate(),          # v3.17.4: was now.date() (UTC)
                 attendance_type='committee',
                 committee=selected_committee,
                 defaults={
@@ -79,7 +79,9 @@ def attendance(request):
         return redirect('officer_home')
 
     # Build set of user_ids already marked present/late today for pre-filling checkboxes
-    today = timezone.now().date()
+    # v3.17.4: must match the calendar the rows are written on, or the
+    # checkboxes come up blank for attendance taken earlier the same evening.
+    today = timezone.localdate()
     today_present_ids = set(
         Attendance.objects.filter(
             user__in=users,

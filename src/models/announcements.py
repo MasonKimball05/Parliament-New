@@ -69,23 +69,95 @@ class Announcement(models.Model):
             return True
         return False
 
+    @classmethod
+    def annotate_view_stats(cls, queryset):
+        """
+        Annotate the three view counts so `get_view_stats()` needs no queries.
+
+        v3.17.4: `get_view_stats()` ran four queries — three counts plus the
+        target-audience count — and `manage_announcements` calls it once per row.
+        At 25 announcements a page that was ~100 queries for numbers that are two
+        aggregates. Dev mode reported the two `view_source` counts as a single
+        50× group.
+
+        All three counts share one join to `views`, so conditional aggregation
+        gets them in one pass and no `distinct` is needed.
+        """
+        from django.db.models import Count, Q
+
+        return queryset.annotate(
+            _site_views=Count('views', filter=Q(views__view_source='site')),
+            _email_views=Count('views', filter=Q(views__view_source='email')),
+            _total_views=Count('views'),
+        )
+
+    @staticmethod
+    def active_counts_by_member_type():
+        """
+        ``{member_type: active_member_count}`` in one query.
+
+        The target audience depends on each announcement's `visible_to`, so the
+        old code ran a differently-filtered COUNT per announcement — which is why
+        the panel showed it as three separate shapes (11×, 8×, 6×) rather than
+        one. Counting each type once and summing in Python gives the same numbers
+        for any combination.
+        """
+        from django.db.models import Count
+
+        return dict(
+            ParliamentUser.objects.filter(member_status='Active')
+            .values_list('member_type')
+            .annotate(n=Count('user_id'))
+        )
+
+    def target_member_types(self):
+        """
+        The member types this announcement is aimed at, or None for everyone.
+
+        Extracted so the per-object and batched paths cannot drift — this is the
+        rule `is_visible_to_user`, `confirm_announcement_email` and the stats all
+        depend on: selecting "Member" also includes Chair and Officer.
+        """
+        if not self.visible_to:
+            return None
+        types = set(self.visible_to)
+        if 'Member' in types:
+            types |= {'Chair', 'Officer'}
+        return types
+
     def get_view_stats(self):
-        """Get view statistics for this announcement"""
-        views = self.views.all()
-        site_views = views.filter(view_source='site').count()
-        email_views = views.filter(view_source='email').count()
-        total_views = views.count()
+        """
+        Get view statistics for this announcement.
+
+        Uses values annotated by `annotate_view_stats()` and a type-count map
+        attached as `_active_counts_by_type` when they are present, so a list
+        page costs nothing per row. Falls back to querying for a single object
+        (`announcement_stats` still calls it that way).
+        """
+        annotated = hasattr(self, '_total_views')
+        if annotated:
+            site_views = self._site_views
+            email_views = self._email_views
+            total_views = self._total_views
+        else:
+            views = self.views.all()
+            site_views = views.filter(view_source='site').count()
+            email_views = views.filter(view_source='email').count()
+            total_views = views.count()
 
         # Get target audience count
-        target_users = ParliamentUser.objects.filter(member_status='Active')
-        if self.visible_to:
-            # Filter by member type if specified
-            visible_types = list(self.visible_to)
-            # If "Member" is in visible_to, include Chair and Officer
-            if 'Member' in visible_types:
-                visible_types.extend(['Chair', 'Officer'])
-            target_users = target_users.filter(member_type__in=visible_types)
-        target_count = target_users.count()
+        visible_types = self.target_member_types()
+        type_counts = getattr(self, '_active_counts_by_type', None)
+        if type_counts is not None:
+            target_count = (
+                sum(type_counts.values()) if visible_types is None
+                else sum(n for t, n in type_counts.items() if t in visible_types)
+            )
+        else:
+            target_users = ParliamentUser.objects.filter(member_status='Active')
+            if visible_types is not None:
+                target_users = target_users.filter(member_type__in=visible_types)
+            target_count = target_users.count()
 
         return {
             'site_views': site_views,

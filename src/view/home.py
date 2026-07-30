@@ -10,7 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
 from src.feature_flag_decorators import require_page_enabled
-from src.models.users import member_defer
+from src.models.users import member_defer, member_prefetch
 from src.utils.visibility import visible_to_q
 from src.context_processors import get_user_prefs
 
@@ -69,12 +69,24 @@ def home(request):
     # below don't each fire a separate query.
     # 07-06-26: only count active, non-archived committees — inactive/archived
     # ones were inflating the "My Committees (#)" stat on the home page.
+    # v3.17.5: `home_classic.html:596-608` renders four things per committee —
+    # `user in committee.chairs.all`, `user in committee.advisors.all`, and
+    # `committee.members.count` TWICE (once for the number, once for
+    # `|pluralize`). With nothing joined that was four queries per committee.
+    #
+    # `distinct=True` on the Count is load-bearing here and not optional: the
+    # filter above already joins members/chairs/advisors, so the rows multiply
+    # and a plain Count would report the product rather than the member count.
     user_committees = list(Committee.objects.filter(
         Q(members=request.user) |
         Q(chairs=request.user) |
         Q(advisors=request.user),
         is_active=True,
         is_archived=False,
+    ).annotate(
+        member_total=Count('members', distinct=True),
+    ).prefetch_related(
+        member_prefetch('chairs'), member_prefetch('advisors'),
     ).distinct())
 
     # === YOUR PENDING VOTES ===

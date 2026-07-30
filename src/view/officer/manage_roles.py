@@ -19,21 +19,35 @@ logger = logging.getLogger(__name__)
 @officer_required
 def manage_roles(request):
     """Display all roles with management options."""
-    roles = Role.objects.all().order_by('name')
+    roles = list(Role.objects.all().order_by('name'))
 
-    # Add holder count for each role
-    roles_data = []
-    for role in roles:
-        holder_count = ParliamentUser.objects.filter(roles=role, member_status='Active').count()
-        roles_data.append({
+    # v3.17.4: was two queries per role — a COUNT and a names slice — so 13
+    # queries for six roles. One pass over the role/holder pairs gives both.
+    # Ordered by name so the five shown are the same five as before
+    # (`values_list(...)[:5]` inherited ParliamentUser's Meta ordering on
+    # user_id; sorting explicitly here makes the choice deliberate rather than
+    # incidental).
+    holders_by_role = {}
+    for role_id, name in (
+        ParliamentUser.objects
+        .filter(roles__in=roles, member_status='Active')
+        .order_by('user_id')
+        .values_list('roles__id', 'name')
+    ):
+        holders_by_role.setdefault(role_id, []).append(name)
+
+    roles_data = [
+        {
             'role': role,
-            'holder_count': holder_count,
-            'holders': list(ParliamentUser.objects.filter(roles=role, member_status='Active').values_list('name', flat=True)[:5]),
-        })
+            'holder_count': len(holders_by_role.get(role.pk, [])),
+            'holders': holders_by_role.get(role.pk, [])[:5],
+        }
+        for role in roles
+    ]
 
     context = {
         'roles_data': roles_data,
-        'total_roles': roles.count(),
+        'total_roles': len(roles),
         'user_is_admin': request.user.is_admin,
     }
 

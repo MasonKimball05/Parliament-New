@@ -67,6 +67,24 @@ def build_slate(request, period_id):
         for p in positions
     )
 
+    # v3.17.5: the "N of M positions filled" line in slate_builder.html was
+    #
+    #   {{ slate.candidates.filter.is_runoff.False.count|default:slate.candidates.count }}
+    #
+    # which is not a valid expression. Django resolves `candidates.filter` to
+    # the bound method, CALLS IT WITH NO ARGUMENTS (returning the unfiltered
+    # queryset), then fails to find `.is_runoff` on it — so the whole chain
+    # resolved to the empty string and `|default:` silently fell through to
+    # `slate.candidates.count`. **It was therefore showing the total candidate
+    # count, runoffs included, not the number of primary slots filled** — a
+    # wrong number, not merely a slow one, and it cost a COUNT per render.
+    #
+    # `assignments` is already built from `slate.candidates` above, so both
+    # numbers are free.
+    primary_filled_count = sum(
+        1 for entry in assignments.values() if entry['primary'] is not None
+    )
+
     # Get available applications (any status except draft/withdrawn, not yet slated on THIS slate)
     available_apps = period.applications.exclude(
         status__in=['draft', 'withdrawn']
@@ -102,6 +120,7 @@ def build_slate(request, period_id):
         'period': period,
         'slate': slate,
         'positions': positions,
+        'primary_filled_count': primary_filled_count,
         'assignments': assignments,
         'apps_by_position': apps_by_position,
         'available_apps': available_apps,

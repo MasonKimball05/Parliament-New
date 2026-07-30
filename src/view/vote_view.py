@@ -253,9 +253,13 @@ def mark_attendance_quick(request):
         return JsonResponse({'ok': False, 'error': 'Unknown member.'}, status=404)
 
     now = timezone.now()
+    # v3.17.4: localdate(), not now().date(). `Attendance.date` is written on the
+    # Central calendar; a UTC date here missed the row every evening and this
+    # endpoint inserted a duplicate instead of updating — which is what the
+    # MultipleObjectsReturned branch below was really healing.
     lookup = {
         'user': target,
-        'date': now.date(),
+        'date': timezone.localdate(),
         'attendance_type': 'committee',
         'committee': None,
     }

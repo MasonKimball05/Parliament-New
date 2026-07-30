@@ -144,7 +144,7 @@ def user_service_dashboard(request):
     user = request.user
 
     # Get current and recent periods
-    today = timezone.now().date()
+    today = timezone.localdate()   # v3.17.4: calendar date, not UTC
     active_periods = ServicePeriod.objects.filter(is_active=True).order_by('-start_date')
 
     # Find current period (or most recent)

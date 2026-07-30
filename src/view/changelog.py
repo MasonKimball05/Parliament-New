@@ -1,12 +1,16 @@
 """
 Changelog view - displays version history for transparency
 """
+import logging
 import os
 import re
 import markdown
 from django.shortcuts import render
 from django.conf import settings
 from django.core.cache import cache
+from django.http import Http404
+
+logger = logging.getLogger('src')
 
 #: How long the parsed markdown is kept. Content only changes on deploy, so this
 #: is generous; the point is to avoid re-reading ~100 files per request.
@@ -125,8 +129,14 @@ def changelog(request):
 
     except FileNotFoundError:
         changelog_html = "<p>Changelog file not found.</p>"
-    except Exception as e:
-        changelog_html = f"<p>Error loading changelog: {str(e)}</p>"
+    except Exception:
+        # v3.17.5: was `f"Error loading changelog: {str(e)}"`. This page is
+        # public and renders `changelog_html` through `|safe`, so the exception
+        # text — which for a filesystem error carries the server's absolute
+        # BASE_DIR — was shown to anonymous visitors and then cached for 30
+        # minutes. Same shape as the CSV export leak fixed on 07-28.
+        logger.exception('Failed to render the changelog index')
+        changelog_html = "<p>The changelog could not be loaded.</p>"
 
     # Get list of detailed changelogs if they exist
     detailed_changelogs = []
@@ -170,6 +180,28 @@ def changelog(request):
     return render(request, 'changelog.html', context)
 
 
+def known_versions():
+    """
+    The set of versions that actually have a changelog file, cached.
+
+    v3.17.5 — this exists so `changelog_detail` can reject an unknown version
+    *before* it touches the cache. See the comment there for why that matters.
+    Same TTL as the parsed content: the set only changes on deploy.
+    """
+    versions = cache.get('changelog_versions_v1')
+    if versions is None:
+        changelogs_dir = os.path.join(settings.BASE_DIR, 'changelogs')
+        try:
+            versions = frozenset(
+                name[:-3] for name in os.listdir(changelogs_dir)
+                if name.endswith('.md')
+            )
+        except OSError:
+            versions = frozenset()
+        cache.set('changelog_versions_v1', versions, CONTENT_CACHE_TTL)
+    return versions
+
+
 def changelog_detail(request, version):
     """
     Display a specific version's detailed changelog.
@@ -179,9 +211,39 @@ def changelog_detail(request, version):
     # Sanitize version input (only allow alphanumeric, dots, and dashes)
     safe_version = ''.join(c for c in version if c.isalnum() or c in '.-')
 
-    # Cache key uses the SANITISED version, so it cannot be poisoned by an
-    # attacker-controlled path and two spellings of the same version share one
-    # entry.
+    # v3.17.5 — VALIDATE BEFORE CACHING, AND 404 WHAT DOES NOT EXIST
+    # --------------------------------------------------------------
+    # This route is `changelog/<str:version>/` and is PUBLIC, so `safe_version`
+    # is attacker-chosen. It used to go straight into the cache key, and the
+    # not-found branch below fell through to the same `cache.set(...)` as a
+    # hit — so every distinct junk URL an anonymous visitor requested minted
+    # its own 30-minute cache entry. Measured: 25 requests to
+    # `/changelog/<random-hex>/` created 25 entries, each returning HTTP 200
+    # with the body "Changelog for version … not found."
+    #
+    # Sanitising the key stopped key *injection*. It did nothing about key
+    # *cardinality*, and the comment that used to sit here said otherwise.
+    #
+    # ⚠️ WHY THAT IS WORSE THAN ORDINARY CACHE BLOAT: settings.py sets
+    # SESSION_ENGINE = 'django.contrib.sessions.backends.cache' with
+    # SESSION_CACHE_ALIAS = 'default', so **sessions and this cache are the
+    # same Redis**. An unauthenticated loop therefore contends with session
+    # storage: under an `allkeys-*` maxmemory policy it evicts sessions (a
+    # chapter-wide logout), and under `noeviction` Redis refuses writes — and
+    # the write that fails is the session write, so login breaks. Nothing
+    # rate-limits this path; LoginRateLimitMiddleware and
+    # PasswordResetRateLimitMiddleware are the only two and neither covers it.
+    #
+    # Checking the version against the directory listing bounds the key space
+    # to the number of files that actually exist (~97) no matter what is
+    # requested. `known_versions()` is itself cached, so this costs nothing per
+    # request.
+    if safe_version not in known_versions():
+        raise Http404(f'No changelog for version {safe_version}')
+
+    # Cache key uses the SANITISED version, which is now additionally known to
+    # name a real file — so two spellings of the same version share one entry
+    # and no request can create an entry that was not already possible.
     cache_key = f'changelog_detail_v1:{safe_version}'
     cached_html = cache.get(cache_key)
     if cached_html is not None:
@@ -205,10 +267,21 @@ def changelog_detail(request, version):
         changelog_html = md.convert(changelog_content)
 
     except FileNotFoundError:
-        changelog_html = f"<p>Changelog for version {safe_version} not found.</p>"
-    except Exception as e:
-        changelog_html = f"<p>Error loading changelog: {str(e)}</p>"
+        # Reachable only if the file was removed between `known_versions()`
+        # being cached and this read — i.e. a deploy mid-TTL.
+        raise Http404(f'No changelog for version {safe_version}')
+    except Exception:
+        # v3.17.5: was `f"Error loading changelog: {str(e)}"`, rendered through
+        # `|safe` on a public page and then cached for 30 minutes. Log it
+        # instead of showing it, and do NOT cache a failure — a transient read
+        # error should not pin a broken page to that version for half an hour.
+        logger.exception('Failed to render changelog for version %s', safe_version)
+        return render(request, 'changelog_detail.html', {
+            'changelog_html': '<p>This changelog could not be loaded.</p>',
+            'version': safe_version,
+        }, status=500)
 
+    # Only a successful parse is cached. The failure paths above return early.
     cache.set(cache_key, changelog_html, CONTENT_CACHE_TTL)
 
     context = {

@@ -391,7 +391,7 @@ def save_minutes_attendance(request, minutes_id):
 
     # Sync Attendance records so vote eligibility (3-hour window) is always current
     now = timezone.now()
-    today = now.date()
+    today = timezone.localdate()               # v3.17.4: was now.date() (UTC)
 
     if minutes.event:
         # Linked to an event — write event-type attendance records

@@ -140,8 +140,8 @@
                     <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                         <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">
                             Tracked Section Amendments
-                            {% if resolution.amendments.count %}
-                            <span class="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">({{ resolution.amendments.count }})</span>
+                            {% if resolution.amendments.all %}
+                            <span class="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">({{ resolution.amendments.all|length }})</span>
                             {% endif %}
                         </h2>
                         {% if can_edit %}

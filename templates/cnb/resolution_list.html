@@ -52,7 +52,7 @@
                         </div>
                         <p class="text-xs text-gray-500 dark:text-gray-400">
                             {{ resolution.get_resolution_type_display }}
-                            · {{ resolution.amendments.count }} amendment{{ resolution.amendments.count|pluralize }}
+                            · {{ resolution.amendment_total }} amendment{{ resolution.amendment_total|pluralize }}
                             {% if resolution.vote_date %}· Vote {{ resolution.vote_date|date:"M j, Y" }}{% endif %}
                             {% if resolution.created_by %}· by {{ resolution.created_by.name }}{% endif %}
                         </p>

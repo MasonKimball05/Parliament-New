@@ -55,7 +55,7 @@
 
     <!-- Active Quarantines -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Active Quarantines ({{ active_quarantines.count }})</h2>
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Active Quarantines ({{ active_quarantines|length }})</h2>
         {% if active_quarantines %}
         <div class="space-y-4">
             {% for q in active_quarantines %}

@@ -15,6 +15,7 @@ from collections import defaultdict
 import pytz
 from src.models.users import member_defer
 from src.utils.visibility import visible_to_q
+from src.decorators import officer_required
 
 @login_required
 @require_page_enabled('calendar')
@@ -741,18 +742,27 @@ def event_cancel_signup(request, event_id):
 
 
 @login_required
+@officer_required
 @require_page_enabled('calendar')
 def event_signup_list(request, event_id):
     """Officer view — list all active sign-ups for an event, including waitlist."""
     # v3.17.3: was `from src.utils.officer_check import is_officer` — a module
     # that has NEVER existed. The import was added in v3.9.1 and the module was
     # never created, so this view has been a hard 500 (ModuleNotFoundError) ever
-    # since. `is_officer` is a property on ParliamentUser; use that.
+    # since.
+    #
+    # v3.17.5: that fix reached for `request.user.is_officer`, which is a real
+    # property but NOT what the rest of the app means by "officer" — it is
+    # `member_type == 'Officer' or is_admin`, so it **excluded Chairs**. Every
+    # other officer view uses @officer_required, which admits officers, chairs
+    # and admins; a Chair would have got a 403 on the signup list for an event
+    # they run. Nobody ever hit it because the view 500'd before reaching the
+    # check, so this would have shipped as a first-appearance bug.
+    #
+    # Using the decorator also puts the denial through `_gate()`, so it is
+    # visible in dev mode's Perms tab and in the authz log, and returns the
+    # app's standard 403 body instead of a bare PermissionDenied.
     event = get_object_or_404(Event, pk=event_id, is_active=True, requires_signup=True)
-
-    if not request.user.is_officer:
-        from django.core.exceptions import PermissionDenied
-        raise PermissionDenied
 
     all_active = list(
         EventSignup.objects
@@ -780,20 +790,25 @@ def event_signup_list(request, event_id):
 
 
 @login_required
+@officer_required
 @require_page_enabled('calendar')
 def event_signup_export(request, event_id):
-    """Officer-only CSV download of the active sign-up (and waitlist) roster."""
+    """
+    Officer-only CSV download of the active sign-up (and waitlist) roster.
+
+    ⚠️ This writes Name and Email for every member signed up to the event, so
+    it is a bulk member-data export in the same class as the directory and
+    user-list exports. It is therefore listed in
+    `GeoRestrictionMiddleware.RESTRICTED_EXPORT_VIEWS` (v3.17.5) — that list is
+    keyed on URL name precisely because this route has a parameter in the
+    middle of it and could not be expressed as a path prefix.
+    """
     import csv
 
-    # v3.17.3: was `from src.utils.officer_check import is_officer` — a module
-    # that has NEVER existed. The import was added in v3.9.1 and the module was
-    # never created, so this view has been a hard 500 (ModuleNotFoundError) ever
-    # since. `is_officer` is a property on ParliamentUser; use that.
+    # v3.17.3 revived this view (see event_signup_list for the history);
+    # v3.17.5 moved the gate onto @officer_required so Chairs are admitted and
+    # the denial is logged. Do not put the inline `is_officer` check back.
     event = get_object_or_404(Event, pk=event_id, is_active=True, requires_signup=True)
-
-    if not request.user.is_officer:
-        from django.core.exceptions import PermissionDenied
-        raise PermissionDenied
 
     all_active = (
         EventSignup.objects

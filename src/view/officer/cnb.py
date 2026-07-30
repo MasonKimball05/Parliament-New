@@ -10,6 +10,7 @@ import datetime
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -34,7 +35,20 @@ def cnb_viewer(request):
     """
     documents = GoverningDocument.objects.prefetch_related('articles__sections').all()
     # v3.17.3: `created_by` was joined and never read by cnb/viewer.html.
-    resolutions = Resolution.objects.prefetch_related('amendments').order_by('-created_at')
+    #
+    # v3.17.5: `prefetch_related('amendments')` REMOVED and replaced with a
+    # count annotation. The template never iterates the amendments here — it
+    # only prints `{{ resolution.amendments.count }}` (twice, at :272 and :386)
+    # — so the prefetch was pulling every amendment ROW in order to render a
+    # number. (Measured: on a prefetched relation Django's `.count()` does read
+    # the prefetch cache and costs 0 queries, so this was not an N+1 — it was a
+    # wasted fetch of every column of every amendment.) One annotation returns
+    # the number without the rows.
+    resolutions = (
+        Resolution.objects
+        .annotate(amendment_total=Count('amendments'))
+        .order_by('-created_at')
+    )
     is_cnb = request.user.has_cnb_permission
 
     protected_sections = []
@@ -55,8 +69,11 @@ def cnb_viewer(request):
         'user_can_manage': is_cnb,
         'is_cnb': is_cnb,
         'active_tab': active_tab,
-        'draft_count': resolutions.filter(status='draft').count(),
-        'pending_count': resolutions.filter(status='pending').count(),
+        # v3.17.5: was two COUNT round trips over the same table. One pass.
+        **Resolution.objects.aggregate(
+            draft_count=Count('pk', filter=Q(status='draft')),
+            pending_count=Count('pk', filter=Q(status='pending')),
+        ),
         'protected_sections': protected_sections,
     }
     return render(request, 'cnb/viewer.html', context)
@@ -68,9 +85,16 @@ def cnb_viewer(request):
 @cnb_required
 def cnb_dashboard(request):
     """CNB Chair management dashboard — overview of documents and active resolutions."""
-    documents = GoverningDocument.objects.prefetch_related('articles').all()
+    # v3.17.5: `prefetch_related('articles')` REMOVED — cnb/dashboard.html only
+    # prints `{{ doc.articles.count }}` (:72) and never iterates them, so the
+    # prefetch fetched every article row to render a number that `.count` then
+    # went back to the database for anyway.
+    documents = GoverningDocument.objects.annotate(article_total=Count('articles'))
     # v3.17.3: `created_by` was joined and never read by cnb/dashboard.html.
-    resolutions = Resolution.objects.all()
+    # v3.17.5: amendment count annotated — the template printed
+    # `{{ resolution.amendments.count }}` twice on one line (:135, once for the
+    # number and once for `|pluralize`), i.e. two COUNTs per resolution row.
+    resolutions = Resolution.objects.annotate(amendment_total=Count('amendments'))
     protected_sections = Section.objects.filter(amendment_protected=True).select_related(
         'article__document'
     )
@@ -79,8 +103,11 @@ def cnb_dashboard(request):
         'documents': documents,
         'resolutions': resolutions,
         'protected_sections': protected_sections,
-        'draft_count': resolutions.filter(status='draft').count(),
-        'pending_count': resolutions.filter(status='pending').count(),
+        # v3.17.5: was two COUNT round trips over the same table. One pass.
+        **Resolution.objects.aggregate(
+            draft_count=Count('pk', filter=Q(status='draft')),
+            pending_count=Count('pk', filter=Q(status='pending')),
+        ),
     }
     return render(request, 'cnb/dashboard.html', context)
 
@@ -218,7 +245,7 @@ def add_partial_suspension(request, section_id):
         suspensions.append({
             'ref': ref,
             'reason': reason,
-            'suspended_at': timezone.now().date().isoformat(),
+            'suspended_at': timezone.localdate().isoformat(),   # v3.17.4: local calendar date
             'suspended_by_name': request.user.name,
         })
         section.partial_suspensions = suspensions
@@ -279,7 +306,16 @@ def toggle_article_active(request, article_id):
 @login_required
 def resolution_list(request):
     """List all resolutions — readable by any authenticated member."""
-    resolutions = Resolution.objects.select_related('created_by').defer(*member_defer('created_by')).prefetch_related('amendments').all()
+    # v3.17.5: `prefetch_related('amendments')` REMOVED, count annotated.
+    # cnb/resolution_list.html only prints `{{ resolution.amendments.count }}`
+    # (:55, twice on the line — once for the number, once for `|pluralize`) and
+    # never iterates them, so the prefetch fetched every amendment row to render
+    # a number. An annotation returns the number without the rows.
+    resolutions = (
+        Resolution.objects
+        .select_related('created_by').defer(*member_defer('created_by'))
+        .annotate(amendment_total=Count('amendments'))
+    )
     context = {'resolutions': resolutions}
     return render(request, 'cnb/resolution_list.html', context)
 
@@ -378,7 +414,14 @@ def create_resolution(request):
 @cnb_required
 def edit_resolution(request, resolution_id):
     """Edit resolution metadata (title, whereas, resolved text, etc.)."""
-    resolution = get_object_or_404(Resolution, pk=resolution_id)
+    # v3.17.5: `prefetch_related('amendments')` — resolution_form.html tests the
+    # amendments for presence, prints the count and then loops them (:199, :212,
+    # :214). Without a prefetch that was three separate queries; with it, all
+    # three read one cached result set.
+    resolution = get_object_or_404(
+        Resolution.objects.prefetch_related('amendments__section'),
+        pk=resolution_id,
+    )
 
     if resolution.status not in ('draft', 'pending'):
         messages.error(request, 'Only draft or pending resolutions can be edited.')
