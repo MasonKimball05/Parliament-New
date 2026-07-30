@@ -260,11 +260,7 @@
 
   </div>
 </div>
-
-{# v3.15.9: was cdnjs Chart.js — prod CSP is script-src 'self' + nonce, so the
-   CDN script AND the nonce-less inline script below were both blocked and the
-   charts never rendered in production (dev has no CSP header, hiding it).
-   Vendored copy + nonce fixes both. #}
+    
 <script src="{% static 'vendor/chart.min.js' %}"></script>
 <script nonce="{{ request.csp_nonce }}">
 (function () {
