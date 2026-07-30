@@ -76,7 +76,21 @@ class Command(CheckEnvCommand):
             return
 
         expected = {s['name'] for s in SCHEDULES}
-        rows = {t.name: t for t in PeriodicTask.objects.filter(name__in=expected)}
+        # v3.17.4: the import above is guarded but the QUERY was not, so on a
+        # database where django_celery_beat has not been migrated this command
+        # died with a raw traceback — no summary, no exit code, no indication of
+        # which check failed. That is the one environment a preflight tool most
+        # needs to survive: its whole job is reporting on a broken setup, so it
+        # has to fail as a *finding* rather than as a crash.
+        # (Found by running `manage.py preflight` for the first time since
+        # v3.15.8 built it — against an unmigrated dev database.)
+        try:
+            rows = {t.name: t for t in PeriodicTask.objects.filter(name__in=expected)}
+        except Exception as e:
+            self.fail('Celery schedule table',
+                      f'could not query PeriodicTask ({type(e).__name__}) — '
+                      f'run `migrate` before relying on this check')
+            return
 
         missing = sorted(expected - set(rows))
         if missing:

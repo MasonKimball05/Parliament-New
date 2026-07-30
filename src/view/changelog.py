@@ -6,7 +6,35 @@ import re
 import markdown
 from django.shortcuts import render
 from django.conf import settings
-from django.views.decorators.cache import cache_page
+from django.core.cache import cache
+
+#: How long the parsed markdown is kept. Content only changes on deploy, so this
+#: is generous; the point is to avoid re-reading ~100 files per request.
+CONTENT_CACHE_TTL = 60 * 30
+
+#: v3.17.4 — WHY THESE VIEWS NO LONGER USE @cache_page
+#: -----------------------------------------------------
+#: They used to be decorated with `@cache_page(60 * 30)`, which caches the whole
+#: rendered *response*. These pages are public and extend base.html, so the
+#: cached HTML included whatever the first visitor's navbar looked like: their
+#: name, their avatar, their admin-only links, and the inline
+#: `const theme = '…'` that sets dark mode.
+#:
+#: The result was one visitor's chrome served to everyone for 30 minutes —
+#: reported as "the changelog page is suddenly in light mode" (an anonymous
+#: visitor primed the cache, so every dark-mode member got light), but the same
+#: mechanism showed a logged-in member's name to anonymous visitors.
+#:
+#: `Vary: Cookie` does NOT save you here. `UpdateCacheMiddleware` runs inside
+#: the decorator and stores the response *before* SessionMiddleware adds the
+#: Vary header, so the learned Vary list is empty and the cache key is the URL
+#: alone. The header you see on the response is added afterwards, too late to
+#: affect the key.
+#:
+#: The fix is to cache the expensive part — reading and parsing the markdown —
+#: and let the template render per request. Same saving, no shared chrome.
+#: Same failure class as the 07-18-26 Cloudflare seal incident: never cache a
+#: response whose body depends on who asked for it.
 
 # Names / substrings that count as "just Mason" — anything else is an external contributor
 _MASON_PATTERNS = [
@@ -66,12 +94,15 @@ def parse_version(filename):
     return (major, minor, patch, suffix)
 
 
-@cache_page(60 * 30)  # 30 minutes — content only changes on deploy
 def changelog(request):
     """
     Display the changelog/version history page.
     Reads from CHANGELOG.md and renders it as HTML.
     """
+    context = cache.get('changelog_index_v1')
+    if context is not None:
+        return render(request, 'changelog.html', context)
+
     changelog_content = ""
     changelog_html = ""
 
@@ -134,11 +165,11 @@ def changelog(request):
         'detailed_changelogs': detailed_changelogs,
         'v2_changelogs': v2_changelogs,
     }
+    cache.set('changelog_index_v1', context, CONTENT_CACHE_TTL)
 
     return render(request, 'changelog.html', context)
 
 
-@cache_page(60 * 30)  # 30 minutes — keyed per URL so each version is cached separately
 def changelog_detail(request, version):
     """
     Display a specific version's detailed changelog.
@@ -147,6 +178,15 @@ def changelog_detail(request, version):
 
     # Sanitize version input (only allow alphanumeric, dots, and dashes)
     safe_version = ''.join(c for c in version if c.isalnum() or c in '.-')
+
+    # Cache key uses the SANITISED version, so it cannot be poisoned by an
+    # attacker-controlled path and two spellings of the same version share one
+    # entry.
+    cache_key = f'changelog_detail_v1:{safe_version}'
+    cached_html = cache.get(cache_key)
+    if cached_html is not None:
+        return render(request, 'changelog_detail.html',
+                      {'changelog_html': cached_html, 'version': safe_version})
 
     changelog_path = os.path.join(settings.BASE_DIR, 'changelogs', f'{safe_version}.md')
 
@@ -169,6 +209,8 @@ def changelog_detail(request, version):
     except Exception as e:
         changelog_html = f"<p>Error loading changelog: {str(e)}</p>"
 
+    cache.set(cache_key, changelog_html, CONTENT_CACHE_TTL)
+
     context = {
         'changelog_html': changelog_html,
         'version': safe_version,
@@ -177,8 +219,10 @@ def changelog_detail(request, version):
     return render(request, 'changelog_detail.html', context)
 
 
-@cache_page(60 * 30)  # 30 minutes — static content
 def roadmap(request):
+    # No caching: the context below is literal lists built in Python, so there
+    # was nothing to save — @cache_page here bought no speed and shared one
+    # visitor's navbar with everyone.
     """Display the Parliament 3.0 roadmap page."""
     context = {
         'ships_before': [
