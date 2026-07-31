@@ -31,20 +31,36 @@
             <button id="tab-chapter-leg" data-activity-tab="chapter-leg"
                     class="activity-tab-button px-5 py-3 text-sm font-medium border-b-2 border-purple-500 text-purple-600 dark:text-purple-400 bg-white dark:bg-gray-800 -mb-px transition-colors whitespace-nowrap">
                 Chapter Legislation
-                <span class="ml-1.5 px-1.5 py-0.5 text-xs rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">{{ all_chapter_legislation|length }}</span>
+                <span class="ml-1.5 px-1.5 py-0.5 text-xs rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">{{ chapter_total }}</span>
             </button>
             <button id="tab-committee-leg" data-activity-tab="committee-leg"
                     class="activity-tab-button px-5 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 -mb-px transition-colors whitespace-nowrap">
                 Committee Legislation
-                <span class="ml-1.5 px-1.5 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">{{ all_committee_legislation|length }}</span>
+                <span class="ml-1.5 px-1.5 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">{{ committee_total }}</span>
             </button>
             <button id="tab-committee-docs" data-activity-tab="committee-docs"
                     class="activity-tab-button px-5 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 -mb-px transition-colors whitespace-nowrap">
                 Committee Documents
-                <span class="ml-1.5 px-1.5 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">{{ all_committee_docs|length }}</span>
+                <span class="ml-1.5 px-1.5 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">{{ docs_total }}</span>
             </button>
         </div>
     </div>
+
+    {% if activity_truncated %}
+    {# v3.17.7 — matches the notice on view_all_reports. The badges above show
+       TRUE totals from a GROUP BY, so they can exceed what is rendered; say so
+       rather than letting the numbers disagree with the rows silently. The
+       status sub-tabs are partitions of the newest rows, so an older draft can
+       be missing from the Draft tab — that is the part worth telling someone. #}
+    <div class="mb-6 rounded-xl border-l-4 border-amber-400 bg-amber-50 dark:bg-amber-900/20 p-4">
+        <p class="text-sm text-amber-800 dark:text-amber-200">
+            Showing the {{ activity_fetch_limit }} most recent items per section.
+            The counts above are true totals, so older items — including older
+            drafts — are not listed here. Use the legislation and committee pages
+            to reach them.
+        </p>
+    </div>
+    {% endif %}
 
     <!-- Chapter Legislation Tab -->
     <div id="content-chapter-leg" class="activity-tab-content">
@@ -52,19 +68,19 @@
         <div class="flex flex-wrap gap-1.5 mb-4">
             <button id="subtab-chapter-all" data-sub-tab-type="chapter" data-sub-tab-status="all"
                     class="chapter-subtab px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 transition-colors">
-                All ({{ all_chapter_legislation|length }})
+                All ({{ chapter_total }})
             </button>
             <button id="subtab-chapter-draft" data-sub-tab-type="chapter" data-sub-tab-status="draft"
                     class="chapter-subtab px-3 py-1.5 text-xs font-medium rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                Draft ({{ draft_chapter_leg|length }})
+                Draft ({{ draft_chapter_total }})
             </button>
             <button id="subtab-chapter-passed" data-sub-tab-type="chapter" data-sub-tab-status="passed"
                     class="chapter-subtab px-3 py-1.5 text-xs font-medium rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                Passed ({{ passed_chapter_leg|length }})
+                Passed ({{ passed_chapter_total }})
             </button>
             <button id="subtab-chapter-removed" data-sub-tab-type="chapter" data-sub-tab-status="removed"
                     class="chapter-subtab px-3 py-1.5 text-xs font-medium rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                Removed ({{ removed_chapter_leg|length }})
+                Removed ({{ removed_chapter_total }})
             </button>
         </div>
 
@@ -88,19 +104,19 @@
         <div class="flex flex-wrap gap-1.5 mb-4">
             <button id="subtab-committee-all" data-sub-tab-type="committee" data-sub-tab-status="all"
                     class="committee-subtab px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 transition-colors">
-                All ({{ all_committee_legislation|length }})
+                All ({{ committee_total }})
             </button>
             <button id="subtab-committee-draft" data-sub-tab-type="committee" data-sub-tab-status="draft"
                     class="committee-subtab px-3 py-1.5 text-xs font-medium rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                Draft ({{ draft_committee_leg|length }})
+                Draft ({{ draft_committee_total }})
             </button>
             <button id="subtab-committee-passed" data-sub-tab-type="committee" data-sub-tab-status="passed"
                     class="committee-subtab px-3 py-1.5 text-xs font-medium rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                Passed ({{ passed_committee_leg|length }})
+                Passed ({{ passed_committee_total }})
             </button>
             <button id="subtab-committee-removed" data-sub-tab-type="committee" data-sub-tab-status="removed"
                     class="committee-subtab px-3 py-1.5 text-xs font-medium rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                Removed ({{ removed_committee_leg|length }})
+                Removed ({{ removed_committee_total }})
             </button>
         </div>
 

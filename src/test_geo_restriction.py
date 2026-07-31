@@ -204,3 +204,196 @@ class EventSignupViewsAdmitChairsTests(TestCase):
                 f'src/view/calendar.py:{line_no} — use @officer_required, which '
                 f'admits Chairs and logs the denial',
             )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  v3.17.7 — the exports that are a MODE of a page, not a route
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# v3.17.5 moved this control from path prefixes to resolved URL names, which
+# fixed "the parameter is in the middle of the path". It left the other shape
+# standing: **an export triggered by a query parameter on an ordinary page.**
+# Three existed, all carrying bulk member or security data:
+#
+#   * `poll_results`       + `?export=csv` → respondent names and every answer
+#   * `admin_v2_audit_log` + `?export=csv` → actor, target, detail, IP address
+#   * `bulk_actions_kai_reports` POST `bulk_action=export_csv`
+#
+# Only the third could join RESTRICTED_EXPORT_VIEWS — its URL name IS the
+# export. Listing the other two would geo-block the poll results screen and the
+# audit log viewer entirely, so those are guarded inside the view against
+# `request.geo_suspicious` via `geo_export_blocked()`.
+#
+# WHY THE OLD COMPLETENESS TEST DID NOT NOTICE
+# --------------------------------------------
+# `test_the_bulk_member_data_exports_are_all_listed` asserts three hardcoded
+# names are present. That is a regression guard for the gap v3.17.5 closed, not
+# a completeness check — **it cannot fail for an export nobody thought of**, and
+# the v3.17.5 changelog's claim that a sweep had found the only missing one was
+# true only of routes *named* like exports. Searching for `text/csv` instead of
+# for `name='…export…'` finds all three. `test_every_csv_export_is_geo_guarded`
+# below does that, so the fourth one fails the suite instead of shipping.
+
+
+class QueryParamExportsAreGeoGuardedTests(TestCase):
+    """The behavioural half — a URL-name list could not have done this."""
+
+    def setUp(self):
+        from src.models import Announcement, AnnouncementPoll
+
+        self.admin = make_user('geo-qp-admin', 'Officer', is_admin=True)
+        self.announcement = Announcement.objects.create(
+            title='Chapter vote', content='Body', posted_by=self.admin,
+        )
+        self.poll = AnnouncementPoll.objects.create(
+            announcement=self.announcement, title='Chapter vote poll',
+        )
+
+    def _client(self, flagged):
+        client = Client()
+        client.force_login(self.admin)
+        if flagged:
+            flag_session_as_foreign(client)
+        return client
+
+    def _admin_v2_client(self, flagged):
+        """
+        `audit_log` sits behind `require_admin_v2_auth`, a two-factor gate: an
+        env allowlist plus a separate authenticated session. Both halves have to
+        be satisfied or the request 302s to the admin-v2 login before ever
+        reaching the geo guard — which is what a first pass at this test found.
+        """
+        from unittest import mock
+
+        from src.view import admin_v2
+
+        patcher = mock.patch.object(
+            admin_v2, 'ALLOWED_USER_IDS', {self.admin.user_id})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+        client = Client()
+        client.force_login(self.admin)
+        session = client.session
+        session['admin_v2_authenticated'] = True
+        session['admin_v2_auth_time'] = timezone.now().isoformat()
+        if flagged:
+            session['login_geo_suspicious'] = True
+            session['login_geo_country'] = 'France'
+            session['login_geo_city'] = 'Paris'
+        session.save()
+        return client
+
+    def test_poll_results_export_is_blocked_from_a_flagged_session(self):
+        url = reverse('poll_results', args=[self.announcement.id])
+        response = self._client(flagged=True).get(url, {'export': 'csv'})
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn('text/csv', response.get('Content-Type', ''))
+
+    def test_the_poll_results_PAGE_is_not_blocked(self):
+        """
+        The reason this guard lives in the view rather than in the name list.
+        Blocking the export must not block the page it hangs off.
+        """
+        url = reverse('poll_results', args=[self.announcement.id])
+        response = self._client(flagged=True).get(url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_poll_results_export_is_allowed_from_an_ordinary_session(self):
+        url = reverse('poll_results', args=[self.announcement.id])
+        response = self._client(flagged=False).get(url, {'export': 'csv'})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('text/csv', response['Content-Type'])
+
+    def test_audit_log_export_is_blocked_from_a_flagged_session(self):
+        response = self._admin_v2_client(flagged=True).get(
+            reverse('admin_v2_audit_log'), {'export': 'csv'})
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn('text/csv', response.get('Content-Type', ''))
+
+    def test_audit_log_export_is_allowed_from_an_ordinary_session(self):
+        response = self._admin_v2_client(flagged=False).get(
+            reverse('admin_v2_audit_log'), {'export': 'csv'})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('text/csv', response['Content-Type'])
+
+    def test_the_audit_log_PAGE_is_not_blocked(self):
+        response = self._admin_v2_client(flagged=True).get(
+            reverse('admin_v2_audit_log'))
+        self.assertEqual(response.status_code, 200)
+
+
+class KaiBulkExportIsGeoRestrictedTests(TestCase):
+    """The third one, which the name list *can* reach — POST-only endpoint."""
+
+    def test_bulk_actions_kai_reports_is_in_the_list(self):
+        self.assertIn('bulk_actions_kai_reports', RESTRICTED_EXPORT_VIEWS)
+
+
+class EveryCsvExportIsGeoGuardedTests(TestCase):
+    """
+    Discovery, not membership. Walks the codebase for anything that writes a
+    CSV and fails unless it is either in RESTRICTED_EXPORT_VIEWS, guarded by
+    `geo_export_blocked`, or allowlisted with a stated reason.
+
+    This is the test that would have caught the three gaps above, and it is the
+    one that will catch the fourth.
+    """
+
+    #: file path → reason it needs no geo guard
+    ALLOWLIST = {
+        'view/calendar.py': (
+            'export_calendar_ical / export_event_ical are the requesting '
+            "user's own calendar, not bulk member data. event_signup_export "
+            'IS geo-restricted, by URL name.'
+        ),
+        'view/directory.py': (
+            '_export_csv is a helper; its caller export_directory is in '
+            'RESTRICTED_EXPORT_VIEWS.'
+        ),
+    }
+
+    def test_every_csv_export_is_geo_guarded(self):
+        import pathlib
+
+        root = pathlib.Path(__file__).resolve().parent
+        unguarded = []
+
+        for path in sorted((root / 'view').rglob('*.py')):
+            rel = str(path.relative_to(root))
+            source = path.read_text(errors='ignore')
+            if 'text/csv' not in source:
+                continue
+            if rel in self.ALLOWLIST:
+                continue
+            if 'geo_export_blocked' in source:
+                continue
+            # Otherwise every csv-writing view in the file must be named in the
+            # URL-name list.
+            named = any(
+                name in source for name in RESTRICTED_EXPORT_VIEWS
+            )
+            if not named:
+                unguarded.append(rel)
+
+        self.assertEqual(
+            unguarded, [],
+            'These files write a CSV but are neither in RESTRICTED_EXPORT_VIEWS '
+            'nor guarded with geo_export_blocked(), and are not allowlisted:\n  '
+            + '\n  '.join(unguarded)
+            + '\nIf the export is a query-parameter mode of a page, guard it in '
+              'the view; if it has its own route, add the URL name.',
+        )
+
+    def test_allowlist_entries_are_still_needed(self):
+        """An allowlist that outlives its reason is a lie about the codebase."""
+        import pathlib
+
+        root = pathlib.Path(__file__).resolve().parent
+        for rel in self.ALLOWLIST:
+            path = root / rel
+            self.assertTrue(path.exists(), f'{rel} no longer exists')
+            self.assertIn(
+                'text/csv', path.read_text(errors='ignore'),
+                f'{rel} no longer writes a CSV — drop it from the allowlist',
+            )

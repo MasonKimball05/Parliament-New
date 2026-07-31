@@ -75,16 +75,42 @@ def home(request):
     # `|pluralize`). With nothing joined that was four queries per committee.
     #
     # `distinct=True` on the Count is load-bearing here and not optional: the
-    # filter above already joins members/chairs/advisors, so the rows multiply
-    # and a plain Count would report the product rather than the member count.
-    user_committees = list(Committee.objects.filter(
+    # filter joins members/chairs/advisors, so the rows multiply and a plain
+    # Count would report the product rather than the member count.
+    #
+    # ⚠️ v3.17.7 — ANNOTATE BEFORE FILTER. THE ORDER IS THE WHOLE BUG.
+    # -----------------------------------------------------------------
+    # This was `.filter(...).annotate(Count('members', distinct=True))`, and
+    # `distinct=True` does not save you from what that does. Django reuses the
+    # filter's join for an annotation on the SAME multi-valued relation, so the
+    # aggregate is computed over the rows the WHERE left standing rather than
+    # over the relation. The emitted SQL made it plain:
+    #
+    #   COUNT(DISTINCT committee_members.member_id) …
+    #   LEFT OUTER JOIN committee_members ON …
+    #   WHERE (committee_members.member_id = ME OR chairs.member_id = ME OR …)
+    #
+    # For a committee where the OR is satisfied by the *chairs* or *advisors*
+    # disjunct, every member row survives the WHERE and the count is right. For
+    # a committee where the only true disjunct is `members = ME`, **exactly one
+    # member row survives** — so every committee you are a plain member of
+    # reported "1 member". That is the common case, so the card was wrong for
+    # most members most of the time. Measured on Django 5.2.16: 1 where the
+    # true count was 7; correct at 7 with the annotate moved above the filter,
+    # because Django then emits a second join for the filter instead of
+    # reusing one.
+    #
+    # `manage_committees` and `global_search` use the same annotation safely —
+    # neither filters on the relation it counts. That is the distinction to
+    # check, not the presence of `distinct=True`.
+    user_committees = list(Committee.objects.annotate(
+        member_total=Count('members', distinct=True),
+    ).filter(
         Q(members=request.user) |
         Q(chairs=request.user) |
         Q(advisors=request.user),
         is_active=True,
         is_archived=False,
-    ).annotate(
-        member_total=Count('members', distinct=True),
     ).prefetch_related(
         member_prefetch('chairs'), member_prefetch('advisors'),
     ).distinct())

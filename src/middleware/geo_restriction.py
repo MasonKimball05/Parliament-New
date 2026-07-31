@@ -11,7 +11,6 @@ than the United States. Members who travel abroad will be flagged for that
 session only; logging in again from the US clears the flag.
 """
 import logging
-from django.http import HttpResponseForbidden
 from django.shortcuts import render
 from django.urls import Resolver404, resolve
 
@@ -38,6 +37,23 @@ logger = logging.getLogger('admin_actions')
 #: Matching on the resolved URL name is parameter-agnostic, survives a route
 #: being moved or re-pathed, and makes this read as a list of *capabilities*
 #: instead of a list of strings.
+#: v3.17.7 — AND WHY NAMES ARE STILL NOT ENOUGH
+#: --------------------------------------------
+#: Matching on URL name fixed "the parameter is in the middle of the path". It
+#: does not fix the other shape: **an export that is a MODE of an ordinary page
+#: rather than a route of its own.** Three exist:
+#:
+#:   * `poll_results`         + `?export=csv` → respondent names and answers
+#:   * `admin_v2_audit_log`   + `?export=csv` → actor, target, detail, IP
+#:   * `bulk_actions_kai_reports` POST `bulk_action=export_csv`
+#:
+#: Only the third can live in this set, because its URL name IS the export —
+#: it is a POST-only bulk-action endpoint. Listing the other two would geo-block
+#: the poll results screen and the audit log viewer entirely, not just their
+#: exports, so those two are guarded **inside the view** against
+#: `request.geo_suspicious`, which this middleware sets on every request. The
+#: information was always here; only the enforcement assumed route granularity.
+#: Search for `geo_export_blocked` to find those guards.
 RESTRICTED_EXPORT_VIEWS = frozenset({
     'export_directory',
     'export_activity_logs',
@@ -45,6 +61,7 @@ RESTRICTED_EXPORT_VIEWS = frozenset({
     'export_kai_reports_csv',
     'export_service_csv',
     'event_signup_export',            # v3.17.5 — see above
+    'bulk_actions_kai_reports',       # v3.17.7 — POST-only, export_csv branch
     'admin_v2_clear_honeypot_logs',   # Bulk delete — too destructive from abroad
 })
 
@@ -77,6 +94,55 @@ def _restricted_view_name(request):
     return match.url_name if match.url_name in RESTRICTED_EXPORT_VIEWS else None
 
 
+def _block_response(request, view_name):
+    """
+    The 403 page and the security-log line for a blocked export.
+
+    v3.17.7: shared by the middleware and by `geo_export_blocked()` so a
+    view-level guard is indistinguishable from a middleware block — same page,
+    same log format, one place to change either.
+    """
+    path = request.path_info
+    country = request.session.get('login_geo_country', 'Unknown')
+    city = request.session.get('login_geo_city', '')
+    location = f"{city}, {country}" if city else country
+
+    logger.warning(
+        f"GEO_BLOCK: User '{request.user.user_id}' attempted to access "
+        f"restricted export '{path}' (view={view_name or 'unnamed'}) "
+        f"from non-US location ({location}). Blocked."
+    )
+    return render(request, 'geo_restricted.html', {
+        'location': location,
+        'restricted_path': path,
+    }, status=403)
+
+
+def geo_export_blocked(request):
+    """
+    A 403 response if this request must not pull a bulk export, else ``None``.
+
+    v3.17.7 — for the exports that are a **query-parameter mode of an ordinary
+    page** rather than a route of their own. `RESTRICTED_EXPORT_VIEWS` cannot
+    reach those: the URL name belongs to the page, so listing it would block the
+    page too. Call this at the top of the export branch instead::
+
+        if request.GET.get('export') == 'csv':
+            blocked = geo_export_blocked(request)
+            if blocked:
+                return blocked
+            return _export_csv(...)
+
+    Safe to call from anywhere — `request.geo_suspicious` is set by
+    `GeoRestrictionMiddleware` on every request, and `getattr` keeps this
+    working in tests that build a request without the middleware.
+    """
+    if not getattr(request, 'geo_suspicious', False):
+        return None
+    view_name = getattr(getattr(request, 'resolver_match', None), 'url_name', None)
+    return _block_response(request, view_name)
+
+
 class GeoRestrictionMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
@@ -95,20 +161,7 @@ class GeoRestrictionMiddleware:
                 # falling back to the prefix list for unnamed routes.
                 view_name = _restricted_view_name(request)
                 if view_name or any(path.startswith(p) for p in RESTRICTED_PATH_PREFIXES):
-                    geo = request.session.get('login_geo', {})
-                    country = request.session.get('login_geo_country', 'Unknown')
-                    city = request.session.get('login_geo_city', '')
-                    location = f"{city}, {country}" if city else country
-
-                    logger.warning(
-                        f"GEO_BLOCK: User '{request.user.user_id}' attempted to access "
-                        f"restricted export '{path}' (view={view_name or 'unnamed'}) "
-                        f"from non-US location ({location}). Blocked."
-                    )
-                    return render(request, 'geo_restricted.html', {
-                        'location': location,
-                        'restricted_path': path,
-                    }, status=403)
+                    return _block_response(request, view_name)
 
                 # Log all authenticated requests from flagged sessions (non-GET only, to reduce noise)
                 if request.method not in ('GET', 'HEAD'):

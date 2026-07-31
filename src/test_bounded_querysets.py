@@ -227,3 +227,121 @@ class ActiveQuarantinesIsCountedOnceTests(TestCase):
                 if 'active_quarantines.count' in line:
                     offenders.append(f'{path.relative_to(root)}:{line_no}')
         self.assertEqual(offenders, [], 'use |length — the view passes a list')
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  v3.17.7 — view_all_activity: the same cap, and now the same honest totals
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# `view_all_activity` is `view_all_reports`' twin and was capped one commit
+# later, in v3.17.6. It got the cap and not the lesson: its eleven tab badges
+# were `|length` straight over the capped lists, so past the limit the page
+# would report exactly ACTIVITY_FETCH_LIMIT forever — the precise failure
+# `ViewAllReportsIsBoundedTests` above exists to prevent, reproduced next door.
+#
+# The second consequence is specific to this page and is the more expensive
+# one: the status sub-tabs are partitions of the **newest** rows, so an older
+# draft simply stops appearing in the Draft tab with no indication anything is
+# hidden. Drafts are the actionable items on an officer activity page.
+
+
+class ViewAllActivityIsBoundedTests(TestCase):
+
+    def setUp(self):
+        from django.utils import timezone as _tz
+        self.officer = make_user('va-officer')
+        self._now = _tz.now()
+
+    def _make_legislation(self, n, status='draft'):
+        from src.models import Legislation
+        Legislation.objects.bulk_create([
+            Legislation(
+                title=f'Bill {status} {i}',
+                description='Body',
+                posted_by=self.officer,
+                available_at=self._now,
+                status=status,
+            )
+            for i in range(n)
+        ])
+
+    def _get(self):
+        client = Client()
+        client.force_login(self.officer)
+        return client.get(reverse('view_all_activity'))
+
+    def test_the_page_renders(self):
+        self._make_legislation(3)
+        self.assertEqual(self._get().status_code, 200)
+
+    def test_the_fetch_is_capped(self):
+        from src.view.officer.view_all_activity import ACTIVITY_FETCH_LIMIT
+        self._make_legislation(ACTIVITY_FETCH_LIMIT + 10)
+        response = self._get()
+        self.assertEqual(
+            len(response.context['all_chapter_legislation']), ACTIVITY_FETCH_LIMIT)
+        self.assertTrue(response.context['activity_truncated'])
+
+    def test_the_badges_report_true_totals_not_the_capped_list(self):
+        """
+        The regression. Before v3.17.7 the badge was `|length` over the capped
+        list, so this asserted number was ACTIVITY_FETCH_LIMIT rather than the
+        real row count.
+        """
+        from src.view.officer.view_all_activity import ACTIVITY_FETCH_LIMIT
+        total = ACTIVITY_FETCH_LIMIT + 10
+        self._make_legislation(total)
+        response = self._get()
+        self.assertEqual(response.context['chapter_total'], total)
+        self.assertGreater(
+            response.context['chapter_total'],
+            len(response.context['all_chapter_legislation']),
+        )
+
+    def test_status_badges_are_true_totals_too(self):
+        """
+        The sub-tab counts matter more than the headline: a draft that falls
+        outside the cap vanishes from the Draft tab, so the number must at
+        least admit it exists.
+        """
+        self._make_legislation(4, 'draft')
+        self._make_legislation(2, 'passed')
+        self._make_legislation(1, 'removed')
+        response = self._get()
+        self.assertEqual(response.context['draft_chapter_total'], 4)
+        self.assertEqual(response.context['passed_chapter_total'], 2)
+        self.assertEqual(response.context['removed_chapter_total'], 1)
+        self.assertEqual(response.context['chapter_total'], 7)
+
+    def test_nothing_is_truncated_below_the_cap(self):
+        self._make_legislation(5)
+        self.assertFalse(self._get().context['activity_truncated'])
+
+    def test_the_page_survives_empty_tables(self):
+        response = self._get()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['chapter_total'], 0)
+        self.assertFalse(response.context['activity_truncated'])
+
+    def test_the_template_does_not_count_a_capped_list(self):
+        """
+        Static guard, and the one that generalises. `|length` over any of the
+        six capped context lists is the bug; the badges must read the totals.
+        """
+        import pathlib
+
+        template = (pathlib.Path(__file__).resolve().parent.parent
+                    / 'templates' / 'officer' / 'view_all_activity.html')
+        text = template.read_text(encoding='utf-8')
+        for name in (
+            'all_chapter_legislation', 'all_committee_legislation',
+            'all_committee_docs', 'draft_chapter_leg', 'passed_chapter_leg',
+            'removed_chapter_leg', 'draft_committee_leg',
+            'passed_committee_leg', 'removed_committee_leg',
+        ):
+            self.assertNotIn(
+                f'{name}|length', text,
+                f'view_all_activity.html counts the capped list {name!r}. Use '
+                f'the *_total context values, which come from a GROUP BY over '
+                f'the whole table — see this section of the test module.',
+            )

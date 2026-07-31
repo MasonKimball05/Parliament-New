@@ -19,6 +19,8 @@ from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from src.middleware.geo_restriction import geo_export_blocked
+
 from src.models import (
     Announcement, AnnouncementPoll, AnnouncementPollQuestion,
     AnnouncementPollOption, AnnouncementPollResponse, AnnouncementPollAnswer,
@@ -266,6 +268,15 @@ def poll_results(request, announcement_id):
 
     # CSV export
     if request.GET.get('export') == 'csv':
+        # v3.17.7: this export is a query-parameter MODE of `poll_results`, not
+        # a route of its own, so `RESTRICTED_EXPORT_VIEWS` cannot reach it —
+        # listing the URL name would geo-block the results page as well. It
+        # dumps respondent names and every answer, which is the same class of
+        # bulk member data as the directory and user-list exports, so it is
+        # guarded here instead. See `geo_export_blocked` for the reasoning.
+        blocked = geo_export_blocked(request)
+        if blocked:
+            return blocked
         return _export_poll_csv(poll, questions, responses)
 
     return render(request, 'officer/announcement_poll_results.html', {

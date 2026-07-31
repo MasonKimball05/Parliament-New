@@ -513,6 +513,75 @@ def view_kai_reports(request):
     return render(request, 'kai/view_reports.html', context)
 
 
+#: Column headers for every Kai report CSV export.
+#:
+#: v3.17.7 — WHY THE HEADERS AND THE ROW BUILDER ARE SHARED
+#: --------------------------------------------------------
+#: There were two exports writing these thirteen columns: this module's
+#: `export_kai_reports_csv` and the `action == 'export_csv'` branch of
+#: `bulk_actions_kai_reports`, about 1,100 lines apart. v3.16.2 added
+#: per-permission redaction to the first one and nobody noticed the second,
+#: so the bulk export wrote **Submitted By, Targeted To and Description
+#: unredacted** to anyone holding `can_view_report_list` — which is exactly the
+#: population the redaction exists to protect against, and it was a visible
+#: option in the bulk-action dropdown rather than a hidden endpoint.
+#:
+#: The general lesson, and this codebase has now paid for it four times
+#: (v3.16.2 admin/CSV, v3.16.3 list-filter/export, v3.17.5's four sites of the
+#: vote-COUNT pattern, and this): **when a control is applied to one view, grep
+#: for the other views that write the same columns.** Two copies of a redaction
+#: rule is one copy too many — so there is now one row builder and one header
+#: list, and `KaiCsvExportsAreRedactedTests` fails if a third `csv.writer` is
+#: added to this module without going through them.
+KAI_CSV_HEADERS = [
+    'ID',
+    'Title',
+    'Category',
+    'Submitted By',
+    'Targeted To',
+    'Submitted At',
+    'Status',
+    'Deliberation Outcome',
+    'Minutes Closed',
+    'Reviewed By',
+    'Reviewed At',
+    'Tags',
+    'Description',
+]
+
+
+def _kai_csv_row(report, kai_access):
+    """
+    One CSV row for `report`, redacted against `kai_access`.
+
+    Three fields are governed by permissions strictly narrower than the
+    `can_view_report_list` that gates the exports themselves, and each must
+    match what the in-app detail view would show this user:
+
+      * ``Submitted By``  → ``can_view_submitter_identity``
+      * ``Targeted To``   → ``can_view_accused_identity``
+      * ``Description``   → ``can_view_report_details`` (the allegation body)
+
+    `report` is expected to come from a queryset with `submitted_by`,
+    `reviewed_by` and `targeted_to` selected.
+    """
+    return [
+        report.id,
+        report.title,
+        report.get_category_display(),
+        report.submitted_by.name if kai_access['can_view_submitter_identity'] else '[Redacted]',
+        (report.targeted_to.name if report.targeted_to else '') if kai_access['can_view_accused_identity'] else '[Redacted]',
+        localtime(report.submitted_at).strftime('%Y-%m-%d %H:%M:%S'),
+        report.get_status_display(),
+        report.get_deliberation_outcome_display(),
+        'Yes' if report.closed_by_accused_request else 'No',
+        report.reviewed_by.name if report.reviewed_by else '',
+        localtime(report.reviewed_at).strftime('%Y-%m-%d %H:%M:%S') if report.reviewed_at else '',
+        ', '.join(report.get_tag_labels()),
+        report.description if kai_access['can_view_report_details'] else '[Redacted]',
+    ]
+
+
 @login_required
 @require_feature_flag('kai_reports')
 @log_function_call
@@ -583,42 +652,13 @@ def export_kai_reports_csv(request):
         response['Content-Disposition'] = f'attachment; filename="kai_reports_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
 
         writer = csv.writer(response)
-        writer.writerow([
-            'ID',
-            'Title',
-            'Category',
-            'Submitted By',
-            'Targeted To',
-            'Submitted At',
-            'Status',
-            'Deliberation Outcome',
-            'Minutes Closed',
-            'Reviewed By',
-            'Reviewed At',
-            'Tags',
-            'Description'
-        ])
+        # v3.17.7: headers and per-row redaction moved to KAI_CSV_HEADERS /
+        # _kai_csv_row so this export and the bulk one cannot drift. The
+        # redaction rule itself is unchanged from v3.16.2.
+        writer.writerow(KAI_CSV_HEADERS)
 
         for report in reports:
-            writer.writerow([
-                report.id,
-                report.title,
-                report.get_category_display(),
-                report.submitted_by.name if kai_access['can_view_submitter_identity'] else '[Redacted]',
-                (report.targeted_to.name if report.targeted_to else '') if kai_access['can_view_accused_identity'] else '[Redacted]',
-                localtime(report.submitted_at).strftime('%Y-%m-%d %H:%M:%S'),
-                report.get_status_display(),
-                report.get_deliberation_outcome_display(),
-                'Yes' if report.closed_by_accused_request else 'No',
-                report.reviewed_by.name if report.reviewed_by else '',
-                localtime(report.reviewed_at).strftime('%Y-%m-%d %H:%M:%S') if report.reviewed_at else '',
-                ', '.join(report.get_tag_labels()),
-                # v3.16.2: the allegation body is governed by
-                # can_view_report_details, but this export only gates on
-                # can_view_report_list — a list-only reviewer could dump every
-                # description via CSV. Redact to match the in-app detail view.
-                report.description if kai_access['can_view_report_details'] else '[Redacted]'
-            ])
+            writer.writerow(_kai_csv_row(report, kai_access))
 
         ActivityLog.log_activity(
             action_type='kai_action',
@@ -1609,6 +1649,15 @@ def bulk_actions_kai_reports(request):
     if action == 'archive' and not kai_access['can_close_cases']:
         messages.error(request, 'You do not have permission to close cases.')
         return redirect('view_kai_reports')
+    # v3.17.7 — WHY `export_csv` HAS NO EXTRA ACTION-LEVEL GATE.
+    # The two checks above guard *write* actions with write permissions.
+    # Exporting is a read, and after this release its read scope is exactly the
+    # list view's scope with the three detail fields redacted per-permission by
+    # `_kai_csv_row` — identical to `export_kai_reports_csv`, which has gated on
+    # `can_view_report_list` alone since it was written. Gating the two exports
+    # differently is how they drifted apart in the first place, so they are
+    # deliberately kept at parity. If exporting should ever require more than
+    # viewing, change BOTH and say so here.
 
     if not report_ids:
         messages.warning(request, 'No reports selected.')
@@ -1694,33 +1743,22 @@ def bulk_actions_kai_reports(request):
             messages.success(request, f'{updated} report(s) marked as pending.')
 
         elif action == 'export_csv':
-            # Export selected reports to CSV
+            # Export selected reports to CSV.
+            #
+            # v3.17.7: this branch used to write its own header list and its own
+            # row, with NO redaction of Submitted By / Targeted To / Description
+            # — a verbatim copy of what `export_kai_reports_csv` looked like
+            # before v3.16.2, sitting ~1,100 lines below the comment explaining
+            # why that was wrong. It now shares that view's row builder, so the
+            # redaction rule has exactly one definition. See KAI_CSV_HEADERS.
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = f'attachment; filename="selected_kai_reports_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
 
             writer = csv.writer(response)
-            writer.writerow([
-                'ID', 'Title', 'Category', 'Submitted By', 'Targeted To',
-                'Submitted At', 'Status', 'Deliberation Outcome', 'Minutes Closed',
-                'Reviewed By', 'Reviewed At', 'Tags', 'Description'
-            ])
+            writer.writerow(KAI_CSV_HEADERS)
 
             for report in reports.select_related('submitted_by', 'reviewed_by', 'targeted_to').defer(*member_defer('submitted_by', 'reviewed_by', 'targeted_to')):
-                writer.writerow([
-                    report.id,
-                    report.title,
-                    report.get_category_display(),
-                    report.submitted_by.name,
-                    report.targeted_to.name if report.targeted_to else '',
-                    report.submitted_at.strftime('%Y-%m-%d %H:%M:%S'),
-                    report.get_status_display(),
-                    report.get_deliberation_outcome_display(),
-                    'Yes' if report.closed_by_accused_request else 'No',
-                    report.reviewed_by.name if report.reviewed_by else '',
-                    report.reviewed_at.strftime('%Y-%m-%d %H:%M:%S') if report.reviewed_at else '',
-                    ', '.join(report.get_tag_labels()),
-                    report.description
-                ])
+                writer.writerow(_kai_csv_row(report, kai_access))
 
             return response
 
@@ -1728,7 +1766,13 @@ def bulk_actions_kai_reports(request):
             messages.error(request, 'Invalid action selected.')
 
     except Exception as e:
-        messages.error(request, f'Error performing bulk action: {str(e)}')
+        # v3.17.7: was `f'Error performing bulk action: {str(e)}'`. Raw
+        # exception text in a user-facing message leaks paths, column names and
+        # query fragments — same shape as the 07-28 CSV export leak and the two
+        # `str(e)` removals v3.17.5 made in changelog.py. Log it, show a
+        # generic message.
+        logger.exception('Bulk Kai action %r failed for user %s', action, request.user.user_id)
+        messages.error(request, 'Something went wrong performing that bulk action.')
 
     return redirect('view_kai_reports')
 

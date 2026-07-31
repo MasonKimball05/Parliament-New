@@ -3364,6 +3364,16 @@ def audit_log(request):
 
     # CSV export — streams the full filtered set, no pagination
     if request.GET.get('export') == 'csv':
+        # v3.17.7: a query-parameter MODE of `admin_v2_audit_log`, so the
+        # URL-name list in geo_restriction.py cannot reach it without blocking
+        # the log viewer itself. It streams actor, target user, detail and
+        # **IP address** for the whole filtered set with no pagination — worth
+        # the same treatment as the other bulk exports.
+        from src.middleware.geo_restriction import geo_export_blocked
+        blocked = geo_export_blocked(request)
+        if blocked:
+            return blocked
+
         import csv
         from django.http import StreamingHttpResponse
 

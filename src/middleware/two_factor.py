@@ -57,6 +57,14 @@ class Enforce2FAMiddleware:
             # spelling here would have re-created the v3.14.1 bug this line
             # exists to prevent: 2FA-redirecting an <img> just breaks the image.
             '/exportable-media/',
+            # v3.17.7: the OLD spelling is back, and deliberately. v3.17.6 also
+            # added a legacy redirect at `exportable_media/<path:filename>` so
+            # links in already-sent emails and cached pages keep working — but
+            # this middleware runs BEFORE URL resolution, so an <img> pointing
+            # at the old path was 2FA-redirected instead of reaching its 302.
+            # That is the same broken image the hyphenated line above prevents.
+            # Delete this together with the legacy redirect in src/urls.py.
+            '/exportable_media/',
             # Token-authenticated API only — the DRF app under /api/v1/ (incl.
             # the honeypot export) authenticates per-request and handles auth
             # itself. This deliberately is NOT the broad '/api/' prefix: many
