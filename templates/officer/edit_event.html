@@ -3,8 +3,25 @@
 {% block title %}Edit Event{% endblock %}
 
 {% block admin_content %}
+{% comment %}
+v3.17.6: this breadcrumb hardcoded '/officer/manage-...' — a path that has never
+existed (the real routes are /officers/events/ and /officers/announcements/), so
+the Back link 404'd on this page. Resolved by NAME now.
+
+Two things worth keeping:
+
+  * The "url ... as x" form is used because a template tag cannot be nested
+    inside another tag's arguments — passing a url tag directly as an include
+    argument is not valid Django. Assign first, then pass the variable.
+
+  * This is a comment BLOCK, not the hash form. Django's hash comment is
+    single-line only, so a multi-line one is not a comment at all and its
+    contents are rendered. (Recorded in CLAUDE.md — and I made exactly that
+    mistake while writing this one.)
+{% endcomment %}
+{% url 'manage_events' as manage_events_url %}
 <div class="container mx-auto px-4 py-8 max-w-2xl">
-    {% include 'includes/breadcrumbs.html' with back_url='/officer/manage-events/' back_label='Manage Events' current='Edit Event' %}
+    {% include 'includes/breadcrumbs.html' with back_url=manage_events_url back_label='Manage Events' current='Edit Event' %}
 
     <div class="mb-6">
         <h2 class="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Edit Event</h2>

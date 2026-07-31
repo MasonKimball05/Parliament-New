@@ -47,6 +47,41 @@ from src.models import ParliamentUser
 KNOWN_FAILURES = {}
 
 
+#: A page fails if any single query shape repeats this many times.
+#: See NoNPlusOneOnZeroArgumentPagesTests for how this number was chosen.
+REPEAT_THRESHOLD = 3
+
+#: (url_name, table) pairs reviewed on 07-30-26 and deliberately not fixed in
+#: v3.17.5, each with the reason. This is an allowlist for *known* repeats, not
+#: a place to silence new ones — `test_accepted_repeats_are_still_repeating`
+#: fails if an entry stops being needed, so a fix removes its own exemption.
+ACCEPTED_REPEATS = {
+    # `user_has_device()` hits both device tables, and it is called by
+    # Enforce2FAMiddleware, the `two_factor_status` context processor (on a cold
+    # cache only — it caches for 5 min) and the profile view itself. Fixing it
+    # means threading the middleware's result onto `request`; deferred because
+    # it is a hot-path auth check and worth doing carefully, not at the end of a
+    # release.
+    ('profile', 'otp_totp_totpdevice'),
+    ('profile', 'otp_static_staticdevice'),
+    # Excuse pages fetch the same table per status bucket. Same shape as the
+    # view_all_activity fix in this release; not batched yet.
+    ('my_excuses', 'src_attendanceexcuse'),
+    ('review_excuses', 'src_attendanceexcuse'),
+    # admin-v2 API tokens page reads three different flags through the cached
+    # `FeatureFlag.is_feature_enabled`; the repeats are cache misses on a cold
+    # cache, which is what this sweep always has (it clears the cache per page).
+    ('admin_api_tokens', 'src_featureflag'),
+}
+
+#: Transaction control statements are not queries anyone can fix.
+_TRANSACTION_NOISE = ('BEGIN', 'COMMIT', 'SAVEPOINT', 'RELEASE', 'ROLLBACK')
+
+
+def _is_transaction_noise(shape):
+    return shape.strip().upper().startswith(_TRANSACTION_NOISE)
+
+
 class ZeroArgumentUrlSmokeTests(TestCase):
     """Every page an admin can reach without arguments must not 5xx."""
 
@@ -134,13 +169,22 @@ class ZeroArgumentUrlSmokeTests(TestCase):
 
 class NoNPlusOneOnZeroArgumentPagesTests(TestCase):
     """
-    No page may repeat a query shape 4+ times.
+    No page may repeat a query shape 3+ times.
 
     Same 282 pages as above, but watching the queries instead of the status
     code. Literals are stripped so `WHERE id = 1` and `WHERE id = 2` collapse
-    to one shape; three repeats is a page legitimately fetching three things,
-    four upward is a loop. That is dev mode's own N+1 heuristic, run in CI
-    instead of only when a developer happens to open the panel.
+    to one shape. That is dev mode's own N+1 heuristic, run in CI instead of
+    only when a developer happens to open the panel.
+
+    v3.17.5 tightened this in two ways, both measured before choosing:
+
+    * **Every repeated shape counts, not just the worst one.** It used to test
+      `shapes.most_common(1)`, so a page with three *different* shapes repeating
+      three times each passed clean while a page with one shape at four failed.
+    * **Threshold 4 -> 3.** Measured across the whole sweep: at >=2 there are
+      **489** hits (a count plus a fetch of the same table is normal, so 2 is
+      noise); at >=3 there are **6**; at >=4, none. Three is where the signal
+      is.
 
     Added in v3.17.3 (second pass), after the first pass narrowed every
     *existing* member join and then found that the home page still fired one
@@ -224,6 +268,101 @@ class NoNPlusOneOnZeroArgumentPagesTests(TestCase):
             committee.advisors.add(members[1])
             committee.voting_members.add(members[2])
 
+        cls._seed_v3_17_5_families(members)
+
+    # ------------------------------------------------------------------
+    @classmethod
+    def _seed_v3_17_5_families(cls, members):
+        """
+        Model families this sweep left EMPTY until v3.17.5.
+
+        WHY THIS MATTERS MORE THAN IT LOOKS
+        -----------------------------------
+        `test_no_page_repeats_a_query_shape` below is a real N+1 detector and it
+        works. On 07-30-26 it was nevertheless reporting clean while the C&B,
+        songbook-category, committee-document and quarantine pages each carried a
+        per-row query — because **those pages were rendering with zero rows.**
+        A per-row query fired zero times repeats zero times. The detector was not
+        broken; it was starved.
+
+        Measured, on the pre-fix code: `/songbook/categories/` with no categories
+        showed no repeated shape at all; with five categories it showed
+        **5× `src_song`**, comfortably over the threshold. Same page, same code,
+        same detector — the only variable was whether the fixture had rows.
+
+        This is the third time this exact lesson has been paid for in this file:
+        the `member_type` comment above (a fixture that doesn't *vary* the data
+        doesn't reach the code), the `role=role` comment (a fixture that skips an
+        optional FK tests the early-return path), and now this — a fixture that
+        omits a model entirely doesn't test its pages at all. **When adding a
+        model family to the app, add rows here, or its pages are excluded from
+        every sweep in this module without anyone deciding that.**
+
+        Row counts are deliberately >1 and >threshold: an N+1 with one row is
+        indistinguishable from correct code.
+        """
+        from src.models import (Article, Committee, CommitteeDocument,
+                                GoverningDocument, Resolution,
+                                ResolutionAmendment, Section, Song, SongCategory)
+        from src.models.security import QuarantinedAccount
+
+        # Constitution & Bylaws: documents -> articles -> sections, and
+        # resolutions with amendments pointing back at those sections.
+        for doc_type, title in (('constitution', 'Constitution'), ('bylaws', 'Bylaws')):
+            document = GoverningDocument.objects.create(
+                doc_type=doc_type, title=title)
+            for a in range(4):
+                article = Article.objects.create(
+                    document=document, number=str(a + 1), title=f'Article {a + 1}')
+                for s in range(2):
+                    Section.objects.create(
+                        article=article, number=f'{a + 1}.{s + 1}',
+                        content='Section text.')
+
+        sections = list(Section.objects.all())
+        statuses = ['draft', 'pending', 'passed', 'failed']
+        for i in range(6):
+            resolution = Resolution.objects.create(
+                title=f'Resolution {i}', status=statuses[i % len(statuses)],
+                created_by=members[i % len(members)])
+            for k in range(2):
+                ResolutionAmendment.objects.create(
+                    resolution=resolution,
+                    section=sections[(i + k) % len(sections)],
+                    original_text_snapshot='Snapshot.')
+
+        # Songbook: categories with songs, so the per-category count fires.
+        for i in range(5):
+            category = SongCategory.objects.create(
+                name=f'Category {i}', display_order=i)
+            for j in range(3):
+                Song.objects.create(
+                    title=f'Song {i}-{j}', lyrics='La la la.',
+                    category=category, is_active=True,
+                    created_by=members[j % len(members)])
+
+        # Committee documents: every document_type, because view_all_reports
+        # partitions on it and an absent type is an untested branch.
+        committees = list(Committee.objects.all())
+        doc_types = ['report', 'minutes', 'agenda', 'policy', 'general']
+        for i, document_type in enumerate(doc_types):
+            for k in range(2):
+                CommitteeDocument.objects.create(
+                    committee=committees[(i + k) % len(committees)],
+                    uploaded_by=members[k % len(members)],
+                    title=f'{document_type} {k}',
+                    document=f'committee_documents/{document_type}{k}.pdf',
+                    document_type=document_type,
+                    published_to_chapter=bool(k),
+                )
+
+        # Quarantines: the admin-v2 security dashboard renders these and shows
+        # the count in four places (v3.17.5 §6).
+        for i in range(4):
+            QuarantinedAccount.objects.create(
+                user=members[i], ip_address='198.51.100.4',
+                reason='fixture', is_auto=True)
+
     def setUp(self):
         # This class GETs ~282 pages, which populates every cache the site uses
         # — feature flags, page toggles, per-user preferences, the maintenance
@@ -289,13 +428,14 @@ class NoNPlusOneOnZeroArgumentPagesTests(TestCase):
                 continue
             pages_checked += 1
             shapes = Counter(literal.sub('?', q['sql']) for q in ctx.captured_queries)
-            worst_shape, worst_count = shapes.most_common(1)[0] if shapes else ('', 0)
-            if worst_count >= 4:
-                table = re.search(r'FROM "(\w+)"', worst_shape)
-                offenders.append(
-                    f'{name} ({url}): {worst_count}× '
-                    f'{table.group(1) if table else worst_shape[:60]}'
-                )
+            for shape, count in shapes.items():
+                if count < REPEAT_THRESHOLD or _is_transaction_noise(shape):
+                    continue
+                table_match = re.search(r'FROM "(\w+)"', shape)
+                table = table_match.group(1) if table_match else shape[:60]
+                if (name, table) in ACCEPTED_REPEATS:
+                    continue
+                offenders.append(f'{name} ({url}): {count}x {table}')
 
         self.assertGreater(
             pages_checked, 100,
@@ -303,3 +443,55 @@ class NoNPlusOneOnZeroArgumentPagesTests(TestCase):
             f'shrinking, which hides N+1s rather than reporting them',
         )
         self.assertEqual(offenders, [], 'pages with a repeated query shape (N+1)')
+
+    def test_accepted_repeats_are_still_repeating(self):
+        """
+        An exemption that outlives the repeat it excuses makes this sweep look
+        weaker than it is, and hides the next regression on that page. Fixing a
+        repeat should therefore delete its own entry from ACCEPTED_REPEATS.
+        """
+        import re
+        from collections import Counter
+
+        from django.core.cache import cache
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from src.models import IPBlacklist
+
+        literal = re.compile(r"('[^']*'|\b\d+\b)")
+        client = Client()
+        client.force_login(self.admin)
+
+        still_repeating = set()
+        for name, _table in ACCEPTED_REPEATS:
+            try:
+                url = reverse(name)
+            except NoReverseMatch:
+                continue
+            cache.clear()
+            IPBlacklist.objects.all().delete()
+            try:
+                with CaptureQueriesContext(connection) as ctx:
+                    response = client.get(url)
+            except Exception:
+                continue
+            if response.status_code >= 400:
+                continue
+            shapes = Counter(literal.sub('?', q['sql']) for q in ctx.captured_queries)
+            for shape, count in shapes.items():
+                if count < REPEAT_THRESHOLD or _is_transaction_noise(shape):
+                    continue
+                match = re.search(r'FROM "(\w+)"', shape)
+                if match:
+                    still_repeating.add((name, match.group(1)))
+
+        stale = sorted(
+            f'{name} / {table}'
+            for name, table in ACCEPTED_REPEATS
+            if (name, table) not in still_repeating
+        )
+        self.assertEqual(
+            stale, [],
+            'ACCEPTED_REPEATS entries that no longer repeat — delete them',
+        )

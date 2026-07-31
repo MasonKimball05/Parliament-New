@@ -26,6 +26,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db import connection
 from django.test import Client, TestCase
+from django.urls import reverse
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
@@ -244,12 +245,12 @@ class QueryBudgetTests(TestCase):
         return len(ctx.captured_queries), response
 
     def test_passed_legislation_does_not_grow_with_the_archive(self):
-        small = self._queries_for('/passed_legislation/?status=all', self._build(4))[0]
+        small = self._queries_for(f'{reverse("passed_legislation")}?status=all', self._build(4))[0]
         Attendance.objects.all().delete()
         Vote.objects.all().delete()
         Legislation.objects.all().delete()
         ParliamentUser.objects.all().delete()
-        large, response = self._queries_for('/passed_legislation/?status=all', self._build(30))
+        large, response = self._queries_for(f'{reverse("passed_legislation")}?status=all', self._build(30))
 
         self.assertLessEqual(len(response.context['passed_legislation']), 20)
         # A little slack for genuinely conditional work (plurality tally, the
@@ -270,7 +271,7 @@ class QueryBudgetTests(TestCase):
         client.force_login(author)
         sizes, page, total = [], 1, None
         while True:
-            response = client.get(f'/passed_legislation/?status=all&page={page}')
+            response = client.get(f'{reverse("passed_legislation")}?status=all&page={page}')
             sizes.append(len(response.context['passed_legislation']))
             total = response.context['total_count']
             if not response.context['page_obj'].has_next():
@@ -299,7 +300,7 @@ class QueryBudgetTests(TestCase):
         client = Client()
         client.force_login(author)
         with CaptureQueriesContext(connection) as ctx:
-            client.get('/passed_legislation/?status=all')
+            client.get(f'{reverse("passed_legislation")}?status=all')
         attendance = [
             q for q in ctx.captured_queries
             if 'src_attendance' in q['sql'] and q['sql'].lstrip().upper().startswith('SELECT')
@@ -582,9 +583,15 @@ class NoCredentialColumnsOnJoinsTests(TestCase):
         client.force_login(self.admin)
         offenders = []
         for url in ('/home/', '/announcements/', '/officers/activity-logs/',
-                    '/passed_legislation/?status=all', '/calendar/export/'):
+                    f'{reverse("passed_legislation")}?status=all', '/calendar/export/'):
             with CaptureQueriesContext(connection) as ctx:
-                client.get(url)
+                response = client.get(url)
+            # v3.17.6: assert the page actually rendered. This test scans JOINs
+            # for credential columns, and a 404 has no joins — so when the
+            # `/passed_legislation/` path was renamed and this string was not,
+            # the check passed by finding nothing to check. Same failure class
+            # as the IP-blacklist sweep and the frozen-clock attendance test.
+            self.assertEqual(response.status_code, 200, f'{url} did not render')
             for query in ctx.captured_queries:
                 sql = query['sql']
                 # Only joins — the session-user load legitimately needs the

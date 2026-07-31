@@ -278,7 +278,10 @@ def notify_expired_vote_receipts():
             'Receipts for your past vote(s) on {} reached the 3-month limit '
             'and are no longer verifiable.'.format(
                 ', '.join(f'"{t}"' for t in shown) + (f' and {more} more' if more > 0 else '')),
-            link='/passed_legislation/?status=personal',
+            # v3.17.6: was '/passed_legislation/...'. The path was renamed to
+            # hyphens in 50ac888 and this string was not, so every receipt-
+            # expiry notification carried a dead link.
+            link='/passed-legislation/?status=personal',
         )
     if per_user:
         logger.info(f"[tasks] notify_expired_vote_receipts: notified {len(per_user)} member(s)")

@@ -14,6 +14,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.test import Client, TestCase
+from django.urls import reverse
 from django.utils import timezone
 
 from src import dev_mode
@@ -196,7 +197,15 @@ class PanelIntegrationTests(TestCase):
         with patch.object(dev_mode, 'DEV_USER_IDS', {'555'}):
             set_dev_mode(self.dev, True)
             client.force_login(self.dev)
-            return client.get(url)
+            response = client.get(url)
+        # v3.17.6: every assertion in this module is `assertNotIn` against the
+        # rendered body — which a 404 satisfies trivially. When the
+        # `/passed_legislation/` path was renamed and the string here was not,
+        # `test_no_ballot_content_reaches_the_page` (the guard on the row
+        # inspector never showing ballot rows) passed by rendering nothing.
+        # A body-absence assertion is only meaningful against a body.
+        assert response.status_code == 200, f'{url} returned {response.status_code}'
+        return response
 
     def test_panel_renders_rows(self):
         response = self._load()
@@ -214,7 +223,7 @@ class PanelIntegrationTests(TestCase):
         self.assertIn('click to read', body)
 
     def test_no_ballot_content_reaches_the_page(self):
-        body = self._load('/passed_legislation/?status=all').content.decode()
+        body = self._load(f'{reverse("passed_legislation")}?status=all').content.decode()
         # The vote table's rows must never be rendered, however the page got
         # there. If a row inspector ever starts showing them, this fails.
         self.assertNotIn('pdev-rowsbox">\n                  <table>\n                    <tr><th>vote_choice',

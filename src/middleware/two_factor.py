@@ -53,7 +53,10 @@ class Enforce2FAMiddleware:
             '/accounts/passkeys/authenticate/',  # passkey login endpoints
             '/static/',
             '/media/',
-            '/exportable_media/',  # media assets — 2FA-redirecting an <img> just breaks the image (v3.14.1)
+            # v3.17.6: renamed with the route in 50ac888. Leaving the old
+            # spelling here would have re-created the v3.14.1 bug this line
+            # exists to prevent: 2FA-redirecting an <img> just breaks the image.
+            '/exportable-media/',
             # Token-authenticated API only — the DRF app under /api/v1/ (incl.
             # the honeypot export) authenticates per-request and handles auth
             # itself. This deliberately is NOT the broad '/api/' prefix: many

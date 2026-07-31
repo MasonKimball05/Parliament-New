@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -71,17 +72,23 @@ def songbook_list(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    # Check for sheet music PDF
-    sheet_music_url = None
-    sheet_music_path = os.path.join(settings.BASE_DIR, 'exportable_media', 'BTP Sheet Music.pdf')
-    if os.path.exists(sheet_music_path):
-        sheet_music_url = '/exportable_media/BTP Sheet Music.pdf'
+    # Sheet music / songbook PDFs, if they are on disk.
+    #
+    # v3.17.6: these were hardcoded as '/exportable_media/<name>'. The route was
+    # renamed to hyphens in 50ac888 and these strings were not, so both links
+    # broke. Built with `reverse()` now so the next rename cannot silently
+    # detach them — the URL *name* is the stable thing, the path is not.
+    #
+    # Note the two spellings that are both correct and must not be unified: the
+    # on-disk DIRECTORY is still `exportable_media`, only the URL is hyphenated.
+    def _exportable_media_url(filename):
+        path = os.path.join(settings.BASE_DIR, 'exportable_media', filename)
+        if not os.path.exists(path):
+            return None
+        return reverse('serve_exportable_media', args=[filename])
 
-    # Check for songbook PDF
-    songbook_url = None
-    songbook_path = os.path.join(settings.BASE_DIR, 'exportable_media', 'Beta Theta Pi Song Book Revised 2005.pdf')
-    if os.path.exists(songbook_path):
-        songbook_url = '/exportable_media/Beta Theta Pi Song Book Revised 2005.pdf'
+    sheet_music_url = _exportable_media_url('BTP Sheet Music.pdf')
+    songbook_url = _exportable_media_url('Beta Theta Pi Song Book Revised 2005.pdf')
 
     return render(request, 'songbook.html', {
         'songs': page_obj,

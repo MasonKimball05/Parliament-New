@@ -59,4 +59,5 @@ if settings.DEBUG:
     # Also serve files from exportable_media folder (for git-tracked media files)
     import os
     exportable_media_root = os.path.join(settings.BASE_DIR, 'exportable_media')
-    urlpatterns += static('/exportable_media/', document_root=exportable_media_root)
+    # v3.17.6: must match the route in src/urls.py, renamed in 50ac888.
+    urlpatterns += static('/exportable-media/', document_root=exportable_media_root)

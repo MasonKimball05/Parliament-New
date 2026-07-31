@@ -580,7 +580,7 @@ urlpatterns = [
     path('legislation/<int:legislation_id>/assign/', assign_appointment, name='assign_appointment'),
     path('legislation/<int:legislation_id>/reopen/', reopen_legislation, name='reopen_legislation'),
     path('legislation/<int:legislation_id>/note/', update_legislation_note, name='update_legislation_note'),
-    path('legislation/<int:legislation_id>/submit_new_version/', submit_new_version, name='submit_new_version'),
+    path('legislation/<int:legislation_id>/submit-new-version/', submit_new_version, name='submit_new_version'),
 
     # Admin Pages
     path('admin/', admin.site.urls),
@@ -1047,10 +1047,68 @@ urlpatterns = [
     path('server-info', honeypot_server_status, name='honeypot_server_info'),
 ]
 
+# ── Legacy underscore paths (v3.17.6) ────────────────────────────────────────
+#
+# 50ac888 standardised site paths on hyphens. The URL *names* did not change, so
+# every `{% url %}` and `reverse()` followed automatically — but nothing else
+# did, and a renamed path breaks four things that live outside the codebase:
+#
+#   * bookmarks and anything a member has in their browser history;
+#   * links in emails already sent (announcement digests, vote notices);
+#   * `Notification.link` values already stored in the production database —
+#     `tasks/votes.py` wrote '/passed_legislation/?status=personal' into every
+#     receipt-expiry notification, so those rows are dead without this;
+#   * `/admin_v2/`, which existed as a working alias until 50ac888 removed it.
+#
+# `pattern_name` rather than a literal `url` so these follow any future rename,
+# and `query_string=True` because the stored notification links carry
+# `?status=personal` and a redirect that drops it lands on the wrong tab.
+#
+# These are cheap to keep and safe to delete once the prod logs stop showing
+# hits. `permanent=False` (302) deliberately: a 301 is cached by browsers
+# indefinitely and is very hard to take back if a path needs to move again.
+urlpatterns += [
+    path('change_password/',
+         RedirectView.as_view(pattern_name='change_password',
+                              permanent=False, query_string=True)),
+    path('make_event/',
+         RedirectView.as_view(pattern_name='make_event',
+                              permanent=False, query_string=True)),
+    path('manage_event/',
+         RedirectView.as_view(pattern_name='manage_event',
+                              permanent=False, query_string=True)),
+    path('user_list/',
+         RedirectView.as_view(pattern_name='user_list',
+                              permanent=False, query_string=True)),
+    path('user_list/export/',
+         RedirectView.as_view(pattern_name='export_user_list',
+                              permanent=False, query_string=True)),
+    path('passed_legislation/',
+         RedirectView.as_view(pattern_name='passed_legislation',
+                              permanent=False, query_string=True)),
+    path('admin_v2/',
+         RedirectView.as_view(pattern_name='admin_v2_login',
+                              permanent=False, query_string=True)),
+    path('exportable_media/<path:filename>',
+         RedirectView.as_view(pattern_name='serve_exportable_media',
+                              permanent=False, query_string=True)),
+    path('committee/<str:code>/manage_members/',
+         RedirectView.as_view(pattern_name='manage_members',
+                              permanent=False, query_string=True)),
+    path('committee/<str:code>/upload_document/',
+         RedirectView.as_view(pattern_name='upload_document',
+                              permanent=False, query_string=True)),
+    path('legislation/<int:legislation_id>/submit_new_version/',
+         RedirectView.as_view(pattern_name='submit_new_version',
+                              permanent=False, query_string=True)),
+]
+
 if settings.DEBUG:
     import os as _os
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    urlpatterns += static('/exportable_media/', document_root=_os.path.join(settings.BASE_DIR, 'exportable_media'))
+    # v3.17.6: URL prefix renamed in 50ac888; the DIRECTORY is still
+    # `exportable_media` on disk, so only the first argument changes.
+    urlpatterns += static('/exportable-media/', document_root=_os.path.join(settings.BASE_DIR, 'exportable_media'))
 
 # Custom error handlers
 from src.view.error_handlers import custom_404, custom_500

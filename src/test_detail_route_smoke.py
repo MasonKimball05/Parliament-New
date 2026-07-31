@@ -314,16 +314,26 @@ class DetailRouteSmokeTests(TestCase):
         self.assertEqual(failures, [], 'detail pages that error for an admin')
 
     def test_no_detail_page_repeats_a_query_shape(self):
+        """
+        v3.17.5 tightened this to match `test_url_smoke`: **every** repeated
+        shape counts (it used to test only `shapes.most_common(1)`, so three
+        different shapes repeating three times each passed clean), and the
+        threshold dropped from 4 to 3. That change alone surfaced
+        `legislation_detail` running a COUNT per vote choice — the fourth site
+        of a pattern v3.17.1/.2/.3 had each fixed once elsewhere.
+        """
         results = self._sweep()
         offenders = []
         for name, status, url, queries in results:
             if status != 200:
                 continue
             shapes = Counter(LITERAL.sub('?', q['sql']) for q in queries)
-            shape, count = shapes.most_common(1)[0] if shapes else ('', 0)
-            if count >= 4:
+            for shape, count in shapes.items():
+                if count < 3 or shape.strip().upper().startswith(
+                        ('BEGIN', 'COMMIT', 'SAVEPOINT', 'RELEASE', 'ROLLBACK')):
+                    continue
                 table = re.search(r'FROM "(\w+)"', shape)
                 offenders.append(
-                    f'{name} ({url}): {count}× '
+                    f'{name} ({url}): {count}x '
                     f'{table.group(1) if table else shape[:60]}')
         self.assertEqual(offenders, [], 'detail pages with a repeated query shape')
