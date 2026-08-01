@@ -11,7 +11,7 @@ from django.http import HttpResponse
 from django.core.exceptions import ValidationError
 import csv
 import logging
-from src.models import KaiReport, Committee, ParliamentUser, KaiReportActivity, KaiReportTemplate, KaiFormField, KaiReportFieldResponse, KaiClosureRequest, ActivityLog, KaiMemberPermission
+from src.models import KaiReport, Committee, ParliamentUser, KaiReportActivity, KaiReportTemplate, KaiFormField, KaiReportFieldResponse, KaiClosureRequest, ActivityLog, KaiMemberPermission, KaiRecusal, KaiAppeal
 from src.forms import KaiReportForm
 from src.decorators import log_function_call
 from src.feature_flag_decorators import require_feature_flag
@@ -246,6 +246,181 @@ def _get_kai_access(user, committee):
         return {f: False for f in FIELDS} | {'is_full_access': False}
 
 
+#: Every permission `_get_kai_access` returns. Kept here so `_case_access` can
+#: zero all of them without naming them one at a time — a new permission added
+#: to the helper must not silently escape recusal.
+_KAI_PERMISSION_FIELDS = (
+    'can_view_report_list', 'can_view_report_details',
+    'can_view_submitter_identity', 'can_view_accused_identity',
+    'can_edit_open_cases', 'can_add_activity', 'can_close_cases',
+)
+
+
+def _case_access(user, report, kai_access):
+    """
+    `kai_access` narrowed for one specific case — the recusal chokepoint.
+
+    v3.18.0 — WHY THIS EXISTS
+    -------------------------
+    The chapter bylaws (§ vi) require that "only the accused must temporarily
+    recuse their seat for their trial." The app implemented no part of that:
+    `_get_kai_access()` takes a user and a committee and **never sees the
+    report**, so a Kai member who was the accused in an open case could open it,
+    read the allegation against themselves, see who reported them, and — holding
+    `can_close_cases` — close it. The same applied in reverse to a reviewer who
+    was the submitter.
+
+    Recusal is computed from the case itself (`KaiReport.is_party`), NOT from a
+    `KaiRecusal` row, so it cannot be defeated by failing to record one. The
+    `KaiRecusal` model records who filled the vacated seat; this function is
+    what actually enforces the vacancy.
+
+    Fails closed: every permission goes False, and `is_recused` / `recusal_reason`
+    are added so a caller can explain the refusal rather than 404ing silently.
+    """
+    from src.dev_mode import record_permission
+
+    if report is None:
+        return {**kai_access, 'is_recused': False, 'recusal_reason': None, 'is_standin': False}
+
+    # 1. THE ACCUSED is fully recused — the bylaws' actual requirement.
+    #    Checked first so that appointing a party as a stand-in — which
+    #    `eligible_standins` refuses, but which a hand-written row could still
+    #    do — cannot resurrect their access.
+    reason = report.recusal_reason(user)
+    if reason == 'accused':
+        record_permission(
+            'kai_access', 'RECUSED — all permissions withdrawn',
+            f'user is the accused on case {report.pk}',
+        )
+        return {
+            **{field: False for field in _KAI_PERMISSION_FIELDS},
+            'is_full_access': False,
+            'is_recused': True,
+            'recusal_reason': reason,
+            'is_standin': False,
+        }
+
+    # 1b. THE SUBMITTER keeps sight of the case and loses the power to decide it.
+    #
+    #     ⚠️ CORRECTED 07-31-26, same day. The first cut of this treated the
+    #     submitter exactly like the accused — every permission withdrawn, case
+    #     hidden from the list, the counts and every export. That was wrong on
+    #     two counts:
+    #
+    #       * **The bylaws say the opposite.** § vi: "…only the accused must
+    #         temporarily recuse their seat for their trial." *Only* the
+    #         accused. Submitter recusal was an inference, not the rule.
+    #       * **It broke a real workflow immediately.** Mason filed three test
+    #         reports as himself and the Kai list showed zero — no rows, and a
+    #         count of 0 to match. In a chapter this size the head of Kai is
+    #         often the person who files, and hiding a case from the person who
+    #         reported it helps nobody.
+    #
+    #     What survives from the original reasoning is the narrow part: nobody
+    #     should *adjudicate* a complaint they themselves filed. So the
+    #     submitter keeps every read permission their seat grants and loses
+    #     `can_edit_open_cases` and `can_close_cases` on this case only.
+    if reason in ('submitter', 'self'):
+        narrowed = {
+            **kai_access,
+            'can_edit_open_cases': False,
+            'can_close_cases': False,
+        }
+        record_permission(
+            'kai_access', 'read-only — cannot decide a case they are party to',
+            f'user is the {reason} on case {report.pk}',
+        )
+        return {
+            **narrowed,
+            'is_recused': False,
+            'recusal_reason': reason,
+            'is_standin': False,
+            'is_submitter_readonly': True,
+        }
+
+    # 1c. A MANUAL recusal — recorded by the head of Kai because the member is
+    #     unavailable, has declared a conflict, or has stood themselves back.
+    #
+    #     ⚠️ ADDED 07-31-26. Until this, `_case_access` read only the party
+    #     status computed from the case, so a `KaiRecusal` row created by hand
+    #     **changed nothing**: the member kept every permission while the panel
+    #     said they were recused. The record and the enforcement disagreed,
+    #     which is the worst of the three possible states — it looks handled.
+    #
+    #     Withdrawn in full, same as the accused. Someone who has stood back
+    #     from a case has stood back from all of it, including recusing others.
+    manual = KaiRecusal.objects.filter(report=report, user=user).first()
+    if manual is not None and manual.reason in KaiRecusal.MANUAL_REASONS:
+        record_permission(
+            'kai_access', 'RECUSED — all permissions withdrawn',
+            f'manual recusal ({manual.reason}) on case {report.pk}',
+        )
+        return {
+            **{field: False for field in _KAI_PERMISSION_FIELDS},
+            'is_full_access': False,
+            'is_recused': True,
+            'recusal_reason': manual.reason,
+            'is_standin': False,
+        }
+
+    # 2. Stand-in appointment (bylaws §§ vi–ix). A member with no committee
+    #    grant of their own holds, for this case only, the snapshot taken from
+    #    the seat they are filling. UNION with any access they already have,
+    #    so appointing an existing committee member never *reduces* them.
+    grant = KaiRecusal.standin_grant(report, user)
+    if grant is not None:
+        merged = {
+            field: bool(kai_access.get(field)) or bool(grant.get(field))
+            for field in _KAI_PERMISSION_FIELDS
+        }
+        record_permission(
+            'kai_access',
+            ', '.join(f for f in _KAI_PERMISSION_FIELDS if merged[f]) or 'none granted',
+            f'stand-in appointment on case {report.pk}',
+        )
+        return {
+            **kai_access, **merged,
+            'is_recused': False,
+            'recusal_reason': None,
+            'is_standin': True,
+        }
+
+    return {**kai_access, 'is_recused': False, 'recusal_reason': None, 'is_standin': False}
+
+
+def _recused_case_ids(user):
+    """
+    Case pks `user` is a party to — excluded from every list-shaped surface.
+
+    A recused member must not see their own case in the reviewer list, the
+    search results, either CSV export, or the global-search card. Those are the
+    same five surfaces enumerated at `templates/kai/view_reports.html` for
+    `description`; the list is reused deliberately.
+
+    They still see it on their OWN dashboard as an accused/submitter — that is
+    notice, which they are entitled to, and it exposes nothing the member-facing
+    templates do not already gate.
+    """
+    if not getattr(user, 'pk', None):
+        return []
+    # ⚠️ CORRECTED 07-31-26: this was `Q(submitted_by=user) | Q(targeted_to=user)`
+    # and hid every case the viewer had FILED as well as every case naming them.
+    # The bylaws recuse "only the accused" (§ vi), and hiding a case from its own
+    # reporter broke the list outright — three self-filed test reports rendered
+    # as an empty queue with a count of 0. Accused only. A submitter still sees
+    # their case; `_case_access` removes their power to decide it.
+    # `targeted_to=user` AND NOT `submitted_by=user`: a self-report is not
+    # recused (see `KaiReport.recusal_reason_for_pk`) — there is no identity to
+    # withhold from the person who wrote it.
+    return list(
+        KaiReport.objects
+        .filter(targeted_to=user)
+        .exclude(submitted_by=user)
+        .values_list('pk', flat=True)
+    )
+
+
 def _kai_search_q(search_query, kai_access):
     """
     Build the Kai report search predicate for a user with `kai_access`.
@@ -320,7 +495,15 @@ def view_kai_reports(request):
         return redirect('home')
 
     kai_access = _get_kai_access(request.user, kai_committee)
-    if not kai_access['can_view_report_list']:
+    # v3.18.0: a stand-in appointed under bylaws §§ vi-ix may hold no
+    # committee-level grant of their own. They must still be able to reach the
+    # case they were appointed to — otherwise the appointment is ceremonial.
+    # They see ONLY those cases; the list is restricted below.
+    standin_case_ids = list(
+        KaiRecusal.objects.filter(replacement=request.user)
+        .values_list('report_id', flat=True)
+    )
+    if not kai_access['can_view_report_list'] and not standin_case_ids:
         messages.error(request, 'You do not have permission to view Kai reports.')
         return redirect('home')
 
@@ -334,7 +517,31 @@ def view_kai_reports(request):
         date_to = request.GET.get('date_to', '')
 
         # Start with all reports
+        #
+        # v3.18.0 — RECUSAL. Cases the viewer is a party to are excluded from
+        # the list before any other filter, so they cannot be reached by
+        # status, category, date or search either. See `_case_access`.
+        # ⚠️ CORRECTED 07-31-26 (twice). This first excluded every case the
+        # viewer was a party to — submitter or accused — which hid three
+        # self-filed test reports and rendered an empty queue. Narrowing it to
+        # the accused still hid two.
+        #
+        # The exclusion was the wrong tool. **Hiding the row protects nothing**:
+        # the accused already knows the case exists — they are notified, and it
+        # is on their own dashboard under "Reports Where I'm Named". What they
+        # must not have is the allegation body, the submitter's identity, and
+        # any power to act on it. All three are enforced elsewhere:
+        # `manage_kai_report` refuses them, the exports redact, and the bulk
+        # actions exclude.
+        #
+        # So the list shows EVERY case and marks the viewer's own — see
+        # `viewer_is_party` below and the redacted card in view_reports.html.
+        # The counts then agree with the rows, which is the property that broke.
         reports = KaiReport.objects.all()
+        # A pure stand-in (no committee grant) sees only their appointments.
+        if not kai_access['can_view_report_list']:
+            reports = reports.filter(pk__in=standin_case_ids)
+        assigned_filter = request.GET.get('assigned', 'all')
 
         # Apply status filter
         if status_filter == 'pending':
@@ -371,15 +578,36 @@ def view_kai_reports(request):
             except ValueError:
                 pass
 
+        # v3.18.0: "My cases" filter — `assigned_to` is set independently of
+        # status, so this is a genuine work queue rather than a status view.
+        if assigned_filter == 'me':
+            reports = reports.filter(assigned_to=request.user)
+        elif assigned_filter == 'unassigned':
+            reports = reports.filter(assigned_to__isnull=True)
+
         # select_related directly — the test-DB schema-probe fallback is gone
         # (migrations consolidated + tracked since 07-05-26). (v3.15.6)
-        reports = list(reports.select_related('submitted_by', 'reviewed_by', 'targeted_to').defer(*member_defer('submitted_by', 'reviewed_by', 'targeted_to')).order_by('-submitted_at'))
+        reports = list(reports.select_related('submitted_by', 'reviewed_by', 'targeted_to', 'assigned_to').defer(*member_defer('submitted_by', 'reviewed_by', 'targeted_to', 'assigned_to')).order_by('-submitted_at'))
+
+        # Per-row party status. The list template gates content on ONE
+        # committee-level `kai_access` for every row, so a case the viewer is
+        # named in needs its own flag — set here, read in view_reports.html.
+        for _report in reports:
+            _report.viewer_recusal = _report.recusal_reason(request.user)
 
         # Status counts — v3.16.3: one aggregate instead of four separate
         # .count() round trips, matching the category pattern directly below.
+        #
+        # v3.18.0: recused cases are excluded here too. The stat cards are
+        # clickable filters onto the list, so a count that included a case the
+        # list will not show is both wrong and a disclosure — "Pending 4" with
+        # three rows tells the viewer a case about them exists.
+        _visible = KaiReport.objects.all()
+        if not kai_access['can_view_report_list']:
+            _visible = _visible.filter(pk__in=standin_case_ids)
         status_map = {
             row['status']: row['total']
-            for row in KaiReport.objects.values('status').annotate(total=Count('id'))
+            for row in _visible.values('status').annotate(total=Count('id'))
         }
         counts = {
             'all': sum(status_map.values()),
@@ -389,9 +617,26 @@ def view_kai_reports(request):
         }
 
         # Get counts for category filters — one aggregated query instead of one per category
-        cat_qs = KaiReport.objects.values('category').annotate(total=Count('id'))
+        cat_qs = _visible.values('category').annotate(total=Count('id'))
         cat_map = {row['category']: row['total'] for row in cat_qs}
         category_counts = {cat_value: cat_map.get(cat_value, 0) for cat_value, _ in KaiReport.CATEGORY_CHOICES}
+
+        # v3.18.0 — case aging. Nothing surfaced how long a case had been
+        # sitting, so a `pending` case could age indefinitely with no signal.
+        # One extra query for the oldest unreviewed case; `days_open` and
+        # `is_stale` are properties, computed per row with no further queries.
+        oldest_pending = (
+            _visible.filter(status='pending')
+            .select_related('assigned_to')
+            .defer(*member_defer('assigned_to'))
+            .order_by('submitted_at')
+            .first()
+        )
+        stale_count = sum(1 for report in reports if report.is_stale)
+        assigned_counts = {
+            'mine': sum(1 for r in reports if r.assigned_to_id == request.user.pk),
+            'unassigned': sum(1 for r in reports if r.assigned_to_id is None),
+        }
     except Exception:
         # Table doesn't exist yet - show empty state
         reports = []
@@ -408,6 +653,10 @@ def view_kai_reports(request):
         }
         category_counts = {}
         cat_map = {}
+        assigned_filter = 'all'
+        oldest_pending = None
+        stale_count = 0
+        assigned_counts = {'mine': 0, 'unassigned': 0}
         messages.info(request, 'Kai Reports database table not yet created. This is a preview of the interface.')
 
     # Dashboard stats (compute after main try/except so counts are available)
@@ -508,6 +757,13 @@ def view_kai_reports(request):
         'outcome_thrown_out': outcome_thrown_out,
         'recent_activities': recent_activities,
         'kai_access': kai_access,
+
+        # v3.18.0 — aging + assignment
+        'oldest_pending': oldest_pending,
+        'stale_count': stale_count,
+        'stale_after_days': KaiReport.STALE_AFTER_DAYS,
+        'assigned_filter': assigned_filter,
+        'assigned_counts': assigned_counts,
     }
 
     return render(request, 'kai/view_reports.html', context)
@@ -607,7 +863,9 @@ def export_kai_reports_csv(request):
 
     try:
         # Start with all reports
-        reports = KaiReport.objects.all()
+        # v3.18.0 — RECUSAL: excluded before filtering, so a recused case
+        # cannot be reached by any filter combination either.
+        reports = KaiReport.objects.exclude(pk__in=_recused_case_ids(request.user))
 
         # Apply filters (same logic as view)
         if status_filter == 'pending':
@@ -704,6 +962,18 @@ def manage_kai_report(request, report_id):
         return redirect('home')
 
     kai_access = _get_kai_access(request.user, kai_committee)
+    # v3.18.0 — RECUSAL. Narrow to this case before any permission is read.
+    # A member who is the accused or the submitter has every permission
+    # withdrawn here, so the checks below refuse them exactly as they refuse a
+    # member with no grant at all. See `_case_access`.
+    kai_access = _case_access(request.user, report, kai_access)
+    if kai_access.get('is_recused'):
+        messages.error(
+            request,
+            'You are recused from this case because you are the '
+            f"{kai_access['recusal_reason']} named in it. Chapter bylaws § vi.",
+        )
+        return redirect('view_kai_reports')
     if not kai_access['can_view_report_details']:
         messages.error(request, 'You do not have permission to view this report.')
         return redirect('home')
@@ -713,7 +983,10 @@ def manage_kai_report(request, report_id):
 
         # Action-level permission checks
         _edit_actions = {'mark_reviewed', 'mark_pending', 'update_tags', 'update_deliberation',
-                         'link_report', 'unlink_report', 'update_accused', 'notify_accused', 'notify_submitter'}
+                         'link_report', 'unlink_report', 'update_accused', 'notify_accused',
+                         'notify_submitter',
+                         # v3.18.0 — assigning a case is an edit, not a close.
+                         'assign_case'}
         _activity_actions = {'update_notes', 'add_activity'}
         _close_actions = {'archive', 'approve_closure', 'deny_closure'}
 
@@ -725,6 +998,35 @@ def manage_kai_report(request, report_id):
             return redirect('manage_kai_report', report_id=report.id)
         if action in _close_actions and not kai_access['can_close_cases']:
             messages.error(request, 'You do not have permission to close cases.')
+            return redirect('manage_kai_report', report_id=report.id)
+
+        # v3.18.0 — case assignment. `reviewed_by` is only set at review
+        # time, so before that a case had no owner at all.
+        if action == 'assign_case':
+            raw = request.POST.get('assigned_to') or ''
+            if not raw:
+                report.assigned_to = None
+                detail = 'Case unassigned.'
+            else:
+                # Must be an active Kai member and not a party — the same rule
+                # the <select> is built from, re-checked because a POST is not
+                # a form.
+                candidate = kai_committee.members.filter(
+                    pk=raw, member_status='Active',
+                ).exclude(
+                    pk__in=[pk for pk in (report.submitted_by_id, report.targeted_to_id) if pk]
+                ).first()
+                if candidate is None:
+                    messages.error(request, 'That member cannot be assigned to this case.')
+                    return redirect('manage_kai_report', report_id=report.id)
+                report.assigned_to = candidate
+                detail = f'Case assigned to {candidate.name}.'
+            report.save(update_fields=['assigned_to'])
+            KaiReportActivity.objects.create(
+                report=report, user=request.user,
+                action='status_changed', details=detail,
+            )
+            messages.success(request, detail)
             return redirect('manage_kai_report', report_id=report.id)
 
         if action == 'mark_reviewed':
@@ -1539,6 +1841,37 @@ You may submit another closure request in the future if circumstances change.
     except Exception:
         custom_responses = []
 
+    # v3.18.0 — recusal seats. Idempotent; records the vacancy so it can be
+    # filled and shown in the minutes. Enforcement is independent of these rows.
+    _sync_recusals(report, kai_committee)
+    recusals = list(
+        report.recusals.select_related('user', 'replacement')
+        .defer(*member_defer('user', 'replacement'))
+    )
+    can_appoint = _can_appoint_standins(request.user, kai_committee)
+    eligible_standins = (
+        list(KaiRecusal.eligible_standins(report)) if can_appoint else []
+    )
+    recusable_members = (
+        list(
+            ParliamentUser.objects
+            .filter(pk__in=list(kai_committee.members.values_list('pk', flat=True))
+                            + list(kai_committee.chairs.values_list('pk', flat=True)))
+            .exclude(pk__in=[r.user_id for r in recusals])
+            .exclude(pk__in=[pk for pk in (report.submitted_by_id, report.targeted_to_id) if pk])
+            .order_by('name')
+        )
+        if can_appoint else []
+    )
+    assignable_members = (
+        list(
+            kai_committee.members.filter(member_status='Active')
+            .exclude(pk__in=[pk for pk in (report.submitted_by_id, report.targeted_to_id) if pk])
+            .order_by('name')
+        )
+        if kai_access['can_edit_open_cases'] else []
+    )
+
     context = {
         'report': report,
         'kai_committee': kai_committee,
@@ -1556,6 +1889,19 @@ You may submit another closure request in the future if circumstances change.
         'tag_choices': KaiReport.TAG_CHOICES,
         'selected_tags': report.get_tags_list(),
         'legacy_tags': [t for t in report.get_tags_list() if t not in KaiReport.ALLOWED_TAGS],
+
+        # v3.18.0 — recusal seats (bylaws §§ vi-ix), aging, assignment, appeals.
+        # `_sync_recusals` materialises a row for any committee member who is a
+        # party, so the chair has something to appoint against. Enforcement does
+        # not depend on these rows — see `_case_access`.
+        'recusals': recusals,
+        'can_appoint_standins': can_appoint,
+        'eligible_standins': eligible_standins,
+        'recusable_members': recusable_members,
+        'assignable_members': assignable_members,
+        'appeals': report.appeals.select_related('filed_by').defer(*member_defer('filed_by')),
+        'appeal_window_days': KaiAppeal.APPEAL_WINDOW_DAYS,
+        'appeal_days_remaining': KaiAppeal.days_remaining(report),
     }
 
     return render(request, 'kai/manage_report.html', context)
@@ -1580,6 +1926,12 @@ def print_kai_report(request, report_id):
         return redirect('home')
 
     kai_access = _get_kai_access(request.user, kai_committee)
+    # v3.18.0 — RECUSAL. The print view is the fifth surface; a recused member
+    # must not be able to route around the detail page by printing it.
+    kai_access = _case_access(request.user, report, kai_access)
+    if kai_access.get('is_recused'):
+        messages.error(request, 'You are recused from this case. Chapter bylaws § vi.')
+        return redirect('view_kai_reports')
     if not kai_access['can_view_report_details']:
         messages.error(request, 'You do not have permission to view this report.')
         return redirect('home')
@@ -1669,7 +2021,24 @@ def bulk_actions_kai_reports(request):
 
     try:
         # Get the reports
-        reports = KaiReport.objects.filter(id__in=report_ids)
+        # v3.18.0 — RECUSAL: a recused member must not act on their own case
+        # via a bulk action either. Excluded from the queryset, so the case is
+        # simply not among those the action applies to.
+        reports = (
+            KaiReport.objects
+            .filter(id__in=report_ids)
+            .exclude(pk__in=_recused_case_ids(request.user))
+        )
+
+        # ⚠️ …and the same is true of a case the caller FILED, for the write
+        # actions. `manage_kai_report` narrows per-case through `_case_access`;
+        # this endpoint gates on the committee-level `kai_access` above, so
+        # without this the submitter was refused on the detail page and allowed
+        # here. Found by `test_the_submitter_cannot_archive_the_case_he_filed`
+        # the moment the submitter rule was corrected — the second-copy pattern
+        # again, in the same file it was found in on 07-31-26.
+        if action in ('mark_reviewed', 'mark_pending', 'archive'):
+            reports = reports.exclude(submitted_by=request.user)
         count = reports.count()
 
         if action == 'mark_reviewed':
@@ -2024,3 +2393,377 @@ def track_kai_submitter_email_view(request, report_id):
         logger.error(f"Kai submitter email tracking error for report {report_id}: {e}")
 
     return HttpResponse(PIXEL_GIF, content_type='image/gif')
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Recusal stand-ins — bylaws §§ vi–ix (v3.18.0)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+#     "vi. Should members of the Kai Committee be recused from their duties,
+#      the head of Kai shall appoint suitable replacement(s) for the position."
+#     "vii. Should the VP of Risk Management be unable to fill the vacancy, a
+#      suitable replacement member will be appointed by the head of Kai."
+#
+# Recusal itself is automatic and computed from the case (`_case_access`).
+# These views are the other half: recording that a seat was vacated and letting
+# the head of Kai fill it, so the minutes can show the committee was properly
+# constituted when it decided.
+
+
+def _is_recused_from(report, user):
+    """
+    True if `user` is recused from `report` for ANY reason — party or manual.
+
+    Stops a recused member acting on the case at all, including appointing
+    stand-ins and recusing other people. Mason 07-31-26: someone who has stood
+    themselves back "will not be able to do any other actions or recuse others."
+    """
+    if report is None or not getattr(user, 'pk', None):
+        return False
+    if report.recusal_reason(user) == 'accused':
+        return True
+    return KaiRecusal.objects.filter(
+        report=report, user=user, reason__in=KaiRecusal.MANUAL_REASONS,
+    ).exists()
+
+
+def _can_appoint_standins(user, committee):
+    """
+    Only the head of Kai — or a site admin — may appoint a stand-in.
+
+    Deliberately NOT a `KaiMemberPermission` flag. Appointment hands another
+    member access to a specific case, so it is a delegation of authority rather
+    than an ordinary case action; § vi assigns it to the head of Kai by name.
+    """
+    return bool(user.is_admin or committee.is_chair(user))
+
+
+def _sync_recusals(report, committee):
+    """
+    Ensure a `KaiRecusal` row exists for every committee member who is a party.
+
+    Recusal is *enforced* by `_case_access` whether or not a row exists — this
+    only materialises the record so the seat, and its replacement, are visible
+    and auditable. Idempotent; safe to call on every case load.
+
+    Only committee members are recorded. An ordinary member who is the accused
+    holds no seat, so there is nothing to vacate and nothing to fill.
+    """
+    # ⚠️ CORRECTED 07-31-26: this used to record BOTH parties. Only the accused
+    # vacates a seat. A submitter keeps their seat and merely loses the power to
+    # decide the case they filed (see `_case_access`), so recording a recusal
+    # for them would show a "vacant seat" needing a stand-in that is not vacant.
+    accused_id = report.targeted_to_id
+    # A self-report vacates no seat — the member is not adjudicating anything
+    # they could not already see, and there is no stand-in to appoint.
+    if not accused_id or accused_id == report.submitted_by_id:
+        return
+    seated = (
+        committee.members.filter(pk=accused_id).exists()
+        or committee.chairs.filter(pk=accused_id).exists()
+    )
+    if seated:
+        KaiRecusal.objects.get_or_create(
+            report=report, user_id=accused_id, defaults={'reason': 'accused'},
+        )
+
+
+def _apply_standin(recusal, replacement, committee, actor):
+    """
+    Put `replacement` in `recusal`'s seat, snapshotting that seat's permissions.
+
+    Shared by the single appointment view and the combined recuse-and-replace
+    form, so the snapshot rule has one definition — the same reason
+    `_kai_csv_row` exists. See `KaiRecusal.granted_permissions` for why it is a
+    snapshot and not a live lookup.
+    """
+    seat = KaiMemberPermission.objects.filter(
+        committee=committee, user=recusal.user).first()
+    if seat is not None:
+        grant = {field: getattr(seat, field) for field in _KAI_PERMISSION_FIELDS}
+    else:
+        # The recused member held a chair/admin seat with no explicit row, so
+        # the seat carried full access. Grant that — capped, structurally, by
+        # the fact that only a chair or admin can reach either caller.
+        grant = {field: True for field in _KAI_PERMISSION_FIELDS}
+
+    recusal.replacement = replacement
+    recusal.granted_permissions = grant
+    recusal.recorded_by = actor
+    recusal.appointed_at = timezone.now()
+    recusal.save()
+    return recusal
+
+
+@login_required
+@require_feature_flag('kai_reports')
+@log_function_call
+def appoint_kai_standin(request, report_id):
+    """Appoint a member to fill a recused seat on one case."""
+    if request.method != 'POST':
+        return redirect('manage_kai_report', report_id=report_id)
+
+    report = get_object_or_404(KaiReport, id=report_id)
+    committee = Committee.objects.filter(is_kai_committee=True).first()
+    if committee is None:
+        messages.error(request, 'Kai committee not found.')
+        return redirect('home')
+
+    # A recused member must not appoint their own replacement — and since
+    # 07-31-26 that includes a member who recused themselves by hand.
+    if _is_recused_from(report, request.user):
+        messages.error(request, 'You are recused from this case and cannot appoint a stand-in.')
+        return redirect('view_kai_reports')
+
+    if not _can_appoint_standins(request.user, committee):
+        messages.error(request, 'Only the head of Kai may appoint a stand-in.')
+        return redirect('manage_kai_report', report_id=report.id)
+
+    recusal = get_object_or_404(KaiRecusal, id=request.POST.get('recusal_id'), report=report)
+    replacement = get_object_or_404(ParliamentUser, pk=request.POST.get('replacement'))
+
+    # Re-check eligibility server-side. The <select> is built from the same
+    # queryset, but a POST is not a form — never trust the option list.
+    if not recusal.is_eligible_replacement(replacement):
+        messages.error(
+            request,
+            f'{replacement.name} cannot stand in on this case. Stand-ins must be '
+            f'active members or advisors who are not already involved in it.',
+        )
+        return redirect('manage_kai_report', report_id=report.id)
+
+    _apply_standin(recusal, replacement, committee, request.user)
+
+    KaiReportActivity.objects.create(
+        report=report,
+        user=request.user,
+        action='standin_appointed',
+        details=f'{replacement.name} appointed to stand in for {recusal.user.name} '
+                f'({recusal.get_reason_display().lower()}).',
+    )
+    ActivityLog.log_activity(
+        action_type='kai_action',
+        user=request.user,
+        description=f'{request.user.name} appointed {replacement.name} as Kai stand-in '
+                    f'on case {report.display_number}',
+        request=request,
+        object_type='KaiRecusal',
+        metadata={'report_id': report.id, 'replacement': replacement.pk},
+    )
+    messages.success(request, f'{replacement.name} is now standing in on this case.')
+    return redirect('manage_kai_report', report_id=report.id)
+
+
+@login_required
+@require_feature_flag('kai_reports')
+@log_function_call
+def remove_kai_standin(request, report_id):
+    """Withdraw a stand-in appointment, leaving the seat vacant again."""
+    if request.method != 'POST':
+        return redirect('manage_kai_report', report_id=report_id)
+
+    report = get_object_or_404(KaiReport, id=report_id)
+    committee = Committee.objects.filter(is_kai_committee=True).first()
+    if committee is None or _is_recused_from(report, request.user) \
+            or not _can_appoint_standins(request.user, committee):
+        messages.error(request, 'Only the head of Kai may withdraw a stand-in.')
+        return redirect('view_kai_reports')
+
+    recusal = get_object_or_404(KaiRecusal, id=request.POST.get('recusal_id'), report=report)
+    former = recusal.replacement
+    if former is None:
+        return redirect('manage_kai_report', report_id=report.id)
+
+    recusal.replacement = None
+    recusal.granted_permissions = {}
+    recusal.appointed_at = None
+    recusal.save()
+
+    KaiReportActivity.objects.create(
+        report=report,
+        user=request.user,
+        action='standin_removed',
+        details=f'{former.name} withdrawn as stand-in for {recusal.user.name}.',
+    )
+    messages.success(request, f'{former.name} is no longer standing in on this case.')
+    return redirect('manage_kai_report', report_id=report.id)
+
+
+@login_required
+@require_feature_flag('kai_reports')
+@log_function_call
+def recuse_kai_member(request, report_id):
+    """
+    Recuse a committee member from one case by hand — bylaws §§ vi–ix.
+
+    v3.18.0. `_sync_recusals` records the seats the *case* vacates: the accused.
+    It cannot see the other reason a seat needs filling — the holder is simply
+    **not available**. Travelling, ill, or standing back from one case for a
+    reason the data does not know about. § vi covers both ("should members of
+    the Kai Committee be recused from their duties…"); only one of them is
+    computable.
+
+    `accused` and `submitter` are NOT offered here. Those are derived from the
+    case itself, so letting someone assert them by hand would record a
+    relationship the data contradicts — and, worse, `_case_access` would ignore
+    it, so the record and the enforcement would disagree.
+    """
+    if request.method != 'POST':
+        return redirect('manage_kai_report', report_id=report_id)
+
+    report = get_object_or_404(KaiReport, id=report_id)
+    committee = Committee.objects.filter(is_kai_committee=True).first()
+    if committee is None:
+        messages.error(request, 'Kai committee not found.')
+        return redirect('home')
+
+    if _is_recused_from(report, request.user) \
+            or not _can_appoint_standins(request.user, committee):
+        messages.error(request, 'Only the head of Kai may recuse a member.')
+        return redirect('view_kai_reports')
+
+    # v3.18.0: several at once. A committee reshuffling for one case usually
+    # moves more than one seat, and doing it one at a time meant re-opening the
+    # form per person — with the added trap that recusing YOURSELF first would
+    # lock you out before you could recuse anyone else.
+    # v3.18.0 — one row per seat: who steps back, why, and who fills it.
+    #
+    # The form posts three parallel lists, one entry per row. A `<select>`
+    # always submits a value (the placeholder posts ''), so the lists stay
+    # aligned; a row with a blank member is an untouched "Add another" row.
+    member_pks = request.POST.getlist('member')
+    reasons = request.POST.getlist('reason')
+    replacements = request.POST.getlist('replacement')
+    notes = (request.POST.get('notes') or '').strip()
+
+    rows = []
+    for i, member_pk in enumerate(member_pks):
+        if not member_pk:
+            continue
+        reason = reasons[i] if i < len(reasons) else 'unavailable'
+        if reason not in KaiRecusal.MANUAL_REASONS:
+            reason = 'unavailable'
+        rows.append((member_pk, reason,
+                     replacements[i] if i < len(replacements) else ''))
+
+    if not rows:
+        messages.error(request, 'Select at least one member to recuse.')
+        return redirect('manage_kai_report', report_id=report.id)
+
+    by_pk = {
+        str(u.pk): u for u in ParliamentUser.objects.filter(
+            pk__in=[r[0] for r in rows] + [r[2] for r in rows if r[2]])
+    }
+    recused, skipped, filled = [], [], []
+
+    # ⚠️ SELF LAST. Recusing yourself withdraws every permission on this case,
+    # including the one being exercised right now — so if `request.user` is in
+    # the batch and is processed first, the remaining names are silently
+    # dropped. Sorting them to the end means the whole batch lands, and the
+    # lockout takes effect on the next request.
+    rows.sort(key=lambda r: r[0] == str(request.user.pk))
+
+    for member_pk, reason, replacement_pk in rows:
+        member = by_pk.get(member_pk)
+        if member is None:
+            continue
+        if report.is_party(member):
+            skipped.append(f'{member.name} (already recused as a named party)')
+            continue
+        recusal, created = KaiRecusal.objects.get_or_create(
+            report=report, user=member,
+            defaults={'reason': reason, 'notes': notes, 'recorded_by': request.user},
+        )
+        if not created:
+            skipped.append(f'{member.name} (already recused)')
+            continue
+        recused.append(member)
+        KaiReportActivity.objects.create(
+            report=report, user=request.user, action='standin_appointed',
+            details=f'{member.name} recused '
+                    f'({dict(KaiRecusal.REASON_CHOICES)[reason].lower()}).',
+        )
+
+        # …and fill the seat in the same step, if a replacement was chosen.
+        replacement = by_pk.get(replacement_pk) if replacement_pk else None
+        if replacement is None:
+            continue
+        if not recusal.is_eligible_replacement(replacement):
+            skipped.append(f'{replacement.name} cannot stand in for {member.name}')
+            continue
+        _apply_standin(recusal, replacement, committee, request.user)
+        filled.append(f'{replacement.name} for {member.name}')
+        KaiReportActivity.objects.create(
+            report=report, user=request.user, action='standin_appointed',
+            details=f'{replacement.name} appointed to stand in for {member.name}.',
+        )
+
+    if recused:
+        ActivityLog.log_activity(
+            action_type='kai_action', user=request.user,
+            description=f'{request.user.name} recused '
+                        f'{", ".join(m.name for m in recused)} from Kai case '
+                        f'{report.display_number}',
+            request=request, object_type='KaiRecusal',
+            metadata={'report_id': report.id,
+                      'members': [m.pk for m in recused], 'reason': reason},
+        )
+        names = ', '.join(m.name for m in recused)
+        if any(m.pk == request.user.pk for m in recused):
+            messages.warning(
+                request,
+                f'{names} recused. You recused yourself from this case, so you can '
+                f'no longer view or act on it — including appointing stand-ins. '
+                f'Another chair or an admin must fill the remaining seats.',
+            )
+        else:
+            messages.success(
+                request,
+                f'{names} recused from this case. Appoint stand-ins to fill the seats.',
+            )
+    if filled:
+        messages.success(request, 'Standing in: ' + '; '.join(filled) + '.')
+    for note in skipped:
+        messages.info(request, f'Skipped {note}.')
+    return redirect('manage_kai_report', report_id=report.id)
+
+
+@login_required
+@require_feature_flag('kai_reports')
+@log_function_call
+def end_kai_recusal(request, report_id):
+    """
+    Undo a MANUAL recusal — the member is available again.
+
+    Only manual reasons can be ended. `accused` and `submitter` are computed
+    from the case by `_case_access`, so deleting such a row would change the
+    record without changing the access, leaving the two disagreeing. The button
+    is not offered for those, and this refuses them if one is posted anyway.
+    """
+    if request.method != 'POST':
+        return redirect('manage_kai_report', report_id=report_id)
+
+    report = get_object_or_404(KaiReport, id=report_id)
+    committee = Committee.objects.filter(is_kai_committee=True).first()
+    if committee is None or _is_recused_from(report, request.user) \
+            or not _can_appoint_standins(request.user, committee):
+        messages.error(request, 'Only the head of Kai may end a recusal.')
+        return redirect('view_kai_reports')
+
+    recusal = get_object_or_404(KaiRecusal, id=request.POST.get('recusal_id'), report=report)
+    if recusal.reason not in KaiRecusal.MANUAL_REASONS:
+        messages.error(
+            request,
+            'This recusal comes from the case itself and cannot be lifted by hand.',
+        )
+        return redirect('manage_kai_report', report_id=report.id)
+
+    member_name = recusal.user.name
+    recusal.delete()
+
+    KaiReportActivity.objects.create(
+        report=report, user=request.user, action='standin_removed',
+        details=f'{member_name} is no longer recused from this case.',
+    )
+    messages.success(request, f'{member_name} has been restored to this case.')
+    return redirect('manage_kai_report', report_id=report.id)

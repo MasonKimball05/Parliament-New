@@ -111,3 +111,6 @@ db_backup/
 fixtures/backup_*.json
 backup.json
 data_backup.json
+
+# Per-module test baseline logs (scripts/test_baseline.sh)
+.test-baseline/

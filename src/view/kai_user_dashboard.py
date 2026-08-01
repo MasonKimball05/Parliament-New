@@ -18,7 +18,7 @@ import logging
 from src.models.users import member_defer
 from src.models import (
     Committee, KaiReport, KaiReportActivity, KaiClosureRequest,
-    KaiFormField, KaiReportFieldResponse, ActivityLog
+    KaiFormField, KaiReportFieldResponse, ActivityLog, KaiAppeal, KaiRecusal
 )
 
 logger = logging.getLogger('function_calls')
@@ -69,11 +69,26 @@ def user_kai_dashboard(request):
     except Committee.DoesNotExist:
         pass
 
+    # v3.18.0 — cases this member is STANDING IN on (bylaws §§ vi-ix).
+    #
+    # A stand-in may hold no Kai committee grant of their own: they were
+    # appointed to fill one vacated seat on one case. Without this section they
+    # would have to be handed the URL — the appointment would be real and
+    # invisible. This is their way in.
+    standin_recusals = list(
+        KaiRecusal.objects
+        .filter(replacement=user)
+        .select_related('report', 'user')
+        .defer(*member_defer('user'))
+        .order_by('-appointed_at', '-created_at')
+    )
+
     context = {
         'submitted_reports': submitted_reports,
         'accused_reports': accused_reports,
         'pending_closures': pending_closures,
         'is_kai_chair': is_kai_chair,
+        'standin_recusals': standin_recusals,
     }
 
     return render(request, 'kai/user_dashboard.html', context)
@@ -128,6 +143,8 @@ def user_view_report(request, report_id):
         report.deliberation_outcome != 'sanctions_applied'  # Can't drop if sanctions already applied
     )
 
+    can_appeal, appeal_reason = KaiAppeal.can_file(report, user)
+
     context = {
         'report': report,
         'custom_responses': custom_responses,
@@ -137,6 +154,19 @@ def user_view_report(request, report_id):
         'can_drop_case': can_drop_case,
         'is_submitter': is_submitter,
         'is_accused': is_accused,
+
+        # v3.18.0 — appeals. Bylaws § b.i gives the accused 10 days from the
+        # date of notice of a decision. `accused_notified_at` IS that date and
+        # was already being recorded; nothing had ever computed the window.
+        #
+        # The countdown is the point. A ten-day right that nobody is reminded
+        # of is a ten-day right nobody uses.
+        'can_appeal': can_appeal,
+        'appeal_blocked_reason': appeal_reason,
+        'appeal_days_remaining': KaiAppeal.days_remaining(report),
+        'appeal_window_closes_at': KaiAppeal.window_closes_at(report),
+        'appeal_window_days': KaiAppeal.APPEAL_WINDOW_DAYS,
+        'appeals': report.appeals.select_related('filed_by').defer(*member_defer('filed_by')),
     }
 
     return render(request, 'kai/user_view_report.html', context)
@@ -369,3 +399,75 @@ def user_kai_report_attachment(request, report_id):
 
     # Redirect to the attachment URL
     return redirect(report.attachment.url)
+
+
+@login_required
+def file_appeal(request, report_id):
+    """
+    File an appeal against a Kai decision — bylaws § b.i.
+
+    v3.18.0. The bylaws:
+
+        "Kai Committee decisions can be appealed first to the chapter, then to
+         the District Chief, and then to the Board of Trustees and the General
+         Convention if needed... all Kai Committee appeals must be made within
+         10 days from the date of notice of a decision."
+
+    Every rule about *who* may appeal and *when* lives in `KaiAppeal.can_file`,
+    not here, so the view and the template's "Appeal" button cannot disagree —
+    the template renders the button from the same call. This is the same
+    single-definition shape as `_kai_csv_row`, and for the same reason: two
+    copies of a rule is one copy too many.
+    """
+    user = request.user
+
+    # Only the accused may appeal, so this get() is deliberately narrower than
+    # the submitter-or-accused lookup the other member views use.
+    report = get_object_or_404(KaiReport, id=report_id, targeted_to=user)
+
+    allowed, reason = KaiAppeal.can_file(report, user)
+    if not allowed:
+        messages.error(request, reason)
+        return redirect('user_view_kai_report', report_id=report.id)
+
+    if request.method != 'POST':
+        return redirect('user_view_kai_report', report_id=report.id)
+
+    grounds = (request.POST.get('grounds') or '').strip()
+    if not grounds:
+        messages.error(request, 'Please describe the grounds for your appeal.')
+        return redirect('user_view_kai_report', report_id=report.id)
+
+    level = request.POST.get('level', 'chapter')
+    if level not in dict(KaiAppeal.LEVEL_CHOICES):
+        level = 'chapter'
+
+    appeal = KaiAppeal.objects.create(
+        report=report, filed_by=user, level=level, grounds=grounds,
+    )
+
+    # The committee needs to see this on the case timeline. `grounds` is the
+    # appellant's own words about their own case, so it is not subject to the
+    # submitter/accused identity redactions — but it is detail-level content,
+    # and the timeline is already gated on can_view_report_details.
+    KaiReportActivity.objects.create(
+        report=report,
+        user=user,
+        action='appeal_filed',
+        details=f'Appeal filed to {appeal.get_level_display()}.',
+    )
+    ActivityLog.log_activity(
+        action_type='kai_action',
+        user=user,
+        description=f'{user.name} filed an appeal on Kai case {report.display_number}',
+        request=request,
+        object_type='KaiAppeal',
+        metadata={'report_id': report.id, 'level': level},
+    )
+
+    messages.success(
+        request,
+        f'Your appeal to {appeal.get_level_display()} has been filed and the '
+        f'committee has been notified.',
+    )
+    return redirect('user_view_kai_report', report_id=report.id)

@@ -310,8 +310,19 @@ def global_search(request):
             kai_q = Q(title__icontains=query)
             if kai_access['can_view_report_details']:
                 kai_q |= Q(description__icontains=query)
+            # v3.18.0 — RECUSAL. Global search is the fifth surface that lists
+            # Kai cases, and it was the one v3.16.3 had to fix separately for
+            # the description preview. A case the viewer is a party to is
+            # excluded here for the same reason it is excluded from the
+            # reviewer list: bylaws § vi, and because a search hit is itself a
+            # disclosure that the case exists.
+            from src.view.kai_reports import _recused_case_ids
+
             kai_reports = list(
-                KaiReport.objects.filter(kai_q).order_by('-submitted_at')[:10]
+                KaiReport.objects
+                .filter(kai_q)
+                .exclude(pk__in=_recused_case_ids(request.user))
+                .order_by('-submitted_at')[:10]
             )
             if kai_reports:
                 results['kai_reports'] = kai_reports

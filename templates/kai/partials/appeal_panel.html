@@ -1,0 +1,118 @@
+{% comment %}
+Appeal a Kai decision — bylaws § b.i. Added v3.18.0.
+
+    "Kai Committee decisions can be appealed first to the chapter, then to the
+     District Chief, and then to the Board of Trustees and the General
+     Convention if needed. As outlined in the General Fraternities'
+     Constitution all Kai Committee appeals must be made within 10 days from
+     the date of notice of a decision."
+
+THE COUNTDOWN IS THE POINT. A ten-day right that nobody is reminded of is a
+ten-day right nobody uses. The window is anchored on `accused_notified_at` —
+literally "the date of notice of a decision" — which the app was already
+recording and had never used for anything.
+
+Every rule about who may appeal and when lives in `KaiAppeal.can_file()`. This
+template renders from the same call the POST handler uses, so the button and the
+endpoint cannot disagree.
+{% endcomment %}
+
+{% if appeals %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-6 transition-colors duration-200">
+  <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+    <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Appeals</h2>
+  </div>
+  <div class="p-5 space-y-3">
+    {% for appeal in appeals %}
+    <div class="rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20 p-3">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">
+          Appeal to {{ appeal.get_level_display }}
+        </p>
+        <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+          {% if appeal.status == 'overturned' %}bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200
+          {% elif appeal.status == 'upheld' %}bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300
+          {% else %}bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200{% endif %}">
+          {{ appeal.get_status_display }}
+        </span>
+      </div>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Filed {{ appeal.filed_at|date:"M d, Y" }}</p>
+      {% if appeal.outcome_notes %}
+      <p class="mt-2 text-xs text-gray-600 dark:text-gray-400">{{ appeal.outcome_notes }}</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if is_accused %}
+  {% if can_appeal %}
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-6 border-l-4 border-purple-500 transition-colors duration-200">
+    <div class="p-5">
+      <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Appeal this decision</h2>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Chapter bylaws &sect; b.i</p>
+        </div>
+        {% comment %}
+         Rounds UP: a right expiring in six hours has one day left, not zero.
+           Telling someone "0 days" while they can still act is the wrong error
+           to make with a deadline.
+        {% endcomment %}
+        <span class="px-3 py-1 rounded-full text-xs font-bold
+                     {% if appeal_days_remaining <= 3 %}bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200
+                     {% else %}bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200{% endif %}">
+          {{ appeal_days_remaining }} day{{ appeal_days_remaining|pluralize }} left
+        </span>
+      </div>
+
+      <p class="mt-3 text-xs text-gray-600 dark:text-gray-400">
+        You have {{ appeal_window_days }} days from the date you were notified of this
+        decision to appeal it. Appeals go first to the chapter, then to the District
+        Chief, then to the Board of Trustees and the General Convention.
+        {% if appeal_window_closes_at %}
+        This window closes on {{ appeal_window_closes_at|date:"M d, Y" }} at {{ appeal_window_closes_at|date:"g:i A" }}.
+        {% endif %}
+      </p>
+
+      <form method="post" action="{% url 'kai_file_appeal' report.id %}" class="mt-4 space-y-3">
+        {% csrf_token %}
+        <div>
+          <label for="appeal-level" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Appeal to</label>
+          <select name="level" id="appeal-level"
+                  class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600
+                         bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+            <option value="chapter">The Chapter</option>
+            <option value="district_chief">District Chief</option>
+            <option value="board">Board of Trustees</option>
+            <option value="convention">General Convention</option>
+          </select>
+        </div>
+        <div>
+          <label for="appeal-grounds" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+            Grounds for appeal
+          </label>
+          <textarea name="grounds" id="appeal-grounds" rows="4" required
+                    placeholder="Explain why you believe this decision should be reconsidered."
+                    class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600
+                           bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"></textarea>
+        </div>
+        <button type="submit"
+                class="w-full px-4 py-2 text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition">
+          File appeal
+        </button>
+      </form>
+    </div>
+  </div>
+
+  {% elif appeal_blocked_reason and report.accused_notified_at %}
+  {% comment %}
+   Only shown once notice has actually been given — before that there is no
+     decision to appeal and saying "the window has closed" would be wrong.
+  {% endcomment %}
+  <div class="mb-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4">
+    <p class="text-xs text-gray-500 dark:text-gray-400">{{ appeal_blocked_reason }}</p>
+  </div>
+  {% endif %}
+{% endif %}

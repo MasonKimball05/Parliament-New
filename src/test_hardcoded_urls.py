@@ -82,6 +82,19 @@ _NOT_SITE_PATHS = {
     # The 2FA exemption list compares prefixes; this one fronts a
     # `<path:filename>` route, so the bare prefix is not itself resolvable.
     '/exportable-media/',
+    # v3.18.0: the UNDERSCORE spelling is in the same exemption list, and also
+    # deliberately. v3.17.6 renamed the route and added a legacy redirect at
+    # `exportable_media/<path:filename>` so old links keep working — but
+    # Enforce2FAMiddleware runs BEFORE URL resolution, so an <img> on the old
+    # path was 2FA-redirected instead of reaching its 302 (v3.17.7 finding 5).
+    # Like its hyphenated twin, the bare prefix fronts a `<path:...>` route and
+    # is not itself resolvable. Delete both this entry and the exemption when
+    # the legacy redirect in src/urls.py goes.
+    #
+    # Worth recording: this test caught that line the moment it was written, and
+    # v3.17.7 shipped without anyone running it — the same "a guard nobody ran"
+    # shape the module itself is about.
+    '/exportable_media/',
     # Honeypot decoys: the whole point is that they are not real routes.
     '/phpmyadmin',
     # `admin_v2.py` skips page-visit tracking for BOTH spellings of the admin

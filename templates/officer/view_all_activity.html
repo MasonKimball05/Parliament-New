@@ -47,11 +47,13 @@
     </div>
 
     {% if activity_truncated %}
-    {# v3.17.7 — matches the notice on view_all_reports. The badges above show
+    {% comment %}
+     v3.17.7 — matches the notice on view_all_reports. The badges above show
        TRUE totals from a GROUP BY, so they can exceed what is rendered; say so
        rather than letting the numbers disagree with the rows silently. The
        status sub-tabs are partitions of the newest rows, so an older draft can
-       be missing from the Draft tab — that is the part worth telling someone. #}
+       be missing from the Draft tab — that is the part worth telling someone.
+    {% endcomment %}
     <div class="mb-6 rounded-xl border-l-4 border-amber-400 bg-amber-50 dark:bg-amber-900/20 p-4">
         <p class="text-sm text-amber-800 dark:text-amber-200">
             Showing the {{ activity_fetch_limit }} most recent items per section.

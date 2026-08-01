@@ -154,6 +154,48 @@
         {% endif %}
     </div>
 
+    {% comment %}
+    v3.18.0 — cases this member is STANDING IN on (bylaws §§ vi-ix).
+
+    A stand-in may hold no Kai committee grant of their own; they were appointed
+    to fill one vacated seat on one case. Without this section the appointment
+    would be real and invisible — they would need to be handed the URL. This is
+    their way in.
+    {% endcomment %}
+    {% if standin_recusals %}
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6 border-l-4 border-amber-400">
+      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Cases I'm Standing In On</h2>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            You were appointed to fill a recused seat. Bylaws &sect; vi.
+          </p>
+        </div>
+        <span class="px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200">
+          {{ standin_recusals|length }}
+        </span>
+      </div>
+      <div class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for recusal in standin_recusals %}
+        <div class="px-6 py-4 flex items-center justify-between gap-3 flex-wrap">
+          <div class="min-w-0">
+            <p class="text-xs font-mono text-gray-400 dark:text-gray-500">{{ recusal.report.display_number }}</p>
+            <p class="text-sm font-semibold text-gray-900 dark:text-white truncate">{{ recusal.report.title }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              Standing in for {{ recusal.user.name }}
+              {% if recusal.appointed_at %}&middot; appointed {{ recusal.appointed_at|date:"M d, Y" }}{% endif %}
+            </p>
+          </div>
+          <a href="{% url 'manage_kai_report' recusal.report.id %}"
+             class="shrink-0 px-3 py-1.5 text-sm font-medium bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition">
+            Open case
+          </a>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
     <!-- Reports Where I'm Named -->
     {% if accused_reports %}
     <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6">

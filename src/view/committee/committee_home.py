@@ -140,27 +140,56 @@ def committee_home(request, code):
         'recent_votes': recent_votes,
     }
 
-    # Kai committee: add reports for chairs/admins
-    if committee.is_kai_committee and (is_chair or user.is_admin):
+    # ── Kai committee preview ────────────────────────────────────────────
+    #
+    # v3.18.0 — THIS WAS THE SIXTH AND SEVENTH SURFACE.
+    #
+    # `templates/kai/view_reports.html` carries a comment enumerating the five
+    # surfaces that render `KaiReport.description`. It was wrong: this preview
+    # and its twin in the other committee view both render the allegation body,
+    # the submitter's name and the accused's name — and did so with **no
+    # `kai_access` gating at all**, keyed only on `is_chair or is_admin`.
+    #
+    # Two things were wrong with that:
+    #
+    #   1. `Committee.is_chair()` returns True for ANY member of an
+    #      `is_exec_board` committee. Should Kai ever be flagged exec-board,
+    #      every exec member would read allegation bodies and both parties'
+    #      identities without holding a single `KaiMemberPermission`. This is
+    #      the exact bug v3.16.3 fixed in global search — gating on committee
+    #      membership instead of on `_get_kai_access`, which is meant to be the
+    #      single source of truth.
+    #   2. No recusal. A chair who is the accused saw their own case here,
+    #      including who reported them — the one thing the design promises they
+    #      never see.
+    #
+    # Now: `_get_kai_access` decides, recused cases are excluded, and the
+    # template gates each field on the matching flag.
+    if committee.is_kai_committee:
         try:
             from src.models import KaiReport
-            try:
-                kai_reports = list(KaiReport.objects.filter(
-                    status__in=['pending', 'reviewed']
-                # v3.17.3: reviewed_by was joined here and never rendered.
-                ).select_related('submitted_by', 'targeted_to').defer(
-                    *member_defer('submitted_by', 'targeted_to')
-                ).order_by('-submitted_at')[:10])
-            except Exception:
-                kai_reports = list(KaiReport.objects.filter(
-                    status__in=['pending', 'reviewed']
-                ).order_by('-submitted_at')[:10])
-            context['kai_reports'] = kai_reports
-            context['kai_report_count'] = KaiReport.objects.filter(status='pending').count()
+            from src.view.kai_reports import _get_kai_access, _recused_case_ids
+
+            kai_access = _get_kai_access(user, committee)
+            context['kai_access'] = kai_access
+            if kai_access['can_view_report_list']:
+                visible = (
+                    KaiReport.objects
+                    .filter(status__in=['pending', 'reviewed'])
+                    .exclude(pk__in=_recused_case_ids(user))
+                )
+                context['kai_reports'] = list(
+                    visible.select_related('submitted_by', 'targeted_to')
+                    .defer(*member_defer('submitted_by', 'targeted_to'))
+                    .order_by('-submitted_at')[:10]
+                )
+                # Count from the same restricted queryset — a count that
+                # includes a case the list will not show tells the viewer a
+                # case about them exists.
+                context['kai_report_count'] = visible.filter(status='pending').count()
         except Exception:
             pass
 
-    # Slating committee: add election periods
     if committee.is_slating_committee:
         try:
             from src.models import SlatingPeriod

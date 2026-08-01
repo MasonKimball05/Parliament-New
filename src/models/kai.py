@@ -118,6 +118,19 @@ class KaiReport(models.Model):
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
+    # v3.18.0: who is HANDLING the case, as distinct from who reviewed it.
+    # `reviewed_by` is only populated at review time, so before that a case had
+    # no owner at all — on a five-person committee that is how a case sits for
+    # three weeks. Set independently of status; cleared on nothing.
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='kai_reports_assigned',
+        help_text='Committee member handling this case. Independent of reviewed_by.',
+    )
+
     # Tags and Notes
     tags = models.JSONField(
         default=list,
@@ -182,6 +195,28 @@ class KaiReport(models.Model):
         help_text="Link related reports (e.g., follow-ups, same incident)"
     )
 
+    # ------------------------------------------------------------------
+    # Case number — v3.18.0
+    #
+    # The UI addressed cases by primary key (`#{{ report.id }}`). Sequential
+    # PKs leak total case volume and chronological ordering to anyone who sees
+    # one number — the same join-key concern already recorded for SlatingVote
+    # in docs/CONFIDENTIALITY_MATRIX.md. A per-year number also simply reads
+    # better in minutes: "KAI-2026-014", not "#87".
+    #
+    # Assigned on first save and never reused. Nullable because existing rows
+    # are backfilled by migration, and because a row must exist before we know
+    # its year — but `save()` fills it immediately, so a null in practice means
+    # a fixture built with `bulk_create`.
+    # ------------------------------------------------------------------
+    case_number = models.CharField(
+        max_length=20,
+        blank=True,
+        default='',
+        db_index=True,
+        help_text="Per-year case identifier, e.g. KAI-2026-014. Assigned automatically.",
+    )
+
     class Meta:
         ordering = ['-submitted_at']
         verbose_name = 'Kai Report'
@@ -189,6 +224,120 @@ class KaiReport(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.submitted_by.name} ({self.submitted_at.strftime('%Y-%m-%d')})"
+
+    # ------------------------------------------------------------------
+    # Recusal — v3.18.0. SEE THE MODEL BELOW AND `_case_access` IN THE VIEW.
+    #
+    # The chapter bylaws (Chapter on the Kai Committee, § vi, seeded in
+    # `src/management/data/cnb_data.py`) require that "only the accused must
+    # temporarily recuse their seat for their trial." Until v3.18.0 the app
+    # implemented no part of that: `_get_kai_access()` takes a user and a
+    # committee and never sees the report, so a Kai member who was the accused
+    # in an open case could read the allegation, see the submitter's identity,
+    # and — holding `can_close_cases` — close the case against themselves.
+    #
+    # These two predicates are the whole rule. Everything else is plumbing.
+    # ------------------------------------------------------------------
+    def is_party(self, user):
+        """True if `user` is the accused or the submitter on this case."""
+        if user is None or not getattr(user, 'pk', None):
+            return False
+        return user.pk in (self.submitted_by_id, self.targeted_to_id)
+
+    def recusal_reason(self, user):
+        """Why `user` is recused from this case, or None if they are not."""
+        return self.recusal_reason_for_pk(getattr(user, 'pk', None))
+
+    def recusal_reason_for_pk(self, user_pk):
+        """
+        `recusal_reason` by primary key, for callers holding only an id.
+
+        Three outcomes, and the third is the one worth explaining:
+
+        ``'accused'``
+            Named in the case. Fully recused — the identity of whoever reported
+            them and the allegation body are both withheld, and they cannot act.
+
+        ``'submitter'``
+            Filed it. Keeps sight of it, loses the power to decide it.
+
+        ``'self'``
+            **Both** — a self-report. v3.18.0: treating this as `'accused'` hid
+            a member's own self-filed case from them, which protects nothing:
+            the identity being withheld from them is *their own*, and they wrote
+            the allegation. Nothing to hide, so nothing is hidden. What survives
+            is the part that still means something — they cannot decide it.
+        """
+        if not user_pk:
+            return None
+        is_accused = user_pk == self.targeted_to_id
+        is_submitter = user_pk == self.submitted_by_id
+        if is_accused and is_submitter:
+            return 'self'
+        if is_accused:
+            return 'accused'
+        if is_submitter:
+            return 'submitter'
+        return None
+
+    # ------------------------------------------------------------------
+    # Case aging — v3.18.0. Nothing tracked how long a case had been open, so
+    # a case could sit at `pending` indefinitely with no signal anywhere.
+    # ------------------------------------------------------------------
+    #: Days at `pending` after which the list flags a case as stale.
+    STALE_AFTER_DAYS = 14
+
+    @property
+    def days_open(self):
+        """Whole days since submission — for a closed case, until it closed."""
+        from django.utils import timezone
+
+        end = self.reviewed_at if self.reviewed_at else timezone.now()
+        return max((end - self.submitted_at).days, 0)
+
+    @property
+    def is_stale(self):
+        """Open, unreviewed, and older than STALE_AFTER_DAYS."""
+        return self.status == 'pending' and self.days_open >= self.STALE_AFTER_DAYS
+
+    @classmethod
+    def next_case_number(cls, year):
+        """
+        The next unused `KAI-<year>-NNN`.
+
+        Derived from the highest existing number *for that year* rather than
+        from a count, so deleting a case does not cause the next one to reuse
+        its number. Case numbers appear in minutes; reuse would be worse than
+        a gap.
+        """
+        prefix = f'KAI-{year}-'
+        existing = (
+            cls.objects.filter(case_number__startswith=prefix)
+            .values_list('case_number', flat=True)
+        )
+        highest = 0
+        for number in existing:
+            tail = number[len(prefix):]
+            if tail.isdigit():
+                highest = max(highest, int(tail))
+        return f'{prefix}{highest + 1:03d}'
+
+    def save(self, *args, **kwargs):
+        # Assign the case number on first save. `submitted_at` is auto_now_add,
+        # so it is not populated until after the INSERT — use the current year
+        # for a new row, which is the same thing for every row that is not
+        # being back-dated by a fixture.
+        if not self.case_number:
+            from django.utils import timezone
+
+            year = (self.submitted_at or timezone.now()).year
+            self.case_number = self.next_case_number(year)
+        super().save(*args, **kwargs)
+
+    @property
+    def display_number(self):
+        """Case number if assigned, else the pk — templates should use this."""
+        return self.case_number or f'#{self.pk}'
 
     def get_tags_list(self):
         """Return tags as a list"""
@@ -290,6 +439,11 @@ class KaiReportActivity(models.Model):
         ('closure_requested', 'Closure Requested'),
         ('closure_approved', 'Closure Request Approved'),
         ('closure_denied', 'Closure Request Denied'),
+        # v3.18.0 — recusal / stand-ins (bylaws §§ vi-ix) and appeals (§ b.i)
+        ('standin_appointed', 'Stand-In Appointed'),
+        ('standin_removed', 'Stand-In Withdrawn'),
+        ('appeal_filed', 'Appeal Filed'),
+        ('appeal_decided', 'Appeal Decided'),
     ]
 
     report = models.ForeignKey(
@@ -646,3 +800,318 @@ class KaiMemberPermission(models.Model):
 
     def __str__(self):
         return f"{self.committee.name} — {self.user.name}"
+
+
+class KaiRecusal(models.Model):
+    """
+    A committee member stepping back from a case they are a party to.
+
+    v3.18.0 — WHY THIS EXISTS
+    -------------------------
+    The chapter bylaws (§ vi, seeded in `src/management/data/cnb_data.py`):
+
+        "Should members of the Kai Committee be recused from their duties, the
+         head of Kai shall appoint suitable replacement(s) for the position.
+         However, should the offenses be separate from each other, then their
+         trials remain separated and only the accused must temporarily recuse
+         their seat for their trial."
+
+    Until v3.18.0 the app implemented none of it. `_get_kai_access()` takes a
+    user and a committee and never sees the report, so a Kai member who was the
+    accused could read the allegation against themselves, see who reported them,
+    and — holding `can_close_cases` — close it.
+
+    **Enforcement does not depend on a row in this table.** `KaiReport.is_party()`
+    is the rule and it is computed from the case itself, so recusal cannot be
+    defeated by failing to create a record. This model exists for the *other*
+    half of § vi: recording that a seat was vacated and who filled it, so the
+    minutes can show the committee was properly constituted when it decided.
+    """
+
+    REASON_CHOICES = [
+        # Computed from the case — never chosen by hand. See `_case_access`.
+        ('accused', 'Named in the case'),
+        ('submitter', 'Submitted the case'),
+        # Chosen by the head of Kai. v3.18.0: a seat also needs filling when
+        # its holder is simply not available — travelling, ill, or standing
+        # back from one case — which the automatic rules cannot detect.
+        ('unavailable', 'Unavailable for this case'),
+        ('conflict', 'Declared conflict of interest'),
+        ('other', 'Other'),
+    ]
+
+    #: Reasons the head of Kai may record by hand. `accused` and `submitter`
+    #: are derived from the case itself, so offering them here would let
+    #: someone assert a relationship the data contradicts.
+    MANUAL_REASONS = ('unavailable', 'conflict', 'other')
+
+    report = models.ForeignKey(
+        'KaiReport',
+        on_delete=models.CASCADE,
+        related_name='recusals',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='kai_recusals',
+    )
+    reason = models.CharField(max_length=20, choices=REASON_CHOICES)
+    notes = models.TextField(
+        blank=True,
+        help_text='Optional context. Visible to the committee, not to the parties.',
+    )
+    #: § vi — "the head of Kai shall appoint suitable replacement(s)".
+    replacement = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='kai_recusal_replacements',
+        help_text='Member appointed to fill the recused seat for this case.',
+    )
+    #: Permissions the stand-in holds **for this case only**, snapshotted from
+    #: the recused member at the moment of appointment.
+    #:
+    #: A SNAPSHOT, not a live lookup, deliberately. If the recused member's own
+    #: `KaiMemberPermission` row is later widened or narrowed — or deleted when
+    #: they roll off the committee — the stand-in's authority on a case that may
+    #: already be decided must not silently move with it. What the minutes
+    #: record is what the stand-in had.
+    granted_permissions = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Snapshot of the replaced seat\'s permissions, taken at appointment.',
+    )
+    appointed_at = models.DateTimeField(null=True, blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='kai_recusals_recorded',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['report', 'user']
+        verbose_name = 'Kai Recusal'
+        verbose_name_plural = 'Kai Recusals'
+
+    def __str__(self):
+        return f"{self.user.name} recused from {self.report.display_number} ({self.reason})"
+
+    # ------------------------------------------------------------------
+    # Stand-ins — v3.18.0
+    #
+    # Recusal on its own only *removes*. Bylaws §§ vi–ix also require the seat
+    # to be *filled*, and a stand-in with no `KaiMemberPermission` row can see
+    # nothing — so the appointment has to carry an access grant with it or it
+    # is ceremonial.
+    # ------------------------------------------------------------------
+
+    #: Who may stand in. Mason 07-31-26: "anyone active or advisor".
+    #:
+    #: ⚠️ CORRECTED 07-31-26: the first cut required `member_status='Active'`
+    #: AND a non-pledge type, which silently dropped **advisors**, since an
+    #: advisor is commonly carried at Alumni status rather than Active. The
+    #: codebase already had the right predicate for this in two places —
+    #: `committee_detail.py:70` and `committee_home.py:73` both build their
+    #: eligible-advisor list as `Q(member_status=ACTIVE) | Q(member_type=ADVISOR)`.
+    #: Same rule here; see `eligible_standins`.
+    #:
+    #: Pledges are excluded in every case — they cannot sit on a judicial body.
+    EXCLUDED_STANDIN_TYPES = ('Pledge',)
+
+    @classmethod
+    def eligible_standins(cls, report):
+        """
+        Members who may be appointed to a vacated seat on `report`.
+
+        Excludes, in order of importance:
+
+        1. **The parties to the case.** Appointing the accused or the submitter
+           would hand them the access recusal exists to withdraw — and
+           `_case_access` would recuse them again immediately, so the seat would
+           be silently empty. Fail loudly by not offering them.
+        2. Anyone already recused on this case.
+        3. Anyone already standing in on this case.
+        4. Pledges, and anyone not `Active`.
+        """
+        from src.models.users import ParliamentUser
+
+        taken = set(
+            cls.objects.filter(report=report)
+            .values_list('user_id', flat=True)
+        ) | set(
+            cls.objects.filter(report=report, replacement__isnull=False)
+            .values_list('replacement_id', flat=True)
+        )
+        parties = {report.submitted_by_id, report.targeted_to_id}
+        excluded = {pk for pk in (taken | parties) if pk}
+
+        from django.db.models import Q
+
+        from src.constants import MemberStatus, MemberType
+
+        return (
+            ParliamentUser.objects
+            .filter(Q(member_status=MemberStatus.ACTIVE) | Q(member_type=MemberType.ADVISOR))
+            .exclude(member_type__in=cls.EXCLUDED_STANDIN_TYPES)
+            .exclude(pk__in=excluded)
+            .order_by('name')
+        )
+
+    @classmethod
+    def standin_grant(cls, report, user):
+        """
+        The permission snapshot `user` holds as a stand-in on `report`, or None.
+
+        Returns the dict stored at appointment. An appointment with no
+        `granted_permissions` (a row created before this field existed, or one
+        written by hand) grants nothing rather than everything — fail closed.
+        """
+        if not getattr(user, 'pk', None):
+            return None
+        row = cls.objects.filter(report=report, replacement=user).first()
+        if row is None:
+            return None
+        return row.granted_permissions or {}
+
+    def is_eligible_replacement(self, candidate):
+        """Whether `candidate` may be appointed to this recusal's seat."""
+        return self.eligible_standins(self.report).filter(pk=candidate.pk).exists()
+
+
+class KaiAppeal(models.Model):
+    """
+    An appeal against a Kai decision.
+
+    v3.18.0 — WHY THE TEN-DAY WINDOW IS A CONSTANT AND NOT A SETTING
+    ----------------------------------------------------------------
+    The chapter bylaws (§ b.i):
+
+        "Kai Committee decisions can be appealed first to the chapter, then to
+         the District Chief, and then to the Board of Trustees and the General
+         Convention if needed. As outlined in the General Fraternities'
+         Constitution all Kai Committee appeals must be made within 10 days
+         from the date of notice of a decision."
+
+    Ten days is set by the **General Fraternity's** Constitution, not by this
+    chapter, so it is not a chapter-configurable value and is deliberately not a
+    SiteSetting. If the General Fraternity changes it, that is a code change,
+    which is the same reasoning as `KaiReport.TAG_CHOICES`.
+
+    The window is anchored on `KaiReport.accused_notified_at`, which is exactly
+    "the date of notice of a decision" and was already being populated. A case
+    that has never notified the accused has **no** open appeal window — the
+    clock cannot start before notice.
+    """
+
+    APPEAL_WINDOW_DAYS = 10
+
+    LEVEL_CHOICES = [
+        ('chapter', 'The Chapter'),
+        ('district_chief', 'District Chief'),
+        ('board', 'Board of Trustees'),
+        ('convention', 'General Convention'),
+    ]
+
+    STATUS_CHOICES = [
+        ('filed', 'Filed'),
+        ('under_review', 'Under Review'),
+        ('upheld', 'Decision Upheld'),
+        ('overturned', 'Decision Overturned'),
+        ('modified', 'Decision Modified'),
+        ('withdrawn', 'Withdrawn'),
+    ]
+
+    report = models.ForeignKey(
+        'KaiReport',
+        on_delete=models.CASCADE,
+        related_name='appeals',
+    )
+    filed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='kai_appeals_filed',
+    )
+    filed_at = models.DateTimeField(auto_now_add=True)
+    level = models.CharField(max_length=20, choices=LEVEL_CHOICES, default='chapter')
+    grounds = models.TextField(help_text='The basis on which the decision is being appealed.')
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='filed')
+    outcome_notes = models.TextField(blank=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='kai_appeals_decided',
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-filed_at']
+        verbose_name = 'Kai Appeal'
+        verbose_name_plural = 'Kai Appeals'
+
+    def __str__(self):
+        return f"Appeal on {self.report.display_number} by {self.filed_by.name} ({self.level})"
+
+    # -- the window ----------------------------------------------------------
+
+    @staticmethod
+    def window_closes_at(report):
+        """When the appeal window shuts, or None if it never opened."""
+        from datetime import timedelta
+
+        if not report.accused_notified_at:
+            return None
+        return report.accused_notified_at + timedelta(days=KaiAppeal.APPEAL_WINDOW_DAYS)
+
+    @staticmethod
+    def window_is_open(report):
+        from django.utils import timezone
+
+        closes = KaiAppeal.window_closes_at(report)
+        return closes is not None and timezone.now() < closes
+
+    @staticmethod
+    def days_remaining(report):
+        """
+        Whole days left to appeal, or None if the window never opened.
+
+        Rounds **up**, because a right that expires in six hours has one day
+        left, not zero — telling someone "0 days remaining" while they can
+        still act is the wrong error to make with a deadline.
+        """
+        import math
+
+        from django.utils import timezone
+
+        closes = KaiAppeal.window_closes_at(report)
+        if closes is None:
+            return None
+        remaining = (closes - timezone.now()).total_seconds()
+        return max(math.ceil(remaining / 86400), 0)
+
+    @classmethod
+    def can_file(cls, report, user):
+        """
+        `(allowed, reason)` — whether `user` may file an appeal on `report`.
+
+        Only the accused may appeal, and only inside the window. Reason strings
+        are user-facing.
+        """
+        if report.targeted_to_id != getattr(user, 'pk', None):
+            return False, 'Only the member named in a case may appeal its decision.'
+        if not report.accused_notified_at:
+            return False, 'No decision has been issued on this case yet.'
+        if not cls.window_is_open(report):
+            return False, (
+                f'The {cls.APPEAL_WINDOW_DAYS}-day appeal window for this case has closed.'
+            )
+        if cls.objects.filter(report=report, filed_by=user).exclude(status='withdrawn').exists():
+            return False, 'You have already filed an appeal on this case.'
+        return True, ''

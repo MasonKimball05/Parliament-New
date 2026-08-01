@@ -17,8 +17,20 @@
             </svg>
           </a>
           <div>
+            {% comment %}
+             v3.18.0: case number instead of the raw pk. Sequential ids leak
+               total case volume and ordering; KAI-2026-014 also reads better in
+               minutes. `display_number` falls back to #pk if unassigned.
+            {% endcomment %}
+            <p class="text-xs font-mono text-gray-400 dark:text-gray-500">{{ report.display_number }}</p>
             <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ report.title }}</h1>
             <div class="flex flex-wrap items-center gap-2 mt-2">
+              {% if report.is_stale %}
+              <span class="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200"
+                    title="Pending for {{ report.days_open }} days">
+                Stale &middot; {{ report.days_open }}d
+              </span>
+              {% endif %}
               <!-- Status Badge -->
               <span class="px-3 py-1 rounded-full text-xs font-semibold
                 {% if report.status == 'pending' %}bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200
@@ -103,6 +115,14 @@
 
       <!-- Left Column: Report Content (2/3 width) -->
       <div class="lg:col-span-2 space-y-6">
+
+        {% comment %}
+         v3.18.0 — recused seats + stand-in appointment (bylaws §§ vi-ix).
+           Deliberately ABOVE the report content: whether the committee is
+           properly constituted is prior to what the case says. Renders nothing
+           when no committee member is a party, which is the ordinary case.
+        {% endcomment %}
+        {% include "kai/partials/recusal_panel.html" %}
 
         <!-- Report Content Card -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">
@@ -622,6 +642,15 @@
 
       <!-- Right Column: Sidebar (1/3 width) -->
       <div class="space-y-6">
+
+        {# v3.18.0 — review item §6. Who is handling this, before review time. #}
+        {% include "kai/partials/assignment_panel.html" %}
+
+        {% comment %}
+         v3.18.0 — review item §9. "What happened and when" is usually the
+           question; the page used to lead with static fields only.
+        {% endcomment %}
+        {% include "kai/partials/case_timeline.html" %}
 
         <!-- Report Info Card -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">

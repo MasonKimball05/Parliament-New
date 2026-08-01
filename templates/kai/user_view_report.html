@@ -190,6 +190,12 @@
                 </div>
             </div>
 
+            {% comment %}
+             v3.18.0 — appeals (bylaws § b.i). Placed above the closure/drop
+               actions because an appeal is time-limited and those are not.
+            {% endcomment %}
+            {% include "kai/partials/appeal_panel.html" %}
+
             <!-- Actions -->
             {% if can_request_closure or can_drop_case %}
             <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">

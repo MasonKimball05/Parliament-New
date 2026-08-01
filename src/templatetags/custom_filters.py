@@ -11,6 +11,28 @@ def get_item(dictionary, key):
     return dictionary.get(key)
 
 @register.filter
+def attr(obj, name):
+    """
+    Attribute access after a filter — `{{ d|get_item:k|attr:'text_value' }}`.
+
+    v3.18.0: this filter was USED by `service_hours/edit_submission.html` and
+    had never been defined, anywhere. `Invalid filter` is a TemplateSyntaxError
+    raised at parse time, so that page was a hard 500 from v3.0.0 (2026-06-05)
+    until it was found by a template-compile sweep on 07-31-26 — the `{% if %}`
+    wrapped around the expression made no difference.
+
+    Django templates cannot chain attribute access onto a filter result
+    (`{{ d|get_item:k }}.text_value` is not a thing), which is why this exists.
+    Returns '' rather than raising on a missing attribute, matching how Django
+    resolves a missing variable — a template is not the place to surface an
+    AttributeError.
+    """
+    if obj is None:
+        return ''
+    return getattr(obj, name, '')
+
+
+@register.filter
 def dict_get(dictionary, key):
     """Alias for get_item - get a value from a dictionary by key."""
     if dictionary is None:

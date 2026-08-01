@@ -57,6 +57,7 @@ this file and are more specific than their commit dates.
 | v3.17.5 | 07-30-26 | `c608f82` | 07-30 auto-run fixes — cache-key bounding, geo exports, two ceilings |
 | v3.17.6 | 07-30-26 | `95dd8f8` | URL hyphen rename follow-through; `nginx.conf` changed |
 | v3.17.7 | 07-31-26 | `abe7367` | 07-31 auto-run fixes — 🔴 Kai bulk-export redaction, home-page join reuse, geo-guarded query-param exports |
+| v3.18.0 | 07-31-26 | *(pending commit)* | 🔴 Kai recusal + stand-ins, appeals (bylaws § b.i), case aging, assignment, per-year case numbers. **Migration `0011` includes a data backfill.** Marked ahead of the deploy at Mason's instruction 07-31-26 — fill in the commit hash when you push. |
 
 **Outstanding spot-checks for v3.17.7** (from its changelog, not blockers):
 Kai reports list as a *list-only* reviewer → Export CSV must show `[Redacted]` in

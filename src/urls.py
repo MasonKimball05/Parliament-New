@@ -88,8 +88,8 @@ from src.view.chat import (
     create_channel, edit_channel, delete_channel,
 )
 from src.view.submit_excuse import my_excuses, submit_excuse, cancel_excuse, my_attendance
-from src.view.kai_reports import submit_kai_report, view_kai_reports, manage_kai_report, export_kai_reports_csv, print_kai_report, kai_dashboard, bulk_actions_kai_reports, manage_kai_templates, create_kai_template, edit_kai_template, delete_kai_template, track_kai_accused_email_view, track_kai_submitter_email_view
-from src.view.kai_user_dashboard import user_kai_dashboard, user_view_report, request_closure, request_drop_case
+from src.view.kai_reports import submit_kai_report, view_kai_reports, manage_kai_report, export_kai_reports_csv, print_kai_report, kai_dashboard, bulk_actions_kai_reports, manage_kai_templates, create_kai_template, edit_kai_template, delete_kai_template, track_kai_accused_email_view, track_kai_submitter_email_view, appoint_kai_standin, remove_kai_standin, recuse_kai_member, end_kai_recusal
+from src.view.kai_user_dashboard import user_kai_dashboard, user_view_report, request_closure, request_drop_case, file_appeal
 from src.view.kai_form_builder import kai_form_builder, reorder_kai_fields, get_kai_field_details
 from src.view.service_user_dashboard import (
     user_service_dashboard, user_view_submission,
@@ -635,6 +635,8 @@ urlpatterns = [
     path('kai/my-report/<int:report_id>/', user_view_report, name='user_view_kai_report'),
     path('kai/my-report/<int:report_id>/request-closure/', request_closure, name='kai_request_closure'),
     path('kai/my-report/<int:report_id>/request-drop/', request_drop_case, name='kai_request_drop'),
+    # v3.18.0 — appeals (bylaws § b.i, 10 days from notice of decision)
+    path('kai/my-report/<int:report_id>/appeal/', file_appeal, name='kai_file_appeal'),
 
     # Kai Form Builder URLs (chair only)
     path('kai/form-builder/', kai_form_builder, name='kai_form_builder'),
@@ -649,6 +651,11 @@ urlpatterns = [
     path('kai/reports/export/', export_kai_reports_csv, name='export_kai_reports_csv'),
     path('kai/reports/<int:report_id>/', manage_kai_report, name='manage_kai_report'),
     path('kai/reports/<int:report_id>/print/', print_kai_report, name='print_kai_report'),
+    # v3.18.0 — recusal stand-ins (bylaws §§ vi-ix)
+    path('kai/reports/<int:report_id>/standin/appoint/', appoint_kai_standin, name='appoint_kai_standin'),
+    path('kai/reports/<int:report_id>/standin/remove/', remove_kai_standin, name='remove_kai_standin'),
+    path('kai/reports/<int:report_id>/recuse/', recuse_kai_member, name='recuse_kai_member'),
+    path('kai/reports/<int:report_id>/recuse/end/', end_kai_recusal, name='end_kai_recusal'),
     path('kai/templates/', manage_kai_templates, name='manage_kai_templates'),
     path('kai/templates/create/', create_kai_template, name='create_kai_template'),
     path('kai/templates/<int:template_id>/edit/', edit_kai_template, name='edit_kai_template'),

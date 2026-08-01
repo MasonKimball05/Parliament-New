@@ -1,4 +1,12 @@
 {% extends 'base.html' %}
+{% comment %}
+ v3.18.0: this {% load %} was missing entirely. The template uses
+   |get_item and |attr, so without it every request to
+   edit_service_submission raised TemplateSyntaxError — a hard 500 on
+   the page a member reaches by clicking Edit on their own submission,
+   from v3.0.0 until 07-31-26.
+{% endcomment %}
+{% load custom_filters %}
 
 {% block title %}Edit Submission - {{ submission.organization }}{% endblock %}
 

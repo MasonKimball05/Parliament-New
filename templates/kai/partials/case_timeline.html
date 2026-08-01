@@ -1,0 +1,62 @@
+{% comment %}
+Compact activity timeline for the case sidebar. Added v3.18.0 (review item §9).
+
+The activity log already existed and is detail-gated, but the case page led with
+static fields — and for a case that has moved through several states, "what
+happened and when" is usually the question being asked.
+
+Gated on can_view_report_details, matching the log's existing gate. Appeal and
+stand-in events appear here too, so the seat history is visible in one place.
+
+⚠️ LAYOUT — WHY FLEXBOX AND NOT `absolute`
+The first version used the common Tailwind timeline pattern: `<ol class="relative">`
+with each dot `absolute -left-1.5`. An absolutely-positioned element resolves
+against its nearest *positioned* ancestor, which was the `<ol>` — not the `<li>`
+it belonged to — so the dots stacked at the top of the list and sat on top of the
+first entry's text instead of beside each row.
+
+This version has no absolute positioning at all. Each row is a flex pair: a
+fixed-width rail holding the dot and the connecting line, and the content beside
+it. Nothing can drift, at any font size or zoom level.
+{% endcomment %}
+{% if kai_access.can_view_report_details and activity_log %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-6 transition-colors duration-200">
+  <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+    <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Case Timeline</h2>
+  </div>
+  <div class="p-5">
+    <ol class="space-y-0">
+      {% for entry in activity_log %}
+      <li class="flex gap-3">
+
+        {# The rail: dot, then the connecting line. Fixed width so every row's content aligns. #}
+        <div class="flex flex-col items-center flex-shrink-0 w-3">
+          <span class="w-3 h-3 rounded-full mt-1
+                       {% if entry.action == 'created' %}bg-blue-500
+                       {% elif entry.action == 'archived' or entry.action == 'minutes_closed' %}bg-gray-400
+                       {% elif entry.action == 'appeal_filed' or entry.action == 'appeal_decided' %}bg-purple-500
+                       {% elif entry.action == 'standin_appointed' or entry.action == 'standin_removed' %}bg-amber-500
+                       {% else %}bg-primary-500{% endif %}"></span>
+          {% if not forloop.last %}
+          <span class="w-px flex-1 bg-gray-200 dark:bg-gray-700 my-1"></span>
+          {% endif %}
+        </div>
+
+        <div class="min-w-0 {% if not forloop.last %}pb-5{% endif %}">
+          <p class="text-xs font-semibold text-gray-800 dark:text-gray-100">
+            {{ entry.get_action_display }}
+          </p>
+          <p class="text-xs text-gray-400 dark:text-gray-500">
+            {{ entry.timestamp|date:"M d, Y · g:i A" }}{% if entry.user %} &middot; {{ entry.user.name }}{% endif %}
+          </p>
+          {% if entry.details %}
+          <p class="mt-1 text-xs text-gray-600 dark:text-gray-400 break-words">{{ entry.details }}</p>
+          {% endif %}
+        </div>
+
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+</div>
+{% endif %}

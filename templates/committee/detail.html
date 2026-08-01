@@ -332,10 +332,13 @@
                                 {{ report.get_status_display }}
                             </span>
                         </div>
+                        {# v3.18.0: gated — see committee_detail.py. #}
+                        {% if kai_access.can_view_report_details %}
                         <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ report.description|truncatewords:20 }}</p>
+                        {% endif %}
                         <div class="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
-                            <span>By: {{ report.submitted_by.name }}</span>
-                            {% if report.targeted_to %}
+                            {% if kai_access.can_view_submitter_identity %}<span>By: {{ report.submitted_by.name }}</span>{% endif %}
+                            {% if report.targeted_to and kai_access.can_view_accused_identity %}
                             <span>• To: {{ report.targeted_to.name }}</span>
                             {% endif %}
                             <span>• {{ report.submitted_at|date:"M d, Y" }}</span>

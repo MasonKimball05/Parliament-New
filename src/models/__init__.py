@@ -94,6 +94,8 @@ from src.models.kai import (
     KaiReportFieldResponse,
     KaiClosureRequest,
     KaiMemberPermission,
+    KaiRecusal,
+    KaiAppeal,
 )
 
 # Slating
@@ -284,6 +286,8 @@ __all__ = [
     'KaiReportFieldResponse',
     'KaiClosureRequest',
     'KaiMemberPermission',
+    'KaiRecusal',
+    'KaiAppeal',
     # Slating
     'SlatingPeriod',
     'SlatingPosition',
