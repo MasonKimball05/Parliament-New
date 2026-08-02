@@ -1,3 +1,4 @@
+from django.db import DatabaseError
 from django.db.models import Count, Q
 from django.db.models.functions import TruncMonth
 from django.shortcuts import render, redirect, get_object_or_404
@@ -11,6 +12,7 @@ from django.http import HttpResponse
 from django.core.exceptions import ValidationError
 import csv
 import logging
+from datetime import datetime, timedelta
 from src.models import KaiReport, Committee, ParliamentUser, KaiReportActivity, KaiReportTemplate, KaiFormField, KaiReportFieldResponse, KaiClosureRequest, ActivityLog, KaiMemberPermission, KaiRecusal, KaiAppeal
 from src.forms import KaiReportForm
 from src.decorators import log_function_call
@@ -19,6 +21,12 @@ from src.utils.file_validation import validate_uploaded_file
 from src.models.users import member_defer
 
 logger = logging.getLogger('src')
+
+#: Most rows the Kai reviewer list will render at once. v3.18.1 — the list was
+#: unbounded. The badges and the aging banner come from separate aggregates, so
+#: they stay true past the cap; `reports_truncated` drives the notice. Same
+#: shape as `view_all_reports`, which is the reference implementation.
+KAI_LIST_LIMIT = 500
 
 
 @login_required
@@ -199,11 +207,50 @@ Please log in to the Kai Committee page to review this report.
         return redirect('home')
 
 
+def _is_kai_chair(user, committee):
+    """
+    True only if `user` is an actual CHAIR of the Kai committee.
+
+    ⚠️ v3.18.1 — WHY THIS EXISTS INSTEAD OF `committee.is_chair(user)`.
+
+    `Committee.is_chair()` (`src/models/committees.py:93`) returns True for any
+    **member** of a committee flagged `is_exec_board`:
+
+        if self.is_exec_board and self.members.filter(pk=user.pk).exists():
+            return True
+
+    That is a sensible convenience for ordinary exec committees and a hole in a
+    judicial one. v3.18.0 rewrote both committee-page Kai previews specifically
+    to escape it, and said so:
+
+        "Should Kai ever be flagged exec-board, every exec member would read
+         allegation bodies and both parties' identities without holding a
+         single KaiMemberPermission."
+
+    **But it rewrote them to call `_get_kai_access`, and `_get_kai_access` had
+    the same bypass one level down** — so the previews were routed *through*
+    the hole rather than around it. The stated property was not the property
+    achieved. Found 08-01-26.
+
+    Kai access is governed **only** by `KaiMemberPermission` grants (the
+    standing v3.16.2 rule, and the reason all seven Kai models are unregistered
+    from `/admin/`). A boolean on the committee row must not be able to grant
+    it. So: real chairs only, `is_exec_board` deliberately ignored.
+
+    `test_kai_exec_board_bypass` flips the flag and asserts a plain Kai member
+    still gets nothing.
+    """
+    return committee.chairs.filter(pk=user.pk).exists()
+
+
 def _get_kai_access(user, committee):
     """
     Return a dict of Kai permission flags for the given user.
     Chairs and site admins get full access. Other users get their KaiMemberPermission
     flags; users with no permission row get all False.
+
+    "Chair" here means an actual chair — see `_is_kai_chair` for why this does
+    not use `Committee.is_chair()`.
 
     NOTE — v3.16.2: this helper previously carried @login_required,
     @require_feature_flag and @log_function_call, orphaned from an earlier
@@ -222,10 +269,10 @@ def _get_kai_access(user, committee):
     ]
     from src.dev_mode import record_permission
 
-    # v3.16.3 perf: `user.is_admin` is a plain field read; `committee.is_chair`
-    # costs 1-2 queries. Testing is_admin first means admins reach the same
+    # v3.16.3 perf: `user.is_admin` is a plain field read; `_is_kai_chair`
+    # costs one query. Testing is_admin first means admins reach the same
     # answer without touching the DB, at all six call sites.
-    if user.is_admin or committee.is_chair(user):
+    if user.is_admin or _is_kai_chair(user, committee):
         access = {f: True for f in FIELDS} | {'is_full_access': True}
         record_permission(
             'kai_access', 'full',
@@ -391,16 +438,31 @@ def _case_access(user, report, kai_access):
 
 def _recused_case_ids(user):
     """
-    Case pks `user` is a party to — excluded from every list-shaped surface.
+    Case pks `user` is the ACCUSED on — the cases whose content is withheld
+    from them wherever it would otherwise be rendered.
 
-    A recused member must not see their own case in the reviewer list, the
-    search results, either CSV export, or the global-search card. Those are the
-    same five surfaces enumerated at `templates/kai/view_reports.html` for
-    `description`; the list is reused deliberately.
+    ⚠️ v3.18.1 — READ THIS BEFORE USING IT. The five callers do NOT all do the
+    same thing with the list, and the difference is deliberate:
 
-    They still see it on their OWN dashboard as an accused/submitter — that is
-    notice, which they are entitled to, and it exposes nothing the member-facing
-    templates do not already gate.
+    * **Excluded entirely** — `global_search` (:324), the two committee-page
+      previews (`committee_home`, `committee_detail`), and both CSV exports
+      (`export_kai_reports_csv`, `bulk_actions_kai_reports`). On those surfaces
+      a hit is itself a disclosure and there is nothing to gain by showing a
+      redacted stub.
+    * **Shown but redacted** — the reviewer list (`view_kai_reports`). v3.18.0
+      moved it here on purpose: hiding the row protects nothing (the accused is
+      notified and it is on their own dashboard) and excluding it made the
+      counts disagree with the rows. The card withholds the allegation body and
+      both identities instead.
+
+    **The reviewer list therefore passes these ids to `_kai_search_q` as
+    `redacted_case_ids`, and that is load-bearing.** A row that is displayed but
+    redacted must not be reachable by a predicate over the fields it redacts, or
+    the search box becomes an oracle over them — see `_kai_search_q`.
+
+    The viewer still sees the case on their OWN dashboard as accused — that is
+    notice, which they are entitled to, and the member-facing templates never
+    render `submitted_by`.
     """
     if not getattr(user, 'pk', None):
         return []
@@ -421,7 +483,80 @@ def _recused_case_ids(user):
     )
 
 
-def _kai_search_q(search_query, kai_access):
+def _redact_activity_log(entries, report, kai_access):
+    """
+    Attach `display_actor` / `display_details` to each activity entry.
+
+    ⚠️ v3.18.1 — THE ACTIVITY FEED WAS THE TENTH SURFACE, AND NOBODY HAD EVER
+    COUNTED IT. `templates/kai/view_reports.html` enumerates the surfaces that
+    render `KaiReport.description`; `docs/CONFIDENTIALITY_MATRIX.md` enumerates
+    the surfaces that render either identity. **Neither list contained the
+    activity log**, and it emits both identities two different ways:
+
+      1. **Via the row's author.** `submit_kai_report` writes the `created`
+         entry with `user=request.user` — the submitter. Both templates print
+         `{{ entry.user.name }}`, so the case detail page opened with
+         "Report Created · <the reporter>" for every reviewer who could reach
+         it, whatever `can_view_submitter_identity` said.
+      2. **Via `details`.** Three call sites interpolated the accused's name
+         into the string: 'Accused person set to: X', 'Accused person removed
+         (was: X)', 'Accused (X) notified of the case'. Those sites no longer
+         write names — but rows written before v3.18.1 still contain them, so
+         the substitution below is not belt-and-braces, it is the fix for
+         every row already in the database.
+
+    Measured 08-01-26: a reviewer holding `can_view_report_details` and neither
+    identity flag saw both names exactly twice on the detail page — once in the
+    Activity card, once in the Case Timeline v3.18.0 added. The page header was
+    redacting correctly the whole time; the feed underneath undid it.
+
+    **`can_view_report_details` is NOT a superset of the two identity flags.**
+    `KaiMemberPermission` models them as four independent booleans and the
+    grant UI offers them independently, so a details-only reviewer is a real
+    configuration and this is a real disclosure to them.
+
+    Templates must render `display_actor` / `display_details` and never
+    `entry.user.name` / `entry.details` directly. `test_kai_activity_redaction`
+    fails if either template reverts.
+    """
+    submitter_id = report.submitted_by_id
+    accused_id = report.targeted_to_id
+    show_submitter = bool(kai_access.get('can_view_submitter_identity'))
+    show_accused = bool(kai_access.get('can_view_accused_identity'))
+
+    # Resolved once, not per row.
+    submitter_name = report.submitted_by.name if report.submitted_by_id else ''
+    accused_name = report.targeted_to.name if report.targeted_to_id else ''
+
+    for entry in entries:
+        # -- the actor ---------------------------------------------------
+        if entry.user_id is None:
+            entry.display_actor = 'System'
+        elif entry.user_id == submitter_id and not show_submitter:
+            entry.display_actor = 'Anonymous'
+        elif entry.user_id == accused_id and not show_accused:
+            entry.display_actor = 'Redacted'
+        else:
+            entry.display_actor = entry.user.name if entry.user else 'System'
+
+        # -- the details string ------------------------------------------
+        # A plain substring swap, because the names in legacy rows are free
+        # text with no structure to parse. Longest-first is not needed here —
+        # the two names are swapped independently and a member cannot hold
+        # both roles unless it is a self-report, in which case both flags
+        # resolve to the same person and the swap is a no-op either way.
+        details = entry.details or ''
+        if details:
+            if submitter_name and not show_submitter:
+                details = details.replace(submitter_name, 'Anonymous')
+            if accused_name and not show_accused:
+                details = details.replace(accused_name, 'Redacted')
+        entry.display_details = details
+
+    return entries
+
+
+def _kai_search_q(search_query, kai_access, redacted_case_ids=()):
     """
     Build the Kai report search predicate for a user with `kai_access`.
 
@@ -448,15 +583,55 @@ def _kai_search_q(search_query, kai_access):
     Kept as one shared helper on purpose: the list view and the export had
     duplicated copies of this filter, which is how both ended up wrong. If a
     new searchable field is added, it gets gated here once.
+
+    ⚠️ v3.18.1 — `redacted_case_ids`: PERMISSION IS NOT THE ONLY THING THAT
+    REDACTS. The gating above answers "may this user read this field *at all*",
+    which was the whole question until v3.18.0. It is no longer. The reviewer
+    list now shows a case the viewer is the accused on **as a redacted row**
+    rather than excluding it, so for those particular rows the allegation body
+    and the submitter's identity are withheld even though the viewer's
+    committee-level flags say otherwise — and the flags are what this function
+    reads.
+
+    Without this argument the search box was a clean oracle over exactly the
+    three fields the card refuses to print. Typing a word that appears only in
+    the hidden description returned the row (identifiable by its case number
+    and its "Recused" badge); typing the reporter's surname returned it too.
+    Reproduced both directions 08-01-26, and `src/test_kai_search_oracle.py`
+    fails against the pre-fix helper.
+
+    So: the caller passes the pks whose content is redacted *for this viewer*,
+    and those rows are matchable on title and tags only — the two fields the
+    card does render. Everything else keeps the permission-gated predicate.
+
+    **The general rule, and it is the one this codebase keeps re-learning:
+    when a surface stops EXCLUDING a row and starts REDACTING it, every
+    predicate that touches that row becomes a disclosure.** Exclusion protects
+    the filters for free; redaction does not.
     """
-    q = Q(title__icontains=search_query) | Q(tags__icontains=search_query)
+    # Always searchable: the two fields the redacted card still renders.
+    public_q = Q(title__icontains=search_query) | Q(tags__icontains=search_query)
+
+    gated_q = Q()
     if kai_access['can_view_report_details']:
-        q |= Q(description__icontains=search_query)
+        gated_q |= Q(description__icontains=search_query)
     if kai_access['can_view_submitter_identity']:
-        q |= Q(submitted_by__name__icontains=search_query)
+        gated_q |= Q(submitted_by__name__icontains=search_query)
     if kai_access['can_view_accused_identity']:
-        q |= Q(targeted_to__name__icontains=search_query)
-    return q
+        gated_q |= Q(targeted_to__name__icontains=search_query)
+
+    if not gated_q:
+        # An empty Q() is falsy. Nothing gated is searchable for this user, so
+        # there is nothing for `redacted_case_ids` to protect.
+        return public_q
+
+    redacted = list(redacted_case_ids or ())
+    if redacted:
+        # `pk` is on the base table, so this negation is a plain NOT IN — no
+        # subquery, no join semantics to get wrong.
+        gated_q &= ~Q(pk__in=redacted)
+
+    return public_q | gated_q
 
 
 def _kai_search_placeholder(kai_access):
@@ -516,27 +691,33 @@ def view_kai_reports(request):
         date_from = request.GET.get('date_from', '')
         date_to = request.GET.get('date_to', '')
 
-        # Start with all reports
+        # Start with all reports.
         #
-        # v3.18.0 — RECUSAL. Cases the viewer is a party to are excluded from
-        # the list before any other filter, so they cannot be reached by
-        # status, category, date or search either. See `_case_access`.
-        # ⚠️ CORRECTED 07-31-26 (twice). This first excluded every case the
-        # viewer was a party to — submitter or accused — which hid three
-        # self-filed test reports and rendered an empty queue. Narrowing it to
-        # the accused still hid two.
+        # v3.18.0 — RECUSAL, and the design here went through three versions.
+        # It first excluded every case the viewer was a party to — submitter or
+        # accused — which hid three self-filed test reports and rendered an
+        # empty queue. Narrowing it to the accused still hid two.
         #
         # The exclusion was the wrong tool. **Hiding the row protects nothing**:
         # the accused already knows the case exists — they are notified, and it
         # is on their own dashboard under "Reports Where I'm Named". What they
         # must not have is the allegation body, the submitter's identity, and
-        # any power to act on it. All three are enforced elsewhere:
-        # `manage_kai_report` refuses them, the exports redact, and the bulk
-        # actions exclude.
+        # any power to act on it. `manage_kai_report` refuses them, the exports
+        # exclude, and the card below redacts.
         #
         # So the list shows EVERY case and marks the viewer's own — see
-        # `viewer_is_party` below and the redacted card in view_reports.html.
+        # `viewer_recusal` below and the redacted card in view_reports.html.
         # The counts then agree with the rows, which is the property that broke.
+        #
+        # ⚠️ v3.18.1 — THE HALF THAT DID NOT MOVE WITH IT. Switching from
+        # exclusion to redaction left the SEARCH PREDICATE reading the viewer's
+        # committee-level flags, so it still matched on `description` and
+        # `submitted_by__name` for the very rows the card refuses to print
+        # them for. A viewer who was the accused could recover the allegation
+        # body a guess at a time and identify their own reporter by surname —
+        # reproduced 08-01-26 in both directions. `redacted_case_ids` below is
+        # the fix; see `_kai_search_q`.
+        redacted_case_ids = _recused_case_ids(request.user)
         reports = KaiReport.objects.all()
         # A pure stand-in (no committee grant) sees only their appointments.
         if not kai_access['can_view_report_list']:
@@ -555,13 +736,22 @@ def view_kai_reports(request):
         if category_filter != 'all':
             reports = reports.filter(category=category_filter)
 
-        # Apply search filter — v3.16.3: permission-gated, see _kai_search_q
+        # Apply search filter — v3.16.3: permission-gated, see _kai_search_q.
+        # v3.18.1: `redacted_case_ids` narrows it to title/tags for the rows
+        # this viewer sees redacted. Without it the box is an oracle.
         if search_query:
-            reports = reports.filter(_kai_search_q(search_query, kai_access))
+            reports = reports.filter(
+                _kai_search_q(search_query, kai_access, redacted_case_ids)
+            )
 
         # Apply date range filter
+        #
+        # v3.18.1: these used to carry function-local `from datetime import …`
+        # lines. A local import binds the name for the WHOLE function scope, so
+        # `timedelta` used earlier in the same function raised
+        # UnboundLocalError. Both are module-level imports now — do not put
+        # them back inside the branches.
         if date_from:
-            from datetime import datetime
             try:
                 date_from_obj = datetime.strptime(date_from, '%Y-%m-%d')
                 reports = reports.filter(submitted_at__gte=date_from_obj)
@@ -569,7 +759,6 @@ def view_kai_reports(request):
                 pass
 
         if date_to:
-            from datetime import datetime, timedelta
             try:
                 date_to_obj = datetime.strptime(date_to, '%Y-%m-%d')
                 # Include the entire day
@@ -587,7 +776,21 @@ def view_kai_reports(request):
 
         # select_related directly — the test-DB schema-probe fallback is gone
         # (migrations consolidated + tracked since 07-05-26). (v3.15.6)
-        reports = list(reports.select_related('submitted_by', 'reviewed_by', 'targeted_to', 'assigned_to').defer(*member_defer('submitted_by', 'reviewed_by', 'targeted_to', 'assigned_to')).order_by('-submitted_at'))
+        #
+        # v3.18.1 — CAPPED. This materialised the whole table. Kai volume is
+        # small today, which is exactly what the three views capped in v3.17.5
+        # and v3.17.7 were before they weren't. The cap comes with true totals
+        # from a separate GROUP BY below, because **a capped page must not
+        # count its capped list** — `counts` and `category_counts` are already
+        # aggregates over `_visible`, so they stay honest for free. The two
+        # that were computed off `reports` (`stale_count`, `assigned_counts`)
+        # are moved to aggregates for the same reason.
+        reports = list(
+            reports
+            .select_related('submitted_by', 'reviewed_by', 'targeted_to', 'assigned_to')
+            .defer(*member_defer('submitted_by', 'reviewed_by', 'targeted_to', 'assigned_to'))
+            .order_by('-submitted_at')[:KAI_LIST_LIMIT]
+        )
 
         # Per-row party status. The list template gates content on ONE
         # committee-level `kai_access` for every row, so a case the viewer is
@@ -598,10 +801,15 @@ def view_kai_reports(request):
         # Status counts — v3.16.3: one aggregate instead of four separate
         # .count() round trips, matching the category pattern directly below.
         #
-        # v3.18.0: recused cases are excluded here too. The stat cards are
-        # clickable filters onto the list, so a count that included a case the
-        # list will not show is both wrong and a disclosure — "Pending 4" with
-        # three rows tells the viewer a case about them exists.
+        # v3.18.1 — the v3.18.0 comment here claimed "recused cases are
+        # excluded here too", which was never true of the shipped code and had
+        # stopped being the right thing to do: the list SHOWS those rows
+        # redacted, so a count that excluded them would disagree with the rows
+        # on screen — the exact defect the exclusion was meant to prevent, in
+        # reverse. `_visible` is every case the viewer can see, and the counts
+        # match the list. Removed rather than corrected in place, because a
+        # comment describing enforcement that does not exist reads as
+        # enforcement to the next person.
         _visible = KaiReport.objects.all()
         if not kai_access['can_view_report_list']:
             _visible = _visible.filter(pk__in=standin_case_ids)
@@ -625,20 +833,44 @@ def view_kai_reports(request):
         # sitting, so a `pending` case could age indefinitely with no signal.
         # One extra query for the oldest unreviewed case; `days_open` and
         # `is_stale` are properties, computed per row with no further queries.
+        #
+        # v3.18.1: skip cases this viewer is recused from. The banner's "Open
+        # oldest" button links straight to `manage_kai_report`, which refuses a
+        # party — so pointing it at their own case produced a button that could
+        # only bounce, above a case number the card below is careful about.
+        _oldest_qs = _visible.filter(status='pending')
+        if redacted_case_ids:
+            _oldest_qs = _oldest_qs.exclude(pk__in=redacted_case_ids)
         oldest_pending = (
-            _visible.filter(status='pending')
+            _oldest_qs
             .select_related('assigned_to')
             .defer(*member_defer('assigned_to'))
             .order_by('submitted_at')
             .first()
         )
-        stale_count = sum(1 for report in reports if report.is_stale)
+
+        # v3.18.1 — these were `sum(... for r in reports)` over the capped
+        # list, so past the cap they would have frozen at whatever the newest
+        # KAI_LIST_LIMIT rows happened to contain. Aggregates instead.
+        _stale_before = timezone.now() - timedelta(days=KaiReport.STALE_AFTER_DAYS)
+        stale_count = _visible.filter(
+            status='pending', submitted_at__lte=_stale_before,
+        ).count()
         assigned_counts = {
-            'mine': sum(1 for r in reports if r.assigned_to_id == request.user.pk),
-            'unassigned': sum(1 for r in reports if r.assigned_to_id is None),
+            'mine': _visible.filter(assigned_to=request.user).count(),
+            'unassigned': _visible.filter(assigned_to__isnull=True).count(),
         }
-    except Exception:
-        # Table doesn't exist yet - show empty state
+        total_reports = counts['all']
+        reports_truncated = total_reports > len(reports) and not (
+            status_filter != 'all' or category_filter != 'all'
+            or search_query or date_from or date_to or assigned_filter != 'all'
+        )
+    except DatabaseError:
+        # v3.18.1: was a bare `except Exception`, which flattened ANY error in
+        # the eighty lines above — a typo, a FieldError, a template-context
+        # mistake — into an empty list plus "table not yet created". The
+        # v3.15.6 schema probes were removed from this module for that reason
+        # and this handler outlived them. Narrowed to the error it names.
         reports = []
         status_filter = request.GET.get('status', 'all')
         category_filter = request.GET.get('category', 'all')
@@ -657,11 +889,14 @@ def view_kai_reports(request):
         oldest_pending = None
         stale_count = 0
         assigned_counts = {'mine': 0, 'unassigned': 0}
+        total_reports = 0
+        reports_truncated = False
         messages.info(request, 'Kai Reports database table not yet created. This is a preview of the interface.')
 
     # Dashboard stats (compute after main try/except so counts are available)
     try:
-        from datetime import timedelta
+        # v3.18.1: `timedelta` is a module-level import now — a local one here
+        # bound the name for the whole function and broke its earlier use.
         import json
 
         category_data = {
@@ -723,10 +958,33 @@ def view_kai_reports(request):
             for ms in month_starts
         }
 
-        recent_activities = list(
-            KaiReportActivity.objects.select_related('report', 'user').defer(*member_defer('user')).order_by('-timestamp')[:8]
-        )
-    except Exception:
+        # ⚠️ v3.18.1 — THE FOURTH COPY OF THE ACTIVITY FEED, and in some ways
+        # the worst: it spans EVERY case rather than one, and it sits on the
+        # list page, so its audience is everyone with `can_view_report_list`
+        # rather than everyone with `can_view_report_details`.
+        #
+        # It rendered `{{ activity.user.name }}`, and the author of a `created`
+        # entry is the case's submitter — so the panel read "Report Created —
+        # <case title> · <the person who reported it>" for every case in the
+        # chapter, to reviewers with no identity grant at all.
+        #
+        # `_redact_activity_log` works per report, so it is applied per entry
+        # here against that entry's own case. Cross-case recusal matters too: a
+        # viewer who is the accused on one of these cases must not read its
+        # activity out of this panel either.
+        recent_activities = []
+        for _entry in (
+            KaiReportActivity.objects
+            .select_related('report', 'report__submitted_by', 'report__targeted_to', 'user')
+            .defer(*member_defer('user'))
+            .order_by('-timestamp')[:8]
+        ):
+            _entry_access = _case_access(request.user, _entry.report, kai_access)
+            if _entry_access.get('is_recused'):
+                continue
+            _redact_activity_log([_entry], _entry.report, _entry_access)
+            recent_activities.append(_entry)
+    except DatabaseError:
         category_data = {}
         outcome_pending = outcome_heard = outcome_thrown_out = 0
         monthly_data = {}
@@ -764,6 +1022,11 @@ def view_kai_reports(request):
         'stale_after_days': KaiReport.STALE_AFTER_DAYS,
         'assigned_filter': assigned_filter,
         'assigned_counts': assigned_counts,
+        # v3.18.1 — cap. `total_reports` is the true total from the GROUP BY,
+        # not `len(reports)`; `reports_truncated` drives the notice.
+        'total_reports': total_reports,
+        'reports_truncated': reports_truncated,
+        'report_fetch_limit': KAI_LIST_LIMIT,
     }
 
     return render(request, 'kai/view_reports.html', context)
@@ -865,7 +1128,8 @@ def export_kai_reports_csv(request):
         # Start with all reports
         # v3.18.0 — RECUSAL: excluded before filtering, so a recused case
         # cannot be reached by any filter combination either.
-        reports = KaiReport.objects.exclude(pk__in=_recused_case_ids(request.user))
+        redacted_case_ids = _recused_case_ids(request.user)
+        reports = KaiReport.objects.exclude(pk__in=redacted_case_ids)
 
         # Apply filters (same logic as view)
         if status_filter == 'pending':
@@ -882,8 +1146,16 @@ def export_kai_reports_csv(request):
         # export redacts Submitted By / Targeted To / Description below; before
         # this change it still *filtered* on them, which handed the redacted
         # values straight back to the caller.
+        #
+        # v3.18.1: `redacted_case_ids` is passed even though those rows were
+        # already excluded two lines up. Belt and braces on purpose — the
+        # helper's guarantee should not depend on each caller remembering to
+        # exclude first, which is precisely how the list view's version of this
+        # went wrong.
         if search_query:
-            reports = reports.filter(_kai_search_q(search_query, kai_access))
+            reports = reports.filter(
+                _kai_search_q(search_query, kai_access, redacted_case_ids)
+            )
 
         if date_from:
             from datetime import datetime
@@ -1501,7 +1773,13 @@ Notified at: {notify_time}
                             report=report,
                             user=request.user,
                             action='status_changed',
-                            details=f'Accused person set to: {accused_user.name}'
+                            # v3.18.1: no name. The accused's identity is
+                            # governed by `can_view_accused_identity` and this
+                            # string is rendered to anyone with
+                            # `can_view_report_details`. The name is on the
+                            # case record itself, gated properly, and the log
+                            # only needs to say that it changed.
+                            details='Accused person set.'
                         )
                         ActivityLog.log_activity(
                             action_type='kai_action',
@@ -1528,7 +1806,8 @@ Notified at: {notify_time}
                         report=report,
                         user=request.user,
                         action='status_changed',
-                        details=f'Accused person removed (was: {old_name})'
+                        # v3.18.1: `old_name` removed — see the sibling above.
+                        details='Accused person removed from the case.'
                     )
                     ActivityLog.log_activity(
                         action_type='kai_action',
@@ -1665,7 +1944,8 @@ Beta Theta Pi - Samford Chapter
                         report=report,
                         user=request.user,
                         action='status_changed',
-                        details=f'Accused ({report.targeted_to.name}) notified of the case'
+                        # v3.18.1: name removed — see the two siblings above.
+                        details='Accused notified of the case.'
                     )
                     ActivityLog.log_activity(
                         action_type='kai_action',
@@ -1806,9 +2086,22 @@ You may submit another closure request in the future if circumstances change.
         return redirect('manage_kai_report', report_id=report.id)
 
     # Get activity log
+    #
+    # v3.18.1: redacted before it reaches either template. Both the Activity
+    # card and the Case Timeline printed the entry author's name and the raw
+    # details string, and the author of the `created` entry is the submitter.
+    # See `_redact_activity_log`.
     try:
-        activity_log = list(report.activity_log.all().select_related('user').defer(*member_defer('user'))[:20])  # Last 20 activities
-    except Exception:
+        activity_log = _redact_activity_log(
+            list(
+                report.activity_log.all()
+                .select_related('user')
+                .defer(*member_defer('user'))[:20]  # Last 20 activities
+            ),
+            report,
+            kai_access,
+        )
+    except DatabaseError:
         activity_log = []
 
     # Get related reports
@@ -1937,9 +2230,22 @@ def print_kai_report(request, report_id):
         return redirect('home')
 
     # Get activity log
+    #
+    # v3.18.1 — redacted, same as the detail page. This view is the third copy
+    # of the activity feed and the one that matters most: it renders the whole
+    # log rather than the last 20, and its output is a document that leaves the
+    # app. See `_redact_activity_log`.
     try:
-        activity_log = list(report.activity_log.all().select_related('user').defer(*member_defer('user')))
-    except Exception:
+        activity_log = _redact_activity_log(
+            list(
+                report.activity_log.all()
+                .select_related('user')
+                .defer(*member_defer('user'))
+            ),
+            report,
+            kai_access,
+        )
+    except DatabaseError:
         activity_log = []
 
     ActivityLog.log_activity(
@@ -1958,6 +2264,10 @@ def print_kai_report(request, report_id):
         'kai_committee': kai_committee,
         'activity_log': activity_log,
         'print_date': timezone.now(),
+        # v3.18.1 — this template never received `kai_access`, which is why it
+        # printed both parties' names ungated: there was nothing to gate on.
+        # Every other Kai surface has had it since v3.16.2.
+        'kai_access': kai_access,
     }
 
     return render(request, 'kai/print_report.html', context)
@@ -2434,8 +2744,13 @@ def _can_appoint_standins(user, committee):
     Deliberately NOT a `KaiMemberPermission` flag. Appointment hands another
     member access to a specific case, so it is a delegation of authority rather
     than an ordinary case action; § vi assigns it to the head of Kai by name.
+
+    v3.18.1: `_is_kai_chair`, not `committee.is_chair` — appointing a stand-in
+    is the most privileged action in the module (it grants another member a
+    snapshot of a seat's permissions on a live case), so it is the last place
+    the `is_exec_board` shortcut belongs. See `_is_kai_chair`.
     """
-    return bool(user.is_admin or committee.is_chair(user))
+    return bool(user.is_admin or _is_kai_chair(user, committee))
 
 
 def _sync_recusals(report, committee):

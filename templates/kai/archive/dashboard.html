@@ -154,11 +154,19 @@
               <p class="text-xs text-gray-600 dark:text-gray-400 truncate">
                 <a href="{% url 'manage_kai_report' activity.report.id %}" class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">{{ activity.report.title }}</a>
               </p>
-              {% if activity.details %}
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ activity.details|truncatewords:15 }}</p>
+              {% comment %} v3.18.1 — this file is ARCHIVED and unrouted (no view renders
+                 it; the dashboard was merged into view_reports.html and
+                 `kai_dashboard` is now a redirect). Hardened anyway, for the
+                 same reason v3.18.0 hardened the archived committee_detail
+                 twin: "it's dead code" is exactly the kind of claim that
+                 quietly stops being true. These fields resolve to empty
+                 unless a future view runs `_redact_activity_log`, so if this
+                 page is ever revived it fails CLOSED rather than leaking. {% endcomment %}
+              {% if activity.display_details %}
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ activity.display_details|truncatewords:15 }}</p>
               {% endif %}
               <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                {{ activity.user.name|default:"System" }} • {{ activity.timestamp|date:"M d, g:i A" }}
+                {{ activity.display_actor|default:"System" }} • {{ activity.timestamp|date:"M d, g:i A" }}
               </p>
             </div>
           </div>

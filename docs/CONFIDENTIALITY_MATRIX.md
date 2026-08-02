@@ -17,10 +17,36 @@ someone applies the rule *correctly, once*, and nobody checks the sibling:
 | v3.16.2 | Field-level redaction on admin detail pages | `export_as_csv` dumped every `_meta.field` regardless |
 | v3.16.3 | CSV export redacted the Kai description column | The list view and export still **filtered** on it — a redaction oracle |
 | v3.17.7 | `export_kai_reports_csv` redacted three fields | `bulk_actions_kai_reports` wrote the same thirteen columns raw, 1,100 lines below, reachable from a dropdown |
+| v3.18.1 | Every surface above honoured the two identity flags | **The activity feed never had.** Four copies of it — case detail, the v3.18.0 timeline partial, the print view, and a cross-case panel on the list page — printed `entry.user.name`, and the author of a `created` entry *is* the submitter |
 
-Three releases, one shape. **This table is the checklist that makes the second
+Four releases, one shape. **This table is the checklist that makes the second
 copy visible before it ships.** When you touch a confidential field, read across
 its row.
+
+> ## ⚠️ v3.18.1 — this file was wrong on the day it shipped, in both ways it can be
+>
+> The nightly review found two defects in the v3.18.0 version of this document,
+> and they are the two failure modes the document itself is subject to:
+>
+> 1. **A wrong cell.** `KaiReport.submitted_by` → *Filter/search* read
+>    "✅ `_kai_search_q`". It was not: v3.18.0 changed the reviewer list from
+>    *excluding* a case the viewer is the accused on to *showing it redacted*,
+>    and the search predicate still matched that row on `description` and
+>    `submitted_by__name`. The box was an oracle over both.
+> 2. **A missing column.** There was no *Activity* surface, so the activity
+>    feed — which emits both identities, in four places — could not be wrong in
+>    this table because it was not in it.
+>
+> **The lesson is about the artefact, not the bug.** A matrix whose columns come
+> from memory inherits the blind spot it was built to remove. The surfaces below
+> are now derived from a grep, and `test_kai_redaction_surfaces.py` fails if a
+> Kai template renders a raw activity field. Do the same for any surface added
+> here: *if the row cannot be checked by a test, it will eventually be a lie.*
+>
+> **And one new rule, which is the general form of defect 1:** *when a surface
+> stops EXCLUDING a row and starts REDACTING it, every predicate that touches
+> that row becomes a disclosure.* Exclusion protects the filters for free.
+> Redaction does not.
 
 ## How to read it
 
@@ -46,6 +72,11 @@ which is also roughly the order in which gaps are found:
 7. **API** — `/api/v1/`
 8. **Search** — global search
 9. **Dev rows** — dev mode's SQL row inspector
+10. **Activity** — the activity/audit feed. *Added v3.18.1, having been missed
+    entirely.* A log entry carries two things that are not obviously fields:
+    **its author**, and **whatever a previous release interpolated into its
+    free-text `details`**. Both are identity. The Kai feed had four renderers
+    and all four were raw.
 
 ---
 
@@ -55,13 +86,28 @@ Governed **only** by in-app `KaiMemberPermission` grants. All seven Kai models
 are deliberately unregistered from `/admin/`, so the admin columns are ➖ by
 design — that gap is intentional and must not be "fixed".
 
-| Field | In-app | Filter/search | CSV | Bulk | Admin | Admin CSV | API | Search | Dev rows |
-|---|---|---|---|---|---|---|---|---|---|
-| `KaiReport.description` | ✅ `can_view_report_details` | ✅ `_kai_search_q` | ✅ `_kai_csv_row` | ✅ `_kai_csv_row` | ➖ | ➖ | ➖ | ✅ gated on `_get_kai_access` | ➖ withheld |
-| `KaiReport.submitted_by` | ✅ `can_view_submitter_identity` | ✅ `_kai_search_q` | ✅ `_kai_csv_row` | ✅ `_kai_csv_row` | ➖ | ➖ | ➖ | ✅ | ➖ withheld |
-| `KaiReport.targeted_to` | ✅ `can_view_accused_identity` | ✅ `_kai_search_q` | ✅ `_kai_csv_row` | ✅ `_kai_csv_row` | ➖ | ➖ | ➖ | ✅ | ➖ withheld |
-| `KaiReport.tags` | ✅ list-level, by design | ✅ ungated, by design | ✅ | ✅ | ➖ | ➖ | ➖ | ✅ | ➖ withheld |
-| `KaiMemberPermission.*` | ✅ in-app only | n/a | n/a | n/a | ➖ | ➖ | ➖ | ➖ | ➖ withheld |
+| Field | In-app | Filter/search | CSV | Bulk | Admin | Admin CSV | API | Search | Dev rows | Activity |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `KaiReport.description` | ✅ `can_view_report_details` | ✅ `_kai_search_q` + `redacted_case_ids` | ✅ `_kai_csv_row` | ✅ `_kai_csv_row` | ➖ | ➖ | ➖ | ✅ gated on `_get_kai_access` | ➖ withheld | ➖ never in `details` |
+| `KaiReport.submitted_by` | ✅ `can_view_submitter_identity` | ✅ `_kai_search_q` + `redacted_case_ids` | ✅ `_kai_csv_row` | ✅ `_kai_csv_row` | ➖ | ➖ | ➖ | ✅ | ➖ withheld | ✅ `_redact_activity_log` — **the author of `created` IS the submitter** |
+| `KaiReport.targeted_to` | ✅ `can_view_accused_identity` | ✅ `_kai_search_q` + `redacted_case_ids` | ✅ `_kai_csv_row` | ✅ `_kai_csv_row` | ➖ | ➖ | ➖ | ✅ | ➖ withheld | ✅ `_redact_activity_log` — legacy `details` strings scrubbed at render |
+| `KaiReport.tags` | ✅ list-level, by design | ✅ ungated, by design | ✅ | ✅ | ➖ | ➖ | ➖ | ✅ | ➖ withheld | n/a |
+| `KaiReport.case_number` | ✅ replaces the raw pk | ➖ | ✅ | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ withheld | ✅ in `ActivityLog` descriptions, officer-only |
+| `KaiMemberPermission.*` | ✅ in-app only | n/a | n/a | n/a | ➖ | ➖ | ➖ | ➖ | ➖ withheld | n/a |
+
+**`redacted_case_ids` is not a duplicate of the permission gate — it is the
+second axis.** The flags answer *may this user read this field at all*; the id
+list answers *is this the one row where the answer is no anyway*. The reviewer
+list shows a case the viewer is the accused on as a redacted row, so for that
+row alone both answers must be consulted. Any new list-shaped Kai surface that
+displays-rather-than-excludes has to pass the ids too.
+
+**The four activity renderers**, so the next person does not have to find them:
+`templates/kai/manage_report.html` (case detail), `kai/partials/case_timeline.html`
+(v3.18.0), `kai/print_report.html` (whole log, leaves the app),
+`kai/view_reports.html` (cross-case "Recent Activity" panel, list-level
+audience). All four read `display_actor` / `display_details`;
+`test_no_template_renders_raw_activity_fields` fails if a fifth does not.
 
 **`tags` is deliberately ungated and that is load-bearing.** It is a *closed
 vocabulary* (`KaiReport.TAG_CHOICES`), so it carries no identity. If it is ever

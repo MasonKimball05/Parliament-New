@@ -154,7 +154,10 @@
                 <span class="font-medium text-gray-800 dark:text-gray-100">{{ activity.get_action_display }}</span>
                 <span class="text-gray-500 dark:text-gray-400"> — </span>
                 <a href="{% url 'manage_kai_report' activity.report.id %}" class="text-primary-600 dark:text-primary-400 hover:underline truncate">{{ activity.report.title }}</a>
-                <span class="block text-gray-400 dark:text-gray-500 mt-0.5">{{ activity.user.name|default:"System" }} · {{ activity.timestamp|date:"M d, g:i A" }}</span>
+                {% comment %} v3.18.1 — display_actor, NOT user.name. The author of a
+                   `created` entry is that case's submitter, and this panel
+                   spans every case in the chapter. See _redact_activity_log. {% endcomment %}
+                <span class="block text-gray-400 dark:text-gray-500 mt-0.5">{{ activity.display_actor|default:"System" }} · {{ activity.timestamp|date:"M d, g:i A" }}</span>
               </div>
             </div>
             {% endfor %}
@@ -263,6 +266,19 @@
           </div>
         </div>
       </div>
+
+      {% comment %} v3.18.1 — the list is capped at report_fetch_limit. The badges above
+         come from separate GROUP BY aggregates, so they show TRUE totals; this
+         notice exists so the gap between them and the rows is explained rather
+         than silently wrong. {% endcomment %}
+      {% if reports_truncated %}
+      <div class="mb-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-2.5">
+        <p class="text-xs text-gray-600 dark:text-gray-400">
+          Showing the {{ report_fetch_limit }} most recent of {{ total_reports }} cases.
+          The counts above are totals. Filter or search to reach older cases.
+        </p>
+      </div>
+      {% endif %}
 
       <!-- Reports List -->
       <div class="space-y-3">

@@ -1,4 +1,5 @@
-from django.db import models
+from django.db import IntegrityError, models, transaction
+from django.db.models import Q
 from django.conf import settings
 from src.storage import DualLocationStorage
 
@@ -221,6 +222,19 @@ class KaiReport(models.Model):
         ordering = ['-submitted_at']
         verbose_name = 'Kai Report'
         verbose_name_plural = 'Kai Reports'
+        constraints = [
+            # v3.18.1 — `next_case_number()` is a read-then-write, so two
+            # submissions landing together could both read the same maximum.
+            # Conditional because the field defaults to '' and is nullable in
+            # practice for `bulk_create`d fixtures — many blanks are fine, two
+            # identical real numbers are not. `save()` catches the
+            # IntegrityError and recomputes once.
+            models.UniqueConstraint(
+                fields=['case_number'],
+                condition=~Q(case_number=''),
+                name='uniq_kai_report_case_number',
+            ),
+        ]
 
     def __str__(self):
         return f"{self.title} - {self.submitted_by.name} ({self.submitted_at.strftime('%Y-%m-%d')})"
@@ -327,11 +341,38 @@ class KaiReport(models.Model):
         # so it is not populated until after the INSERT — use the current year
         # for a new row, which is the same thing for every row that is not
         # being back-dated by a fixture.
+        #
+        # v3.18.1 — two fixes here, both small:
+        #
+        #   1. `update_fields`. `manage_kai_report`'s assign action calls
+        #      `save(update_fields=['assigned_to'])`. If that row's number were
+        #      blank, the branch below would compute one, set it on the
+        #      instance, and then `super().save()` would write only
+        #      `assigned_to` — the number silently lost and a query spent
+        #      finding it. Add the field to `update_fields` when we assign one.
+        #   2. `IntegrityError` retry. `next_case_number` is a read-then-write,
+        #      so two concurrent submissions can both read the same maximum.
+        #      The partial unique constraint in Meta now catches that; this
+        #      recomputes once rather than 500ing. Case numbers go into the
+        #      minutes, and two cases sharing one is worse than a gap.
         if not self.case_number:
             from django.utils import timezone
 
             year = (self.submitted_at or timezone.now()).year
             self.case_number = self.next_case_number(year)
+
+            update_fields = kwargs.get('update_fields')
+            if update_fields is not None and 'case_number' not in update_fields:
+                kwargs['update_fields'] = list(update_fields) + ['case_number']
+
+            try:
+                with transaction.atomic():
+                    return super().save(*args, **kwargs)
+            except IntegrityError:
+                # Someone took the number between our SELECT and our INSERT.
+                self.case_number = self.next_case_number(year)
+                return super().save(*args, **kwargs)
+
         super().save(*args, **kwargs)
 
     @property

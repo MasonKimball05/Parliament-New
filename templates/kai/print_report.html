@@ -262,15 +262,21 @@
       </span>
     </div>
 
+    {% comment %} v3.18.1 — BOTH OF THESE WERE UNGATED. The print view checks only
+       `can_view_report_details` at the door and then printed the reporter's
+       and the accused's names outright, in a document explicitly designed to
+       be exported to PDF and leave the app. Every other surface has honoured
+       these two flags since v3.16.2; this one never did. Found 08-01-26 while
+       fixing the activity feed in the same template. {% endcomment %}
     <div class="field-group">
       <span class="field-label">Submitted By:</span>
-      <span class="field-value">{{ report.submitted_by.name }}</span>
+      <span class="field-value">{% if kai_access.can_view_submitter_identity %}{{ report.submitted_by.name }}{% else %}Anonymous{% endif %}</span>
     </div>
 
     {% if report.targeted_to %}
     <div class="field-group">
       <span class="field-label">Directed To:</span>
-      <span class="field-value">{{ report.targeted_to.name }}</span>
+      <span class="field-value">{% if kai_access.can_view_accused_identity %}{{ report.targeted_to.name }}{% else %}Redacted{% endif %}</span>
     </div>
     {% endif %}
 
@@ -324,10 +330,12 @@
       <ul style="margin: 0; padding-left: 20px;">
         {% for related in report.related_reports.all %}
         <li style="margin-bottom: 8px;">
-          <strong>Report #{{ related.id }}:</strong> {{ related.title }}<br>
+          {% comment %} v3.18.1 — same gates as the case's own parties above. A linked
+             case's reporter is no less confidential than this one's. {% endcomment %}
+          <strong>{{ related.display_number }}:</strong> {{ related.title }}<br>
           <span style="color: #6b7280; font-size: 13px;">
-            Submitted by {{ related.submitted_by.name }} on {{ related.submitted_at|date:"F d, Y" }}
-            {% if related.targeted_to %} → Directed to {{ related.targeted_to.name }}{% endif %}
+            Submitted by {% if kai_access.can_view_submitter_identity %}{{ related.submitted_by.name }}{% else %}Anonymous{% endif %} on {{ related.submitted_at|date:"F d, Y" }}
+            {% if related.targeted_to %} → Directed to {% if kai_access.can_view_accused_identity %}{{ related.targeted_to.name }}{% else %}Redacted{% endif %}{% endif %}
           </span>
         </li>
         {% endfor %}
@@ -344,11 +352,16 @@
       {% for activity in activity_log %}
       <div class="activity-item">
         <div class="activity-action">{{ activity.get_action_display }}</div>
-        {% if activity.details %}
-        <div class="activity-details">{{ activity.details }}</div>
+        {% comment %} v3.18.1 — display_actor / display_details, NOT user.name / details.
+           This print view was the THIRD copy of the activity feed and the
+           worst of the three: it renders the ENTIRE log, not the last 20, and
+           it produces a document that leaves the app. See
+           `_redact_activity_log`. {% endcomment %}
+        {% if activity.display_details %}
+        <div class="activity-details">{{ activity.display_details }}</div>
         {% endif %}
         <div class="activity-meta">
-          {{ activity.user.name|default:"System" }} • {{ activity.timestamp|date:"F d, Y \a\t g:i A" }}
+          {{ activity.display_actor|default:"System" }} • {{ activity.timestamp|date:"F d, Y \a\t g:i A" }}
         </div>
       </div>
       {% endfor %}

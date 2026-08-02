@@ -769,11 +769,17 @@
                 <!-- Content -->
                 <div class="flex-1 min-w-0">
                   <p class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ activity.get_action_display }}</p>
-                  {% if activity.details %}
-                  <p class="text-xs text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">{{ activity.details }}</p>
+                  {% comment %} v3.18.1 — display_actor / display_details, NOT user.name /
+                     details. The author of the `created` entry is the
+                     submitter, and three legacy details strings name the
+                     accused, so both fields go through
+                     `_redact_activity_log`. Do not revert these to the raw
+                     fields; `test_kai_activity_redaction` fails if you do. {% endcomment %}
+                  {% if activity.display_details %}
+                  <p class="text-xs text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">{{ activity.display_details }}</p>
                   {% endif %}
                   <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    {{ activity.user.name|default:"System" }} • {{ activity.timestamp|date:"M d, g:i A" }}
+                    {{ activity.display_actor|default:"System" }} • {{ activity.timestamp|date:"M d, g:i A" }}
                   </p>
                 </div>
               </div>
