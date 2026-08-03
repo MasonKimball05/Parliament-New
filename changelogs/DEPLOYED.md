@@ -21,9 +21,20 @@ knows.
 
 Dates are the commit that introduced each release's changelog, recovered from
 `git log --diff-filter=A`. Mason confirmed 07-31-26 that deploys follow pushes
-same-day, so commit date == deploy date for everything below. The v3.13.x dates
-come from v3.13.2/v3.13.3's own explicit `**Deployed:**` markers, which predate
-this file and are more specific than their commit dates.
+same-day, so commit date == deploy date **for everything up to v3.18.0**. The
+v3.13.x dates come from v3.13.2/v3.13.3's own explicit `**Deployed:**` markers,
+which predate this file and are more specific than their commit dates.
+
+> **⚠️ That equivalence broke at v3.18.1 (noted 08-02-26).** It was committed
+> 08-01 and deployed 08-02 — the first release where the two dates differ. The
+> 08-02 nightly review had already been caught by this from the other side: it
+> ran `git log --diff-filter=A`, got 08-01, and concluded v3.18.1 was live,
+> while the row below said *not deployed* in as many words.
+>
+> **So do not re-derive deploy dates from commit dates, in either direction.**
+> `--diff-filter=A` dates a commit. This table answers "is it live". They were
+> the same number for eighteen releases and that made the shortcut look safe;
+> it was a coincidence, not a rule.
 
 | Release | Deployed | Commit | Notes |
 |---|---|---|---|
@@ -58,7 +69,8 @@ this file and are more specific than their commit dates.
 | v3.17.6 | 07-30-26 | `95dd8f8` | URL hyphen rename follow-through; `nginx.conf` changed |
 | v3.17.7 | 07-31-26 | `abe7367` | 07-31 auto-run fixes — 🔴 Kai bulk-export redaction, home-page join reuse, geo-guarded query-param exports |
 | v3.18.0 | 07-31-26 | `eb9f72e` | 🔴 Kai recusal + stand-ins, appeals (bylaws § b.i), case aging, assignment, per-year case numbers. **Migration `0011` includes a data backfill.** |
-| v3.18.1 | — | *not deployed* | 🔴 08-01 auto-run fixes — Kai search oracle, activity-feed identity redaction (4 renderers), print-view header, exec-board bypass, CI migration gate. **Migration `0012`.** |
+| v3.18.1 | 08-02-26 | `0b9dcd1` | 🔴 08-01 auto-run fixes — Kai search oracle, activity-feed identity redaction (4 renderers), print-view header, exec-board bypass, CI migration gate. **Migration `0012`.** Committed 08-01, deployed 08-02 — the one release so far whose commit date and deploy date differ. |
+| v3.18.2 | 08-02-26 | `eeebfae` | 🔴 08-02 auto-run fixes — `ActivityLog` was the eleventh Kai surface (submitter + accused named to every officer/chair); `is_admin` no longer grants Kai access, `KaiBreakGlassGrant` + `manage.py kai_break_glass` replace it; batched recusal lookup, folded aggregate, truncation notice, bounded case-number retry. **Migration `0013`.** ⚠️ **Run `manage.py check` after deploying — `src.W001` fires if nobody can open Kai.** |
 
 **Outstanding spot-checks for v3.17.7** (from its changelog, not blockers):
 Kai reports list as a *list-only* reviewer → Export CSV must show `[Redacted]` in
