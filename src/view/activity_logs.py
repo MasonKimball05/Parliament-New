@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.utils.timezone import localtime
 from src.utils.export_utils import export_to_csv
 from src.models.users import member_defer
+from src.kai_audit import audit_search_q, redact_kai_logs
 
 
 @officer_required
@@ -57,18 +58,36 @@ def activity_logs_view(request):
         logs = logs.filter(user__user_id=user_filter)
 
     # Apply search filter
+    #
+    # ⚠️ v3.18.2 — `audit_search_q`, NOT a raw Q. Kai rows are excluded from
+    # the `description` and `user__name` columns for a viewer without both
+    # identity flags, because those are the two columns the page redacts and
+    # **a filter predicate is a join key** — redacting the output while still
+    # filtering on the input is the oracle v3.16.3 and v3.18.1 both closed
+    # elsewhere. See `src/kai_audit.py`.
     if search_query:
-        logs = logs.filter(
-            Q(description__icontains=search_query) |
-            Q(user__name__icontains=search_query) |
-            Q(object_repr__icontains=search_query) |
-            Q(ip_address__icontains=search_query)
-        )
+        logs = logs.filter(audit_search_q(search_query, request.user))
 
     # Pagination
     paginator = Paginator(logs, 50)  # Show 50 logs per page
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+
+    # ⚠️ v3.18.2 — REDACT THE PAGE BEFORE IT REACHES THE TEMPLATE.
+    #
+    # `ActivityLog` was the eleventh Kai surface and the first that no
+    # enumeration could have caught: it is not a Kai model, not in
+    # `src/models/kai.py`, and not rendered by a `templates/kai/` file — it
+    # just stores both party identities in a TextField called `description`
+    # plus a third copy in the row's own `user` FK.
+    #
+    # `"<Name> submitted Kai case #12"` was written with `user=request.user`,
+    # and on a submission that user IS the reporter. Every officer and chair
+    # could read it here, one *Kai Committee* filter chip away.
+    #
+    # This mutates the page's objects in place and attaches `display_actor`,
+    # `display_actor_id` and `display_description`. The template renders those.
+    redact_kai_logs(page_obj.object_list, request.user)
 
     # Get unique users for filter dropdown
     active_users = ParliamentUser.objects.filter(
@@ -154,13 +173,11 @@ def export_activity_logs(request):
     if user_filter:
         logs = logs.filter(user__user_id=user_filter)
 
+    # v3.18.2 — same predicate as the view. The export used to duplicate the
+    # raw Q, which is how `_kai_search_q`'s two call sites drifted apart in
+    # v3.18.0; one helper, both callers.
     if search_query:
-        logs = logs.filter(
-            Q(description__icontains=search_query) |
-            Q(user__name__icontains=search_query) |
-            Q(object_repr__icontains=search_query) |
-            Q(ip_address__icontains=search_query)
-        )
+        logs = logs.filter(audit_search_q(search_query, request.user))
 
     # Prepare CSV data
     headers = [
@@ -176,15 +193,20 @@ def export_activity_logs(request):
         'IP Address',
     ]
 
+    # ⚠️ v3.18.2 — REDACTED, and this surface is the one that matters most of
+    # the five: a CSV leaves the app. v3.16.2's lesson was that a redaction
+    # applied to a detail page and not to its export is not a redaction; this
+    # is the same pairing, so the export goes through the same helper the page
+    # does rather than reading `log.description` and `log.user` raw.
     rows = []
-    for log in logs:
+    for log in redact_kai_logs(logs, request.user):
         rows.append([
             localtime(log.timestamp).strftime('%Y-%m-%d %H:%M:%S'),
-            log.user.get_display_name() if log.user else 'System',
-            log.user.user_id if log.user else 'N/A',
+            log.display_actor,
+            log.display_actor_id or 'N/A',
             log.get_action_category_display(),
             log.get_action_type_display(),
-            log.description,
+            log.display_description,
             log.object_type,
             log.object_id if log.object_id else '',
             log.object_repr,

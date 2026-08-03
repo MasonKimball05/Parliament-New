@@ -1105,6 +1105,36 @@ class ActivityLogAdmin(admin.ModelAdmin):
         return obj.description[:75] + '...' if len(obj.description) > 75 else obj.description
     description_short.short_description = 'Description'
 
+    def get_queryset(self, request):
+        """
+        ⚠️ v3.18.2 — KAI ROWS ARE EXCLUDED FROM THIS ADMIN. INTENTIONAL.
+
+        The standing v3.16.2 boundary: *being a Django admin/superuser is an
+        operational role; it is not a grant of judicial, deliberative, or
+        ballot-level access.* All seven Kai models are unregistered from
+        `/admin/` because of it — and this model then carried the same two
+        identities in prose and stayed registered.
+
+        `"<Name> submitted Kai case #12"` was written with `user=request.user`,
+        and on a submission that user IS the reporter; an appeal row can only
+        be written by the accused. So the list page named both parties, the
+        detail page named them again, and `search_fields` (which includes
+        `description` and `user__name`) made it queryable — an oracle even if
+        the output were redacted, which is why this **excludes** rather than
+        redacting. Same rule the module states: exclusion where a hit is
+        itself the disclosure, redaction where the row should be visible.
+
+        Kai audit rows remain readable, redacted, at `/activity-logs/` — the
+        officer-facing surface — and in full to anyone holding the matching
+        `KaiMemberPermission`. Manage Kai in the app, not here.
+
+        If a future review counts rows and finds this admin short, **that gap
+        is deliberate.** Do not "fix" it.
+        """
+        from src.kai_audit import exclude_kai_logs
+
+        return exclude_kai_logs(super().get_queryset(request), request.user)
+
     def has_add_permission(self, request):
         return False  # Logs are auto-created only
 

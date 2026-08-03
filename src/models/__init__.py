@@ -96,6 +96,7 @@ from src.models.kai import (
     KaiMemberPermission,
     KaiRecusal,
     KaiAppeal,
+    KaiBreakGlassGrant,
 )
 
 # Slating
@@ -288,6 +289,7 @@ __all__ = [
     'KaiMemberPermission',
     'KaiRecusal',
     'KaiAppeal',
+    'KaiBreakGlassGrant',
     # Slating
     'SlatingPeriod',
     'SlatingPosition',

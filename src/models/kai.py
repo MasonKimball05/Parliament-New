@@ -355,25 +355,80 @@ class KaiReport(models.Model):
         #      The partial unique constraint in Meta now catches that; this
         #      recomputes once rather than 500ing. Case numbers go into the
         #      minutes, and two cases sharing one is worse than a gap.
+        #
+        # ⚠️ v3.18.2 — TWO EDGES ON THAT RETRY, both found by the 08-02 review:
+        #
+        #   a. **One retry, recomputed from the same state.** The loser of a
+        #      race called `next_case_number()` again — but if the winner has
+        #      not COMMITTED yet, the `MAX` it reads is unchanged and it
+        #      produces the same number a second time. The second save was not
+        #      wrapped, so that path was an uncaught IntegrityError and a 500
+        #      on submit. Now a bounded loop, and each attempt steps past the
+        #      number that just failed rather than re-deriving it, so it makes
+        #      progress even against an uncommitted winner.
+        #   b. **`except IntegrityError` was broader than the constraint.** Any
+        #      integrity failure on that INSERT — an FK violation, some future
+        #      unique constraint — was caught, silently assigned a fresh case
+        #      number, and re-raised from the retry with a number burned and a
+        #      misleading traceback. Now re-raised immediately unless the error
+        #      names our constraint.
         if not self.case_number:
             from django.utils import timezone
 
             year = (self.submitted_at or timezone.now()).year
-            self.case_number = self.next_case_number(year)
 
             update_fields = kwargs.get('update_fields')
             if update_fields is not None and 'case_number' not in update_fields:
                 kwargs['update_fields'] = list(update_fields) + ['case_number']
 
-            try:
-                with transaction.atomic():
-                    return super().save(*args, **kwargs)
-            except IntegrityError:
-                # Someone took the number between our SELECT and our INSERT.
-                self.case_number = self.next_case_number(year)
-                return super().save(*args, **kwargs)
+            candidate = self.next_case_number(year)
+            prefix = f'KAI-{year}-'
+            for _attempt in range(self.CASE_NUMBER_MAX_ATTEMPTS):
+                self.case_number = candidate
+                try:
+                    with transaction.atomic():
+                        return super().save(*args, **kwargs)
+                except IntegrityError as exc:
+                    if not self._is_case_number_collision(exc):
+                        # Not our constraint. Nothing here can help; letting it
+                        # through unchanged keeps the traceback honest.
+                        raise
+                    # Step past the number that just lost, rather than asking
+                    # the table again — the winner may not have committed, in
+                    # which case the table would hand back the same answer and
+                    # this would spin until it ran out of attempts.
+                    tail = candidate[len(prefix):]
+                    counter = int(tail) if tail.isdigit() else 0
+                    candidate = f'{prefix}{counter + 1:03d}'
+            raise IntegrityError(
+                f'Could not allocate a unique Kai case number for {year} after '
+                f'{self.CASE_NUMBER_MAX_ATTEMPTS} attempts.'
+            )
 
         super().save(*args, **kwargs)
+
+    #: How many times `save()` will step forward looking for a free case number
+    #: before giving up. Collisions need two submissions inside the same few
+    #: milliseconds; five is far past what chapter volume can produce and still
+    #: bounded, so a pathological state cannot spin forever.
+    CASE_NUMBER_MAX_ATTEMPTS = 5
+
+    @staticmethod
+    def _is_case_number_collision(exc):
+        """
+        True if `exc` is our partial unique index failing, not some other
+        integrity error.
+
+        Matched on the constraint name, which every backend this project runs
+        includes in the message: PostgreSQL reports
+        `duplicate key value violates unique constraint
+        "uniq_kai_report_case_number"`, SQLite reports
+        `UNIQUE constraint failed: index 'uniq_kai_report_case_number'`. The
+        column name is checked too so a backend that omits the index name
+        still matches rather than falling through to a hard raise.
+        """
+        message = str(exc).lower()
+        return 'uniq_kai_report_case_number' in message or 'case_number' in message
 
     @property
     def display_number(self):
@@ -1156,3 +1211,131 @@ class KaiAppeal(models.Model):
         if cls.objects.filter(report=report, filed_by=user).exclude(status='withdrawn').exists():
             return False, 'You have already filed an appeal on this case.'
         return True, ''
+
+
+class KaiBreakGlassGrant(models.Model):
+    """
+    A time-boxed emergency grant of full Kai access to a site admin.
+
+    ⚠️ v3.18.2 — WHY THIS EXISTS, AND WHY IT IS DELIBERATELY INCONVENIENT.
+
+    Until this release `_get_kai_access()` opened with:
+
+        if user.is_admin or _is_kai_chair(user, committee):
+            return {everything: True}
+
+    So `is_admin` — one boolean on the user row — granted every Kai
+    permission, including both identity flags, with no `KaiMemberPermission`
+    anywhere. That sits badly beside two things this codebase already decided:
+
+      * **The standing v3.16.2 rule.** *Being a Django admin/superuser is an
+        operational role; it is not a grant of judicial, deliberative, or
+        ballot-level access.* All seven Kai models are unregistered from
+        `/admin/` because of it. The app layer was quietly doing what the
+        admin layer had been stopped from doing.
+      * **`_is_kai_chair`'s own argument, ten lines above it.** v3.18.1 removed
+        the `is_exec_board` shortcut on the grounds that "a boolean on the
+        committee row must not be able to grant [Kai access]". That reasoning
+        does not stop being true when the boolean is on the user row instead.
+
+    The real objection to simply deleting it is operational, and it is a fair
+    one: someone has to be able to unstick the module — if every Kai chair
+    leaves at once, or a permission row is deleted by accident, or the app is
+    mid-handoff between graduating officers, there has to be a way back in.
+
+    So: **admins get nothing by default, and there is a break-glass.** It is
+    deliberately awkward in four specific ways, each of which is the point:
+
+      1. **It cannot be clicked.** There is no view, no form, no admin
+         registration. It is granted by `manage.py kai_break_glass`, which
+         needs shell access to the production box — a much higher bar than a
+         session cookie, and one that a compromised admin account does not
+         clear.
+      2. **It expires.** `expires_at` is required and defaults to four hours.
+         An access that has to be renewed cannot be forgotten about.
+      3. **It is audited at both ends** — an `ActivityLog` row on grant and on
+         revoke, carrying the reason text, which is also required.
+      4. **It is visible while it is active.** The Kai list page shows a banner
+         naming the expiry, so acting under break-glass never feels like
+         ordinary access.
+
+    Not registered in `/admin/` — same reason as the seven Kai models, and
+    sharper: an editable admin for this model would let an admin grant
+    themselves the access this model exists to withhold. That is exactly the
+    `KaiMemberPermissionAdmin` mistake v3.16.2 removed. **Do not register it.**
+    """
+
+    #: Default grant length. Long enough to do something, short enough that
+    #: leaving one open is a mistake you notice the same day.
+    DEFAULT_HOURS = 4
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='kai_break_glass_grants',
+        help_text='The admin receiving temporary full Kai access.',
+    )
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='kai_break_glass_grants_issued',
+        help_text='Who ran the command. Null if granted from a system shell.',
+    )
+    reason = models.TextField(
+        help_text='Why this grant was necessary. Required — it is the audit trail.',
+    )
+    granted_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(
+        help_text='After this moment the grant confers nothing.',
+    )
+    revoked_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='Set when revoked early. A revoked grant is inert immediately.',
+    )
+
+    class Meta:
+        ordering = ['-granted_at']
+        verbose_name = 'Kai Break-Glass Grant'
+        verbose_name_plural = 'Kai Break-Glass Grants'
+        indexes = [
+            # The lookup `is_active_for` performs on every Kai page load for an
+            # admin. Narrow and selective; the table stays tiny.
+            models.Index(fields=['user', 'expires_at'], name='kai_bg_user_expiry_idx'),
+        ]
+
+    def __str__(self):
+        return f'Kai break-glass — {self.user} until {self.expires_at:%Y-%m-%d %H:%M}'
+
+    @property
+    def is_active(self):
+        """True if this grant confers access right now."""
+        from django.utils import timezone
+
+        if self.revoked_at is not None:
+            return False
+        return self.expires_at > timezone.now()
+
+    @classmethod
+    def active_for(cls, user):
+        """
+        The live grant for `user`, or None.
+
+        One query, and it is the only thing `_get_kai_access` adds for an
+        admin who does not hold a `KaiMemberPermission` row. Members and
+        non-admins never reach it.
+        """
+        from django.utils import timezone
+
+        if not getattr(user, 'pk', None):
+            return None
+        return (
+            cls.objects.filter(
+                user=user,
+                revoked_at__isnull=True,
+                expires_at__gt=timezone.now(),
+            )
+            .order_by('-expires_at')
+            .first()
+        )

@@ -18,6 +18,7 @@ someone applies the rule *correctly, once*, and nobody checks the sibling:
 | v3.16.3 | CSV export redacted the Kai description column | The list view and export still **filtered** on it — a redaction oracle |
 | v3.17.7 | `export_kai_reports_csv` redacted three fields | `bulk_actions_kai_reports` wrote the same thirteen columns raw, 1,100 lines below, reachable from a dropdown |
 | v3.18.1 | Every surface above honoured the two identity flags | **The activity feed never had.** Four copies of it — case detail, the v3.18.0 timeline partial, the print view, and a cross-case panel on the list page — printed `entry.user.name`, and the author of a `created` entry *is* the submitter |
+| v3.18.2 | The Kai activity feed, redacted across all five of its renderers | **The site-wide `ActivityLog` was a second activity model** — not a Kai model, not in `src/models/kai.py`, not rendered by a `templates/kai/` file, so no enumeration contained it. It stored both identities in a `TextField` called `description` and in the row's own author FK, readable by every officer and chair, one filter chip away |
 
 Four releases, one shape. **This table is the checklist that makes the second
 copy visible before it ships.** When you touch a confidential field, read across
@@ -72,11 +73,15 @@ which is also roughly the order in which gaps are found:
 7. **API** — `/api/v1/`
 8. **Search** — global search
 9. **Dev rows** — dev mode's SQL row inspector
-10. **Activity** — the activity/audit feed. *Added v3.18.1, having been missed
-    entirely.* A log entry carries two things that are not obviously fields:
-    **its author**, and **whatever a previous release interpolated into its
-    free-text `details`**. Both are identity. The Kai feed had four renderers
-    and all four were raw.
+10. **Case activity** — `KaiReportActivity`, the per-case feed. *Added v3.18.1,
+    having been missed entirely.* A log entry carries two things that are not
+    obviously fields: **its author**, and **whatever a previous release
+    interpolated into its free-text `details`**. Both are identity. The Kai
+    feed had four renderers and all four were raw.
+11. **Audit log** — `ActivityLog`, the site-wide feed at `/activity-logs/`.
+    *Added v3.18.2, having been missed by four consecutive audits.* Column 10
+    was called "Activity" and silently meant one of **two** activity models;
+    this is the other one. See the v3.18.2 note below.
 
 ---
 
@@ -86,14 +91,38 @@ Governed **only** by in-app `KaiMemberPermission` grants. All seven Kai models
 are deliberately unregistered from `/admin/`, so the admin columns are ➖ by
 design — that gap is intentional and must not be "fixed".
 
-| Field | In-app | Filter/search | CSV | Bulk | Admin | Admin CSV | API | Search | Dev rows | Activity |
-|---|---|---|---|---|---|---|---|---|---|---|
-| `KaiReport.description` | ✅ `can_view_report_details` | ✅ `_kai_search_q` + `redacted_case_ids` | ✅ `_kai_csv_row` | ✅ `_kai_csv_row` | ➖ | ➖ | ➖ | ✅ gated on `_get_kai_access` | ➖ withheld | ➖ never in `details` |
-| `KaiReport.submitted_by` | ✅ `can_view_submitter_identity` | ✅ `_kai_search_q` + `redacted_case_ids` | ✅ `_kai_csv_row` | ✅ `_kai_csv_row` | ➖ | ➖ | ➖ | ✅ | ➖ withheld | ✅ `_redact_activity_log` — **the author of `created` IS the submitter** |
-| `KaiReport.targeted_to` | ✅ `can_view_accused_identity` | ✅ `_kai_search_q` + `redacted_case_ids` | ✅ `_kai_csv_row` | ✅ `_kai_csv_row` | ➖ | ➖ | ➖ | ✅ | ➖ withheld | ✅ `_redact_activity_log` — legacy `details` strings scrubbed at render |
-| `KaiReport.tags` | ✅ list-level, by design | ✅ ungated, by design | ✅ | ✅ | ➖ | ➖ | ➖ | ✅ | ➖ withheld | n/a |
-| `KaiReport.case_number` | ✅ replaces the raw pk | ➖ | ✅ | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ withheld | ✅ in `ActivityLog` descriptions, officer-only |
-| `KaiMemberPermission.*` | ✅ in-app only | n/a | n/a | n/a | ➖ | ➖ | ➖ | ➖ | ➖ withheld | n/a |
+| Field | In-app | Filter/search | CSV | Bulk | Admin | Admin CSV | API | Search | Dev rows | Case activity | Audit log |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `KaiReport.description` | ✅ `can_view_report_details` | ✅ `_kai_search_q` + `redacted_case_ids` | ✅ `_kai_csv_row` | ✅ `_kai_csv_row` | ➖ | ➖ | ➖ | ✅ gated on `_get_kai_access` | ➖ withheld | ➖ never in `details` | ➖ never in a description |
+| `KaiReport.submitted_by` | ✅ `can_view_submitter_identity` | ✅ `_kai_search_q` + `redacted_case_ids` | ✅ `_kai_csv_row` | ✅ `_kai_csv_row` | ➖ | ➖ | ➖ | ✅ | ➖ withheld | ✅ `_redact_activity_log` — **the author of `created` IS the submitter** | ✅ `redact_kai_logs` — **the author of a `submitted` row IS the submitter**; `exclude_kai_logs` in `/admin/` + the per-member drill; `audit_search_q` on the filter |
+| `KaiReport.targeted_to` | ✅ `can_view_accused_identity` | ✅ `_kai_search_q` + `redacted_case_ids` | ✅ `_kai_csv_row` | ✅ `_kai_csv_row` | ➖ | ➖ | ➖ | ✅ | ➖ withheld | ✅ `_redact_activity_log` — legacy `details` strings scrubbed at render | ✅ `redact_kai_logs` — **only the accused can write an `appeal_filed` row**; legacy descriptions scrubbed at render |
+| `KaiReport.tags` | ✅ list-level, by design | ✅ ungated, by design | ✅ | ✅ | ➖ | ➖ | ➖ | ✅ | ➖ withheld | n/a | ➖ never logged |
+| `KaiReport.case_number` | ✅ replaces the raw pk | ➖ | ✅ | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ withheld | ✅ in `ActivityLog` descriptions, officer-only | ✅ officer-only **by design** — a case number carries no identity, and `object_repr` stays searchable for exactly that reason |
+| `KaiMemberPermission.*` | ✅ in-app only | n/a | n/a | n/a | ➖ | ➖ | ➖ | ➖ | ➖ withheld | n/a | n/a |
+| `KaiBreakGlassGrant.*` | ➖ shell-only (`manage.py kai_break_glass`) | n/a | n/a | n/a | ➖ **never register** | ➖ | ➖ | ➖ | ➖ withheld | n/a | ✅ grant + revoke are logged by design, and name the *admin*, not a party |
+
+> ## ⚠️ v3.18.2 — the eleventh surface, and why the column above it was a trap
+>
+> Column 10 was called **"Activity"**. There are two activity models, and it
+> silently meant one of them. `ActivityLog` — the site-wide audit feed at
+> `/activity-logs/`, readable by every officer and chair — carried the same two
+> identities in prose: `"<Name> submitted Kai case #12"` written with
+> `user=request.user` (on a submission that user *is* the reporter), and
+> `"<Name> filed an appeal on …"` which only the accused can write.
+>
+> **This table pointed straight at it and looked away.** The `case_number` row's
+> Activity cell read *"✅ in ActivityLog descriptions, officer-only"* — so
+> someone examined that page, correctly decided an officer may see a case
+> *number*, and did not look at the words on either side of the number.
+>
+> **The rule that follows, and it is the one this file most needs: enumerate the
+> MODELS that can store a field's value before you enumerate the surfaces that
+> render it.** Prose is storage. An audit description, a notification body, an
+> email subject and a log line are all places a value comes to rest under a
+> different name, and **none of them appear in a grep for the field.**
+>
+> Second time the miss was a *place* rather than a *rule*: `CalendarSubscription`
+> escaped v3.16.0's admin coverage pass because it lived outside `src/models/`.
 
 **`redacted_case_ids` is not a duplicate of the permission gate — it is the
 second axis.** The flags answer *may this user read this field at all*; the id

@@ -166,10 +166,19 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                             {{ log.timestamp|date:"M d, Y H:i" }}
                         </td>
+                        {% comment %} ⚠️ v3.18.2 — display_actor / display_actor_id, NOT
+                           log.user. On a Kai submission row the author IS the reporter,
+                           and on an appeal row the author is the accused, so this column
+                           was publishing both party identities to every officer and chair.
+                           The FK is kept (the audit trail is worth keeping) and redacted
+                           at render by `redact_kai_logs`. Do not revert to log.user;
+                           `test_no_template_renders_raw_audit_fields` fails if you do. {% endcomment %}
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            {% if log.user %}
-                                <span class="font-medium text-gray-900 dark:text-gray-100">{{ log.user.get_display_name }}</span>
-                                <span class="text-gray-500 dark:text-gray-400 block text-xs">{{ log.user.user_id }}</span>
+                            {% if log.display_actor and log.display_actor != 'System' %}
+                                <span class="font-medium text-gray-900 dark:text-gray-100">{{ log.display_actor }}</span>
+                                {% if log.display_actor_id %}
+                                <span class="text-gray-500 dark:text-gray-400 block text-xs">{{ log.display_actor_id }}</span>
+                                {% endif %}
                             {% else %}
                                 <span class="text-gray-500 dark:text-gray-400 italic">System</span>
                             {% endif %}
@@ -190,7 +199,11 @@
                             <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">{{ log.get_action_type_display }}</div>
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
-                            {{ log.description }}
+                            {% comment %} v3.18.2 — display_description, NOT description.
+                               Rows written before this release interpolated both party
+                               names into the free text; they are scrubbed at render, which
+                               is the actual fix — the writer changes only stop it growing. {% endcomment %}
+                            {{ log.display_description }}
                             {% if log.object_repr %}
                                 <span class="block text-xs text-gray-500 dark:text-gray-400 mt-1">Object: {{ log.object_repr }}</span>
                             {% endif %}

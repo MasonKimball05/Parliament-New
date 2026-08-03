@@ -42,6 +42,10 @@ class SrcConfig(AppConfig):
         import src.admin
         import src.middleware.activity_logging  # Load activity logging signals
         import src.signals  # Load security signals
+        # v3.18.2 — deploy guard: warns (src.W001) when nobody can reach the
+        # Kai module, which is the silent failure mode of removing the
+        # `is_admin` shortcut. See src/checks_kai.py.
+        import src.checks_kai  # noqa: F401  (registers a system check)
 
         from django.db.models.signals import post_migrate
         post_migrate.connect(_set_committee_flags, sender=self)

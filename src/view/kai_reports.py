@@ -13,7 +13,7 @@ from django.core.exceptions import ValidationError
 import csv
 import logging
 from datetime import datetime, timedelta
-from src.models import KaiReport, Committee, ParliamentUser, KaiReportActivity, KaiReportTemplate, KaiFormField, KaiReportFieldResponse, KaiClosureRequest, ActivityLog, KaiMemberPermission, KaiRecusal, KaiAppeal
+from src.models import KaiReport, Committee, ParliamentUser, KaiReportActivity, KaiReportTemplate, KaiFormField, KaiReportFieldResponse, KaiClosureRequest, ActivityLog, KaiMemberPermission, KaiRecusal, KaiAppeal, KaiBreakGlassGrant
 from src.forms import KaiReportForm
 from src.decorators import log_function_call
 from src.feature_flag_decorators import require_feature_flag
@@ -101,11 +101,18 @@ def submit_kai_report(request):
                 ActivityLog.log_activity(
                     action_type='kai_action',
                     user=request.user,
-                    description=f'{request.user.name} submitted Kai case #{report.id}',
+                    # ⚠️ v3.18.2 — NO NAME. On a submission `request.user` IS
+                    # the reporter, so this string named them beside the case
+                    # number, on a page every officer and chair can read. The
+                    # row's `user` FK is the other half of the same disclosure
+                    # and is kept deliberately (the audit trail is worth
+                    # keeping) but redacted at render — see `src/kai_audit.py`.
+                    # Do not put a name back in here.
+                    description=f'A member submitted Kai case {report.display_number}',
                     request=request,
                     object_type='KaiReport',
                     object_id=report.id,
-                    object_repr=f'Case #{report.id}',
+                    object_repr=report.display_number,
                     metadata={'action': 'submitted'},
                 )
 
@@ -269,19 +276,43 @@ def _get_kai_access(user, committee):
     ]
     from src.dev_mode import record_permission
 
-    # v3.16.3 perf: `user.is_admin` is a plain field read; `_is_kai_chair`
-    # costs one query. Testing is_admin first means admins reach the same
-    # answer without touching the DB, at all six call sites.
-    if user.is_admin or _is_kai_chair(user, committee):
-        access = {f: True for f in FIELDS} | {'is_full_access': True}
-        record_permission(
-            'kai_access', 'full',
-            'is_admin' if user.is_admin else 'committee chair',
-        )
+    # ⚠️ v3.18.2 — `user.is_admin` NO LONGER GRANTS KAI ACCESS.
+    #
+    # This branch used to read `if user.is_admin or _is_kai_chair(...)`, so one
+    # boolean on the user row conferred every permission below including both
+    # party-identity flags, with no `KaiMemberPermission` anywhere. Two things
+    # this codebase had already decided say it should not:
+    #
+    #   * The standing v3.16.2 rule — *being a Django admin is an operational
+    #     role, not a grant of judicial, deliberative or ballot-level access.*
+    #     All seven Kai models are unregistered from /admin/ because of it. The
+    #     app layer was doing what the admin layer had been stopped from doing.
+    #   * `_is_kai_chair`'s own argument, ten lines up, added by v3.18.1: *a
+    #     boolean on the committee row must not be able to grant Kai access.*
+    #     That does not stop being true when the boolean is on the user row.
+    #
+    # The operational objection was real, though — someone has to be able to
+    # unstick the module. So the answer is a break-glass rather than a
+    # standing grant: see `KaiBreakGlassGrant`, granted only from a shell via
+    # `manage.py kai_break_glass`, time-boxed, reason-required, audited at both
+    # ends, and shown as a banner on the list page while it is live.
+    #
+    # Dispositioned by Mason 08-02-26 ("narrow, but keep a break-glass").
+    if _is_kai_chair(user, committee):
+        access = {f: True for f in FIELDS} | {
+            'is_full_access': True, 'is_break_glass': False,
+        }
+        record_permission('kai_access', 'full', 'committee chair')
         return access
+
+    # A `KaiMemberPermission` row is the ordinary path and is checked before
+    # the break-glass, so an admin who holds a real grant is treated as an
+    # ordinary reviewer and never trips the banner.
     try:
         perm = KaiMemberPermission.objects.get(committee=committee, user=user)
-        access = {f: getattr(perm, f) for f in FIELDS} | {'is_full_access': False}
+        access = {f: getattr(perm, f) for f in FIELDS} | {
+            'is_full_access': False, 'is_break_glass': False,
+        }
         record_permission(
             'kai_access',
             ', '.join(f for f in FIELDS if access[f]) or 'none granted',
@@ -289,8 +320,36 @@ def _get_kai_access(user, committee):
         )
         return access
     except KaiMemberPermission.DoesNotExist:
-        record_permission('kai_access', 'none', 'no KaiMemberPermission row')
-        return {f: False for f in FIELDS} | {'is_full_access': False}
+        pass
+
+    # Break-glass. Only reachable for an admin with no permission row, so the
+    # extra query costs nothing for members, reviewers or chairs.
+    if user.is_admin:
+        grant = KaiBreakGlassGrant.active_for(user)
+        if grant is not None:
+            access = {f: True for f in FIELDS} | {
+                'is_full_access': True,
+                'is_break_glass': True,
+                'break_glass_expires_at': grant.expires_at,
+            }
+            record_permission(
+                'kai_access', 'full (BREAK-GLASS)',
+                f'KaiBreakGlassGrant #{grant.pk}, expires {grant.expires_at:%Y-%m-%d %H:%M}',
+            )
+            return access
+        record_permission(
+            'kai_access', 'none',
+            'is_admin, but admin alone does not grant Kai access since v3.18.2 '
+            '— and no active break-glass grant',
+        )
+        return {f: False for f in FIELDS} | {
+            'is_full_access': False, 'is_break_glass': False,
+        }
+
+    record_permission('kai_access', 'none', 'no KaiMemberPermission row')
+    return {f: False for f in FIELDS} | {
+        'is_full_access': False, 'is_break_glass': False,
+    }
 
 
 #: Every permission `_get_kai_access` returns. Kept here so `_case_access` can
@@ -303,9 +362,47 @@ _KAI_PERMISSION_FIELDS = (
 )
 
 
-def _case_access(user, report, kai_access):
+def _recusal_rows_for(user, report_ids):
+    """
+    `{report_id: [KaiRecusal, …]}` for `user` across many cases, in ONE query.
+
+    v3.18.2. `_case_access` needs two things from `KaiRecusal` — whether the
+    user has a manual recusal on the case, and whether they hold a stand-in
+    grant on it — and it fetches each with its own query. That is correct for
+    a single case and quadratic-ish for a list: the Kai list page's cross-case
+    activity panel called it eight times and paid sixteen queries.
+
+    Callers that hold a set of report ids up front build this map and hand it
+    to `_case_access(..., recusal_rows=…)`. Callers that do not, don't — the
+    single-case path is unchanged and still does its own lookups, because a
+    detail page has one report and a map would be two queries where one does.
+
+    The filter is `user OR replacement` because those are exactly the two roles
+    `_case_access` asks about; anything else on the case is irrelevant to this
+    viewer.
+    """
+    report_ids = {rid for rid in (report_ids or ()) if rid}
+    if not report_ids or not getattr(user, 'pk', None):
+        return {}
+    rows = KaiRecusal.objects.filter(
+        Q(report_id__in=report_ids) & (Q(user=user) | Q(replacement=user))
+    )
+    grouped = {}
+    for row in rows:
+        grouped.setdefault(row.report_id, []).append(row)
+    return grouped
+
+
+def _case_access(user, report, kai_access, recusal_rows=None):
     """
     `kai_access` narrowed for one specific case — the recusal chokepoint.
+
+    `recusal_rows` (v3.18.2) is an optional `{report_id: [KaiRecusal, …]}` map
+    from `_recusal_rows_for`, for callers narrowing many cases at once. When
+    supplied, the two `KaiRecusal` queries below are read from it instead.
+    **It is a performance argument only — it must not change the answer**, and
+    `test_batched_case_access_matches_unbatched` asserts exactly that, case by
+    case, against the unbatched path.
 
     v3.18.0 — WHY THIS EXISTS
     -------------------------
@@ -397,7 +494,15 @@ def _case_access(user, report, kai_access):
     #
     #     Withdrawn in full, same as the accused. Someone who has stood back
     #     from a case has stood back from all of it, including recusing others.
-    manual = KaiRecusal.objects.filter(report=report, user=user).first()
+    # v3.18.2: read from the batched map when the caller supplied one. Same
+    # predicate as the query below it replaces — `report`, and `user` is us.
+    if recusal_rows is not None:
+        manual = next(
+            (r for r in recusal_rows.get(report.pk, ()) if r.user_id == user.pk),
+            None,
+        )
+    else:
+        manual = KaiRecusal.objects.filter(report=report, user=user).first()
     if manual is not None and manual.reason in KaiRecusal.MANUAL_REASONS:
         record_permission(
             'kai_access', 'RECUSED — all permissions withdrawn',
@@ -415,7 +520,17 @@ def _case_access(user, report, kai_access):
     #    grant of their own holds, for this case only, the snapshot taken from
     #    the seat they are filling. UNION with any access they already have,
     #    so appointing an existing committee member never *reduces* them.
-    grant = KaiRecusal.standin_grant(report, user)
+    # v3.18.2: same batched read. `standin_grant` returns the snapshot dict or
+    # None, and fails closed on an empty `granted_permissions` — reproduced
+    # exactly here so the two paths cannot disagree.
+    if recusal_rows is not None:
+        _standin_row = next(
+            (r for r in recusal_rows.get(report.pk, ()) if r.replacement_id == user.pk),
+            None,
+        )
+        grant = None if _standin_row is None else (_standin_row.granted_permissions or {})
+    else:
+        grant = KaiRecusal.standin_grant(report, user)
     if grant is not None:
         merged = {
             field: bool(kai_access.get(field)) or bool(grant.get(field))
@@ -852,16 +967,44 @@ def view_kai_reports(request):
         # v3.18.1 — these were `sum(... for r in reports)` over the capped
         # list, so past the cap they would have frozen at whatever the newest
         # KAI_LIST_LIMIT rows happened to contain. Aggregates instead.
+        #
+        # v3.18.2 — ONE aggregate, not three. Moving them off the capped list
+        # was right; doing it with three separate `.count()` round trips beside
+        # the two GROUP BYs directly above was not. CLAUDE.md's own checklist
+        # names this: *repeated identical queries that could share a single
+        # `aggregate()` call*. 5 queries → 3.
         _stale_before = timezone.now() - timedelta(days=KaiReport.STALE_AFTER_DAYS)
-        stale_count = _visible.filter(
-            status='pending', submitted_at__lte=_stale_before,
-        ).count()
+        _tallies = _visible.aggregate(
+            stale=Count('id', filter=Q(status='pending', submitted_at__lte=_stale_before)),
+            mine=Count('id', filter=Q(assigned_to=request.user)),
+            unassigned=Count('id', filter=Q(assigned_to__isnull=True)),
+        )
+        stale_count = _tallies['stale']
         assigned_counts = {
-            'mine': _visible.filter(assigned_to=request.user).count(),
-            'unassigned': _visible.filter(assigned_to__isnull=True).count(),
+            'mine': _tallies['mine'],
+            'unassigned': _tallies['unassigned'],
         }
+
+        # ⚠️ v3.18.2 — THE TRUNCATION NOTICE USED TO SWITCH ITSELF OFF UNDER
+        # EXACTLY THE CONDITION IT EXISTS FOR.
+        #
+        # It was `total_reports > len(reports) and not (any filter active)`.
+        # The guard was there for a real reason — `counts['all']` is a total
+        # across every status, so with a status filter applied the inequality
+        # is true for an innocent reason and would fire a false notice. But it
+        # suppressed the notice *entirely* under any filter while `[:LIMIT]`
+        # still applied: search a common word, match 700 cases, see 500 rows
+        # and no indication that 200 are missing. The template's own advice —
+        # "Filter or search to reach older cases" — walked the user into the
+        # one state where the warning could not appear.
+        #
+        # Truncation is knowable without a second COUNT: a full page IS the
+        # cap. This over-reports in the exact-multiple case (a result set of
+        # precisely 500 says it was truncated), which is the right way round —
+        # over-warning costs a sentence, under-warning hides cases.
         total_reports = counts['all']
-        reports_truncated = total_reports > len(reports) and not (
+        reports_truncated = len(reports) >= KAI_LIST_LIMIT
+        filters_active = bool(
             status_filter != 'all' or category_filter != 'all'
             or search_query or date_from or date_to or assigned_filter != 'all'
         )
@@ -891,6 +1034,7 @@ def view_kai_reports(request):
         assigned_counts = {'mine': 0, 'unassigned': 0}
         total_reports = 0
         reports_truncated = False
+        filters_active = False
         messages.info(request, 'Kai Reports database table not yet created. This is a preview of the interface.')
 
     # Dashboard stats (compute after main try/except so counts are available)
@@ -972,14 +1116,28 @@ def view_kai_reports(request):
         # here against that entry's own case. Cross-case recusal matters too: a
         # viewer who is the accused on one of these cases must not read its
         # activity out of this panel either.
-        recent_activities = []
-        for _entry in (
+        #
+        # v3.18.2 — THE RECUSAL LOOKUPS ARE BATCHED. The loop below called
+        # `_case_access` per entry, and `_case_access` falls through to two
+        # queries (`KaiRecusal` manual row, then `standin_grant`) for every
+        # case the viewer is not a party to — i.e. almost all of them. Eight
+        # entries × two = sixteen queries on every load of this page, for every
+        # reviewer. `_recusal_rows_for` fetches all of them at once and
+        # `_case_access` reads from that map instead.
+        _entries = list(
             KaiReportActivity.objects
             .select_related('report', 'report__submitted_by', 'report__targeted_to', 'user')
             .defer(*member_defer('user'))
             .order_by('-timestamp')[:8]
-        ):
-            _entry_access = _case_access(request.user, _entry.report, kai_access)
+        )
+        _recusal_rows = _recusal_rows_for(
+            request.user, {e.report_id for e in _entries},
+        )
+        recent_activities = []
+        for _entry in _entries:
+            _entry_access = _case_access(
+                request.user, _entry.report, kai_access, recusal_rows=_recusal_rows,
+            )
             if _entry_access.get('is_recused'):
                 continue
             _redact_activity_log([_entry], _entry.report, _entry_access)
@@ -1004,7 +1162,11 @@ def view_kai_reports(request):
         'category_counts': category_counts,
         'kai_committee': kai_committee,
         'category_choices': KaiReport.CATEGORY_CHOICES,
-        'total_reports': counts['all'],
+        # v3.18.2: `'total_reports': counts['all']` used to sit here as well as
+        # below. Same dict literal, so the later one silently won — which was
+        # the correct one, but a duplicate key in a 40-line context dict is a
+        # trap for whoever edits the wrong copy. Removed; the survivor is in
+        # the v3.18.1 cap block below.
         'pending_count': counts['pending'],
         'reviewed_count': counts['reviewed'],
         'archived_count': counts['archived'],
@@ -1027,6 +1189,11 @@ def view_kai_reports(request):
         'total_reports': total_reports,
         'reports_truncated': reports_truncated,
         'report_fetch_limit': KAI_LIST_LIMIT,
+        # v3.18.2 — the notice wording changes depending on whether a filter is
+        # narrowing the list, because "of {{ total_reports }} cases" is only
+        # true when nothing is filtered. Previously the notice simply did not
+        # render under a filter, which is how truncation went silent.
+        'filters_active': filters_active,
     }
 
     return render(request, 'kai/view_reports.html', context)
@@ -2859,11 +3026,19 @@ def appoint_kai_standin(request, report_id):
     ActivityLog.log_activity(
         action_type='kai_action',
         user=request.user,
-        description=f'{request.user.name} appointed {replacement.name} as Kai stand-in '
-                    f'on case {report.display_number}',
+        # v3.18.2 — no names. A stand-in is appointed to fill a seat vacated by
+        # a recusal, and the commonest recusal reason is `accused`, so naming
+        # who was replaced names the accused. Naming the replacement is
+        # harmless on its own but pointless once the other half is gone; the
+        # pks are in `metadata` for the audit trail either way.
+        description=f'A Kai stand-in was appointed on case {report.display_number}',
         request=request,
         object_type='KaiRecusal',
-        metadata={'report_id': report.id, 'replacement': replacement.pk},
+        metadata={
+            'report_id': report.id,
+            'replacement': str(replacement.pk),
+            'actor': str(request.user.pk),
+        },
     )
     messages.success(request, f'{replacement.name} is now standing in on this case.')
     return redirect('manage_kai_report', report_id=report.id)
@@ -3016,12 +3191,19 @@ def recuse_kai_member(request, report_id):
     if recused:
         ActivityLog.log_activity(
             action_type='kai_action', user=request.user,
-            description=f'{request.user.name} recused '
-                        f'{", ".join(m.name for m in recused)} from Kai case '
-                        f'{report.display_number}',
+            # v3.18.2 — no names. `_sync_recusals` auto-recuses the accused
+            # whenever they hold a seat, so this list routinely contained them,
+            # next to the case number, on a page every officer can read. The
+            # count says everything the audit trail needs; the pks are in
+            # `metadata`, which no surface renders.
+            description=(
+                f'{len(recused)} Kai committee member(s) recused from case '
+                f'{report.display_number}'
+            ),
             request=request, object_type='KaiRecusal',
             metadata={'report_id': report.id,
-                      'members': [m.pk for m in recused], 'reason': reason},
+                      'members': [str(m.pk) for m in recused], 'reason': reason,
+                      'actor': str(request.user.pk)},
         )
         names = ', '.join(m.name for m in recused)
         if any(m.pk == request.user.pk for m in recused):

@@ -367,11 +367,32 @@ class ExecBoardDoesNotGrantKaiAccessTests(KaiRedactionTestCase):
         self.assertTrue(_get_kai_access(chair, self.committee)['is_full_access'])
         self.assertTrue(_can_appoint_standins(chair, self.committee))
 
-    def test_a_site_admin_still_gets_full_access(self):
+    def test_a_site_admin_no_longer_gets_full_access(self):
+        """
+        ⚠️ REVERSED IN v3.18.2, DELIBERATELY. This test used to be
+        `test_a_site_admin_still_gets_full_access` and asserted the opposite.
+
+        v3.18.1 removed the `is_exec_board` shortcut from `_get_kai_access` on
+        the grounds that *a boolean on the committee row must not be able to
+        grant Kai access* — and left `user.is_admin`, a boolean on the user
+        row, doing exactly that in the same `if`. The 08-02 review raised the
+        inconsistency; Mason's call was to narrow it and add a break-glass.
+
+        Admins now get nothing here. The way back in is
+        `manage.py kai_break_glass` — shell-only, time-boxed, reason-required,
+        audited, and banner-visible. Full coverage of the new behaviour lives
+        in `src/test_kai_audit_log.py::AdminIsNotAJudicialRoleTests`.
+
+        Do NOT "fix" this back. It is the standing v3.16.2 rule reaching the
+        app layer, where it had never been applied.
+        """
         from src.view.kai_reports import _get_kai_access
 
         admin = make_user('red-admin', 'Site Admin', is_admin=True)
-        self.assertTrue(_get_kai_access(admin, self.committee)['is_full_access'])
+        access = _get_kai_access(admin, self.committee)
+        self.assertFalse(access['is_full_access'])
+        self.assertFalse(access['can_view_submitter_identity'])
+        self.assertFalse(access['can_view_accused_identity'])
 
 
 # ---------------------------------------------------------------------------

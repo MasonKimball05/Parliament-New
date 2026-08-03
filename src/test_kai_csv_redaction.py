@@ -140,9 +140,20 @@ class BulkExportRedactsLikeItsSiblingTests(KaiCsvRedactionTestCase):
         self.assertNotIn(ACCUSED_NAME, body)
 
     def test_full_access_chair_sees_everything(self):
-        """The redaction must not break the people it does not apply to."""
-        admin = make_user('kai-admin', is_admin=True)
-        body = self._body(self._bulk_export(admin))
+        """
+        The redaction must not break the people it does not apply to.
+
+        ⚠️ v3.18.2 — this used to build `make_user('kai-admin', is_admin=True)`
+        and call it a chair. It passed because `is_admin` used to short-circuit
+        `_get_kai_access` to full access; since v3.18.2 it does not (an admin
+        is an operational role, not a judicial one — the standing v3.16.2 rule
+        reaching the app layer), so the export came back empty and the test
+        failed honestly. Now it uses an actual chair, which is what its name
+        always claimed and what its intent always was.
+        """
+        chair = make_user('kai-chair-full')
+        self.committee.chairs.add(chair)
+        body = self._body(self._bulk_export(chair))
         self.assertIn(ALLEGATION_BODY, body)
         self.assertIn(SUBMITTER_NAME, body)
         self.assertIn(ACCUSED_NAME, body)

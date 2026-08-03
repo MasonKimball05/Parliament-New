@@ -64,6 +64,32 @@
       </a>
     </div>
 
+    {% comment %} v3.18.2 — BREAK-GLASS BANNER.
+
+       Since v3.18.2 `is_admin` grants no Kai access on its own (the standing
+       v3.16.2 rule: an admin is an operational role, not a judicial one). The
+       way back in is `manage.py kai_break_glass`, which is shell-only,
+       time-boxed, reason-required and audited at both ends.
+
+       This banner is the fourth of those safeguards: acting under break-glass
+       must never feel like ordinary access. If you are seeing it, everything
+       you can read here you can read *because* of an emergency grant, and
+       there is an ActivityLog row saying who opened it and why.
+    {% endcomment %}
+    {% if kai_access.is_break_glass %}
+    <div class="mb-6 rounded-xl border-l-4 border-red-500 bg-red-50 dark:bg-red-900/20 p-4">
+      <p class="text-sm font-semibold text-red-900 dark:text-red-100">
+        Emergency access — you are viewing Kai under a break-glass grant.
+      </p>
+      <p class="text-xs text-red-800 dark:text-red-200 mt-1">
+        Site-admin status alone does not grant Kai access. This grant expires
+        {{ kai_access.break_glass_expires_at|date:"M d, Y \a\t g:i A" }} and is recorded in the
+        activity log. Revoke it early with
+        <span class="font-mono">manage.py kai_break_glass revoke</span>.
+      </p>
+    </div>
+    {% endif %}
+
     {% comment %}
      v3.18.0 — case aging. A case could sit at `pending` indefinitely with
        no signal anywhere; this is the signal. Only rendered when it has
@@ -271,11 +297,20 @@
          come from separate GROUP BY aggregates, so they show TRUE totals; this
          notice exists so the gap between them and the rows is explained rather
          than silently wrong. {% endcomment %}
+      {% comment %} v3.18.2 — this used to be suppressed whenever ANY filter was active,
+         which is precisely when a capped list is most likely and least obvious. It now
+         renders either way and changes wording instead: "of N cases" is only true when
+         nothing is narrowing the list. {% endcomment %}
       {% if reports_truncated %}
       <div class="mb-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-2.5">
         <p class="text-xs text-gray-600 dark:text-gray-400">
-          Showing the {{ report_fetch_limit }} most recent of {{ total_reports }} cases.
-          The counts above are totals. Filter or search to reach older cases.
+          {% if filters_active %}
+            Showing the {{ report_fetch_limit }} most recent matching cases — there may be
+            more. Narrow the filters or the date range to reach older ones.
+          {% else %}
+            Showing the {{ report_fetch_limit }} most recent of {{ total_reports }} cases.
+            The counts above are totals. Filter or search to reach older cases.
+          {% endif %}
         </p>
       </div>
       {% endif %}

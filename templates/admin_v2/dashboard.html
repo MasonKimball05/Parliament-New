@@ -713,7 +713,11 @@
                 {% for log in recent_logs %}
                 <div class="flex items-start justify-between p-2 text-sm border-b border-gray-100 dark:border-gray-700 last:border-0">
                     <div>
-                        <span class="font-medium text-gray-900 dark:text-gray-100">{{ log.user.name|default:"System" }}</span>
+                        {% comment %} v3.18.2 — display_actor, NOT log.user.name. The author
+                           of a Kai submission row is the reporter and the author of an
+                           appeal row is the accused; this panel spans every category, so
+                           either can land in the newest 30. See `src/kai_audit.py`. {% endcomment %}
+                        <span class="font-medium text-gray-900 dark:text-gray-100">{{ log.display_actor|default:"System" }}</span>
                         <span class="text-gray-600 dark:text-gray-400">{{ log.action }}</span>
                     </div>
                     <span class="text-xs text-gray-500 dark:text-gray-500 whitespace-nowrap ml-2">{{ log.timestamp|timesince }} ago</span>

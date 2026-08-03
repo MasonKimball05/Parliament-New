@@ -43,6 +43,7 @@ from src.middleware.performance import get_performance_summary, get_slow_request
 from src.notifications import send_announcement_notification
 from src.notification_service import notify_all_active_members
 from src.models.users import member_defer
+from src.kai_audit import exclude_kai_logs, redact_kai_logs
 
 
 _raw_allowed_ids = os.environ.get('ADMIN_V2_USER_IDS', os.environ.get('ADMIN_V2_USER_ID', ''))
@@ -736,7 +737,15 @@ def admin_v2_dashboard(request):
     )
 
     # Recent activity logs (last 30)
-    recent_logs = ActivityLog.objects.select_related('user').defer(*member_defer('user')).order_by('-timestamp')[:30]
+    #
+    # v3.18.2 — redacted. This panel spans every category, so a Kai submission
+    # or appeal row landing in the newest 30 named a party on the admin
+    # dashboard. Redaction rather than exclusion here: the row is worth seeing,
+    # the name is not. See `src/kai_audit.py`.
+    recent_logs = redact_kai_logs(
+        ActivityLog.objects.select_related('user').defer(*member_defer('user')).order_by('-timestamp')[:30],
+        request.user,
+    )
 
     # Recent logins (last 20)
     recent_logins = LoginHistory.objects.select_related('user').defer(*member_defer('user')).order_by('-timestamp')[:20]
@@ -1763,7 +1772,23 @@ def user_login_security(request, user_id):
     activity_category = request.GET.get('activity_category', '')
     activity_date_range = request.GET.get('activity_date', '30')
 
-    user_activity = ActivityLog.objects.filter(user=user).order_by('-timestamp')
+    # ⚠️ v3.18.2 — KAI ROWS ARE EXCLUDED HERE, NOT REDACTED, AND THE
+    # DISTINCTION IS THE WHOLE POINT.
+    #
+    # This queryset is `filter(user=user)` — the predicate IS the author. On a
+    # Kai submission row the author is the reporter; on an appeal row the
+    # author is the accused. Redacting the actor column would achieve nothing,
+    # because the member whose page this is *is* the actor: a Kai row appearing
+    # on Zebediah's activity page says Zebediah reported that case however the
+    # row renders. This surface turns the audit log into "which cases did this
+    # person report?", which is the single query the module exists to prevent.
+    #
+    # So: exclusion, per the v3.18.1 rule — *exclusion protects the filters for
+    # free; redaction does not.* A viewer holding both Kai identity flags keeps
+    # seeing everything.
+    user_activity = exclude_kai_logs(
+        ActivityLog.objects.filter(user=user), request.user,
+    ).order_by('-timestamp')
 
     if activity_category:
         user_activity = user_activity.filter(action_category=activity_category)
@@ -1781,7 +1806,13 @@ def user_login_security(request, user_id):
 
     user_activity = user_activity[:100]
 
-    activity_total = ActivityLog.objects.filter(user=user).count()
+    # v3.18.2 — counted over the SAME exclusion the list uses. A total that
+    # included Kai rows the list will not show would be both wrong and a
+    # disclosure: "142 entries" above 138 rows tells the viewer four hidden
+    # ones exist, and on this page hidden means Kai.
+    activity_total = exclude_kai_logs(
+        ActivityLog.objects.filter(user=user), request.user,
+    ).count()
 
     context = {
         'target_user': user,

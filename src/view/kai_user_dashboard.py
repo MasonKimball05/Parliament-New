@@ -233,11 +233,14 @@ def request_closure(request, report_id):
             ActivityLog.log_activity(
                 action_type='kai_action',
                 user=user,
-                description=f'{user.name} requested closure of Kai case #{report.id}',
+                # v3.18.2 — no name. Only a party (submitter or accused) can
+                # request closure, so `user` here is always one of the two
+                # people the whole module exists to keep unnamed.
+                description=f'A party requested closure of Kai case {report.display_number}',
                 request=request,
                 object_type='KaiReport',
                 object_id=report.id,
-                object_repr=f'Case #{report.id}',
+                object_repr=report.display_number,
                 metadata={'action': 'request_closure'},
             )
 
@@ -332,11 +335,15 @@ def request_drop_case(request, report_id):
             ActivityLog.log_activity(
                 action_type='kai_action',
                 user=user,
-                description=f'{user.name} requested to drop Kai case #{report.id}',
+                # ⚠️ v3.18.2 — no name, and this one identified the SUBMITTER
+                # specifically: only the person who filed a case can withdraw
+                # it, so this row was a signed confession of authorship on a
+                # page every officer can read.
+                description=f'The submitter requested to drop Kai case {report.display_number}',
                 request=request,
                 object_type='KaiReport',
                 object_id=report.id,
-                object_repr=f'Case #{report.id}',
+                object_repr=report.display_number,
                 metadata={'action': 'request_drop'},
             )
 
@@ -459,7 +466,15 @@ def file_appeal(request, report_id):
     ActivityLog.log_activity(
         action_type='kai_action',
         user=user,
-        description=f'{user.name} filed an appeal on Kai case {report.display_number}',
+        # ⚠️ v3.18.2 — NO NAME, AND THIS ONE IS THE SHARPEST OF THE FOUR.
+        # `file_appeal` fetches with `targeted_to=user` (see the
+        # get_object_or_404 above), so ONLY THE ACCUSED CAN EVER WRITE THIS
+        # ROW. Naming them here published the accused's identity to every
+        # officer and chair; the row's mere existence against a case is the
+        # same assertion, which is why `user` is redacted at render rather than
+        # this being considered fixed by dropping the name alone. See
+        # `src/kai_audit.py`. Do not put a name back in here.
+        description=f'An appeal was filed on Kai case {report.display_number}',
         request=request,
         object_type='KaiAppeal',
         metadata={'report_id': report.id, 'level': level},

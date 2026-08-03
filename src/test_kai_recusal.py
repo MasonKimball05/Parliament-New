@@ -424,14 +424,35 @@ BODY = 'SECRET-ALLEGATION-TEXT'
 
 
 class MasonsThreeReports(TestCase):
-    """The exact reported situation: three cases, mixed party roles, one admin."""
+    """
+    The exact reported situation: three cases, mixed party roles, one operator.
+
+    ⚠️ v3.18.2 — THIS SETUP CHANGED, AND THE CHANGE IS THE OPERATIONAL WARNING
+    FOR THE WHOLE RELEASE.
+
+    It used to give `self.me` nothing but `is_admin=True`, and that was enough
+    to reach Kai, because `_get_kai_access` short-circuited on it. v3.18.2
+    removes that shortcut (an admin is an operational role, not a judicial one
+    — the standing v3.16.2 rule reaching the app layer), so this fixture began
+    failing with a permission redirect rather than a list.
+
+    **That failure is the real deploy risk, not a test artefact.** Anyone who
+    was reaching Kai through `is_admin` loses access the moment this ships,
+    silently. `manage.py check` now emits `src.W001` when the Kai committee has
+    no chairs and no permission rows, precisely so that lockout announces
+    itself; `manage.py kai_break_glass` is the way back in if it happens.
+
+    The fixture now makes `me` an actual Kai chair, which is what the reported
+    situation really was.
+    """
 
     def setUp(self):
-        Committee.objects.create(name='Kai', code='KAI', is_kai_committee=True)
+        kai = Committee.objects.create(name='Kai', code='KAI', is_kai_committee=True)
         self.me = ParliamentUser.objects.create(
             user_id='f-me', name='Mason', username='f-me',
             member_type='Officer', member_status='Active', is_admin=True)
         self.me.set_password('x-pass-12345!'); self.me.save()
+        kai.chairs.add(self.me)
         self.other = ParliamentUser.objects.create(
             user_id='f-other', name='Other Person', username='f-other',
             member_type='Member', member_status='Active')
