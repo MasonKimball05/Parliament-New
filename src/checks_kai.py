@@ -44,6 +44,23 @@ def kai_has_a_reachable_operator(app_configs, **kwargs):
     except Exception:
         return []
 
+    # ⚠️ v3.18.3 — THE MISSING-TABLE CASE IS REPORTED, NOT SWALLOWED.
+    #
+    # This used to wrap everything below in `except Exception: return []`, on
+    # the reasonable grounds that a deploy guard which crashes the deploy it
+    # guards is worse than no guard. The effect on 08-02-26 was that v3.18.2
+    # shipped to prod without `migrate` being run, `manage.py check` reported
+    # "no issues", and the admin dashboard then 500'd with
+    # `relation "src_kaibreakglassgrant" does not exist` — because
+    # `_get_kai_access` consults the break-glass table on every Kai permission
+    # resolution, and `redact_kai_logs` calls it from the dashboard's activity
+    # panel.
+    #
+    # The check was silent about a schema it never queried, which is the same
+    # failure it exists to prevent one level up. So: an unapplied migration now
+    # reports as `src.W002`, and only genuinely unexpected errors stay quiet.
+    from django.db.utils import DatabaseError, OperationalError, ProgrammingError
+
     try:
         committee = Committee.objects.filter(is_kai_committee=True).first()
         if committee is None:
@@ -55,9 +72,30 @@ def kai_has_a_reachable_operator(app_configs, **kwargs):
             return []
         if KaiMemberPermission.objects.filter(committee=committee).exists():
             return []
-    except Exception:
-        # DB not ready — a fresh clone running `check` before `migrate`. A
-        # deploy guard that crashes the deploy it guards is worse than absent.
+    except (ProgrammingError, OperationalError) as exc:
+        # A missing relation is the signature of "code deployed, migrate not
+        # run". Warn rather than error: a fresh clone legitimately runs `check`
+        # before its first `migrate`, and failing there would be obstructive.
+        return [
+            CheckWarning(
+                f'Kai tables are not queryable — the schema looks out of date '
+                f'with the code ({exc.__class__.__name__}).',
+                hint=(
+                    'If this is a deployed environment, `python manage.py '
+                    'migrate` has probably not been run for the release you '
+                    'just shipped. v3.18.2 added migration 0013 '
+                    '(KaiBreakGlassGrant), and `_get_kai_access` consults that '
+                    'table on every Kai permission resolution — including from '
+                    "the admin dashboard's activity panel, so a missing "
+                    'migration 500s a page you would go to for diagnosis. '
+                    'On a fresh clone before the first migrate, ignore this.'
+                ),
+                id='src.W002',
+            )
+        ]
+    except DatabaseError:
+        # Anything else DB-shaped: stay quiet rather than block a deploy on a
+        # guard's own failure.
         return []
 
     return [

@@ -2202,7 +2202,21 @@ def manage_security_alerts(request):
 
     # v3.17.3: `login_history` was joined and never read — security_alerts.html
     # renders the alert and the member, not the LoginHistory row.
-    alerts = LoginAlert.objects.select_related('user').defer(*member_defer('user')).order_by('-created_at')
+    # v3.18.3 — `reviewed_by` joined, not just `user`.
+    #
+    # `security_alerts.html:114` reads `{% if alert.reviewed_by %}` and then its
+    # display name, and this queryset joined only `user` — so a page of 51
+    # reviewed alerts cost 51 extra `src_parliamentuser` round trips, each
+    # fetching all 44 columns. Found on prod by dev mode 08-02-26.
+    #
+    # Worth noting how it hid: the queryset already had `select_related` and
+    # `member_defer` on it, so it *looked* narrowed. A half-narrowed join reads
+    # as a finished one — which is why the fix everywhere else in this sweep has
+    # been to name every FK the template touches, not to add the first one that
+    # comes to mind.
+    alerts = LoginAlert.objects.select_related(
+        'user', 'reviewed_by',
+    ).defer(*member_defer('user', 'reviewed_by')).order_by('-created_at')
 
     if status_filter:
         alerts = alerts.filter(status=status_filter)

@@ -59,10 +59,36 @@ class ServeExportableMediaTests(TestCase):
         self.assertTrue(resp['Content-Disposition'].startswith('inline'))
         self.assertEqual(b''.join(resp.streaming_content), b'\x89PNG fake seal')
 
+    # ⚠️ v3.18.3 — THESE TWO WERE TESTING THE WRONG URL SINCE 07-30-26.
+    #
+    # They hardcoded `/exportable_media/…` with an UNDERSCORE. `50ac888`
+    # standardised paths on hyphens and v3.17.6 added a legacy
+    # `RedirectView` for the old spelling (`urls.py:1099`), so both requests
+    # started getting a **302 to the hyphen path** before reaching the
+    # traversal guard at all — and an assertion of `(404, 400)` failed on the
+    # redirect rather than on anything about traversal.
+    #
+    # Verified 08-02-26 that this was a stale test and NOT a regression: the
+    # canonical hyphen path 404s directly, and following the legacy redirect
+    # also ends at 404. Both are asserted below now, which is a stronger test
+    # than the original — it covers the guard *and* the redirect that sits in
+    # front of it.
+    #
+    # The lesson, and it is why this is worth a comment rather than a silent
+    # edit: **a hardcoded path in a test outlives the route it names.** These
+    # sat red for three days in a module nobody ran. `reverse()` would have
+    # failed loudly at rename time instead.
+
     def test_traversal_is_blocked(self):
         self.client.force_login(self.member)
+        resp = self.client.get('/exportable-media/%2e%2e/%2e%2e/etc/passwd')
+        self.assertIn(resp.status_code, (404, 400))
+
+    def test_traversal_is_blocked_through_the_legacy_underscore_redirect(self):
+        """The old `/exportable_media/` spelling 302s — and still ends at 404."""
+        self.client.force_login(self.member)
         resp = self.client.get(
-            '/exportable_media/%2e%2e/%2e%2e/etc/passwd')
+            '/exportable_media/%2e%2e/%2e%2e/etc/passwd', follow=True)
         self.assertIn(resp.status_code, (404, 400))
 
     def test_sibling_directory_is_blocked(self):
@@ -71,7 +97,14 @@ class ServeExportableMediaTests(TestCase):
         starts with the exportable_media string prefix."""
         self.client.force_login(self.member)
         resp = self.client.get(
-            '/exportable_media/%2e%2e/exportable_media_evil/secret.txt')
+            '/exportable-media/%2e%2e/exportable_media_evil/secret.txt')
+        self.assertIn(resp.status_code, (404, 400))
+
+    def test_sibling_directory_is_blocked_through_the_legacy_redirect(self):
+        self.client.force_login(self.member)
+        resp = self.client.get(
+            '/exportable_media/%2e%2e/exportable_media_evil/secret.txt',
+            follow=True)
         self.assertIn(resp.status_code, (404, 400))
 
     def test_missing_file_404s(self):

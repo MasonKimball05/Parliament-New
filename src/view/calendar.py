@@ -69,12 +69,43 @@ def calendar_view(request):
     else:
         month_end = tz.localize(datetime(year, month + 1, 1))
 
+    # v3.18.3 — TWO TEMPLATE-DRIVEN N+1s CLOSED HERE. Both were invisible in
+    # this file, because neither query is written in it: `calendar.html` reads
+    # them per event while rendering.
+    #
+    #   * `{{ event.created_by.get_display_name }}` (calendar.html:189) — one
+    #     `src_parliamentuser` row per event, because `created_by` was not in
+    #     `select_related`. `member_defer` keeps the join narrow, matching the
+    #     ~120 call sites v3.17.3 swept.
+    #   * `event.excuse_requests.all|filter_by_user:user` (calendar.html:277) —
+    #     one `src_attendanceexcuse` query per event.
+    #
+    # The `Prefetch` is filtered to `request.user` deliberately, and it is not
+    # only a performance choice: the unfiltered version would pull **every
+    # member's excuse requests** for every event on the page into memory to
+    # then throw all but one away in a template filter. Narrower is faster and
+    # carries less.
+    #
+    # `test_url_smoke::test_no_page_repeats_a_query_shape` was red on all of
+    # this — found by the 08-02-26 full-suite re-baseline, the first complete
+    # measurement since 07-29. A guard nobody runs is a guard nobody has.
+    from django.db.models import Prefetch
+
+    _my_excuses = Prefetch(
+        'excuse_requests',
+        queryset=AttendanceExcuse.objects.filter(user=request.user),
+    )
+
     all_events = Event.objects.filter(
         is_active=True,
         archived=False,
         date_time__gte=month_start,
         date_time__lt=month_end
-    ).select_related('service_event', 'recruitment_event').order_by('date_time')
+    ).select_related(
+        'service_event', 'recruitment_event', 'created_by',
+    ).defer(
+        *member_defer('created_by')
+    ).prefetch_related(_my_excuses).order_by('date_time')
 
     # Filter by visibility
     events = [e for e in all_events if e.is_visible_to_user(request.user)]
@@ -107,11 +138,19 @@ def calendar_view(request):
         )
 
     # Get upcoming events (next 5 from today)
+    # v3.18.3 — same two joins as the month queryset above. This one renders
+    # through the same event partial, so it had the same two N+1s; it is also
+    # the sibling that would have been missed if only the obvious queryset were
+    # fixed, which is the pattern four Kai releases have now been caught by.
     all_upcoming = Event.objects.filter(
         is_active=True,
         archived=False,
         date_time__gte=now
-    ).select_related('service_event', 'recruitment_event').order_by('date_time')
+    ).select_related(
+        'service_event', 'recruitment_event', 'created_by',
+    ).defer(
+        *member_defer('created_by')
+    ).prefetch_related(_my_excuses).order_by('date_time')
     upcoming_events = [e for e in all_upcoming if e.is_visible_to_user(request.user)][:5]
 
     # Get local time for today's date
@@ -189,15 +228,50 @@ def calendar_data_api(request):
     else:
         month_end = tz.localize(datetime(year, month + 1, 1))
 
+    # v3.18.3 — `created_by` joined here too. The dict this view builds reads
+    # `event.created_by.get_display_name()` per event (below), and this
+    # queryset never joined it — `6x src_parliamentuser` in
+    # `test_url_smoke::test_no_page_repeats_a_query_shape`.
+    #
+    # Worth noting *why* it survived the v3.17.3 sweep that narrowed ~120
+    # member joins: that sweep looked for joins that existed and were too wide.
+    # This is a join that did not exist at all, in a view whose per-event work
+    # is a dict literal rather than a template — so nothing about the file
+    # looks like it renders a member.
     all_events = Event.objects.filter(
         is_active=True,
         archived=False,
         date_time__gte=month_start,
         date_time__lt=month_end
-    ).select_related('service_event', 'recruitment_event').order_by('date_time')
+    ).select_related(
+        'service_event', 'recruitment_event', 'created_by',
+    ).defer(
+        *member_defer('created_by')
+    ).order_by('date_time')
 
     # Filter by visibility
     events = [e for e in all_events if e.is_visible_to_user(request.user)]
+
+    # v3.18.3 — ONE query for every excuse on the page, not one per event.
+    #
+    # This loop used to call
+    #     AttendanceExcuse.objects.filter(event=event, user=request.user).first()
+    # per event, so a busy month cost one query per event on the calendar AND
+    # again on `/api/calendar-data/`. `test_url_smoke`'s
+    # `test_no_page_repeats_a_query_shape` has been red on exactly this —
+    # `6x src_attendanceexcuse`, `6x src_parliamentuser` on both routes — which
+    # is a good argument for the guard and a slightly embarrassing one for how
+    # long a red guard can sit there. Found by the 08-02-26 full-suite
+    # re-baseline, the first complete measurement since 07-29.
+    #
+    # One row per (event, user) in practice, so a dict keyed on event id is the
+    # whole fix. `.only()` rather than the full row: status is all that is read.
+    _excuses = {
+        e.event_id: e
+        for e in AttendanceExcuse.objects
+        .filter(event__in=events, user=request.user)
+        .only('event_id', 'status')
+    }
 
     # Build events data
     events_data = {}
@@ -208,8 +282,8 @@ def calendar_data_api(request):
         if day not in events_data:
             events_data[day] = []
 
-        # Check excuse status for this user
-        excuse = AttendanceExcuse.objects.filter(event=event, user=request.user).first()
+        # Check excuse status for this user — read from the batch above.
+        excuse = _excuses.get(event.id)
         has_excuse = excuse is not None
         excuse_status = excuse.status if excuse else None
 

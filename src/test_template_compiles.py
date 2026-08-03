@@ -44,15 +44,21 @@ from django.test import TestCase
 TEMPLATE_ROOT = pathlib.Path(__file__).resolve().parent.parent / 'templates'
 
 #: Files under templates/ that are not templates. Each needs a reason.
-_NOT_A_TEMPLATE = {
-    # A copy-paste snippet documenting how to add the Subscribe button to
-    # calendar.html — its header literally says "Add this to your calendar.html
-    # template". It contains a bare `{% endblock %}` inside an HTML comment, so
-    # it has never compiled and never needed to: nothing includes or renders it.
-    # Safe to delete; kept only because deleting someone else's scratch file is
-    # not this test's job.
-    'calendar_subscription_snippet.html',
-}
+#:
+#: v3.18.3 — EMPTY, and worth keeping empty. Its one entry was
+#: `calendar_subscription_snippet.html`, a copy-paste snippet documenting how to
+#: add the Subscribe button to calendar.html. It never compiled (a bare
+#: `{% endblock %}` inside an HTML comment) and never needed to, since nothing
+#: included it. Deleted 08-02-26 along with two dead test files that had been
+#: carried by eight consecutive reports — the sandbox could not delete files,
+#: so "safe to delete" sat in a comment for a month instead.
+#:
+#: **Adding to this set should feel like a defeat.** An allowlist is how a test
+#: stops testing the thing it was written for, one justified exception at a
+#: time. If a file under templates/ is not a template, the fix is almost always
+#: to move it out of templates/ — docs/ or a comment in the file it documents —
+#: rather than to teach the guard to skip it.
+_NOT_A_TEMPLATE = set()
 
 
 class EveryTemplateCompilesTests(TestCase):

@@ -274,7 +274,24 @@
 
                         <!-- Excuse section for static modals -->
                         {% if event.allow_excuses %}
-                            {% with user_excuse=event.excuse_requests.all|filter_by_user:user|first %}
+                            {% comment %} ⚠️ v3.18.3 — NO `|filter_by_user` HERE, DELIBERATELY.
+
+                               This read `event.excuse_requests.all|filter_by_user:user|first`, and
+                               `filter_by_user` is `queryset.filter(user=user)`. **Calling `.filter()`
+                               on a prefetched relation does not read the prefetch cache** — it builds
+                               a brand-new queryset and issues a fresh query, once per event. That is
+                               where `test_url_smoke`'s `6x src_attendanceexcuse` came from.
+
+                               Worth being precise, because CLAUDE.md records the neighbouring case
+                               and they behave differently: on a relation that IS prefetched,
+                               `.count()` and `.exists()` DO read the cache and cost nothing (measured
+                               07-31-26). `.filter()` does not. Same-looking call, opposite outcome.
+
+                               The view now prefetches `excuse_requests` already narrowed to
+                               `request.user` (a `Prefetch` with a filtered queryset), so `.all` here
+                               is both correct and free — and it loads only this member's excuses
+                               rather than every member's. Do not reintroduce the filter. {% endcomment %}
+                            {% with user_excuse=event.excuse_requests.all|first %}
                             {% if user_excuse %}
                                 <div class="border-t pt-4">
                                     <div class="flex items-center justify-between">

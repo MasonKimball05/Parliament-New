@@ -107,6 +107,10 @@ def viewer_kai_identity_flags(viewer):
     cannot drift from the Kai module. A viewer with no Kai committee, no
     permission row, or no chapter Kai committee at all gets `(False, False)` —
     fails closed.
+
+    ⚠️ **These flags are only the FIRST axis.** They answer "may this user read
+    this field *at all*". They do not answer "is this the one case where the
+    answer is no anyway" — see `viewer_party_case_ids`.
     """
     # Imported lazily: this module is imported by `admin.py` and the view
     # layer, and `src.view.kai_reports` pulls in a large slice of the app.
@@ -125,6 +129,39 @@ def viewer_kai_identity_flags(viewer):
         bool(access.get('can_view_submitter_identity')),
         bool(access.get('can_view_accused_identity')),
     )
+
+
+def viewer_party_case_ids(viewer):
+    """
+    Case pks `viewer` is the accused on — the SECOND axis, and the one this
+    module shipped without.
+
+    ⚠️ v3.18.3 — FOUND BY `test_kai_party_safe_surfaces.py` ON THE DAY THAT
+    MODULE WAS WRITTEN, IN CODE ADDED EARLIER THE SAME DAY.
+
+    v3.18.2 gated this module on `viewer_kai_identity_flags` alone. Those flags
+    are *committee-level*: for a Kai reviewer holding both grants they read
+    `(True, True)`, and the module therefore did no redaction and no search
+    narrowing at all for that viewer. Which is correct — **except on a case
+    that viewer is the accused on**, where their committee grants mean nothing
+    and `_case_access` withdraws every permission.
+
+    So a fully-permissioned reviewer who was the accused could search their own
+    reporter's surname in the audit log and watch their own case's rows appear.
+    **That is the v3.18.1 oracle exactly, reproduced in the module written to
+    fix the v3.18.1 oracle's eleventh surface** — which is a good argument for
+    the property test that caught it, and a better one for the rule below.
+
+    `_kai_search_q` already carries this second axis as `redacted_case_ids`.
+    This is the same list, from the same helper, for the same reason.
+
+    **The rule: permission is not the only thing that redacts.** Any surface
+    that gates on committee-level Kai flags must also ask whether *this
+    particular row* is one the viewer is a party to.
+    """
+    from src.view.kai_reports import _recused_case_ids
+
+    return list(_recused_case_ids(viewer) or ())
 
 
 def _report_ids(logs):
@@ -207,7 +244,17 @@ def redact_kai_logs(logs, viewer):
     logs = list(logs)
 
     show_submitter, show_accused = viewer_kai_identity_flags(viewer)
-    parties = _party_index(_report_ids(logs)) if not (show_submitter and show_accused) else {}
+    # v3.18.3 — the second axis. A viewer holding both committee flags still
+    # gets redaction on cases they are the accused on, where those flags do not
+    # apply. Only fetched when the flags would otherwise short-circuit
+    # everything, because that is the only case where it changes an answer.
+    party_cases = set(viewer_party_case_ids(viewer)) if (show_submitter and show_accused) else set()
+    # Resolve the case index whenever ANY row might need redacting.
+    parties = (
+        _party_index(_report_ids(logs))
+        if not (show_submitter and show_accused) or party_cases
+        else {}
+    )
 
     for log in logs:
         actor = log.user
@@ -217,10 +264,21 @@ def redact_kai_logs(logs, viewer):
 
         if log.action_category != KAI_CATEGORY:
             continue
-        if show_submitter and show_accused:
-            continue
 
         report_id = _log_report_id(log)
+
+        # v3.18.3 — PER-ROW flags, and they must be per-row. On a case the
+        # viewer is a party to, `_case_access` withdraws every permission, so
+        # the committee-level flags do not apply to this row however generous
+        # they are. (Written as locals deliberately: assigning to the outer
+        # `show_submitter` / `show_accused` here would leak one row's recusal
+        # onto every row after it, which over-redacts silently and would look
+        # like the redaction working.)
+        row_show_submitter = show_submitter and report_id not in party_cases
+        row_show_accused = show_accused and report_id not in party_cases
+        if row_show_submitter and row_show_accused:
+            continue
+
         entry = parties.get(report_id)
         if entry is None:
             # Case not resolvable — deleted, or a row that never named one.
@@ -238,10 +296,10 @@ def redact_kai_logs(logs, viewer):
 
         # -- the row's author -------------------------------------------
         if actor is not None:
-            if actor.pk == submitter_id and not show_submitter:
+            if actor.pk == submitter_id and not row_show_submitter:
                 log.display_actor = ANONYMOUS
                 log.display_actor_id = ''
-            elif actor.pk == accused_id and not show_accused:
+            elif actor.pk == accused_id and not row_show_accused:
                 log.display_actor = REDACTED
                 log.display_actor_id = ''
 
@@ -251,9 +309,9 @@ def redact_kai_logs(logs, viewer):
         # uses one: the names sit in free text with no structure to parse.
         text = log.display_description
         if text:
-            if submitter_name and not show_submitter:
+            if submitter_name and not row_show_submitter:
                 text = text.replace(submitter_name, ANONYMOUS)
-            if accused_name and not show_accused:
+            if accused_name and not row_show_accused:
                 text = text.replace(accused_name, REDACTED)
             log.display_description = text
 
@@ -324,6 +382,38 @@ def audit_search_q(search_query, viewer):
     )
 
     show_submitter, show_accused = viewer_kai_identity_flags(viewer)
-    if show_submitter and show_accused:
+    if not (show_submitter and show_accused):
+        return open_columns | (identity_columns & ~Q(action_category=KAI_CATEGORY))
+
+    # ⚠️ v3.18.3 — THE SECOND AXIS, and this module shipped without it.
+    #
+    # A viewer holding both committee flags reached the line above and got the
+    # unnarrowed predicate — correct for every case except the ones they are
+    # the accused on, where `_case_access` withdraws every permission and the
+    # page redacts accordingly. So the output was redacted and the input was
+    # not: **the v3.18.1 oracle, reproduced inside the module written to close
+    # the v3.18.1 oracle's eleventh surface.** Caught by
+    # `test_kai_party_safe_surfaces.py` the day it was written.
+    #
+    # Their own cases are matchable on the open columns only, exactly as
+    # `_kai_search_q` does it with `redacted_case_ids`.
+    party_cases = viewer_party_case_ids(viewer)
+    if not party_cases:
         return open_columns | identity_columns
-    return open_columns | (identity_columns & ~Q(action_category=KAI_CATEGORY))
+
+    from src.models import KaiReport
+
+    # `ActivityLog` stores the case as `object_id` (when `object_type` is
+    # KaiReport) or in `metadata` — neither is a FK, so this cannot be a join.
+    # Match on the case numbers instead: they are what `object_repr` carries
+    # and what the descriptions name, and they are not secret.
+    numbers = [
+        n for n in KaiReport.objects
+        .filter(pk__in=party_cases)
+        .values_list('case_number', flat=True) if n
+    ]
+    party_rows = Q(object_id__in=[str(pk) for pk in party_cases])
+    for number in numbers:
+        party_rows |= Q(object_repr=number)
+
+    return open_columns | (identity_columns & ~party_rows)
