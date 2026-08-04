@@ -599,3 +599,216 @@ class CaseNumberRetryIsBoundedTests(KaiAuditTestCase):
         report.save(update_fields=['assigned_to'])
         report.refresh_from_db()
         self.assertTrue(report.case_number)
+
+
+# ---------------------------------------------------------------------------
+# 9. The second axis, across EVERY permission combination  (v3.18.4)
+# ---------------------------------------------------------------------------
+
+
+class TheSecondAxisAppliesToEachFlagSeparatelyTests(KaiAuditTestCase):
+    """
+    ⚠️ v3.18.4 — THE BUG THIS CLASS EXISTS FOR IS THE ONE v3.18.3 THOUGHT IT
+    HAD ALREADY FIXED.
+
+    v3.18.3 added `viewer_party_case_ids` — the "second axis" — because
+    committee-level identity flags do not apply on a case the viewer is the
+    accused on, where `_case_access` withdraws every permission. Correct. But
+    it gated the lookup on the CONJUNCTION of the two flags:
+
+        party_cases = ... if (show_submitter and show_accused) else set()
+
+    while `redact_kai_logs` consumes it PER FLAG:
+
+        row_show_submitter = show_submitter and report_id not in party_cases
+
+    So for a viewer holding `(submitter=True, accused=False)` the conjunction
+    was False, `party_cases` stayed empty, `report_id not in set()` was
+    vacuously true on every row, and the reviewer read their own reporter's
+    name on the case they were the accused on. **The v3.18.1 oracle again, in
+    the branch beside the fix for it.**
+
+    WHY NO EXISTING TEST SAW IT, WHICH IS THE POINT
+    -----------------------------------------------
+    Every Kai fixture in this repo — `_full_reviewer` here, `PartySafeSurface
+    Tests.setUp` next door — grants `can_view_submitter_identity` and
+    `can_view_accused_identity` **together**. A reviewer permissioned for one
+    and not the other was constructible, reachable and natural (it is the
+    obvious grant for someone triaging intake), and no test had ever built one.
+    Three of the four combinations passed; the fixtures only ever exercised one
+    of the three.
+
+    So this class does not test the fix. **It tests all four combinations**,
+    and the table is the assertion. A future flag added to
+    `_KAI_PERMISSION_FIELDS` should extend it rather than reuse it.
+    """
+
+    def _reviewer_with(self, show_submitter, show_accused):
+        uid = f'axis-{int(show_submitter)}{int(show_accused)}'
+        user = make_user(uid, f'Reviewer {uid}', is_officer_role=True)
+        self.committee.members.add(user)
+        KaiMemberPermission.objects.create(
+            committee=self.committee, user=user,
+            can_view_report_list=True, can_view_report_details=True,
+            can_view_submitter_identity=show_submitter,
+            can_view_accused_identity=show_accused,
+        )
+        # The viewer is the ACCUSED on the case whose rows we render. This is
+        # the whole scenario: committee-level flags say "may read", the case
+        # says otherwise, and the case wins.
+        self.report.targeted_to = user
+        self.report.save(update_fields=['targeted_to'])
+        return user
+
+    def test_no_flag_combination_leaks_the_reporter_to_the_accused(self):
+        """
+        The four-row table. Only `(True, True)` passed before v3.18.3;
+        `(True, False)` still failed after it.
+        """
+        for show_submitter, show_accused in (
+            (True, True), (True, False), (False, True), (False, False),
+        ):
+            with self.subTest(submitter=show_submitter, accused=show_accused):
+                viewer = self._reviewer_with(show_submitter, show_accused)
+                log = redact_kai_logs(self._all_logs(), viewer)
+                row = next(
+                    r for r in log
+                    if r.action_category == 'kai'
+                    and r.user_id == self.submitter.pk
+                )
+                self.assertNotIn(
+                    SUBMITTER_NAME, row.display_description,
+                    f'LEAK with flags (submitter={show_submitter}, '
+                    f'accused={show_accused}): the reporter is named in the '
+                    f'description of a case this viewer is the ACCUSED on. '
+                    f'The second axis must apply to each flag separately, not '
+                    f'to their conjunction — see redact_kai_logs.',
+                )
+                self.assertNotEqual(
+                    row.display_actor, SUBMITTER_NAME,
+                    f'LEAK with flags (submitter={show_submitter}, '
+                    f'accused={show_accused}): the row\'s AUTHOR column names '
+                    f'the reporter. On a submission row the author IS the '
+                    f'reporter — that is the third copy of the identity.',
+                )
+
+    def test_a_partial_grant_still_reads_cases_the_viewer_is_not_party_to(self):
+        """
+        The control. Without this, a fix that simply redacted everything for
+        every partially-permissioned viewer would pass the test above — and
+        over-redaction is a real cost, not a safe default: it is what made the
+        first cut of submitter recusal hide a reporter's own cases from them
+        (corrected 07-31-26).
+        """
+        viewer = self._reviewer_with(True, False)
+
+        other_submitter = make_user('axis-other-sub', 'Perpetua Marchbanks')
+        other = KaiReport.objects.create(
+            title='Not Their Case', description='x',
+            submitted_by=other_submitter,
+            targeted_to=make_user('axis-other-acc', 'Someone Else'),
+        )
+        row = ActivityLog.log_activity(
+            action_type='kai_action', user=other_submitter,
+            description=f'Perpetua Marchbanks submitted Kai case {other.display_number}',
+            object_type='KaiReport', object_id=other.id,
+            object_repr=other.display_number,
+        )
+
+        redacted = next(
+            r for r in redact_kai_logs(self._all_logs(), viewer) if r.pk == row.pk
+        )
+        self.assertIn(
+            'Perpetua Marchbanks', redacted.display_description,
+            'OVER-REDACTED: a viewer holding can_view_submitter_identity lost '
+            'the reporter on a case they are NOT a party to. The second axis '
+            'is per-case, not a blanket downgrade of a partial grant.',
+        )
+
+
+# ---------------------------------------------------------------------------
+# 10. One case-resolution rule, two consumers  (v3.18.4)
+# ---------------------------------------------------------------------------
+
+
+class TheCaseResolutionRuleIsSharedTests(KaiAuditTestCase):
+    """
+    `_log_report_id` (Python, per row) and `rows_for_cases_q` (ORM, per
+    queryset) answer the same question — *which case does this log row refer
+    to?* — and `audit_search_q` used to carry a third, narrower answer of its
+    own that matched `object_id`/`object_repr` only.
+
+    That mattered because appeal and recusal rows set `object_type` to
+    `KaiAppeal` / `KaiRecusal` and carry the report **only** in
+    `metadata['report_id']`. The redactor could resolve them; the search
+    predicate could not. Not live — post-v3.18.2 those descriptions carry no
+    names — but it is *output redacted, input not* in miniature, which is the
+    exact asymmetry this module exists to prevent, and the next writer to put
+    anything identifying in an appeal description would have made it live
+    without touching `kai_audit.py`.
+    """
+
+    def test_a_metadata_only_row_resolves_to_its_case(self):
+        """An appeal row: `object_type` names another model entirely."""
+        from src.kai_audit import _log_report_id
+
+        appeal_row = ActivityLog.log_activity(
+            action_type='kai_action', user=self.accused,
+            description=f'An appeal was filed on Kai case {self.report.display_number}',
+            object_type='KaiAppeal',
+            metadata={'report_id': self.report.id, 'level': 'chapter'},
+        )
+        self.assertEqual(_log_report_id(appeal_row), self.report.id)
+
+    def test_the_orm_predicate_matches_the_same_metadata_only_row(self):
+        """
+        The half that was missing. If this fails while the test above passes,
+        the two resolutions have drifted apart again — which is the whole
+        failure mode.
+        """
+        from src.kai_audit import rows_for_cases_q
+
+        appeal_row = ActivityLog.log_activity(
+            action_type='kai_action', user=self.accused,
+            description=f'An appeal was filed on Kai case {self.report.display_number}',
+            object_type='KaiAppeal',
+            metadata={'report_id': self.report.id, 'level': 'chapter'},
+        )
+        matched = ActivityLog.objects.filter(rows_for_cases_q([self.report.id]))
+        self.assertIn(
+            appeal_row, matched,
+            'rows_for_cases_q missed a row that _log_report_id resolves. The '
+            'ORM predicate and the Python one must read the same two places.',
+        )
+        self.assertIn(self.submit_log, matched, 'The object_id path regressed.')
+
+    def test_an_unrelated_row_with_a_colliding_object_id_is_not_swept_up(self):
+        """
+        `object_id` is a shared CharField across every model in the schema, so
+        an unconstrained `object_id__in` also matched, say, an Event whose pk
+        equalled a case pk — silently dropping unrelated rows from a viewer's
+        search results. Over-restriction is cheap but it is not free, and it is
+        the kind of thing nobody reports as a bug.
+        """
+        from src.kai_audit import rows_for_cases_q
+
+        unrelated = ActivityLog.log_activity(
+            action_type='other', user=self.submitter,
+            description='An unrelated thing happened',
+            object_type='Event', object_id=self.report.id,
+            object_repr='Some Event',
+        )
+        matched = ActivityLog.objects.filter(rows_for_cases_q([self.report.id]))
+        self.assertNotIn(unrelated, matched)
+
+    def test_an_empty_case_list_matches_nothing_and_composes(self):
+        from src.kai_audit import rows_for_cases_q
+
+        self.assertEqual(
+            ActivityLog.objects.filter(rows_for_cases_q([])).count(), 0)
+        self.assertEqual(
+            ActivityLog.objects.exclude(rows_for_cases_q([])).count(),
+            ActivityLog.objects.count(),
+            '~rows_for_cases_q([]) must be a no-op, not an empty result — '
+            'audit_search_q composes it with `&`.',
+        )

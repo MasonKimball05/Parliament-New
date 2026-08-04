@@ -11,7 +11,16 @@ from django.utils import timezone
 from django.utils.timezone import localtime
 from src.utils.export_utils import export_to_csv
 from src.models.users import member_defer
-from src.kai_audit import audit_search_q, redact_kai_logs
+from src.kai_audit import audit_search_q, exclude_kai_logs, redact_kai_logs
+
+#: v3.18.4 — ceiling on a single CSV export. `date_range` is a query parameter
+#: and `'all'` matches every branchless case, so `/activity-logs/export/
+#: ?date_range=all` asked for every row of the largest table in the schema —
+#: and since v3.18.2 `redact_kai_logs` starts with `list(logs)`, so the whole
+#: thing was materialised in memory before a byte was written. Same number and
+#: same reasoning as `KAI_LIST_LIMIT`: a full-history dump of the audit log is
+#: not something one request should be able to pull.
+EXPORT_LIMIT = 5000
 
 
 @officer_required
@@ -54,8 +63,39 @@ def activity_logs_view(request):
         logs = logs.filter(action_type=action_type)
 
     # Apply user filter
+    #
+    # 🔴 v3.18.4 — `exclude_kai_logs` HERE, AND IT IS NOT OPTIONAL.
+    #
+    # This is a filter on the row's AUTHOR, which makes it the case
+    # `src/kai_audit.py` describes in its own docstring as needing exclusion
+    # rather than redaction: *"the filter is on the author, so the row's
+    # presence under a member's name is the leak."* `admin_v2.py`'s per-member
+    # drill gets this right. This page ran the identical `filter(user=…)` and
+    # went through `redact_kai_logs` alone, so:
+    #
+    #     /activity-logs/?user=<member>&category=kai
+    #
+    # returned `Anonymous submitted Kai case KAI-2026-012` — and the redaction
+    # was worthless, because the officer picked the name from a dropdown listing
+    # every active member. `redact_kai_logs` substitutes the identity out of the
+    # description and leaves the verb and the case number, so the surviving text
+    # names the action; `display_actor` reading *Anonymous* beside a filter chip
+    # bearing the member's own name is a confirmation, not a redaction.
+    # `officer_required` admits every officer and chair and consults no
+    # `KaiMemberPermission`, so that was the whole chapter's officer corps.
+    #
+    # The two halves of `kai_audit` are NOT alternatives — they answer different
+    # questions (*may this row be seen* vs *may it be seen under this
+    # predicate*), and a surface reached by an author-valued filter needs both.
+    #
+    # **The rule, which is what went wrong: the PREDICATE decides which half
+    # applies, not the page.** v3.18.2 classified surfaces by which view they
+    # lived in and got three of four right; the fourth was the author filter on
+    # the very page the module was written for. Found 08-03-26.
     if user_filter:
-        logs = logs.filter(user__user_id=user_filter)
+        logs = exclude_kai_logs(
+            logs.filter(user__user_id=user_filter), request.user,
+        )
 
     # Apply search filter
     #
@@ -170,14 +210,27 @@ def export_activity_logs(request):
     if action_type:
         logs = logs.filter(action_type=action_type)
 
+    # 🔴 v3.18.4 — same exclusion as the page, for the same reason, and this is
+    # the half that leaves the app. The export link in `activity_logs.html`
+    # forwards `user={{ selected_user }}`, so every filter combination the page
+    # offers is reachable here as a file. See the long note on the view.
     if user_filter:
-        logs = logs.filter(user__user_id=user_filter)
+        logs = exclude_kai_logs(
+            logs.filter(user__user_id=user_filter), request.user,
+        )
 
     # v3.18.2 — same predicate as the view. The export used to duplicate the
     # raw Q, which is how `_kai_search_q`'s two call sites drifted apart in
     # v3.18.0; one helper, both callers.
     if search_query:
         logs = logs.filter(audit_search_q(search_query, request.user))
+
+    # v3.18.4 — bounded. See `EXPORT_LIMIT`. `truncated` drives a first CSV row
+    # saying so, because a silently short export is worse than a refused one:
+    # the reader cannot tell a complete history from a clipped one.
+    total_matched = logs.count()
+    truncated = total_matched > EXPORT_LIMIT
+    logs = logs[:EXPORT_LIMIT]
 
     # Prepare CSV data
     headers = [
@@ -199,6 +252,12 @@ def export_activity_logs(request):
     # is the same pairing, so the export goes through the same helper the page
     # does rather than reading `log.description` and `log.user` raw.
     rows = []
+    if truncated:
+        rows.append([
+            f'TRUNCATED — {total_matched} rows matched, showing the most recent '
+            f'{EXPORT_LIMIT}. Narrow the date range or filters for the rest.',
+            '', '', '', '', '', '', '', '', '',
+        ])
     for log in redact_kai_logs(logs, request.user):
         rows.append([
             localtime(log.timestamp).strftime('%Y-%m-%d %H:%M:%S'),

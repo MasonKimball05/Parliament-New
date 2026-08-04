@@ -98,9 +98,47 @@ ANONYMOUS = 'Anonymous'
 REDACTED = 'Redacted'
 
 
+#: Attribute names for the per-viewer memo below. Private by convention; the
+#: only supported way to clear them is `reset_kai_identity_cache`.
+_FLAGS_ATTR = '_kai_identity_flags_memo'
+_PARTY_ATTR = '_kai_party_case_ids_memo'
+
+
+def reset_kai_identity_cache(viewer):
+    """
+    Drop the memo on `viewer`. For tests that change a viewer's Kai permissions
+    and then re-render with the SAME user object — see the contract below.
+    """
+    for attr in (_FLAGS_ATTR, _PARTY_ATTR):
+        if hasattr(viewer, attr):
+            delattr(viewer, attr)
+
+
 def viewer_kai_identity_flags(viewer):
     """
     `(may_see_submitter, may_see_accused)` for `viewer`, resolved once.
+
+    ⚠️ v3.18.4 — MEMOISED ON THE VIEWER OBJECT, AND THE SCOPE IS THE POINT.
+
+    This ran `Committee.objects.filter(is_kai_committee=True).first()` plus a
+    full `_get_kai_access` (a `KaiMemberPermission` fetch, and for an admin
+    without one a `KaiBreakGlassGrant` fetch on top) on **every call**, and
+    every consumer in this module calls it. A searched `/activity-logs/` load
+    goes through `audit_search_q` and then `redact_kai_logs`, so it paid the
+    whole resolution twice; the admin-v2 member page calls `exclude_kai_logs`
+    twice (list, then count) and paid it twice there.
+
+    The memo lives on the `ParliamentUser` instance, which is request-scoped in
+    every real caller — `request.user` is one object for the life of a request
+    and is discarded at the end of it. **That is the cache's entire lifetime
+    contract**, and it is why this is an attribute rather than a process-level
+    cache keyed on pk: a break-glass grant that expires, or a permission row
+    that changes, is picked up on the next request, which is the same freshness
+    the un-memoised version gave (it could not observe a mid-request change
+    either — nothing re-reads permissions between the search and the render).
+
+    A caller holding a user object across permission changes — a management
+    command, or a test — must call `reset_kai_identity_cache(viewer)`.
 
     Reads the same `_get_kai_access` every Kai surface reads, so there is one
     definition of "may this person see who reported a case" and this module
@@ -120,15 +158,27 @@ def viewer_kai_identity_flags(viewer):
     if not getattr(viewer, 'pk', None):
         return False, False
 
+    cached = getattr(viewer, _FLAGS_ATTR, None)
+    if cached is not None:
+        return cached
+
     committee = Committee.objects.filter(is_kai_committee=True).first()
     if committee is None:
+        # Not memoised: a chapter with no Kai committee is a fixture state, and
+        # caching `(False, False)` for it would outlive the seeding that fixes
+        # it inside a single test method.
         return False, False
 
     access = _get_kai_access(viewer, committee)
-    return (
+    flags = (
         bool(access.get('can_view_submitter_identity')),
         bool(access.get('can_view_accused_identity')),
     )
+    try:
+        setattr(viewer, _FLAGS_ATTR, flags)
+    except AttributeError:
+        pass  # `__slots__` or a proxy — correctness does not depend on the memo.
+    return flags
 
 
 def viewer_party_case_ids(viewer):
@@ -161,7 +211,19 @@ def viewer_party_case_ids(viewer):
     """
     from src.view.kai_reports import _recused_case_ids
 
-    return list(_recused_case_ids(viewer) or ())
+    if not getattr(viewer, 'pk', None):
+        return []
+
+    cached = getattr(viewer, _PARTY_ATTR, None)
+    if cached is not None:
+        return cached
+
+    ids = list(_recused_case_ids(viewer) or ())
+    try:
+        setattr(viewer, _PARTY_ATTR, ids)  # v3.18.4 — see the memo contract above.
+    except AttributeError:
+        pass
+    return ids
 
 
 def _report_ids(logs):
@@ -225,6 +287,44 @@ def _log_report_id(log):
         return None
 
 
+def rows_for_cases_q(case_ids):
+    """
+    A `Q` matching the `ActivityLog` rows that reference any of `case_ids`.
+
+    ⚠️ v3.18.4 — THE ORM SIDE OF `_log_report_id`, AND IT MUST STAY THAT WAY.
+
+    `_log_report_id` (Python, one row at a time) reads a row's case from
+    `object_id` when `object_type` is `KaiReport`, **or** from
+    `metadata['report_id']` otherwise — appeals and recusals set `object_type`
+    to `KaiAppeal` / `KaiRecusal` and carry the report only in `metadata`
+    (`kai_user_dashboard.file_appeal`, `kai_reports.appoint_standin`).
+
+    `audit_search_q` used to build its own version of this that matched
+    `object_id` and `object_repr` only, so the rows the redactor could resolve
+    and the rows the search predicate could narrow were **different sets**.
+    That is the module's own asymmetry — *output redacted, input not* — at one
+    remove: it was not live, because post-v3.18.2 appeal descriptions carry no
+    names and the legacy ones name the accused (who is the viewer), but the
+    next writer to interpolate anything into an appeal description makes it
+    live without touching `kai_audit.py` at all.
+
+    So: one resolution rule, two consumers. If you teach `_log_report_id` a
+    third place a case id can hide, teach it here in the same commit.
+
+    `object_type` is constrained deliberately. `object_id` is a shared
+    `CharField` across every model in the schema, so an unconstrained
+    `object_id__in` also matched, say, an `Event` whose pk happened to equal a
+    case pk — silently dropping unrelated rows from a viewer's search results.
+    """
+    case_ids = [c for c in (case_ids or ()) if c is not None]
+    if not case_ids:
+        return Q(pk__in=[])  # matches nothing, and composes cleanly with `~`
+    return (
+        Q(object_type='KaiReport', object_id__in=[str(c) for c in case_ids])
+        | Q(metadata__report_id__in=[int(c) for c in case_ids])
+    )
+
+
 def redact_kai_logs(logs, viewer):
     """
     Attach `display_actor`, `display_actor_id` and `display_description` to
@@ -244,11 +344,30 @@ def redact_kai_logs(logs, viewer):
     logs = list(logs)
 
     show_submitter, show_accused = viewer_kai_identity_flags(viewer)
-    # v3.18.3 — the second axis. A viewer holding both committee flags still
-    # gets redaction on cases they are the accused on, where those flags do not
-    # apply. Only fetched when the flags would otherwise short-circuit
-    # everything, because that is the only case where it changes an answer.
-    party_cases = set(viewer_party_case_ids(viewer)) if (show_submitter and show_accused) else set()
+
+    # v3.18.3 — the second axis. A viewer holding a committee flag still gets
+    # redaction on cases they are the accused on, where that flag does not
+    # apply (`_case_access` withdraws every permission for a party).
+    #
+    # ⚠️ v3.18.4 — THE GUARD USED TO READ `if (show_submitter and show_accused)`,
+    # and that was wrong in a way worth keeping written down, because the
+    # comment justifying it sounded right: *"only fetched when the flags would
+    # otherwise short-circuit everything, because that is the only case where
+    # it changes an answer."*
+    #
+    # It is not the only case. `party_cases` is consumed PER FLAG, twenty lines
+    # below, as `show_X and report_id not in party_cases`. With flags
+    # `(True, False)` — a reviewer who may learn who reported a case but not
+    # who it is about, which is the natural grant for triaging intake — the
+    # conjunction is False, `party_cases` stayed empty, and `report_id not in
+    # set()` was then vacuously true on every row. So that reviewer read their
+    # own reporter's name on the case they were the accused on: the exact bug
+    # v3.18.3 was written to close, surviving in the branch beside it.
+    #
+    # **The rule: the second axis applies to each flag separately, not to their
+    # conjunction.** A partially permissioned viewer is still a viewer, and a
+    # case they are a party to withdraws whatever they hold. Found 08-03-26.
+    party_cases = set(viewer_party_case_ids(viewer)) if (show_submitter or show_accused) else set()
     # Resolve the case index whenever ANY row might need redacting.
     parties = (
         _party_index(_report_ids(logs))
@@ -401,19 +520,15 @@ def audit_search_q(search_query, viewer):
     if not party_cases:
         return open_columns | identity_columns
 
-    from src.models import KaiReport
-
-    # `ActivityLog` stores the case as `object_id` (when `object_type` is
-    # KaiReport) or in `metadata` — neither is a FK, so this cannot be a join.
-    # Match on the case numbers instead: they are what `object_repr` carries
-    # and what the descriptions name, and they are not secret.
-    numbers = [
-        n for n in KaiReport.objects
-        .filter(pk__in=party_cases)
-        .values_list('case_number', flat=True) if n
-    ]
-    party_rows = Q(object_id__in=[str(pk) for pk in party_cases])
-    for number in numbers:
-        party_rows |= Q(object_repr=number)
+    # ⚠️ v3.18.4 — `rows_for_cases_q`, NOT a predicate written here.
+    #
+    # This used to build its own case matcher — `object_id__in` plus one
+    # `object_repr=<case_number>` term per case — which resolved a row's case
+    # by different rules than `_log_report_id` does eighty lines up. It missed
+    # every appeal and recusal row (those carry the report in `metadata` only),
+    # and its unconstrained `object_id__in` swept up unrelated non-Kai rows
+    # whose pk collided. Two resolutions of the same question is the "second
+    # copy" pattern this codebase keeps paying for; there is now one.
+    party_rows = rows_for_cases_q(party_cases)
 
     return open_columns | (identity_columns & ~party_rows)

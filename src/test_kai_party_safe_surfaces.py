@@ -352,3 +352,242 @@ class TheEnumerationIsMaintainedTests(TestCase):
             f'rather than widening the covered set — the covered set is the '
             f'claim, and it should only grow with a test behind it.',
         )
+
+
+class AuthorValuedFilterTests(TestCase):
+    """
+    ⚠️ v3.18.4 — THE SECOND KIND OF PREDICATE, AND THE ONE THAT WAS MISSED.
+
+    Everything above tests **search terms**: a free-text value the viewer
+    guesses, matched against a column. `audit_search_q` narrows those. But a
+    surface can also be reached by an **author-valued filter** — a dropdown
+    listing every member, whose selected value IS an identity — and that is a
+    different question with a different answer:
+
+    * a search term is narrowed (`audit_search_q`), because the row should
+      still be visible to someone browsing;
+    * an author filter must **exclude** (`exclude_kai_logs`), because the
+      viewer supplied the name, so the row's mere presence answers them.
+
+    `src/kai_audit.py` states this exactly, and v3.18.2 applied it to three of
+    the four surfaces that need it: `/admin/`, admin-v2's per-member drill, and
+    the audit-log search. The fourth was the `?user=` dropdown on
+    `/activity-logs/` — the very page the module was written for. So:
+
+        /activity-logs/?user=<member>&category=kai
+        → "Anonymous submitted Kai case KAI-2026-012"
+
+    and the redaction bought nothing, because the officer chose the member from
+    a dropdown listing every active one. `officer_required` admits every
+    officer and chair and consults no `KaiMemberPermission`, so that was the
+    chapter's whole officer corps, at a cost of two clicks — cheaper than the
+    v3.18.1 search oracle, which needed a guessed string and Kai membership.
+
+    **THE RULE, and it is why the miss happened: the PREDICATE decides which
+    half of `kai_audit` applies, not the page.** v3.18.2 classified surfaces by
+    which view they lived in. Three were right. The fourth ran the identical
+    `filter(user=…)` one file over from a call site that gets it right.
+
+    Every test here fails against the v3.18.3 tree.
+    """
+
+    def setUp(self):
+        self.committee = Committee.objects.create(
+            name='Kai', code='KAI', is_kai_committee=True,
+        )
+        self.submitter = make_user('avf-sub', f'Zebediah {SUBMITTER_SURNAME}')
+        accused = make_user('avf-acc', 'Accused Andrew')
+        self.case = KaiReport.objects.create(
+            title='Filtered Case Gamma',
+            description=f'The {BODY_SECRET} matter.',
+            submitted_by=self.submitter,
+            targeted_to=accused,
+        )
+
+        from src.models import ActivityLog
+
+        # The row `submit_kai_report` writes. Post-v3.18.2 the description
+        # carries no name — which is precisely why the *filter* is the leak and
+        # not the text: redaction has nothing left to remove, and the officer
+        # still learns who reported the case.
+        self.kai_row = ActivityLog.log_activity(
+            action_type='kai_action', user=self.submitter,
+            description=f'A member submitted Kai case {self.case.display_number}',
+            object_type='KaiReport', object_id=self.case.id,
+            object_repr=self.case.display_number,
+        )
+        # The control: a NON-Kai row by the same author. The filter must keep
+        # working, or every assertion below would pass on a broken page.
+        self.other_row = ActivityLog.log_activity(
+            action_type='login', user=self.submitter,
+            description=f'Zebediah {SUBMITTER_SURNAME} logged in successfully',
+        )
+
+        # An officer with NO Kai permission — the population at issue, and the
+        # one `officer_required` lets in without consulting anything Kai.
+        self.officer = make_user('avf-officer', 'Officer Olive')
+        self.client = Client()
+        self.client.force_login(self.officer)
+
+    def _body(self, url_name, **params):
+        response = self.client.get(reverse(url_name), params)
+        self.assertEqual(
+            response.status_code, 200,
+            f'{url_name} returned {response.status_code} — a surface that '
+            f'errors proves nothing.',
+        )
+        return response.content.decode()
+
+    # -- the page ---------------------------------------------------------
+
+    def test_filtering_by_author_does_not_reveal_that_they_filed_a_kai_case(self):
+        body = self._body('activity_logs', user=self.submitter.user_id)
+        self.assertNotIn(
+            self.case.display_number, body,
+            'ORACLE in activity_logs: filtering the audit log by a member '
+            'returned their Kai submission row. The description is redacted, '
+            'but the viewer SUPPLIED the name — the row\'s presence under it '
+            'is the disclosure. This predicate needs exclude_kai_logs, not '
+            'redact_kai_logs. See src/kai_audit.py, and admin_v2.py:1789 for '
+            'the same predicate done correctly.',
+        )
+
+    def test_the_author_filter_still_works_for_everything_else(self):
+        """The control. Exclusion must cost only the Kai rows."""
+        body = self._body('activity_logs', user=self.submitter.user_id)
+        self.assertIn(
+            'logged in successfully', body,
+            'CONTROL FAILED: the author filter stopped returning non-Kai rows, '
+            'so the assertion above would pass on a page that shows nothing.',
+        )
+
+    def test_the_category_chip_cannot_be_combined_to_recover_it(self):
+        """
+        The two-click path exactly as reported: pick a member, pick the *Kai
+        Committee* chip.
+        """
+        body = self._body(
+            'activity_logs', user=self.submitter.user_id, category='kai')
+        self.assertNotIn(self.case.display_number, body)
+
+    def test_the_counts_do_not_betray_the_excluded_rows(self):
+        """
+        A total above the row count says how many were hidden, and on a
+        Kai-filtered page hidden means Kai. `admin_v2.py:1811` already makes
+        this argument in a comment; the same reasoning applies to `total_logs`
+        and `category_counts` here, which are computed from the same queryset.
+
+        Asserted against `response.context`, NOT the rendered body — the
+        category *dropdown* renders every `ACTION_CATEGORIES` label including
+        "Kai Committee" regardless of counts, so a body-text assertion here
+        would fail for a reason that has nothing to do with the bug. (Caught
+        while writing this test, which is the same lesson the control cases in
+        this module exist to teach: an assertion that cannot distinguish the
+        bug from the fixture is not an assertion.)
+        """
+        response = self.client.get(
+            reverse('activity_logs'),
+            {'user': self.submitter.user_id, 'category': 'kai'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context['total_logs'], 0,
+            'total_logs counted Kai rows the page will not show. A count above '
+            'the row count tells the viewer how many were hidden, and under a '
+            'Kai filter hidden means Kai.',
+        )
+        self.assertNotIn(
+            'kai', response.context['category_counts'],
+            'The Kai category count survived the exclusion. category_counts '
+            'must be computed from the same queryset the rows come from.',
+        )
+
+    # -- the export -------------------------------------------------------
+
+    def test_the_csv_export_applies_the_same_exclusion(self):
+        """
+        v3.16.2's lesson, which has now had to be relearned for a predicate as
+        well as for a column: **a redaction applied to a page and not to its
+        export is not a redaction.** The export link in activity_logs.html
+        forwards `user={{ selected_user }}`, so every combination the page
+        offers is reachable here as a file.
+        """
+        body = self._body('export_activity_logs', user=self.submitter.user_id)
+        self.assertNotIn(self.case.display_number, body)
+        self.assertIn(
+            'logged in successfully', body,
+            'CONTROL FAILED: the export returned no non-Kai rows either.',
+        )
+
+    # -- a reviewer who IS allowed keeps seeing them ----------------------
+
+    def test_a_permissioned_reviewer_still_sees_kai_rows_under_the_filter(self):
+        """
+        Exclusion is gated on the viewer, not applied blindly. Someone holding
+        both identity flags has a legitimate need to answer this question, and
+        `exclude_kai_logs` returns the queryset untouched for them.
+        """
+        reviewer = make_user('avf-rev', 'Reviewer Rita')
+        self.committee.members.add(reviewer)
+        KaiMemberPermission.objects.create(
+            committee=self.committee, user=reviewer,
+            can_view_report_list=True, can_view_report_details=True,
+            can_view_submitter_identity=True, can_view_accused_identity=True,
+        )
+        self.client.force_login(reviewer)
+        body = self._body('activity_logs', user=self.submitter.user_id)
+        self.assertIn(
+            self.case.display_number, body,
+            'OVER-EXCLUDED: a reviewer holding both identity flags lost Kai '
+            'rows they are entitled to see.',
+        )
+
+
+class TheAuthorFilterEnumerationIsMaintainedTests(TestCase):
+    """
+    The companion to `TheEnumerationIsMaintainedTests`, for the other kind of
+    predicate — because that guard greps for *search terms* and would never
+    have flagged the `?user=` dropdown.
+
+    Same discipline: no skip list. When it fails, add a row to
+    `AuthorValuedFilterTests`.
+    """
+
+    def test_every_activity_log_surface_filtering_on_an_author_excludes_kai(self):
+        """
+        Greps the view layer for querysets filtered on `ActivityLog`'s author
+        and asserts each one is wrapped in `exclude_kai_logs`.
+
+        Deliberately syntactic rather than behavioural: the point is to catch
+        the NEXT surface at the moment it is written, in the diff that writes
+        it, rather than when a review notices it three releases later.
+        """
+        import pathlib
+        import re
+
+        root = pathlib.Path(__file__).resolve().parent
+        author_filter = re.compile(
+            r'ActivityLog\.objects[^\n]*\.filter\(\s*user\s*=|'
+            r'\.filter\(\s*user__user_id\s*='
+        )
+
+        offenders = []
+        for path in list((root / 'view').rglob('*.py')) + [root / 'admin.py']:
+            lines = path.read_text(encoding='utf-8', errors='ignore').splitlines()
+            for i, line in enumerate(lines):
+                if not author_filter.search(line):
+                    continue
+                # `exclude_kai_logs(` may wrap the call on this line or open on
+                # one of the three above it.
+                window = '\n'.join(lines[max(0, i - 3):i + 2])
+                if 'exclude_kai_logs' not in window:
+                    offenders.append(f'{path.name}:{i + 1}: {line.strip()}')
+
+        self.assertEqual(
+            offenders, [],
+            'These filter ActivityLog on its author without exclude_kai_logs:\n'
+            + '\n'.join(offenders)
+            + '\n\nAn author-valued filter is answered by the row\'s presence, '
+              'so redaction cannot help — the viewer supplied the identity. '
+              'See src/kai_audit.py.',
+        )

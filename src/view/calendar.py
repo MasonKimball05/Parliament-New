@@ -17,6 +17,11 @@ from src.models.users import member_defer
 from src.utils.visibility import visible_to_q
 from src.decorators import officer_required
 
+#: v3.18.4 — how many future events to load in order to show the five soonest
+#: VISIBLE ones. See the note at the `all_upcoming` queryset for why bounding
+#: this is safe despite the visibility filter running in Python.
+UPCOMING_WINDOW = 60
+
 @login_required
 @require_page_enabled('calendar')
 def calendar_view(request):
@@ -138,6 +143,26 @@ def calendar_view(request):
         )
 
     # Get upcoming events (next 5 from today)
+    #
+    # ⚠️ v3.18.4 — BOUNDED, AND THE BOUND IS SAFE FOR A NON-OBVIOUS REASON.
+    #
+    # This queryset had no limit at all: it selected EVERY future event, and the
+    # `[:5]` below is applied to the Python list after `is_visible_to_user`
+    # filtering, so it could not be pushed into SQL. v3.18.3 then attached
+    # `_my_excuses` to it — correctly, it had the same two N+1s as the month
+    # queryset — which meant the excuse prefetch also ran across every future
+    # event in the calendar in order to display five of them. A chapter that
+    # seeds a year of events pays for all of them on every calendar load.
+    #
+    # Why `[:UPCOMING_WINDOW]` is safe where a bound usually is not: the list is
+    # ordered by `date_time` and the visibility filter is a PREDICATE, not a
+    # reordering — it can only remove rows, never promote a later event above an
+    # earlier one. So the five soonest visible events are necessarily within the
+    # N soonest events for any N ≥ 5, and 60 is far past the point where a
+    # member has 55 consecutive invisible events ahead of them.
+    #
+    # Do not "fix" this back to unbounded. If the five slots ever come up short
+    # in practice, raise the window — do not remove it.
     # v3.18.3 — same two joins as the month queryset above. This one renders
     # through the same event partial, so it had the same two N+1s; it is also
     # the sibling that would have been missed if only the obvious queryset were
@@ -150,7 +175,7 @@ def calendar_view(request):
         'service_event', 'recruitment_event', 'created_by',
     ).defer(
         *member_defer('created_by')
-    ).prefetch_related(_my_excuses).order_by('date_time')
+    ).prefetch_related(_my_excuses).order_by('date_time')[:UPCOMING_WINDOW]
     upcoming_events = [e for e in all_upcoming if e.is_visible_to_user(request.user)][:5]
 
     # Get local time for today's date
