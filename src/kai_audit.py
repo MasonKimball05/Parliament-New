@@ -327,8 +327,9 @@ def rows_for_cases_q(case_ids):
 
 def redact_kai_logs(logs, viewer):
     """
-    Attach `display_actor`, `display_actor_id` and `display_description` to
-    every row in `logs`, redacting Kai party identities `viewer` may not see.
+    Attach `display_actor`, `display_actor_id`, `display_description` and
+    `display_ip` to every row in `logs`, redacting Kai party identities
+    `viewer` may not see.
 
     Applied to ALL rows, not just Kai ones, so templates have a single code
     path and cannot render the raw field on a non-Kai row by habit and then
@@ -337,9 +338,41 @@ def redact_kai_logs(logs, viewer):
     `logs` is materialised — pass a page's worth, not a queryset you intended
     to slice later.
 
-    ⚠️ Templates must render `display_actor` / `display_description`. Never
-    `log.user.get_display_name` or `log.description`.
-    `test_no_template_renders_raw_audit_fields` fails if one does.
+    ⚠️ Templates must render `display_actor` / `display_description` /
+    `display_ip`. Never `log.user.get_display_name`, `log.description` or
+    `log.ip_address`. `test_no_template_renders_raw_audit_fields` fails if one
+    does.
+
+    ⚠️ v3.18.5 — `display_ip` IS PART OF THE SET, AND IT IS THE FOURTH FIELD
+    BECAUSE THE FIRST THREE WERE NOT ENOUGH.
+
+    This helper redacted three fields and `templates/activity_logs.html`
+    rendered four. `ActivityLog.ip_address` is a plain
+    `GenericIPAddressField` filled from `request.META` on every write, and the
+    Kai writers all pass `request=request` — so a Kai submission row carries
+    the reporter's IP, printed in its own column beside `display_actor` reading
+    *Anonymous*, and written to the CSV beside it too.
+
+    An IP is not a name. It is something better: a **join key**, and the
+    v3.16.2 rule is that a redaction is only as good as what the redacted view
+    can be joined against. The join was one request away on the same page —
+    `/activity-logs/?user=<member>` returns that member's non-Kai rows *with
+    their IP* (v3.18.4 made it Kai-free, which is what made it a clean lookup
+    table), and `?category=kai` then shows the Kai rows with IPs intact. That
+    reconstructs the exact disclosure v3.18.4 closed, one column over.
+
+    **The rule: redact the IP exactly when you redact the author.** Not on
+    every Kai row — a chair's own action row names the chair, who is not a
+    party, and over-redacting the audit log costs real fidelity. The invariant
+    to preserve is `display_ip is blank ⟺ display_actor was replaced`, which is
+    why the three blanking sites below are the three places `display_actor` is
+    assigned a constant.
+
+    Found 08-04-26. The generalisable half is that neither enumeration guard
+    could see this: `TheEnumerationIsMaintainedTests` greps search terms and
+    `TheAuthorFilterEnumerationIsMaintainedTests` greps author filters, and an
+    unredacted *rendered column* is neither. See
+    `TheRedactionCoversEveryRenderedColumnTests`.
     """
     logs = list(logs)
 
@@ -380,6 +413,9 @@ def redact_kai_logs(logs, viewer):
         log.display_actor = actor.get_display_name() if actor else 'System'
         log.display_actor_id = getattr(actor, 'user_id', '') if actor else ''
         log.display_description = log.description or ''
+        # v3.18.5 — see the note above. Set for every row so the template has
+        # one code path; blanked below only where the author is redacted.
+        log.display_ip = log.ip_address
 
         if log.action_category != KAI_CATEGORY:
             continue
@@ -409,18 +445,25 @@ def redact_kai_logs(logs, viewer):
             if actor is not None:
                 log.display_actor = ANONYMOUS
                 log.display_actor_id = ''
+                log.display_ip = None  # v3.18.5 — the IP is the author too.
             continue
 
         submitter_id, accused_id, submitter_name, accused_name = entry
 
         # -- the row's author -------------------------------------------
         if actor is not None:
+            # v3.18.5 — `display_ip` blanked in lockstep with the actor, and
+            # only here. A Kai row authored by a chair who is neither party
+            # keeps its IP: nothing about it is redacted, so redacting the IP
+            # would cost audit fidelity for no confidentiality gain.
             if actor.pk == submitter_id and not row_show_submitter:
                 log.display_actor = ANONYMOUS
                 log.display_actor_id = ''
+                log.display_ip = None
             elif actor.pk == accused_id and not row_show_accused:
                 log.display_actor = REDACTED
                 log.display_actor_id = ''
+                log.display_ip = None
 
         # -- names interpolated into the description --------------------
         # Legacy rows only; the four writers stopped doing this in v3.18.2.
@@ -481,9 +524,20 @@ def audit_search_q(search_query, viewer):
     search box recovers exactly what the page refuses to print — the same
     oracle v3.18.1 closed in `_kai_search_q`, on a different page.
 
-    `object_repr` and `ip_address` stay open for Kai rows. `object_repr` is
-    `Case #12` / the case number, which the confidentiality matrix already
-    records as acceptable at officer level, and neither carries a name.
+    `object_repr` stays open for Kai rows: it is `Case #12` / the case number,
+    which the confidentiality matrix already records as acceptable at officer
+    level, and a case number identifies a case, not a person.
+
+    ⚠️ v3.18.5 — `ip_address` USED TO BE OPEN TOO, on the stated grounds that
+    "neither carries a name." That was the wrong test. A name is not the only
+    thing that identifies a person; **a join key is enough**, and an IP is a
+    better join key than the timestamps and orderings v3.16.2 already closed.
+    `/activity-logs/?q=<ip>&category=kai` returned that member's Kai rows with
+    the officer having supplied the identity themselves — the same oracle as
+    the `?user=` dropdown v3.18.4 closed, reached through the search box, and
+    the placeholder on that box advertises it (*"Search description, IP..."*).
+    It now lives in `identity_columns` with the other two. Non-Kai rows are
+    unaffected: an IP search still matches every one of them.
 
     Deliberately conservative: a viewer holding one identity flag but not the
     other loses Kai rows from BOTH columns rather than one. Splitting it would
@@ -491,13 +545,12 @@ def audit_search_q(search_query, viewer):
     description that contains both names cannot be attributed to one of them.
     Over-restricting a search box is cheap; under-restricting it is the bug.
     """
-    open_columns = (
-        Q(object_repr__icontains=search_query)
-        | Q(ip_address__icontains=search_query)
-    )
+    open_columns = Q(object_repr__icontains=search_query)
     identity_columns = (
         Q(description__icontains=search_query)
         | Q(user__name__icontains=search_query)
+        # v3.18.5 — the IP is the author in a different alphabet. See above.
+        | Q(ip_address__icontains=search_query)
     )
 
     show_submitter, show_accused = viewer_kai_identity_flags(viewer)
@@ -529,6 +582,36 @@ def audit_search_q(search_query, viewer):
     # and its unconstrained `object_id__in` swept up unrelated non-Kai rows
     # whose pk collided. Two resolutions of the same question is the "second
     # copy" pattern this codebase keeps paying for; there is now one.
-    party_rows = rows_for_cases_q(party_cases)
+    #
+    # ⚠️ v3.18.5 — NEGATED THROUGH A PK SUBQUERY, AND IT HAS TO BE.
+    #
+    # `~rows_for_cases_q(...)` applied directly was wrong for a reason that has
+    # nothing to do with Kai and everything to do with SQL: one of its terms is
+    # a JSON key transform, and `metadata -> 'report_id'` is SQL `NULL` on a
+    # row that has no such key. `NULL IN (…)` is NULL, `FALSE OR NULL` is NULL,
+    # and `NOT NULL` is NULL — so the row fails the WHERE clause and vanishes.
+    #
+    # Django rescues half of this: `sql/query.py`'s `build_filter` adds an
+    # `IS NOT NULL` term inside a negated clause when the target field is
+    # nullable, which covers rows where `metadata` itself is NULL. It does NOT
+    # cover `metadata = {"record_count": 42}` — non-null, key absent, transform
+    # still NULL. `KeyTransformIn` is a plain `lookups.In` subclass that only
+    # massages the parameter (Django 5.2, `db/models/fields/json.py`); there is
+    # no key-presence guard anywhere in it.
+    #
+    # The effect was over-restriction, not disclosure — it fails closed — but a
+    # search box that silently returns a fraction of its matches to the one
+    # person auditing Kai activity is a bad failure mode with no signal.
+    #
+    # A pk is never NULL, so negating a pk set has no three-valued logic in it
+    # at all. `Q(metadata__has_key=...) & ...` would also work, because
+    # `HasKey` returns a real boolean and `FALSE AND NULL` is FALSE — but that
+    # asks the next reader to re-derive a subtlety, and this does not. The one
+    # extra subquery is worth it. Found 08-04-26.
+    from src.models import ActivityLog
+
+    party_rows = Q(
+        pk__in=ActivityLog.objects.filter(rows_for_cases_q(party_cases)).values('pk')
+    )
 
     return open_columns | (identity_columns & ~party_rows)

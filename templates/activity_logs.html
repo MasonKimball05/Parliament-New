@@ -209,12 +209,20 @@
                             {% endif %}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                            {% if log.ip_address %}
+                            {% comment %} ⚠️ v3.18.5 — display_ip, NOT ip_address. This column
+                               was the fourth copy of the author's identity: the actor was
+                               redacted to "Anonymous" one cell over while the reporter's IP
+                               was printed here in full, and `?user=<member>` on this same
+                               page hands an officer the IP→member lookup table. An IP is not
+                               a name; it is a join key, which v3.16.2 established is enough.
+                               Do not revert to log.ip_address;
+                               `test_no_template_renders_raw_audit_fields` fails if you do. {% endcomment %}
+                            {% if log.display_ip %}
                                 <div class="flex items-center space-x-1 text-xs">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
                                     </svg>
-                                    <span>{{ log.ip_address }}</span>
+                                    <span>{{ log.display_ip }}</span>
                                 </div>
                             {% endif %}
                         </td>

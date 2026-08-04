@@ -252,12 +252,6 @@ def export_activity_logs(request):
     # is the same pairing, so the export goes through the same helper the page
     # does rather than reading `log.description` and `log.user` raw.
     rows = []
-    if truncated:
-        rows.append([
-            f'TRUNCATED — {total_matched} rows matched, showing the most recent '
-            f'{EXPORT_LIMIT}. Narrow the date range or filters for the rest.',
-            '', '', '', '', '', '', '', '', '',
-        ])
     for log in redact_kai_logs(logs, request.user):
         rows.append([
             localtime(log.timestamp).strftime('%Y-%m-%d %H:%M:%S'),
@@ -269,21 +263,50 @@ def export_activity_logs(request):
             log.object_type,
             log.object_id if log.object_id else '',
             log.object_repr,
-            log.ip_address if log.ip_address else '',
+            # ⚠️ v3.18.5 — display_ip, NOT ip_address. Same reason as the page,
+            # and this is the half that leaves the app: an unredacted IP beside
+            # a redacted actor in a file is the v3.16.2 lesson exactly (a
+            # redaction applied to a page and not to its export is not a
+            # redaction). See the note in `src/kai_audit.py`.
+            log.display_ip or '',
+        ])
+
+    # v3.18.5 — the truncation notice goes LAST, not first. As row 1 it sat
+    # directly under the header with prose in the Timestamp column, so anything
+    # reading the file as data (`pandas.read_csv`, a spreadsheet sort, a
+    # script) took it as a record with an unparseable timestamp. Last, it
+    # degrades gracefully: a reader who stops early loses the warning, not the
+    # parse.
+    exported_count = len(rows)
+    if truncated:
+        rows.append([
+            f'TRUNCATED — {total_matched} rows matched, showing the most recent '
+            f'{EXPORT_LIMIT}. Narrow the date range or filters for the rest.',
+            '', '', '', '', '', '', '', '', '',
         ])
 
     # Log the export
+    #
+    # v3.18.5 — counts the RECORDS, not `len(rows)`, which included the
+    # truncation banner and was therefore off by one on exactly the exports
+    # worth auditing. `total_matched` is recorded alongside it because the
+    # number an auditor wants is "how much existed", not just "how much left".
     ActivityLog.log_activity(
         action_type='other',
         user=request.user,
-        description=f'{request.user.get_display_name()} exported {len(rows)} activity log entries to CSV',
+        description=f'{request.user.get_display_name()} exported {exported_count} activity log entries to CSV',
         request=request,
-        metadata={'record_count': len(rows), 'filters': {
-            'category': action_category,
-            'type': action_type,
-            'user': user_filter,
-            'date_range': date_range
-        }}
+        metadata={
+            'record_count': exported_count,
+            'total_matched': total_matched,
+            'truncated': truncated,
+            'filters': {
+                'category': action_category,
+                'type': action_type,
+                'user': user_filter,
+                'date_range': date_range,
+            },
+        }
     )
 
     return export_to_csv('activity_logs', headers, rows)

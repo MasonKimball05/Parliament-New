@@ -349,8 +349,16 @@ class SurfacesThatExcludeRatherThanRedactTests(KaiAuditTestCase):
         stopped the *other* activity feed regressing.
 
         Any template showing an `ActivityLog` must use `display_actor` /
-        `display_description`, because the raw fields carry party identities on
-        Kai rows.
+        `display_description` / `display_ip`, because the raw fields carry
+        party identities on Kai rows.
+
+        v3.18.5 — `log.ip_address` added to the watch list. It is the field
+        this guard did not name and the template therefore rendered raw for
+        three releases: the redaction covered three fields and the page showed
+        four. Note that the guard is only as wide as its own list, which is the
+        limitation `TheRedactionCoversEveryRenderedColumnTests` exists to cover
+        — that one asserts on the *rendered output*, so it does not need to
+        know a field's name in advance.
         """
         offenders = []
         watched = (
@@ -362,14 +370,15 @@ class SurfacesThatExcludeRatherThanRedactTests(KaiAuditTestCase):
                 continue
             text = path.read_text(encoding='utf-8', errors='ignore')
             for raw in ('log.description', 'log.user.name',
-                        'log.user.get_display_name', 'log.user.user_id'):
+                        'log.user.get_display_name', 'log.user.user_id',
+                        'log.ip_address'):
                 if '{{ ' + raw + ' }}' in text or '{{ ' + raw + '|' in text:
                     offenders.append(f'{path.name}: {raw}')
         self.assertEqual(
             offenders, [],
             'These templates render un-redacted ActivityLog fields. Use '
-            'display_actor / display_actor_id / display_description — see '
-            'src/kai_audit.py.',
+            'display_actor / display_actor_id / display_description / '
+            'display_ip — see src/kai_audit.py.',
         )
 
 
@@ -812,3 +821,227 @@ class TheCaseResolutionRuleIsSharedTests(KaiAuditTestCase):
             '~rows_for_cases_q([]) must be a no-op, not an empty result — '
             'audit_search_q composes it with `&`.',
         )
+
+
+# ---------------------------------------------------------------------------
+# 11. The IP address is the author in a different alphabet  (v3.18.5)
+# ---------------------------------------------------------------------------
+
+
+class TheIpAddressIsPartOfTheIdentityTests(KaiAuditTestCase):
+    """
+    v3.18.5. `redact_kai_logs` redacted three fields; the page rendered four.
+
+    `ActivityLog.ip_address` is filled from `request.META` on every write and
+    the Kai writers all pass `request=request`, so a submission row carries the
+    reporter's IP — printed beside `display_actor` reading *Anonymous*, and
+    written to the CSV beside it too. An IP is not a name. Per the v3.16.2
+    rule it does not need to be: **it only has to be something the redacted
+    view can be joined against**, and `/activity-logs/?user=<member>` (Kai-free
+    since v3.18.4, which is what makes it a clean lookup table) supplies the
+    other half of that join on the same page.
+
+    The invariant, and it is deliberately narrower than "blank every Kai row":
+
+        display_ip is blank  ⟺  display_actor was replaced
+
+    See `TheRedactionCoversEveryRenderedColumnTests` next door for the
+    end-to-end version. This class pins the helper.
+    """
+
+    SUB_IP = '203.0.113.47'
+    CHAIR_IP = '192.0.2.77'
+
+    def setUp(self):
+        super().setUp()
+        # Give the fixture rows the addresses production would have recorded.
+        ActivityLog.objects.filter(
+            pk__in=[self.submit_log.pk, self.legacy_log.pk, self.other_log.pk],
+        ).update(ip_address=self.SUB_IP)
+
+    def test_a_redacted_row_blanks_the_ip(self):
+        logs = redact_kai_logs(self._all_logs(), self._officer())
+        submit = next(l for l in logs if l.pk == self.submit_log.pk)
+        self.assertEqual(submit.display_actor, 'Anonymous')
+        self.assertFalse(
+            submit.display_ip,
+            'The actor was redacted and the IP was not. That is the whole bug: '
+            'the officer reads "Anonymous" in one column and the reporter\'s '
+            'address in the next, and ?user= gives them the lookup table.',
+        )
+
+    def test_a_non_kai_row_keeps_its_ip(self):
+        logs = redact_kai_logs(self._all_logs(), self._officer())
+        other = next(l for l in logs if l.pk == self.other_log.pk)
+        self.assertEqual(
+            other.display_ip, self.SUB_IP,
+            'OVER-REDACTED: non-Kai rows lost their IP. The audit log needs '
+            'it; only the redacted rows should give it up.',
+        )
+
+    def test_a_full_reviewer_keeps_the_ip_on_kai_rows(self):
+        logs = redact_kai_logs(self._all_logs(), self._full_reviewer())
+        submit = next(l for l in logs if l.pk == self.submit_log.pk)
+        self.assertEqual(submit.display_ip, self.SUB_IP)
+
+    def test_a_kai_row_by_a_non_party_keeps_its_ip(self):
+        """
+        The precision half of the invariant. A chair acting on a case is not a
+        party to it, nothing about their row is redacted, and blanking their IP
+        would cost audit fidelity for no confidentiality gain.
+        """
+        chair = make_user('aud-chair', 'Chair Cordelia')
+        row = ActivityLog.log_activity(
+            action_type='kai_action', user=chair,
+            description=f'A reviewer was assigned to Kai case {self.report.display_number}',
+            object_type='KaiReport', object_id=self.report.id,
+            object_repr=self.report.display_number,
+            ip_address=self.CHAIR_IP,
+        )
+        logs = redact_kai_logs(self._all_logs(), self._officer())
+        assigned = next(l for l in logs if l.pk == row.pk)
+        self.assertEqual(assigned.display_ip, self.CHAIR_IP)
+
+    def test_an_unresolvable_kai_row_fails_closed_on_the_ip_too(self):
+        """
+        The `entry is None` branch already blanks the actor on the argument
+        that an unresolvable Kai row *might* be a submission. The IP is the
+        same identity and takes the same treatment.
+        """
+        row = ActivityLog.log_activity(
+            action_type='kai_action', user=self.submitter,
+            description='Something Kai happened',
+            ip_address=self.SUB_IP,
+        )
+        logs = redact_kai_logs(self._all_logs(), self._officer())
+        orphan = next(l for l in logs if l.pk == row.pk)
+        self.assertEqual(orphan.display_actor, 'Anonymous')
+        self.assertFalse(orphan.display_ip)
+
+    # -- and the input half -----------------------------------------------
+
+    def test_searching_an_ip_does_not_reach_kai_rows(self):
+        """
+        Output and input. Blanking the column while leaving
+        `ip_address__icontains` in `open_columns` is *output redacted, input
+        not* — the oracle this module has now closed four times.
+        """
+        matched = ActivityLog.objects.filter(
+            audit_search_q(self.SUB_IP, self._officer()))
+        self.assertNotIn(self.submit_log.pk, [l.pk for l in matched])
+
+    def test_searching_an_ip_still_reaches_non_kai_rows(self):
+        matched = ActivityLog.objects.filter(
+            audit_search_q(self.SUB_IP, self._officer()))
+        self.assertIn(
+            self.other_log.pk, [l.pk for l in matched],
+            'CONTROL FAILED: the IP search matches nothing at all now, so the '
+            'assertion above would pass on a dead predicate.',
+        )
+
+    def test_a_full_reviewer_can_still_search_by_ip(self):
+        matched = ActivityLog.objects.filter(
+            audit_search_q(self.SUB_IP, self._full_reviewer()))
+        self.assertIn(self.submit_log.pk, [l.pk for l in matched])
+
+
+# ---------------------------------------------------------------------------
+# 12. Negating a JSON key transform  (v3.18.5)
+# ---------------------------------------------------------------------------
+
+
+class TheNegatedPartyPredicateDoesNotDropUnrelatedRowsTests(KaiAuditTestCase):
+    """
+    v3.18.5, and this one is pure SQL — nothing about it is Kai-specific.
+
+    `audit_search_q` ended with `identity_columns & ~party_rows`, where
+    `party_rows` was `rows_for_cases_q(...)` applied directly. One of that
+    helper's two terms is a JSON key transform, and `metadata -> 'report_id'`
+    is SQL NULL on a row with no such key. `NULL IN (…)` is NULL,
+    `FALSE OR NULL` is NULL, `NOT NULL` is NULL — the row fails the WHERE
+    clause and disappears.
+
+    Django rescues half of it: `build_filter` adds an `IS NOT NULL` term inside
+    a negated clause when the target field is nullable, covering rows where
+    `metadata` itself is NULL. It does **not** cover `metadata = {"x": 1}` —
+    non-null, key absent, transform still NULL. `KeyTransformIn` is a plain
+    `lookups.In` subclass that only massages the parameter; there is no
+    key-presence guard in it.
+
+    Fails closed, so it was never a disclosure — but a search box that silently
+    returns a fraction of its matches to the one person auditing Kai activity
+    is a bad failure mode with no signal, and `metadata={...}` rows are common
+    (the CSV export writes one about itself on every run).
+
+    **The general lesson worth keeping: a JSON key lookup is not safe to
+    negate.** Negate a pk set instead — a pk is never NULL, so there is no
+    three-valued logic left to get wrong. The positive tests in section 10
+    could not see this, because they never negate.
+    """
+
+    def _party_reviewer(self):
+        """Both flags AND a party to a case — the only path that negates."""
+        user = make_user('neg-rev', 'Reviewer Nadia', is_officer_role=True)
+        self.committee.members.add(user)
+        KaiMemberPermission.objects.create(
+            committee=self.committee, user=user,
+            can_view_report_list=True, can_view_report_details=True,
+            can_view_submitter_identity=True, can_view_accused_identity=True,
+        )
+        self.report.targeted_to = user
+        self.report.save(update_fields=['targeted_to'])
+        return user
+
+    def test_a_row_with_metadata_lacking_report_id_survives_the_negation(self):
+        row = ActivityLog.log_activity(
+            action_type='other', user=self.submitter,
+            description='A distinctive needle in an unrelated row',
+            metadata={'record_count': 42, 'filters': {'category': ''}},
+        )
+        matched = ActivityLog.objects.filter(
+            audit_search_q('distinctive needle', self._party_reviewer()))
+        self.assertIn(
+            row.pk, [l.pk for l in matched],
+            'A non-Kai row vanished from the search because its metadata dict '
+            'had no report_id key: NOT(NULL) is NULL in SQL. Negate a pk set, '
+            'not a JSON key transform — see audit_search_q.',
+        )
+
+    def test_a_row_with_null_metadata_survives_the_negation(self):
+        """
+        The half Django already covered, pinned so a future refactor cannot
+        lose it while fixing the other half.
+        """
+        row = ActivityLog.log_activity(
+            action_type='other', user=self.submitter,
+            description='A distinctive needle with no metadata at all',
+        )
+        matched = ActivityLog.objects.filter(
+            audit_search_q('distinctive needle', self._party_reviewer()))
+        self.assertIn(row.pk, [l.pk for l in matched])
+
+    def test_the_viewers_own_case_is_still_narrowed_out(self):
+        """
+        The control. Fixing the NULL handling must not quietly re-open the
+        oracle the negation is there for: a party may not reach their own
+        case's rows through an identity column.
+        """
+        matched = ActivityLog.objects.filter(
+            audit_search_q(SUBMITTER_NAME, self._party_reviewer()))
+        self.assertNotIn(
+            self.legacy_log.pk, [l.pk for l in matched],
+            'The party narrowing stopped working. ~party_rows must still '
+            'exclude the viewer\'s own case from description / user__name / '
+            'ip_address matches.',
+        )
+
+    def test_a_metadata_only_appeal_row_on_their_own_case_is_narrowed_out(self):
+        """
+        The reason `rows_for_cases_q` covers `metadata['report_id']` at all:
+        appeal and recusal rows carry the case nowhere else. This is the
+        positive half of the negation, and it is what would break if someone
+        "fixed" the NULL problem by dropping the metadata term.
+        """
+        matched = ActivityLog.objects.filter(
+            audit_search_q('appeal was filed', self._party_reviewer()))
+        self.assertNotIn(self.appeal_log.pk, [l.pk for l in matched])

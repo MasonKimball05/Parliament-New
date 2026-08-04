@@ -591,3 +591,190 @@ class TheAuthorFilterEnumerationIsMaintainedTests(TestCase):
               'so redaction cannot help — the viewer supplied the identity. '
               'See src/kai_audit.py.',
         )
+
+
+class TheRedactionCoversEveryRenderedColumnTests(TestCase):
+    """
+    v3.18.5, and it is the THIRD leg of the predicate-safety idea.
+
+    The two enumeration guards above are both *syntactic*: one greps for search
+    terms, the other for author-valued filters. Both are good, and neither
+    could see the bug this class exists for, because the bug was not a filter
+    at all — it was a **column the template rendered that the redaction never
+    touched**.
+
+    `redact_kai_logs` attached `display_actor`, `display_actor_id` and
+    `display_description`. `templates/activity_logs.html` rendered those three
+    *and* `log.ip_address`, raw, in its own column. So a Kai submission row
+    printed `Anonymous` in the User column and the reporter's actual IP one
+    cell to the right — and `/activity-logs/?user=<member>`, which v3.18.4 had
+    just made Kai-free, returns that member's non-Kai rows **with their IP**,
+    which is exactly the lookup table needed to read the other column. An IP is
+    not a name; per v3.16.2 it does not have to be. It only has to be a join
+    key.
+
+    **So this test asserts on OUTPUT, not on field names.** It renders the page
+    and asks whether anything identifying the reporter survives anywhere in the
+    body. That is deliberately weaker as an enumeration and stronger as a
+    guarantee: it needs no advance knowledge of which columns exist, so the
+    next column added to this template is covered on the day it is added
+    without anyone remembering to add it here.
+
+    Every test in this class fails against the v3.18.4 tree.
+    """
+
+    #: Distinctive enough that a substring hit in the body is a real hit and
+    #: not a coincidence in a CSS class or an SVG path.
+    SUBMITTER_IP = '203.0.113.47'
+    OFFICER_IP = '198.51.100.9'
+
+    def setUp(self):
+        self.committee = Committee.objects.create(
+            name='Kai', code='KAI', is_kai_committee=True,
+        )
+        self.submitter = make_user('ipc-sub', f'Zebediah {SUBMITTER_SURNAME}')
+        accused = make_user('ipc-acc', 'Accused Ambrose')
+        self.case = KaiReport.objects.create(
+            title='Rendered Column Case Delta',
+            description=f'The {BODY_SECRET} matter.',
+            submitted_by=self.submitter,
+            targeted_to=accused,
+        )
+
+        from src.models import ActivityLog
+
+        # The row `submit_kai_report` writes, WITH the IP its `request=request`
+        # would have supplied in production. Post-v3.18.2 the description names
+        # nobody, so the IP is the only identity left on the row — which is the
+        # whole point.
+        self.kai_row = ActivityLog.log_activity(
+            action_type='kai_action', user=self.submitter,
+            description=f'A member submitted Kai case {self.case.display_number}',
+            object_type='KaiReport', object_id=self.case.id,
+            object_repr=self.case.display_number,
+            ip_address=self.SUBMITTER_IP,
+        )
+        # The control, and also the attacker's lookup table: a non-Kai row by
+        # the same author, from the same address.
+        self.other_row = ActivityLog.log_activity(
+            action_type='login', user=self.submitter,
+            description=f'Zebediah {SUBMITTER_SURNAME} logged in successfully',
+            ip_address=self.SUBMITTER_IP,
+        )
+
+        self.officer = make_user('ipc-officer', 'Officer Odell')
+        self.client = Client()
+        self.client.force_login(self.officer)
+
+    def _body(self, url_name, **params):
+        response = self.client.get(reverse(url_name), params)
+        self.assertEqual(response.status_code, 200)
+        return response.content.decode()
+
+    # -- the rendered page ------------------------------------------------
+
+    def test_the_kai_row_does_not_render_the_reporters_ip(self):
+        body = self._body('activity_logs', category='kai', date_range='all')
+        self.assertNotIn(
+            self.SUBMITTER_IP, body,
+            'ORACLE: the Kai row rendered the reporter\'s IP address beside a '
+            'redacted actor. An IP is a join key, and /activity-logs/?user= '
+            'hands the officer the other half of the join on the same page. '
+            'Render display_ip, not log.ip_address — see src/kai_audit.py.',
+        )
+
+    def test_the_control_row_still_renders_its_ip(self):
+        """
+        Without this, blanking the column outright would pass the test above
+        and destroy a real audit signal. The IP belongs on non-Kai rows.
+        """
+        body = self._body('activity_logs', date_range='all')
+        self.assertIn(
+            self.SUBMITTER_IP, body,
+            'CONTROL FAILED: no IP renders anywhere, so the assertion above '
+            'cannot distinguish a fix from a blank column.',
+        )
+
+    def test_a_kai_row_by_a_non_party_keeps_its_ip(self):
+        """
+        The redaction is `display_ip is blank ⟺ display_actor was replaced`,
+        not "blank every Kai row". A chair acting on a case is not a party to
+        it; their IP is ordinary audit data and over-redacting it costs real
+        fidelity for no confidentiality gain.
+        """
+        from src.models import ActivityLog
+
+        chair = make_user('ipc-chair', 'Chair Cordelia')
+        chair_ip = '192.0.2.77'
+        ActivityLog.log_activity(
+            action_type='kai_action', user=chair,
+            description=f'A reviewer was assigned to Kai case {self.case.display_number}',
+            object_type='KaiReport', object_id=self.case.id,
+            object_repr=self.case.display_number,
+            ip_address=chair_ip,
+        )
+        body = self._body('activity_logs', category='kai', date_range='all')
+        self.assertIn(
+            chair_ip, body,
+            'OVER-REDACTED: a Kai row authored by someone who is neither the '
+            'submitter nor the accused lost its IP. Nothing about that row is '
+            'redacted, so the IP should not be either.',
+        )
+
+    # -- the export -------------------------------------------------------
+
+    def test_the_csv_export_does_not_carry_the_reporters_ip(self):
+        """
+        The half that leaves the app. v3.16.2's lesson, for the fourth time and
+        on the fourth kind of thing: a redaction applied to a page and not to
+        its export is not a redaction.
+        """
+        body = self._body('export_activity_logs', category='kai', date_range='all')
+        self.assertNotIn(self.SUBMITTER_IP, body)
+
+    # -- the search box ---------------------------------------------------
+
+    def test_searching_the_ip_does_not_return_the_kai_row(self):
+        """
+        Output and input, both halves. Blanking the column while leaving
+        `ip_address__icontains` in `open_columns` would be *output redacted,
+        input not* — the same oracle this module has now closed four times, and
+        the search box placeholder advertises it: "Search description, IP...".
+        """
+        body = self._body(
+            'activity_logs', q=self.SUBMITTER_IP, date_range='all')
+        self.assertNotIn(
+            self.case.display_number, body,
+            'ORACLE: searching an IP returned that member\'s Kai rows. The '
+            'officer supplied the identity, so this is the ?user= dropdown '
+            'again, reached through the search box. ip_address belongs in '
+            'identity_columns.',
+        )
+
+    def test_searching_an_ip_still_finds_non_kai_rows(self):
+        """
+        The control for the fix above: moving `ip_address` into
+        `identity_columns` must cost only the Kai rows. An IP search is a
+        legitimate and useful officer tool on everything else.
+        """
+        body = self._body(
+            'activity_logs', q=self.SUBMITTER_IP, date_range='all')
+        self.assertIn(
+            'logged in successfully', body,
+            'CONTROL FAILED: the IP search stopped matching non-Kai rows '
+            'entirely, so the assertion above would pass on a dead search box.',
+        )
+
+    def test_a_full_reviewer_can_still_search_by_ip(self):
+        """Gated on the viewer, like every other half of this module."""
+        reviewer = make_user('ipc-rev', 'Reviewer Rowan')
+        self.committee.members.add(reviewer)
+        KaiMemberPermission.objects.create(
+            committee=self.committee, user=reviewer,
+            can_view_report_list=True, can_view_report_details=True,
+            can_view_submitter_identity=True, can_view_accused_identity=True,
+        )
+        self.client.force_login(reviewer)
+        body = self._body(
+            'activity_logs', q=self.SUBMITTER_IP, date_range='all')
+        self.assertIn(self.case.display_number, body)
