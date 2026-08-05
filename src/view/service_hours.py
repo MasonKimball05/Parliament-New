@@ -81,26 +81,57 @@ def service_dashboard(request):
             member_status='Active'
         ).exclude(member_type='Advisor')
 
-        for member in active_members:
-            approved_hours = submissions.filter(
-                submitted_by=member,
-                status='approved'
-            ).aggregate(total=Sum('hours'))['total'] or Decimal('0')
+        # v3.18.6 — FOUR PER-MEMBER QUERIES COLLAPSED INTO FOUR TOTAL.
+        #
+        # The loop below used to run, for each of the 22 active members: two
+        # `aggregate(Sum)` calls over `submissions`, one over
+        # `ServiceHoursAdjustment`, and `get_member_expected_hours`, which does
+        # its own `.get()`. That is 88 queries to render one page, and it grows
+        # linearly with the roster.
+        #
+        # Each is the same aggregate the loop wanted, just grouped by member
+        # instead of filtered to one — so one GROUP BY answers all 22.
+        #
+        # ⚠️ `.order_by()` is REQUIRED, not tidiness. Both models carry a
+        # `Meta.ordering` (`-submitted_at`, `-created_at`), and Django adds any
+        # ordering column to the GROUP BY — which would group by member AND
+        # timestamp and return one row per submission rather than per member.
+        # The clearing call is what makes these aggregates correct.
+        _approved = {
+            row['submitted_by']: row['total']
+            for row in submissions.filter(status='approved')
+            .order_by().values('submitted_by').annotate(total=Sum('hours'))
+        }
+        _pending = {
+            row['submitted_by']: row['total']
+            for row in submissions.filter(status='pending')
+            .order_by().values('submitted_by').annotate(total=Sum('hours'))
+        }
+        _adjusted = {
+            row['member']: row['total']
+            for row in ServiceHoursAdjustment.objects.filter(period=current_period)
+            .order_by().values('member').annotate(total=Sum('hours'))
+        }
+        # The per-member expectation overrides, in one query. Members with no
+        # override fall back to the period default, which is exactly what
+        # `get_member_expected_hours` does one member at a time.
+        _expected = dict(
+            current_period.member_expectations.values_list(
+                'member_id', 'expected_hours',
+            )
+        )
 
-            pending_hours = submissions.filter(
-                submitted_by=member,
-                status='pending'
-            ).aggregate(total=Sum('hours'))['total'] or Decimal('0')
+        for member in active_members:
+            approved_hours = _approved.get(member.pk) or Decimal('0')
+            pending_hours = _pending.get(member.pk) or Decimal('0')
 
             # Include manual adjustments in approved hours
-            adjusted_hours = ServiceHoursAdjustment.objects.filter(
-                period=current_period,
-                member=member
-            ).aggregate(total=Sum('hours'))['total'] or Decimal('0')
+            adjusted_hours = _adjusted.get(member.pk) or Decimal('0')
 
             total_approved = approved_hours + adjusted_hours
 
-            expected_hours = current_period.get_member_expected_hours(member)
+            expected_hours = _expected.get(
+                member.pk, current_period.default_hours_required)
 
             if expected_hours > 0:
                 progress_percent = min(100, int((total_approved / expected_hours) * 100))

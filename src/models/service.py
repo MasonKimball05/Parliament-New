@@ -53,7 +53,19 @@ class ServicePeriod(models.Model):
         return self.start_date <= today <= self.end_date and self.is_active
 
     def get_member_expected_hours(self, member):
-        """Get expected hours for a specific member (override or default)"""
+        """
+        Get expected hours for a specific member (override or default).
+
+        ⚠️ ONE QUERY PER CALL — do not call this in a loop over members.
+        `service_dashboard` did, which cost one `SELECT … LIMIT 21` per member
+        on every page load (v3.18.6). For a roster, build the map once:
+
+            expected = dict(period.member_expectations.values_list(
+                'member_id', 'expected_hours'))
+            hours = expected.get(member.pk, period.default_hours_required)
+
+        Single-member callers (`service_user_dashboard`) are fine as-is.
+        """
         try:
             override = self.member_expectations.get(member=member)
             return override.expected_hours

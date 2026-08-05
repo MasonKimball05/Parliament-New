@@ -7,7 +7,7 @@ from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.db.models import Q
-from django_otp import user_has_device
+from django_otp import device_classes
 from django_otp.plugins.otp_totp.models import TOTPDevice
 
 from src.models import ParliamentUser, TwoFactorRequirement, ActivityLog
@@ -23,12 +23,46 @@ def two_factor_dashboard(request):
     # Get current policy
     current_policy = SiteSetting.get_setting('2fa_policy_mode', 'none')
 
-    # Get all active members
-    members = ParliamentUser.objects.filter(
-        is_active=True
-    ).exclude(
-        member_status='Inactive'
-    ).order_by('name')
+    # Get all active members.
+    #
+    # v3.18.6 — `select_related('two_factor_requirement')` and `list()`.
+    #
+    # `two_factor_requirement` is a reverse OneToOne, so reading it in the loop
+    # below cost one `SELECT … LIMIT 21` per member (47 on the live roster).
+    # select_related turns that into a LEFT JOIN on the query that is already
+    # running. It caches the MISS as well as the hit, so a member with no row
+    # costs nothing either — which is the majority here.
+    #
+    # `list()` because the queryset is walked once for the device batch below
+    # and again for the loop; without it that is two full roster queries.
+    members = list(
+        ParliamentUser.objects.filter(
+            is_active=True
+        ).exclude(
+            member_status='Inactive'
+        ).select_related(
+            'two_factor_requirement'
+        ).order_by('name')
+    )
+
+    # v3.18.6 — the device lookup, batched. `user_has_device(member)` walks
+    # every installed django-otp device class and queries each until one hits,
+    # so on this dashboard it was 47 TOTP queries plus 36 static ones (the 11
+    # members WITH a TOTP device short-circuit before the static table). Now it
+    # is one query per device class — two — regardless of roster size.
+    #
+    # `device_classes()` rather than importing TOTPDevice and StaticDevice
+    # directly: it is the same enumeration `user_has_device` itself uses, so
+    # adding an OTP plugin to INSTALLED_APPS cannot silently make this answer
+    # differ from the un-batched version it replaced.
+    member_ids = [m.pk for m in members]
+    users_with_device = set()
+    for device_cls in device_classes():
+        users_with_device.update(
+            device_cls.objects.filter(
+                user_id__in=member_ids, confirmed=True,
+            ).values_list('user_id', flat=True)
+        )
 
     # Build member data with 2FA status
     member_data = []
@@ -43,20 +77,24 @@ def two_factor_dashboard(request):
     for member in members:
         stats['total'] += 1
 
-        # Check if member has 2FA enabled
-        has_2fa = user_has_device(member)
+        # Check if member has 2FA enabled (from the batch above, not a query)
+        has_2fa = member.pk in users_with_device
         if has_2fa:
             stats['has_2fa'] += 1
 
-        # Check individual requirement
-        try:
-            req = member.two_factor_requirement
+        # Check individual requirement. Served by the select_related JOIN — no
+        # query here. `getattr(..., None)` is safe rather than clever: Django
+        # builds the reverse-OneToOne miss as `RelatedObjectDoesNotExist`,
+        # which subclasses `(TwoFactorRequirement.DoesNotExist, AttributeError)`
+        # precisely so this idiom works.
+        req = getattr(member, 'two_factor_requirement', None)
+        if req is not None:
             requirement_status = req.requirement
             if req.requirement == 'required':
                 stats['required'] += 1
             elif req.requirement == 'exempt':
                 stats['exempt'] += 1
-        except TwoFactorRequirement.DoesNotExist:
+        else:
             requirement_status = 'policy'  # Follows global policy
 
         # Calculate if 2FA is required for this member based on policy

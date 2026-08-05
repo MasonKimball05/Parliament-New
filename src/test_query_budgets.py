@@ -569,3 +569,240 @@ class BudgetHygieneTests(TestCase):
         a = normalize_sql('SELECT * FROM src_kaireport WHERE id = 1')
         b = normalize_sql('SELECT * FROM src_kaireport WHERE id = 2')
         self.assertEqual(a, b)
+
+
+# ---------------------------------------------------------------------------
+# Two dashboards the dev-mode panel caught on 08-04-26  (v3.18.6)
+# ---------------------------------------------------------------------------
+#
+# Both were found by prod dev mode, not by this suite, because neither page was
+# in it. That is the honest limitation of an absolute-ceiling suite: it only
+# constrains the pages someone remembered to add.
+#
+# ⚠️ NEITHER CLASS SETS A `BUDGET`, AND THAT IS DELIBERATE. The module docstring
+# is explicit that a ceiling is a *measured* number, taken twice, cold — and
+# these fixes were written in an environment with no working Django, so any
+# constant here would be invented. An invented ceiling is worse than none: it
+# reads exactly like a measured one. **Run these, note the counts, and add
+# `BUDGET = <n>` plus a `test_..._stays_within_budget` in the same commit.**
+#
+# What they DO assert is the property that actually catches an N+1 and needs no
+# constant: **adding members must not add queries.** Both regressions scaled
+# with the roster, so both would have failed this from the day they landed.
+
+
+class TwoFactorDashboardQueryBudgetTests(QueryBudgetMixin, TestCase):
+    """
+    `/admin-v2/two-factor/` — 47 members cost 47 TOTP lookups
+    (`user_has_device`), 36 more static-device lookups for the members without
+    a TOTP device, and 47 reverse-OneToOne reads of `two_factor_requirement`.
+
+    The device half is worth remembering: `user_has_device` walks **every**
+    installed django-otp device class and stops at the first hit, so the second
+    table is queried only for members who have no TOTP device. That is why the
+    panel showed two different counts (47 and 36) for one line of code, and why
+    the batch below iterates `device_classes()` rather than naming TOTPDevice.
+    """
+
+    def _admin_v2_client(self, user):
+        from unittest import mock
+        from django.utils import timezone as tz
+        from src.view import admin_v2
+
+        patcher = mock.patch.object(admin_v2, 'ALLOWED_USER_IDS', {user.pk})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+        client = Client()
+        client.force_login(user)
+        session = client.session
+        session['admin_v2_authenticated'] = True
+        session['admin_v2_auth_time'] = tz.now().isoformat()
+        session.save()
+        return client
+
+    def measure(self, user, url_name, *args, **params):
+        """Override: admin-v2 needs its own session, so build that client."""
+        from django.core.cache import cache
+        from django.test.utils import CaptureQueriesContext
+
+        cache.clear()
+        client = self._admin_v2_client(user)
+        with CaptureQueriesContext(connection) as captured:
+            response = client.get(reverse(url_name, args=args), params)
+        self.assertEqual(
+            response.status_code, 200,
+            f'{url_name} returned {response.status_code}, so its query count '
+            f'is meaningless. Fix the fixture before trusting the budget.',
+        )
+        return list(captured.captured_queries)
+
+    def setUp(self):
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+        from src.models import TwoFactorRequirement
+
+        self.admin = make_user('qb-2fa-admin', 'TwoFA Admin', is_admin=True)
+
+        # A MIXED fixture, deliberately. If every member had a TOTP device the
+        # static-device table would never be reached and half the regression
+        # would be invisible; if none did, the `two_factor_requirement` hit
+        # branch would never render. Both branches must be exercised or the
+        # measurement is of a page that does not exist in production.
+        self.members = [make_user(f'qb-2fa-{i}', f'Member {i}') for i in range(8)]
+        for i, member in enumerate(self.members):
+            if i % 2 == 0:
+                TOTPDevice.objects.create(user=member, name='phone', confirmed=True)
+            if i % 3 == 0:
+                TwoFactorRequirement.objects.create(
+                    user=member,
+                    requirement='required' if i % 2 == 0 else 'exempt',
+                    reason='fixture',
+                )
+
+    def test_the_dashboard_does_not_scale_with_member_count(self):
+        before = len(self.measure(self.admin, 'admin_v2_two_factor'))
+
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+        from src.models import TwoFactorRequirement
+
+        for i in range(24):
+            extra = make_user(f'qb-2fa-x{i}', f'Extra {i}')
+            if i % 2 == 0:
+                TOTPDevice.objects.create(user=extra, name='phone', confirmed=True)
+            if i % 3 == 0:
+                TwoFactorRequirement.objects.create(
+                    user=extra, requirement='exempt', reason='fixture')
+
+        after = len(self.measure(self.admin, 'admin_v2_two_factor'))
+        self.assertLessEqual(
+            after, before,
+            f'The 2FA dashboard cost {before} queries with 9 members and '
+            f'{after} with 33. Query count must be flat in member count — '
+            f'`user_has_device` and `two_factor_requirement` are the two that '
+            f'were per-member (v3.18.6).',
+        )
+
+
+class ServiceDashboardQueryBudgetTests(QueryBudgetMixin, TestCase):
+    """
+    `/service-hours/dashboard/` — the worst of the two: **four** per-member
+    queries (approved Sum, pending Sum, adjustment Sum, and
+    `get_member_expected_hours`, which does its own `.get()`), so 22 active
+    members cost 88 queries before the page rendered a row.
+
+    All four are the same aggregate the loop wanted, grouped by member instead
+    of filtered to one.
+    """
+
+    def setUp(self):
+        from datetime import timedelta as _td
+        from decimal import Decimal
+        from django.utils import timezone as tz
+        from src.models import (
+            ServicePeriod, ServiceMemberExpectation,
+            ServiceHoursSubmission, ServiceHoursAdjustment,
+        )
+
+        self.admin = make_user('qb-svc-admin', 'Service Admin', is_admin=True)
+        self.today = tz.localdate()
+        self.period = ServicePeriod.objects.create(
+            name='Fixture Period',
+            start_date=self.today - _td(days=30),
+            end_date=self.today + _td(days=30),
+            default_hours_required=Decimal('10.00'),
+        )
+
+        # Mixed again, and for the same reason: a member with an expectation
+        # override exercises a different branch from one falling back to the
+        # period default, and a member with BOTH approved and pending rows
+        # exercises both aggregates.
+        self.members = [make_user(f'qb-svc-{i}', f'Member {i}') for i in range(8)]
+        for i, member in enumerate(self.members):
+            ServiceHoursSubmission.objects.create(
+                period=self.period, submitted_by=member,
+                hours=Decimal('3.00'), status='approved',
+                service_date=self.today, organization='Fixture Org',
+                description='fixture',
+            )
+            if i % 2 == 0:
+                ServiceHoursSubmission.objects.create(
+                    period=self.period, submitted_by=member,
+                    hours=Decimal('1.50'), status='pending',
+                    service_date=self.today, organization='Fixture Org',
+                    description='fixture',
+                )
+            if i % 3 == 0:
+                ServiceHoursAdjustment.objects.create(
+                    period=self.period, member=member,
+                    hours=Decimal('2.00'), reason='fixture',
+                )
+            if i % 4 == 0:
+                ServiceMemberExpectation.objects.create(
+                    period=self.period, member=member,
+                    expected_hours=Decimal('15.00'),
+                )
+
+    def test_the_dashboard_does_not_scale_with_member_count(self):
+        from decimal import Decimal
+        from src.models import ServiceHoursSubmission, ServiceHoursAdjustment
+
+        before = len(self.measure(self.admin, 'service_dashboard'))
+
+        for i in range(24):
+            extra = make_user(f'qb-svc-x{i}', f'Extra {i}')
+            ServiceHoursSubmission.objects.create(
+                period=self.period, submitted_by=extra,
+                hours=Decimal('4.00'), status='approved',
+                service_date=self.today, organization='Fixture Org',
+                description='x',
+            )
+            if i % 3 == 0:
+                ServiceHoursAdjustment.objects.create(
+                    period=self.period, member=extra,
+                    hours=Decimal('1.00'), reason='x',
+                )
+
+        after = len(self.measure(self.admin, 'service_dashboard'))
+        self.assertLessEqual(
+            after, before,
+            f'The service dashboard cost {before} queries with 9 members and '
+            f'{after} with 33. All four per-member lookups must be grouped '
+            f'aggregates, not per-member filters (v3.18.6).',
+        )
+
+    def test_the_grouped_aggregates_match_the_per_member_ones(self):
+        """
+        ⚠️ THE ASSERTION THAT MATTERS MORE THAN THE QUERY COUNT.
+
+        Collapsing a per-row filter into a GROUP BY is the kind of fix that can
+        be fast and wrong, and the specific trap here is that both models carry
+        a `Meta.ordering` — Django adds any ordering column to the GROUP BY,
+        which would silently group by member AND timestamp and return one row
+        per submission. `.order_by()` clears it. A query-count test would pass
+        just as happily with the wrong numbers on the page, so this checks the
+        numbers.
+        """
+        from decimal import Decimal
+
+        client = Client()
+        client.force_login(self.admin)
+        response = client.get(reverse('service_dashboard'))
+        self.assertEqual(response.status_code, 200)
+
+        progress = {
+            row['member'].pk: row for row in response.context['member_progress']
+        }
+        for i, member in enumerate(self.members):
+            with self.subTest(member=member.user_id):
+                row = progress[member.pk]
+                expected_adjust = Decimal('2.00') if i % 3 == 0 else Decimal('0')
+                self.assertEqual(row['submitted_hours'], Decimal('3.00'))
+                self.assertEqual(row['adjusted_hours'], expected_adjust)
+                self.assertEqual(
+                    row['approved_hours'], Decimal('3.00') + expected_adjust)
+                self.assertEqual(
+                    row['pending_hours'],
+                    Decimal('1.50') if i % 2 == 0 else Decimal('0'))
+                self.assertEqual(
+                    row['expected_hours'],
+                    Decimal('15.00') if i % 4 == 0 else Decimal('10.00'))
